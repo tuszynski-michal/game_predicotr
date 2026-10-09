@@ -60,7 +60,27 @@ class ManagementOperationModel(Base):
     actor: Mapped[str] = mapped_column(String(200))
     request_checksum: Mapped[str] = mapped_column(String(64))
     response: Mapped[dict[str, object]] = mapped_column(JSON)
+    action: Mapped[str | None] = mapped_column(String(80))
+    point_id: Mapped[UUID | None] = mapped_column(index=True)
+    machine_id: Mapped[UUID | None] = mapped_column(index=True)
+    game_id: Mapped[UUID | None] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ManagementMutationPreviewModel(Base):
+    __tablename__ = "management_mutation_previews"
+    __table_args__ = {"schema": "public"}
+    token_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    actor: Mapped[str] = mapped_column(String(200), index=True)
+    action: Mapped[str] = mapped_column(String(80))
+    point_id: Mapped[UUID] = mapped_column()
+    machine_id: Mapped[UUID | None] = mapped_column()
+    game_ids: Mapped[list[str] | None] = mapped_column(JSON)
+    body_sha256: Mapped[str] = mapped_column(String(64))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    counts: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class ManagementJournalModel(Base):

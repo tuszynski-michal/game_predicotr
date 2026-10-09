@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0152_super_game_series"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0153_merge_compact_super_games"
 
 
 def test_v7_merge_preserves_both_main_and_v7_migration_histories() -> None:
@@ -36,6 +36,17 @@ def test_v7_merge_preserves_both_main_and_v7_migration_histories() -> None:
         "0146_v7_operator_sources",
     } <= ancestors
     # Joining histories is metadata only; both branches keep their own DDL.
+    merged.module.upgrade()
+    merged.module.downgrade()
+
+
+def test_compact_merge_preserves_super_game_and_management_branches() -> None:
+    script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
+    merged = script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD)
+    assert merged is not None
+    assert set(merged.down_revision) == {"0152_super_game_series", "0152_management_compact_panel"}
+    for parent in merged.down_revision:
+        assert script.get_revision(parent).down_revision == "0151_super_game_roles"
     merged.module.upgrade()
     merged.module.downgrade()
 

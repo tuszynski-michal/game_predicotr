@@ -16,7 +16,7 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 534 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+- Indeks obejmuje 535 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
   (177 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
 | [D-536](decisions/DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |
 | [D-535](decisions/DECISION_LOG_2026.md#d-535--gra-mumie-wild-symbol-uruchamiający-supergrę-i-rodzaj-supergry-wild-super-spins) | Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins” | accepted | 2026-10-08 | dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild” (kolumna symbols.is_wildcard zostaje). |
@@ -219,6 +220,59 @@ Reguły:
 Poniżej pełne kopie pięciu najnowszych wpisów (D-533..D-537), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 
+## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
+
+- **Status:** accepted; operator authorized the complete TASK-0940–0943 plan
+  and separate worktree on 2026-10-08.
+- **Decision:** hierarchical point → machine → game/stake navigation, Home/back,
+  compact maximum320px tiles, entire clickable surface with sibling edit/delete
+  controls, atomic modal name/game assignments, optional compact shared search
+  and chart. Stakes retain20/10/6/4/2/1.20PLN. Saved query/start/range/pins are
+  restored; new/reset is draft-only until explicit replacement.
+- **Destructive scope:** point, machine and detached machine/game can be hard
+  deleted by local owner or a valid whole-panel recipient. Preview+confirmation
+  and revision binding are required. This supersedes D-533's prohibition of
+  history deletion only for these structural scopes. Their management journal
+  (including correction before/after records) is removed, while actual global
+  symbol corrections, catalog games/boards/rules and independent session audit
+  remain. Operator consciously accepted public-recipient destructive access
+  and loss of this scoped journal.
+- **Receipts:** only a minimal delete receipt persists; no separate deletion
+  history. Old scoped responses are redacted and retries fail closed. Pure
+  delete receipts remain retryable even after parent deletion. Unknown legacy
+  receipt scope is an exceptional counted migration-preview category, not a
+  general backfill shortcut.
+- **Empty assignments clarification (2026-10-09):** preview is required when
+  the final game list removes an existing assignment row, including legacy
+  `attached=false`. A new machine with no games and a machine whose assignments
+  are already empty have no destructive scope and require no preview.
+- **Database protection:** unique additive Alembic migration after0151,
+  restricted SECURITY DEFINER purge, owner+transaction-local maintenance check
+  in SECURITY INVOKER immutable trigger, fixed search_path, explicit grants.
+  App-controlled GUC alone never permits immutable DML; session audit remains
+  protected. Backfill/production migration needs separate operator preview,
+  binary backup and confirmation; no destructive downgrade.
+- **Reuse:** BoardSearchWorkspace/ApproximateWinBalanceChart/approximateWin*
+  remain the single implementation. Optional compact behavior preserves ordinary
+  search and one-game share. Nullable cached pin investment/cash values use
+  frozen result semantics and bounded read-only legacy fallback.
+- **Integration:** panel starts independently of Mumie. Second integrator owns
+  migration merge, shared-file reconciliation, one-head/schema/role checks and
+  regenerated contract. Check TASK-0935/0936 before0942. Reserve0940–0943/D-538
+  and verify commit versions; no automatic merge/push or service lifecycle.
+- **Source:** ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md and two
+  operator-supplied plan audits. Codex execution / manual Claude audit per the
+  plan table, separate task commits; all four tasks authorized sequentially.
+- **Acceptance boundary:** TASK-0943 uses a finite real-browser fixture for
+  390/1440/1920px layout and mock transport. It does not establish live device,
+  ingress, reboot, production-data or backup recovery readiness. These remain
+  separate operator gates; no audit or fixture authorizes production mutation.
+
+**Integration note (TASK-0945, 2026-10-09):** the panel branch originally used D-536.
+Main already used D-536 for super-game series; this entry is the same accepted
+panel decision imported as D-538. Historical audits keep their original labels.
+The integrated head is `0153_merge_compact_super_games`, joining both0152 parents.
+
 ## D-537 — Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja
 
 - **Date:** 2026-10-09.
@@ -352,6 +406,12 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 
 ## D-533 — Points/machines panel with durable stake saves and whole-panel links
 
+**2026-10-08 clarification:** D-538 supersedes this decision's archive-only UI,
+card Open/Search again/Clear workflow and structural history retention for
+point/machine/detached-game scopes. Ordinary slot Clear and independent session
+audit retain their history. The earlier T1–T7 text below is historical where
+D-538 changes these behaviors.
+
 - **Date:** 2026-10-07.
 - **Status:** accepted explicit whole-plan implementation request, T1–T7 /
   TASK-0921–0927, MANAGEMENT_PANEL_EXECUTION_PLAN.md.
@@ -386,23 +446,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   clear a newer browser session. Panel-link creation and automatic shared
   ingress shutdown share a transaction lock. These implement the accepted
   access and retry boundary without broadening old one-game capabilities.
-
-## D-534 — Image import resumption uses the hard reserve, not the GC target
-
-- **Date:** 2026-10-07.
-- **Status:** accepted explicit repair instruction, TASK-0928.
-- **Decision:** source ingestion and in-flight image pipeline checks use the
-  configured hard reserve in every job stage, including persisted
-  `waiting_for_storage`; default 5 GiB and equality allowed. The 80 GiB GC
-  target cannot become a separate condition for restarting an import.
-- **Liveness:** retain durable checkpoint/requeue and fenced leases. The
-  polling worker waits its existing positive interval after storage deferral
-  rather than entering an immediate reclaim loop. Restarted code interprets
-  existing storage-wait checkpoints with the same reserve, without changing
-  their job identity or reprocessing settled source checkpoints.
-- **Preserved:** conservative admission estimates, reserve override,
-  warning/automatic-GC/GC-target thresholds, deletion eligibility and all
-  domain/sequence/source protections. No schema or API shape change.
-- **Operations:** the user separately authorizes only the general-worker
-  restart after tests for the existing Mumie import. API/Admin, cleanup,
-  manual state mutation, push and merge are outside this authorization.

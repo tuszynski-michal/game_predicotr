@@ -6,6 +6,38 @@ last_updated: 2026-10-09
 
 # Management panel — D-533
 
+## Accepted compact redesign — D-538
+
+The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+supersedes structural retention and UI rules below where indicated.
+TASK-0940–0943 implement hierarchical point → machine → game/stake navigation
+with Home/back, maximum320px clickable tiles, sibling edit/delete icons and
+atomic modal machine name/game assignments. Six compact stakes restore the
+saved start/query/range/pins. New/reset is draft-only until explicit replacement.
+Quick rows use the shared chart's investment/net/machine-cash semantics;
+chart, full table and journal are collapsed, with spin/PLN axes when expanded.
+
+Local owner and valid whole-panel recipients may hard-delete a point, machine
+or detached machine/game after a scoped expiring preview and confirmation.
+This deletes management saves, contexts and journal, including correction
+audit entries; actual global corrections and game-owned data remain.
+Only a minimal retryable delete receipt persists. Former scoped responses are
+redacted and cannot recreate entities. Independent session audit remains.
+No archive/hide controls; historical archived API fields stay compatible.
+Production migration/deletion requires separate operator confirmation.
+
+Machine name and final game assignments save atomically. Omitting game
+assignments preserves them; removing an existing assignment requires the
+preview confirmation. A changed scope or saved stake invalidates the preview.
+Wrong actor/body/scope and expired tokens cannot delete anything. Old mutation
+retries fail explicitly after scoped deletion; retrying the successful delete
+returns its minimal receipt, including after a later parent deletion.
+
+Compact pin metadata includes nullable required investment and machine cash.
+Spin zero is all-zero; unavailable pins have no invented investment/cash.
+Old metadata is recovered from the frozen result without changing the database
+or reinterpreting the historical result using current game rules.
+
 User accepted the complete
 [execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md), which owns
 task breakdown and rollout gates. This module is named **Panel Administracyjny**.
@@ -15,21 +47,26 @@ task breakdown and rollout gates. This module is named **Panel Administracyjny**
 Points have editable name/city/street and compact tiles. Machines have editable
 names and belong to a point. Machine game assignments are editable and drawn
 only from current `active` catalog games. Draft/archived games cannot receive
-new operations. Detach/archive retains saves/history; restore/reattach restores
-access. Names are display values, not identifiers. No hard deletion UI.
+new operations. Historical archive fields remain compatible; structural
+delete/detach follows D-538. Names are display values, not identifiers.
 
 ## Saved machine/game/stake view
 
 Select a game above six independent stake cards (20,10,6,4,2,1.20 PLN descending).
-Cards show board preview/sequence, chart and saved labels, save date, Open/Search
-again/Clear. Empty cards are explicit. Only selected machine/game is loaded.
+Compact cards show the stake, saved state and existing symbol thumbnails (with
+a code or `?` fallback). Selecting a card opens its search draft. A saved card
+restores the start/query/range/pins without choosing a search hit. Only the
+selected machine/game loads six bounded summaries. The selected stake shows
+quick pinned rows; its chart, full payout table and journal open on demand.
 
 Search uses existing search/approximate-win/payline editor. Fixed stake comes
 from the card. Board browsing and0–6 pin choices are draft-only; **Zapisz układ**
-persists the start sequence, query, range and pins. Search again preserves the
-old save until replacement. Unsaved navigation warns. Confirmed Clear changes
-only the current slot, retaining audit. Human symbol corrections retain existing
-immediate-write semantics and alter current global game data, not a local copy.
+persists the start sequence, query, range and pins. **Nowy układ** resets only
+the draft. **Zapisz zmiany** updates the current start; **Zastąp układ** needs
+confirmation for a different start. **Usuń zapisany układ** needs confirmation
+and clears only the current slot, retaining its ordinary journal. Unsaved
+navigation warns. Human symbol corrections retain immediate-write semantics
+and alter current global game data, not a local copy.
 
 Stake results use the same per-position projection as the Admin approximate
 win (TASK-0936, D-537): spins inside a published super game series are free
@@ -53,10 +90,11 @@ immutable; editing a historic entry's board explicitly edits current data.
 
 ## Journal and concurrent writes
 
-Persistent journal below chart/table records time/actor/query/start sequence,
+The collapsed persistent journal records time/actor/query/start sequence,
 search including no hits, save/replace/clear, saved range/pins, corrections with
 before/after, result changes and structural management edits. Page size20 by
-default. No journal deletion. Local actor versus named share link suffices; user
+default. Structural scope deletion follows D-538; ordinary slot Clear retains
+journal. Local actor versus named share link suffices; user
 and one recipient, no accounts. Operation UUID plus body binding and expected
 revision prevent lost-response duplicates or silent concurrent overwrite.
 

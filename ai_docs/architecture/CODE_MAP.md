@@ -21,15 +21,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (44 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/api/` (45 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (85 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (69 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/domain/` (70 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (47 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (107 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (109 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (156 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (158 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -42,8 +42,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (319 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (73 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (325 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (77 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -191,7 +191,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Katalogi
 
-- `packages/board-search-ui/src/` (32 ts/tsx) - wspólny UI wyszukiwarki plansz
+- `packages/board-search-ui/src/` (34 ts/tsx) - wspólny UI wyszukiwarki plansz
 - `packages/shared-ts/src/` (9 ts/tsx) - kontrakty domenowe i kodek sygnatur (też mobile)
 - `packages/admin-api-client/src/` (2 ts/tsx) - wrappery klienta wygenerowanego z OpenAPI
 - `packages/manual-image-selection-core/src/` (11 ts/tsx) - wspólna logika ręcznej selekcji
@@ -201,9 +201,9 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Testy
 
-- `packages/board-search-ui/test/` (10 plików w katalogu testów, rekurencyjnie)
+- `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (13 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (14 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 
@@ -237,7 +237,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (160 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (161 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -257,7 +257,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `mumie_*` (2): `mumie_control_truth_prepare.py`, `mumie_folder_gallery.html`
 - `preflight_*` (2): `preflight_vision_lab_hybrid.ps1`, `preflight_vision_lab_hybrid.py`
 - `prepare_*` (6): `prepare_crop_v11_independent_sample.mjs`, `prepare_m34_device_candidate.py`, `prepare_management_browser_fixture.py` (+3)
-- `preview_*` (5): `preview_manual_selection_manifest_v2.mjs`, `preview_screen_layout_v3.py`, `preview_selected_crop_correction_directories.mjs` (+2)
+- `preview_*` (6): `preview_management_receipt_migration.py`, `preview_manual_selection_manifest_v2.mjs`, `preview_screen_layout_v3.py` (+3)
 - `probe_*` (3): `probe_v7_grid_label_corpus.py`, `probe_v7_grid_labels.py`, `probe_v7_selection_environment.py`
 - `provision_*` (2): `provision_database_roles.py`, `provision_v7_sequence_ocr_model.ps1`
 - `rebuild_*` (2): `rebuild_board_search_projection.py`, `rebuild_symbol_cell_reviews.py`

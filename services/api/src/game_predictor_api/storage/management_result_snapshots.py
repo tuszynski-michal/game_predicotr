@@ -14,6 +14,7 @@ from typing import Any
 
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 
+from game_predictor_api.domain.management_pin_metrics import approximate_win_pin_metrics
 from game_predictor_api.schemas.board_search_approximate_win import ApproximateWinResponse
 
 ROW_FIELDS = (
@@ -134,10 +135,6 @@ def _super_spin_cost(payload: dict[str, Any]) -> int:
     return int(payload["calculation"]["summary"].get("superSpinCost", 0))
 
 
-def _super_spins_up_to(ranges: tuple[tuple[int, int], ...], spin: int) -> int:
-    return sum(max(0, min(last, spin) - first + 1) for first, last in ranges)
-
-
 def pin_values(payload: dict[str, Any], pins: list[int]) -> list[dict[str, Any]]:
     """Exact numeric values at saved spins, independent of reduced preview polyline.
 
@@ -148,18 +145,16 @@ def pin_values(payload: dict[str, Any], pins: list[int]) -> list[dict[str, Any]]
     super_cost = _super_spin_cost(payload)
     values = []
     for pin in pins:
-        cumulative = 0
-        for row in result.rows:
-            if row.spin_number > pin:
-                break
-            cumulative = row.cumulative_payout_credits
-        super_spins = _super_spins_up_to(ranges, pin)
-        cost = (pin - super_spins) * result.rules.spin_cost + super_spins * super_cost
+        balance, investment, cash = approximate_win_pin_metrics(
+            result, pin, super_spin_ranges=ranges, super_spin_cost=super_cost
+        )
         values.append(
             {
                 "spinNumber": pin,
-                "balanceCredits": cumulative - cost,
+                "balanceCredits": balance,
                 "available": pin <= result.evaluated_spin_count,
+                "requiredStakeCredits": investment,
+                "machineCashCredits": cash,
             }
         )
     return values

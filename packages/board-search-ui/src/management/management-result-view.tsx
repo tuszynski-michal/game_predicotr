@@ -49,6 +49,8 @@ export function ManagementResultView({
   const [page, setPage] = useState(0);
   const [sequence, setSequence] = useState<number | null>(null);
   const [symbols, setSymbols] = useState<SymbolResponse[]>([]);
+  const [chartOpen, setChartOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     void api
@@ -131,12 +133,20 @@ export function ManagementResultView({
         formatAmount={amount}
         result={calculation}
       />
-      <ApproximateWinBalanceChart
-        compact
-        display={{ stakeGrosze: stake, unit: 'pln' }}
-        result={calculation}
-        pinnedSpinPositions={pins}
-      />
+      <details
+        open={chartOpen}
+        onToggle={(event) => setChartOpen(event.currentTarget.open)}
+      >
+        <summary>Wykres bilansu</summary>
+        {chartOpen ? (
+          <ApproximateWinBalanceChart
+            compact
+            display={{ stakeGrosze: stake, unit: 'pln' }}
+            result={calculation}
+            pinnedSpinPositions={pins}
+          />
+        ) : null}
+      </details>
       {error ? <p role="alert">{error}</p> : null}
       {writeAllowed && boardClient ? (
         <>
@@ -151,72 +161,82 @@ export function ManagementResultView({
           </button>
         </>
       ) : null}
-      <div className="boardSearchApproximateWinTableScroll">
-        <table className="boardSearchApproximateWinTable">
-          <caption>
-            Zapisana tabela wypłat —{' '}
-            {calculation.rows.length.toLocaleString('pl-PL')} pozycji
-          </caption>
-          <thead>
-            <tr>
-              <th>Spin</th>
-              <th>Plansza</th>
-              <th>Wygrana</th>
-              <th>Bilans</th>
-              <th>Rodzaj</th>
-              {writeAllowed ? <th>Bieżące dane</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.spinNumber}>
-                <td>{row.spinNumber}</td>
-                <td>#{row.sequenceNumber}</td>
-                <td>{amount(row.payoutCredits)}</td>
-                <td>{amount(row.cumulativeBalanceCredits)}</td>
-                <td>
-                  {row.payoutKind === 'confirmed_minimum'
-                    ? 'Potwierdzone minimum'
-                    : row.payoutKind === 'provisional'
-                      ? 'Prowizoryczna (supergra)'
-                      : 'Dokładna'}
-                </td>
-                {writeAllowed ? (
-                  <td>
-                    <button
-                      onClick={() => void openCurrent(row.sequenceNumber)}
-                    >
-                      Edytuj bieżącą planszę #{row.sequenceNumber}
-                    </button>
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!calculation.rows.length ? (
-        <p>Brak wypłat w zapisanym zakresie.</p>
-      ) : null}
-      {calculation.rows.length > 50 ? (
-        <div className="management-actions">
-          <button
-            disabled={page === 0}
-            onClick={() => setPage((current) => current - 1)}
-          >
-            Poprzednia strona tabeli
-          </button>
-          <span>
-            Strona {page + 1} z {Math.ceil(calculation.rows.length / 50)}
-          </span>
-          <button
-            disabled={(page + 1) * 50 >= calculation.rows.length}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Następna strona tabeli
-          </button>
-        </div>
-      ) : null}
+      <details
+        open={tableOpen}
+        onToggle={(event) => setTableOpen(event.currentTarget.open)}
+      >
+        <summary>Pełna tabela wypłat</summary>
+        {tableOpen ? (
+          <>
+            <div className="boardSearchApproximateWinTableScroll">
+              <table className="boardSearchApproximateWinTable">
+                <caption>
+                  Zapisana tabela wypłat —{' '}
+                  {calculation.rows.length.toLocaleString('pl-PL')} pozycji
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Spin</th>
+                    <th>Plansza</th>
+                    <th>Wygrana</th>
+                    <th>Bilans</th>
+                    <th>Rodzaj</th>
+                    {writeAllowed ? <th>Bieżące dane</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.spinNumber}>
+                      <td>{row.spinNumber}</td>
+                      <td>#{row.sequenceNumber}</td>
+                      <td>{amount(row.payoutCredits)}</td>
+                      <td>{amount(row.cumulativeBalanceCredits)}</td>
+                      <td>
+                        {row.payoutKind === 'confirmed_minimum'
+                          ? 'Potwierdzone minimum'
+                          : row.payoutKind === 'provisional'
+                            ? 'Prowizoryczna (poza bilansem)'
+                            : 'Dokładna'}
+                      </td>
+                      {writeAllowed ? (
+                        <td>
+                          <button
+                            onClick={() => void openCurrent(row.sequenceNumber)}
+                          >
+                            Edytuj bieżącą planszę #{row.sequenceNumber}
+                          </button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!calculation.rows.length ? (
+              <p>Brak wypłat w zapisanym zakresie.</p>
+            ) : null}
+            {calculation.rows.length > 50 ? (
+              <div className="management-actions">
+                <button
+                  disabled={page === 0}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  Poprzednia strona tabeli
+                </button>
+                <span>
+                  Strona {page + 1} z {Math.ceil(calculation.rows.length / 50)}
+                </span>
+                <button
+                  disabled={(page + 1) * 50 >= calculation.rows.length}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Następna strona tabeli
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </details>
       {sequence !== null && boardClient ? (
         <BoardSearchBoardLinesModal
           api={boardClient}

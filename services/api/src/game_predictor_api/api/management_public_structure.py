@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from game_predictor_api.api.management_mutations import install_management_mutation_routes
 from game_predictor_api.application.management import ManagementService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.management import (
@@ -97,4 +98,5 @@ def create_management_public_structure_router(
     ) -> ManagementMachineResponse:
         return service.assignments(machine_id, payload)
 
+    install_management_mutation_routes(router, service_dependency, public=True)
     return router

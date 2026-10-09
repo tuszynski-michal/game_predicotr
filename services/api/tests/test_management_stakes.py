@@ -63,11 +63,70 @@ def test_compact_result_roundtrip_dedup_rules_start_and_exact_arbitrary_pins():
     assert summary["spinCost"] == 20
     assert len(summary["chartPoints"]) <= 256
     assert pin_values(payload, [0, 1, 2, 7, 9]) == [
-        {"spinNumber": 0, "balanceCredits": 0, "available": True},
-        {"spinNumber": 1, "balanceCredits": -20, "available": True},
-        {"spinNumber": 2, "balanceCredits": 10, "available": True},
-        {"spinNumber": 7, "balanceCredits": -90, "available": True},
-        {"spinNumber": 9, "balanceCredits": -130, "available": False},
+        {
+            "spinNumber": 0,
+            "balanceCredits": 0,
+            "available": True,
+            "requiredStakeCredits": 0,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 1,
+            "balanceCredits": -20,
+            "available": True,
+            "requiredStakeCredits": 20,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 2,
+            "balanceCredits": 10,
+            "available": True,
+            "requiredStakeCredits": 40,
+            "machineCashCredits": 50,
+        },
+        {
+            "spinNumber": 7,
+            "balanceCredits": -90,
+            "available": True,
+            "requiredStakeCredits": 90,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 9,
+            "balanceCredits": -130,
+            "available": False,
+            "requiredStakeCredits": None,
+            "machineCashCredits": None,
+        },
+    ]
+
+
+def test_frozen_compact_pins_use_saved_free_spin_costs():
+    configuration = _configuration()
+    result = to_approximate_win_response(
+        BoardSearchApproximateWinService(
+            MemoryBoardSearchApproximateWinRepository(
+                _GAME_ID, sequence_length=20, configuration=configuration, documents=()
+            )
+        ).calculate(game_id=_GAME_ID, start_sequence_number=1, requested_spin_count=10)
+    )
+    data = result.model_dump(mode="json", by_alias=True)
+    data["summary"].update(
+        superSpinRanges=[{"startSpin": 3, "endSpin": 6}],
+        superSpinCost=0,
+        spinCostCredits=120,
+        balanceCredits=-120,
+    )
+    result = type(result).model_validate(data)
+    _, payload, _ = freeze_result(result, configuration, (None,) * 15, "a" * 64)
+    assert pin_values(payload, [6]) == [
+        {
+            "spinNumber": 6,
+            "balanceCredits": -40,
+            "available": True,
+            "requiredStakeCredits": 40,
+            "machineCashCredits": 0,
+        }
     ]
 
 

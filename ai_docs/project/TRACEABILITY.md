@@ -71,6 +71,7 @@ last_updated: 2026-08-12
 | Pełne dane i nowe gry odroczone po 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, przyszłe zadania |
 | Hardening, backup i recovery odroczone po 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
 | Ulepszenia `Gry` i `Import layoutów` 0.6 | `delivery/VERSION_0_6_EXECUTION_PLAN.md`, `requirements/ADMIN_APP_V0_2.md` | nowe zadania 0.6 |
+| Kompaktowy Panel Administracyjny: hierarchia, stawki, jawne usuwanie i odbiór | `requirements/MANAGEMENT_PANEL.md`, `architecture/MANAGEMENT_PANEL.md`, `delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md`, D-538 | TASK-0940–0943 |
 
 ## Plany wykonawcze
 

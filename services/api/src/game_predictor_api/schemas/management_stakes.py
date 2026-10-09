@@ -47,6 +47,8 @@ class ManagementChartPoint(ManagementValue):
 
 class ManagementPinnedPoint(ManagementChartPoint):
     available: bool
+    required_stake_credits: int | None = None
+    machine_cash_credits: int | None = None
 
 
 class ManagementStakeResponse(ManagementValue):

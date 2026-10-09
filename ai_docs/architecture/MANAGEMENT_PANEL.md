@@ -1,10 +1,69 @@
 ---
 title: Management panel architecture
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Management panel — D-533
+
+## Compact redesign override — D-538
+
+The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+owns TASK-0940–0943 and supersedes archive-only structural retention.
+Preview-bound POST delete/update mutations use both local/public prefixes.
+Restricted SECURITY DEFINER purge uses fixed search_path and explicit grants;
+SECURITY INVOKER immutable triggers require effective owner identity and
+transaction-local maintenance mode. GUC alone cannot bypass immutability,
+and independent session audit remains protected. Minimal pure-delete receipts
+stay retryable; former scoped responses are redacted. Read-only migration
+preview precedes owner-run receipt backfill. Unique migration after0151
+remains independent of Mumie; second integrator reconciles the two heads.
+Shared UI gains small tiles, atomic modals and optional compact search ports,
+preserving ordinary search/share defaults. Cached nullable pin investment/cash
+uses frozen results and bounded read-only legacy fallback, never another
+calculator. No production migration/deletion or API/Admin lifecycle authorized.
+The browser acceptance uses the actual shared React/CSS with a finite mock
+transport. Its 1/4/40 point and 40-machine cases test layout only; they do not
+claim database throughput. The selected saved stake shows quick pin rows from
+summary data. Full result, chart and journal mount only after expansion.
+
+### TASK-0940 storage and transport contract
+
+Migration `0152_management_compact_panel` follows `0151_super_game_roles`.
+It introduces `management_mutation_previews`, receipt scope fields and the
+restricted `management_purge_scope(uuid,uuid,uuid[])` function. The ownership
+manifest is `management-control-plane-v3`; schema readiness expects this head.
+Provisioning checks function ownership, fixed search_path, security mode and
+the purge EXECUTE boundary in addition to existing role restrictions.
+
+Both management prefixes expose POST point/machine `delete-preview` and
+`delete`, plus machine `update-preview`. The latter wraps the intended machine
+or assignment command in `command`. Optional machine `gameIds` leaves games
+unchanged when absent; removing existing assignments requires `previewToken`.
+An empty new machine does not purge anything and needs no deletion preview.
+
+Preview tokens contain 256 random bits, live for ten minutes and are stored
+only as SHA-256 hashes. Actor/action/scope/body and structural/history
+fingerprints bind confirmation to the preview. Creating a preview removes at
+most 100 expired rows belonging to that actor. Operation/session identity is
+checked before retry; an exact pure-delete receipt is returned even if its
+parent was subsequently deleted. Redacted older mutations fail with
+`MANAGEMENT_TARGET_DELETED`; unclassifiable legacy receipts fail with
+`MANAGEMENT_LEGACY_RECEIPT_REDACTED`.
+
+Purge and frozen-result dedup acquire the same advisory digest lock. Purge
+locks digests in sorted order and checks references across all management
+scopes before deleting a result. Ordinary app DML cannot bypass immutable
+history by setting the maintenance GUC. Session audit never uses the purge
+bypass. API dependencies flush and revalidate a public session before commit.
+
+The read-only `scripts/preview_management_receipt_migration.py` reports four
+backfill categories on an unchanged single-head 0151 database, without dumping
+responses or credentials. Applying the backfill requires a separate operator
+decision. Pin metadata uses `domain/management_pin_metrics.py`, verified
+against the existing TypeScript chart helpers with shared golden fixtures.
+Legacy missing metadata is filled from frozen payloads only, with at most six
+payload reads per selected machine/game list and no GET writes.
 
 See [requirements](../requirements/MANAGEMENT_PANEL.md) and
 [accepted execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md).
@@ -17,7 +76,8 @@ additive Alembic migrations, preserved history and no image blobs. Existing game
 registry/routing remains authoritative for eligibility/read/write availability.
 Mutations validate ancestry and live eligibility under transactional locks.
 Save, clear, refresh and current game operations require active attachment.
-Archived/detached saved history remains readable without current game operations.
+Archived saved history remains readable without current game operations until
+an explicit structural delete/detach removes its scoped history under D-538.
 
 Immutable compact result versions include numeric payout rows, start symbols,
 published rules and data fingerprint; identical semantic results are shared.
@@ -58,7 +118,8 @@ PC/API/DB availability is required for online search and writes. Agents never
 start/stop/restart API/Admin absent a separate current instruction. Migration and
 live rollout are handed to the user; isolated DB/test-process restart verifies
 persistence without lifecycle changes to user services. Saved history has no GC
-or destructive downgrade after user records exist. Expiry preserves history.
+or destructive downgrade after user records exist. Explicit D-538 scope purge
+is the sole structural retention exception. Expiry preserves history.
 Future server deployment is separate and must explicitly place backend/data;
 front-end hosting alone does not create offline-computer availability.
 
@@ -118,7 +179,7 @@ values derive from the latest calculation and inaccessible pins remain explicit.
 
 Hosts provide a stable machine/game/stake `scopeKey`. Background saved-result
 identity changes within that scope do not remount or replace a draft. Explicit
-Open/Search again/Clear transitions require the host discard guard and a deliberate
+Stake selection/Nowy układ/Zastąp/Usuń zapisany układ transitions require the host discard guard and a deliberate
 new workspace identity. Without a scopeKey, saved-selection identity is the
 optional mount key. Page-exit warnings and dirty callbacks cover outer navigation.
 Current symbol corrections remain immediate; recalculation refreshes values without
@@ -199,12 +260,14 @@ its navigation, corrections, saved-selection ports and rendering.
 Fresh application-role PostgreSQL processes verify retained saves/history and
 capability denial independently of the original application session. Existing
 archived-game deletion preflight discovers management RESTRICT references and
-rejects before its destructive lifecycle. No new deletion mechanism is added.
+rejects before its destructive lifecycle. The original implementation had no
+deletion mechanism; D-538 adds separately confirmed structural scope purge.
 
 `npm run reviewer:management:browser` prepares a finite static fixture and runs
 installed Chrome/Edge with its own headless profile. Actual shared React/CSS,
-touch events and390px geometry protect the recipient hierarchy/search/save/open/
-clear workflow. Mock transport retains the generated public shape and originating
+touch events and 390/1440/1920px geometry protect the recipient hierarchy,
+search and save flow. Scenarios have 1/4/40 points, 40 machines per point and
+200 game IDs. Mock transport retains the generated public shape and originating
 session identity. This fixture does not start API/Admin/Reviewer/tunnel services
 or exercise production assets. The runner has bounded commands, a flow deadline
 and cleanup restricted to its own browser process.

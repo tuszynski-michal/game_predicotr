@@ -14,6 +14,59 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
+
+- **Status:** accepted; operator authorized the complete TASK-0940–0943 plan
+  and separate worktree on 2026-10-08.
+- **Decision:** hierarchical point → machine → game/stake navigation, Home/back,
+  compact maximum320px tiles, entire clickable surface with sibling edit/delete
+  controls, atomic modal name/game assignments, optional compact shared search
+  and chart. Stakes retain20/10/6/4/2/1.20PLN. Saved query/start/range/pins are
+  restored; new/reset is draft-only until explicit replacement.
+- **Destructive scope:** point, machine and detached machine/game can be hard
+  deleted by local owner or a valid whole-panel recipient. Preview+confirmation
+  and revision binding are required. This supersedes D-533's prohibition of
+  history deletion only for these structural scopes. Their management journal
+  (including correction before/after records) is removed, while actual global
+  symbol corrections, catalog games/boards/rules and independent session audit
+  remain. Operator consciously accepted public-recipient destructive access
+  and loss of this scoped journal.
+- **Receipts:** only a minimal delete receipt persists; no separate deletion
+  history. Old scoped responses are redacted and retries fail closed. Pure
+  delete receipts remain retryable even after parent deletion. Unknown legacy
+  receipt scope is an exceptional counted migration-preview category, not a
+  general backfill shortcut.
+- **Empty assignments clarification (2026-10-09):** preview is required when
+  the final game list removes an existing assignment row, including legacy
+  `attached=false`. A new machine with no games and a machine whose assignments
+  are already empty have no destructive scope and require no preview.
+- **Database protection:** unique additive Alembic migration after0151,
+  restricted SECURITY DEFINER purge, owner+transaction-local maintenance check
+  in SECURITY INVOKER immutable trigger, fixed search_path, explicit grants.
+  App-controlled GUC alone never permits immutable DML; session audit remains
+  protected. Backfill/production migration needs separate operator preview,
+  binary backup and confirmation; no destructive downgrade.
+- **Reuse:** BoardSearchWorkspace/ApproximateWinBalanceChart/approximateWin*
+  remain the single implementation. Optional compact behavior preserves ordinary
+  search and one-game share. Nullable cached pin investment/cash values use
+  frozen result semantics and bounded read-only legacy fallback.
+- **Integration:** panel starts independently of Mumie. Second integrator owns
+  migration merge, shared-file reconciliation, one-head/schema/role checks and
+  regenerated contract. Check TASK-0935/0936 before0942. Reserve0940–0943/D-538
+  and verify commit versions; no automatic merge/push or service lifecycle.
+- **Source:** ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md and two
+  operator-supplied plan audits. Codex execution / manual Claude audit per the
+  plan table, separate task commits; all four tasks authorized sequentially.
+- **Acceptance boundary:** TASK-0943 uses a finite real-browser fixture for
+  390/1440/1920px layout and mock transport. It does not establish live device,
+  ingress, reboot, production-data or backup recovery readiness. These remain
+  separate operator gates; no audit or fixture authorizes production mutation.
+
+**Integration note (TASK-0945, 2026-10-09):** the panel branch originally used D-536.
+Main already used D-536 for super-game series; this entry is the same accepted
+panel decision imported as D-538. Historical audits keep their original labels.
+The integrated head is `0153_merge_compact_super_games`, joining both0152 parents.
+
 ## D-537 — Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja
 
 - **Date:** 2026-10-09.
@@ -146,6 +199,12 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
   obniża zużycie tokenów bez obniżania jakości, z pomiarem.
 
 ## D-533 — Points/machines panel with durable stake saves and whole-panel links
+
+**2026-10-08 clarification:** D-538 supersedes this decision's archive-only UI,
+card Open/Search again/Clear workflow and structural history retention for
+point/machine/detached-game scopes. Ordinary slot Clear and independent session
+audit retain their history. The earlier T1–T7 text below is historical where
+D-538 changes these behaviors.
 
 - **Date:** 2026-10-07.
 - **Status:** accepted explicit whole-plan implementation request, T1–T7 /

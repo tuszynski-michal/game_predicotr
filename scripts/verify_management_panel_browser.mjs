@@ -68,7 +68,7 @@ browser.stdio[4].on('data', (chunk) => {
     rejectPending(error);
   }
 });
-const deadline = Date.now() + 45000;
+const deadline = Date.now() + 110000;
 const cdp = (method, params = {}, sessionId) =>
   new Promise((resolve, reject) => {
     if (browserFailure) {
@@ -81,7 +81,7 @@ const cdp = (method, params = {}, sessionId) =>
         ? 15000
         : Math.min(15000, deadline - Date.now());
     if (remaining <= 0) {
-      reject(Error('45s browser deadline'));
+      reject(Error('110s browser deadline'));
       return;
     }
     const timer = setTimeout(() => {
@@ -119,84 +119,93 @@ try {
     })
   ).sessionId;
   const send = (m, p) => cdp(m, p, session);
-  await send('Emulation.setDeviceMetricsOverride', {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  await send('Emulation.setTouchEmulationEnabled', {
-    enabled: true,
-    maxTouchPoints: 1,
-  });
   await send('Page.enable');
-  await send('Page.navigate', { url: pathToFileURL(`${out}/index.html`).href });
-  let result;
-  let lastStage = '';
-  while (Date.now() < deadline) {
-    const value = await send('Runtime.evaluate', {
+  const cases = [
+    [390, 'flow'],
+    ...[390, 1440, 1920].flatMap((width) =>
+      [1, 4, 40].map((count) => [width, String(count)]),
+    ),
+  ];
+  const results = [];
+  for (const [width, scenario] of cases) {
+    await send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: width === 390 ? 844 : 1000,
+      deviceScaleFactor: 1,
+      mobile: width === 390,
+    });
+    await send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    await send('Page.navigate', {
+      url: `${pathToFileURL(`${out}/index.html`).href}?scenario=${scenario}`,
+    });
+    let result;
+    let lastStage = '';
+    while (Date.now() < deadline) {
+      const value = await send('Runtime.evaluate', {
+        expression:
+          '({result:window.acceptanceResult,touch:window.touchRequest,stage:window.stageRequest,error:window.fixtureError})',
+        returnByValue: true,
+      });
+      const state = value.result.value;
+      if (state?.error) throw Error(`Fixture startup: ${state.error}`);
+      if (state?.stage && state.stage !== lastStage) {
+        lastStage = state.stage;
+        const shot = await send('Page.captureScreenshot', {
+          format: 'png',
+          captureBeyondViewport: false,
+        });
+        await writeFile(
+          `${out}/${lastStage}-${width}.png`,
+          Buffer.from(shot.data, 'base64'),
+        );
+        await send('Runtime.evaluate', {
+          expression: 'window.layoutResolve()',
+        });
+      }
+      if (state?.result) {
+        result = state.result;
+        break;
+      }
+      if (state?.touch) {
+        await send('Input.dispatchTouchEvent', {
+          type: 'touchStart',
+          touchPoints: [{ ...state.touch, radiusX: 1, radiusY: 1 }],
+        });
+        await send('Input.dispatchTouchEvent', {
+          type: 'touchEnd',
+          touchPoints: [],
+        });
+        await send('Runtime.evaluate', { expression: 'window.touchResolve()' });
+      }
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    const sanity = await send('Runtime.evaluate', {
       expression:
-        '({result:window.acceptanceResult,touch:window.touchRequest,stage:window.stageRequest})',
+        '({fontFamily:getComputedStyle(document.body).fontFamily,stylesheets:[...document.styleSheets].map(s=>s.href),touchEnabled:"ontouchstart" in window})',
       returnByValue: true,
     });
-    const state = value.result.value;
-    if (state?.stage && state.stage !== lastStage) {
-      lastStage = state.stage;
-      const shot = await send('Page.captureScreenshot', {
-        format: 'png',
-        captureBeyondViewport: false,
-      });
-      await writeFile(
-        `${out}/${lastStage}-390.png`,
-        Buffer.from(shot.data, 'base64'),
-      );
-      await send('Runtime.evaluate', { expression: 'window.layoutResolve()' });
-    }
-    if (state?.result) {
-      result = state.result;
-      break;
-    }
-    if (state?.touch) {
-      await send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: [{ ...state.touch, radiusX: 1, radiusY: 1 }],
-      });
-      await send('Input.dispatchTouchEvent', {
-        type: 'touchEnd',
-        touchPoints: [],
-      });
-      await send('Runtime.evaluate', { expression: 'window.touchResolve()' });
-    }
-    await new Promise((r) => setTimeout(r, 40));
-  }
-  const sanity = await send('Runtime.evaluate', {
-    expression:
-      '({fontFamily:getComputedStyle(document.body).fontFamily,background:getComputedStyle(document.body).backgroundColor,stylesheets:[...document.styleSheets].map(s=>s.href),touchEnabled:"ontouchstart" in window})',
-    returnByValue: true,
-  });
-  if (result) result.sanity = sanity.result.value;
-  if (
-    !result?.sanity?.touchEnabled ||
-    !result.sanity.stylesheets.length ||
-    result.sanity.fontFamily.includes('Times New Roman')
-  ) {
-    throw Error('Real browser touch/style sanity failed');
+    if (result) result.sanity = sanity.result.value;
+    if (
+      !result?.sanity?.touchEnabled ||
+      !result.sanity.stylesheets.length ||
+      result.sanity.fontFamily.includes('Times New Roman')
+    )
+      throw Error('Real browser touch/style sanity failed');
+    results.push({ width, scenario, ...result });
+    await writeFile(
+      `${out}/result-${scenario}-${width}.json`,
+      JSON.stringify(results.at(-1), null, 2),
+    );
+    if (!result?.passed) throw Error(result?.error ?? 'Browser deadline');
   }
   await writeFile(
     `${out}/mobile-result.json`,
-    JSON.stringify(
-      result ?? { passed: false, error: '45s browser deadline' },
-      null,
-      2,
-    ),
+    JSON.stringify({ passed: true, results }, null, 2),
   );
-  const image = await send('Page.captureScreenshot', {
-    format: 'png',
-    captureBeyondViewport: false,
-  });
-  await writeFile(`${out}/mobile390.png`, Buffer.from(image.data, 'base64'));
-  console.log(JSON.stringify(result));
-  if (!result?.passed) throw Error(result?.error ?? 'Browser deadline');
+  console.log(JSON.stringify({ passed: true, results }));
 } catch (error) {
   await writeFile(
     `${out}/mobile-result.json`,

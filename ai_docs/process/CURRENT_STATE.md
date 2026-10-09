@@ -23,13 +23,15 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Audyt integracji i fast-forward pozostają w toku.
+
 Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
 (przeszukanie słów kluczowych: migracja, zgoda, blokada, PID, job, „nie
 uruchamiać”, potem ręczny dobór). Każdy punkt wskazuje sekcję-źródło. Stan z
 daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 (odczyt, bez zmian w systemie).
 
-- **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0152_super_game_series` (strażnik schematu startowego). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
+- **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0153_merge_compact_super_games` (obie gałęzie0152: serie supergry i kompaktowy panel) (strażnik schematu startowego). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
 - **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
 - **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
@@ -56,6 +58,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
 
 ## Plany z niezakończonymi taskami
+
+### Integracja kompaktowego panelu — TASK-0945 (accepted, 2026-10-09)
+
+- Plan: `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`; TASK-0945 in_progress.
+- Zakres obejmuje oba0152, wspólne kwoty/komponenty i bezpieczne lokalne scalenie; bez rollout/push.
 
 Kryterium: plan o statusie `proposed`/`accepted`/`active`/`deferred`, którego
 taski mają aktywne pliki w `ai_docs/tasks/` albo który czeka na decyzję.
@@ -109,6 +116,12 @@ pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0945 — Integracja kompaktowego panelu z main (in_progress)
+
+- Worktree `admin-compact-panel`, gałąź `codex/admin-compact-integration`; main fc3d188/v1.7.287, panel433d8bfe/v1.7.278.
+- Merge zachowuje D-536 serii; decyzję panelu importuje jakoD-538. Dwa historyczne TASK-0940 mają osobne pliki.
+- Migracja merge0153 i regresje kosztów per pozycja; kontrole oraz Claude przed commitem.
 
 Sekcje tasków `in_progress`, `blocked` i `todo` (każdy plik w `ai_docs/tasks/`),
 posortowane po numerze. Krótkie wpisy „TASK-… (status)” wskazują plik zadania i

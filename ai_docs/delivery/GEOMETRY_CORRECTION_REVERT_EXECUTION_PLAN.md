@@ -1,12 +1,14 @@
 ---
 title: Cofnięcie ostatniej korekty cięcia siatki, odrzucanie przyciętych plansz i zdjęcie zastępcze (plan wykonawczy)
-status: proposed
-last_updated: 2026-10-09
+status: accepted
+last_updated: 2026-10-09 (zaakceptowany przez operatora)
 ---
 
 # Cofnięcie ostatniej korekty cięcia siatki
 
-Plan przygotowany 2026-10-09 na prośbę operatora („cofnij ostatnie
+Plan zaakceptowany przez operatora 2026-10-09 z poleceniem autonomicznej
+realizacji wszystkich etapów (zatrzymanie tylko w sytuacji krytycznej;
+audyt Codex po każdym tasku). Przygotowany 2026-10-09 na prośbę operatora („cofnij ostatnie
 zatwierdzenie z korekty cięcia siatki”). Analiza bez zmian w aplikacji i
 danych. Uzupełniony tego samego dnia o odrzucanie przyciętych plansz i
 zdjęcie zastępcze (W7–W9). Proponowane decyzje: D-538 (cofanie) i D-539

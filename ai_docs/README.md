@@ -92,7 +92,7 @@ domyślnym kontekstem implementacyjnym.
   — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
 
 - [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
-  — proposed, etapy R1–R4, TASK-0945–0951.
+  — accepted, etapy R1–R4, TASK-0945–0951.
 
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)

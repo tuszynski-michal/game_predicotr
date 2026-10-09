@@ -15,7 +15,7 @@ Operator chce cofać pomyłkowe zapisy z ekranu „Korekta cięcia siatki”. Pr
 ## Dependencies / entry conditions
 
 - Head migracji `0152_super_game_series` na gałęzi integracyjnej; sprawdź, czy nie ma nowszej (kolizje numerów).
-- Operator wykonuje migrację na swojej bazie dopiero w TASK-0949.
+- Operator wykonuje migrację na swojej bazie dopiero w TASK-0951.
 
 ## Recommended execution
 
@@ -38,6 +38,7 @@ Operator chce cofać pomyłkowe zapisy z ekranu „Korekta cięcia siatki”. Pr
   - `ck_image_board_geometry_review_events_action`: dodaj `geometry_reverted`;
   - `ck_image_symbol_review_events_action`: dodaj `geometry_reverted`;
   - `image_symbol_review_events.previous_assignment_source` (nullable, ten sam CHECK wartości co `assignment_source` komórki);
+  - `image_board_geometry_pending`: status `rejected`, kolumny `rejection_reason` (`cropped`, `blurred`, `other`), `rejection_note`, `rejected_at`, `rejected_by`; aktualizacja `ck_image_board_geometry_pending_lifecycle` (W7; logika w TASK-0949, w tym tasku tylko schemat i model);
   - tabela `image_geometry_correction_reverts` (kolumny z planu; UNIQUE `(game_id, idempotency_key)`; indeks `(game_id, import_job_id, created_at DESC)`; brak FK do usuwanych wierszy; FK do gry i joba).
   - Zaktualizuj `storage/models.py`, bazowy schemat testów migracji, jeśli wymagany, oraz strażnika schematu startowego (wymagana rewizja `0153`).
 - Semantyka „latest” rewizji źródła (pomijaj `reverted`) we wszystkich miejscach:
@@ -56,7 +57,7 @@ Operator chce cofać pomyłkowe zapisy z ekranu „Korekta cięcia siatki”. Pr
 
 ## Out of scope
 
-- Przypadek A (TASK-0946), HTTP (TASK-0947), UI (TASK-0948), wykonanie migracji na bazie operatora i cofnięcie 69004 (TASK-0949).
+- Przypadek A (TASK-0946), HTTP (TASK-0947), UI (TASK-0948), wykonanie migracji na bazie operatora i cofnięcie 69004 (TASK-0951).
 
 ## Acceptance criteria
 

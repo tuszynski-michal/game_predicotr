@@ -1,4 +1,4 @@
-# TASK-0949 — D-538, dokumentacja i odbiór cofania korekt
+# TASK-0951 — D-538, D-539, dokumentacja i odbiór cofania korekt i zamiennika
 
 ## Status
 
@@ -6,15 +6,15 @@
 
 ## Goal
 
-Decyzja D-538 i dokumenty opisują cofanie korekt, operator wykonuje migrację `0153` po scaleniu za zgodą, a odbiór potwierdza cofnięcie slotu 69004 wykonane przez operatora w Reviewerze.
+Decyzje D-538 i D-539 oraz dokumenty opisują cofanie korekt, odrzucanie i zamiennik; operator wykonuje migrację `0153` po scaleniu za zgodą, a odbiór potwierdza cofnięcie slotu 69004 i jedno przejęcie sekwencji przez zdjęcie zastępcze, wykonane przez operatora.
 
 ## Context
 
-Plan `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, etap R3.
+Plan `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, etap R4.
 
 ## Dependencies / entry conditions
 
-- TASK-0945–0948 ukończone; zgoda operatora na scalenie i push.
+- TASK-0945–0950 ukończone; zgoda operatora na scalenie i push.
 
 ## Recommended execution
 
@@ -31,10 +31,12 @@ Plan `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, etap R3.
 ## Scope
 
 - D-538 (pełny wpis w `DECISION_LOG_2026.md`, indeks, okno pięciu wpisów): cofanie ostatniej korekty, status `reverted`, fizyczne usuwanie w przypadku B z audytem, reguła `assignment_source`, zmiana D-462 w zakresie „bez usuwania historii” dla wierszy utworzonych przez cofany zapis.
-- `DATA_MODEL.md` (tabela audytu, status, kolumna zdarzeń), `API_CONTRACT.md` (trzy trasy), wymagania Reviewera, `README.md` (link do planu), status planu.
+- D-539: odrzucanie slotu/planszy po imporcie (status `rejected` slotu, bramka bez zmian), reguła przejęcia sekwencji przez zdjęcie zastępcze (zmienia D-238), sprzątanie starego zdjęcia.
+- `DATA_MODEL.md` (tabela audytu, status, kolumna zdarzeń), `API_CONTRACT.md` (trasy cofania i odrzucania), `IMAGE_INGESTION.md` (reguła przejęcia sekwencji), wymagania Reviewera, `README.md` (link do planu), status planu.
 - Instrukcja operatora: stop API/worker/Admin/Reviewer → scalenie → `npm run db:migrate` → start → cofnięcie w Reviewerze.
 - Odczytowy pomiar N1: ile korekt importu `092ff7a4-…` jest `revertable` i jakie są powody blokad.
 - Odbiór po cofnięciu 69004 przez operatora (odczyt): slot `pending`, brak planszy `378a273f-…`, sąsiedzi 69006–69012 na rewizji źródła 0, rewizja 1 `reverted`, wiersz audytu.
+- Odbiór zamiennika po imporcie operatora (odczyt): odrzucony slot `superseded`, nowa plansza właścicielem sekwencji, stare zdjęcie przeliczone, raport importu z „Zastąpione sekwencje”.
 
 ## Out of scope
 
@@ -42,8 +44,8 @@ Plan `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, etap R3.
 
 ## Acceptance criteria
 
-- [ ] `npm run docs:check` zielone; D-538 w indeksie i oknie.
-- [ ] Odbiór 69004 opisany w `Outcome` z wynikami zapytań odczytowych.
+- [ ] `npm run docs:check` zielone; D-538 i D-539 w indeksie i oknie.
+- [ ] Odbiór 69004 i zamiennika opisany w `Outcome` z wynikami zapytań odczytowych.
 
 ## Verification
 

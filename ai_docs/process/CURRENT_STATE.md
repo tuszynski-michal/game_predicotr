@@ -65,7 +65,7 @@ praktyce (ich taski leżą w `ai_docs/tasks/completed/`).
 
 | Plan (`ai_docs/delivery/…`) | Status planu | Pozostałe taski |
 |---|---|---|
-| `GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (proponowane D-538) | proposed | TASK-0945–0949 (`todo`), gałąź `feat/geometry-correction-revert`, worktree `worktrees/geometry-correction-revert` |
+| `GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (proponowane D-538, D-539) | proposed | TASK-0945–0951 (`todo`), gałąź `feat/geometry-correction-revert`, worktree `worktrees/geometry-correction-revert` |
 | `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535) | accepted | TASK-0937 (pilot złotej ramki, etap S-D, `blocked` na etykietach operatora), TASK-0939 (narzędzia oszczędzania tokenów, etap T); TASK-0929–0936, 0938 i 0940 ukończone |
 | `VISION_LAB_EXECUTION_PLAN.md` (D-447) | accepted | TASK-0668 (`in_progress`), TASK-0671 (`blocked`), TASK-0672–0678 (`todo`) |
 | `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md` | active | TASK-0645, 0646, 0647 (`blocked`, D-445/D-447) |
@@ -82,16 +82,20 @@ Sekcja planu Mumie poniżej jest bez zmian względem poprzedniej wersji tego
 pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
 (ukończono S-0, S-A, S-B i S-C, patrz sekcje `done` na końcu pliku).
 
-### Plan cofania korekty cięcia siatki (proposed, 2026-10-09)
+### Plan cofania korekty cięcia siatki, odrzucania i zamiennika (proposed, 2026-10-09)
 
 - `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` i taski
-  TASK-0945–0949 (`todo`) na gałęzi `feat/geometry-correction-revert`,
+  TASK-0945–0951 (`todo`) na gałęzi `feat/geometry-correction-revert`,
   worktree `worktrees/geometry-correction-revert`. Decyzje operatora
   W1–W6 z 2026-10-09 wpisane w plan (przywrócenie stanu sprzed korekty,
   tylko ostatnia korekta, lista „Ostatnie korekty” w Reviewerze, migracja
-  `0153`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem).
+  `0153`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem)
+  oraz W7–W9 (odrzucanie przyciętej planszy w Reviewerze, zdjęcie czeka na
+  zamiennik, zamiennik zwykłym importem przejmuje tylko odrzucone/puste
+  sekwencje — zmienia D-238).
 - Etapy: R1 (TASK-0945–0947, backend), R2 (TASK-0948, Reviewer), R3
-  (TASK-0949, D-538 i odbiór). Start każdego etapu na polecenie operatora.
+  (TASK-0949–0950, odrzucanie i zamiennik), R4 (TASK-0951, D-538/D-539 i
+  odbiór). Start każdego etapu na polecenie operatora.
   Kod wymagający `0153` nie trafia do gałęzi integracyjnej przed migracją
   operatora. Slotu 69004 (gra Mumie) agenci nie cofają; robi to operator w
   Reviewerze po wdrożeniu.
@@ -757,9 +761,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Plik zadania: `ai_docs/tasks/0948-geometry-correction-revert-reviewer-ui.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
-### TASK-0949 — D-538, dokumentacja i odbiór cofania korekt (todo)
+### TASK-0949 — Odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (todo)
 
-- Plik zadania: `ai_docs/tasks/0949-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+- Plik zadania: `ai_docs/tasks/0949-board-and-slot-rejection-in-reviewer.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0950 — Przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (todo)
+
+- Plik zadania: `ai_docs/tasks/0950-replacement-photo-sequence-takeover.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0951 — D-538, D-539, dokumentacja i odbiór cofania korekt i zamiennika (todo)
+
+- Plik zadania: `ai_docs/tasks/0951-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
 ## Ostatnie 10 ukończonych tasków
 

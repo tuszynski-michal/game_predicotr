@@ -1,5 +1,5 @@
 ---
-title: Cofnięcie ostatniej korekty cięcia siatki (plan wykonawczy)
+title: Cofnięcie ostatniej korekty cięcia siatki, odrzucanie przyciętych plansz i zdjęcie zastępcze (plan wykonawczy)
 status: proposed
 last_updated: 2026-10-09
 ---
@@ -8,7 +8,9 @@ last_updated: 2026-10-09
 
 Plan przygotowany 2026-10-09 na prośbę operatora („cofnij ostatnie
 zatwierdzenie z korekty cięcia siatki”). Analiza bez zmian w aplikacji i
-danych. Proponowana decyzja: D-538 (zapisywana w TASK-0949).
+danych. Uzupełniony tego samego dnia o odrzucanie przyciętych plansz i
+zdjęcie zastępcze (W7–W9). Proponowane decyzje: D-538 (cofanie) i D-539
+(odrzucanie i zamiennik, zmienia D-238), zapisywane w TASK-0951.
 
 ## Wymagania operatora (2026-10-09, rozstrzygnięte)
 
@@ -20,6 +22,9 @@ danych. Proponowana decyzja: D-538 (zapisywana w TASK-0949).
 | W4 | Migracja `0153` z nową akcją `geometry_reverted`; migrację wykonuje operator (stop usług → `db:migrate` → start). | odpowiedź „Tak, z migracją” |
 | W5 | Obsługiwane oba rodzaje korekt: (B) rozstrzygnięcie odroczonego slotu, (A) korekta istniejącej planszy. | odpowiedź „Oba” |
 | W6 | Cofnięcie korekty slotu może fizycznie usunąć wiersze utworzone przez cofany zapis; audyt zostaje w osobnej tabeli z migawką. | odpowiedź „Tak, z audytem” |
+| W7 | Po imporcie operator odrzuca w Reviewerze przyciętą planszę albo slot odroczony (np. ucięty górny rząd); odrzucona plansza nie jest cięta na symbole. | prośba operatora 2026-10-09 |
+| W8 | Odrzucenie nie dopuszcza reszty zdjęcia: pozostałe plansze czekają (bramka D-484 bez zmian) na zamiennik albo ręczny wyjątek. | odpowiedź „Całe zdjęcie czeka” |
+| W9 | Lepsze zdjęcie wgrywa się zwykłym importem (`seq_*`); przejmuje tylko sekwencje odrzucone albo bez właściciela, nie rusza dobrych plansz starego zdjęcia; stary slot zostaje zamknięty, a stare zdjęcie przeliczone. | odpowiedź „Zwykły import + sprzątanie” |
 
 ## Stan obecny (fakty z kodu i bazy, 2026-10-09)
 
@@ -222,6 +227,58 @@ Przywrócenie `grid_issue` na komórkach przywraca planszę do kolejki korekty
 - `image_symbol_review_events` dostaje kolumnę `previous_assignment_source`
   (nullable), zapisywaną od TASK-0945 przez każde przejście komórki.
 
+## Odrzucanie przyciętych plansz i zdjęcie zastępcze (W7–W9)
+
+Fakty z kodu (2026-10-09):
+
+- Odrzucenie slotu istnieje tylko przed importem (Admin, panel strażnika
+  geometrii, `apps/admin/src/features/imports/geometry-guard-resolution-panel.tsx:1088`).
+- Slot odroczony ma statusy `pending`, `resolved`, `superseded`
+  (`storage/models.py:3705`); jedyną akcją jest narysowanie siatki.
+- Pozycję przeglądu można odrzucić tylko gołym API
+  (`POST /admin/image-review-items/{id}/resolution`, `action = rejected`,
+  `api/image_reviews.py:613`); Reviewer nie ma przycisku.
+- Odrzucona pozycja nie trafia do weryfikacji symboli, wyszukiwarki ani
+  treningu. Brak żywej planszy na pozycji daje zdjęciu `INCOMPLETE_MISSING`
+  (`domain/image_geometry_completeness.py:110`), chyba że sekwencja ma żywą
+  planszę gdzie indziej (`sequence_live_elsewhere`, `:113`).
+- Własność sekwencji przy imporcie: D-238 „najnowszy import zastępuje
+  nierozwiązaną planszę” (`storage/pending_sequence_ownership.py:78`);
+  kanoniczny właściciel zawsze wygrywa (first-save-wins, alternatywy).
+- Slot odroczony z inną checksumą zdjęcia nie jest zamykany przez nowy import
+  (`services/worker/src/game_predictor_worker/images/pipeline_store.py:668`).
+
+Decyzje planu:
+
+1. **Odrzucenie slotu odroczonego:** nowy status `rejected` w
+   `image_board_geometry_pending` (kolumny `rejection_reason`, `rejected_at`,
+   `rejected_by`; CHECK lifecycle), migracja `0153`. Slot znika z kolejki
+   korekty. Powód wybierany z listy: `cropped` („Plansza przycięta”),
+   `blurred`, `other` (z opisem).
+2. **Odrzucenie istniejącej planszy:** istniejąca akcja rozstrzygnięcia
+   `rejected` z powodem; przycisk w Reviewerze w „Korekta cięcia siatki” i na
+   ekranie operacyjnym. Pozycja rozstrzygnięta `accepted`/`corrected` też
+   może być odrzucona tylko, jeśli nie jest kanonicznym właścicielem; inaczej
+   409 `BOARD_REJECT_CANONICAL` (przejęcie kanonu to TASK-0305, poza zakresem).
+3. **Bramka:** odrzucona pozycja liczy się jak brak planszy (W8). Zdjęcie
+   czeka, dopóki sekwencja nie dostanie żywej planszy z innego zdjęcia albo
+   operator nie ustawi wyjątku.
+4. **Cofnięcie odrzucenia:** odrzucenie pojawia się w „Ostatnie korekty” i
+   można je cofnąć (slot wraca do `pending`, pozycja wraca do `pending` przez
+   nowe zdarzenie rozstrzygnięcia), dopóki zamiennik nie przejął sekwencji.
+5. **Zamiennik (D-539, zmienia D-238):** nowa plansza przejmuje sekwencję,
+   gdy nie ma ona żywego właściciela albo właściciel jest odrzucony
+   (pozycja `rejected` lub slot `rejected`). Gdy właścicielem jest żywa
+   pozycja `pending` innego zdjęcia, nowa plansza dostaje `superseded` i
+   alternatywę `superseded_existing_owner_kept` (dotąd wygrywał najnowszy
+   import). Wyjątek bez zmian: ta sama checksuma zdjęcia (ponowne
+   przetworzenie) zachowuje dotychczasową ścieżkę.
+6. **Sprzątanie po przejęciu:** odrzucony slot starego zdjęcia przechodzi do
+   `superseded` (`superseded_at`), stare zdjęcie jest przeliczane przez bramkę
+   (`sequence_live_elsewhere`) i — gdy wszystkie pozostałe pozycje są
+   poprawne — dopuszczone do cięcia; raport importu pokazuje „Zastąpione
+   sekwencje”.
+
 ## API (TASK-0947)
 
 Kontrakt definiuje backend; trasy w zakresie gry z `game_storage_scope`
@@ -267,10 +324,19 @@ korekty.
 
 - TASK-0948 — sekcja „Ostatnie korekty” z podglądem i potwierdzeniem.
 
-### Etap R3 — dokumentacja i odbiór
+### Etap R3 — odrzucanie i zdjęcie zastępcze
 
-- TASK-0949 — D-538, dokumenty, scalenie po migracji operatora, odbiór na
-  slocie 69004.
+- TASK-0949 — odrzucanie przyciętej planszy i slotu w Reviewerze (API, UI,
+  cofnięcie odrzucenia).
+- TASK-0950 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie.
+
+### Etap R4 — dokumentacja i odbiór
+
+- TASK-0951 — D-538, D-539, dokumenty, scalenie po migracji operatora,
+  odbiór na slocie 69004 i na jednym zdjęciu zastępczym.
+
+Migracja `0153` (TASK-0945) zawiera także status `rejected` slotu (W7), żeby
+wdrożenie miało jedną migrację.
 
 Kod wymagający `0153` nie może trafić do gałęzi integracyjnej przed
 wykonaniem migracji przez operatora (API 8000 z `--reload` w głównym
@@ -287,6 +353,9 @@ checkoucie nie wystartuje). Scalenie i push tylko za zgodą operatora.
 | W4 | 0945 | test migracji up/down na `*_test`; operator wykonuje `db:migrate` |
 | W5 | 0945, 0946 | oba rodzaje w liście i w cofnięciu |
 | W6 | 0945 | migawka z checksumą zawiera każdy usunięty wiersz; brak FK z audytu do usuniętych wierszy |
+| W7 | 0945, 0949 | test PG: odrzucony slot znika z kolejki, nie ma komórek; odrzucona plansza poza weryfikacją; testy UI przycisku |
+| W8 | 0949 | test PG: zdjęcie z odrzuconym slotem zostaje `geometry_incomplete`, pozostałe plansze bez komórek |
+| W9 | 0950 | test PG: import zastępczy przejmuje tylko odrzucone/puste sekwencje, żywa pozycja `pending` zostaje; stary slot `superseded`, stare zdjęcie dopuszczone |
 
 ## Założenia i niewiadome
 
@@ -297,7 +366,7 @@ checkoucie nie wystartuje). Scalenie i push tylko za zgodą operatora.
   (D-462), co jest zgodne z regułą, nie błędem.
 - Z3: poprzedni `source_images.status` nie jest zapisany; reguła z B.7.
 - N1: liczba korekt w istniejących danych odrzucanych przez warunki — do
-  zmierzenia w TASK-0949 (odczyt).
+  zmierzenia w TASK-0951 (odczyt).
 
 ## Ryzyka
 
@@ -307,6 +376,9 @@ checkoucie nie wystartuje). Scalenie i push tylko za zgodą operatora.
 - Zmiana semantyki „latest” rewizji źródła dotyka bramki kompletności i
   propozycji kolejki; testy istniejących zestawów
   `test_image_geometry_completeness_repository.py` muszą przejść bez zmian.
+- D-539 zmienia D-238: ponowny import innego zdjęcia nie zastąpi już żywej
+  pozycji `pending`; operator musi ją najpierw odrzucić. Raport importu
+  musi to pokazywać, żeby brak przejęcia nie był cichy.
 - Fizyczne usuwanie (B) jest operacją destrukcyjną na danych operatora;
   wykonuje ją wyłącznie operator z UI po podglądzie. Agenci nie cofają korekt
   na bazie operatora (także 69004) bez osobnej zgody.
@@ -317,7 +389,9 @@ checkoucie nie wystartuje). Scalenie i push tylko za zgodą operatora.
   starszej rewizji, „redo”.
 - Przywracanie roszczenia kanonicznego i alternatyw sekwencji.
 - Cofanie wyjątku bramki (`geometry_exception`) i korekt geometrii strony.
-- Panel Admin (tylko Reviewer).
+- Panel Admin (tylko Reviewer), poza raportem importu w TASK-0950.
+- Przejęcie sekwencji z kanonicznym właścicielem (TASK-0305).
+- Osobny przycisk „Podmień zdjęcie” z uploadem przy planszy.
 
 ## Przypisanie modeli do zadań
 
@@ -327,4 +401,6 @@ checkoucie nie wystartuje). Scalenie i push tylko za zgodą operatora.
 | TASK-0946 | claude-opus-5-5 | high | Odtwarzanie decyzji komórek z historii zdarzeń i render nowej rewizji; ryzyko utraty zatwierdzeń. | tak: Codex `gpt-6-astra`, `high` (dane dowodowe) |
 | TASK-0947 | claude-sonnet-5-5 | medium | Pion API według istniejącego wzorca (router, schematy, OpenAPI, klient, allowlisty) nad gotowym serwisem. | tak: Codex `gpt-6-astra`, `medium` |
 | TASK-0948 | claude-sonnet-5-5 | medium | Komponent UI z listą, modalem i testami w istniejącym ekranie. | tak: Codex `gpt-6-astra`, `medium` |
-| TASK-0949 | claude-sonnet-5-5 | low | Dokumentacja, wpis decyzji i odczytowy odbiór; operacje danych wykonuje operator. | tak: Codex `gpt-6-astra`, `medium` |
+| TASK-0949 | claude-sonnet-5-5 | high | Pion API + UI według istniejących wzorców rozstrzygnięcia, ale z wpływem na bramkę kompletności i kolejkę. | tak: Codex `gpt-6-astra`, `medium` |
+| TASK-0950 | claude-opus-5-5 | high | Zmiana reguły własności sekwencji (D-238) w API i workerze oraz przeliczanie bramki starego zdjęcia; błąd gubi plansze. | tak: Codex `gpt-6-astra`, `high` (dane dowodowe) |
+| TASK-0951 | claude-sonnet-5-5 | low | Dokumentacja, wpisy decyzji i odczytowy odbiór; operacje danych wykonuje operator. | tak: Codex `gpt-6-astra`, `medium` |

@@ -9,15 +9,24 @@ Ten plik zawiera nadrzędne zasady pracy dla Codex oraz innych agentów AI w tym
 Przed rozpoczęciem każdego zadania przeczytaj:
 
 1. `ai_docs/README.md`
-2. `ai_docs/process/CURRENT_STATE.md`
-3. dokument wymagań dotyczący zmienianego obszaru,
-4. dokument architektury dotyczący zmienianego obszaru,
-5. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
+2. `ai_docs/process/CURRENT_STATE.md` (okno kroczące: obowiązujące
+   ograniczenia, plany z niezakończonymi taskami, taski aktywne, 10 ostatnich
+   sekcji `done`),
+3. `ai_docs/process/DECISION_LOG.md` (indeks decyzji i pięć najnowszych wpisów
+   w pełnej postaci),
+4. dokument wymagań dotyczący zmienianego obszaru,
+5. dokument architektury dotyczący zmienianego obszaru,
+6. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
    istnieje.
 
 Nie czytaj całej dokumentacji bez potrzeby. Otwieraj dokumenty wskazane w sekcji `Relevant docs` aktywnego zadania.
 Nie wczytuj `ai_docs/tasks/completed/` ani `ai_docs/archive/`, chyba że aktywne
-zadanie odwołuje się do nich jawnie.
+zadanie odwołuje się do nich jawnie. Pełne wpisy decyzji
+(`ai_docs/process/decisions/DECISION_LOG_2026.md`, kotwice `#d-nnn-…`) oraz
+archiwa stanu (`ai_docs/archive/CURRENT_STATE_*.md`) otwieraj tylko na żądanie:
+gdy `Relevant docs` zadania je wskazuje albo gdy indeks i okno nie wystarczają
+do oceny sprzeczności. Pliki `CURRENT_STATE.md` i `DECISION_LOG.md` nie są
+czytane w całości z archiwów; szukaj w nich skryptem lub `grep`.
 
 ## Zasady nadrzędne
 
@@ -158,7 +167,10 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 2. Wypisz pliki, które prawdopodobnie zostaną zmienione.
 3. Sprawdź otwarte pytania blokujące.
 4. Jeżeli można bezpiecznie przyjąć założenie, zapisz je w zadaniu i `CURRENT_STATE.md`.
-5. Jeżeli założenie zmienia model domenowy albo architekturę, dodaj wpis do `DECISION_LOG.md`.
+5. Jeżeli założenie zmienia model domenowy albo architekturę, dodaj wpis do `DECISION_LOG.md`
+   (pełny wpis na początku `ai_docs/process/decisions/DECISION_LOG_2026.md`,
+   wiersz w indeksie `DECISION_LOG.md`, najstarszą z pięciu pełnych kopii w
+   `DECISION_LOG.md` zastąp nową).
 
 ### W czasie kodowania
 
@@ -223,7 +235,12 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 1. Uruchom formatowanie, lint, testy i kontrolę typów dla zmienionych części.
 2. Zaktualizuj dokumentację, jeżeli zmieniło się zachowanie, API, model danych lub decyzja.
-3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md`.
+3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md` zgodnie z regułą okna
+   kroczącego: dopisz sekcję `done` taska na początku sekcji „Ostatnie 10
+   ukończonych tasków”, przenieś najstarsze sekcje `done` ponad limit 10 na
+   początek najnowszego `ai_docs/archive/CURRENT_STATE_*.md` (tekst bez zmian),
+   usuń z „Aktywne taski” sekcję zamkniętego taska i zaktualizuj „Obowiązujące
+   ograniczenia”. Sprawdź `npm run docs:check`.
 4. Uzupełnij sekcję `Outcome` aktywnego zadania.
 5. Po zakończeniu zadania przenieś plik ze statusem `done` do
    `ai_docs/tasks/completed/`.
@@ -299,7 +316,7 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 W przypadku sprzeczności obowiązuje kolejność:
 
-1. zaakceptowane decyzje w `ai_docs/process/DECISION_LOG.md`,
+1. zaakceptowane decyzje w `ai_docs/process/DECISION_LOG.md` (pełne wpisy w `ai_docs/process/decisions/`),
 2. wymagania w `ai_docs/requirements/`,
 3. architektura w `ai_docs/architecture/`,
 4. aktywne zadanie,

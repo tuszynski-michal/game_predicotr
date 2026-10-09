@@ -132,7 +132,8 @@
     "repository:benchmark": ".venv\\Scripts\\python.exe scripts/benchmark_m1_repository.py",
     "snapshot:generate": ".venv\\Scripts\\python.exe scripts/generate_m1_snapshot.py",
     "snapshot:validate": ".venv\\Scripts\\python.exe scripts/validate_m1_snapshot.py",
-    "quality": "npm run format:check && npm run openapi:check && npm run lint && npm run typecheck && npm test && npm run snapshot:validate && npm run fixture:validate"
+    "docs:check": ".venv\\Scripts\\python.exe scripts/check_decision_links.py && .venv\\Scripts\\python.exe scripts/check_current_state_window.py",
+    "quality": "npm run format:check && npm run openapi:check && npm run lint && npm run typecheck && npm test && npm run snapshot:validate && npm run fixture:validate && npm run docs:check"
   },
   "devDependencies": {
     "prettier": "^3.6.2"

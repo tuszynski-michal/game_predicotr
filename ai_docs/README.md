@@ -17,12 +17,20 @@ niegotowych części systemu.
 Przed rozpoczęciem pracy czytaj w tej kolejności:
 
 1. ten indeks,
-2. [Current State](process/CURRENT_STATE.md),
-3. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
-4. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
+2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
+   obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
+   i 10 ostatnich sekcji `done`,
+3. [Decision Log](process/DECISION_LOG.md) — indeks decyzji wraz z pięcioma
+   najnowszymi wpisami w pełnej postaci,
+4. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
+5. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
 
-Materiały archiwalne i ukończone zadania nie są domyślnym kontekstem
-implementacyjnym.
+Pełne wpisy decyzji ([DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md))
+oraz archiwa stanu ([Q4 2026](archive/CURRENT_STATE_2026Q4.md),
+[Q3 2026](archive/CURRENT_STATE_2026Q3.md)) otwieraj na żądanie, gdy `Relevant
+docs` aktywnego zadania je wskazuje albo gdy indeks nie wystarcza do oceny
+sprzeczności. Pozostałe materiały archiwalne i ukończone zadania nie są
+domyślnym kontekstem implementacyjnym.
 
 ## Aktywna dokumentacja
 
@@ -119,8 +127,13 @@ implementacyjnym.
 
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
 - [Definition of Done](process/DEFINITION_OF_DONE.md)
-- [Decision log](process/DECISION_LOG.md)
-- [Current state](process/CURRENT_STATE.md)
+- [Decision log](process/DECISION_LOG.md) — indeks i najnowsze wpisy; pełne
+  wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
+  starszy indeks w
+  [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
+- [Current state](process/CURRENT_STATE.md) — okno kroczące; historia w
+  [archive/CURRENT_STATE_2026Q4.md](archive/CURRENT_STATE_2026Q4.md) i
+  [archive/CURRENT_STATE_2026Q3.md](archive/CURRENT_STATE_2026Q3.md).
 - [Task template](process/TASK_TEMPLATE.md)
 - [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
   planowaniem, aktualizacją lub wykonaniem planu.
@@ -209,4 +222,11 @@ krótkie podsumowanie i link do właściciela reguły.
 
 Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
 wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
-jest istotna, `DECISION_LOG.md`.
+jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
+indeksu).
+
+Przy zamykaniu taska agent dopisuje jego sekcję `done` w `CURRENT_STATE.md`,
+przenosi sekcje `done` ponad limit 10 do najnowszego archiwum
+`archive/CURRENT_STATE_*.md` (tekst bez zmian) i aktualizuje sekcję
+„Obowiązujące ograniczenia”. Spójność oba pliki sprawdza `npm run docs:check`
+(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`).

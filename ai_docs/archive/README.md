@@ -13,6 +13,12 @@ decyzji, ale nie są obowiązującymi źródłami prawdy podczas implementacji.
 
 - [Requirements review](REQUIREMENTS_REVIEW.md) — analiza pierwotnych wymagań
   wykonana przed ich doprecyzowaniem.
+- [Current State — archiwum Q4 2026](CURRENT_STATE_2026Q4.md) — sekcje
+  `CURRENT_STATE.md` rozpoczęte od 2026-10-01, przeniesione bez zmian
+  (TASK-0938).
+- [Current State — archiwum Q3 2026](CURRENT_STATE_2026Q3.md) — starsze
+  sekcje `CURRENT_STATE.md` do 2026-09-30 oraz dolna część dawnego pliku
+  (lipiec–wrzesień 2026), przeniesione bez zmian (TASK-0938).
 
 ## Zasada użycia
 

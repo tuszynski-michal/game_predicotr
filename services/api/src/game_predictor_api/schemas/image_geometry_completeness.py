@@ -21,6 +21,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.storage.image_geometry_completeness_repository import (
+    MAX_IMPORT_SEQUENCE_NUMBERS,
     GeometryCompletenessReport,
     GeometryGateCounts,
     IncompleteGeometryImagePage,
@@ -79,6 +80,21 @@ class GeometryGateCountsResponse(ApiModel):
     withheld_reason_code: str = Field(min_length=1)
 
 
+class ImportSequenceOwnershipResponse(ApiModel):
+    """Sequence ownership outcome of one import (D-539, TASK-0950).
+
+    ``replaced``: sequences this import took over from a rejected board of
+    another image. ``skipped``: sequences another photo owns (a live pending
+    board is kept, or a canonical owner wins), so this import's source is only
+    an alternative. Counts are exact; the number lists are sorted and capped.
+    """
+
+    replaced_count: int = Field(ge=0)
+    replaced_sequence_numbers: tuple[int, ...] = Field(max_length=MAX_IMPORT_SEQUENCE_NUMBERS)
+    skipped_count: int = Field(ge=0)
+    skipped_sequence_numbers: tuple[int, ...] = Field(max_length=MAX_IMPORT_SEQUENCE_NUMBERS)
+
+
 class ImageGeometryCompletenessResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID | None
@@ -88,6 +104,8 @@ class ImageGeometryCompletenessResponse(ApiModel):
     source_statuses: tuple[GeometryCompletenessSourceStatusCountResponse, ...]
     gate: GeometryGateCountsResponse
     computed_at: datetime
+    # Only in the report of one import (``importJobId`` given), else ``null``.
+    sequence_ownership: ImportSequenceOwnershipResponse | None = None
 
 
 class GeometryCompletenessPositionResponse(ApiModel):
@@ -234,6 +252,16 @@ def to_geometry_completeness_response(
         ),
         gate=_gate_counts_response(report.gate),
         computed_at=report.computed_at,
+        sequence_ownership=(
+            None
+            if report.sequence_ownership is None
+            else ImportSequenceOwnershipResponse(
+                replaced_count=report.sequence_ownership.replaced_count,
+                replaced_sequence_numbers=report.sequence_ownership.replaced_sequence_numbers,
+                skipped_count=report.sequence_ownership.skipped_count,
+                skipped_sequence_numbers=report.sequence_ownership.skipped_sequence_numbers,
+            )
+        ),
     )
 
 
@@ -341,6 +369,7 @@ __all__ = [
     "GeometryGateCountsResponse",
     "GeometryLowQualityBoardResponse",
     "ImageGeometryCompletenessResponse",
+    "ImportSequenceOwnershipResponse",
     "ImageGeometryLowQualityBoardsResponse",
     "IncompleteGeometryImagePageResponse",
     "IncompleteGeometryImageResponse",

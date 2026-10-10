@@ -836,12 +836,24 @@ def invalidate_symbol_cell_reviews_for_geometry(
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
     unavailable_cell_indices: tuple[int, ...] | None = None,
     unchanged_available_indices: frozenset[int] = frozenset(),
+    handoff_from_rejected_board: bool = False,
 ) -> tuple[SymbolCellReview, ...]:
-    """Apply new crop identities while preserving only safe logical decisions."""
+    """Apply new crop identities while preserving only safe logical decisions.
+
+    ``handoff_from_rejected_board`` (D-539, TASK-0950): the logical cells come
+    from the rejected board of another image and move to the replacement board
+    of the sequence. Geometry revisions are numbered per board, so the new
+    board's revision does not have to continue the rejected board's one, and the
+    rejected board's history may lack positions that had no image (a partial
+    board); the current cells must still be complete. Every other rule of a
+    recrop applies unchanged.
+    """
 
     qualified = unavailable_cell_indices is not None
-    if not qualified:
+    if not qualified and not handoff_from_rejected_board:
         _validate_complete_symbol_cell_reviews(existing_reviews, topology=topology)
+    # A rejected board may have been partial: its history lacks the positions
+    # that had no image (handled by the caller); the new cells stay complete.
     elif len({review.cell_index for review in existing_reviews}) != len(existing_reviews) or any(
         not 0 <= review.cell_index < topology.cell_count for review in existing_reviews
     ):
@@ -850,7 +862,13 @@ def invalidate_symbol_cell_reviews_for_geometry(
             "Qualified source history has invalid or repeated logical cells.",
         )
     previous_geometry_revisions = {review.crop.geometry_revision for review in existing_reviews}
-    if (
+    if handoff_from_rejected_board:
+        if len(previous_geometry_revisions) > 1:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_GEOMETRY_REVISION_INVALID",
+                "The cells of a rejected board must share one geometry revision.",
+            )
+    elif (
         not qualified
         and (
             len(previous_geometry_revisions) != 1

@@ -63,6 +63,7 @@ from game_predictor_api.storage.image_geometry_completeness_state_repository imp
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
     acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
@@ -360,7 +361,8 @@ class GeometryRejectionRevertOperations:
                 game_id, rejection, uses.pending_event, command_sha256=command_sha256
             )
         # Lock order of the rejection and the manual resolution:
-        # sequence -> source -> slot.
+        # ownership -> sequence -> source -> slot.
+        acquire_sequence_ownership_lock(session, game_id=game_id)
         if rejection.sequence_number is not None:
             acquire_image_sequence_locks(
                 session, game_id=game_id, sequence_numbers={rejection.sequence_number}

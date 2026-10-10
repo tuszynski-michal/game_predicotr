@@ -26,7 +26,7 @@ from game_predictor_api.domain.geometry_correction_reverts import (
     GeometryCorrectionKind,
     RevertBlockingReason,
 )
-from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+from game_predictor_api.domain.image_reviews import ImageReviewAction, ImageReviewConflictError
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.geometry_correction_revert_repository import (
     SqlAlchemyGeometryCorrectionRevertRepository,
@@ -52,6 +52,7 @@ from test_geometry_correction_revert_pending_postgres import (
     _world,
 )
 from test_image_geometry_completeness_gate import _import, _seeded
+from test_pending_slot_rejection_postgres import _items, _resolve_board
 from test_reviewer_operational_geometry_postgres import _SHIFTED_CORNERS, _app
 from test_virtual_deferred_resolution_postgres import (
     _Database,
@@ -321,10 +322,21 @@ def test_a_resolved_review_item_refuses_the_revert(
 def _ownership_game(
     db: _Database, tmp_path: Path, code: str
 ) -> tuple[sessionmaker[Session], _Seed, _Seed, Path]:
-    """Sequence 100 imported by an older job, then deferred by a newer one."""
+    """Sequence 100 imported by an older job and rejected, then deferred by a newer one.
+
+    D-539 (TASK-0950): a correction of another photo takes the sequence over
+    only from a rejected owner; a live pending owner would be kept.
+    """
 
     factory, older, artifact_root = _seeded(db, tmp_path, code, 1)
     _import(factory, older, code, [0])
+    _resolve_board(
+        factory,
+        older,
+        _items(factory, older)[0],
+        action=ImageReviewAction.REJECTED,
+        reason="cropped",
+    )
     newer = _seed(factory, older.game_id, artifact_root, label=f"{code}-newer", slot_count=2)
     # Admitted by an operator exception: the new owner is cut at once.
     with game_storage_scope(newer.game_id), factory.begin() as session:
@@ -334,22 +346,23 @@ def _ownership_game(
     return factory, older, newer, artifact_root
 
 
-def test_a_correction_that_superseded_the_sequence_owner_refuses_the_revert(
+def test_a_correction_that_took_over_a_rejected_owner_refuses_the_revert(
     database: _Database,  # noqa: F811
     tmp_path: Path,
 ) -> None:
     factory, older, newer, artifact_root = _ownership_game(database, tmp_path, "task0945-owner")
     _resolve(factory, artifact_root, newer, 0, key=uuid4())
     with game_storage_scope(older.game_id), factory() as session:
-        superseded = session.execute(
+        statuses = session.execute(
             text(
-                "SELECT count(*) FROM game_data_v2.image_review_resolution_events "
-                "WHERE game_id = :game_id AND action = 'superseded'"
+                "SELECT status, count(*) FROM game_data_v2.image_review_items "
+                "WHERE game_id = :game_id AND sequence_number = 100 GROUP BY status"
             ),
             {"game_id": older.game_id},
-        ).scalar_one()
+        ).all()
         session.rollback()
-    assert superseded == 1
+    # The rejected owner stays rejected; the correction owns the sequence.
+    assert dict(statuses) == {"rejected": 1, "pending": 1}
     [entry] = _entries(factory, newer)
     assert entry.blocking_reason is RevertBlockingReason.SEQUENCE_OWNERSHIP
     _refused(factory, newer, entry, RevertBlockingReason.SEQUENCE_OWNERSHIP)
@@ -378,15 +391,7 @@ def test_cells_re_owned_from_the_previous_owner_refuse_the_revert(
                 "item_id": entry.review_item_id,
             },
         ).scalar_one()
-        # Isolate the cell signal: without the supersession event the cells
-        # taken over from the older owner alone refuse the revert.
-        session.execute(
-            text(
-                "DELETE FROM game_data_v2.image_review_resolution_events "
-                "WHERE game_id = :game_id AND action = 'superseded'"
-            ),
-            {"game_id": newer.game_id},
-        )
+    # The cells of the rejected older owner moved to the correction's item.
     assert re_owned == 15
     [entry] = _entries(factory, newer)
     assert entry.blocking_reason is RevertBlockingReason.SEQUENCE_OWNERSHIP

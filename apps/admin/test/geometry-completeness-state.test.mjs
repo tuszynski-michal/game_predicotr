@@ -10,6 +10,7 @@ import {
   canWithdrawGeometryException,
   errorCodeOf,
   formatPercent,
+  formatSequenceNumbers,
   geometryCompletenessStatusLabel,
   geometryExceptionErrorMessage,
   geometryGateReasonLabel,
@@ -329,4 +330,13 @@ test('the section reads the gate queue from the database and changes exceptions 
   assert.match(sectionSource, /api\.withdrawSourceImageGeometryException/);
   assert.match(sectionSource, /startLocalReviewerProcess\(api\)/);
   assert.doesNotMatch(sectionSource, /Widok tylko do\s+odczytu/);
+});
+
+test('the import report lists replaced and skipped sequences (D-539)', () => {
+  assert.equal(formatSequenceNumbers([], 0), '—');
+  assert.equal(formatSequenceNumbers([100, 101], 2), '#100, #101');
+  assert.equal(formatSequenceNumbers([100, 104], 5), '#100, #104 i jeszcze 3');
+  assert.match(sectionSource, /<dt>Zastąpione sekwencje<\/dt>/);
+  assert.match(sectionSource, /<dt>Pominięte — sekwencja ma właściciela<\/dt>/);
+  assert.match(sectionSource, /importReport\?\.sequenceOwnership \?\? null/);
 });

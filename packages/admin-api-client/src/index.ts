@@ -744,6 +744,7 @@ export type {
   GeometryPositionState,
   ImageGeometryCompletenessResponse,
   ImageGeometryLowQualityBoardsResponse,
+  ImportSequenceOwnershipResponse,
   IncompleteGeometryImagePageResponse,
   IncompleteGeometryImageResponse,
   SourceImageGeometryExceptionResponse,

@@ -39,7 +39,10 @@ from game_predictor_api.storage.geometry_correction_revert_models import (
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     recompute_source_image_geometry_completeness,
 )
-from game_predictor_api.storage.image_review_repository import acquire_image_sequence_locks
+from game_predictor_api.storage.image_review_repository import (
+    acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
     ImageImportJobFileModel,
@@ -398,6 +401,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                     "The idempotency key already represents another command.",
                 )
             return _to_domain(known), prior.id, False
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
         acquire_image_sequence_locks(
             self._session, game_id=game_id, sequence_numbers={known.sequence_number}
         )

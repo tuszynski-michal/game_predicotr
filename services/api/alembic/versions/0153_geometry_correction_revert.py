@@ -25,6 +25,8 @@ Schema of the geometry correction revert and of the rejected deferred slot:
   ``rejection_revision`` and the actor. A slot row forgets its rejection when
   the rejection is reverted (lifecycle CHECK); the events keep it, so retries
   replay the stored result and a stale revert cannot undo a newer rejection.
+  A replacement photo that takes the sequence of a rejected slot over writes a
+  ``superseded`` event with its successor review item (TASK-0950).
   Both new tables move the game stores to the frozen storage manifest v7.
 
 No existing row is rewritten. Downgrade refuses while any revert history,
@@ -271,8 +273,10 @@ def upgrade() -> None:
             FOREIGN KEY(game_id,import_job_id)
             REFERENCES public.jobs(game_id,id) ON DELETE RESTRICT
     ) PARTITION BY LIST(game_id)""")
-    # 4b. Durable identity of the rejection of a deferred slot (TASK-0949). The
-    # slot id has no foreign key: the row must outlive any later slot cleanup.
+    # 4b. Durable identity of the rejection of a deferred slot (TASK-0949) and
+    # of its replacement (``superseded``, TASK-0950: the successor review item
+    # of the replacement photo). Neither id has a foreign key: the row must
+    # outlive any later slot or item cleanup.
     op.execute(f"""CREATE TABLE game_data_v2.{PENDING_EVENTS} (
         game_id UUID NOT NULL DEFAULT game_data_v2.current_game_id_v1(),
         id UUID NOT NULL,
@@ -285,6 +289,7 @@ def upgrade() -> None:
         reason VARCHAR(20),
         note TEXT,
         actor VARCHAR(200) NOT NULL,
+        successor_review_item_id UUID,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         CONSTRAINT v2_pk_image_board_geometry_pending_events PRIMARY KEY (game_id,id),
         CONSTRAINT uq_image_board_geometry_pending_events_idempotency
@@ -293,14 +298,18 @@ def upgrade() -> None:
             UNIQUE (game_id,pending_geometry_id,rejection_revision,action),
         CONSTRAINT ck_image_board_geometry_pending_events_shape CHECK (
             rejection_revision >= 1
-            AND action IN ('rejected','rejection_reverted')
+            AND action IN ('rejected','rejection_reverted','superseded')
             AND length(btrim(actor)) > 0
             AND command_sha256 ~ '^[0-9a-f]{{64}}$'
             AND (reason IS NULL OR reason IN ('cropped','blurred','other'))
             AND (note IS NULL OR length(btrim(note)) BETWEEN 1 AND 1000)
             AND (reason IS DISTINCT FROM 'other' OR note IS NOT NULL)
-            AND ((action = 'rejected' AND reason IS NOT NULL)
-                 OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL))),
+            AND ((action = 'rejected' AND reason IS NOT NULL
+                  AND successor_review_item_id IS NULL)
+                 OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL
+                  AND successor_review_item_id IS NULL)
+                 OR (action = 'superseded' AND reason IS NULL AND note IS NULL
+                  AND successor_review_item_id IS NOT NULL))),
         CONSTRAINT v2_owner_image_board_geometry_pending_events FOREIGN KEY(game_id)
             REFERENCES public.games(id) ON DELETE RESTRICT,
         CONSTRAINT v2_fk_image_board_geometry_pending_events_job

@@ -180,4 +180,4 @@ Pełny przebieg testów API pokazał 5 niepowodzeń w `test_symbol_review_extend
 
 - Audyt Codex `gpt-6-astra`: runda 1 (`medium`) REVISE 4×P0; rundy 2–4 (`high`, migracja) REVISE kolejno 2×P0, 1×P0, 1×P1 (test `pending_partial`); wszystkie domknięte. Raporty: `ai_docs/quality/TASK-0949_AUDIT_gpt-6-astra*.md`. Dodatkowe rundy poprawek decyzją leada (operator polecił samodzielne rozwiązywanie problemów); po ostatniej rundzie (wyłącznie test) audytu nie powtarzano.
 - Weryfikacja leada: pełny `pytest services/api/tests` (bez PG) → 2621 passed, 5 failed (regresja filtra widoczności w `test_symbol_review_extended_filters.py`) → naprawione bez zmiany testów; plik → 23 passed.
-- Commit: v1.7.295.
+- Commit: v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.

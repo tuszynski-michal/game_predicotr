@@ -81,6 +81,11 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import (
+    acquire_sequence_ownership_lock,
+    ensure_sequence_ownership_lock,
+    require_exclusive_sequence_ownership,
+)
 
 ReviewRow = tuple[
     ImageReviewItemModel,
@@ -701,7 +706,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             ImageReviewItemModel.id == review_item_id
         )
         if for_update:
-            query = query.with_for_update()
+            # TASK-0950 (P0-6): never the job row. A worker holds its job's lease
+            # row before the ownership lock; a writer that holds the ownership
+            # lock must not wait for that job afterwards.
+            query = query.with_for_update(
+                of=(
+                    ImageReviewItemModel,
+                    RecognizedBoardModel,
+                    SourceImageModel,
+                    ImageReviewQueueItemModel,
+                )
+            )
         row = self._session.execute(query).tuples().one_or_none()
         if row is None:
             return None
@@ -1401,8 +1416,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 ImageReviewItemModel.id.not_in(excluded_review_item_ids),
             )
             .order_by(ImageReviewItemModel.id)
-            .with_for_update()
+            # The job is only joined for the game scope (TASK-0950, P0-6).
+            .with_for_update(of=(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel))
         ).all()
+        if rows:
+            # Superseding another photo's item recomputes that image's gate,
+            # i.e. locks a second source row: exclusive ownership only.
+            require_exclusive_sequence_ownership(self._session, game_id=game_id)
         source_ids: set[UUID] = set()
         for item, board, source in rows:
             revision = item.resolution_revision + 1
@@ -1743,6 +1763,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         review_item_id: UUID,
         requested_sequence_number: int | None,
     ) -> None:
+        # A direct resolution is an entry point: it takes the exclusive
+        # ownership lock first (it may supersede another photo's item). Nested
+        # in a symbol-cell decision it keeps the decision's lock (TASK-0950).
+        ensure_sequence_ownership_lock(self._session, game_id=game_id)
         acquire_image_review_sequence_locks(
             self._session,
             game_id=game_id,
@@ -2740,5 +2764,6 @@ def _superseded_resolved_value(
 
 __all__ = [
     "SqlAlchemyOperationalImageReviewRepository",
+    "acquire_sequence_ownership_lock",
     "materialize_current_image_review_cells",
 ]

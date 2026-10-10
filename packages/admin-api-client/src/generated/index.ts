@@ -1558,6 +1558,7 @@ export type {
   ImportReviewBatchErrors,
   ImportReviewBatchResponse,
   ImportReviewBatchResponses,
+  ImportSequenceOwnershipResponse,
   IncompleteGeometryImagePageResponse,
   IncompleteGeometryImageResponse,
   JobErrorResponse,

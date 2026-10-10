@@ -106,12 +106,15 @@ class ImageGeometryCorrectionRevertModel(Base):
 
 
 class ImageBoardGeometryPendingEventModel(Base):
-    """One rejection of a deferred slot, or the revert of that rejection (TASK-0949).
+    """One rejection of a deferred slot, its revert or its replacement (TASK-0949/0950).
 
     Append-only. ``rejection_revision`` numbers the rejections of one slot; the
     revert of a rejection carries the revision of the rejection it undoes, so a
     stale revert is told apart from the revert of the newest rejection. The
-    unique idempotency key makes both commands replayable.
+    unique idempotency key makes both commands replayable. ``superseded``
+    (TASK-0950) records that a replacement photo took the rejected slot's
+    sequence over; it carries the rejection revision it closes and the
+    successor review item.
     """
 
     __tablename__ = "image_board_geometry_pending_events"
@@ -130,14 +133,18 @@ class ImageBoardGeometryPendingEventModel(Base):
         ),
         CheckConstraint(
             "rejection_revision >= 1 "
-            "AND action IN ('rejected', 'rejection_reverted') "
+            "AND action IN ('rejected', 'rejection_reverted', 'superseded') "
             "AND length(btrim(actor)) > 0 "
             "AND command_sha256 ~ '^[0-9a-f]{64}$' "
             "AND (reason IS NULL OR reason IN ('cropped', 'blurred', 'other')) "
             "AND (note IS NULL OR length(btrim(note)) BETWEEN 1 AND 1000) "
             "AND (reason IS DISTINCT FROM 'other' OR note IS NOT NULL) "
-            "AND ((action = 'rejected' AND reason IS NOT NULL) "
-            "OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL))",
+            "AND ((action = 'rejected' AND reason IS NOT NULL "
+            "AND successor_review_item_id IS NULL) "
+            "OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL "
+            "AND successor_review_item_id IS NULL) "
+            "OR (action = 'superseded' AND reason IS NULL AND note IS NULL "
+            "AND successor_review_item_id IS NOT NULL))",
             name="ck_image_board_geometry_pending_events_shape",
         ),
         Index(
@@ -169,6 +176,9 @@ class ImageBoardGeometryPendingEventModel(Base):
     reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    # TASK-0950: the review item of the replacement photo that took the
+    # sequence over (``superseded`` only); no foreign key, like the slot id.
+    successor_review_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

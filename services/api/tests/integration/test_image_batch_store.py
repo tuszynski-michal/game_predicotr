@@ -2957,9 +2957,17 @@ def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save
         engine.dispose()
 
 
-def test_pending_sequence_owner_is_always_the_newest_import(
+@pytest.mark.parametrize("same_photo", [True, False], ids=["same-photo", "other-photos"])
+def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     isolated_image_batch_database: URL,
+    same_photo: bool,
 ) -> None:
+    """D-238 among imports of one photo; D-539 keeps the live owner of another photo.
+
+    TASK-0950 changed the contract for different photos: a live pending owner
+    is kept and the later photos are superseded with a sequence alternative.
+    """
+
     command.upgrade(_migration_config(isolated_image_batch_database), "head")
     engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
     session_factory = create_session_factory(engine)
@@ -2969,7 +2977,7 @@ def test_pending_sequence_owner_is_always_the_newest_import(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
-                code="pending-sequence-owner",
+                code=f"pending-sequence-owner-{same_photo}",
                 name="Pending sequence owner",
                 status=GameStatus.ACTIVE,
             )
@@ -2982,10 +2990,13 @@ def test_pending_sequence_owner_is_always_the_newest_import(
             )
             session.commit()
 
+        def source_checksum(checksum: str) -> str:
+            return "4" * 64 if same_photo else checksum * 64
+
         executions = {
             job.id: image_store.register_file(
                 job.id,
-                source_checksum_sha256=checksum * 64,
+                source_checksum_sha256=source_checksum(checksum),
                 pipeline_fingerprint=checksum * 64,
                 source_relative_path=f"source-{checksum}.jpg",
                 order_index=0,
@@ -3011,7 +3022,7 @@ def test_pending_sequence_owner_is_always_the_newest_import(
                     import_job_id=job.id,
                     file_execution_key=executions[job.id].file_execution_key,
                     relative_path=f"source-{checksum}.jpg",
-                    checksum_sha256=checksum * 64,
+                    checksum_sha256=source_checksum(checksum),
                     width=1920,
                     height=1080,
                     status="waiting_for_review",
@@ -3062,9 +3073,36 @@ def test_pending_sequence_owner_is_always_the_newest_import(
                 review.id: session.get(ImageReviewItemModel, review.id)
                 for review in (older_review, newer_review, newest_review)
             }
-            assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
-            assert reviews[newer_review.id].status == "superseded"  # type: ignore[union-attr]
-            assert reviews[newest_review.id].status == "pending"  # type: ignore[union-attr]
+            if same_photo:
+                # D-238 (reprocessing of one photo): the newest import owns it.
+                assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
+                assert reviews[newer_review.id].status == "superseded"  # type: ignore[union-attr]
+                assert reviews[newest_review.id].status == "pending"  # type: ignore[union-attr]
+            else:
+                # D-539: the live owner (the first saved photo) is kept.
+                assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
+                assert reviews[newer_review.id].status == "pending"  # type: ignore[union-attr]
+                assert reviews[newest_review.id].status == "superseded"  # type: ignore[union-attr]
+                for review in (older_review, newest_review):
+                    assert reviews[review.id].resolved_value == {  # type: ignore[union-attr]
+                        "action": "superseded",
+                        "ownerReviewItemId": str(newer_review.id),
+                        "reason": "superseded_existing_owner_kept",
+                        "sequenceNumber": 10,
+                    }
+                alternatives = session.execute(
+                    select(
+                        ImageSequenceAlternativeModel.import_job_id,
+                        ImageSequenceAlternativeModel.reason,
+                    ).where(ImageSequenceAlternativeModel.game_id == game.id)
+                ).all()
+                assert sorted(alternatives, key=lambda row: str(row[0])) == sorted(
+                    [
+                        (older_job.id, "superseded_existing_owner_kept"),
+                        (newest_job.id, "superseded_existing_owner_kept"),
+                    ],
+                    key=lambda row: str(row[0]),
+                )
             assert (
                 session.scalar(
                     select(func.count())

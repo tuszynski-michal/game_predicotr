@@ -2984,7 +2984,16 @@ superseded, importFailed}`, gdzie `incomplete = total - complete - superseded`
 `expectedBoardCount` (suma oczekiwanych pozycji zdjęć z geometrią źródła),
 `positions[{state, reasonCode | null, count}]` (pozycje według stanu; stan
 `deferred` z kodem powodu odroczenia), `sourceStatuses[{imageState,
-sourceStatus, count}]` (m.in. zdjęcia `processing`) i `computedAt`. Liczniki są
+sourceStatus, count}]` (m.in. zdjęcia `processing`), `computedAt` i
+`sequenceOwnership` (tylko z `importJobId`, inaczej `null`; D-539, TASK-0950):
+`{replacedCount, replacedSequenceNumbers, skippedCount,
+skippedSequenceNumbers}`. „Zastąpione” to sekwencje, których żywym właścicielem
+jest plansza tego importu, a inne zdjęcie miało dla nich odrzuconą pozycję
+review albo odrzucony (potem zastąpiony) slot odroczony; „pominięte” to
+sekwencje z wierszem `image_sequence_alternatives` tego importu o powodzie
+`superseded_existing_owner_kept` (żywa pozycja `pending` innego zdjęcia została)
+albo `superseded_first_save_wins` (właściciel kanoniczny). Liczniki są dokładne,
+listy numerów posortowane i obcięte do 500. Liczniki są
 agregowane w SQL po zdjęciu; liczba pozycji `ok`, `uncertain` i `partial` liczy
 tylko żywe plansze z oczekiwanych pozycji. Sprawdzenie „numer sekwencji ma żywy
 element review na innym zdjęciu” wykonuje się wyłącznie dla pozycji bez żywej

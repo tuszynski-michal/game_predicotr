@@ -6018,6 +6018,7 @@ export type ImageGeometryCompletenessResponse = {
    * Positions
    */
   positions: Array<GeometryCompletenessPositionCountResponse>;
+  sequenceOwnership?: ImportSequenceOwnershipResponse | null;
   /**
    * Sourcestatuses
    */
@@ -8877,6 +8878,35 @@ export type ImportLabSymbolCandidateCommand = {
    * Idempotencykey
    */
   idempotencyKey: string;
+};
+
+/**
+ * ImportSequenceOwnershipResponse
+ *
+ * Sequence ownership outcome of one import (D-539, TASK-0950).
+ *
+ * ``replaced``: sequences this import took over from a rejected board of
+ * another image. ``skipped``: sequences another photo owns (a live pending
+ * board is kept, or a canonical owner wins), so this import's source is only
+ * an alternative. Counts are exact; the number lists are sorted and capped.
+ */
+export type ImportSequenceOwnershipResponse = {
+  /**
+   * Replacedcount
+   */
+  replacedCount: number;
+  /**
+   * Replacedsequencenumbers
+   */
+  replacedSequenceNumbers: Array<number>;
+  /**
+   * Skippedcount
+   */
+  skippedCount: number;
+  /**
+   * Skippedsequencenumbers
+   */
+  skippedSequenceNumbers: Array<number>;
 };
 
 /**

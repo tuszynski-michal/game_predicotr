@@ -26,6 +26,7 @@ import {
   canWithdrawGeometryException,
   errorCodeOf,
   formatPercent,
+  formatSequenceNumbers,
   geometryCompletenessStatusLabel,
   geometryExceptionErrorMessage,
   geometryGateReasonLabel,
@@ -236,6 +237,8 @@ export function GeometryCompletenessSection({
     activeReport?.positions.find((position) => position.state === 'superseded')
       ?.count ?? 0;
   const gate = activeReport?.gate ?? null;
+  // D-539 (TASK-0950): only the report of one import carries it.
+  const sequenceOwnership = importReport?.sequenceOwnership ?? null;
   const listVisible =
     activeReport !== null &&
     (activeReport.images.incomplete > 0 ||
@@ -407,6 +410,47 @@ export function GeometryCompletenessSection({
                   {gate.notEvaluated.toLocaleString('pl-PL')} zdjęć nie ma
                   jeszcze stanu bramki (sprzed backfillu); działają jak przed
                   wdrożeniem bramki.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+
+          {sequenceOwnership !== null ? (
+            <>
+              <dl
+                aria-label="Sekwencje importu"
+                className="importMetrics geometryMetrics"
+              >
+                <div className="importMetric">
+                  <dt>Zastąpione sekwencje</dt>
+                  <dd>
+                    {sequenceOwnership.replacedCount.toLocaleString('pl-PL')}
+                  </dd>
+                </div>
+                <div className="importMetric">
+                  <dt>Pominięte — sekwencja ma właściciela</dt>
+                  <dd>
+                    {sequenceOwnership.skippedCount.toLocaleString('pl-PL')}
+                  </dd>
+                </div>
+              </dl>
+              {sequenceOwnership.replacedCount > 0 ? (
+                <p className="importSubsectionHeader">
+                  Zastąpione sekwencje (odrzucona plansza innego zdjęcia):{' '}
+                  {formatSequenceNumbers(
+                    sequenceOwnership.replacedSequenceNumbers,
+                    sequenceOwnership.replacedCount,
+                  )}
+                </p>
+              ) : null}
+              {sequenceOwnership.skippedCount > 0 ? (
+                <p className="importSubsectionHeader">
+                  Pominięte, bo sekwencja ma właściciela w innym zdjęciu (aby ją
+                  zastąpić, najpierw odrzuć tamtą planszę):{' '}
+                  {formatSequenceNumbers(
+                    sequenceOwnership.skippedSequenceNumbers,
+                    sequenceOwnership.skippedCount,
+                  )}
                 </p>
               ) : null}
             </>

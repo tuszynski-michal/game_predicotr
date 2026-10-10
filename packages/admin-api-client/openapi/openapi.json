@@ -10672,6 +10672,16 @@
             "title": "Positions",
             "type": "array"
           },
+          "sequenceOwnership": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportSequenceOwnershipResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceStatuses": {
             "items": {
               "$ref": "#/components/schemas/GeometryCompletenessSourceStatusCountResponse"
@@ -15784,6 +15794,46 @@
           "idempotencyKey"
         ],
         "title": "ImportLabSymbolCandidateCommand",
+        "type": "object"
+      },
+      "ImportSequenceOwnershipResponse": {
+        "additionalProperties": false,
+        "description": "Sequence ownership outcome of one import (D-539, TASK-0950).\n\n``replaced``: sequences this import took over from a rejected board of\nanother image. ``skipped``: sequences another photo owns (a live pending\nboard is kept, or a canonical owner wins), so this import's source is only\nan alternative. Counts are exact; the number lists are sorted and capped.",
+        "properties": {
+          "replacedCount": {
+            "minimum": 0.0,
+            "title": "Replacedcount",
+            "type": "integer"
+          },
+          "replacedSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "title": "Replacedsequencenumbers",
+            "type": "array"
+          },
+          "skippedCount": {
+            "minimum": 0.0,
+            "title": "Skippedcount",
+            "type": "integer"
+          },
+          "skippedSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "title": "Skippedsequencenumbers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "replacedCount",
+          "replacedSequenceNumbers",
+          "skippedCount",
+          "skippedSequenceNumbers"
+        ],
+        "title": "ImportSequenceOwnershipResponse",
         "type": "object"
       },
       "IncompleteGeometryImagePageResponse": {

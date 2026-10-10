@@ -530,6 +530,21 @@ nakładania i padded source support; nie jest to obniżenie progów v1.
 - Zapis rozpoznania ponownie sprawdza bieżącego kanonicznego właściciela
   `game + sequence_number`; wynik człowieka wygrywa, a nowe źródło jest jedynie
   alternatywą. Replay identycznych checkpointów jest idempotentny.
+- Własność nierozwiązanej sekwencji (D-539, zmienia D-238; TASK-0950): nowa
+  plansza importu albo ręcznie rozwiązanego slotu przejmuje sekwencję tylko,
+  gdy ta nie ma żywego właściciela albo jej właściciel jest odrzucony (pozycja
+  `rejected` lub slot `rejected`). Żywa pozycja `pending` innego zdjęcia
+  zostaje; nowa pozycja jest `superseded`, a jej źródło trafia do
+  `image_sequence_alternatives` z powodem `superseded_existing_owner_kept`.
+  Ponowne przetworzenie tego samego zdjęcia (ta sama checksuma źródła)
+  zachowuje porządek D-238: najnowszy import wygrywa. Po przejęciu, w tej
+  samej transakcji, odrzucony slot innego zdjęcia przechodzi w `superseded`
+  (zdarzenie `superseded` z pozycją następcy), a bramka D-484 zdjęć, którym
+  nowy właściciel może domknąć lukę, jest przeliczana; zdjęcie dopuszczone
+  jest cięte istniejącą ścieżką. Komórki odrzuconej, już pociętej planszy
+  przechodzą do planszy zastępczej jak przy zmianie geometrii (decyzje tylko
+  jako sugestie dla nowych pikseli). Raport importu pokazuje sekwencje
+  zastąpione i pominięte, bo sekwencja ma właściciela.
 
 Cutover jest fail-closed i używa wyłącznie kompletnego raportu board-level.
 Próbka musi obejmować minimum 100 ręcznie sprawdzonych źródeł, 500 aktywnych

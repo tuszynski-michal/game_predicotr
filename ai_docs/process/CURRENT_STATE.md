@@ -748,19 +748,23 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0950 — Przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (todo)
-
-- Plik zadania: `ai_docs/tasks/0950-replacement-photo-sequence-takeover.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0951 — D-538, D-539, dokumentacja i odbiór cofania korekt i zamiennika (todo)
 
 - Plik zadania: `ai_docs/tasks/0951-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0950 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
+
+- Plik: `ai_docs/tasks/completed/0950-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 (hash dopisuje kolejny commit).
+- Reguła D-539 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
+- Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
+- Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**
+- Testy: pełne `services/api/tests` 2638 passed, `services/worker/tests` 2822 passed; zestawy PG przejęcia, współbieżności, bramki, odrzuceń, cofania, własności i importu zielone.
+
 ### TASK-0949 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
 
-- Plik: `ai_docs/tasks/completed/0949-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0949-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.
 - Odrzucenie slotu (`rejectPendingBoardCellGeometry`, powód `cropped`/`blurred`/`other`) i planszy (istniejące rozstrzygnięcie `rejected`, odmowa `BOARD_REJECT_CANONICAL`) z przycisku „Odrzuć planszę” w Reviewerze; bramka bez zmian (zdjęcie czeka, W8); odrzucone pozycje wykluczone z weryfikacji symboli, liczników i operacji zbiorczych (`review_item_id NOT IN` odrzuconych), liczniki zwalniane i przywracane przy każdym wyjściu z `rejected`; cofnięcie odrzucenia z listy „Ostatnie korekty” (`GEOMETRY_REVERT_REPLACED` po przejęciu sekwencji).
 - Migracja `0153` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
 - Naprawiona regresja TASK-0945/0946: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
@@ -886,30 +890,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
   klient 104, typecheck (mypy 850 plików), lint, format PASS.
 - Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
-
-### TASK-0934 — sekcja „Supergry” w Adminie (done)
-
-- Commit v1.7.277 / 9a2bbc685e2763553ce31b621c5e3c112e78e671.
-- Nowa sekcja gry `super-games` (tylko dla gier z rodzajem supergry):
-  lista serii z kursorem, filtrami (kompletność, weryfikacja przebiegu,
-  symbol zdefiniowany) i licznikiem „do zdefiniowania”; „Przelicz serie” z
-  baner „Serie w trakcie przeliczania” (polling stanu co 5 s); widok serii
-  z karuzelą trigger + wszystkie pozycje (karty „brak planszy”, retriggery),
-  komórki symbolu uruchamiającego podświetlone, modal linii; wybór super
-  symbolu (tylko zwykłe symbole, cyfry `1`–`9`/`0`, `Enter`), zapis z
-  `expectedRevision` (409 → odświeżenie bez nadpisania), „Wyczyść symbol”.
-  Link z wyszukiwania: `?workspace=games&game=<id>&section=super-games&series=<id>`.
-- Odpowiedzi zapisu związane z cyklem otwarcia serii (także nawigacja
-  historią), strony listy z generacją ładowania, lista odświeżana po zmianie
-  symbolu zgodnie z filtrem, obraz planszy związany z rewizją szczegółu.
-- Audyt Codex gpt-6.1-sol (zamiast gpt-6-astra: „at capacity”): runda 1
-  REVISE (3 × P0 opóźnione odpowiedzi/filtry/strony, P1 mapowanie cyfr —
-  decyzja: cyfry = lista zwykłych symboli z selecta), runda 2 jeden P0
-  (historia przeglądarki) naprawiony; `ai_docs/quality/TASK-0934_AUDIT_gpt-6.1-sol*.md`.
-  Admin 733/733, interakcje jsdom 19/19 (`npm run test:geometry`), typecheck,
-  lint, prettier PASS. Bez uruchomienia na żywym API.
-- Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
-  jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
 
 ## Archiwum
 

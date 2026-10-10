@@ -1399,6 +1399,12 @@ Zachowanie:
   odroczenia; pozycje i zdjęcia `superseded` nie są brakami, więc mają własną
   linię („Zastąpione nowszym importem, więc nie są brakami”) i nie wchodzą do
   liczby niekompletnych ani do listy domyślnej,
+- dla wybranego importu (D-539, TASK-0950) liczniki „Zastąpione sekwencje”
+  (sekwencje przejęte od odrzuconej planszy innego zdjęcia) i „Pominięte —
+  sekwencja ma właściciela” (żywa pozycja innego zdjęcia albo właściciel
+  kanoniczny) z listami numerów `#N` (najwyżej 500, reszta jako „i jeszcze N”);
+  linia pominiętych przypomina, że zastąpienie wymaga najpierw odrzucenia
+  tamtej planszy,
 - filtr stanu zdjęcia (`Wszystkie`, pięć stanów wymagających uwagi i
   „Zastąpione nowszym importem”, żeby zdjęcia zastąpione dało się obejrzeć) i
   lista po 25 zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po

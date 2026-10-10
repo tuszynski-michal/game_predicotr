@@ -1289,7 +1289,28 @@ z istniejącej rewizji.
   aktor). Slot zapomina odrzucenie przy cofnięciu (CHECK cyklu życia), zdarzenia
   zostają: powtórzenie polecenia zwraca zapisany wynik, a cofnięcie jest
   przypięte do zdarzenia odrzucenia (starego żądania nie da się zastosować do
-  nowszego odrzucenia). Bez FK do slotu.
+  nowszego odrzucenia). Bez FK do slotu. TASK-0950 (D-539): akcja
+  `superseded` z `successor_review_item_id` (bez FK; wymagane tylko dla tej
+  akcji, bez powodu i opisu) zapisuje przejęcie sekwencji odrzuconego slotu
+  przez pozycję zdjęcia zastępczego; slot przechodzi wtedy w `superseded`
+  (`superseded_at`) i zachowuje pola odrzucenia jako historię.
+- Kolejność blokad zapisów własności sekwencji i bramki (TASK-0950,
+  `storage/sequence_ownership_lock.py`): blokada klucza idempotencji albo
+  wiersz dzierżawy joba workera (`FOR NO KEY UPDATE`, żeby kontrole kluczy
+  obcych `FOR KEY SHARE` wstawień odwołujących się do joba na nią nie czekały;
+  jedyna blokada wiersza `jobs`; po blokadzie własności zapytania używają
+  `FOR UPDATE OF` bez `jobs`) → blokada własności
+  gry `(game_id, 'sequence-ownership')` (`SHARED` wyłącznie dla decyzji
+  komórek, `EXCLUSIVE` dla przejęć, rozstrzygnięć, odrzuceń, cofnięć, zapisów
+  siatki, wyjątków geometrii, projekcji workera i operacji zbiorczych) → wiersz
+  gry (strażnik projekcji) → blokady sekwencji (rosnąco) → wiersze
+  `source_images` (kilka naraz rosnąco, przed przeliczeniem i cięciem) →
+  plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
+  `image_symbol_review_states` → komórki (write-through). Decyzja komórki
+  blokuje komórki swojej planszy przed stanem liczników; obie kolejności nie
+  działają równolegle, bo `SHARED` i `EXCLUSIVE` się wykluczają.
+  Blokada jest re-entrant w transakcji, `SHARED` nigdy nie przechodzi w
+  `EXCLUSIVE` (`409 SEQUENCE_OWNERSHIP_LOCK_UPGRADE`).
 - `image_geometry_correction_reverts` (manifest v7): jeden wiersz append-only
   na cofnięcie z `kind` (`pending_slot`/`board_revision`), identyfikatorami
   slotu, planszy, pozycji i rewizji (bez FK do usuniętych wierszy), cofaną i

@@ -94,6 +94,7 @@ from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
     acquire_image_review_sequence_locks,
     acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyGridCorrectionSymbolRepository,
@@ -216,6 +217,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
         created_at: datetime,
     ) -> VirtualGridGeometrySaveResult:
         context = prepared.context
+        # TASK-0950 (P0-5): the save may reopen the item and recompute gates;
+        # ownership -> projection state -> sequence -> source -> rows.
+        acquire_sequence_ownership_lock(self._session, game_id=context.game_id)
         if prepared.command.geometry_qualification is not None:
             self._ensure_projection_state(context.game_id)
         if context.review_item_id is None or context.pending_geometry_id is not None:
@@ -402,6 +406,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "Manual source geometry requires at least one board target.",
             )
         base_context = entries[0].context
+        # A resolved slot may take a sequence over and recompute other images'
+        # gates (D-539): the game's ownership lock precedes every other lock.
+        acquire_sequence_ownership_lock(self._session, game_id=base_context.game_id)
         if any(entry.command.geometry_qualification is not None for entry in entries):
             self._ensure_projection_state(base_context.game_id)
         acquire_image_sequence_locks(
@@ -706,6 +713,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             sequences = self._legacy_board_sequences(
                 game_id=game_id, source_image_id=source_image_id
             )
+            # TASK-0950: the conversion saves geometry (ownership lock first).
+            acquire_sequence_ownership_lock(self._session, game_id=game_id)
             acquire_image_sequence_locks(self._session, game_id=game_id, sequence_numbers=sequences)
             self._session.execute(
                 select(SourceImageModel.id)

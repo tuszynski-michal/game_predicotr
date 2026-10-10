@@ -156,6 +156,10 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
     monkeypatch.setattr(
         editor, "acquire_image_sequence_locks", lambda *a, **kw: events.append("sequence")
     )
+    # TASK-0950 (P0-4): the game's sequence-ownership lock precedes every other lock.
+    monkeypatch.setattr(
+        editor, "acquire_sequence_ownership_lock", lambda *a, **kw: events.append("ownership")
+    )
 
     def execute(query):
         sql = str(query.compile(dialect=postgresql.dialect()))
@@ -170,7 +174,7 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
         ).save_virtual_source_geometry_revision(
             prepared=prepared, idempotency_key=uuid4(), created_at=datetime.now(UTC)
         )
-    assert events == ["sequence", "source"]
+    assert events == ["ownership", "sequence", "source"]
 
 
 def test_symbol_mutation_locks_board_before_shared_state():
@@ -245,7 +249,7 @@ def test_pending_owner_does_not_lock_immutable_incumbent_job(monkeypatch):
     session = Mock()
     game_id = uuid4()
     import_job = NS(id=uuid4(), created_at=datetime.now(UTC))
-    board = NS(id=uuid4(), sequence_number=1)
+    board = NS(id=uuid4(), sequence_number=1, source_image_id=uuid4())
     session.scalar.return_value = None
     session.execute.return_value.all.return_value = []
     monkeypatch.setattr(

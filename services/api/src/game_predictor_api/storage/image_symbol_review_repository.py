@@ -1133,6 +1133,29 @@ def _apply_symbol_cell_review_state_filter(
     ).where(cell.review_state == SymbolCellReviewState.APPROVED.value)
 
 
+def enter_cell_decision(session: Session, *, game_id: UUID, review_item_id: UUID) -> None:
+    """Ownership lock of a symbol-cell decision (TASK-0950, P0-5).
+
+    Keeps a lock an enclosing operation already holds; otherwise takes the mode
+    the board needs (``SHARED`` unless resolving it may supersede another
+    photo's pending item), before any sequence or row lock.
+    """
+
+    from game_predictor_api.storage.sequence_ownership_lock import (
+        acquire_sequence_ownership_lock,
+        cell_decision_lock_mode,
+        held_sequence_ownership_lock,
+    )
+
+    if held_sequence_ownership_lock(session, game_id=game_id) is not None:
+        return
+    acquire_sequence_ownership_lock(
+        session,
+        game_id=game_id,
+        mode=cell_decision_lock_mode(session, game_id=game_id, review_item_id=review_item_id),
+    )
+
+
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):
     """Apply checksum-bound crop decisions and reconcile one parent board once."""
 
@@ -1197,6 +1220,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             )
         review_item_id = next(iter(review_item_ids))
         sequence_number = int(next(iter(sequence_numbers)))
+        # TASK-0950 (P0-5): the decision may reopen or resolve the board, which
+        # reaches the game's ownership lock; take it before the sequence lock.
+        # An enclosing entry point may already hold it (kept as is).
+        enter_cell_decision(self._session, game_id=game_id, review_item_id=review_item_id)
         self._acquire_board_locks(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -1859,6 +1886,10 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         a later cell in the same HTTP request still needs to change.
         """
 
+        # One ownership lock for every crop decision of this save (TASK-0950).
+        enter_cell_decision(
+            self._session, game_id=command.game_id, review_item_id=command.review_item_id
+        )
         detail = self.get_board(
             game_id=command.game_id,
             review_item_id=command.review_item_id,
@@ -2711,6 +2742,13 @@ class SymbolCellReviewWriteThroughCoordinator:
                     and cell.crop_checksum_sha256
                     == current_cells_by_index[index].crop_checksum_sha256
                 ),
+                # D-539 (TASK-0950): a replacement board takes the logical cells
+                # over from the rejected board of another image.
+                handoff_from_rejected_board=all(
+                    cell.review_item_id in rejected_owner_ids
+                    and cell.recognized_board_id != board.id
+                    for cell in existing.values()
+                ),
             )
             recropped_targets = {
                 review.cell_index: _CellProjection(
@@ -2741,12 +2779,17 @@ class SymbolCellReviewWriteThroughCoordinator:
                     ),
                     **_projection_approved_asset_kwargs(
                         # An approval rebound to unchanged pixels (D-462 R6)
-                        # takes the current asset provenance as well.
+                        # takes the current asset provenance as well. The rebind
+                        # is recognized by crop identity, never by the revision
+                        # number: boards of different photos share revision
+                        # numbers (a D-539 handoff 0 -> 0, TASK-0950).
                         _approved_asset_projection_from_review_cell(
                             current_cells_by_index[review.cell_index]
                         )
                         if review.approved_crop is not None
-                        and review.approved_crop.geometry_revision == board.geometry_revision
+                        and _approval_matches_current_crop(
+                            review.approved_crop, current_cells_by_index[review.cell_index]
+                        )
                         else _approved_asset_projection_from_model(existing[review.cell_index])
                         if review.approved_crop is not None
                         else _empty_approved_asset_projection()
@@ -3086,6 +3129,13 @@ class SymbolCellReviewWriteThroughCoordinator:
             visibility = visibilities[review_cell.cell_index]
             if existing_cell.source_visibility != visibility:
                 existing_cell.source_visibility = visibility
+                changed = True
+            if not qualified and existing_cell.source_available is False:
+                # A complete board renders every cell: a logical position that
+                # had no image (e.g. taken over from a rejected partial board,
+                # D-539, TASK-0950) is available again. Qualified boards set
+                # availability from their mask above.
+                existing_cell.source_available = True
                 changed = True
             if not _cell_matches_projection(
                 existing_cell,
@@ -3505,6 +3555,17 @@ def _empty_approved_asset_provenance() -> dict[str, object]:
         "approved_render_spec_checksum_sha256": None,
         "approved_rendered_pixel_checksum_sha256": None,
     }
+
+
+def _approval_matches_current_crop(
+    approved: SymbolCellApprovedCropIdentity, current: ImageReviewCell
+) -> bool:
+    """The approval was rebound to the current crop (same sample and pixels)."""
+
+    return (
+        approved.crop_sample_id == current.crop_sample_id
+        and approved.crop_checksum_sha256 == current.crop_checksum_sha256
+    )
 
 
 def _approved_asset_projection_from_review_cell(

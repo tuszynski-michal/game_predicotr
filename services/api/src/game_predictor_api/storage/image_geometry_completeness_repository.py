@@ -24,6 +24,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Final
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -51,6 +52,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewError,
     ImageReviewNotFoundError,
 )
+from game_predictor_api.domain.sequence_takeover import SKIPPED_OWNER_REASONS
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -413,6 +415,46 @@ LIMIT :row_limit
 """
 
 
+MAX_IMPORT_SEQUENCE_NUMBERS: Final = 500
+
+# D-539 (TASK-0950): sequences of one import that replaced a rejected owner of
+# another image, and sequences this import skipped because another photo owns
+# them (a live pending board kept, or a canonical owner - first save wins).
+# Every relation is filtered by the constant ``:game_id`` so the plan prunes to
+# the game's partitions (per-game isolation).
+_REPLACED_SEQUENCES_SQL: Final = """
+SELECT DISTINCT ri.sequence_number
+FROM image_review_items ri
+JOIN recognized_boards b ON b.game_id = :game_id AND b.id = ri.recognized_board_id
+WHERE ri.game_id = :game_id AND ri.import_job_id = :import_job_id
+  AND ri.sequence_number IS NOT NULL
+  AND ri.status IN ('pending', 'accepted', 'corrected')
+  AND (
+    EXISTS (
+      SELECT 1
+      FROM image_review_items old
+      JOIN recognized_boards old_board
+        ON old_board.game_id = :game_id AND old_board.id = old.recognized_board_id
+      WHERE old.game_id = :game_id AND old.sequence_number = ri.sequence_number
+        AND old.status = 'rejected' AND old_board.source_image_id <> b.source_image_id)
+    OR EXISTS (
+      SELECT 1
+      FROM image_board_geometry_pending slot
+      WHERE slot.game_id = :game_id AND slot.sequence_number = ri.sequence_number
+        AND slot.rejected_at IS NOT NULL AND slot.status IN ('rejected', 'superseded')
+        AND slot.source_image_id <> b.source_image_id))
+ORDER BY ri.sequence_number
+"""
+
+_SKIPPED_SEQUENCES_SQL: Final = """
+SELECT DISTINCT a.sequence_number
+FROM image_sequence_alternatives a
+WHERE a.game_id = :game_id AND a.import_job_id = :import_job_id
+  AND a.reason = ANY (CAST(:reasons AS text[]))
+ORDER BY a.sequence_number
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class GeometryImageCounts:
     total: int
@@ -464,6 +506,26 @@ class GeometryGateCounts:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportSequenceOwnership:
+    """Sequence ownership outcome of one import (D-539, TASK-0950).
+
+    ``replaced``: sequences whose live owner is a board of this import and
+    that another image had rejected (a rejected review item or a rejected,
+    later superseded, deferred slot) - the import replaced the rejected board.
+    ``skipped``: sequences of this import recorded as alternatives because
+    another photo owns them (a live pending board is kept, D-539, or a
+    canonical owner wins, first save wins). The number lists
+    are sorted and capped at ``MAX_IMPORT_SEQUENCE_NUMBERS``; the counts are
+    exact.
+    """
+
+    replaced_count: int
+    replaced_sequence_numbers: tuple[int, ...]
+    skipped_count: int
+    skipped_sequence_numbers: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryCompletenessReport:
     game_id: UUID
     import_job_id: UUID | None
@@ -473,6 +535,8 @@ class GeometryCompletenessReport:
     source_statuses: tuple[GeometryImageSourceStatusCount, ...]
     computed_at: datetime
     gate: GeometryGateCounts | None = None
+    # Only for the report of one import (``import_job_id`` set).
+    sequence_ownership: ImportSequenceOwnership | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -638,6 +702,27 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             source_statuses=tuple(source_statuses),
             computed_at=datetime.now(UTC),
             gate=gate,
+            sequence_ownership=(
+                None if import_job_id is None else self._sequence_ownership(game_id, import_job_id)
+            ),
+        )
+
+    def _sequence_ownership(self, game_id: UUID, import_job_id: UUID) -> ImportSequenceOwnership:
+        params = {"game_id": game_id, "import_job_id": import_job_id}
+        replaced = [
+            int(row[0]) for row in self._session.execute(text(_REPLACED_SEQUENCES_SQL), params)
+        ]
+        skipped = [
+            int(row[0])
+            for row in self._session.execute(
+                text(_SKIPPED_SEQUENCES_SQL), {**params, "reasons": list(SKIPPED_OWNER_REASONS)}
+            )
+        ]
+        return ImportSequenceOwnership(
+            replaced_count=len(replaced),
+            replaced_sequence_numbers=tuple(replaced[:MAX_IMPORT_SEQUENCE_NUMBERS]),
+            skipped_count=len(skipped),
+            skipped_sequence_numbers=tuple(skipped[:MAX_IMPORT_SEQUENCE_NUMBERS]),
         )
 
     def _gate_counts(self, params: dict[str, object], import_filter: str) -> GeometryGateCounts:
@@ -994,6 +1079,7 @@ def classify_source_images(
 
 __all__ = [
     "LOW_QUALITY_STATEMENT_TIMEOUT_MS",
+    "MAX_IMPORT_SEQUENCE_NUMBERS",
     "GeometryCompletenessReport",
     "GeometryGateCounts",
     "GeometryImageCounts",
@@ -1001,6 +1087,7 @@ __all__ = [
     "GeometryImageSourceStatusCount",
     "GeometryPositionCount",
     "GeometrySourceImageAsset",
+    "ImportSequenceOwnership",
     "IncompleteGeometryImage",
     "IncompleteGeometryImagePage",
     "LowQualityBoard",

@@ -368,3 +368,20 @@ export function geometryScopeImportId(
     ? importId
     : undefined;
 }
+
+/**
+ * Sequence numbers of the import report (D-539, TASK-0950): the API sends a
+ * sorted, capped list with the exact count, so a cut list says how many are
+ * not shown.
+ */
+export function formatSequenceNumbers(
+  numbers: readonly number[],
+  count: number,
+): string {
+  if (count === 0 || numbers.length === 0) return '—';
+  const shown = numbers.map((value) => `#${value}`).join(', ');
+  const hidden = count - numbers.length;
+  return hidden > 0
+    ? `${shown} i jeszcze ${hidden.toLocaleString('pl-PL')}`
+    : shown;
+}

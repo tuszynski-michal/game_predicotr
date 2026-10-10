@@ -3741,6 +3741,37 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
   });
 });
 
+test('the import geometry report returns the sequence ownership outcome (D-539)', async () => {
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const importJobId = '44444444-4444-4444-8444-444444444444';
+  const sequenceOwnership = {
+    replacedCount: 1,
+    replacedSequenceNumbers: [100],
+    skippedCount: 2,
+    skippedSequenceNumbers: [101, 102],
+  };
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ gameId, importJobId, sequenceOwnership });
+    },
+  });
+
+  const result = await client.getImageGeometryCompleteness({
+    gameId,
+    importJobId,
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('importJobId'),
+    importJobId,
+  );
+  assert.deepEqual(result.data?.sequenceOwnership, sequenceOwnership);
+});
+
 test('geometry completeness wrappers pass gameId as path and filters as query params (D-484)', async () => {
   const requests = [];
   const gameId = '33333333-3333-4333-8333-333333333333';

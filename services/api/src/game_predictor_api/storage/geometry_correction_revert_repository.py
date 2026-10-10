@@ -126,6 +126,7 @@ from game_predictor_api.storage.image_geometry_completeness_state_repository imp
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
     acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
@@ -443,12 +444,33 @@ SELECT
     SELECT 1 FROM image_review_resolution_events re
     WHERE re.game_id = :game_id AND re.review_item_id = :review_item_id
   ) AS own_events,
-  EXISTS (
+  (EXISTS (
     SELECT 1 FROM image_review_resolution_events re
     WHERE re.game_id = :game_id AND re.action = 'superseded'
       AND re.review_item_id <> :review_item_id
       AND re.resolved_value ->> 'ownerReviewItemId' = CAST(:review_item_id AS text)
-  ) AS superseded_others,
+  )
+  -- TASK-0950: the correction took over the sequence of a rejected owner (it
+  -- closed a rejected slot, or a rejected item of another image holds the
+  -- number); the replaced image's gate counts on this item.
+  OR EXISTS (
+    SELECT 1 FROM image_board_geometry_pending_events pe
+    WHERE pe.game_id = :game_id AND pe.action = 'superseded'
+      AND pe.successor_review_item_id = :review_item_id
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM image_review_items own
+    JOIN recognized_boards own_board
+      ON own_board.game_id = own.game_id AND own_board.id = own.recognized_board_id
+    JOIN image_review_items other
+      ON other.game_id = own.game_id AND other.sequence_number = own.sequence_number
+     AND other.status = 'rejected'
+    JOIN recognized_boards other_board
+      ON other_board.game_id = other.game_id AND other_board.id = other.recognized_board_id
+    WHERE own.game_id = :game_id AND own.id = :review_item_id
+      AND other_board.source_image_id <> own_board.source_image_id
+  )) AS superseded_others,
   EXISTS (
     SELECT 1 FROM image_review_resolution_events re
     WHERE re.game_id = :game_id AND re.review_item_id = :review_item_id
@@ -743,6 +765,10 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
         self._session.execute(
             select(func.pg_advisory_xact_lock(_idempotency_lock_key(game_id, idempotency_key)))
         )
+        # TASK-0950 (P0-7): every revert kind (slot correction, board revision,
+        # slot and board rejection) writes sources, items and the counters
+        # state: exclusive ownership before any sequence, source or row lock.
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
         prior = self._audit_by_key(game_id, idempotency_key)
         if prior is not None:
             if (
@@ -813,7 +839,8 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
         session = self._session
         pending_id = correction.pending_id
         assert pending_id is not None
-        # Lock order of the save: sequence -> source -> slot -> board/item.
+        # Lock order of the save: ownership -> sequence -> source -> slot -> board/item.
+        acquire_sequence_ownership_lock(session, game_id=game_id)
         acquire_image_sequence_locks(
             session, game_id=game_id, sequence_numbers={correction.sequence_number}
         )

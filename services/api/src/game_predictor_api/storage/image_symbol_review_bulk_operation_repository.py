@@ -52,6 +52,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SymbolModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
 
 MAX_BULK_OPERATION_BOARDS_PER_BATCH = 100
 _BULK_WORKFLOW = "image_symbol_review_bulk"
@@ -517,6 +518,10 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
             return
         try:
             with self._session_factory() as session, session.begin():
+                # TASK-0950 (P0-5): a batch may resolve boards; the ownership
+                # lock precedes the operation, sequence and cell locks.
+                if job.game_id is not None:
+                    acquire_sequence_ownership_lock(session, game_id=job.game_id)
                 operation = _locked_operation_for_job(session, job=job, operation_id=operation_id)
                 _require_target_symbol_still_active(session, operation=operation)
                 mutation_repository = SqlAlchemySymbolCellReviewMutationRepository(session)

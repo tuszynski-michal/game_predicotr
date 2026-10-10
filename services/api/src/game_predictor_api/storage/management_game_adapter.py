@@ -47,6 +47,7 @@ from game_predictor_api.storage.game_storage_routing import GameStorageIntent, G
 from game_predictor_api.storage.image_review_repository import acquire_image_review_sequence_locks
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    enter_cell_decision,
 )
 from game_predictor_api.storage.management_result_snapshots import freeze_result
 from game_predictor_api.storage.models import ImageSymbolReviewCellModel, SymbolModel
@@ -221,6 +222,8 @@ class SqlAlchemyManagementGameAdapter:
         _mode, document = self.boards.board_document(game_id=game_id, sequence_number=sequence)
         if document is None or document.review_item_id is None:
             raise ManagementError("MANAGEMENT_BOARD_NOT_FOUND", "The board is unavailable.", 404)
+        # TASK-0950 (P0-5): ownership lock before the sequence lock.
+        enter_cell_decision(self.session, game_id=game_id, review_item_id=document.review_item_id)
         acquire_image_review_sequence_locks(
             self.session,
             game_id=game_id,

@@ -41,6 +41,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
     active_symbol_codes_by_id,
     assess_cell_level_board,
+    enter_cell_decision,
 )
 from game_predictor_api.storage.models import (
     GameModel,
@@ -217,6 +218,8 @@ class CellLevelVerificationMigrationRepository:
         """Apply one reviewed board plan in the caller's transaction."""
 
         review_item_id = planned.review_item_id
+        # TASK-0950 (P0-5): ownership lock before the sequence lock.
+        enter_cell_decision(self._session, game_id=game_id, review_item_id=review_item_id)
         acquire_image_review_sequence_locks(
             self._session,
             game_id=game_id,

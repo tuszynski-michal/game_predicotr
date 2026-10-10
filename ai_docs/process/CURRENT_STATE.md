@@ -120,14 +120,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0953 — przyrostowa kopia katalogów danych na D (todo)
-
-- Etap A: skrypt `scripts/sync_data_directories_to_d.ps1` (proponowany):
-  inwentarz wpisów ignorowanych (zachowywane vs odtwarzalne), `robocopy /E`
-  w trybach `Initial`/`Final`, bez `/MIR` poza ostatnim przebiegiem,
-  manifesty SHA-256 i `-VerifyOnly -Manifest` dla bramki w etapie C.
-- Task: `ai_docs/tasks/0953-disk-d-data-directory-sync.md`.
-
 ### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (todo)
 
 - Etap A: commit lub patch 27 niecommitowanych zmian z C, push gałęzi bez
@@ -791,6 +783,20 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
+
+- Etap A (D-540). Nowy `scripts/sync_data_directories_to_d.ps1`
+  (`npm run data:sync:d`): inwentarz wpisów ignorowanych (98 zachowywanych,
+  59 odtwarzalnych, 2 korzenie worktree'ów), tryby `Initial`/`Final`,
+  `-VerifyOnly -Manifest`, `-Mirror` z zatwierdzoną listą, manifesty SHA-256,
+  redakcja ścieżek `.tooling`.
+- `D:\game_predicotr` zawiera ok. 80 GB danych ignorowanych z C i
+  `v7-output/`. Drugi przebieg `Initial`: 3 pliki, `OK`. Test `Final` na
+  prawdziwych wpisach: manifesty równe. Pełny `Final` w TASK-0955.
+- Wykluczono nieczytelną pozostałość testu `*pytest-run*` (ERROR 5).
+  Wykonawca opus-5-5 zamiast sonnet-5-5.
+- Task: `ai_docs/tasks/completed/0953-disk-d-data-directory-sync.md`.
+
 ### TASK-0952 — kopia zapasowa bazy na D (done)
 
 - Etap A planu przeniesienia na D (D-540). `D:\game_predictor_backup`:
@@ -859,21 +865,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
 - Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
 - Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
-
-### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
-
-- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
-- Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
-  `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
-  the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały
-  wykryty narożnik poza obrazem (0,1–56 px), więc żadnej nie dało się poprawić.
-- `_validated_detected_board_geometry` przyjmuje szkic w granicach ręcznej edycji
-  (`-W..2W`, `-H..2H`, jak `SourceQuad.require_manual_edit_bounds` i D-436);
-  zapis korekty waliduje geometrię niezależnie. Odpowiedź `correction-context`
-  (`boardQuad`, `suggestedCorners`) używa punktu ze znakiem
-  (`ManualSourceGeometryPoint`); OpenAPI i klient zregenerowane, wrapper klienta
-  zachowuje nazwę `OperationalImageReviewGeometryPoint` dla Reviewera.
-- Bez migracji i zmian danych. Działanie na żywo wymaga scalenia do gałęzi
-  integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
-- Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
-  wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.

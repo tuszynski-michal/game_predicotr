@@ -544,6 +544,32 @@ terminalu; API i worker czytają ją przez `ApiSettings`. Po uruchomieniu API
 sprawdź w Adminie podgląd planszy i crop komórki. Tak samo przenosi się
 `GAME_PREDICTOR_IMPORT_ROOT` (domyślnie `imports`), jeśli jest używany.
 
+Przeniesienie całego checkoutu na inny dysk (plan
+`delivery/DISK_D_MIGRATION_PLAN_20261009.md`, D-540) wykonuje skrypt
+`scripts/sync_data_directories_to_d.ps1` (`npm run data:sync:d -- <parametry>`)
+zamiast ręcznego `robocopy`. Zamiast przestawiać zmienne korzeni, uruchamia się
+API i worker z nowego katalogu, a skrypt kopiuje wszystkie zachowywane wpisy
+ignorowane przez git (`artifacts`, `imports`, `.runtime`, `.tooling`, `.tmp`,
+`work`, luźne pliki), pomijając odtwarzalne (`node_modules`, `.venv*`, cache,
+`dist`) i oba korzenie worktree'ów:
+
+```powershell
+# inwentarz i klasyfikacja wpisów ignorowanych (nic nie kopiuje)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -Inventory
+# kopia przyrostowa przy działających usługach; błędy plików w użyciu = INCOMPLETE, kod 0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -Mode Initial
+# po zatrzymaniu usług: kopia i porównanie manifestów SHA-256; każda różnica = kod 1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -Mode Final
+# później: tylko porównanie celu z zapisanym manifestem (nowe pliki celu ignorowane)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -VerifyOnly -Manifest <katalog przebiegu Final>
+```
+
+Logi i manifesty trafiają do `D:\game_predictor_backup\sync-logs\<czas>-<tryb>`,
+poza kopiowanym drzewem; ścieżki pod `.tooling` są w manifestach zastąpione
+skrótem SHA-256 (klucze podpisu). `-Mirror` usuwa w celu wyłącznie pliki z
+zatwierdzonej listy (`-Confirm -MirrorApprovedList`). Po przełączeniu na nowy
+dysk nie wolno już synchronizować starego katalogu do aktywnego.
+
 ### 5.3. Repozytorium
 
 Po przeniesieniu katalogu repozytorium:

@@ -105,19 +105,14 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0963 — zakładka „Braki zdjęć” w Reviewerze (todo)
-
-- Lista zdjęć z realnymi brakami, prawdziwe zdjęcie z siatką, filtry stanów, edycja pozycji istniejącym edytorem.
-- Task: `ai_docs/tasks/0963-reviewer-image-gaps-tab.md`.
-
 ### TASK-0964 — odchudzona Diagnostyka siatek i launcher (todo)
 
 - Admin bez selecta importu; Diagnostyka tylko z licznikami i przyciskiem Reviewera; UI wyjątków bramki znika (API zostaje).
 - Task: `ai_docs/tasks/0964-admin-diagnostics-slim-and-launcher.md`.
 
-### TASK-0965 — decyzja D-540, dokumentacja i odbiór (todo)
+### TASK-0965 — decyzja D-541, dokumentacja i odbiór (todo)
 
-- Wpis D-540, aktualizacja dokumentacji i odbiór na żywych danych Mumii i 777.
+- Wpis D-541, aktualizacja dokumentacji i odbiór na żywych danych Mumii i 777.
 - Task: `ai_docs/tasks/0965-geometry-gaps-acceptance-and-docs.md`.
 
 ### TASK-0947 — czytelny widok punktu (todo)
@@ -752,9 +747,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0963 — zakładka „Braki zdjęć” w lokalnym Reviewerze (done)
+
+- Commit: `v1.7.303` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Zaślepka z TASK-0962 zastąpiona `GeometryGapsWorkspace`: jedno zdjęcie naraz (strony po 25, kursor, dociąganie przy ≤ 3 pozostałych), filtry „Wszystkie braki” (`gapsOnly`) / „Brakuje plansz” / „Plansza częściowa” / „Import nieudany” / „Bez geometrii źródła” z licznikami z `getImageGeometryCompleteness`, przełącznik „Pokaż także zatwierdzone ręcznie” (domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` mają `humanApproved`), zdjęcie ładowane automatycznie (blob URL unieważniany przy zmianie i odmontowaniu) z nakładką SVG siatek i lista pozycji.
+- Cel edycji pozycji to wiersz `listImageGridReviews({sourceImageId, view: 'all', counts: 'correction'})` pobierany leniwie dla otwartego zdjęcia; przycisk „Popraw siatkę tej planszy” montuje istniejący `BoardGeometryCorrectionEditor` (slot → `deferredBoardGeometryTarget`, plansza → `reportedBoardGeometryTarget`), pozycja bez wiersza i stany `import_failed`/`no_source_geometry` dostają wskazówkę bez edytora. Zapis i konflikt rewizji: komunikat, zamknięcie edytora, jedno odświeżenie (bez pętli). Bez wyjątków bramki, bez zatwierdzania gotowych siatek, bez zmian API. Niewiadoma o `reportedBoardGeometryTarget` rozstrzygnięta: obsługuje pozycję bez zgłoszeń i planszę `partial`; jedyna korekta to `saveHint` zależny od zgłoszeń.
+- Testy: Reviewer `test` 253/253 (10 nowych w `geometry-gaps-state.test.mjs` i teście kontraktu), `test:geometry` 61/61 (8 nowych w `geometry-gaps-workspace.test.mjs`), typecheck PASS, lint 0 błędów, `format:check` PASS, mapa kodu zregenerowana. Odbiór na żywych danych (Mumie 4 zdjęcia, 777 76 `incomplete_partial`) w TASK-0965. Task: `ai_docs/tasks/completed/0963-reviewer-image-gaps-tab.md`.
+
 ### TASK-0962 — lokalny Reviewer w zakresie gry, zakładki i tanie liczniki (done)
 
-- Commit: dopisuje orkiestrator po audycie (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Commit: `9e62a36c` (`v1.7.302`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
 - `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`; `importJobId` jest opcjonalny (brak albo UUID), niepoprawny nie włącza trybu lokalnego. Kolejka woła `listImageGridReviews` z `counts=correction` i bez `importJobId`, gdy go nie podano.
 - `LocalReviewerWorkspace`: zakładki „Do korekty” (domyślna) i „Braki zdjęć” (zaślepka do TASK-0963, nie wydawać bez niego); oba panele zostają zamontowane (stan edytora nie ginie), a edytor w ukrytej zakładce nie reaguje na klawisze symboli (`keyboardEnabled`). Zdalna ścieżka sesji bez zmian.
 - Testy: Reviewer `test` 243/243, `test:geometry` 53/53 (3 nowe), typecheck PASS, lint 0 błędów, `format:check` PASS. Task: `ai_docs/tasks/completed/0962-reviewer-game-scope-and-tabs.md`.
@@ -816,9 +818,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
 - Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0940 — Atomic management edit and explicit scope deletion (done)
-
-- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
-- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
-- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.

@@ -1,10 +1,10 @@
 ---
-title: TASK-0965 — Decyzja D-540, dokumentacja i odbiór braków geometrii na żywych danych
+title: TASK-0965 — Decyzja D-541, dokumentacja i odbiór braków geometrii na żywych danych
 status: todo
 last_updated: 2026-10-10
 ---
 
-# TASK-0965 — Decyzja D-540, dokumentacja i odbiór braków geometrii na żywych danych
+# TASK-0965 — Decyzja D-541, dokumentacja i odbiór braków geometrii na żywych danych
 
 ## Status
 
@@ -13,7 +13,7 @@ last_updated: 2026-10-10
 ## Goal
 
 Zakres lokalnego Reviewera (gra, zakładka „Braki zdjęć”, „Siatka
-niepotwierdzona” tylko jako licznik) jest zapisany jako decyzja D-540 i
+niepotwierdzona” tylko jako licznik) jest zapisany jako decyzja D-541 i
 zweryfikowany na żywych danych Mumii i 777.
 
 ## Context
@@ -30,7 +30,7 @@ odbiorem.
   kodem z tej gałęzi. Restart API i `npm run reviewer:build` wykonuje operator
   albo wymaga jego jawnej zgody (równoległe instancje API na jednej bazie —
   nie restartuj na własną rękę).
-- Numer decyzji D-540 i wersja `vX.Y.N` sprawdzone na końcówce
+- Numer decyzji D-541 i wersja `vX.Y.N` sprawdzone na końcówce
   `v1.1-vision-lab-hybrid-geometry` bezpośrednio przed zapisem i przed
   scaleniem.
 
@@ -48,7 +48,7 @@ odbiorem.
 
 ## Scope
 
-1. `DECISION_LOG.md` (indeks) i `decisions/DECISION_LOG_2026.md`: D-540 —
+1. `DECISION_LOG.md` (indeks) i `decisions/DECISION_LOG_2026.md`: D-541 —
    lokalny Reviewer pracuje w zakresie gry; zakładka „Braki zdjęć” obejmuje
    realne braki (D-484: `incomplete_missing`, `incomplete_partial`,
    `import_failed`, `no_source_geometry`); „Siatka niepotwierdzona” pozostaje
@@ -69,7 +69,7 @@ odbiorem.
 
 ## Acceptance criteria
 
-- [ ] D-540 w indeksie i w pliku decyzji, z odwołaniami do D-462/D-484.
+- [ ] D-541 w indeksie i w pliku decyzji, z odwołaniami do D-462/D-484.
 - [ ] Odbiór — Mumie: Admin pokazuje „4 … 51 541”; „Otwórz lokalnie” otwiera
       Reviewer bez importu; „Braki zdjęć” = 4 zdjęcia; zdjęcia widoczne od
       razu; „Do korekty” = 0 z czytelnym stanem pustym.

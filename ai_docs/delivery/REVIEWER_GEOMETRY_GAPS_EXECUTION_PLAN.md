@@ -121,7 +121,7 @@ siatek zdjęć” tylko liczniki i przycisk otwarcia Reviewera.
 | TASK-0962 | A | Reviewer: zakres gry bez `importJobId`, zakładki, tanie liczniki | 0961 |
 | TASK-0963 | A | Reviewer: zakładka „Braki zdjęć” (lista, zdjęcie z siatką, filtry, edycja pozycji) | 0961, 0962 |
 | TASK-0964 | B | Admin: odchudzona Diagnostyka, bez selecta importu, przycisk Reviewera | 0963 |
-| TASK-0965 | B | Decyzja D-540, dokumentacja, odbiór na żywych danych | 0964 |
+| TASK-0965 | B | Decyzja D-541, dokumentacja, odbiór na żywych danych | 0964 |
 
 Szczegóły i kryteria akceptacji: `ai_docs/tasks/0961-…` do `0965-…`.
 
@@ -169,9 +169,14 @@ Wymaga restartu API i `npm run reviewer:build` (operator).
   jest w zakresie.
 - **Utrata UI wyjątków** (decyzja 6) — świadoma, odwracalna osobnym taskiem.
 - **Równoległe sesje** zajmują numery tasków, decyzji i `vX.Y.N`: numery tu
-  podane (TASK-0961–0965, D-540) sprawdzono 2026-10-10 względem końcówki
+  podane (TASK-0961–0965, D-541) sprawdzono 2026-10-10 względem końcówki
   `v1.1-vision-lab-hybrid-geometry` i wszystkich worktrees; wykonawca
   weryfikuje je ponownie przed pierwszym commitem i przed scaleniem.
+  Zmiana w trakcie wykonania: plan przeniesienia na dysk D (gałąź
+  `feat/disk-d-migration-plan`) zajął D-540 oraz `v1.7.300`–`v1.7.304`, więc
+  decyzja tego planu to **D-541**, a przy scalaniu jedna z gałęzi renumeruje
+  swoje commity `vX.Y.N` (zgodnie z precedensem w
+  `task-id-ranges-parallel-tracks`).
 
 ## Poza zakresem
 

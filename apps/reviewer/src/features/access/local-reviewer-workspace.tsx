@@ -4,6 +4,7 @@ import type { AdminApiClient } from '@game-predictor/admin-api-client';
 import { useState } from 'react';
 
 import { BoardGeometryCorrectionWorkspace } from '@/features/operational-reviews/board-geometry-correction-workspace';
+import { GeometryGapsWorkspace } from '@/features/operational-reviews/geometry-gaps-workspace';
 
 type LocalReviewerTab = 'correction' | 'gaps';
 
@@ -11,8 +12,10 @@ type LocalReviewerTab = 'correction' | 'gaps';
  * The local Reviewer (port 3001) is the single grid-correction screen of
  * D-462: one queue, one board at a time, no validation of finished grids.
  * TASK-0962: it works on the whole game (the import is optional) and has two
- * tabs. Both panels stay mounted, so switching tabs never discards the board
- * the operator is editing; the hidden panel only stops listening to keys.
+ * tabs: the board queue "Do korekty" and the image-level "Braki zdjęć"
+ * (TASK-0963). Both panels stay mounted, so switching tabs never discards
+ * the board the operator is editing; the hidden panel only stops listening
+ * to keys.
  */
 export function LocalReviewerWorkspace({
   api,
@@ -78,20 +81,13 @@ export function LocalReviewerWorkspace({
         id="reviewer-tab-gaps"
         role="tabpanel"
       >
-        <ImageGapsPlaceholder />
+        <GeometryGapsWorkspace
+          api={api}
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          keyboardEnabled={tab === 'gaps'}
+        />
       </div>
     </>
-  );
-}
-
-/** Placeholder until TASK-0963 fills the tab; must not ship alone. */
-function ImageGapsPlaceholder() {
-  return (
-    <section aria-label="Braki zdjęć" className="deferredGeometryQueue">
-      <div className="deferredGeometryComplete">
-        <h3>Braki zdjęć</h3>
-        <p>Lista braków pojawi się w kolejnym kroku.</p>
-      </div>
-    </section>
   );
 }

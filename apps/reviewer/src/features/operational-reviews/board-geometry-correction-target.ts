@@ -393,8 +393,13 @@ export function reportedBoardGeometryTarget(input: {
             },
           ],
           reportedCellIndices: reported,
+          // TASK-0963: the same target also opens a board without reports
+          // (a partial board from the "Braki zdjęć" tab); only the hint
+          // differs, the save route is the same.
           saveHint:
-            'Zapis usuwa zgłoszenia „Zła siatka”. Pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli; niezmienione zachowają weryfikację, a symbole wskazane na kafelkach zostaną zatwierdzone.',
+            reported.length === 0
+              ? 'Zapis utworzy nową rewizję siatki. Pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli; niezmienione zachowają weryfikację, a symbole wskazane na kafelkach zostaną zatwierdzone.'
+              : 'Zapis usuwa zgłoszenia „Zła siatka”. Pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli; niezmienione zachowają weryfikację, a symbole wskazane na kafelkach zostaną zatwierdzone.',
           sourceHeight: item.sourceHeight,
           sourceUrl: api.imageGridReviewSourceAssetUrl(
             reviewItemId,

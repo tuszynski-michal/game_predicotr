@@ -157,13 +157,13 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Katalogi
 
-- `apps/reviewer/src/features/` (38 ts/tsx) - funkcje (podkatalogi poniżej)
+- `apps/reviewer/src/features/` (40 ts/tsx) - funkcje (podkatalogi poniżej)
   - `access/` (2 plików): LocalReviewerWorkspace, ReviewerAccessGate
   - `board-search-share/` (3 plików): BOARD_SEARCH_SHARE_API_BASE, BOARD_SEARCH_SHARE_GAME_ID, SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_ENTRIES, BoardSearchShareDataSourceOptions, BoardSearchShareDataSource, createBoardSearchShareDataSource, BoardSearchShareGate (+2)
   - `catalog/` (1 plików): apiErrorMessage
   - `management/` (3 plików): MANAGEMENT_SESSION_ID, managementStorageNamespace, managementAccessMessage, ManagementGate, MANAGEMENT_API_BASE, createManagementPublicAdapter, ManagementPublicAdapter
   - `manual-selection/` (12 plików): OperatorLocalOutputManifestV1, OperatorLocalOutputManifestV2, OperatorLocalOutputManifest, OperatorLocalOutputDirectoryState, OperatorLocalOutputResult, resetOperatorLocalOutputDirectory, writeOperatorLocalSelection, removeOperatorLocalSelection (+85)
-  - `operational-reviews/` (17 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+137)
+  - `operational-reviews/` (19 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+168)
 - `apps/reviewer/src/app/` (9 ts/tsx) - trasy i route handlery
 - `apps/reviewer/src/security/` (4 ts/tsx) - proxy i polityka allowlisty
 - `apps/reviewer/src/api/` (1 ts/tsx) - wrapper klienta API
@@ -175,8 +175,8 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (32 plików w katalogu testów, rekurencyjnie)
-- `apps/reviewer/test-interactions/` (8 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (33 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test-interactions/` (9 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

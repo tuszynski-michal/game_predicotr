@@ -286,7 +286,7 @@ odpowiedzi nadal 22–33 s — to świadomie nie jest przedmiotem taska).
 - `ai_docs/process/CURRENT_STATE.md`: sekcja `done` TASK-0961, usunięcie z
   aktywnych; TASK-0938 przeniesiony do `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
 - Bez wpisu w `DECISION_LOG.md` (zgodna z planem rozbudowa kontraktu; decyzję
-  D-540 zapisuje TASK-0965).
+  D-541 zapisuje TASK-0965).
 
 ### Recommended next task
 

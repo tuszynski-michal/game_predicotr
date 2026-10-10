@@ -85,6 +85,12 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0940 — Atomic management edit and explicit scope deletion (done)
+
+- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
+- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
+
 ### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
 
 - Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c.

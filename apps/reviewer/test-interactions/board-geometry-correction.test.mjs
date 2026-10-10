@@ -196,6 +196,49 @@ function fakeApi(state) {
       calls.symbols.push({ command, id, scope });
       return { data: { cells: state.suggestions ?? [] } };
     },
+    // TASK-0963: the "Braki zdjęć" tab of `LocalReviewerWorkspace`; empty
+    // here, its behaviour is covered by geometry-gaps-workspace.test.mjs.
+    getImageGeometryCompleteness: async () => ({
+      data: {
+        computedAt: '2026-10-10T00:00:00Z',
+        expectedBoardCount: 9,
+        gameId: 'g',
+        gate: {
+          geometryException: 0,
+          geometryIncomplete: 0,
+          notEvaluated: 0,
+          withheldBoards: 0,
+          withheldReasonCode: 'SOURCE_IMAGE_GEOMETRY_INCOMPLETE',
+        },
+        images: {
+          complete: 0,
+          importFailed: 0,
+          incomplete: 0,
+          incompleteMissing: 0,
+          incompletePartial: 0,
+          incompleteUncertain: 0,
+          noSourceGeometry: 0,
+          superseded: 0,
+          total: 0,
+        },
+        importJobId: null,
+        positions: [],
+        sourceStatuses: [],
+      },
+    }),
+    listIncompleteGeometryImages: async () => ({
+      data: {
+        completenessStatus: null,
+        gameId: 'g',
+        gapsOnly: true,
+        imageState: null,
+        images: [],
+        importJobId: null,
+        nextCursor: null,
+      },
+    }),
+    getImageGeometryCompletenessSourceAsset: async () =>
+      assert.fail('no image to show'),
   };
   return { api, calls };
 }
@@ -657,9 +700,11 @@ test('the local Reviewer tabs keep the editor of "Do korekty" mounted (TASK-0962
   await act(async () => tab('Braki zdjęć').click());
   assert.equal(panel('reviewer-tab-correction').hidden, true);
   assert.equal(panel('reviewer-tab-gaps').hidden, false);
+  // TASK-0963: the tab is the image-level gaps screen, empty for this game.
+  assert.match(panel('reviewer-tab-gaps').textContent, /Braki zdjęć/);
   assert.match(
     panel('reviewer-tab-gaps').textContent,
-    /Lista braków pojawi się w kolejnym kroku/,
+    /Brak zdjęć w tym stanie/,
   );
 
   await act(async () => tab('Do korekty').click());

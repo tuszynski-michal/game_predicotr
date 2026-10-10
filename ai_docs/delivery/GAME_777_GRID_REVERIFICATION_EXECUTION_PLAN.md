@@ -65,6 +65,8 @@ Stan kolejki wynika z `storage/image_grid_review_repository.py::_state_expressio
 5. **Ścieżki zapisu — wyłącznie istniejące serwisy** (te same co Reviewer):
    - zatwierdzenie: `application/image_grid_reviews.py::ImageGridReviewService.approve_source`
      z podzbiorem pewnych plansz zdjęcia (jedna transakcja na zdjęcie);
+     **D-462/TASK-0727:** metoda usunięta, zatwierdzenie siatki nie jest już
+     warunkiem niczego — przy przepisaniu TASK-0645/0646 ten krok odpada;
    - sloty odroczone: `application/virtual_grid_geometry.py::VirtualGridGeometryService.save_source`.
      **Fakt z kodu:** `save_source` wymaga komend dla wszystkich aktywnych
      slotów zdjęcia i tworzy nową zatwierdzoną rewizję dla każdego z nich
@@ -110,6 +112,12 @@ Stan kolejki wynika z `storage/image_grid_review_repository.py::_state_expressio
 | Brak zgody (`--execute` bez `--confirm-game-id` równego `--game-id`) | cały przebieg | odmowa przed jakimkolwiek odczytem obrazów |
 
 ## Aktualizacja 2026-09-24 po TASK-0644
+
+Aktualizacja 2026-09-25 (D-447): TASK-0645–0647 pozostają wstrzymane.
+Plan laboratorium `VISION_LAB_EXECUTION_PLAN.md` traktuje historyczne 777
+wyłącznie jako materiał porównawczy i **nie** dostarcza sieci do uzupełniania
+slotów tej reweryfikacji. Ewentualne wznowienie TASK-0645–0647 wymaga
+osobnej, spójnej decyzji i aktualizacji ich starej reguły weryfikacji.
 
 Kalibracja wykazała, że lokalny estymator nie jest niezależny od silnika
 (przy tej samej podpowiedzi zwraca identyczną siatkę), a złoty zbiór nie

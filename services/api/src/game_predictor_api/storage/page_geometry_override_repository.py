@@ -24,6 +24,7 @@ from game_predictor_api.storage.models import (
     ImagePageGeometryOverrideModel,
     ImagePageSourceExclusionModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 
 class SqlAlchemyPageGeometryOverrideRepository:
@@ -82,6 +83,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
             image_width=value.image_width,
             image_height=value.image_height,
             final_quads=[list(quad) for quad in value.final_quads],
+            neural_proposal_binding=value.neural_proposal_binding,
             board_frame_quads=(
                 None
                 if value.board_frame_quads is None
@@ -107,8 +109,11 @@ class SqlAlchemyPageGeometryOverrideRepository:
                 self._session.add(row)
                 self._session.flush()
         except IntegrityError as error:
-            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) != (
-                "uq_image_page_geometry_overrides_revision"
+            if (
+                resolve_unique_constraint_name(
+                    self._session, error, ImagePageGeometryOverrideModel.__table__
+                )
+                != "uq_image_page_geometry_overrides_revision"
             ):
                 raise
             raise JobConflictError(
@@ -116,6 +121,22 @@ class SqlAlchemyPageGeometryOverrideRepository:
                 "A concurrent editor saved this source revision. Reload before changing it.",
             ) from error
         return _to_domain(row)
+
+    def get_by_decision_checksum(
+        self, *, game_id: UUID, source_checksum_sha256: str, decision_checksum_sha256: str
+    ) -> ImagePageGeometryOverride | None:
+        self._bind(game_id, intent=GameStorageIntent.READ)
+        row = self._session.scalar(
+            select(ImagePageGeometryOverrideModel)
+            .where(
+                ImagePageGeometryOverrideModel.game_id == game_id,
+                ImagePageGeometryOverrideModel.source_checksum_sha256 == source_checksum_sha256,
+                ImagePageGeometryOverrideModel.decision_checksum_sha256 == decision_checksum_sha256,
+            )
+            .order_by(ImagePageGeometryOverrideModel.revision.asc())
+            .limit(1)
+        )
+        return None if row is None else _to_domain(row)
 
     def get_exclusion(
         self,
@@ -175,6 +196,7 @@ def _to_domain(row: ImagePageGeometryOverrideModel) -> ImagePageGeometryOverride
         image_width=row.image_width,
         image_height=row.image_height,
         final_quads=cast(PageGeometryQuads, tuple(tuple(quad) for quad in row.final_quads)),
+        neural_proposal_binding=row.neural_proposal_binding,
         revision=row.revision,
         actor=row.actor,
         decision_checksum_sha256=row.decision_checksum_sha256,

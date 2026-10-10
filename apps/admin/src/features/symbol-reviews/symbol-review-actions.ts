@@ -1,6 +1,8 @@
 import type {
   GameResponse,
+  JobResponse,
   SymbolCellReviewCountSnapshotResponse,
+  SymbolCellReviewExtendedFilterOptions,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStartResponse,
@@ -16,6 +18,7 @@ import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 export type SymbolReviewClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'listGames'
+  | 'listJobs'
   | 'listSymbols'
   | 'listSymbolCellReviews'
   | 'skipSymbolCellReviews'
@@ -28,6 +31,11 @@ export type SymbolReviewClient = Pick<
   | 'createVirtualCellPreviewBatch'
   | 'virtualCellPreviewAtlasUrl'
 >;
+
+export interface SymbolReviewImportFolder {
+  readonly id: string;
+  readonly label: string;
+}
 
 export type SymbolReviewProjectionResult =
   | {
@@ -90,7 +98,7 @@ export async function startSymbolReviewProjection(
   }
 }
 
-export interface LoadSymbolReviewPageOptions {
+export interface LoadSymbolReviewPageOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly gameId: string;
@@ -102,7 +110,7 @@ export interface LoadSymbolReviewPageOptions {
   readonly symbolId: string | 'all' | 'unknown';
 }
 
-export interface LoadSymbolReviewCountsOptions {
+export interface LoadSymbolReviewCountsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly maxConfidence?: number;
@@ -160,6 +168,65 @@ export async function loadSymbolReviewGames(
       ok: false,
     };
   }
+}
+
+export async function loadSymbolReviewImportFolders(
+  api: SymbolReviewClient,
+  gameId: string,
+): Promise<
+  | { readonly folders: readonly SymbolReviewImportFolder[]; readonly ok: true }
+  | { readonly error: string; readonly ok: false }
+> {
+  try {
+    const result = await api.listJobs({
+      gameId,
+      jobType: 'import',
+      limit: 200,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać katalogów importu cropów.',
+        ),
+        ok: false,
+      };
+    }
+    return {
+      folders: result.data
+        .filter(isImageDirectoryImport)
+        .sort(
+          (left, right) =>
+            Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
+            left.id.localeCompare(right.id),
+        )
+        .map((job) => ({ id: job.id, label: importFolderLabel(job) })),
+      ok: true,
+    };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+function isImageDirectoryImport(job: JobResponse): boolean {
+  return (
+    job.jobType === 'import' &&
+    'importKind' in job.inputPayload &&
+    job.inputPayload.importKind === 'image_directory'
+  );
+}
+
+function importFolderLabel(job: JobResponse): string {
+  const sourceDisplayName =
+    'sourceDisplayName' in job.inputPayload &&
+    typeof job.inputPayload.sourceDisplayName === 'string' &&
+    job.inputPayload.sourceDisplayName.trim() !== ''
+      ? job.inputPayload.sourceDisplayName.trim()
+      : 'Import bez nazwy katalogu';
+  return `${sourceDisplayName} · ${job.id.slice(0, 8)}`;
 }
 
 export async function loadSymbolReviewSymbols(
@@ -232,7 +299,7 @@ export async function loadSymbolReviewPage(
   }
 }
 
-export interface SkipSymbolReviewPagesOptions {
+export interface SkipSymbolReviewPagesOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly count: number;

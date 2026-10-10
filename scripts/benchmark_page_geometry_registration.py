@@ -67,8 +67,9 @@ def main() -> int:
     if arguments.first is not None and arguments.first < 1:
         raise RuntimeError("--first must be positive.")
     root = arguments.artifact_root.resolve()
+    # Operator tool: schema-owner URL (TASK-0795), same default as before.
     database_url = os.environ.get(
-        "GAME_PREDICTOR_DATABASE_URL",
+        "GAME_PREDICTOR_OWNER_DATABASE_URL",
         "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor",
     )
     with Session(create_engine(database_url)) as session:

@@ -30,10 +30,18 @@ from game_predictor_api.application.remote_manual_selection_removal import (
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
+from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
     create_database_engine,
+    create_owner_database_engine,
+    create_owner_session_factory,
     create_session_factory,
+)
+from game_predictor_api.storage.schema_readiness import (
+    AlembicHeadMismatchError,
+    require_alembic_head,
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
@@ -43,6 +51,7 @@ from game_predictor_worker.images.geometry_guard_report_reconstruction import (
 from game_predictor_worker.images.geometry_rollout_backfill import (
     ImageGeometryRolloutBackfillHandler,
 )
+from game_predictor_worker.images.grid_shadow_handler import GridShadowHandler
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
@@ -112,6 +121,15 @@ from game_predictor_worker.semi_automatic_selection.job import (
     SemiAutomaticImageSelectionJobHandler,
     SemiAutomaticSelectionJobStore,
 )
+from game_predictor_worker.semi_automatic_selection.v7_delivery import V7ReviewedDelivery
+from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration import (
+    V7GatedObserverFactory,
+    V7PilotArtifacts,
+)
+from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
+    V7CheckpointPolicy,
+    V7WorkerRuntime,
+)
 from game_predictor_worker.snapshots import (
     ProductionSnapshotArtifactPublisher,
     ProductionSnapshotGenerator,
@@ -119,6 +137,8 @@ from game_predictor_worker.snapshots import (
 )
 from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
+from game_predictor_worker.super_game_series import SuperGameSeriesDeriveHandler
+from game_predictor_worker.symbols.lab_candidate_import import LabSymbolCandidateImportHandler
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
@@ -286,6 +306,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             return 0
         finally:
             engine.dispose()
+    try:
+        require_alembic_head(engine)
+    except AlembicHeadMismatchError:
+        engine.dispose()
+        raise
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
@@ -302,6 +327,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
             DEFAULT_PARALLEL_SCAN_WORKERS,
             max(1, thread_budget - verification_workers),
         )
+        semi_automatic_store = SemiAutomaticSelectionJobStore(session_factory)
+        v7_artifacts = V7PilotArtifacts(
+            settings.v7_label_geometry_runtime_root,
+            settings.v7_selection_ocr_model_root,
+            acceptance_scope=settings.v7_pilot_acceptance_scope,
+        )
         handlers = {
             JobType.IMAGE_SELECTION: ImageSelectionJobHandler(
                 SqlAlchemyImageSelectionJobStore(session_factory),
@@ -313,10 +344,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 verification_workers=verification_workers,
             ),
             JobType.SEMI_AUTOMATIC_IMAGE_SELECTION: SemiAutomaticImageSelectionJobHandler(
-                SemiAutomaticSelectionJobStore(session_factory),
+                semi_automatic_store,
                 browser_upload_root=settings.import_root,
                 artifact_root=artifact_root,
                 repository_root=Path.cwd(),
+                v7_runtime=V7WorkerRuntime(
+                    V7GatedObserverFactory(v7_artifacts, semi_automatic_store.read_v7_pilot_gate),
+                    checkpoint_policy=V7CheckpointPolicy(),
+                    independent_progress=True,
+                ),
+                v7_delivery=V7ReviewedDelivery(session_factory, v7_artifacts),
             ),
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
@@ -383,23 +420,44 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root,
                 repository_root=Path.cwd(),
             ),
+            GridShadowHandler(
+                session_factory,
+                artifact_root,
+                enabled=settings.grid_shadow_enabled,
+                threads=thread_budget,
+            ),
+            LabSymbolCandidateImportHandler(session_factory, artifact_root),
         )
         image_import_handler = ProductionImageImportWorkflow(
             session_factory,
             artifact_root,
             repository_root=Path.cwd(),
-            hard_reserve_bytes=getattr(settings, "storage_hard_reserve_gib", 30) * 1024**3,
-            resume_target_bytes=getattr(settings, "storage_target_gib", 80) * 1024**3,
+            hard_reserve_bytes=getattr(
+                settings,
+                "storage_hard_reserve_gib",
+                StorageRetentionPolicy().hard_reserve_bytes // 1024**3,
+            )
+            * 1024**3,
         )
         import_dispatch_handler = ImportJobDispatchHandler(
             import_handler,
             image_import_handler,
         )
-        snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
+        # TASK-0795: the runtime engine uses the application role (no DDL, no
+        # RLS bypass). VACUUM after pipeline compaction and ANALYZE after a
+        # symbol-review backfill are the only general-lane steps that need the
+        # schema owner; the NullPool engine opens a connection only for them.
+        owner_engine = create_owner_database_engine(settings)
+        # TASK-0797: a release build spans the games of one mobile release in
+        # one transaction, which a game-bound application-role session cannot
+        # do; its stores run on the cross-game schema-owner session.
+        release_session_factory = create_cross_game_owner_session_factory(owner_engine)
+        release_payout_store = SqlAlchemyPayoutStore(release_session_factory)
+        snapshot_store = SqlAlchemyProductionSnapshotStore(release_session_factory)
         release_handler = ReleaseWorkflowHandler(
-            SqlAlchemyReleaseWorkflowStore(session_factory),
-            payout_handler,
-            PayoutReadinessService(payout_store),
+            SqlAlchemyReleaseWorkflowStore(release_session_factory),
+            PayoutBatchHandler(release_payout_store, JsonlPayoutAuditWriter(artifact_root)),
+            PayoutReadinessService(release_payout_store),
             ProductionSnapshotArtifactPublisher(
                 ProductionSnapshotGenerator(snapshot_store),
                 artifact_root,
@@ -428,7 +486,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root,
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
-            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(
+                session_factory,
+                statistics_session_factory=create_owner_session_factory(owner_engine),
+            ),
             JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL: ImageGeometryRolloutBackfillHandler(
                 session_factory
             ),
@@ -445,8 +506,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.STORAGE_PIPELINE_COMPACTION: PipelineStateCompactionHandler(
                 session_factory,
                 artifact_root,
-                engine,
+                owner_engine,
             ),
+            JobType.SUPER_GAME_SERIES_DERIVE: SuperGameSeriesDeriveHandler(session_factory),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

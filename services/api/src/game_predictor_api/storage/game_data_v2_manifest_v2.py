@@ -27,6 +27,7 @@ SHARED = frozenset(
         "alembic_version",
         "cleanup_operations",
         "legacy_game_operational_cleanup_receipts",
+        "partial_board_reconciliation_receipts",
         "game_deletion_operations",
         "game_deletion_batches",
         "worker_lane_runtime",

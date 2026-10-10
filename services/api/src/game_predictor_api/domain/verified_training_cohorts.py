@@ -123,6 +123,24 @@ class SymbolTrainingCoverage:
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolApprovalSummary:
+    """Logical approvals of current owners; not pixel-attested training samples."""
+
+    approved_layout_count: int
+    approved_cell_count: int
+    source_image_count: int
+    symbol_coverage: tuple[SymbolTrainingCoverage, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelQualityOverview:
+    game_id: UUID
+    approvals: SymbolApprovalSummary
+    latest_cohort: VerifiedTrainingCohort | None
+    active_heavy_job: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ModelQualityAdvisoryThreshold:
     layout_count: int
     reached: bool

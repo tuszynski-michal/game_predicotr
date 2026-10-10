@@ -36,3 +36,26 @@ test('rules creation always releases its submitting guard', () => {
     /finally\s*\{\s*mutationInProgress\.current = false;\s*setIsSubmitting\(false\);\s*\}/,
   );
 });
+
+test('TASK-0931: payout editor labels trigger lengths as counts on the board', async () => {
+  const modalSource = await readFile(
+    new URL(
+      '../src/features/rules/payout-rules-manager-modal.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const stateSource = await readFile(
+    new URL('../src/features/rules/payout-rules-state.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(stateSource, /sztuk na planszy/);
+  assert.match(modalSource, /isSuperGameTriggerSymbol\(editingSymbol\) \? \(/);
+  assert.match(
+    modalSource,
+    /countPayoutLengths\(\s*rulesVersion\.rows,\s*rulesVersion\.columns,?\s*\)/,
+  );
+  assert.match(modalSource, /payoutLengthLabel\(editingSymbol, matchLength\)/);
+  assert.match(modalSource, /rulesVersion\.rows,\s*\);/);
+  assert.doesNotMatch(modalSource, /Joker/);
+});

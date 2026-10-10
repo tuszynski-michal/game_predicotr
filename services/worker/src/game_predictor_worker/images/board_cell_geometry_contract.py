@@ -898,8 +898,16 @@ def derive_board_cell_quads(
     source_image_width: int,
     source_image_height: int,
     topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY,
+    bounded: bool = True,
 ) -> tuple[BoardCellQuad, ...]:
-    """Validate lattice bounds and derive all row-major cells for a topology."""
+    """Validate lattice bounds and derive all row-major cells for a topology.
+
+    ``bounded=False`` is an opt-in escape hatch for the manual, single-operator
+    deferred board-cell geometry flow, which must let an operator extrapolate a
+    board whose true corners lie outside the photographed frame (a partially
+    cropped board). Every other caller (automatic detection included) omits
+    the argument and keeps the unchanged, strict in-bounds contract.
+    """
 
     width = _integer(source_image_width, "sourceImageWidth", minimum=1)
     height = _integer(source_image_height, "sourceImageHeight", minimum=1)
@@ -908,6 +916,7 @@ def derive_board_cell_quads(
         "latticeBoundsQuad",
         image_width=width,
         image_height=height,
+        bounded=bounded,
     )
     return _derive_cell_quads(validated, topology=topology)
 
@@ -918,6 +927,7 @@ def _parse_quad(
     *,
     image_width: int,
     image_height: int,
+    bounded: bool = True,
 ) -> Quad:
     values = _sequence(value, label)
     if len(values) != 4:
@@ -931,7 +941,7 @@ def _parse_quad(
         _exact_keys(item, {"x", "y"}, f"{label}[{index}]")
         x = _number(item.get("x"), f"{label}[{index}].x")
         y = _number(item.get("y"), f"{label}[{index}].y")
-        if not 0 <= x < image_width or not 0 <= y < image_height:
+        if bounded and (not 0 <= x < image_width or not 0 <= y < image_height):
             raise _error(
                 "BOARD_CELL_GEOMETRY_QUAD_OUT_OF_BOUNDS",
                 f"{label}[{index}] lies outside the source image.",

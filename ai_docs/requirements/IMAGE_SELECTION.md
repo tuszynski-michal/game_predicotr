@@ -1544,8 +1544,13 @@ potwierdzonej sesji. Po restarcie ten sam marker jest odtwarzany z kolejki,
 a konflikt rewizji, drift źródła lub porzucenie kolejki nie może zamienić go w
 potwierdzoną adnotację.
 
-Nowa sesja proponuje tylko pełne kadry `small_777`; trudne kadry są opcjonalne
-i jasno oznaczone. Capture group jest wyborem `A`, `B` albo `C`. Widok pamięta
+Nowa sesja jest tworzona w rodzinie V2 i domyślnie obejmuje oba nagrania 777
+(D-463): `small_777` jako grupę `A` i `occluded_777` jako grupę `B`. Capture
+group jest wyborem `A`, `B` albo `C` i oznacza nagranie, nie kolejność
+kliknięć. Każde źródło z punktami V2 musi mieć co najmniej pięć pełnych
+numerów w dwóch wierszach i dwóch kolumnach; Admin pokazuje źródła, które tego
+nie spełniają. Operator może zapomnieć lokalny widok starej sesji i utworzyć
+nową; sesja serwera pozostaje niezmieniona do audytu. Widok pamięta
 wyłącznie stan interakcji i ograniczony cache canonical PNG bieżącego źródła
 oraz sąsiadów — maksymalnie trzy obrazy i 64 MiB. Nie zapisuje blobów, ścieżek
 ani danych obrazu do IndexedDB; każdy pobrany asset pozostaje związany z ID
@@ -1558,3 +1563,50 @@ obrazu. Pomiar skali liczy niezależne źródła po SHA-256, więc wiele nazw dl
 tych samych bajtów nie może spełnić progu 100/300/500. Raport jawnie określa,
 że mierzy historyczny lokalizator V1 i read-only runtime, a nie ranking
 reprezentanta V2 ani writer.
+
+## Dostęp do testowego półautomatu z głównego panelu — TASK-0919
+
+Gdy główny lokalny panel ma starsze V7 z zablokowanym startem, a selekcja jest
+włączona, pokazuje „Otwórz półautomat V7”. Przycisk otwiera odrębny, istniejący
+panel wyborów w worktree kalibracyjnym. Przy braku wcześniejszego runu zastępuje
+niedziałający formularz; wcześniejszy run, jego przegląd i przycinanie pozostają
+dostępne. Wyłączona flaga serwera nie pozwala zaoferować tego wejścia.
+
+Operator wybiera źródło, bazowy katalog zapisu i pierwszy/ostatni zakres.
+Panel wyborów tworzy pod bazowym katalogiem folder o nazwie źródła. Propozycje
+są w jego podfolderze `propozycje`, a zatwierdzone JPEG-i w folderze wynikowym.
+„Otwórz zapisane wybory” lub lista wcześniejszych folderów przywraca przegląd
+bez ponownego skanowania. Numery oszacowane i możliwość korekty są jawne;
+pełne pokrycie propozycjami nie jest dowodem prawidłowego odczytu numerów.
+
+Jest to dostęp do testów, nie aktywacja V7 w głównej bazie. Nawigacja nie
+przenosi gry ani runu pomiędzy bazami, nie uruchamia analizy i nie zatwierdza
+zdjęć. API/Admin uruchamia użytkownik; samo wejście nie zmienia ich stanu.
+
+## Pełny kod V7 na głównym branchu — TASK-0920 / D-532
+
+`v1.1-vision-lab-hybrid-geometry` otrzymuje pełny pion V7, łącznie z obsługą
+częściowo zasłoniętych etykiet, postępem, zapisem, korektą i odtwarzaniem.
+Zasłonięcie jest własnością zdjęcia i pozycji, nie stałą własnością katalogu.
+Ocena numerów pozostaje oddzielna od oceny widoczności symboli i geometrii.
+
+Operator wskazuje bazowy katalog zapisu; pod nim powstaje folder o nazwie
+katalogu źródłowego. Zakończony skan przygotowuje w `propozycje` po jednym
+edytowalnym wyborze dla każdego skonfigurowanego zakresu. Między rozpoznanymi
+kotwicami dzieli indeksy źródeł na brakujące grupy i wybiera ich środkowe
+zdjęcia. Początek, koniec i brak kotwic też dostają oszacowane propozycje.
+Brak używalnego zdjęcia lub błąd zapisu jest jawnym błędem, a nie pustym plikiem.
+Pełne pokrycie oznacza dostępność propozycji, nie gwarancję prawidłowych numerów.
+
+Jedno jawne „Zatwierdź i następny” potwierdza oglądane zdjęcie i przechodzi
+dalej dopiero po trwałym receipt. Nie wymaga dwóch dodatkowych checkboxów.
+Niepewny numer zostaje `manual_no_ocr`; nie jest dowodem dla targetu.
+Sąsiednie zdjęcia i następne propozycje mają ograniczony prefetch. Wymiana
+zachowuje właściciela i indeks źródła. „Otwórz zapisane wybory” oraz lista
+runów przywracają przegląd; nie rozpoczynają ponownego skanu.
+
+Przeniesienie kodu nie przenosi aktywacji, profili ani danych pilota. Główna
+baza wymaga ręcznej migracji użytkownika do `0147_merge_v7_main`; późniejsze
+uruchomienie wymaga zgodnej konfiguracji i istniejącego protokołu odbioru V7.
+Kontrola schematu i bramka startu nie mogą być pomijane. Istniejący panel
+pilota pozostaje oddzielny do czasu osobnego przygotowania głównego runtime.

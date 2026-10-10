@@ -53,3 +53,26 @@ test('game editor records the page format and card exposes its shared-geometry r
   assert.match(source, /className="gameGeometryState"/);
   assert.match(source, /profil wspólny #/);
 });
+
+test('page format shows the grid engine profile, its model state and the 777 note', () => {
+  assert.match(stateSource, /grid_profile_777_v2: '777 v2'/);
+  assert.match(stateSource, /grid_profile_mumie_v1: 'Mumie'/);
+  assert.match(source, /<GridEngineProfileHint/);
+  assert.match(source, /Profil 777 v2 służy również przyszłym wersjom gry 777/);
+  assert.match(source, /loadGridEngineProfiles\(api\)/);
+  assert.match(source, /className="gamePageFormat"/);
+  assert.match(source, /Format strony:/);
+});
+
+test('TASK-0931: create and edit forms select the super game kind from the API registry', () => {
+  assert.match(source, /<span>Supergra<\/span>/);
+  assert.match(source, /name="superGameKind"/);
+  assert.match(
+    source,
+    /superGameKindOptions\(superGameKinds, draft\.superGameKind\)/,
+  );
+  assert.match(source, /loadSuperGameKinds\(api\)/);
+  assert.match(source, /superGameKind: game\.superGameKind/);
+  assert.match(source, /className="gameSuperGameKind"/);
+  assert.match(stateSource, /superGameKind: 'none'/);
+});

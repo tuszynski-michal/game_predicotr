@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   deleteSymbol,
+  reorderSymbols,
   saveSymbol,
 } from '../src/features/symbols/symbol-catalog-actions.ts';
 
@@ -20,7 +21,7 @@ const savedSymbol = {
   namePl: null,
   status: 'active',
 };
-const draft = { isWildcard: false, name: 'Lemon' };
+const draft = { isWildcard: false, name: 'Lemon', superGameTriggerCount: null };
 
 function createClient(overrides = {}) {
   return {
@@ -34,7 +35,7 @@ function createClient(overrides = {}) {
   };
 }
 
-test('creates a manual symbol with only its name and joker flag', async () => {
+test('creates a manual symbol with only its name, Wild flag and trigger role', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
@@ -52,7 +53,7 @@ test('creates a manual symbol with only its name and joker flag', async () => {
   assert.deepEqual(result, { ok: true, symbol: savedSymbol });
 });
 
-test('edits only name and joker flag without changing stable identity', async () => {
+test('edits only name, Wild flag and trigger role without changing stable identity', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
@@ -63,10 +64,14 @@ test('edits only name and joker flag without changing stable identity', async ()
     }),
     gameId,
     { mode: 'edit', symbolId: savedSymbol.id },
-    { isWildcard: true, name: 'Lemon' },
+    { isWildcard: true, name: 'Lemon', superGameTriggerCount: 3 },
   );
 
-  assert.deepEqual(request, { isWildcard: true, name: 'Lemon' });
+  assert.deepEqual(request, {
+    isWildcard: true,
+    name: 'Lemon',
+    superGameTriggerCount: 3,
+  });
   assert.equal(result.ok, true);
 });
 
@@ -106,4 +111,61 @@ test('deletes through the typed boundary and preserves API errors', async () => 
     error: 'Symbol is still used. (SYMBOL_DELETE_BLOCKED)',
     ok: false,
   });
+});
+
+test('reorder saves each displayOrder change and stops at the first error', async () => {
+  const requests = [];
+  const client = createClient({
+    updateSymbol: async (_currentGameId, symbolId, body) => {
+      requests.push({ body, symbolId });
+      return symbolId === 'fails'
+        ? {
+            error: {
+              code: 'VALIDATION_ERROR',
+              details: {},
+              message: 'Invalid',
+            },
+          }
+        : { data: savedSymbol };
+    },
+  });
+
+  const success = await reorderSymbols(client, gameId, [
+    { displayOrder: 6, symbolId: 'seven' },
+    { displayOrder: 7, symbolId: 'star' },
+  ]);
+  assert.deepEqual(success, { ok: true });
+  assert.deepEqual(requests, [
+    { body: { displayOrder: 6 }, symbolId: 'seven' },
+    { body: { displayOrder: 7 }, symbolId: 'star' },
+  ]);
+
+  requests.length = 0;
+  const failure = await reorderSymbols(client, gameId, [
+    { displayOrder: 0, symbolId: 'fails' },
+    { displayOrder: 1, symbolId: 'never-sent' },
+  ]);
+  assert.equal(failure.ok, false);
+  assert.deepEqual(
+    requests.map((request) => request.symbolId),
+    ['fails'],
+  );
+});
+
+test('TASK-0931: clearing the trigger role sends an explicit null', async () => {
+  let request;
+  await saveSymbol(
+    createClient({
+      updateSymbol: async (_currentGameId, _symbolId, body) => {
+        request = body;
+        return { data: savedSymbol };
+      },
+    }),
+    gameId,
+    { mode: 'edit', symbolId: savedSymbol.id },
+    { isWildcard: true, name: 'Mumia', superGameTriggerCount: null },
+  );
+
+  assert.ok(Object.hasOwn(request, 'superGameTriggerCount'));
+  assert.equal(request.superGameTriggerCount, null);
 });

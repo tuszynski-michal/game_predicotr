@@ -257,6 +257,21 @@ def create_rules_router(service_dependency: RulesServiceDependency) -> APIRouter
         service.archive_payline(rules_version_id, payline_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    @router.delete(
+        "/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+        status_code=status.HTTP_204_NO_CONTENT,
+        operation_id="deletePayline",
+        summary="Permanently delete draft payline",
+        responses=ERROR_RESPONSES,
+    )
+    def delete_payline(
+        rules_version_id: UUID,
+        payline_id: UUID,
+        service: Annotated[RulesService, service_parameter],
+    ) -> Response:
+        service.delete_payline(rules_version_id, payline_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     @router.get(
         "/rules-versions/{rules_version_id}/symbols",
         response_model=list[RulesVersionSymbolResponse],

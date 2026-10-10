@@ -32,6 +32,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     DirectCellRenderConfiguration,
     GeometryEngineKind,
+    SourceLatticeNodes,
     SourceOccurrence,
     SourcePoint,
     SourceQuad,
@@ -41,6 +42,8 @@ from game_predictor_api.domain.image_geometry_v2 import (
     derive_virtual_cells,
 )
 from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
@@ -155,6 +158,7 @@ from .symbol_onnx import (
     LocalSymbolOnnxAdapter,
     SymbolOnnxError,
     preprocess_rgb_batch,
+    symbol_onnx_variant_arguments,
 )
 from .virtual_cell_extraction import (
     VIRTUAL_CELL_INTERPOLATION_VERSION,
@@ -393,13 +397,13 @@ class ProductionImageImportWorkflow:
         artifact_root: Path,
         *,
         repository_root: Path,
-        hard_reserve_bytes: int = 30 * 1024**3,
-        resume_target_bytes: int = 80 * 1024**3,
+        hard_reserve_bytes: int = StorageRetentionPolicy().hard_reserve_bytes,
     ) -> None:
+        if hard_reserve_bytes <= 0:
+            raise ValueError("hard_reserve_bytes must be positive.")
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._hard_reserve_bytes = hard_reserve_bytes
-        self._resume_target_bytes = resume_target_bytes
         self._original_store = ManagedOriginalStore(self._artifact_root)
         self._source_handler = ImageSourceIngestionHandler(
             self._original_store,
@@ -416,10 +420,16 @@ class ProductionImageImportWorkflow:
         )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        # D-467 (TASK-0790): a job pinned to the removed legacy (file-crop) or
+        # shadow engine fails before any source, board or observation write.
+        _require_virtual_geometry_rollout(_geometry_rollout_snapshot(job))
         manifest = self._original_store.load_or_create_manifest(
             job,
             source_directory=_source_directory(job),
         )
+        if "neural_grid_proposal" in job.input_payload:
+            # Verify source/model/binding evidence before any retention DB write.
+            _page_geometry_manifest(job, self._artifact_root, managed_manifest=manifest)
         all_source_count = len(manifest.originals)
         source_context = _ProgressWindowContext(
             context,
@@ -449,10 +459,16 @@ class ProductionImageImportWorkflow:
             if job.input_payload.get("geometry_guard_resolution_manifest") is not None
             else None
         )
-        unresolved_originals = _filter_canonical_originals(manifest.originals, job)
-        canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
+        neural_import = "neural_grid_proposal" in job.input_payload
+        candidate_originals = manifest.originals
+        if neural_import:
+            from .neural_pending_geometry import bound_neural_originals
+
+            candidate_originals = bound_neural_originals(manifest.originals, geometry_manifest)
+        unresolved_originals = _filter_canonical_originals(candidate_originals, job)
+        canonical_skipped_count = len(candidate_originals) - len(unresolved_originals)
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
-        manual_geometry_import = (
+        manual_geometry_import = neural_import or (
             geometry_guard_policy is not None
             and geometry_guard_policy["policyVersion"] == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
         )
@@ -462,7 +478,12 @@ class ProductionImageImportWorkflow:
                 pipeline_originals,
                 geometry_manifest,
             )
-        deferred_geometry_count = len(unresolved_originals) - len(pipeline_originals)
+        deferred_geometry_count = (
+            len(manifest.originals)
+            - len(candidate_originals)
+            + len(unresolved_originals)
+            - len(pipeline_originals)
+        )
         source_count = len(pipeline_originals)
         if not pipeline_originals:
             context.checkpoint(
@@ -500,7 +521,11 @@ class ProductionImageImportWorkflow:
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
         geometry_guard = None
         geometry_guard_resolution = None
-        if board_cell_processing is not None and geometry_guard_policy is not None:
+        if (
+            board_cell_processing is not None
+            and geometry_guard_policy is not None
+            and not neural_import
+        ):
             guard_suite = ProductionImageStageAdapterSuite(
                 self._artifact_root,
                 manual_geometry_import=manual_geometry_import,
@@ -605,6 +630,9 @@ class ProductionImageImportWorkflow:
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             manual_geometry_import=manual_geometry_import,
+            neural_execution_policy=cast(
+                str | None, job.input_payload.get("neural_grid_execution_policy_version")
+            ),
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
@@ -659,13 +687,9 @@ class ProductionImageImportWorkflow:
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 
-    def _has_pipeline_capacity(self, job: Job) -> bool:
-        required = (
-            self._resume_target_bytes
-            if job.stage == "waiting_for_storage"
-            else self._hard_reserve_bytes
-        )
-        return shutil.disk_usage(self._artifact_root).free >= required
+    def _has_pipeline_capacity(self, _job: Job) -> bool:
+        # The GC target is not a second admission threshold for a paused import.
+        return shutil.disk_usage(self._artifact_root).free >= self._hard_reserve_bytes
 
     def _record_browser_staging_handoff(
         self,
@@ -861,6 +885,7 @@ class ProductionImageStageAdapterSuite:
         game_id: UUID | None = None,
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
         manual_geometry_import: bool = False,
+        neural_execution_policy: str | None = None,
         geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
@@ -894,6 +919,13 @@ class ProductionImageStageAdapterSuite:
         self._game_id = game_id
         self._geometry_guard_resolutions = geometry_guard_resolutions
         self._manual_geometry_import = manual_geometry_import
+        from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+
+        if neural_execution_policy not in (None, NEURAL_AUTO_CROP_POLICY):
+            raise ImagePipelineExecutionError(
+                "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unsupported neural crop policy."
+            )
+        self._neural_automatic_crops = neural_execution_policy == NEURAL_AUTO_CROP_POLICY
         self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -908,10 +940,10 @@ class ProductionImageStageAdapterSuite:
             load_anchor_rgb=self._load_anchor_rgb,
         )
         self._cropper = SourceDirectBoardCellCropper(
-            cell_output_size=self._symbol_model_snapshot.input_size,
+            cell_output_size=self._symbol_model_snapshot.crop_output_size,
         )
         self._v19_cropper = BoardCellGeometrySourceDirectCropper(
-            cell_output_size=self._symbol_model_snapshot.input_size,
+            cell_output_size=self._symbol_model_snapshot.crop_output_size,
             topology=(
                 self._board_topology
                 if self._board_cell_processing.get("topologyRulesVersionId") is not None
@@ -936,7 +968,9 @@ class ProductionImageStageAdapterSuite:
             FunctionImageStageAdapter(
                 "board_detection",
                 (
-                    DETECTION_ADAPTER_VERSION
+                    NEURAL_AUTO_CROP_POLICY
+                    if self._neural_automatic_crops
+                    else DETECTION_ADAPTER_VERSION
                     if self._geometry_rollout.is_legacy
                     else self._geometry_rollout.geometry_engine_version
                 ),
@@ -948,7 +982,9 @@ class ProductionImageStageAdapterSuite:
                 FunctionImageStageAdapter(
                     "board_cell_geometry",
                     (
-                        BOARD_CELL_PROCESSING_VERSION
+                        NEURAL_AUTO_CROP_POLICY
+                        if self._neural_automatic_crops
+                        else BOARD_CELL_PROCESSING_VERSION
                         if self._geometry_rollout.is_legacy
                         else self._geometry_rollout.geometry_engine_version
                     ),
@@ -1096,6 +1132,12 @@ class ProductionImageStageAdapterSuite:
                     attested_range=AttestedSequenceRange(start=start, end=end),
                 )
             ).to_payload()
+            if entry.get("neuralProposal") is not None:
+                from .neural_pending_geometry import neural_pending_payload
+
+                return neural_pending_payload(
+                    structured, entry, automatic_crops=self._neural_automatic_crops
+                )
             return {
                 "manualGeometryRequired": True,
                 "structuredGeometry": structured,
@@ -1238,10 +1280,46 @@ class ProductionImageStageAdapterSuite:
         """Estimate all nine lattices and persist only fail-closed deferrals."""
 
         detection = _previous(context, "board_detection")
+        if self._neural_automatic_crops:
+            structured = _mapping(detection["structuredGeometry"], "structuredGeometry")
+            return {
+                "structuredGeometry": structured,
+                "processingVersion": NEURAL_AUTO_CROP_POLICY,
+                "topologyRulesVersionId": self._board_topology.rules_version_id,
+                "configurationFingerprintSha256": structured["configChecksumSha256"],
+                "gridRows": self._board_topology.rows,
+                "gridColumns": self._board_topology.columns,
+                "boards": [
+                    {
+                        **board,
+                        "cellGeometry": (
+                            {"gridQuad": _mapping(board["geometry"], "geometry")["quad"]}
+                            if _mapping(board["geometry"], "geometry").get("structuredDisposition")
+                            == "automatic"
+                            else None
+                        ),
+                        "status": (
+                            "verified"
+                            if _mapping(board["geometry"], "geometry").get("structuredDisposition")
+                            == "automatic"
+                            else "deferred"
+                        ),
+                        "reasonCode": "incomplete_lattice",
+                        "estimatorFailureReason": "INCOMPLETE_LATTICE",
+                    }
+                    for board in _boards(detection)
+                ],
+            }
         if self._manual_geometry_import and detection.get("manualGeometryRequired") is True:
             return {
                 "manualGeometryRequired": True,
                 "structuredGeometry": detection["structuredGeometry"],
+                "processingVersion": BOARD_CELL_PROCESSING_VERSION,
+                "topologyRulesVersionId": self._board_topology.rules_version_id,
+                "configurationFingerprintSha256": _text(
+                    _mapping(detection["structuredGeometry"], "structuredGeometry"),
+                    "configChecksumSha256",
+                ),
                 "gridRows": self._board_topology.rows,
                 "gridColumns": self._board_topology.columns,
                 "boards": [
@@ -1464,11 +1542,20 @@ class ProductionImageStageAdapterSuite:
         geometry_stage = (
             _previous(context, "board_cell_geometry") if self._board_cell_processing else {}
         )
+        if self._neural_automatic_crops:
+            return self._virtual_board_payload(context)
         if self._manual_geometry_import and geometry_stage.get("manualGeometryRequired") is True:
             return {
                 "assetMode": "virtual_source",
                 "boards": [],
-                "deferredBoards": list(_boards(geometry_stage)),
+                "deferredBoards": [
+                    {
+                        "positionIndex": board["positionIndex"],
+                        "reasonCode": board["reasonCode"],
+                        "sequenceNumber": board["sequenceNumber"],
+                    }
+                    for board in _boards(geometry_stage)
+                ],
             }
         if not self._geometry_rollout.is_legacy:
             return self._board_crops_structured(context)
@@ -1536,7 +1623,7 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": cells,
                     "cropperVersion": CROP_ADAPTER_VERSION,
                     "cropValidity": "source_direct_verified_geometry",
@@ -1613,7 +1700,7 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": cells,
                     "cropperVersion": V19_CROPPER_VERSION,
                     "cropValidity": "source_direct_verified_v19_geometry",
@@ -1719,7 +1806,7 @@ class ProductionImageStageAdapterSuite:
             boards.append(
                 {
                     "assetMode": "virtual_source",
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": [
                         {
                             "assetMode": "virtual_source",
@@ -1809,9 +1896,9 @@ class ProductionImageStageAdapterSuite:
             extractor_version=self._geometry_rollout.virtual_renderer_version,
             preprocessing_version=self._geometry_rollout.preprocessing_version,
             interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
-            output_width=self._symbol_model_snapshot.input_size,
-            output_height=self._symbol_model_snapshot.input_size,
-            padding_fraction=0.08,
+            output_width=self._symbol_model_snapshot.crop_output_size,
+            output_height=self._symbol_model_snapshot.crop_output_size,
+            padding_fraction=self._symbol_model_snapshot.crop_padding_fraction,
         )
         cells: list[VirtualCell] = []
         geometry_revision_value = structured.get("geometryRevision", 0)
@@ -1857,7 +1944,19 @@ class ProductionImageStageAdapterSuite:
                 engine_kind=(
                     GeometryEngineKind.MANUAL_V1
                     if "geometryQualification" in board
+                    else GeometryEngineKind.NEURAL_GRID_V1
+                    if self._neural_automatic_crops
                     else GeometryEngineKind.STRUCTURED_OPENCV_V1
+                ),
+                lattice_nodes=(
+                    SourceLatticeNodes(
+                        tuple(
+                            SourcePoint(float(point["x"]), float(point["y"]))
+                            for point in cast(list[dict[str, float]], board["latticeNodes"])
+                        )
+                    )
+                    if self._neural_automatic_crops
+                    else None
                 ),
                 symbol_grid_quad=final_quad,
                 geometry_qualification=(
@@ -2413,6 +2512,7 @@ class ProductionImageStageAdapterSuite:
                 detections,
                 context.attested_sequence_range,
                 allow_sparse=self._board_cell_processing is not None,
+                bound_neural_slots=self._neural_automatic_crops,
             )
         rgb = self._normalized_images.load(context, normalized)
         recognizer = self._ocr_recognizer()
@@ -2618,6 +2718,7 @@ class ProductionImageStageAdapterSuite:
                     preprocess_rgb_batch(
                         images,
                         input_size=self._symbol_model_snapshot.input_size,
+                        model_version=self._symbol_model_snapshot.model_version,
                     )
                 )
             except SymbolOnnxError as error:
@@ -2719,6 +2820,7 @@ class ProductionImageStageAdapterSuite:
                     expected_sha256=self._symbol_model_snapshot.onnx_checksum_sha256,
                     class_codes=self._symbol_model_snapshot.class_codes,
                     input_size=self._symbol_model_snapshot.input_size,
+                    **symbol_onnx_variant_arguments(self._symbol_model_snapshot.model_version),
                 )
             except SymbolOnnxError as error:
                 raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
@@ -2997,6 +3099,24 @@ def _legacy_geometry_rollout_snapshot() -> GeometryPipelineRolloutSnapshot:
     )
 
 
+NON_VIRTUAL_ROLLOUT_ERROR = "IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED"
+
+
+def _require_virtual_geometry_rollout(rollout: GeometryPipelineRolloutSnapshot) -> None:
+    """Only virtual-default rollouts may run an import (D-467, TASK-0790).
+
+    Historical snapshots of the removed ``legacy`` and ``structured_shadow``
+    modes stay parseable for reports, but they can no longer write boards.
+    """
+
+    if rollout.cell_asset_mode is not CellAssetRolloutMode.VIRTUAL_DEFAULT:
+        raise JobHandlerError(
+            NON_VIRTUAL_ROLLOUT_ERROR,
+            "This import is pinned to a removed legacy image engine; only virtual "
+            "geometry imports can run.",
+        )
+
+
 def _geometry_rollout_snapshot(job: Job) -> GeometryPipelineRolloutSnapshot:
     value = job.input_payload.get("image_geometry_rollout")
     if value is None:
@@ -3057,7 +3177,7 @@ def _board_cell_processing_snapshot(job: Job) -> dict[str, object] | None:
     try:
         snapshot = validate_board_cell_processing_snapshot(
             value,
-            cell_output_size=_symbol_model_snapshot(job).input_size,
+            cell_output_size=_symbol_model_snapshot(job).crop_output_size,
         )
         require_v20_supported_topology(snapshot)
         return snapshot
@@ -3218,6 +3338,33 @@ def _page_geometry_manifest(
     entries = value.get("entries")
     if not isinstance(entries, Mapping):
         raise _page_manifest_error(job, "The pinned page geometry manifest has no source entries.")
+    if "neural_grid_proposal" in job.input_payload:
+        from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+        from .neural_page_geometry_preflight import validate_neural_page_manifest
+
+        snapshot = NeuralGridSnapshot.from_payload(job.input_payload["neural_grid_proposal"])
+        validate_neural_page_manifest(
+            value,
+            game_id=str(job.game_id),
+            source_selection_id=str(job.input_payload.get("source_selection_id")),
+            source_manifest_sha256=str(job.input_payload.get("source_manifest_sha256")),
+            snapshot=snapshot,
+        )
+        if managed_manifest is None or set(entries) != {
+            item.checksum_sha256 for item in managed_manifest.originals
+        }:
+            raise _page_manifest_error(job, "The neural manifest differs from managed originals.")
+        for original in managed_manifest.originals:
+            entry = cast(Mapping[str, object], entries[original.checksum_sha256])
+            if entry["sourceRelativePath"] != original.source_relative_path:
+                raise _page_manifest_error(
+                    job, "The neural source path differs from the frozen inventory."
+                )
+        from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
+
+        ManagedGridEngineModelStore(artifact_root).require(snapshot.version)
+        return entries
     if job.input_payload.get("geometry_engine_variant") == "contrast_frame_grid_v1_2":
         from .page_geometry_preflight import (
             PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION,
@@ -3587,12 +3734,14 @@ def _attested_sequence_payload(
     sequence_range: tuple[int, int],
     *,
     allow_sparse: bool = False,
+    bound_neural_slots: bool = False,
 ) -> dict[str, object]:
     """Assign row-major numbers from a validated ``seq_start-end`` filename.
 
     The filename is authoritative when the detector returned the complete
     declared page. Sparse geometry on a full nine-board page keeps its physical
-    position; neither path shifts a remaining board to fill a missing slot.
+    position. Frozen neural bindings also attest sparse shorter pages; no path
+    shifts a remaining board to fill a missing slot.
     """
 
     start, end = sequence_range
@@ -3603,7 +3752,7 @@ def _attested_sequence_payload(
     )
     sparse_full_page = (
         allow_sparse
-        and expected_count == 9
+        and (expected_count == 9 or bound_neural_slots)
         and bool(positions)
         and positions == sorted(set(positions))
         and all(0 <= position < expected_count for position in positions)

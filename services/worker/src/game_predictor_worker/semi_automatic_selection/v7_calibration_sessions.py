@@ -717,6 +717,30 @@ def _apply_operation(
     )
 
 
+def read_immutable_v7_calibration_session(
+    runtime_root: Path, session_id: str
+) -> V7CalibrationSession:
+    """Read canonical metadata only; never create locks or recover a temporary state."""
+    _validate_uuid(session_id, "V7_CALIBRATION_SESSION_INVALID")
+    directory = Path(runtime_root) / "v7-label-geometry" / "sessions" / session_id
+    state = directory / "state.json"
+    temporary = directory / "state.json.tmp"
+    if temporary.exists():
+        raise V7CalibrationSessionError(
+            "V7_CALIBRATION_SESSION_RECOVERY_REQUIRED", "Session requires writable recovery."
+        )
+    if not state.is_file():
+        raise V7CalibrationSessionError(
+            "V7_CALIBRATION_SESSION_NOT_FOUND", "Calibration session does not exist."
+        )
+    result = _read_session_file(state, expected_session_id=session_id)
+    if temporary.exists():
+        raise V7CalibrationSessionError(
+            "V7_CALIBRATION_SESSION_RECOVERY_REQUIRED", "Session changed during read."
+        )
+    return result
+
+
 def _read_session_file(path: Path, *, expected_session_id: str) -> V7CalibrationSession:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))

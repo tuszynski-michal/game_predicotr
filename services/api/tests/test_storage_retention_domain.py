@@ -183,6 +183,10 @@ def test_gc_manifest_and_preview_token_are_deterministic() -> None:
     assert len(gc_preview_token(forward, policy=policy)) == 64
 
 
+def test_default_hard_reserve_is_five_gib() -> None:
+    assert StorageRetentionPolicy().hard_reserve_bytes == 5 * 1024**3
+
+
 def test_policy_rejects_incoherent_thresholds() -> None:
     with pytest.raises(ValueError, match="monotonically"):
         StorageRetentionPolicy(

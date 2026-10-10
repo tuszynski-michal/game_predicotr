@@ -20,10 +20,19 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import (
+    VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
+    ensure_source_geometry,
+    virtual_board_columns,
+)
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
+)
+from game_predictor_api.application.board_search_board_detail import (
+    BoardSearchBoardDetailService,
+    BoardSearchStaleDocumentRefresh,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import SymbolStatus
@@ -34,13 +43,13 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.database import GameStorageSession
+from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchFastDocumentModel,
@@ -48,6 +57,7 @@ from game_predictor_api.storage.models import (
     ImageImportJobFileModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     PaylineModel,
     PayoutRuleModel,
@@ -56,6 +66,9 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SourceImageModel,
     SymbolModel,
+)
+from game_predictor_api.storage.super_game_marker_repository import (
+    SqlAlchemySuperGameMarkerRepository,
 )
 from sqlalchemy import Engine, create_engine, func, select, text
 from sqlalchemy.engine import make_url
@@ -74,7 +87,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0652_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -103,8 +116,8 @@ def database() -> Iterator[Engine]:
 # in addition to the core review chain tables every board needs.
 _V2_PARTITIONED_TABLES = (
     "source_images",
+    "image_source_geometry_revisions",
     "recognized_boards",
-    "cell_observations",
     "image_review_items",
     "image_sequence_canonical",
     "image_import_job_files",
@@ -113,6 +126,7 @@ _V2_PARTITIONED_TABLES = (
     "image_board_search_candidates",
     "image_board_search_fast_documents",
     "image_board_search_projection_states",
+    "image_symbol_review_cells",
 )
 
 
@@ -206,21 +220,29 @@ def _resolved_review_item(
     sequence_number: int,
     symbol_codes: tuple[str | None, ...],
     status: str = "accepted",
+    board_geometry: dict[str, object] | None = None,
 ) -> ImageReviewItemModel:
     """One board resolved by a human decision, with `symbol_codes` exactly as
     `resolved_value.symbolCodes` — `None` entries are logical `?`, allowed
     even for an accepted/corrected board (a confirmed partial reading)."""
 
     assert len(symbol_codes) == 15
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
         sequence_number_raw=str(sequence_number),
         sequence_number=sequence_number,
         sequence_confidence=1,
-        board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        board_geometry=board_geometry or {},
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="complete",
         board_confidence=1,
@@ -229,18 +251,6 @@ def _resolved_review_item(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,
@@ -269,7 +279,8 @@ def _resolved_review_item(
             import_job_id=job.id,
             source_image_id=source.id,
             source_checksum_sha256=source.checksum_sha256,
-            board_checksum_sha256=board.board_checksum_sha256,
+            # The board identity of a virtual board is its geometry checksum.
+            board_checksum_sha256=board.geometry_checksum_sha256,
             status=status,
             resolution_revision=1,
             geometry_revision=0,
@@ -397,11 +408,13 @@ def test_calculates_payout_range_across_complete_partial_and_missing_boards(
     # A fresh, unscoped session/transaction: the calculation itself must be
     # read-only, so nothing it does may depend on the fixture's own
     # transaction or write anything back.
-    with Session(database, expire_on_commit=False) as session:
+    with GameStorageSession(database, expire_on_commit=False) as session:
         before_counts = _game_owned_row_counts(session, game_id)
 
         repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
-        service = BoardSearchApproximateWinService(repository)
+        service = BoardSearchApproximateWinService(
+            repository, SqlAlchemySuperGameMarkerRepository(session)
+        )
         calculation = service.calculate(
             game_id=game_id,
             start_sequence_number=1,
@@ -411,6 +424,12 @@ def test_calculates_payout_range_across_complete_partial_and_missing_boards(
         after_counts = _game_owned_row_counts(session, game_id)
 
     assert before_counts == after_counts, "approximate-win calculation must not write anything"
+
+    # TASK-0935: a game without a super game kind is always fresh and unmarked.
+    assert calculation.super_game is not None
+    assert calculation.super_game.by_position == {}
+    assert calculation.super_game.state.fresh
+    assert not calculation.super_game.state.has_super_game
 
     result = calculation.result
     assert calculation.data_source.value == "operational_review"
@@ -473,3 +492,283 @@ def _game_owned_row_counts(session: Session, game_id: UUID) -> dict[str, int]:
             or 0
         ),
     }
+
+
+def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
+    database: Engine,
+) -> None:
+    """D-470 board detail against a live `game_data_v2` game: the same
+    document, source image and geometry the search reads, payline labels of
+    the published rules, no writes, and a revision conflict once the board's
+    identity checksum no longer matches the search document."""
+
+    game_id = uuid4()
+    rules_version_id = uuid4()
+    symbol_id = uuid4()
+    lattice = [
+        {"x": 10.0, "y": 20.0},
+        {"x": 60.0, "y": 20.0},
+        {"x": 60.0, "y": 50.0},
+        {"x": 10.0, "y": 50.0},
+    ]
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        session.add(
+            GameModel(id=game_id, code="v2-detail", name="V2 Detail", expected_layout_count=20)
+        )
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game_id)
+        session.add(
+            SymbolModel(
+                id=symbol_id,
+                game_id=game_id,
+                mobile_code=1,
+                code="A",
+                name="Symbol A",
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+        )
+        session.flush()
+        session.add(
+            RulesVersionModel(
+                id=rules_version_id,
+                game_id=game_id,
+                version=1,
+                rows=3,
+                columns=5,
+                spin_cost=100,
+                status=RulesVersionStatus.PUBLISHED,
+                published_at=datetime.now(UTC),
+            )
+        )
+        session.flush()
+        session.add(
+            RulesVersionSymbolModel(
+                rules_version_id=rules_version_id,
+                symbol_id=symbol_id,
+                minimum_match_length=3,
+                is_active=True,
+            )
+        )
+        session.flush()
+        session.add(
+            PaylineModel(
+                rules_version_id=rules_version_id,
+                code="L1",
+                name="Górna",
+                row_path=[0, 0, 0, 0, 0],
+                display_order=0,
+                is_active=True,
+            )
+        )
+        session.add_all(
+            PayoutRuleModel(
+                rules_version_id=rules_version_id,
+                symbol_id=symbol_id,
+                match_length=length,
+                payout_credits=credits,
+            )
+            for length, credits in ((3, 10), (4, 25), (5, 50))
+        )
+        session.flush()
+        job = _import_job(session, game_id=game_id)
+        source = _source(session, job=job, relative_path="imports/page_1.jpg")
+        item = _resolved_review_item(
+            session,
+            game_id=game_id,
+            job=job,
+            source=source,
+            position=0,
+            sequence_number=5,
+            symbol_codes=("A", "A", "A", "A", None) + (None,) * 10,
+            board_geometry={"latticeBoundsQuad": lattice},
+        )
+        SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
+        source_checksum = source.checksum_sha256
+        board_id = item.recognized_board_id
+        board_record = session.get(RecognizedBoardModel, board_id)
+        assert board_record is not None
+        now = datetime.now(UTC)
+        # One record at the board's current geometry revision (0) and one of
+        # an older crop generation that must never be offered for editing.
+        for cell_index, geometry_revision in ((0, 0), (1, 7)):
+            session.add(
+                ImageSymbolReviewCellModel(
+                    game_id=game_id,
+                    import_job_id=job.id,
+                    review_item_id=item.id,
+                    recognized_board_id=board_id,
+                    sequence_number=5,
+                    cell_index=cell_index,
+                    row_index=0,
+                    column_index=cell_index,
+                    crop_sample_id=f"{cell_index + 10:064x}",
+                    crop_checksum_sha256=f"{cell_index + 20:064x}",
+                    # D-467 S6: a virtual cell (render provenance, no crop file).
+                    asset_mode="virtual_source",
+                    source_geometry_revision_id=board_record.source_geometry_revision_id,
+                    logical_cell_key=f"{cell_index + 30:064x}",
+                    render_spec_checksum_sha256=f"{cell_index + 40:064x}",
+                    rendered_pixel_checksum_sha256=f"{cell_index + 20:064x}",
+                    extractor_version=VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
+                    geometry_revision=geometry_revision,
+                    cropper_version=VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
+                    prediction_symbol_code="A",
+                    prediction_confidence=0.9,
+                    assigned_symbol_id=symbol_id,
+                    review_state="pending",
+                    quality_issue=None,
+                    verification_outcome=None,
+                    verified_symbol_id_v2=None,
+                    assignment_source="model",
+                    revision=0,
+                    last_reviewed_by="detail-test",
+                    last_reviewed_at=now,
+                    created_at=now,
+                )
+            )
+        session.flush()
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        before_counts = _game_owned_row_counts(session, game_id)
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        detail = BoardSearchBoardDetailService(repository).detail(
+            game_id=game_id, sequence_number=5
+        )
+        _source_mode, document = repository.board_document(game_id=game_id, sequence_number=5)
+        assert document is not None
+        view_source = repository.board_view_source(game_id=game_id, document=document)
+        board_cells = repository.board_cells(game_id=game_id, document=document)
+        missing = repository.board_document(game_id=game_id, sequence_number=6)
+        after_counts = _game_owned_row_counts(session, game_id)
+
+    assert before_counts == after_counts, "board detail must not write anything"
+    assert missing[1] is None
+    assert detail.payout_kind == "confirmed_minimum"
+    assert detail.payout_credits == 25
+    assert [
+        (match.payline_code, match.payline_name, match.matched_cells) for match in detail.matches
+    ] == [("L1", "Górna", (0, 1, 2, 3))]
+    assert detail.symbol_codes[:5] == ("A", "A", "A", "A", None)
+    assert detail.view is not None and len(detail.view.cell_polygons) == 15
+    # The board is resolved, so the detail offers no cell editing (D-473),
+    # while the repository still reads only current-geometry records.
+    assert detail.cells is None
+    assert [(cell.cell_index, cell.assigned_symbol_code) for cell in board_cells] == [(0, "A")]
+    assert view_source is not None
+    assert view_source.image_relative_path == "imports/page_1.jpg"
+    assert view_source.image_checksum_sha256 == source_checksum
+    assert view_source.current_board_checksum_sha256 == document.board_checksum_sha256
+
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        board = session.get(RecognizedBoardModel, board_id)
+        assert board is not None
+        board.geometry_checksum_sha256 = "e" * 64
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        stale = BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).detail(game_id=game_id, sequence_number=5)
+    # TASK-0773: the lines stay, the photo and cell editing wait for a refresh.
+    assert stale.document_stale is True
+    assert stale.view is None and stale.cells is None
+    assert stale.payout_credits == 25
+
+    with GameStorageSession(database, expire_on_commit=False) as session, session.begin():
+        refreshed = BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).refresh(game_id=game_id, sequence_number=5)
+    assert refreshed.document_removed is False
+    assert refreshed.detail is not None
+    assert refreshed.detail.document_stale is False
+    assert refreshed.detail.board_checksum_sha256 == "e" * 64
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        after = BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).detail(game_id=game_id, sequence_number=5)
+    assert after.document_stale is False
+    assert after.payout_credits == 25
+
+
+def test_bulk_refresh_selects_and_refreshes_only_stale_documents(database: Engine) -> None:
+    """TASK-0814: the bulk refresh picks exactly the documents the board
+    detail calls stale, rebuilds them like the modal button and leaves fresh
+    documents alone."""
+
+    game_id = uuid4()
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        session.add(
+            GameModel(id=game_id, code="v2-stale", name="V2 Stale", expected_layout_count=20)
+        )
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game_id)
+        session.add(
+            SymbolModel(
+                game_id=game_id,
+                mobile_code=1,
+                code="A",
+                name="Symbol A",
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+        )
+        session.flush()
+        job = _import_job(session, game_id=game_id)
+        source = _source(session, job=job, relative_path="imports/page_1.jpg")
+        items = [
+            _resolved_review_item(
+                session,
+                game_id=game_id,
+                job=job,
+                source=source,
+                position=position,
+                sequence_number=position + 3,
+                symbol_codes=_known(first=5),
+            )
+            for position in range(3)
+        ]
+        SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
+        # The middle board's grid moves on without a projection sync.
+        moved = session.get(RecognizedBoardModel, items[1].recognized_board_id)
+        assert moved is not None
+        moved.geometry_checksum_sha256 = "e" * 64
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        before = _game_owned_row_counts(session, game_id)
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        assert repository.stale_document_sequence_numbers(
+            game_id=game_id, after_sequence_number=0, limit=10
+        ) == (4,)
+        assert (
+            repository.stale_document_sequence_numbers(
+                game_id=game_id, after_sequence_number=4, limit=10
+            )
+            == ()
+        )
+        assert _game_owned_row_counts(session, game_id) == before
+
+    with GameStorageSession(database, expire_on_commit=False) as session, session.begin():
+        batch = BoardSearchStaleDocumentRefresh(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).refresh_batch(game_id=game_id, after_sequence_number=0, limit=10)
+    assert batch.refreshed == (4,)
+    assert batch.removed == batch.still_stale == ()
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        assert (
+            repository.stale_document_sequence_numbers(
+                game_id=game_id, after_sequence_number=0, limit=10
+            )
+            == ()
+        )
+        documents = {
+            sequence: repository.board_document(game_id=game_id, sequence_number=sequence)[1]
+            for sequence in (3, 4, 5)
+        }
+    assert documents[4] is not None and documents[4].board_checksum_sha256 == "e" * 64
+    assert all(document is not None for document in documents.values())

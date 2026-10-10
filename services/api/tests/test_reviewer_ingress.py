@@ -395,3 +395,35 @@ def test_admin_ingress_endpoints_require_explicit_target_confirmation() -> None:
         assert stopped.json()["state"] == "stopped"
 
     assert ingress.calls == ["status", "start", "start_local", "stop"]
+
+
+def test_default_runner_points_the_started_reviewer_at_this_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An API on a non-default port must hand its origin to the Reviewer it
+    starts; an explicit operator value is kept."""
+    import subprocess as subprocess_module
+
+    from game_predictor_api.application import reviewer_ingress as module
+
+    captured: list[dict[str, str]] = []
+
+    def fake_run(command: object, **kwargs: object) -> subprocess_module.CompletedProcess[str]:
+        env = kwargs["env"]
+        assert isinstance(env, dict)
+        captured.append(dict(env))
+        return subprocess_module.CompletedProcess(command, 1, "", "")  # type: ignore[arg-type]
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.delenv("REVIEWER_INTERNAL_API_ORIGIN", raising=False)
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "start_remote_reviewer_tunnel.ps1").write_text("", encoding="utf-8")
+    service = ReviewerIngressService(tmp_path, api_origin="http://127.0.0.1:8010")
+    with pytest.raises(ReviewerIngressError):
+        service.start()
+    assert captured[0]["REVIEWER_INTERNAL_API_ORIGIN"] == "http://127.0.0.1:8010"
+
+    monkeypatch.setenv("REVIEWER_INTERNAL_API_ORIGIN", "http://localhost:8000")
+    with pytest.raises(ReviewerIngressError):
+        service.start()
+    assert captured[1]["REVIEWER_INTERNAL_API_ORIGIN"] == "http://localhost:8000"

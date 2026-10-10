@@ -14,6 +14,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import ensure_source_geometry, virtual_board_columns
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -21,13 +22,12 @@ from game_predictor_api.domain.board_import_coverage import MissingReason
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
@@ -55,7 +55,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0629_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -80,33 +80,19 @@ def database() -> Iterator[Engine]:
         maintenance.dispose()
 
 
-def _provision_public_storage_location(session: Session, *, game_id: UUID) -> None:
-    """Register the row GameStorageRouter.bind() requires before routing.
-
-    Real games get this row from the game-creation use case; these fixtures
-    build games directly via the ORM, so it has to be inserted by hand. All
-    fixture data here lives in the default `public` schema (generation 1).
-    """
-
-    session.execute(
-        text(
-            "INSERT INTO public.game_storage_locations "
-            "(game_id, store_schema, generation, manifest_version, status, revision) "
-            "VALUES (:game_id, 'public', 1, :version, 'active', 0)"
-        ),
-        {"game_id": game_id, "version": VERSION},
-    )
-
-
+# Every scenario routes its game to game_data_v2: the public game store and
+# its generation-1 registry rows were removed by migration 0125 (D-448), and
+# the router rejects a registry row with generation < 2.
 _V2_PARTITIONED_TABLES = (
     "source_images",
+    "image_source_geometry_revisions",
     "recognized_boards",
-    "cell_observations",
     "image_review_items",
     "image_sequence_canonical",
     "image_import_job_files",
     "image_review_queue_items",
     "image_review_queue_states",
+    "image_board_geometry_pending",
 )
 
 
@@ -216,6 +202,14 @@ def _add_complete_board(
     sequence_number: int,
     review_status: str = "pending",
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -223,8 +217,7 @@ def _add_complete_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="complete",
         board_confidence=1,
@@ -233,18 +226,6 @@ def _add_complete_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,
@@ -277,6 +258,14 @@ def _add_partial_board(
     position: int,
     sequence_number: int,
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -284,8 +273,7 @@ def _add_partial_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="pending_partial",
         unavailable_cell_indices=[0],
@@ -295,18 +283,6 @@ def _add_partial_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,
@@ -325,7 +301,7 @@ def test_pending_complete_board_without_canonical_is_added(database: Engine) -> 
         game = GameModel(code="cov-1", name="Coverage 1", expected_layout_count=20)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_1-1.jpg")
         _add_complete_board(
@@ -346,7 +322,7 @@ def test_partial_only_board_is_missing_with_reason(database: Engine) -> None:
         game = GameModel(code="cov-2", name="Coverage 2", expected_layout_count=10)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_5-5.jpg")
         _add_partial_board(
@@ -368,7 +344,7 @@ def test_number_without_any_trace_is_no_source(database: Engine) -> None:
         game = GameModel(code="cov-3", name="Coverage 3", expected_layout_count=5)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
 
     with Session(database) as session:
         repo = SqlAlchemyBoardImportCoverageRepository(session)
@@ -386,7 +362,7 @@ def test_gaps_at_start_middle_and_end(database: Engine) -> None:
         game = GameModel(code="cov-4", name="Coverage 4", expected_layout_count=20)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         for order_index, sequence_number in enumerate([*range(3, 8), *range(10, 18)]):
             source = _source(
@@ -416,7 +392,7 @@ def test_active_import_file_marks_in_progress_not_no_source(database: Engine) ->
         game = GameModel(code="cov-5", name="Coverage 5", expected_layout_count=20)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="processing")
         checksum = uuid4().hex * 2
         session.add(
@@ -459,7 +435,7 @@ def test_geometry_pending_resolution_creates_item_and_stays_added(database: Engi
         game = GameModel(code="cov-6", name="Coverage 6", expected_layout_count=5)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_2-2.jpg")
 
@@ -501,7 +477,7 @@ def test_duplicate_supersession_counts_distinct_and_totals_match_expected(databa
         game = GameModel(code="cov-7", name="Coverage 7", expected_layout_count=6)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job_a = _import_job(session, game_id=game.id, status="completed")
         source_a = _source(session, job=job_a, relative_path="seq_1-6.jpg")
         for sequence_number in range(1, 7):
@@ -559,7 +535,7 @@ def test_numbers_above_expected_are_out_of_range_not_added(database: Engine) -> 
         game = GameModel(code="cov-8", name="Coverage 8", expected_layout_count=3)
         session.add(game)
         session.flush()
-        _provision_public_storage_location(session, game_id=game.id)
+        _provision_v2_storage_location(session, game_id=game.id)
         job = _import_job(session, game_id=game.id, status="completed")
         source = _source(session, job=job, relative_path="seq_9-9.jpg")
         item = _add_complete_board(

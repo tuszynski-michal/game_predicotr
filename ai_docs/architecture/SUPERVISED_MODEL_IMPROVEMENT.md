@@ -1,12 +1,51 @@
 ---
 title: Supervised symbol model improvement architecture
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-10-07
 ---
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Jawne pochodzenie kandydata pilota Mumii — D-521
+
+Adapter eksportu laboratorium rejestruje niezmienny pakiet w istniejącym
+symbol_model_iterations z pochodzeniem lab_import. Wymaga checksum-bound
+origin manifest zamiast fikcyjnej verified_training_cohort. Istniejące
+production_training zachowuje obowiązkową rzeczywistą kohortę DB.
+Zmiana nullability ma constraint rozdzielający oba pochodzenia i migrację.
+Aktywacja używa istniejącego registry, rozszerzonego o jawne wyłączenie pilota
+gdy brak poprzedniej aktywnej wersji; nie uruchamia niezgodnego bootstrapu.
+R2 RGB ma osobny kontrakt opset17, cropSize96/inputSize64 i bilinear antialias,
+przypięty w fingerprint snapshotu. M6/777 pozostaje przy swoim kontrakcie.
+Import i korekta używają tego samego wersjonowanego CPU preprocessingu.
+
+D-522 dopuszcza bieżącą ręcznie zatwierdzoną siatkę przypisanego slotu sieci
+do własnej projekcji cropów podczas korekty pojedynczej planszy. Historyczny
+backfill gry i pozostałe sloty nie stanowią warunku zapisu wskazanego symbolu.
+Wersjonowana polityka D-523 umożliwia też użycie pełnych przewidywanych
+lattice do bieżącej projekcji pending. Zachowuje wszystkie punkty i oddziela
+operacyjną dostępność cropów od approval oraz kwalifikacji treningowej.
+Human geometry/labels/quality issues chronią aktualnego właściciela podczas
+reprocessu. Globalną historyczną gotowość odzyskuje istniejący backfill.
+Nie zmienia to globalnej gotowości katalogu, kwalifikacji kohort ani ochrony
+bieżącej tożsamości cropa. Widoczność wyznaczają dokładne węzły renderu.
+R2 renderuje pełny źródłowy quad RGB96 bez insetu (padding0.0), z wersją
+source-direct-full-quad-rgb96-v1 w tożsamości pakietu. Dotychczasowy virtual
+padding0.08 pozostaje bez zmian. Parity obejmuje piksele ze źródła oraz logity.
+Preview/freeze kohorty i dataset builder niezależnie stosują per-game frozen
+protected-source-exclusions-v1 z byte/pixel SHA całych kontrolnych źródeł R2.
+Deskryptor jest częścią fingerprintu; chroni importowane i reencoded aliasy.
+Pilot używa istniejącego whole-photo source-family split. Recording registry
+nie jest częścią tego zakresu; ograniczenie widoczne w raporcie.
+Wdrożenie i migracja wymagają konkretnego preview, zgodnie z planem
+delivery/MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md.
+
 ## Granica odpowiedzialności
+
+Laboratorium (`VISION_LAB.md`, D-447) utrzymuje plikowe zatwierdzenia
+`lab_human_approved`. Nie są one rekordami `image_symbol_review_cells` ani
+wejściem istniejącego buildera kohort DB. Adapter T12 sprawdza proweniencję
+oraz jawne mapowanie gry i symboli przed rejestracją kandydata.
 
 Ten pion obejmuje model rozpoznawania symboli. Nie zmienia wersji geometrii,
 croppera ani OCR numerów sekwencji. Właścicielem reguł produktowych jest
@@ -17,6 +56,49 @@ Kalibracja geometrii w wersji 0.5 pozostaje osobnym pionem z własną kohortą,
 bramką, rejestrem aktywacji i snapshotem importu. Jej kontrakt opisuje
 architecture/ITERATIVE_IMAGE_IMPORT.md; model symboli nie może ukrycie
 aktywować ani zmieniać profilu siatki.
+
+## Docelowy rejestr rodzin współdzielonych — D-527
+
+Poniższy kierunek jest zaakceptowany dla przyszłego Laboratorium w głównej
+aplikacji. Nie opisuje wdrożonej migracji ani obecnego resolvera per gra.
+Wymagania: `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, sekcja D-527.
+
+Rejestr rozdziela rodzinę modelu, niezmienną wersję oraz przypisanie do gry.
+Jedna rodzina ma wiele wersji i wiele zgodnych gier; wersja wskazuje jeden
+pakiet artefaktów, kohortę i raport, nawet jeśli korzysta z niej wiele gier.
+Gra zachowuje własne dane, symbole i historię aktywacji. Wersje siatek oraz
+symboli mają odrębne kontrakty i przypisania. Istniejące profile
+`grid_profile_777_v2` i `grid_profile_mumie_v1` wybierają zamrożone modele
+cięcia; nie są dynamiczną listą wszystkich wytrenowanych modeli symboli.
+
+Publikacja po bramce jakości udostępnia wersję w katalogu tworzenia gry.
+Wybranie wersji zapisuje powiązanie z grą i zgodny kontrakt; nie kopiuje wag
+ani historycznych plansz. Backend jest właścicielem katalogu i kontroli
+zgodności. Frontend korzysta z wygenerowanego kontraktu API. Szczegółowy
+schemat, migracje i operacje publikacji/przypisania należą do osobnego planu;
+nie dodajemy równoległego registry lub stałej opcji UI dla każdej nowej wersji.
+
+Wspólna kohorta zamraża listę gier, mapowanie stabilnych klas na lokalne
+symbole, kwalifikowane zatwierdzenia i pełną proweniencję każdej próbki.
+Builder zachowuje reguły bieżącego cropa i decyzji człowieka. Zgodność
+obejmuje klasy, wejście/preprocessing, a dla geometrii także topologię.
+Zmiana katalogu lub kontraktu po zamrożeniu nie zmienia manifestu; drift
+wyklucza próbkę albo blokuje zależny etap, zamiast zgadywać etykietę.
+Nie łączymy rodzin na podstawie nazw gier.
+
+Deduplikacja, przypisania źródeł i wyłączenia kontrolne są wspólne dla rodziny,
+z zachowaniem oryginalnego `game_id`. Alias kontrolnego zdjęcia w innej grze
+nadal pozostaje poza TRAIN. Przyszły rejestr nagrań musi obsłużyć tę granicę;
+obecny podział po całych zdjęciach nie daje gwarancji podziału po filmach.
+Raport porównuje wersje na tym samym zbiorze i pokazuje wyniki per gra,
+źródło i klasa, aby duża gra nie ukryła regresji mniejszej.
+
+Publikacja nie tworzy aktywacji w istniejących grach. Jawna aktywacja wskazuje
+gry docelowe i sprawdza ich zgodność przed zapisem. Import nadal utrwala
+checksum-bound snapshot właściwych wersji, mapowanie klas i kontrakt renderu.
+Worker nie odczytuje zmiennego „najnowszego modelu” podczas trwającego joba.
+Retry publikacji, przypisania i treningu musi być idempotentne, a stan
+odtwarzalny po restarcie. Niekompletny pakiet nie pojawia się jako dostępny.
 
 ## Przepływ
 
@@ -104,6 +186,31 @@ managed original, ponownie sprawdza źródło, render spec i checksumę RGB, a
 dopiero potem zapisuje PNG w content-addressed katalogu datasetu. Manifest
 datasetu rozróżnia checksumę bajtów legacy od `rgb-pixel-v1`, dzięki czemu
 kodowanie PNG nie jest mylone z tożsamością pikseli v0.10.
+
+TASK-0898 grupuje ograniczoną pulę preview/freeze po ścieżce i checksumie
+źródła. Maksymalnie siedem grup równolegle utrzymuje po jednej wykonaniowej
+klatce RGB. Loader hashuje i dekoduje te same bajty; ochrona źródła kontrolnego
+oraz render każdej komórki używają tej samej klatki. Każda komórka nadal
+sprawdza geometrię, render spec oraz checksumę wynikowych pikseli. Deskryptor
+jest obliczany bez kodowania i ponownego dekodowania PNG. Wyniki wracają do
+pierwotnej kolejności SQL przed deterministyczną selekcją. Odczyt manifestów
+renderu może poprzedzać attestation, ale render komórki następuje wyłącznie
+po przejściu bramki źródła. Zamrożenie i nowy proces nie polegają na cache
+deskryptorów; nie zapisujemy nowych bitmap na dysku. API i manifest pozostają
+identyczne. Admin nie czeka na niezależny licznik reinferencji; zmiana
+gry/unmount anuluje wcześniejsze odczyty.
+
+D-529 / TASK-0899 rozdziela panel od przygotowania datasetu. Istniejący GET
+model-quality z `view=overview` wykonuje agregację SQL logicznych zatwierdzeń
+bieżącego właściciela sekwencji dla aktywnych symboli oraz lekki odczyt
+metadanych ostatniej kohorty. Nie czyta oryginałów, render spec, chronionych
+fotografii ani checksum wszystkich próbek poprzedniej kohorty. Osobny typ
+odpowiedzi nie udaje kwalifikacji treningowej ani nie wystawia checksumy
+lub `canFreeze`. Domyślny full pozostaje dokładnym raportem przygotowywanym
+przy „Ulepsz rozpoznawanie”; dopiero jego wynik otwiera potwierdzenie freeze.
+Odczyty UI zachowują AbortSignal i ochronę przed spóźnioną odpowiedzią bez
+arbitralnego timeoutu. Osobny komponent siatki montuje się niezależnie od
+loading/error/preparation symboli i nie traci stanu po zakończeniu odczytu.
 
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast

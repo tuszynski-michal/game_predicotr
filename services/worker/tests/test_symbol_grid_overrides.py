@@ -11,10 +11,14 @@ from game_predictor_worker.images.symbol_grid_overrides import (
 from game_predictor_worker.images.symbol_grid_refinement import (
     MANUAL_SOURCE_QUAD_SOURCE,
 )
+from local_corpus import require_local_corpus
 
 
 def test_real_review_applies_only_six_exact_observation_overrides() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(
+        root / "artifacts/m5-symbol-grid-fallback-review/reviewed-geometry.json"
+    )
     overrides = ReviewedSymbolGridOverrides.from_files(
         root / "artifacts/m5-symbol-grid-fallback-review/reviewed-geometry.json",
         root / "ai_docs/quality/m5-full-symbol-grid-refinement-detector-report.json",

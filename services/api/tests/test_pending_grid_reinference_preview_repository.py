@@ -27,17 +27,16 @@ class _Session:
         return _Rows(self._rows)
 
 
-def test_preview_protects_approved_geometry_and_separates_virtual_sources() -> None:
+def test_preview_protects_approved_geometry_and_recalculates_no_virtual_board() -> None:
+    """D-467 S6 (TASK-0796): the v19 file recrop applied to legacy boards only."""
+
     source_ids = [uuid4() for _index in range(4)]
-    current = {
-        "geometryVersion": "board-cell-geometry-v19-test",
-        "cropperVersion": "board-cell-crops-v19-test",
-    }
     rows: list[tuple[object, ...]] = [
-        (source_ids[0], "pending", {}, "legacy_file", 0),
-        (source_ids[1], "pending", {}, "virtual_source", None),
-        (source_ids[2], "pending", current, "legacy_file", None),
-        (source_ids[3], "pending", {}, "legacy_file", None),
+        (source_ids[0], "pending", 0, False),
+        (source_ids[1], "pending", None, False),
+        (source_ids[2], "pending", None, False),
+        # D-462 R9: a human cell decision protects the board from recropping.
+        (source_ids[3], "pending", None, True),
     ]
     repository = SqlAlchemyOperationalImageReviewRepository(
         cast(Session, cast(Any, _Session(rows)))
@@ -51,10 +50,10 @@ def test_preview_protects_approved_geometry_and_separates_virtual_sources() -> N
     )
 
     assert preview.pending_board_count == 4
-    assert preview.protected_board_count == 1
-    assert preview.unsupported_virtual_board_count == 1
-    assert preview.current_v19_board_count == 1
-    assert preview.recalculable_board_count == 1
+    assert preview.protected_board_count == 2
+    assert preview.unsupported_virtual_board_count == 2
+    assert preview.current_v19_board_count == 0
+    assert preview.recalculable_board_count == 0
 
 
 def test_pending_symbol_reinference_count_includes_boards_with_pending_cells() -> None:

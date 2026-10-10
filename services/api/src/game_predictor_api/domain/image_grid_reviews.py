@@ -23,6 +23,24 @@ class ImageGridReviewView(StrEnum):
     NEEDS_VALIDATION = "needs_validation"
     NEEDS_CORRECTION = "needs_correction"
     ALL = "all"
+    # D-462 R4: the single manual-correction queue — every pending deferred
+    # geometry plus every current board with a reported grid issue, one entry
+    # per board slot.
+    CORRECTION = "correction"
+
+
+class ImageGridReviewCountsMode(StrEnum):
+    """Which counters a grid review page computes (TASK-0961).
+
+    ``ALL`` keeps the full set (seven aggregate queries over every current
+    board of the game). ``CORRECTION`` computes only ``correction`` — the
+    reported boards plus the deferred slots of the D-462 R4 queue — and
+    reports every other counter as ``0``; the Reviewer polls the correction
+    queue after every board and must not pay for the full set each time.
+    """
+
+    ALL = "all"
+    CORRECTION = "correction"
 
 
 class ImageGridReviewCursorDirection(StrEnum):
@@ -50,12 +68,6 @@ class ImageGridReview:
     geometry_revision: int
     approved_geometry_revision: int | None
     state: ImageGridReviewState
-
-
-@dataclass(frozen=True, slots=True)
-class ImageGridApprovalTransition:
-    review: ImageGridReview
-    changed: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +104,8 @@ class ImageGridReviewListItem:
     board_confidence: float
     reason_codes: tuple[str, ...]
     state: ImageGridReviewState
+    # Cells whose `Zła siatka` report routed the board to correction (D-462).
+    reported_cell_indices: tuple[int, ...] = ()
 
     @property
     def cursor_key(self) -> tuple[int, str]:
@@ -106,6 +120,7 @@ class ImageGridReviewCounts:
     full_grids: int | None = None
     lateral_partial_proposals: int = 0
     confirmed_partial_grids: int = 0
+    correction: int = 0
 
     @property
     def manual_correction(self) -> int:
@@ -135,37 +150,6 @@ class ImageGridReviewSourceAsset:
     geometry_revision: int
     resolution_revision: int
     topology: BoardTopology
-    asset_mode: str = "legacy_file"
-
-
-@dataclass(frozen=True, slots=True)
-class ImageGridApprovalResult:
-    item: ImageGridReviewListItem
-    changed: bool
-
-
-@dataclass(frozen=True, slots=True)
-class ImageGridReviewSourceApprovalTarget:
-    """Exact, client-observed identity of one active board slot of a source."""
-
-    review_item_id: UUID
-    expected_resolution_revision: int
-    expected_geometry_revision: int
-    expected_source_checksum_sha256: str
-    expected_source_width: int
-    expected_source_height: int
-    expected_grid_rows: int
-    expected_grid_columns: int
-
-
-@dataclass(frozen=True, slots=True)
-class ImageGridSourceApprovalResult:
-    source_image_id: UUID
-    approved_review_item_ids: tuple[UUID, ...]
-
-    @property
-    def changed_count(self) -> int:
-        return len(self.approved_review_item_ids)
 
 
 def derive_image_grid_review(
@@ -201,27 +185,6 @@ def derive_image_grid_review(
         geometry_revision=geometry_revision,
         approved_geometry_revision=approved_geometry_revision,
         state=state,
-    )
-
-
-def approve_image_grid_review(review: ImageGridReview) -> ImageGridApprovalTransition:
-    """Approve the exact current revision unless a crop still reports bad geometry."""
-
-    if review.state is ImageGridReviewState.NEEDS_CORRECTION:
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
-            "A geometry with a current grid issue must be corrected before approval.",
-        )
-    if review.state is ImageGridReviewState.APPROVED:
-        return ImageGridApprovalTransition(review=review, changed=False)
-    return ImageGridApprovalTransition(
-        review=ImageGridReview(
-            topology=review.topology,
-            geometry_revision=review.geometry_revision,
-            approved_geometry_revision=review.geometry_revision,
-            state=ImageGridReviewState.APPROVED,
-        ),
-        changed=True,
     )
 
 
@@ -308,12 +271,9 @@ def decode_image_grid_review_cursor(
 
 
 __all__ = [
-    "ImageGridApprovalTransition",
-    "ImageGridApprovalResult",
-    "ImageGridReviewSourceApprovalTarget",
-    "ImageGridSourceApprovalResult",
     "ImageGridReview",
     "ImageGridReviewCounts",
+    "ImageGridReviewCountsMode",
     "ImageGridReviewCursorDirection",
     "ImageGridReviewError",
     "ImageGridReviewListFilter",
@@ -323,7 +283,6 @@ __all__ = [
     "ImageGridReviewSourceAsset",
     "ImageGridReviewState",
     "ImageGridReviewView",
-    "approve_image_grid_review",
     "decode_image_grid_review_cursor",
     "derive_image_grid_review",
     "encode_image_grid_review_cursor",

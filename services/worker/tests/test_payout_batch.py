@@ -384,6 +384,22 @@ def test_handler_persists_every_m1_golden_total() -> None:
             _source(rules_game_id=UUID("44444444-4444-4444-8444-444444444444")),
             "PAYOUT_GAME_MISMATCH",
         ),
+        (
+            # TASK-0932: a game with a super game trigger symbol is evaluated
+            # with payout-v4-wild-count and must never be stored under v2/v3.
+            _job(),
+            _source(
+                game=replace(
+                    _source().game,
+                    symbols=(
+                        SymbolDefinition(1, "a", "A", False, 0),
+                        SymbolDefinition(2, "b", "B", False, 1),
+                        SymbolDefinition(9, "wild", "Wild", True, 2, super_game_trigger_count=3),
+                    ),
+                )
+            ),
+            "PAYOUT_ALGORITHM_GAME_MISMATCH",
+        ),
     ],
 )
 def test_handler_rejects_invalid_job_or_source(job, source, code: str) -> None:

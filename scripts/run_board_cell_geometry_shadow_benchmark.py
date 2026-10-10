@@ -16,7 +16,10 @@ from uuid import UUID
 import cv2
 import numpy as np
 from game_predictor_api.config import get_settings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
@@ -142,7 +145,7 @@ def main() -> int:
         descriptor = _load_descriptor(arguments.descriptor)
         attested_challenge = _load_task_one_challenge(descriptor.task_one_report_checksum)
         settings = get_settings()
-        session = create_session_factory(create_database_engine(settings))()
+        session = create_session_factory(create_maintenance_database_engine(settings))()
         snapshot = SqlAlchemySymbolModelSnapshotResolver(
             session, artifact_root=settings.artifact_root
         ).resolve(game_id=descriptor.game_id)

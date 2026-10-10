@@ -12,6 +12,7 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import cast
 from uuid import UUID
 
 from game_predictor_api.application.image_symbol_reviews import SymbolCellReviewQueryService
@@ -25,7 +26,10 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
@@ -79,7 +83,8 @@ def _targets(
         SymbolCellPreviewTarget(
             cell_review_id=item.cell_review_id,
             expected_revision=item.revision,
-            expected_crop_checksum_sha256=item.crop_checksum_sha256,
+            # A missing crop checksum is rejected by SymbolCellPreviewTarget itself.
+            expected_crop_checksum_sha256=cast(str, item.crop_checksum_sha256),
             expected_render_spec_checksum_sha256=item.render_spec_checksum_sha256,
         )
         for item in items
@@ -117,7 +122,7 @@ def _render_page(
 def main() -> int:
     args = _parse_args()
     settings = ApiSettings.from_environment()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     session_factory = create_session_factory(engine)
     try:
         with session_factory() as session:

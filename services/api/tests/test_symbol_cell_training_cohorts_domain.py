@@ -13,6 +13,32 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 )
 
 
+def test_pilot_descriptor_changes_only_opted_in_manifest_identity() -> None:
+    selection = select_symbol_cell_training_samples(
+        candidates=(_candidate(1),), active_symbol_codes=("cherry",)
+    )
+    legacy, legacy_bytes, legacy_sha = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection
+    )
+    repeated = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection, protected_source_exclusions=None
+    )
+    assert repeated == (legacy, legacy_bytes, legacy_sha)
+    reference = {"version": "protected-source-exclusions-v1", "checksumSha256": "a" * 64}
+    pilot, _, pilot_sha = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection, protected_source_exclusions=reference
+    )
+    assert pilot["protectedSourceExclusions"] == reference
+    assert pilot_sha != legacy_sha
+    reference["checksumSha256"] = "b" * 64
+    assert (
+        build_symbol_cell_training_manifest(
+            game_id=UUID(int=1), selection=selection, protected_source_exclusions=reference
+        )[2]
+        != pilot_sha
+    )
+
+
 def _candidate(
     index: int,
     *,
@@ -38,7 +64,8 @@ def _candidate(
         cell_revision=1,
         geometry_revision=0,
         crop_sample_id=crop_sample_id,
-        crop_relative_path=f"crops/{index}.jpg",
+        # D-467 S6 (TASK-0796): a training candidate is a virtual render.
+        crop_relative_path=None,
         crop_checksum_sha256=crop_checksum,
         approved_crop_sample_id=crop_sample_id,
         approved_crop_checksum_sha256=crop_checksum,
@@ -49,6 +76,17 @@ def _candidate(
         prediction_symbol_code=predicted,
         perceptual_hash_64=index if perceptual_hash is None else perceptual_hash,
         mean_rgb=mean_rgb,
+        asset_mode="virtual_source",
+        source_geometry_revision_id=UUID(int=20_000 + index),
+        normalized_pixel_checksum_sha256=f"{index + 30_000:064x}",
+        geometry_checksum_sha256=f"{index + 40_000:064x}",
+        logical_cell_key=f"{index + 60_000:064x}",
+        logical_cell_key_v2=f"{index + 70_000:064x}",
+        render_identity_v2_sha256=f"{index + 80_000:064x}",
+        render_spec={"cellIndex": index % 15},
+        render_spec_checksum_sha256=f"{index + 90_000:064x}",
+        rendered_pixel_checksum_sha256=crop_checksum,
+        extractor_version="virtual-renderer-v1",
     )
 
 

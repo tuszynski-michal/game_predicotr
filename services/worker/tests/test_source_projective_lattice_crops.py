@@ -14,6 +14,7 @@ from game_predictor_worker.images.source_projective_lattice_crops import (
     build_reviewed_source_quad_crops,
     build_source_projective_lattice_crops,
 )
+from local_corpus import require_local_corpus
 
 
 def _source_with_lattice_beyond_analysis_plane() -> np.ndarray:
@@ -62,6 +63,7 @@ def test_source_aware_crop_recovers_real_pixels_beyond_analysis_plane() -> None:
 
 def test_sequence_29_source_aware_crop_is_deterministic_and_supported() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "examples/imgs/5983122166590934320.jpg")
     source_bgr = cv2.imread(
         str(root / "examples/imgs/5983122166590934320.jpg"),
         cv2.IMREAD_COLOR,
@@ -90,6 +92,7 @@ def test_sequence_29_source_aware_crop_is_deterministic_and_supported() -> None:
 
 def test_sequence_3_uses_bounded_analysis_fallback_after_locator_failure() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "examples/imgs/5983122166590934317.jpg")
     source_bgr = cv2.imread(
         str(root / "examples/imgs/5983122166590934317.jpg"),
         cv2.IMREAD_COLOR,

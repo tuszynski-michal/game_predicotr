@@ -5,6 +5,7 @@ import type {
   ImageSelectionHandoffResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { confirmBoardSearchDiscardDraft } from '@game-predictor/board-search-ui';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
@@ -13,12 +14,23 @@ import {
   type AdminNavigationState,
   type AdminWorkspace,
   type GameSection,
+  isGameSectionAvailable,
+  normalizeAdminNavigation,
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
+import {
+  type BoardSearchReplayHandoff,
+  BOARD_SEARCH_REPLAY_PARAMETER,
+  boardSearchReplayPlan,
+  consumeBoardSearchReplay,
+  readBoardSearchReplayParameter,
+} from '@/features/board-search/board-search-replay-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
+import { ManagementWorkspace } from '@/features/management/management-workspace';
+import type { ManagementClient } from '@/features/management/management-workspace';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
@@ -33,16 +45,19 @@ import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
 import { SymbolReviewWorkspace } from '@/features/symbol-reviews/symbol-review-workspace';
 import { StorageWorkspace } from '@/features/storage/storage-workspace';
+import { SuperGameSeriesWorkspace } from '@/features/super-games/super-game-series-workspace';
 import { UnreadableBoardReviewWorkspace } from '@/features/unreadable-board-reviews/unreadable-board-review-workspace';
 
 interface CatalogWorkspaceProps {
   readonly apiBaseUrl: string;
+  readonly managementClient?: ManagementClient;
 }
 
 const WORKSPACE_OPTIONS: readonly {
   readonly id: AdminWorkspace;
   readonly label: string;
 }[] = [
+  { id: 'management', label: 'Panel Administracyjny' },
   {
     id: 'games',
     label: 'Zarządzanie grami',
@@ -113,8 +128,9 @@ const GAME_SECTION_OPTIONS: readonly {
   },
   {
     id: 'reviews',
-    title: 'Zatwierdzanie cięcia siatki',
-    description: 'Walidacja i korekta geometrii plansz w aplikacji Reviewer.',
+    title: 'Korekta cięcia siatki',
+    description:
+      'Błędne i niepełne siatki, diagnostyka zdjęć oraz korekta w Reviewerze.',
   },
   {
     id: 'unreadable-symbols',
@@ -127,9 +143,18 @@ const GAME_SECTION_OPTIONS: readonly {
     title: 'Jakość rozpoznawania',
     description: 'Gotowość danych i zamrażanie kohort do kolejnych iteracji.',
   },
+  {
+    id: 'super-games',
+    title: 'Supergry',
+    description:
+      'Serie supergry, plansze serii i wybór super symbolu (tylko gry z supergrą).',
+  },
 ];
 
-export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
+export function CatalogWorkspace({
+  apiBaseUrl,
+  managementClient,
+}: CatalogWorkspaceProps) {
   const api = useMemo(
     () => createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl],
@@ -142,6 +167,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   const [imageSelectionHandoff, setImageSelectionHandoff] =
     useState<ImageSelectionHandoffResponse | null>(null);
   const navigationRef = useRef(navigation);
+  const managementDirty = useRef(false);
+  const managementDirtyChanged = useCallback((dirty: boolean) => {
+    managementDirty.current = dirty;
+  }, []);
+  const [replayEventId, setReplayEventId] = useState<string | null>(null);
+  const [boardSearchReplay, setBoardSearchReplay] =
+    useState<BoardSearchReplayHandoff | null>(null);
   const sectionHeaderRefs = useRef<
     Partial<Record<GameSection, HTMLButtonElement | null>>
   >({});
@@ -152,7 +184,28 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
 
   useEffect(() => {
     const restoreFromUrl = () => {
-      setNavigation(parseAdminNavigation(window.location.search));
+      const next = parseAdminNavigation(window.location.search);
+      if (
+        navigationRef.current.workspace === 'management' &&
+        next.workspace !== 'management' &&
+        !confirmBoardSearchDiscardDraft(managementDirty.current)
+      ) {
+        const search = serializeAdminNavigation(
+          window.location.search,
+          navigationRef.current,
+        );
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${search}${window.location.hash}`,
+        );
+        window.dispatchEvent(
+          new Event('management:outer-navigation-cancelled'),
+        );
+        return;
+      }
+      setNavigation(next);
+      setReplayEventId(readBoardSearchReplayParameter(window.location.search));
     };
     restoreFromUrl();
     window.addEventListener('popstate', restoreFromUrl);
@@ -160,7 +213,14 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   }, []);
 
   const commitNavigation = useCallback(
-    (next: AdminNavigationState, mode: 'push' | 'replace' = 'push') => {
+    (requested: AdminNavigationState, mode: 'push' | 'replace' = 'push') => {
+      const next = normalizeAdminNavigation(requested);
+      if (
+        navigationRef.current.workspace === 'management' &&
+        next.workspace !== 'management' &&
+        !confirmBoardSearchDiscardDraft(managementDirty.current)
+      )
+        return;
       setNavigation(next);
       const search = serializeAdminNavigation(window.location.search, next);
       const url = `${window.location.pathname}${search}${window.location.hash}`;
@@ -173,6 +233,81 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
     [],
   );
 
+  // D-472: `?boardSearchReplay=<eventId>` opens the entry's game and board
+  // search and reproduces the query; the parameter is consumed once.
+  useEffect(() => {
+    if (replayEventId === null) return;
+    let cancelled = false;
+    const eventId = replayEventId;
+    void api
+      .getBoardSearchShareQueryReplay(eventId)
+      .then((result) => {
+        if (cancelled) return;
+        const url = new URL(window.location.href);
+        url.searchParams.delete(BOARD_SEARCH_REPLAY_PARAMETER);
+        const data = result.data;
+        if (result.error !== undefined || data === undefined) {
+          window.history.replaceState(
+            null,
+            '',
+            `${url.pathname}${url.search}${url.hash}`,
+          );
+          setReplayEventId(null);
+          const gameId = navigationRef.current.gameId;
+          if (gameId !== null) {
+            setBoardSearchReplay({
+              gameId,
+              message:
+                'Nie udało się wczytać zapytania do odtworzenia (wpis nie istnieje albo Admin API nie odpowiada).',
+              plan: null,
+            });
+          }
+          return;
+        }
+        const replay = boardSearchReplayPlan(data, String(Date.now()));
+        setBoardSearchReplay({
+          gameId: data.event.gameId,
+          message: replay.kind === 'no_search' ? replay.message : null,
+          plan: replay.kind === 'plan' ? replay.plan : null,
+        });
+        setReplayEventId(null);
+        const next = normalizeAdminNavigation({
+          ...navigationRef.current,
+          gameId: data.event.gameId,
+          section: 'board-search' as const,
+          workspace: 'games' as const,
+        });
+        if (
+          navigationRef.current.workspace === 'management' &&
+          !confirmBoardSearchDiscardDraft(managementDirty.current)
+        )
+          return;
+        setNavigation(next);
+        const search = serializeAdminNavigation(url.search, next);
+        window.history.replaceState(
+          null,
+          '',
+          `${url.pathname}${search}${url.hash}`,
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReplayEventId(null);
+        const gameId = navigationRef.current.gameId;
+        if (gameId !== null) {
+          setBoardSearchReplay({
+            gameId,
+            message:
+              'Połączenie z lokalnym Admin API zostało przerwane podczas wczytywania zapytania do odtworzenia.',
+            plan: null,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, replayEventId]);
+
   const handleGamesLoaded = useCallback(
     (loadedGames: readonly GameResponse[]) => {
       setGames(loadedGames);
@@ -182,7 +317,22 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         !loadedGames.some((game) => game.id === currentNavigation.gameId)
       ) {
         commitNavigation(
-          { ...currentNavigation, gameId: null, section: null },
+          { ...currentNavigation, gameId: null, section: null, seriesId: null },
+          'replace',
+        );
+        return;
+      }
+      const loadedActive = loadedGames.find(
+        (game) => game.id === currentNavigation.gameId,
+      );
+      if (
+        currentNavigation.section === 'super-games' &&
+        loadedActive !== undefined &&
+        !isGameSectionAvailable('super-games', loadedActive)
+      ) {
+        // The game has no super game (any more): the section does not exist.
+        commitNavigation(
+          { ...currentNavigation, section: null, seriesId: null },
           'replace',
         );
       }
@@ -219,13 +369,14 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ...navigation,
         gameId,
         section: gameId === null ? null : navigation.section,
+        seriesId: null,
       });
     }
   }
 
   function toggleSection(section: GameSection) {
     const nextSection = navigation.section === section ? null : section;
-    commitNavigation({ ...navigation, section: nextSection });
+    commitNavigation({ ...navigation, section: nextSection, seriesId: null });
     if (nextSection !== null) {
       window.requestAnimationFrame(() => {
         sectionHeaderRefs.current[nextSection]?.scrollIntoView({
@@ -237,7 +388,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   }
 
   function openSection(section: GameSection) {
-    commitNavigation({ ...navigation, section });
+    commitNavigation({ ...navigation, section, seriesId: null });
     window.requestAnimationFrame(() => {
       sectionHeaderRefs.current[section]?.scrollIntoView({
         behavior: 'smooth',
@@ -306,6 +457,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                 </header>
 
                 {GAME_SECTION_OPTIONS.map((section) => {
+                  if (!isGameSectionAvailable(section.id, activeGame)) {
+                    return null;
+                  }
                   const expanded = navigation.section === section.id;
                   return (
                     <article
@@ -342,12 +496,15 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            shapeGeometryConfiguration={
+                              activeGame.shapeGeometryConfiguration
+                            }
                             initialHandoff={
                               imageSelectionHandoff?.gameId === activeGame.id
                                 ? imageSelectionHandoff
                                 : null
                             }
-                            key={`${activeGame.id}-${imageSelectionHandoff?.selectionId ?? 'folder'}`}
+                            key={`${activeGame.id}-${activeGame.shapeGeometryConfiguration ?? 'classical'}-${imageSelectionHandoff?.selectionId ?? 'folder'}`}
                             onHandoffConsumed={() =>
                               setImageSelectionHandoff(null)
                             }
@@ -374,6 +531,21 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             key={activeGame.id}
+                            replay={
+                              boardSearchReplay?.gameId === activeGame.id
+                                ? boardSearchReplay.plan
+                                : null
+                            }
+                            replayMessage={
+                              boardSearchReplay?.gameId === activeGame.id
+                                ? boardSearchReplay.message
+                                : null
+                            }
+                            onReplayApplied={(id) =>
+                              setBoardSearchReplay((current) =>
+                                consumeBoardSearchReplay(current, id),
+                              )
+                            }
                           />
                         ) : null}
                         {expanded && section.id === 'rules' ? (
@@ -404,6 +576,20 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             key={activeGame.id}
                           />
                         ) : null}
+                        {expanded && section.id === 'super-games' ? (
+                          <SuperGameSeriesWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
+                            onSeriesChange={(seriesId) =>
+                              commitNavigation({
+                                ...navigationRef.current,
+                                seriesId,
+                              })
+                            }
+                            seriesId={navigation.seriesId}
+                          />
+                        ) : null}
                       </div>
                     </article>
                   );
@@ -413,7 +599,11 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                   apiBaseUrl={apiBaseUrl}
                   onCompleted={() => {
                     setGamesRevision((revision) => revision + 1);
-                    commitNavigation({ ...navigation, section: null });
+                    commitNavigation({
+                      ...navigation,
+                      section: null,
+                      seriesId: null,
+                    });
                   }}
                   target={{ id: activeGame.id, kind: 'game-layout-data' }}
                   targetLabel={`${activeGame.name} · ${activeGame.code}`}
@@ -423,6 +613,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           </div>
         ) : null}
 
+        {navigation.workspace === 'management' ? (
+          <ManagementWorkspace
+            apiBaseUrl={apiBaseUrl}
+            client={managementClient}
+            onDirtyChange={managementDirtyChanged}
+          />
+        ) : null}
         {navigation.workspace === 'releases' ? (
           <ReleasePanel
             apiBaseUrl={apiBaseUrl}
@@ -460,6 +657,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                 commitNavigation({
                   gameId: activeGame.id,
                   section: 'imports',
+                  seriesId: null,
                   workspace: 'games',
                 });
               }}

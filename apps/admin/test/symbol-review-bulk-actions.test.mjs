@@ -167,3 +167,65 @@ test('delegates preview and start to the local client with one idempotency key',
     true,
   );
 });
+
+test('filter selection forwards prediction source and change range when set', () => {
+  const snapshot = {
+    catalogRevision: 7,
+    gameId: 'game-1',
+    matchedCount: 3,
+    maxConfidence: null,
+    minConfidence: null,
+    state: 'pending',
+    symbolId: 'symbol-1',
+  };
+  const filtered = createSymbolReviewBulkCommand(
+    'approve',
+    createAllMatchingFilterSymbolReviewSelection({
+      ...snapshot,
+      changedFrom: '2026-09-29T22:00:00.000Z',
+      importJobId: 'import-1',
+      predictionSource: 'reference_library',
+    }),
+    null,
+  );
+  const plain = createSymbolReviewBulkCommand(
+    'approve',
+    createAllMatchingFilterSymbolReviewSelection(snapshot),
+    null,
+  );
+
+  assert.equal(
+    filtered?.request.selection.predictionSource,
+    'reference_library',
+  );
+  assert.equal(
+    filtered?.request.selection.changedFrom,
+    '2026-09-29T22:00:00.000Z',
+  );
+  assert.equal(filtered?.request.selection.importJobId, 'import-1');
+  assert.equal('changedTo' in (filtered?.request.selection ?? {}), false);
+  assert.equal('predictionSource' in (plain?.request.selection ?? {}), false);
+  assert.equal('changedFrom' in (plain?.request.selection ?? {}), false);
+  assert.equal('importJobId' in (plain?.request.selection ?? {}), false);
+});
+
+test('filter selection forwards the RGB v2 prediction sources (TASK-0872)', () => {
+  for (const predictionSource of ['rgb_v2', 'rgb_v2_tentative']) {
+    const command = createSymbolReviewBulkCommand(
+      'approve',
+      createAllMatchingFilterSymbolReviewSelection({
+        catalogRevision: 7,
+        gameId: 'game-1',
+        matchedCount: 3,
+        maxConfidence: null,
+        minConfidence: null,
+        predictionSource,
+        state: 'pending',
+        symbolId: 'symbol-1',
+      }),
+      null,
+    );
+
+    assert.equal(command?.request.selection.predictionSource, predictionSource);
+  }
+});

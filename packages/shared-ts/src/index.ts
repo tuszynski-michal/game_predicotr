@@ -1,4 +1,5 @@
 export type {
+  CountMatch,
   ForecastPeak,
   ForecastInput,
   ForecastResult,
@@ -25,6 +26,20 @@ export {
 } from './signature.js';
 export { calculateTargetForecast } from './forecast.js';
 export {
+  PAYOUT_V3_ALGORITHM_VERSION,
+  PAYOUT_V4_ALGORITHM_VERSION,
+  evaluatePayout,
+  payoutAlgorithmVersion,
+} from './payout.js';
+export {
+  WILD_SUPER_SPINS_CODE,
+  evaluateSeriesBoard,
+  type SeriesBoardEvaluation,
+  type SeriesBoardOptions,
+  type SeriesExpansion,
+  type SeriesPayoutKind,
+} from './super-game.js';
+export {
   TARGET_SCAN_LIMIT_DEFAULT,
   TARGET_SCAN_LIMIT_ENGINE_MIN,
   TARGET_SCAN_LIMIT_MAX,
@@ -36,6 +51,8 @@ export {
   validateFullBoard,
   validateLayoutBoard,
   validateGameConfig,
+  isOrdinaryLineSymbol,
+  isSuperGameTrigger,
   validatePaylines,
   validatePayoutConfiguration,
   validatePayoutRules,

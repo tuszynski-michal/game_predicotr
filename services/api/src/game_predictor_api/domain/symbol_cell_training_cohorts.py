@@ -46,7 +46,7 @@ class ApprovedSymbolCellCandidate:
     prediction_symbol_code: str | None
     perceptual_hash_64: int
     mean_rgb: tuple[int, int, int]
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
     source_geometry_revision_id: UUID | None = None
     normalized_pixel_checksum_sha256: str | None = None
     geometry_checksum_sha256: str | None = None
@@ -92,6 +92,7 @@ def build_symbol_cell_training_manifest(
     game_id: UUID,
     selection: SymbolCellTrainingSelection,
     exclusion_counts: Mapping[str, int] | None = None,
+    protected_source_exclusions: Mapping[str, object] | None = None,
 ) -> tuple[dict[str, object], bytes, str]:
     """Materialize one immutable v3 manifest from a completed selection."""
 
@@ -129,31 +130,29 @@ def build_symbol_cell_training_manifest(
             "sourceImageId": str(candidate.source_image_id),
             "symbolCode": candidate.symbol_code,
         }
-        if candidate.asset_mode == "legacy_file":
-            cell["cropRelativePath"] = candidate.crop_relative_path
-        else:
-            approved_crop = cast(dict[str, object], cell["approvedCrop"])
-            approved_crop.update(
-                {
-                    "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
-                    "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
-                    "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
-                }
-            )
-            cell.update(
-                {
-                    "extractorVersion": candidate.extractor_version,
-                    "geometryChecksumSha256": candidate.geometry_checksum_sha256,
-                    "logicalCellKeySha256": candidate.logical_cell_key,
-                    "logicalCellKeyV2Sha256": candidate.logical_cell_key_v2,
-                    "normalizedPixelChecksumSha256": (candidate.normalized_pixel_checksum_sha256),
-                    "renderIdentityV2Sha256": candidate.render_identity_v2_sha256,
-                    "renderSpec": candidate.render_spec,
-                    "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
-                    "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
-                    "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
-                }
-            )
+        # D-467 S6 (TASK-0796): every training candidate is a virtual render.
+        approved_crop = cast(dict[str, object], cell["approvedCrop"])
+        approved_crop.update(
+            {
+                "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
+                "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
+                "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
+            }
+        )
+        cell.update(
+            {
+                "extractorVersion": candidate.extractor_version,
+                "geometryChecksumSha256": candidate.geometry_checksum_sha256,
+                "logicalCellKeySha256": candidate.logical_cell_key,
+                "logicalCellKeyV2Sha256": candidate.logical_cell_key_v2,
+                "normalizedPixelChecksumSha256": (candidate.normalized_pixel_checksum_sha256),
+                "renderIdentityV2Sha256": candidate.render_identity_v2_sha256,
+                "renderSpec": candidate.render_spec,
+                "renderSpecChecksumSha256": candidate.render_spec_checksum_sha256,
+                "renderedPixelChecksumSha256": (candidate.rendered_pixel_checksum_sha256),
+                "sourceGeometryRevisionId": str(candidate.source_geometry_revision_id),
+            }
+        )
         cells.append(cell)
     manifest: dict[str, object] = {
         "cells": cells,
@@ -180,6 +179,8 @@ def build_symbol_cell_training_manifest(
         "schemaVersion": SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
         "trainingEligibilityVersion": "symbol-cell-training-eligible-v1",
     }
+    if protected_source_exclusions is not None:
+        manifest["protectedSourceExclusions"] = dict(protected_source_exclusions)
     content = canonical_image_review_bytes(manifest)
     return manifest, content, hashlib.sha256(content).hexdigest()
 
@@ -320,13 +321,6 @@ def _validate_candidate(
             "SYMBOL_CELL_TRAINING_DESCRIPTOR_INVALID",
             "A symbol-cell training candidate has an invalid visual descriptor.",
         )
-    if candidate.asset_mode == "legacy_file":
-        if not candidate.crop_relative_path:
-            raise ImageReviewConflictError(
-                "SYMBOL_CELL_TRAINING_CROP_PATH_INVALID",
-                "A legacy training candidate requires a crop path.",
-            )
-        return
     virtual_checksums = (
         candidate.normalized_pixel_checksum_sha256,
         candidate.geometry_checksum_sha256,

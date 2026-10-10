@@ -9,10 +9,23 @@ from game_predictor_api.api.board_cell_geometry_pending import (
     create_board_cell_geometry_pending_router,
 )
 from game_predictor_api.api.board_search import create_board_search_router
-from game_predictor_api.api.catalog import create_catalog_router
+from game_predictor_api.api.board_search_share_public import (
+    create_board_search_share_public_router,
+)
+from game_predictor_api.api.board_search_shares import create_board_search_shares_admin_router
+from game_predictor_api.api.catalog import (
+    create_catalog_router,
+    create_super_game_kinds_router,
+)
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
+from game_predictor_api.api.geometry_correction_reverts import (
+    create_geometry_correction_reverts_router,
+)
+from game_predictor_api.api.grid_audit_proposals import create_grid_audit_proposals_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
+from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
+from game_predictor_api.api.grid_shadow import create_grid_shadow_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_grid_reviews import create_image_grid_reviews_router
 from game_predictor_api.api.image_imports import create_image_imports_router
@@ -50,6 +63,10 @@ from game_predictor_api.api.verified_training_cohorts import (
     create_verified_training_cohort_router,
 )
 from game_predictor_api.api.worker_lanes import create_worker_lanes_router
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryLog,
+    BoardSearchShareRateLimiter,
+)
 from game_predictor_api.config import ApiSettings
 
 
@@ -103,6 +120,18 @@ def create_api_router(
     remote_manual_selection_transfer_service_dependency: Callable[..., object],
     remote_manual_selection_recovery_service_dependency: Callable[..., object],
     artifact_root: Path,
+    *,
+    geometry_correction_revert_service_dependency: Callable[..., object],
+    board_search_board_detail_service_dependency: Callable[..., object],
+    board_search_board_view_service_dependency: Callable[..., object],
+    board_search_share_access_service_dependency: Callable[..., object],
+    board_search_share_query_log_service_dependency: Callable[..., object],
+    board_search_share_correction_service_dependency: Callable[..., object],
+    board_search_share_query_log: BoardSearchShareQueryLog,
+    board_search_share_rate_limiter: BoardSearchShareRateLimiter,
+    grid_audit_proposal_service_dependency: Callable[..., object] | None = None,
+    grid_shadow_service_dependency: Callable[..., object] | None = None,
+    lab_symbol_candidate_import_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -116,11 +145,37 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_super_game_kinds_router())
+    router.include_router(create_grid_engine_profiles_router(settings.artifact_root))
     router.include_router(
         create_board_search_router(
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
-            artifact_root,
+            board_detail_service_dependency=board_search_board_detail_service_dependency,
+            board_view_service_dependency=board_search_board_view_service_dependency,
+        )
+    )
+    router.include_router(
+        create_board_search_shares_admin_router(
+            board_search_share_access_service_dependency,
+            reviewer_ingress_service_dependency,
+            board_search_share_query_log_service_dependency,
+            board_search_share_correction_service_dependency,
+        )
+    )
+    router.include_router(
+        create_board_search_share_public_router(
+            access_service_dependency=board_search_share_access_service_dependency,
+            catalog_service_dependency=catalog_service_dependency,
+            symbol_reference_service_dependency=symbol_reference_service_dependency,
+            search_service_dependency=board_search_service_dependency,
+            approximate_win_service_dependency=board_search_approximate_win_service_dependency,
+            board_detail_service_dependency=board_search_board_detail_service_dependency,
+            board_view_service_dependency=board_search_board_view_service_dependency,
+            correction_service_dependency=board_search_share_correction_service_dependency,
+            query_log=board_search_share_query_log,
+            rate_limiter=board_search_share_rate_limiter,
+            artifact_root=settings.artifact_root,
         )
     )
     router.include_router(create_cleanup_router(cleanup_service_dependency))
@@ -207,12 +262,17 @@ def create_api_router(
     router.include_router(
         create_image_grid_reviews_router(
             image_grid_review_service_dependency,
-            image_review_service_dependency,
             image_geometry_rollout_service_dependency,
             virtual_grid_geometry_service_dependency,
             settings.artifact_root,
         )
     )
+    if grid_audit_proposal_service_dependency is not None:
+        router.include_router(
+            create_grid_audit_proposals_router(grid_audit_proposal_service_dependency)
+        )
+    if grid_shadow_service_dependency is not None:
+        router.include_router(create_grid_shadow_router(grid_shadow_service_dependency))
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))
     router.include_router(
         create_verified_training_cohort_router(verified_training_cohort_service_dependency)
@@ -221,6 +281,7 @@ def create_api_router(
         create_symbol_model_iteration_router(
             symbol_model_iteration_service_dependency,
             symbol_model_registry_service_dependency,
+            lab_symbol_candidate_import_service_dependency,
         )
     )
     router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
@@ -229,6 +290,12 @@ def create_api_router(
             board_cell_geometry_pending_service_dependency,
             reviewer_access_service_dependency,
             artifact_root,
+        )
+    )
+    router.include_router(
+        create_geometry_correction_reverts_router(
+            geometry_correction_revert_service_dependency,
+            reviewer_access_service_dependency,
         )
     )
     router.include_router(

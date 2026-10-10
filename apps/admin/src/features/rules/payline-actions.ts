@@ -13,7 +13,11 @@ import {
 
 export type PaylinesClient = Pick<
   AdminApiClient,
-  'archivePayline' | 'createPayline' | 'listPaylines' | 'updatePayline'
+  | 'archivePayline'
+  | 'createPayline'
+  | 'deletePayline'
+  | 'listPaylines'
+  | 'updatePayline'
 >;
 
 export type SavePaylineIntent =
@@ -101,6 +105,33 @@ export async function archivePayline(
     return {
       error:
         'Połączenie z lokalnym Admin API zostało przerwane. Archiwizacja nie została potwierdzona.',
+      ok: false,
+    };
+  }
+}
+
+export type DeletePaylineResult =
+  { readonly ok: true } | { readonly error: string; readonly ok: false };
+
+/** Permanently removes a payline from a draft; frees its code and path. */
+export async function deletePayline(
+  api: PaylinesClient,
+  rulesVersionId: string,
+  paylineId: string,
+): Promise<DeletePaylineResult> {
+  try {
+    const result = await api.deletePayline(rulesVersionId, paylineId);
+    if (result.error !== undefined) {
+      return {
+        error: apiErrorMessage(result.error, 'Nie udało się usunąć wzorca.'),
+        ok: false,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return {
+      error:
+        'Połączenie z lokalnym Admin API zostało przerwane. Usunięcie nie zostało potwierdzone.',
       ok: false,
     };
   }

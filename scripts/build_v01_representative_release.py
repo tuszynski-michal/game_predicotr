@@ -18,7 +18,7 @@ for source_root in (
         sys.path.insert(0, value)
 
 from game_predictor_api.config import ApiSettings  # noqa: E402
-from game_predictor_api.storage.database import create_database_engine  # noqa: E402
+from game_predictor_api.storage.database import create_maintenance_database_engine  # noqa: E402
 from game_predictor_worker.releases import (  # noqa: E402
     AndroidReleaseBuildSpec,
     PowerShellAndroidReleaseBuilder,
@@ -68,7 +68,7 @@ def main() -> int:
     else:
         package_symbol_root = output_directory / "symbols"
         settings = ApiSettings.from_environment()
-        engine = create_database_engine(settings)
+        engine = create_maintenance_database_engine(settings)
         try:
             approved_boards = load_approved_boards(
                 engine,

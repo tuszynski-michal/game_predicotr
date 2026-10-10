@@ -13,15 +13,25 @@ from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryCorrectionContext,
     BoardCellGeometryManualResolution,
     BoardCellGeometryPendingPage,
+    BoardCellGeometryRejection,
 )
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryJobCounts,
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
 )
 from game_predictor_api.schemas.catalog import ApiModel
-from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPoint
+from game_predictor_api.schemas.geometry_qualification import (
+    GeometryQualificationPayload,
+    GridCorrectionCellSymbolPayload,
+    ManualSourceGeometryPoint,
+)
+from game_predictor_api.schemas.source_lattice_geometry import (
+    SourceLatticeNodesPayload,
+    lattice_nodes_payload,
+)
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
@@ -31,6 +41,7 @@ class BoardCellGeometryJobCountsResponse(ApiModel):
     pending: int = Field(ge=0)
     resolved: int = Field(ge=0)
     superseded: int = Field(ge=0)
+    rejected: int = Field(default=0, ge=0)
 
 
 class BoardCellGeometryPendingResponse(ApiModel):
@@ -56,6 +67,10 @@ class BoardCellGeometryPendingResponse(ApiModel):
     updated_at: datetime
     resolved_at: datetime | None
     superseded_at: datetime | None
+    rejection_reason: BoardRejectionReason | None = None
+    rejection_note: str | None = None
+    rejected_at: datetime | None = None
+    rejected_by: str | None = None
 
 
 class BoardCellGeometryPendingPageResponse(ApiModel):
@@ -65,39 +80,45 @@ class BoardCellGeometryPendingPageResponse(ApiModel):
 
 
 class BoardCellGeometryCorrectionContextResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     item: BoardCellGeometryPendingResponse
     source_width: int = Field(gt=0)
     source_height: int = Field(gt=0)
     source_order_index: int = Field(ge=0)
     board_quad: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
     suggested_corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
 
 
 class BoardCellGeometryManualPreviewCommand(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     expected_manifest_checksum_sha256: Sha256
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
+    geometry_qualification: GeometryQualificationPayload | None = None
 
 
 class BoardCellGeometryManualResolutionCommand(BoardCellGeometryManualPreviewCommand):
     idempotency_key: UUID
     corrected_by: str = Field(min_length=1, max_length=200)
+    cell_symbols: tuple[GridCorrectionCellSymbolPayload, ...] = ()
 
 
 class BoardCellGeometryManualResolutionResponse(ApiModel):
@@ -105,6 +126,23 @@ class BoardCellGeometryManualResolutionResponse(ApiModel):
     review_item_id: UUID | None
     geometry_revision: int | None = Field(default=None, ge=1)
     created: bool
+
+
+class BoardCellGeometryRejectionCommand(ApiModel):
+    """Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``."""
+
+    idempotency_key: UUID
+    reason: BoardRejectionReason
+    note: str | None = Field(default=None, max_length=1000)
+    expected_geometry_revision: int = Field(ge=0)
+
+
+class BoardCellGeometryRejectionResponse(ApiModel):
+    item: BoardCellGeometryPendingResponse
+    counts: BoardCellGeometryJobCountsResponse
+    created: bool
+    # Id of the durable rejection: the "Ostatnie korekty" entry to revert.
+    rejection_id: UUID
 
 
 def to_pending_response(value: ImageBoardGeometryPending) -> BoardCellGeometryPendingResponse:
@@ -131,6 +169,10 @@ def to_pending_response(value: ImageBoardGeometryPending) -> BoardCellGeometryPe
         updated_at=value.updated_at,
         resolved_at=value.resolved_at,
         superseded_at=value.superseded_at,
+        rejection_reason=value.rejection_reason,
+        rejection_note=value.rejection_note,
+        rejected_at=value.rejected_at,
+        rejected_by=value.rejected_by,
     )
 
 
@@ -140,6 +182,7 @@ def to_counts_response(value: BoardCellGeometryJobCounts) -> BoardCellGeometryJo
         pending=value.pending,
         resolved=value.resolved,
         superseded=value.superseded,
+        rejected=value.rejected,
     )
 
 
@@ -164,6 +207,12 @@ def to_correction_context_response(
         source_order_index=value.source_order_index,
         board_quad=quad,
         suggested_corners=quad,
+        lattice_nodes=lattice_nodes_payload(value.board_geometry.get("latticeNodes")),
+        expected_proposal_checksum_sha256=(
+            str(value.board_geometry["neuralProposalChecksumSha256"])
+            if isinstance(value.board_geometry.get("neuralProposalChecksumSha256"), str)
+            else None
+        ),
     )
 
 
@@ -178,35 +227,44 @@ def to_manual_resolution_response(
     )
 
 
+def to_rejection_response(value: BoardCellGeometryRejection) -> BoardCellGeometryRejectionResponse:
+    return BoardCellGeometryRejectionResponse(
+        item=to_pending_response(value.pending),
+        counts=to_counts_response(value.counts),
+        created=value.created,
+        rejection_id=value.rejection_id,
+    )
+
+
 def _quad(
     geometry: object,
 ) -> tuple[
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
 ]:
     if not isinstance(geometry, Mapping):
         raise ValueError("The pending board geometry is invalid.")
     raw = geometry.get("quad") or geometry.get("pageBoardQuad")
     if not isinstance(raw, list | tuple) or len(raw) != 4:
         raise ValueError("The pending board quad is unavailable.")
-    points: list[OperationalImageReviewGeometryPoint] = []
+    points: list[ManualSourceGeometryPoint] = []
     for value in raw:
         if not isinstance(value, Mapping):
             raise ValueError("The pending board quad is invalid.")
         points.append(
-            OperationalImageReviewGeometryPoint(
+            ManualSourceGeometryPoint(
                 x=round(float(value["x"])),
                 y=round(float(value["y"])),
             )
         )
     return cast(
         tuple[
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
         ],
         tuple(points),
     )
@@ -220,8 +278,11 @@ __all__ = [
     "BoardCellGeometryManualResolutionResponse",
     "BoardCellGeometryPendingPageResponse",
     "BoardCellGeometryPendingResponse",
+    "BoardCellGeometryRejectionCommand",
+    "BoardCellGeometryRejectionResponse",
     "to_pending_page_response",
     "to_pending_response",
     "to_correction_context_response",
     "to_manual_resolution_response",
+    "to_rejection_response",
 ]

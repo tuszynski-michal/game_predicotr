@@ -1,9 +1,9 @@
 {
   "boardCount": 387,
-  "calibrationProfileSetSha256": "6928c0cb6909c9106d9f4e1a9bd153500eec56f0b96be3d7f8b6cc2a06ec6242",
+  "calibrationProfileSetSha256": "1536fa9255d14d5b8710c436221c030065f7a99bbaa663888da30eaa270d4b55",
   "calibrationProfileSetVersion": "grid-calibration-profiles-v1",
   "cellCount": 5805,
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "croppedImageCount": 43,
   "cropperVersion": "board-cell-crops-v2-calibrated-v1",
   "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",

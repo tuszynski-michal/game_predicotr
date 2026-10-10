@@ -17,6 +17,7 @@ import numpy as np
 from game_predictor_api.domain.geometry_qualification import page_anchor_exclusion_reason
 from game_predictor_api.domain.image_geometry_v2 import SourceQuad
 from game_predictor_api.domain.jobs import Job, JobType
+from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
@@ -97,8 +98,12 @@ def _expected_board_count(original: ManagedOriginal) -> int:
 
 
 def _source_quad_to_quad(quad: SourceQuad) -> Quad:
-    return tuple(
-        Point(int(round(point.x)), int(round(point.y))) for point in quad.corners
+    first, second, third, fourth = quad.corners
+    return (
+        Point(int(round(first.x)), int(round(first.y))),
+        Point(int(round(second.x)), int(round(second.y))),
+        Point(int(round(third.x)), int(round(third.y))),
+        Point(int(round(fourth.x)), int(round(fourth.y))),
     )
 
 
@@ -121,7 +126,10 @@ def _standalone_frame_line_candidate(
     if generic is None:
         return None
     red_mask = _red_mask(rgb)
-    red_neighbourhood = cv2.dilate(red_mask, np.ones((3, 3), dtype=np.uint8))
+    # OpenCV's stubs widen the dtype; dilate keeps the uint8 mask dtype.
+    red_neighbourhood = cast(
+        NDArray[np.uint8], cv2.dilate(red_mask, np.ones((3, 3), dtype=np.uint8))
+    )
     quads = tuple(_source_quad_to_quad(quad) for quad in generic.quads)
     coverage = tuple(_red_edge_coverage(red_neighbourhood, quad) for quad in quads)
     return LateralPageRegistrationCandidate(
@@ -166,6 +174,11 @@ class PageGeometryPreflightHandler:
         self._registration_workers = registration_workers
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        if "neural_grid_proposal" in job.input_payload:
+            from .neural_page_geometry_preflight import NeuralPageGeometryPreflightHandler
+
+            NeuralPageGeometryPreflightHandler(artifact_root=self._artifact_root)(context, job)
+            return
         payload = _input(job)
         output = self._existing_output(job)
         if output is not None:
@@ -637,10 +650,10 @@ class PageGeometryPreflightHandler:
                 "review_required",
             )
         if isinstance(registrar, ContrastFrameGridV12Registrar):
-            evaluation = registrar.evaluate(
+            v12_evaluation = registrar.evaluate(
                 rgb, active_board_slots=tuple(range(_expected_board_count(original)))
             )
-            if evaluation.result is None:
+            if v12_evaluation.result is None:
                 return (
                     original.checksum_sha256,
                     {
@@ -648,7 +661,7 @@ class PageGeometryPreflightHandler:
                         "sourceRelativePath": original.source_relative_path,
                         "imageHeight": int(rgb.shape[0]),
                         "imageWidth": int(rgb.shape[1]),
-                        **evaluation.failure_payload(),
+                        **v12_evaluation.failure_payload(),
                     },
                     "review_required",
                 )
@@ -659,7 +672,7 @@ class PageGeometryPreflightHandler:
                     "sourceRelativePath": original.source_relative_path,
                     "imageHeight": int(rgb.shape[0]),
                     "imageWidth": int(rgb.shape[1]),
-                    **evaluation.result.to_payload(),
+                    **v12_evaluation.result.to_payload(),
                 },
                 "registered",
             )
@@ -1057,7 +1070,7 @@ class PageGeometryPreflightHandler:
         if require_v12_pair:
             return {
                 "anchorSourceChecksumSha256": None,
-                "boardFrameQuads": list(board_frames),
+                "boardFrameQuads": list(cast(Sequence[object], board_frames)),
                 "featureCount": 0,
                 "inlierCount": 0,
                 "inlierRatio": 0.0,
@@ -1065,9 +1078,9 @@ class PageGeometryPreflightHandler:
                 "manualOverrideId": raw.get("overrideId"),
                 "manualOverrideRevision": raw.get("revision"),
                 "p95ReprojectionError": 0.0,
-                "quads": list(board_frames),
+                "quads": list(cast(Sequence[object], board_frames)),
                 "registrationVersion": CONTRAST_FRAME_GRID_V12_REGISTRATION_VERSION,
-                "symbolGridQuads": list(symbol_grids),
+                "symbolGridQuads": list(cast(Sequence[object], symbol_grids)),
                 "thresholdsVersion": "manual-v12-page-frame-grid-override-v1",
                 **(
                     {"slotQualifications": raw["slotQualifications"]}

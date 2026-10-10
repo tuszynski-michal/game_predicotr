@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
+from datetime import datetime
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, literal, select, union_all
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticSelectionRepository,
@@ -31,6 +35,15 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     SemiAutomaticV7SelectionMode,
     begin_filename_verification_cleanup,
 )
+from game_predictor_api.domain.v7_pilot_acceptance import receipt_matches_gate
+from game_predictor_api.domain.v7_selection_delivery import (
+    V7_PENDING_STATES,
+    V7DeliveryConflict,
+    V7OutputOperation,
+    V7PilotGate,
+    V7PilotSnapshot,
+    V7SourcePolicy,
+)
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
@@ -42,6 +55,10 @@ from game_predictor_api.storage.models import (
     JobModel,
     SemiAutomaticImageSelectionRangeModel,
     SemiAutomaticImageSelectionRunModel,
+    SemiAutomaticV7ActivationGateModel,
+    V7OutputOperationModel,
+    V7PilotAcceptanceModel,
+    V7SourceObservationModel,
 )
 
 
@@ -87,6 +104,9 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         return stored
 
     def _pin_global_staging(self, run: SemiAutomaticSelectionRun) -> None:
+        if run.workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+            # V7 admission pins only direct local manifests, never browser staging.
+            return
         retention = self._session.get(
             BrowserSelectionRetentionModel,
             run.source.upload_id,
@@ -128,9 +148,147 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             .where(SemiAutomaticImageSelectionRunModel.id == run_id)
         )
         if for_update:
-            statement = statement.with_for_update()
+            identity = self._session.get(SemiAutomaticImageSelectionRunModel, run_id)
+            if identity is not None and identity.workflow_mode == "v7_selection":
+                self.get_v7_pilot_gate(for_update=True)
+                self._session.scalar(
+                    select(JobModel)
+                    .where(JobModel.id == identity.job_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                self._session.scalar(
+                    select(SemiAutomaticImageSelectionRunModel)
+                    .where(SemiAutomaticImageSelectionRunModel.id == run_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                statement = statement.execution_options(populate_existing=True)
+            else:
+                statement = statement.with_for_update()
         row = self._session.execute(statement).one_or_none()
         return None if row is None else _run_from_records(*row)
+
+    def get_for_display(
+        self, run_id: UUID, *, include_checkpoint: bool = False
+    ) -> SemiAutomaticSelectionRun | None:
+        """Project only display fields without loading or replacing recovery data."""
+        model = SemiAutomaticImageSelectionRunModel
+        checkpoint = model.checkpoint
+        summary = func.jsonb_build_object(
+            "schemaVersion",
+            checkpoint["schemaVersion"],
+            "runtimeVersion",
+            checkpoint["runtimeVersion"],
+            "localizerFingerprint",
+            checkpoint["localizerFingerprint"],
+            "calibrationFingerprint",
+            checkpoint["calibrationFingerprint"],
+            "v7ProjectionFingerprint",
+            checkpoint["v7ProjectionFingerprint"],
+            "scanState",
+            func.jsonb_build_object(
+                "schemaVersion",
+                checkpoint["scanState"]["schemaVersion"],
+                "phase",
+                checkpoint["scanState"]["phase"],
+            ),
+        )
+        display_checkpoint = (
+            case((model.workflow_mode == "v7_selection", summary), else_=checkpoint)
+            if include_checkpoint
+            else literal({}, type_=JSONB)
+        )
+        row = self._session.execute(
+            select(model, JobModel, display_checkpoint)
+            .options(defer(model.checkpoint, raiseload=True))
+            .join(JobModel, JobModel.id == model.job_id)
+            .where(model.id == run_id)
+        ).one_or_none()
+        return (
+            None
+            if row is None
+            else _run_from_records(
+                row[0], row[1], checkpoint_override=cast(dict[str, object], row[2])
+            )
+        )
+
+    def get_for_v7_review(
+        self, run_id: UUID, *, for_update: bool = False
+    ) -> SemiAutomaticSelectionRun | None:
+        """Read review guards, never transfer the scan history or source inventory."""
+        model = SemiAutomaticImageSelectionRunModel
+        if for_update:
+            identity = self._session.execute(
+                select(model.job_id, model.workflow_mode).where(model.id == run_id)
+            ).one_or_none()
+            if identity is None:
+                return None
+            if identity[1] != "v7_selection":
+                return self.get(run_id, for_update=True)
+            self.get_v7_pilot_gate(for_update=True)
+            self._session.scalar(
+                select(JobModel)
+                .where(JobModel.id == identity[0])
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            self._session.scalar(
+                select(model)
+                .options(defer(model.checkpoint, raiseload=True))
+                .where(model.id == run_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        checkpoint = model.checkpoint
+        control = func.jsonb_build_object(
+            "blockedReason",
+            checkpoint["blockedReason"],
+            "v7ProjectionFingerprint",
+            checkpoint["v7ProjectionFingerprint"],
+            "scanState",
+            func.jsonb_build_object("phase", checkpoint["scanState"]["phase"]),
+        )
+        row = self._session.execute(
+            select(
+                model,
+                JobModel,
+                case((model.workflow_mode == "v7_selection", control), else_=checkpoint),
+            )
+            .options(defer(model.checkpoint, raiseload=True))
+            .join(JobModel, JobModel.id == model.job_id)
+            .where(model.id == run_id)
+            .execution_options(populate_existing=True)
+        ).one_or_none()
+        return (
+            None
+            if row is None
+            else _run_from_records(
+                row[0], row[1], checkpoint_override=cast(dict[str, object], row[2])
+            )
+        )
+
+    def save_v7_review_state(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun:
+        """Persist a reservation/requeue without replacing immutable scan recovery."""
+        if run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.V7_SELECTION:
+            raise V7DeliveryConflict("V7_WORKFLOW_REQUIRED", "Review state requires a V7 run.")
+        record = self._session.get(
+            SemiAutomaticImageSelectionRunModel,
+            run.id,
+            options=(defer(SemiAutomaticImageSelectionRunModel.checkpoint, raiseload=True),),
+        )
+        job_record = self._session.get(JobModel, run.job.id)
+        if record is None or job_record is None:
+            raise SemiAutomaticSelectionConflictError(
+                "SEMI_AUTOMATIC_SELECTION_NOT_FOUND", "The selection run no longer exists."
+            )
+        apply_job_to_record(job_record, run.job)
+        record.status = run.status.value
+        record.counters = dict(run.counters)
+        record.revision = run.revision
+        record.updated_at = run.updated_at
+        self._session.flush()
+        return run
 
     def save(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun:
         record = self._session.get(SemiAutomaticImageSelectionRunModel, run.id)
@@ -161,7 +319,7 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         offset: int,
         limit: int,
     ) -> tuple[tuple[SemiAutomaticSelectionRun, ...], int | None]:
-        rows = self._session.execute(
+        statement = (
             select(SemiAutomaticImageSelectionRunModel, JobModel)
             .join(JobModel, JobModel.id == SemiAutomaticImageSelectionRunModel.job_id)
             .where(SemiAutomaticImageSelectionRunModel.workflow_mode == workflow_mode.value)
@@ -171,12 +329,39 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
             )
             .offset(offset)
             .limit(limit + 1)
-        ).all()
+        )
+        v7 = workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION
+        if v7:
+            statement = statement.options(
+                defer(SemiAutomaticImageSelectionRunModel.checkpoint, raiseload=True)
+            )
+        rows = self._session.execute(statement).all()
         visible = rows[:limit]
         return (
-            tuple(_run_from_records(*row) for row in visible),
+            tuple(
+                _run_from_records(*row, checkpoint_override={} if v7 else None) for row in visible
+            ),
             offset + limit if len(rows) > limit else None,
         )
+
+    def find_v7_runs_by_source_name(self, name: str) -> tuple[SemiAutomaticSelectionRun, ...]:
+        model = SemiAutomaticImageSelectionRunModel
+        ids = tuple(
+            self._session.scalars(
+                select(model.id)
+                .where(
+                    model.workflow_mode == "v7_selection",
+                    model.source_display_name == name,
+                )
+                .order_by(model.created_at.desc(), model.id.desc())
+                .limit(21)
+            )
+        )
+        if len(ids) > 20:
+            raise SemiAutomaticSelectionConflictError(
+                "V7_REVIEW_FOLDER_AMBIGUOUS", "Too many saved runs match this folder name."
+            )
+        return tuple(run for run_id in ids if (run := self.get_for_display(run_id)) is not None)
 
     def get_filename_verification_reviews(
         self,
@@ -397,7 +582,18 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         records = self._session.scalars(
             statement.order_by(SemiAutomaticImageSelectionRangeModel.expected_index).limit(limit)
         )
-        return tuple(_range_from_record(record) for record in records)
+        items = tuple(_range_from_record(record) for record in records)
+        if not any(item.v7_review is not None for item in items):
+            return items
+        latest: dict[UUID, V7OutputOperation] = {}
+        operations = self._session.scalars(
+            select(V7OutputOperationModel)
+            .where(V7OutputOperationModel.range_id.in_([item.id for item in items]))
+            .order_by(V7OutputOperationModel.created_at, V7OutputOperationModel.id)
+        )
+        for operation in operations:
+            latest[operation.range_id] = _operation_from_record(operation)
+        return tuple(_with_operation(item, latest.get(item.id)) for item in items)
 
     def get_range_for_update(
         self,
@@ -431,6 +627,15 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         record.range_confidence = item.range_confidence
         record.selection_method = item.selection_method
         record.output_checksum_sha256 = item.output_checksum_sha256
+        for key in (
+            "v7_review",
+            "v7_projection_fingerprint",
+            "v7_confirmed_range_start",
+            "v7_confirmed_range_end",
+            "v7_output_owner_operation_id",
+            "v7_output_generation",
+        ):
+            setattr(record, key, getattr(item, key))
         record.revision = item.revision
         record.updated_at = item.updated_at
         self._session.flush()
@@ -444,6 +649,137 @@ class SqlAlchemySemiAutomaticSelectionRepository(SemiAutomaticSelectionRepositor
         stored_item = self.save_range(item)
         stored_run = self.save(run)
         return stored_run, stored_item
+
+    def get_v7_pilot_gate(
+        self, *, for_update: bool = False, for_share: bool = False
+    ) -> V7PilotGate:
+        statement = select(SemiAutomaticV7ActivationGateModel).where(
+            SemiAutomaticV7ActivationGateModel.singleton.is_(True)
+        )
+        if for_update or for_share:
+            statement = statement.with_for_update(read=for_share and not for_update)
+        row = self._session.scalar(statement.execution_options(populate_existing=True))
+        if row is None:
+            return V7PilotGate()
+        gate = V7PilotGate(
+            status=row.pilot_status,
+            generation=row.pilot_generation,
+            mode=row.pilot_mode,
+            geometry_family_id=row.pilot_geometry_family_id,
+            source_game_ref=row.pilot_source_game_ref,
+            source_policy=cast(V7SourcePolicy, row.pilot_source_policy),
+            profile_fingerprint=row.pilot_profile_fingerprint,
+            observer_fingerprint=row.pilot_observer_fingerprint,
+            ocr_model_fingerprint=row.pilot_ocr_model_fingerprint,
+            source_bindings=tuple(row.pilot_source_bindings),
+            receipt_fingerprint=row.pilot_acceptance_receipt_fingerprint,
+            accepted=row.pilot_accepted_at is not None and bool(row.pilot_accepted_by),
+        )
+        if not gate.enabled:
+            return gate
+        receipt = self._session.scalar(
+            select(V7PilotAcceptanceModel).where(
+                V7PilotAcceptanceModel.receipt_fingerprint == gate.receipt_fingerprint
+            )
+        )
+        database_name = self._session.scalar(select(func.current_database()))
+        if (
+            receipt is None
+            or receipt.resulting_generation != gate.generation
+            or not receipt_matches_gate(
+                receipt.receipt, receipt.receipt_fingerprint, gate, str(database_name)
+            )
+            or receipt.receipt.get("actor") != row.pilot_accepted_by
+            or datetime.fromisoformat(str(receipt.receipt["acceptedAt"])) != row.pilot_accepted_at
+        ):
+            return replace(gate, status="blocked", accepted=False)
+        return replace(gate, acceptance_receipt=dict(receipt.receipt))
+
+    def get_v7_output_operation(
+        self, operation_id: UUID, *, for_update: bool = False
+    ) -> V7OutputOperation | None:
+        statement = select(V7OutputOperationModel).where(V7OutputOperationModel.id == operation_id)
+        if for_update:
+            statement = statement.with_for_update()
+        row = self._session.scalar(statement.execution_options(populate_existing=True))
+        return None if row is None else _operation_from_record(row)
+
+    def get_pending_v7_output(
+        self, run_id: UUID, *, for_update: bool = False
+    ) -> V7OutputOperation | None:
+        statement = select(V7OutputOperationModel).where(
+            V7OutputOperationModel.run_id == run_id,
+            V7OutputOperationModel.state.in_(V7_PENDING_STATES),
+        )
+        if for_update:
+            statement = statement.with_for_update()
+        row = self._session.scalar(statement.execution_options(populate_existing=True))
+        return None if row is None else _operation_from_record(row)
+
+    def get_v7_output_root(self, run_id: UUID) -> str | None:
+        model = V7OutputOperationModel
+        base = select(model.context_payload["outputRoot"].as_string()).where(model.run_id == run_id)
+        # Only the first owner and the one pending command can determine the pin.
+        # Never deserialize every historical operation to display an output path.
+        roots = self._session.scalars(
+            union_all(
+                base.where(model.state == "committed")
+                .order_by(model.created_at, model.id)
+                .limit(1),
+                base.where(model.state.in_(V7_PENDING_STATES)).limit(1),
+            )
+        ).all()
+        if len(set(roots)) > 1:
+            raise V7DeliveryConflict(
+                "V7_OUTPUT_ROOT_CONFLICT", "This run has conflicting output pins."
+            )
+        return None if not roots else (roots[0] or "")
+
+    def save_v7_output_operation(self, operation: V7OutputOperation) -> V7OutputOperation:
+        record = self._session.get(V7OutputOperationModel, operation.operation_id)
+        if record is None:
+            record = V7OutputOperationModel(
+                id=operation.operation_id,
+                run_id=operation.run_id,
+                range_id=operation.range_id,
+                request_fingerprint=operation.request_fingerprint,
+                request_payload=operation.request_payload,
+                context_payload=operation.context_payload,
+                decision_generation=operation.decision_generation,
+                reserved_revision=operation.reserved_revision,
+                created_at=operation.created_at,
+            )
+            self._session.add(record)
+        elif (
+            record.request_fingerprint != operation.request_fingerprint
+            or record.context_payload != operation.context_payload
+            or record.decision_generation != operation.decision_generation
+        ):
+            raise SemiAutomaticSelectionConflictError(
+                "V7_OPERATION_ID_CONFLICT", "Immutable command changed."
+            )
+        record.state = operation.state
+        record.receipt = operation.receipt
+        record.error_code = operation.error_code
+        record.updated_at = operation.updated_at
+        self._session.flush()
+        return _operation_from_record(record)
+
+    def get_v7_source_observations(
+        self, run_id: UUID, source_indexes: Sequence[int]
+    ) -> dict[int, dict[str, object]]:
+        rows = self._session.scalars(
+            select(V7SourceObservationModel).where(
+                V7SourceObservationModel.run_id == run_id,
+                V7SourceObservationModel.source_index.in_(source_indexes),
+            )
+        )
+        return {
+            row.source_index: {
+                key: value for key, value in row.payload.items() if key != "resumeObservation"
+            }
+            for row in rows
+        }
 
 
 def _run_record(
@@ -479,9 +815,7 @@ def _run_record(
             None if run.v7_configuration is None else run.v7_configuration.as_payload()
         ),
         v7_calibration_fingerprint=(
-            None
-            if run.v7_configuration is None
-            else run.v7_configuration.calibration_fingerprint
+            None if run.v7_configuration is None else run.v7_configuration.calibration_fingerprint
         ),
         revision=run.revision,
         created_at=run.created_at,
@@ -506,6 +840,12 @@ def _range_record(item: SemiAutomaticSelectionRange) -> SemiAutomaticImageSelect
         range_confidence=item.range_confidence,
         selection_method=item.selection_method,
         output_checksum_sha256=item.output_checksum_sha256,
+        v7_review=item.v7_review,
+        v7_projection_fingerprint=item.v7_projection_fingerprint,
+        v7_confirmed_range_start=item.v7_confirmed_range_start,
+        v7_confirmed_range_end=item.v7_confirmed_range_end,
+        v7_output_owner_operation_id=item.v7_output_owner_operation_id,
+        v7_output_generation=item.v7_output_generation,
         revision=item.revision,
         created_at=item.created_at,
         updated_at=item.updated_at,
@@ -515,6 +855,8 @@ def _range_record(item: SemiAutomaticSelectionRange) -> SemiAutomaticImageSelect
 def _run_from_records(
     record: SemiAutomaticImageSelectionRunModel,
     job_record: JobModel,
+    *,
+    checkpoint_override: dict[str, object] | None = None,
 ) -> SemiAutomaticSelectionRun:
     return SemiAutomaticSelectionRun(
         id=record.id,
@@ -538,7 +880,7 @@ def _run_from_records(
         recognizer_fingerprint=record.recognizer_fingerprint,
         grouping_policy_fingerprint=record.grouping_policy_fingerprint,
         status=SemiAutomaticSelectionRunStatus(record.status),
-        checkpoint=dict(record.checkpoint),
+        checkpoint=dict(record.checkpoint if checkpoint_override is None else checkpoint_override),
         counters={key: int(value) for key, value in record.counters.items()},
         diagnostics_relative_path=record.diagnostics_relative_path,
         diagnostics_checksum_sha256=record.diagnostics_checksum_sha256,
@@ -567,6 +909,12 @@ def _range_from_record(
         range_confidence=record.range_confidence,
         selection_method=record.selection_method,
         output_checksum_sha256=record.output_checksum_sha256,
+        v7_review=record.v7_review,
+        v7_projection_fingerprint=record.v7_projection_fingerprint,
+        v7_confirmed_range_start=record.v7_confirmed_range_start,
+        v7_confirmed_range_end=record.v7_confirmed_range_end,
+        v7_output_owner_operation_id=record.v7_output_owner_operation_id,
+        v7_output_generation=record.v7_output_generation,
         revision=record.revision,
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -597,7 +945,10 @@ def _v7_configuration_from_record(
     if raw is None:
         return None
     try:
-        if raw["version"] != V7_SELECTION_CONFIGURATION_VERSION:
+        if raw["version"] not in {
+            V7_SELECTION_CONFIGURATION_VERSION,
+            "v7-selection-configuration-v2",
+        }:
             raise ValueError("unsupported V7 configuration version")
         configuration = SemiAutomaticV7SelectionConfiguration(
             mode=SemiAutomaticV7SelectionMode(str(raw["mode"])),
@@ -607,6 +958,12 @@ def _v7_configuration_from_record(
             border_style=SemiAutomaticV7BorderStyle(str(raw["borderStyle"])),
             localizer_fingerprint=str(raw["localizerFingerprint"]),
             calibration_fingerprint=str(raw["calibrationFingerprint"]),
+            output_directory=cast(str | None, raw.get("outputDirectory")),
+            pilot=(
+                None
+                if raw["version"] == V7_SELECTION_CONFIGURATION_VERSION
+                else V7PilotSnapshot.from_payload(raw.get("pilot"))
+            ),
         )
         if record.v7_calibration_fingerprint != configuration.calibration_fingerprint:
             raise ValueError("V7 calibration fingerprint does not match configuration")
@@ -623,3 +980,39 @@ def _v7_configuration_integer(raw: dict[str, object], key: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"V7 configuration {key} must be an integer.")
     return value
+
+
+def _operation_from_record(record: V7OutputOperationModel) -> V7OutputOperation:
+    operation = V7OutputOperation(
+        record.id,
+        record.run_id,
+        record.range_id,
+        dict(record.request_payload),
+        dict(record.context_payload),
+        record.decision_generation,
+        record.reserved_revision,
+        record.state,
+        record.receipt,
+        record.error_code,
+        record.created_at,
+        record.updated_at,
+    )
+    if operation.request_fingerprint != record.request_fingerprint:
+        raise V7DeliveryConflict(
+            "V7_OPERATION_ID_CONFLICT", "Stored operation fingerprint changed."
+        )
+    return operation
+
+
+def _with_operation(
+    item: SemiAutomaticSelectionRange, operation: V7OutputOperation | None
+) -> SemiAutomaticSelectionRange:
+    return (
+        item
+        if operation is None
+        else replace(
+            item,
+            output_operation=operation.as_response(),
+            acknowledgement_receipt=operation.receipt,
+        )
+    )

@@ -128,8 +128,28 @@ export function reviewerProxyTarget(
   if (
     method === 'POST' &&
     new RegExp(
-      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:geometry-preview|manual-resolution)$`,
+      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:geometry-preview|geometry-symbol-preview|manual-resolution|rejection)$`,
     ).test(path)
+  ) {
+    return path;
+  }
+  // D-542 (TASK-0968): list, preview and revert of manual geometry corrections.
+  const geometryCorrectionCollectionPattern = new RegExp(
+    `^/api/v1/admin/games/${UUID}/image-imports/${UUID}/geometry-corrections$`,
+  );
+  const geometryCorrectionItemPattern = `${geometryCorrectionCollectionPattern.source.slice(0, -1)}/${UUID}`;
+  if (method === 'GET' && geometryCorrectionCollectionPattern.test(path)) {
+    return path;
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(`${geometryCorrectionItemPattern}/revert-preview$`).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(`${geometryCorrectionItemPattern}/revert$`).test(path)
   ) {
     return path;
   }

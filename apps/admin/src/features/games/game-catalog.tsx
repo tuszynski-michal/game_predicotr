@@ -4,6 +4,8 @@ import type {
   GameShapeGeometryConfiguration,
   GameResponse,
   GameStatus,
+  GridEngineProfileResponse,
+  SuperGameKindResponse,
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
@@ -20,6 +22,8 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   archiveGameIdentity,
   type GamesClient,
+  loadGridEngineProfiles,
+  loadSuperGameKinds,
   restoreGameIdentity,
   saveGameIdentity,
 } from '@/features/games/game-catalog-actions';
@@ -27,11 +31,18 @@ import {
   countGamesByStatus,
   EMPTY_GAME_DRAFT,
   filterGamesByStatus,
+  findGridEngineProfile,
   GAME_STATUS_FILTER_LABELS,
   GAME_STATUS_FILTERS,
   GAME_STATUS_LABELS,
+  GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS,
+  gridEngineModelSummary,
+  isGridEngineProfileConfiguration,
   SHAPE_GEOMETRY_CONFIGURATION_LABELS,
   SHAPE_GEOMETRY_READINESS_LABELS,
+  shapeGeometryConfigurationLabel,
+  superGameKindLabel,
+  superGameKindOptions,
   type GameDraft,
   markGameArchived,
   upsertGame,
@@ -79,6 +90,14 @@ export function GameCatalog({
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [gridEngineProfiles, setGridEngineProfiles] = useState<
+    readonly GridEngineProfileResponse[]
+  >([]);
+  const [gridEngineProfilesError, setGridEngineProfilesError] = useState('');
+  const [superGameKinds, setSuperGameKinds] = useState<
+    readonly SuperGameKindResponse[]
+  >([]);
+  const [superGameKindsError, setSuperGameKindsError] = useState('');
   const loadRequestId = useRef(0);
   const mutationInProgress = useRef(false);
   const statusCounts = useMemo(() => countGamesByStatus(games), [games]);
@@ -133,6 +152,42 @@ export function GameCatalog({
     };
   }, [loadGames]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void loadGridEngineProfiles(api).then((result) => {
+      if (cancelled) {
+        return;
+      }
+      if (result.ok) {
+        setGridEngineProfiles(result.profiles);
+        setGridEngineProfilesError('');
+      } else {
+        setGridEngineProfilesError(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadSuperGameKinds(api).then((result) => {
+      if (cancelled) {
+        return;
+      }
+      if (result.ok) {
+        setSuperGameKinds(result.kinds);
+        setSuperGameKindsError('');
+      } else {
+        setSuperGameKindsError(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
   function openCreateEditor() {
     setDraft(EMPTY_GAME_DRAFT);
     setFormError('');
@@ -148,6 +203,7 @@ export function GameCatalog({
       expectedLayoutCount: String(game.expectedLayoutCount),
       shapeGeometryConfiguration:
         game.shapeGeometryConfiguration ?? 'requires_clarification',
+      superGameKind: game.superGameKind,
     });
     setFormError('');
     setNotice('');
@@ -178,6 +234,7 @@ export function GameCatalog({
       name,
       shapeGeometryConfiguration,
       status,
+      superGameKind,
     } = validation.value;
 
     mutationInProgress.current = true;
@@ -191,7 +248,14 @@ export function GameCatalog({
         editor.mode === 'create'
           ? { mode: 'create' }
           : { gameId: editor.game.id, mode: 'edit' },
-        { code, expectedLayoutCount, name, shapeGeometryConfiguration, status },
+        {
+          code,
+          expectedLayoutCount,
+          name,
+          shapeGeometryConfiguration,
+          status,
+          superGameKind,
+        },
       );
 
       if (!result.ok) {
@@ -326,8 +390,12 @@ export function GameCatalog({
         <GameEditor
           draft={draft}
           error={formError}
+          gridEngineProfiles={gridEngineProfiles}
+          gridEngineProfilesError={gridEngineProfilesError}
           isSubmitting={isSubmitting}
           mode={editor.mode}
+          superGameKinds={superGameKinds}
+          superGameKindsError={superGameKindsError}
           onCancel={closeEditor}
           onChange={setDraft}
           onSubmit={submitGame}
@@ -388,7 +456,9 @@ export function GameCatalog({
                     archivePending={archivingId === game.id}
                     confirmArchive={archiveCandidateId === game.id}
                     game={game}
+                    gridEngineProfiles={gridEngineProfiles}
                     key={game.id}
+                    superGameKinds={superGameKinds}
                     onArchive={() => setArchiveCandidateId(game.id)}
                     onArchiveCancel={() => setArchiveCandidateId(null)}
                     onArchiveConfirm={() => void confirmArchive(game)}
@@ -417,21 +487,29 @@ export function GameCatalog({
 interface GameEditorProps {
   readonly draft: GameDraft;
   readonly error: string;
+  readonly gridEngineProfiles: readonly GridEngineProfileResponse[];
+  readonly gridEngineProfilesError: string;
   readonly isSubmitting: boolean;
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
   readonly onChange: (draft: GameDraft) => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  readonly superGameKinds: readonly SuperGameKindResponse[];
+  readonly superGameKindsError: string;
 }
 
 function GameEditor({
   draft,
   error,
+  gridEngineProfiles,
+  gridEngineProfilesError,
   isSubmitting,
   mode,
   onCancel,
   onChange,
   onSubmit,
+  superGameKinds,
+  superGameKindsError,
 }: GameEditorProps) {
   return (
     <section
@@ -551,6 +629,41 @@ function GameEditor({
             Wybór określa wspólny format strony. Pierwszy import nadal wymaga
             weryfikacji i ewentualnej korekty.
           </small>
+          <GridEngineProfileHint
+            configuration={draft.shapeGeometryConfiguration}
+            error={gridEngineProfilesError}
+            profiles={gridEngineProfiles}
+          />
+        </label>
+
+        <label>
+          <span>Supergra</span>
+          <select
+            disabled={isSubmitting}
+            name="superGameKind"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                superGameKind: event.currentTarget.value,
+              })
+            }
+            value={draft.superGameKind}
+          >
+            {superGameKindOptions(superGameKinds, draft.superGameKind).map(
+              (kind) => (
+                <option key={kind.code} value={kind.code}>
+                  {kind.label}
+                </option>
+              ),
+            )}
+          </select>
+          <small>
+            Rodzaj supergry jest zaszyty w kodzie. Symbol z rolą „Uruchamia
+            supergrę” wymaga rodzaju innego niż „Brak”.
+          </small>
+          {superGameKindsError ? (
+            <small role="alert">{superGameKindsError}</small>
+          ) : null}
         </label>
 
         <label>
@@ -606,10 +719,46 @@ function GameEditor({
   );
 }
 
+function GridEngineProfileHint({
+  configuration,
+  error,
+  profiles,
+}: {
+  readonly configuration: GameShapeGeometryConfiguration;
+  readonly error: string;
+  readonly profiles: readonly GridEngineProfileResponse[];
+}) {
+  if (!isGridEngineProfileConfiguration(configuration)) {
+    return (
+      <small className="gridEngineProfileHint">
+        Profile „777 v2” i „Mumie” wybierają też zamrożony model silnika siatek
+        (neural_grid). Profil 777 v2 służy również przyszłym wersjom gry 777.
+      </small>
+    );
+  }
+  const profile = findGridEngineProfile(profiles, configuration);
+  return (
+    <small
+      className="gridEngineProfileHint"
+      data-model-status={profile?.status ?? 'unknown'}
+      data-testid="grid-engine-profile-hint"
+    >
+      Profil silnika siatek:{' '}
+      {profile?.description ??
+        GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS[configuration]}
+      <br />
+      {profile
+        ? `${gridEngineModelSummary(profile)}. ${profile.message}`
+        : error || 'Sprawdzanie stanu modelu…'}
+    </small>
+  );
+}
+
 interface GameRowProps {
   readonly archivePending: boolean;
   readonly confirmArchive: boolean;
   readonly game: GameResponse;
+  readonly gridEngineProfiles: readonly GridEngineProfileResponse[];
   readonly onArchive: () => void;
   readonly onArchiveCancel: () => void;
   readonly onArchiveConfirm: () => void;
@@ -619,12 +768,14 @@ interface GameRowProps {
   readonly restorePending: boolean;
   readonly selectable: boolean;
   readonly selected: boolean;
+  readonly superGameKinds: readonly SuperGameKindResponse[];
 }
 
 function GameRow({
   archivePending,
   confirmArchive,
   game,
+  gridEngineProfiles,
   onArchive,
   onArchiveCancel,
   onArchiveConfirm,
@@ -634,9 +785,14 @@ function GameRow({
   restorePending,
   selectable,
   selected,
+  superGameKinds,
 }: GameRowProps) {
   const readiness = game.shapeGeometryReadiness;
   const readinessStatus = readiness?.status ?? 'requires_clarification';
+  const gridEngineProfile = findGridEngineProfile(
+    gridEngineProfiles,
+    game.shapeGeometryConfiguration,
+  );
   function handleRowClick(event: MouseEvent<HTMLElement>) {
     if (!selectable) {
       return;
@@ -689,6 +845,20 @@ function GameRow({
             {!game.storageWriteAvailable
               ? ` · tryb tylko do odczytu (${game.storageStatus})`
               : ''}
+          </small>
+          <small className="gamePageFormat">
+            Format strony:{' '}
+            {shapeGeometryConfigurationLabel(game.shapeGeometryConfiguration)}
+            {isGridEngineProfileConfiguration(game.shapeGeometryConfiguration)
+              ? ` · profil silnika siatek${
+                  gridEngineProfile
+                    ? ` · ${gridEngineModelSummary(gridEngineProfile)}`
+                    : ''
+                }`
+              : ''}
+          </small>
+          <small className="gameSuperGameKind">
+            Supergra: {superGameKindLabel(superGameKinds, game.superGameKind)}
           </small>
           <small className="gameGeometryState">
             Geometria: {SHAPE_GEOMETRY_READINESS_LABELS[readinessStatus]}

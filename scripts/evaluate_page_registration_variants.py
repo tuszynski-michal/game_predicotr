@@ -100,9 +100,11 @@ def _reference_quads(raw: Sequence[Sequence[Mapping[str, object]]]) -> tuple[Qua
         cast(
             Quad,
             tuple(
+                # Point is annotated int, but the reference geometry keeps sub-pixel
+                # coordinates for the error measurement, so the floats are passed through.
                 Point(
-                    float(cast(int | float, point["x"])),
-                    float(cast(int | float, point["y"])),
+                    cast(int, float(cast(int | float, point["x"]))),
+                    cast(int, float(cast(int | float, point["y"]))),
                 )
                 for point in raw_quad
             ),
@@ -375,8 +377,9 @@ def build_report(
 
 def main() -> int:
     arguments = _arguments()
+    # Operator tool: schema-owner URL (TASK-0795), same default as before.
     database_url = os.environ.get(
-        "GAME_PREDICTOR_DATABASE_URL",
+        "GAME_PREDICTOR_OWNER_DATABASE_URL",
         "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor",
     )
     report = build_report(

@@ -3,6 +3,55 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('lab registry uses game-scoped generated imports and deactivation routes', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const fingerprint = 'a'.repeat(64);
+  const key = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push({
+        path: new URL(request.url).pathname,
+        method: request.method,
+        body: request.method === 'POST' ? await request.clone().json() : null,
+        target: request.headers.get('x-game-predictor-confirmed-target'),
+      });
+      return Response.json({});
+    },
+  });
+  await client.listLabSymbolCandidates(gameId);
+  await client.previewLabSymbolCandidateImport(gameId, fingerprint);
+  await client.importLabSymbolCandidate(gameId, {
+    candidateFingerprint: fingerprint,
+    idempotencyKey: key,
+  });
+  await client.previewSymbolModelDeactivation(gameId);
+  const deactivation = {
+    actor: 'local-owner',
+    idempotencyKey: key,
+    expectedCurrentModelIterationId: key,
+    reason: 'disable pilot',
+  };
+  await client.deactivateSymbolModel(gameId, deactivation);
+  const prefix = `/api/v1/admin/games/${gameId}/symbol-model-iterations`;
+  assert.deepEqual(
+    requests.map((request) => request.path),
+    [
+      prefix + '/imports/candidates',
+      prefix + `/imports/${fingerprint}/preview`,
+      prefix + '/imports',
+      prefix + '/registry/deactivation-preview',
+      prefix + '/registry/deactivate',
+    ],
+  );
+  assert.deepEqual(requests[2].body, {
+    candidateFingerprint: fingerprint,
+    idempotencyKey: key,
+  });
+  assert.deepEqual(requests[4].body, deactivation);
+});
+
 test('qualified guard commands retain signed corners and all-missing mask', async () => {
   const requests = [];
   const client = createAdminApiClient({
@@ -136,7 +185,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
   const symbolId = '22222222-2222-4222-8222-222222222222';
-  const observationId = '33333333-3333-4333-8333-333333333333';
+  const cellReviewId = '33333333-3333-4333-8333-333333333333';
   const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -154,7 +203,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   await client.selectApprovedSymbolReferenceCandidate(
     gameId,
     symbolId,
-    observationId,
+    cellReviewId,
     { expectedChecksumSha256: checksum, selectedBy: 'admin-local' },
   );
 
@@ -169,12 +218,45 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   );
   assert.equal(
     new URL(requests[1].url).pathname,
-    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${observationId}/selection`,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${cellReviewId}/selection`,
   );
   assert.equal(
     requests[1].headers.get('X-Admin-Target'),
-    `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+    `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
   );
+});
+
+test('generated client selects a symbol image from one verification cell', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const cellReviewId = '44444444-4444-4444-8444-444444444444';
+  const checksum = 'b'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.selectSymbolReferenceFromCellReview(gameId, cellReviewId, {
+    expectedChecksumSha256: checksum,
+    selectedBy: 'admin-local',
+  });
+
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-cell-reviews/${cellReviewId}/symbol-reference`,
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    `symbol-reference:${gameId}:cell:${cellReviewId}`,
+  );
+  assert.deepEqual(await requests[0].json(), {
+    expectedChecksumSha256: checksum,
+    selectedBy: 'admin-local',
+  });
 });
 
 test('generated client reads model quality and freezes the confirmed manifest', async () => {
@@ -249,6 +331,29 @@ test('generated client reads model quality and freezes the confirmed manifest', 
   );
 });
 
+test('model quality overview is an explicit compatible query on the existing endpoint', async () => {
+  let captured;
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ view: 'overview', approvedCellCount: 30 });
+    },
+  });
+  const controller = new AbortController();
+  const result = await client.getModelQuality('game-1', {
+    view: 'overview',
+    signal: controller.signal,
+  });
+  assert.equal(
+    new URL(captured.url).pathname,
+    '/api/v1/admin/games/game-1/model-quality',
+  );
+  assert.equal(new URL(captured.url).searchParams.get('view'), 'overview');
+  assert.equal(result.data.approvedCellCount, 30);
+  assert.equal(captured.method, 'GET');
+});
+
 test('generated client creates a scoped durable symbol training job', async () => {
   let captured;
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -299,6 +404,58 @@ test('generated client lists and reads checksum-bound candidate gate reports', a
     ],
   );
   assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+});
+
+test('generated client lists grid engine profiles with their model state', async () => {
+  const requests = [];
+  const profile = {
+    configuration: 'grid_profile_mumie_v1',
+    description: 'Model neural_grid doszkolony na Mumiach.',
+    exportId: 'iteration03-f896da7196431be2',
+    files: [
+      {
+        expectedSha256: 'a'.repeat(64),
+        name: 'screen.onnx',
+        sizeBytes: 13808279,
+        status: 'available',
+      },
+    ],
+    frozenOn: '2026-10-04',
+    label: 'Mumie',
+    managedPath: 'models/grid-engine/grid_profile_mumie_v1/v1',
+    manifestStatus: 'available',
+    message: 'Model jest w zarządzanym katalogu i zgadza się z rejestrem.',
+    modelKind: 'neural_grid',
+    modelVersion: 'neural-grid-v1',
+    preset: 'D',
+    presetFingerprint: 'b'.repeat(64),
+    reasonCode: 'GRID_ENGINE_MODEL_AVAILABLE',
+    reportResults: [{ dataset: 'Mumie holdout', result: '36/36' }],
+    runId: '5bc981568c3f42bd96f6f9238e57aedc',
+    status: 'available',
+    version: 'v1',
+    weightsSha256: 'c'.repeat(64),
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(JSON.stringify([profile]), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+
+  const result = await client.listGridEngineProfiles();
+
+  assert.deepEqual(result.data, [profile]);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/grid-engine-profiles',
+  );
 });
 
 test('generated client calls the typed health operation', async () => {
@@ -1441,6 +1598,7 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     displayOrder: 5,
   });
   await client.archivePayline(rulesVersionId, paylineId);
+  await client.deletePayline(rulesVersionId, paylineId);
 
   assert.equal(created.data?.id, paylineId);
   assert.equal(
@@ -1452,6 +1610,15 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}`,
   );
   assert.equal(requests[2].method, 'DELETE');
+  assert.equal(requests[3].method, 'DELETE');
+  assert.equal(
+    new URL(requests[3].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}/permanent`,
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `payline:${paylineId}`,
+  );
   assert.deepEqual(await requests[0].clone().json(), {
     code: 'line-v',
     displayOrder: 10,
@@ -1520,6 +1687,43 @@ test('generated client sends symbol minimum and payout rule requests', async () 
     minimumMatchLength: 2,
   });
   assert.equal(requests[3].method, 'DELETE');
+});
+
+test('generated client sends a catalog symbol displayOrder update', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const symbolId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        code: 'SEVEN',
+        displayOrder: 6,
+        gameId,
+        id: symbolId,
+        imagePath: null,
+        isWildcard: false,
+        mobileCode: 8,
+        name: '7',
+        nameEn: null,
+        namePl: null,
+        status: 'active',
+      });
+    },
+  });
+
+  const result = await client.updateSymbol(gameId, symbolId, {
+    displayOrder: 6,
+  });
+
+  assert.equal(result.data?.displayOrder, 6);
+  assert.equal(requests[0].method, 'PATCH');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}`,
+  );
+  assert.deepEqual(await requests[0].clone().json(), { displayOrder: 6 });
 });
 
 test('generated client sends rules publication workflow requests', async () => {
@@ -1937,8 +2141,19 @@ test('generated client previews and persists one scope-bound geometry revision',
         status: 200,
       });
     }
+    // D-467 S6 (TASK-0796): the revision is a virtual render bound by its
+    // source geometry and render manifest checksums, not by crop files.
     return Response.json(
-      { created: true, geometryRevision: {}, item: {} },
+      {
+        created: true,
+        geometryRevision: {
+          revision: 1,
+          geometryChecksumSha256: 'a'.repeat(64),
+          sourceGeometryRevisionId: '55555555-5555-4555-8555-555555555555',
+          virtualRenderSpecChecksumSha256: 'b'.repeat(64),
+        },
+        item: {},
+      },
       { status: 200 },
     );
   };
@@ -1964,6 +2179,14 @@ test('generated client previews and persists one scope-bound geometry revision',
 
   assert.equal(preview.data instanceof Blob, true);
   assert.equal(saved.data?.created, true);
+  assert.equal(
+    saved.data?.geometryRevision.virtualRenderSpecChecksumSha256,
+    'b'.repeat(64),
+  );
+  assert.equal(
+    'boardChecksumSha256' in (saved.data?.geometryRevision ?? {}),
+    false,
+  );
   assert.deepEqual(
     requests.map((request) => new URL(request.url).pathname),
     [
@@ -1976,6 +2199,86 @@ test('generated client previews and persists one scope-bound geometry revision',
     context.gameId,
   );
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
+  assert.deepEqual(await requests[1].clone().json(), {
+    ...previewCommand,
+    correctedBy: 'local-admin',
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
+});
+
+test('operational geometry commands carry a partial qualification and signed corners (TASK-0798)', async () => {
+  const requests = [];
+  const reviewItemId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const qualification = {
+    completenessStatus: 'pending_partial',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+    unavailableCellIndices: [0, 1, 5, 6, 10, 11],
+    version: 'manual-geometry-qualification-v1',
+  };
+  const command = {
+    corners: [
+      { x: -200, y: 50 },
+      { x: 300, y: 50 },
+      { x: 300, y: 350 },
+      { x: -200, y: 350 },
+    ],
+    expectedGeometryRevision: 1,
+    expectedResolutionRevision: 0,
+    geometryQualification: qualification,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), { status: 200 });
+      }
+      return Response.json(
+        {
+          created: true,
+          geometryRevision: {
+            corners: command.corners,
+            geometryQualification: qualification,
+            revision: 2,
+          },
+          item: { geometryQualification: qualification, sourceWidth: 620 },
+        },
+        { status: 200 },
+      );
+    },
+  });
+
+  await client.previewOperationalImageReviewGeometry(
+    reviewItemId,
+    context,
+    command,
+  );
+  const saved = await client.createOperationalImageReviewGeometryRevision(
+    reviewItemId,
+    context,
+    {
+      ...command,
+      correctedBy: 'local-admin',
+      idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    },
+  );
+
+  assert.deepEqual(await requests[0].clone().json(), command);
+  assert.deepEqual(await requests[1].clone().json(), {
+    ...command,
+    correctedBy: 'local-admin',
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
+  assert.equal(
+    saved.data?.geometryRevision.geometryQualification?.completenessStatus,
+    'pending_partial',
+  );
+  assert.equal(saved.data?.item.sourceWidth, 620);
 });
 
 test('grid review client binds keyset, source identity and topology-aware writes', async () => {
@@ -2024,15 +2327,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
     view: 'needs_validation',
   });
   await client.getImageGridReviewSourceAsset(reviewItemId, gameId, checksum);
-  await client.approveImageGridReviewGeometry(reviewItemId, gameId, {
-    expectedGeometryRevision: geometry.expectedGeometryRevision,
-    expectedGridColumns: geometry.expectedGridColumns,
-    expectedGridRows: geometry.expectedGridRows,
-    expectedResolutionRevision: geometry.expectedResolutionRevision,
-    expectedSourceChecksumSha256: geometry.expectedSourceChecksumSha256,
-    expectedSourceHeight: geometry.expectedSourceHeight,
-    expectedSourceWidth: geometry.expectedSourceWidth,
-  });
+  await client.getImageGridReviewCorrectionSymbols(reviewItemId, gameId);
   await client.previewImageGridReviewGeometry(
     reviewItemId,
     { gameId, importJobId },
@@ -2046,49 +2341,16 @@ test('grid review client binds keyset, source identity and topology-aware writes
       idempotencyKey: '44444444-4444-4444-8444-444444444444',
     },
   );
-  const sourceApprovalTarget = {
-    expectedGeometryRevision: geometry.expectedGeometryRevision,
-    expectedGridColumns: geometry.expectedGridColumns,
-    expectedGridRows: geometry.expectedGridRows,
-    expectedResolutionRevision: geometry.expectedResolutionRevision,
-    expectedSourceChecksumSha256: geometry.expectedSourceChecksumSha256,
-    expectedSourceHeight: geometry.expectedSourceHeight,
-    expectedSourceWidth: geometry.expectedSourceWidth,
-    reviewItemId,
-  };
-  const sourceGeometryTarget = { ...geometry, reviewItemId };
-  await client.approveImageGridReviewSourceGeometry(gameId, {
-    sourceImageId,
-    targets: [sourceApprovalTarget],
-  });
-  await client.createImageGridReviewSourceGeometryRevision(
-    gameId,
-    { gameId, importJobId },
-    {
-      idempotencyKey: '66666666-6666-4666-8666-666666666666',
-      sourceImageId,
-      targets: [sourceGeometryTarget],
-    },
-  );
-
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [
       ['GET', `/api/v1/admin/games/${gameId}/grid-reviews`],
       ['GET', `/api/v1/admin/image-reviews/${reviewItemId}/source-asset`],
-      ['POST', `/api/v1/admin/image-reviews/${reviewItemId}/geometry-approval`],
+      ['GET', `/api/v1/admin/image-reviews/${reviewItemId}/correction-symbols`],
       ['POST', `/api/v1/admin/image-reviews/${reviewItemId}/geometry-preview`],
       [
         'POST',
         `/api/v1/admin/image-reviews/${reviewItemId}/geometry-revisions`,
-      ],
-      [
-        'POST',
-        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-approval`,
-      ],
-      [
-        'POST',
-        `/api/v1/admin/games/${gameId}/grid-reviews/source-geometry-revisions`,
       ],
     ],
   );
@@ -2101,16 +2363,16 @@ test('grid review client binds keyset, source identity and topology-aware writes
     new URL(requests[1].url).searchParams.get('expectedSourceChecksumSha256'),
     checksum,
   );
+  assert.equal(new URL(requests[2].url).searchParams.get('gameId'), gameId);
   assert.equal('correctedBy' in (await requests[4].clone().json()), false);
-  assert.deepEqual(await requests[5].clone().json(), {
-    sourceImageId,
-    targets: [sourceApprovalTarget],
-  });
-  assert.deepEqual(await requests[6].clone().json(), {
-    idempotencyKey: '66666666-6666-4666-8666-666666666666',
-    sourceImageId,
-    targets: [sourceGeometryTarget],
-  });
+  // D-462 / TASK-0727: no board, photo or whole-source approval in the client.
+  for (const removed of [
+    'approveImageGridReviewGeometry',
+    'approveImageGridReviewSourceGeometry',
+    'createImageGridReviewSourceGeometryRevision',
+  ]) {
+    assert.equal(removed in client, false, removed);
+  }
 });
 
 test('generated client exposes the checksum-bound deferred geometry workflow', async () => {
@@ -2141,6 +2403,11 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
         return new Response(new Blob(['png']), {
           headers: { 'content-type': 'image/png' },
           status: 200,
+        });
+      }
+      if (path.endsWith('/geometry-symbol-preview')) {
+        return Response.json({
+          cells: [{ cellIndex: 0, origin: 'predicted', symbolId: null }],
         });
       }
       if (path.endsWith('/manual-resolution')) {
@@ -2180,6 +2447,10 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
   );
   const resolutionCommand = {
     ...previewCommand,
+    // D-488: symbols the operator assigned travel with the geometry save.
+    cellSymbols: [
+      { cellIndex: 4, symbolId: '66666666-6666-4666-8666-666666666666' },
+    ],
     correctedBy: 'reviewer-operator',
     idempotencyKey: '55555555-5555-4555-8555-555555555555',
   };
@@ -2188,7 +2459,15 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
     context,
     resolutionCommand,
   );
+  const symbols = await client.previewPendingBoardCellGeometrySymbols(
+    pendingId,
+    context,
+    previewCommand,
+  );
 
+  assert.deepEqual(symbols.data, {
+    cells: [{ cellIndex: 0, origin: 'predicted', symbolId: null }],
+  });
   assert.equal(source.data instanceof Blob, true);
   assert.equal(preview.data instanceof Blob, true);
   assert.equal(resolved.data?.created, true);
@@ -2201,14 +2480,83 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
       `${collectionPath}/${pendingId}/source`,
       `${collectionPath}/${pendingId}/geometry-preview`,
       `${collectionPath}/${pendingId}/manual-resolution`,
+      `${collectionPath}/${pendingId}/geometry-symbol-preview`,
     ],
   );
+  assert.deepEqual(await requests[5].clone().json(), previewCommand);
   const listUrl = new URL(requests[0].url);
   assert.equal(listUrl.searchParams.get('cursor'), 'cursor-1');
   assert.equal(listUrl.searchParams.get('limit'), '1');
   assert.equal(listUrl.searchParams.get('status'), 'pending');
   assert.deepEqual(await requests[3].clone().json(), previewCommand);
   assert.deepEqual(await requests[4].clone().json(), resolutionCommand);
+});
+
+test('generated client forwards signed corners and geometry qualification for a partial deferred board', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const checksum = 'a'.repeat(64);
+  const previewCommand = {
+    corners: [
+      { x: -40, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: -40, y: 310 },
+    ],
+    expectedGeometryRevision: 0,
+    expectedManifestChecksumSha256: checksum,
+    expectedResolutionRevision: 0,
+    geometryQualification: {
+      completenessStatus: 'pending_partial',
+      excludeFromGeometryTraining: true,
+      exclusionReason: 'missing_pixels',
+      includeInPartialGridTraining: false,
+      unavailableCellIndices: [0, 5, 10],
+      version: 'manual-geometry-qualification-v2',
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        });
+      }
+      return Response.json({
+        created: true,
+        geometryRevision: 1,
+        item: { id: pendingId, status: 'resolved' },
+        reviewItemId: '44444444-4444-4444-8444-444444444444',
+      });
+    },
+  });
+
+  await client.previewPendingBoardCellGeometryCorrection(
+    pendingId,
+    context,
+    previewCommand,
+  );
+  const resolutionCommand = {
+    ...previewCommand,
+    correctedBy: 'reviewer-operator',
+    idempotencyKey: '55555555-5555-4555-8555-555555555555',
+  };
+  await client.resolvePendingBoardCellGeometryManually(
+    pendingId,
+    context,
+    resolutionCommand,
+  );
+
+  assert.deepEqual(await requests[0].clone().json(), previewCommand);
+  assert.deepEqual(await requests[1].clone().json(), resolutionCommand);
 });
 
 test('generated client lists and explicitly freezes verified cohorts in one context', async () => {
@@ -2412,6 +2760,107 @@ test('symbol cell review client forwards abort signals for list and count reads'
   countsController.abort();
   assert.equal(requests[0].signal.aborted, true);
   assert.equal(requests[1].signal.aborted, true);
+});
+
+test('symbol cell review client sends prediction source and change range only when set', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+        skippedCount: 0,
+      });
+    },
+  });
+  const filters = {
+    changedFrom: '2026-09-30T00:00:00+02:00',
+    changedTo: '2026-09-30T23:59:59+02:00',
+    importJobId: '11111111-1111-4111-8111-111111111111',
+    predictionSource: 'reference_library',
+  };
+
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all', ...filters });
+  await client.skipSymbolCellReviews({
+    count: 5,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.getSymbolCellReviewCounts({
+    catalogRevision: 2,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all' });
+
+  for (const request of requests.slice(0, 3)) {
+    const url = new URL(request.url);
+    assert.equal(url.searchParams.get('predictionSource'), 'reference_library');
+    assert.equal(url.searchParams.get('changedFrom'), filters.changedFrom);
+    assert.equal(url.searchParams.get('changedTo'), filters.changedTo);
+    assert.equal(url.searchParams.get('importJobId'), filters.importJobId);
+  }
+  const unfiltered = new URL(requests[3].url);
+  assert.equal(unfiltered.searchParams.has('predictionSource'), false);
+  assert.equal(unfiltered.searchParams.has('changedFrom'), false);
+  assert.equal(unfiltered.searchParams.has('changedTo'), false);
+  assert.equal(unfiltered.searchParams.has('importJobId'), false);
+});
+
+test('symbol cell review client sends every prediction source value (TASK-0872)', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        cursor: null,
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+        skippedCount: 0,
+      });
+    },
+  });
+  const sources = ['reference_library', 'rgb_v2', 'rgb_v2_tentative', 'model'];
+
+  for (const predictionSource of sources) {
+    await client.listSymbolCellReviews({
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+    await client.skipSymbolCellReviews({
+      count: 5,
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+    await client.getSymbolCellReviewCounts({
+      catalogRevision: 2,
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+  }
+
+  assert.deepEqual(
+    requests.map((request) =>
+      new URL(request.url).searchParams.get('predictionSource'),
+    ),
+    sources.flatMap((source) => [source, source, source]),
+  );
 });
 
 test('symbol cell review client reads and starts durable projection preparation', async () => {
@@ -2914,11 +3363,202 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
     new URL(requests[0].url).searchParams.get('startSequenceNumber'),
     '10',
   );
+  assert.equal(new URL(requests[0].url).searchParams.get('spinCount'), '5');
   assert.equal(
-    new URL(requests[0].url).searchParams.get('spinCount'),
-    '5',
+    new URL(requests[0].url).searchParams.has('rulesVersionId'),
+    false,
   );
   assert.equal(result.data.evaluatedSpinCount, 0);
+
+  // TASK-0932: the Admin draft preview names the rules version explicitly.
+  await client.getBoardSearchApproximateWin(gameId, {
+    rulesVersionId: '33333333-3333-4333-8333-333333333333',
+    spinCount: 5,
+    startSequenceNumber: 10,
+  });
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('rulesVersionId'),
+    '33333333-3333-4333-8333-333333333333',
+  );
+});
+
+test('super game series payouts pass through the board-search wrappers (TASK-0936)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const rules = {
+    algorithmVersion: 'payout-v4-wild-count',
+    rulesVersion: 1,
+    rulesVersionId: '22222222-2222-4222-8222-222222222222',
+    spinCost: 100,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/approximate-win')) {
+        return Response.json({
+          completeness: {
+            completeBoardCount: 2,
+            missingBoardCount: 0,
+            partialBoardCount: 0,
+          },
+          dataFingerprintSha256: 'a'.repeat(64),
+          dataSource: 'operational_review',
+          evaluatedSpinCount: 2,
+          gameId,
+          requestedSpinCount: 2,
+          rows: [
+            {
+              boardStatus: 'accepted',
+              countMatches: [],
+              cumulativeBalanceCredits: -100,
+              cumulativeCostCredits: 100,
+              cumulativePayoutCredits: 0,
+              mode: 'super',
+              payoutCredits: 15,
+              payoutKind: 'provisional',
+              sequenceNumber: 12,
+              spinCostCredits: 0,
+              spinNumber: 2,
+            },
+          ],
+          rules,
+          sequenceLength: 500000,
+          startBoardStatus: 'accepted',
+          startSequenceNumber: 10,
+          summary: {
+            balanceCredits: -100,
+            provisionalCount: 1,
+            provisionalPayoutCredits: 15,
+            recognizedPayoutCredits: 0,
+            spinCostCredits: 100,
+            superSpinCost: 0,
+            superSpinRanges: [{ endSpin: 2, startSpin: 2 }],
+          },
+          wrappedAtSequenceEnd: false,
+        });
+      }
+      return Response.json({
+        boardChecksumSha256: 'c'.repeat(64),
+        boardStatus: 'accepted',
+        countMatches: [],
+        dataSource: 'operational_review',
+        documentStale: false,
+        expandedSymbolCodes: Array.from({ length: 15 }, () => 'K'),
+        expansion: {
+          columnCount: 3,
+          columns: [1, 3, 4],
+          linePayoutCredits: 10,
+          paylineCount: 5,
+          payoutCredits: 50,
+          symbolCode: 'K',
+        },
+        gameId,
+        matches: [],
+        mode: 'super',
+        payoutCredits: 50,
+        payoutKind: 'exact',
+        rules,
+        sequenceNumber: 12,
+        spinCostCredits: 0,
+        symbolCodes: Array.from({ length: 15 }, () => null),
+        view: null,
+      });
+    },
+  });
+
+  const range = await client.getBoardSearchApproximateWin(gameId, {
+    spinCount: 2,
+    startSequenceNumber: 10,
+  });
+  assert.equal(range.data.summary.provisionalCount, 1);
+  assert.equal(range.data.summary.provisionalPayoutCredits, 15);
+  assert.deepEqual(range.data.summary.superSpinRanges, [
+    { endSpin: 2, startSpin: 2 },
+  ]);
+  assert.equal(range.data.summary.superSpinCost, 0);
+  assert.deepEqual(
+    [
+      range.data.rows[0].mode,
+      range.data.rows[0].spinCostCredits,
+      range.data.rows[0].payoutKind,
+    ],
+    ['super', 0, 'provisional'],
+  );
+  const detail = await client.getBoardSearchBoardDetail(gameId, 12);
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/12`,
+  );
+  assert.equal(detail.data.expansion.payoutCredits, 50);
+  assert.deepEqual(detail.data.expansion.columns, [1, 3, 4]);
+  assert.equal(detail.data.mode, 'super');
+});
+
+test('getBoardSearchBoardDetail and the board view URL use the board-search paths', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        boardChecksumSha256: 'c'.repeat(64),
+        boardStatus: 'accepted',
+        dataSource: 'operational_review',
+        gameId,
+        matches: [],
+        payoutCredits: 0,
+        payoutKind: 'none',
+        rules: {
+          algorithmVersion: 'payout-v3-unknown-prefix-stop',
+          rulesVersion: 1,
+          rulesVersionId: '22222222-2222-4222-8222-222222222222',
+          spinCost: 100,
+        },
+        sequenceNumber: 42,
+        symbolCodes: Array.from({ length: 15 }, () => null),
+        view: null,
+      });
+    },
+  });
+
+  const result = await client.getBoardSearchBoardDetail(gameId, 42);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42`,
+  );
+  assert.equal(new URL(requests[0].url).search, '');
+  assert.equal(result.data.payoutKind, 'none');
+  await client.refreshBoardSearchBoardDocument(gameId, 42);
+  assert.equal(requests[1].method, 'POST');
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42/refresh`,
+  );
+  // TASK-0932: the Admin draft preview names the rules version explicitly.
+  const draftId = '33333333-3333-4333-8333-333333333333';
+  await client.getBoardSearchBoardDetail(gameId, 42, {
+    rulesVersionId: draftId,
+  });
+  assert.equal(
+    new URL(requests[2].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42`,
+  );
+  assert.equal(
+    new URL(requests[2].url).searchParams.get('rulesVersionId'),
+    draftId,
+  );
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}`,
+  );
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64), 'd'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}&viewRevision=${'d'.repeat(64)}`,
+  );
 });
 
 test('board search builds only a scoped board-crop asset URL for a result', () => {
@@ -2937,15 +3577,9 @@ test('board search builds only a scoped board-crop asset URL for a result', () =
     'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
   );
 
-  assert.equal(
-    client.archivedBoardSearchAssetUrl(
-      '11111111-1111-4111-8111-111111111111',
-      45163,
-      'a'.repeat(64),
-    ),
-    'http://127.0.0.1:8000/api/v1/admin/games/11111111-1111-4111-8111-111111111111/board-search/archive-assets/45163?expectedBoardChecksumSha256=' +
-      'a'.repeat(64),
-  );
+  // D-467 S5: the frozen board-search archive and its asset route are gone.
+  assert.equal('archivedBoardSearchAssetUrl' in client, false);
+  assert.equal('getArchivedBoardSearchAsset' in client, false);
 });
 
 test('label geometry calibration client uses local-admin typed operations and canonical assets', async () => {
@@ -2982,7 +3616,11 @@ test('label geometry calibration client uses local-admin typed operations and ca
     expectedRevision: 1,
   });
   await client.createV7LabelGeometryProfile(sessionId, { expectedRevision: 1 });
-  await client.getV7LabelGeometryCalibrationSourceAsset(sessionId, sourceId, 'a'.repeat(64));
+  await client.getV7LabelGeometryCalibrationSourceAsset(
+    sessionId,
+    sourceId,
+    'a'.repeat(64),
+  );
   await client.listV7LabelGeometryProfiles();
   await client.getV7LabelGeometryProfile(profileFingerprint);
   await client.createV7LabelGeometryValidationReport({
@@ -3006,9 +3644,15 @@ test('label geometry calibration client uses local-admin typed operations and ca
     [
       ['POST', '/api/v1/admin/v7-label-geometry/sessions'],
       ['GET', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}`],
-      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/operations`],
+      [
+        'POST',
+        `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/operations`,
+      ],
       ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/exports`],
-      ['POST', `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/profiles`],
+      [
+        'POST',
+        `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/profiles`,
+      ],
       [
         'GET',
         `/api/v1/admin/v7-label-geometry/sessions/${sessionId}/sources/${sourceId}/asset`,
@@ -3038,7 +3682,13 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
     return Response.json({
       gameId,
       expectedLayoutCount: 20,
-      counts: { expected: 20, added: 17, missing: 3, approved: 10, outOfRange: 0 },
+      counts: {
+        expected: 20,
+        added: 17,
+        missing: 3,
+        approved: 10,
+        outOfRange: 0,
+      },
       missingByReason: { no_source: 3 },
       notices: {
         unnumberedCutBoardCount: 0,
@@ -3082,16 +3732,210 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
     fullUrl.pathname,
     `/api/v1/admin/image-review-items/board-import-coverage/${gameId}`,
   );
-  assert.deepEqual(
-    Object.fromEntries(fullUrl.searchParams.entries()),
-    {
-      view: 'added',
-      from: '100',
-      to: '200',
-      afterSequenceNumber: '150',
-      limit: '25',
+  assert.deepEqual(Object.fromEntries(fullUrl.searchParams.entries()), {
+    view: 'added',
+    from: '100',
+    to: '200',
+    afterSequenceNumber: '150',
+    limit: '25',
+  });
+});
+
+test('the import geometry report returns the sequence ownership outcome (D-543)', async () => {
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const importJobId = '44444444-4444-4444-8444-444444444444';
+  const sequenceOwnership = {
+    replacedCount: 1,
+    replacedSequenceNumbers: [100],
+    skippedCount: 2,
+    skippedSequenceNumbers: [101, 102],
+  };
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ gameId, importJobId, sequenceOwnership });
     },
+  });
+
+  const result = await client.getImageGeometryCompleteness({
+    gameId,
+    importJobId,
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('importJobId'),
+    importJobId,
   );
+  assert.deepEqual(result.data?.sequenceOwnership, sequenceOwnership);
+});
+
+test('geometry completeness wrappers pass gameId as path and filters as query params (D-484)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const importJobId = '44444444-4444-4444-8444-444444444444';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json({});
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getImageGeometryCompleteness({ gameId });
+  await client.getImageGeometryCompleteness({ gameId, importJobId });
+  await client.listIncompleteGeometryImages({ gameId });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    importJobId,
+    imageState: 'incomplete_uncertain',
+    afterCursor: 'abc_-=',
+    limit: 25,
+  });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    imageState: 'superseded',
+  });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    gapsOnly: true,
+    limit: 25,
+  });
+  await client.getImageGeometryLowQualityBoards({ gameId });
+  await client.getImageGeometryLowQualityBoards({
+    gameId,
+    importJobId,
+    maxConfidence: 0.6,
+    minCells: 3,
+    limit: 20,
+  });
+
+  assert.equal(requests.length, 8);
+  const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
+  const [
+    report,
+    reportImport,
+    list,
+    listFull,
+    listSuperseded,
+    listGaps,
+    low,
+    lowFull,
+  ] = requests.map((request) => new URL(request.url));
+  assert.equal(report.pathname, base);
+  assert.equal(report.search, '');
+  assert.equal(reportImport.pathname, base);
+  assert.deepEqual(Object.fromEntries(reportImport.searchParams.entries()), {
+    importJobId,
+  });
+  assert.equal(list.pathname, `${base}/incomplete-images`);
+  assert.equal(list.search, '');
+  assert.deepEqual(Object.fromEntries(listFull.searchParams.entries()), {
+    importJobId,
+    imageState: 'incomplete_uncertain',
+    afterCursor: 'abc_-=',
+    limit: '25',
+  });
+  assert.deepEqual(Object.fromEntries(listSuperseded.searchParams.entries()), {
+    imageState: 'superseded',
+  });
+  // TASK-0961: the real-gap queue in one request, without `imageState`.
+  assert.equal(listGaps.pathname, `${base}/incomplete-images`);
+  assert.deepEqual(Object.fromEntries(listGaps.searchParams.entries()), {
+    gapsOnly: 'true',
+    limit: '25',
+  });
+  assert.equal(low.pathname, `${base}/low-quality-boards`);
+  assert.equal(low.search, '');
+  assert.deepEqual(Object.fromEntries(lowFull.searchParams.entries()), {
+    importJobId,
+    maxConfidence: '0.6',
+    minCells: '3',
+    limit: '20',
+  });
+  for (const request of requests) assert.equal(request.method, 'GET');
+});
+
+test('geometry gate queue filter and operator exception use confirmed Admin requests (TASK-0807)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '99999999-9999-4999-8999-999999999999';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.listIncompleteGeometryImages({
+    gameId,
+    completenessStatus: 'geometry_incomplete',
+  });
+  await client.setSourceImageGeometryException(
+    gameId,
+    sourceImageId,
+    'Plansza 9 poza kadrem',
+  );
+  await client.withdrawSourceImageGeometryException(gameId, sourceImageId);
+
+  assert.equal(requests.length, 3);
+  const [list, setRequest, withdrawRequest] = requests;
+  const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
+  assert.deepEqual(
+    Object.fromEntries(new URL(list.url).searchParams.entries()),
+    { completenessStatus: 'geometry_incomplete' },
+  );
+  for (const request of [setRequest, withdrawRequest]) {
+    assert.equal(
+      new URL(request.url).pathname,
+      `${base}/images/${sourceImageId}/exception`,
+    );
+    assert.equal(request.headers.get('X-Admin-Confirmation'), 'confirmed');
+    assert.equal(
+      request.headers.get('X-Admin-Target'),
+      `source-image-geometry-exception:${sourceImageId}`,
+    );
+    assert.equal(request.headers.get('X-Admin-Intent'), 'local-owner');
+  }
+  assert.equal(setRequest.method, 'POST');
+  assert.deepEqual(await setRequest.json(), {
+    reason: 'Plansza 9 poza kadrem',
+  });
+  assert.equal(withdrawRequest.method, 'DELETE');
+});
+
+test('geometry completeness source image is read by source image id, not by a review item (TASK-0808)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '99999999-9999-4999-8999-999999999999';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const result = await client.getImageGeometryCompletenessSourceAsset(
+    gameId,
+    sourceImageId,
+  );
+
+  assert.equal(requests.length, 1);
+  const url = new URL(requests[0].url);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    url.pathname,
+    `/api/v1/admin/image-review-items/geometry-completeness/${gameId}/images/${sourceImageId}/source`,
+  );
+  assert.equal(url.search, '');
+  assert.ok(result.data instanceof Blob);
 });
 
 test('geometry review sources response carries automaticPageProposal through the wrapper unchanged', async () => {
@@ -3148,4 +3992,507 @@ test('geometry review sources response carries automaticPageProposal through the
     response.data?.sources[0].automaticPageProposal,
     automaticPageProposal,
   );
+});
+
+test('outside review scope and absent crop decision retain their wire contract', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push({
+        url: request.url,
+        body: request.method === 'POST' ? await request.json() : null,
+      });
+      return Response.json({
+        items: [],
+        catalogRevision: 1,
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+  await client.listSymbolCellReviews({ gameId: 'game', symbolId: 'outside' });
+  await client.getSymbolCellReviewCounts({
+    gameId: 'game',
+    symbolId: 'outside',
+  });
+  const body = {
+    action: 'reassign',
+    targetSymbolId: 'symbol',
+    expectedRevision: 2,
+    expectedGeometryRevision: 3,
+    expectedCropSampleId: null,
+    expectedCropChecksumSha256: null,
+  };
+  await client.applySymbolCellReviewDecision('game', 'cell', body);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('symbolId'),
+    'outside',
+  );
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('symbolId'),
+    'outside',
+  );
+  assert.deepEqual(requests[2].body, body);
+});
+
+test('listImageGridReviews requests the single correction queue (D-462)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const importJobId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] }, { status: 200 });
+    },
+  });
+
+  await client.listImageGridReviews({
+    gameId,
+    importJobId,
+    limit: 1,
+    view: 'correction',
+  });
+  await client.listImageGridReviews({
+    gameId,
+    limit: 1,
+    view: 'correction',
+    counts: 'correction',
+  });
+
+  const url = new URL(requests[0].url);
+  assert.equal(url.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
+  assert.equal(url.searchParams.get('view'), 'correction');
+  assert.equal(url.searchParams.get('importJobId'), importJobId);
+  assert.equal(url.searchParams.get('limit'), '1');
+  // The default request never sends `counts` (server default `all`).
+  assert.equal(url.searchParams.has('counts'), false);
+  // TASK-0961: the cheap counters mode in the game-wide scope.
+  const cheap = new URL(requests[1].url);
+  assert.equal(cheap.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
+  assert.deepEqual(Object.fromEntries(cheap.searchParams.entries()), {
+    view: 'correction',
+    limit: '1',
+    counts: 'correction',
+  });
+});
+
+test('grid-audit proposal wrappers read the queue and one proposal (TASK-0840)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] }, { status: 200 });
+    },
+  });
+
+  await client.listGridAuditProposals({ afterOrdinal: 4, gameId, limit: 1 });
+  await client.listGridAuditProposals({ gameId });
+  await client.getGridAuditProposal(gameId, 'p00750');
+
+  const first = new URL(requests[0].url);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    first.pathname,
+    `/api/v1/admin/games/${gameId}/grid-audit-proposals`,
+  );
+  assert.equal(first.searchParams.get('afterOrdinal'), '4');
+  assert.equal(first.searchParams.get('limit'), '1');
+  assert.equal(new URL(requests[1].url).search, '');
+  assert.equal(requests[2].method, 'GET');
+  assert.equal(
+    new URL(requests[2].url).pathname,
+    `/api/v1/admin/games/${gameId}/grid-audit-proposals/p00750`,
+  );
+});
+
+for (const algorithmVersion of [
+  'symbol-reference-library-v1',
+  'symbol-audit-rgb-classifier-v2',
+]) {
+  test(`the audit wrapper returns preview-bound symbols from ${algorithmVersion}`, async () => {
+    const suggestions = {
+      algorithmVersion,
+      artifactSha256: 'a'.repeat(64),
+      generatedAt: '2026-10-05T08:00:00Z',
+      tentativeCellIndices: [0],
+      previewCommand: {
+        corners: [{ x: 1, y: 2 }],
+        expectedGeometryRevision: 1,
+      },
+      cells: [
+        {
+          cellIndex: 0,
+          symbolId: '11111111-1111-4111-8111-111111111111',
+          origin: 'predicted',
+        },
+      ],
+    };
+    const requests = [];
+    const client = createAdminApiClient({
+      baseUrl: 'http://127.0.0.1:8000',
+      fetch: async (request) => {
+        requests.push(request);
+        return Response.json({ symbolSuggestions: suggestions });
+      },
+    });
+    const result = await client.getGridAuditProposal('g', 'p00000');
+    assert.deepEqual(result.data.symbolSuggestions, suggestions);
+    assert.equal(requests[0].method, 'GET');
+    assert.equal(
+      new URL(requests[0].url).pathname,
+      '/api/v1/admin/games/g/grid-audit-proposals/p00000',
+    );
+  });
+}
+
+test('board-search share wrappers use the share paths and confirmed targets', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const session = {
+    createdAt: '2026-09-30T10:00:00Z',
+    expiresAt: '2026-09-30T18:00:00Z',
+    failedAttempts: 0,
+    gameId,
+    label: null,
+    lastUnlockedAt: null,
+    lockedAt: null,
+    ready: true,
+    revokedAt: null,
+    sessionId,
+    shareUrl: `https://share.trycloudflare.com/board-search?share=${sessionId}`,
+    status: 'active',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (request.method === 'GET') {
+        return Response.json({ sessions: [session] });
+      }
+      if (url.pathname.endsWith('/revoke')) {
+        return Response.json({ ...session, status: 'revoked' });
+      }
+      return Response.json(
+        { accessCode: 'ABCD-EFGH', session },
+        { status: 201 },
+      );
+    },
+  });
+
+  const created = await client.createBoardSearchShareSession({
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+  await client.listBoardSearchShareSessions({ gameId });
+  await client.listBoardSearchShareSessions();
+  await client.revokeBoardSearchShareSession(sessionId);
+
+  assert.equal(created.data?.accessCode, 'ABCD-EFGH');
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      [
+        'POST',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/revoke`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    'board-search-share-session:new',
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `board-search-share-session:${sessionId}`,
+  );
+  assert.equal(new URL(requests[1].url).searchParams.get('gameId'), gameId);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '100');
+  assert.equal(new URL(requests[2].url).searchParams.has('gameId'), false);
+  assert.deepEqual(await requests[0].clone().json(), {
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+});
+
+test('board-search share query log wrappers use their Admin paths', async () => {
+  const requests = [];
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const eventId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        new URL(request.url).pathname.includes('/queries/')
+          ? { approximateWin: null, event: {}, search: null }
+          : { entries: [], nextCursor: null },
+      );
+    },
+  });
+  await client.listBoardSearchShareQueries(sessionId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    before: 'abc',
+    limit: 10,
+  });
+  await client.getBoardSearchShareQueryReplay(eventId);
+  await client.listBoardSearchShareQueries(sessionId, { kind: 'search' });
+  await client.deleteBoardSearchShareQuery(eventId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    groupByPattern: true,
+    kind: 'search',
+  });
+  await client.deleteBoardSearchShareQuery(eventId, { wholePattern: true });
+  assert.equal(new URL(requests[3].url).searchParams.get('kind'), 'search');
+  assert.equal(
+    new URL(requests[3].url).searchParams.has('groupByPattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[4].url).searchParams.has('wholePattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[5].url).searchParams.get('groupByPattern'),
+    'true',
+  );
+  assert.equal(requests[6].method, 'DELETE');
+  assert.equal(
+    new URL(requests[6].url).searchParams.get('wholePattern'),
+    'true',
+  );
+  assert.equal(
+    requests[6].headers.get('X-Admin-Target'),
+    `board-search-share-query:${eventId}`,
+  );
+  assert.equal(requests[4].method, 'DELETE');
+  assert.equal(
+    new URL(requests[4].url).pathname,
+    `/api/v1/admin/board-search-shares/queries/${eventId}`,
+  );
+  assert.equal(
+    requests[4].headers.get('X-Admin-Target'),
+    `board-search-share-query:${eventId}`,
+  );
+  assert.equal(new URL(requests[0].url).searchParams.has('kind'), false);
+  assert.deepEqual(
+    requests
+      .slice(0, 3)
+      .map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      ['GET', `/api/v1/admin/board-search-shares/queries/${eventId}`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '50');
+  assert.equal(new URL(requests[0].url).searchParams.has('before'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('before'), 'abc');
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '10');
+});
+
+test('super game series wrappers use the game-scoped generated routes', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const seriesId = '33333333-3333-4333-8333-333333333333';
+  const symbolId = '44444444-4444-4444-8444-444444444444';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const url = new URL(request.url);
+      requests.push({
+        path: url.pathname,
+        search: url.search,
+        method: request.method,
+        body: request.method === 'PUT' ? await request.clone().json() : null,
+      });
+      return Response.json({});
+    },
+  });
+  await client.listSuperGameSeries(gameId, {
+    completeness: 'incomplete',
+    runVerification: 'unverified',
+    defined: false,
+    cursor: '120',
+    limit: 25,
+  });
+  await client.getSuperGameSeriesState(gameId);
+  await client.deriveSuperGameSeries(gameId);
+  await client.listSuperGameSeriesBoards(gameId, seriesId);
+  await client.setSuperGameSeriesSuperSymbol(gameId, seriesId, {
+    symbolId,
+    expectedRevision: 2,
+  });
+  const prefix = `/api/v1/admin/games/${gameId}/super-game-series`;
+  assert.deepEqual(
+    requests.map((request) => [request.method, request.path]),
+    [
+      ['GET', prefix],
+      ['GET', prefix + '/state'],
+      ['POST', prefix + '/derive'],
+      ['GET', prefix + `/${seriesId}/boards`],
+      ['PUT', prefix + `/${seriesId}/super-symbol`],
+    ],
+  );
+  const query = new URLSearchParams(requests[0].search);
+  assert.equal(query.get('completeness'), 'incomplete');
+  assert.equal(query.get('runVerification'), 'unverified');
+  assert.equal(query.get('defined'), 'false');
+  assert.equal(query.get('cursor'), '120');
+  assert.equal(query.get('limit'), '25');
+  assert.deepEqual(requests[4].body, { symbolId, expectedRevision: 2 });
+});
+
+test('board search and approximate win return the super game markers and state unchanged', async () => {
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const marker = {
+    completeness: 'incomplete',
+    kind: 'in_series',
+    runVerification: 'unverified',
+    seriesId: '33333333-3333-4333-8333-333333333333',
+    seriesLength: 10,
+    spinIndex: 5,
+    superSymbolCode: null,
+  };
+  const superGameState = {
+    fresh: false,
+    generationInputVersion: 7,
+    inputVersion: 9,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) =>
+      Response.json(
+        new URL(request.url).pathname.endsWith('/approximate-win')
+          ? {
+              rows: [{ sequenceNumber: 105, superGame: marker }],
+              superGameState,
+            }
+          : {
+              results: [{ sequenceNumber: 105, superGame: marker }],
+              superGameState,
+            },
+      ),
+  });
+
+  const search = await client.searchGameBoards(gameId, {
+    cells: [{ cellIndex: 0, symbolCode: 'bell' }],
+  });
+  const range = await client.getBoardSearchApproximateWin(gameId, {
+    spinCount: 10,
+    startSequenceNumber: 100,
+  });
+
+  assert.deepEqual(search.data.results[0].superGame, marker);
+  assert.deepEqual(search.data.superGameState, superGameState);
+  assert.deepEqual(range.data.rows[0].superGame, marker);
+  assert.deepEqual(range.data.superGameState, superGameState);
+});
+
+test('generated client lists, previews and reverts geometry corrections', async () => {
+  const requests = [];
+  const revisionId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] });
+    },
+  });
+
+  await client.listGeometryCorrections(context);
+  await client.listGeometryCorrections({ ...context, limit: 5 });
+  await client.previewGeometryCorrectionRevert(revisionId, context);
+  const command = {
+    expectedGeometryRevision: 2,
+    expectedResolutionRevision: 4,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  };
+  await client.revertGeometryCorrection(revisionId, context, command);
+
+  const base = `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/geometry-corrections`;
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', base],
+      ['GET', base],
+      ['GET', `${base}/${revisionId}/revert-preview`],
+      ['POST', `${base}/${revisionId}/revert`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.has('limit'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '5');
+  assert.deepEqual(await requests[3].clone().json(), command);
+});
+
+test('generated client rejects a deferred slot and a board with their reasons', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const itemId = '55555555-5555-4555-8555-555555555555';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  const slotCommand = {
+    expectedGeometryRevision: 0,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    note: 'Ucięty górny rząd',
+    reason: 'other',
+  };
+  await client.rejectPendingBoardCellGeometry(pendingId, context, slotCommand);
+  // The board is rejected through the existing resolution route (D-543).
+  const boardCommand = {
+    action: 'rejected',
+    cells: [],
+    expectedRevision: 3,
+    geometryRevision: 1,
+    idempotencyKey: '66666666-6666-4666-8666-666666666666',
+    rejectionReason: 'cropped',
+    resolvedBy: 'reviewer',
+    sequenceNumber: null,
+  };
+  await client.resolveOperationalImageReviewItem(itemId, context, boardCommand);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/board-cell-geometry-pending/${pendingId}/rejection`,
+      ],
+      ['POST', `/api/v1/admin/image-review-items/${itemId}/resolution`],
+    ],
+  );
+  assert.deepEqual(await requests[0].clone().json(), slotCommand);
+  const resolutionBody = await requests[1].clone().json();
+  assert.equal(resolutionBody.action, 'rejected');
+  assert.equal(resolutionBody.rejectionReason, 'cropped');
 });

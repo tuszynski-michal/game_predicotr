@@ -9,6 +9,7 @@ import type {
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
   ModelQualityResponse,
+  ModelQualityOverviewResponse,
   JobResponse,
   PendingSymbolReinferencePreviewResponse,
   PendingGridReinferencePreviewResponse,
@@ -45,12 +46,46 @@ export type PendingSymbolReinferenceResult =
     }
   | { readonly error: string; readonly ok: false };
 
+async function cancellableModelQualityRead<T>(
+  request: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
+  const controller = new AbortController();
+  let abort: (() => void) | undefined;
+  const interrupted = new Promise<never>((_resolve, reject) => {
+    abort = () => {
+      reject(new DOMException('Request aborted', 'AbortError'));
+      controller.abort();
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+  try {
+    return await Promise.race([request(controller.signal), interrupted]);
+  } finally {
+    if (abort) signal?.removeEventListener('abort', abort);
+    controller.abort();
+  }
+}
+
+function modelQualityReadError(error: unknown): string {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return 'REQUEST_ABORTED';
+  }
+  return 'Połączenie z lokalnym Admin API zostało przerwane.';
+}
+
 export async function previewPendingSymbolReinference(
   api: ModelQualityClient,
   gameId: string,
+  signal?: AbortSignal,
 ): Promise<PendingSymbolReinferenceResult> {
   try {
-    const result = await api.previewPendingSymbolReinference(gameId);
+    const result = await cancellableModelQualityRead(
+      (readSignal) =>
+        api.previewPendingSymbolReinference(gameId, { signal: readSignal }),
+      signal,
+    );
     if (result.error !== undefined || result.data === undefined) {
       return {
         error: apiErrorMessage(
@@ -60,10 +95,13 @@ export async function previewPendingSymbolReinference(
         ok: false,
       };
     }
+    if (result.data.gameId !== gameId) {
+      return { error: 'Odpowiedź API nie należy do wybranej gry.', ok: false };
+    }
     return { ok: true, preview: result.data };
-  } catch {
+  } catch (error) {
     return {
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      error: modelQualityReadError(error),
       ok: false,
     };
   }
@@ -354,8 +392,7 @@ export async function confirmGridActivation(
 export type ModelQualityLoadResult =
   | {
       readonly ok: true;
-      readonly preview: VerifiedTrainingCohortPreviewResponse;
-      readonly quality: ModelQualityResponse;
+      readonly quality: ModelQualityOverviewResponse;
       readonly iterations: readonly SymbolModelIterationResponse[];
       readonly activations: readonly SymbolModelActivationResponse[];
     }
@@ -390,11 +427,24 @@ export async function loadModelQuality(
 ): Promise<ModelQualityLoadResult> {
   try {
     const [qualityResult, iterationResult, activationResult] =
-      await Promise.all([
-        api.getModelQuality(gameId, { signal }),
-        api.listSymbolModelIterations(gameId, { limit: 20, signal }),
-        api.listSymbolModelActivations(gameId, { limit: 50, signal }),
-      ]);
+      await cancellableModelQualityRead(
+        (readSignal) =>
+          Promise.all([
+            api.getModelQuality(gameId, {
+              view: 'overview',
+              signal: readSignal,
+            }),
+            api.listSymbolModelIterations(gameId, {
+              limit: 20,
+              signal: readSignal,
+            }),
+            api.listSymbolModelActivations(gameId, {
+              limit: 50,
+              signal: readSignal,
+            }),
+          ]),
+        signal,
+      );
     if (
       qualityResult.error !== undefined ||
       qualityResult.data === undefined ||
@@ -419,21 +469,68 @@ export async function loadModelQuality(
         ok: false,
       };
     }
+    if (!('approvedCellCount' in qualityResult.data)) {
+      return {
+        ok: false,
+        error: 'API nie obsługuje jeszcze szybkiego panelu jakości.',
+      };
+    }
     return {
       ok: true,
-      preview: modelQualityPreview(qualityResult.data),
       quality: qualityResult.data,
       iterations: iterationResult.data,
       activations: activationResult.data,
     };
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return { error: 'REQUEST_ABORTED', ok: false };
-    }
     return {
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      error: modelQualityReadError(error),
       ok: false,
     };
+  }
+}
+
+export async function prepareModelQualityCohort(
+  api: ModelQualityClient,
+  gameId: string,
+  signal?: AbortSignal,
+): Promise<
+  | {
+      readonly ok: true;
+      readonly quality: ModelQualityResponse;
+      readonly preview: VerifiedTrainingCohortPreviewResponse;
+    }
+  | { readonly ok: false; readonly error: string }
+> {
+  try {
+    const result = await cancellableModelQualityRead(
+      (readSignal) => api.getModelQuality(gameId, { signal: readSignal }),
+      signal,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        ok: false,
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przygotować danych do treningu.',
+        ),
+      };
+    }
+    if (result.data.gameId !== gameId) {
+      return { ok: false, error: 'Odpowiedź API nie należy do wybranej gry.' };
+    }
+    if (!('manifestChecksumSha256' in result.data)) {
+      return {
+        ok: false,
+        error: 'API nie zwróciło sprawdzonego manifestu treningu.',
+      };
+    }
+    return {
+      ok: true,
+      quality: result.data,
+      preview: modelQualityPreview(result.data),
+    };
+  } catch (error) {
+    return { ok: false, error: modelQualityReadError(error) };
   }
 }
 
@@ -498,6 +595,13 @@ export async function confirmModelActivation(
     readonly preview: SymbolModelActivationPreviewResponse;
   },
 ): Promise<ModelActivationResult> {
+  if (
+    input.preview.modelIterationId === null ||
+    input.preview.candidateManifestChecksumSha256 === null ||
+    input.action === 'deactivate'
+  ) {
+    return { ok: false, error: 'Odśwież podgląd aktywacji modelu.' };
+  }
   const command = {
     actor: input.actor,
     expectedCurrentModelIterationId: input.preview.currentModelIterationId,

@@ -2,6 +2,23 @@ import pytest
 from game_predictor_api.config import ApiSettings, ConfigurationError
 
 
+def test_v7_output_base_is_optional_and_persists_from_environment(tmp_path) -> None:
+    assert ApiSettings.from_environment({}).v7_review_output_base is None
+    assert (
+        ApiSettings.from_environment(
+            {"GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE": " "}
+        ).v7_review_output_base
+        is None
+    )
+    root = tmp_path / "v7-output"
+    assert (
+        ApiSettings.from_environment(
+            {"GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE": str(root)}
+        ).v7_review_output_base
+        == root.resolve()
+    )
+
+
 def test_defaults_are_loopback_only() -> None:
     settings = ApiSettings.from_environment({})
 
@@ -10,8 +27,13 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.admin_origin == "http://127.0.0.1:3000"
     assert settings.reviewer_origin == "http://127.0.0.1:3001"
     assert settings.database_url == (
+        "postgresql+psycopg://game_predictor_app:game_predictor_app_local"
+        "@127.0.0.1:5432/game_predictor"
+    )
+    assert settings.owner_database_url == (
         "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
     )
+    assert settings.uses_separate_owner_role is True
     assert settings.artifact_root.is_absolute()
     assert settings.artifact_root.name == "artifacts"
     assert settings.review_crop_root.is_absolute()
@@ -27,6 +49,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.browser_layout_import_max_bytes == 20 * 1024 * 1024 * 1024
     assert settings.image_selection_max_bytes == 128 * 1024 * 1024 * 1024
     assert settings.semi_automatic_image_selection_enabled is True
+    assert settings.storage_hard_reserve_gib == 5
     assert settings.storage_gc_observe_only is False
     assert settings.remote_manual_selection_host_mapping_enabled is True
     assert settings.remote_selection_deselect_enabled is True
@@ -38,7 +61,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.remote_selection_materialization_lease_seconds == 60
     assert settings.remote_selection_materialization_max_attempts == 5
     assert settings.remote_selection_materialization_max_actions_per_cycle == 4
-    assert settings.symbol_review_page_statement_timeout_ms == 5_000
+    assert settings.symbol_review_page_statement_timeout_ms == 20_000
     assert settings.symbol_review_counts_statement_timeout_ms == 15_000
 
 
@@ -84,6 +107,29 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_DATABASE_URL": ("postgresql+psycopg://user:password@localhost/game")},
             "GAME_PREDICTOR_DATABASE_URL",
+        ),
+        (
+            {
+                "GAME_PREDICTOR_OWNER_DATABASE_URL": (
+                    "postgresql+psycopg://owner:password@database.example.com:5432/game"
+                )
+            },
+            "GAME_PREDICTOR_OWNER_DATABASE_URL",
+        ),
+        (
+            {"GAME_PREDICTOR_OWNER_DATABASE_URL": "postgresql+psycopg://localhost:5432/game"},
+            "GAME_PREDICTOR_OWNER_DATABASE_URL",
+        ),
+        (
+            {
+                "GAME_PREDICTOR_DATABASE_URL": (
+                    "postgresql+psycopg://app:password@127.0.0.1:5432/game_predictor"
+                ),
+                "GAME_PREDICTOR_OWNER_DATABASE_URL": (
+                    "postgresql+psycopg://owner:password@127.0.0.1:5432/other_database"
+                ),
+            },
+            "GAME_PREDICTOR_OWNER_DATABASE_URL",
         ),
         (
             {"GAME_PREDICTOR_ARTIFACT_ROOT": "  "},
@@ -201,6 +247,55 @@ def test_database_password_is_not_exposed_by_settings_repr() -> None:
     assert "secret" not in repr(settings)
 
 
+def test_owner_url_defaults_to_the_runtime_url_for_direct_construction() -> None:
+    # TASK-0795: settings built in code (tests) never point owner-only paths at
+    # another database than their runtime sessions.
+    url = "postgresql+psycopg://user:secret@127.0.0.1:5432/game_predictor_x_test"
+    settings = ApiSettings(
+        host="127.0.0.1", port=8000, admin_origin="http://127.0.0.1:3000", database_url=url
+    )
+
+    assert settings.owner_database_url == url
+    assert settings.uses_separate_owner_role is False
+    with pytest.raises(ConfigurationError, match="GAME_PREDICTOR_OWNER_DATABASE_URL"):
+        ApiSettings(
+            host="127.0.0.1",
+            port=8000,
+            admin_origin="http://127.0.0.1:3000",
+            database_url=url,
+            configured_owner_database_url=(
+                "postgresql+psycopg://user:secret@127.0.0.1:5432/game_predictor"
+            ),
+        )
+
+
+def test_rollback_configuration_may_use_the_owner_url_for_runtime() -> None:
+    owner = "postgresql+psycopg://game_predictor:secret@127.0.0.1:5432/game_predictor"
+    settings = ApiSettings.from_environment(
+        {"GAME_PREDICTOR_DATABASE_URL": owner, "GAME_PREDICTOR_OWNER_DATABASE_URL": owner}
+    )
+
+    assert settings.database_url == settings.owner_database_url == owner
+    assert settings.uses_separate_owner_role is False
+    assert "secret" not in repr(settings)
+
+
+def test_owner_url_defaults_to_the_local_owner_on_the_runtime_database() -> None:
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_DATABASE_URL": (
+                "postgresql+psycopg://game_predictor_app:app@localhost:5433/game_predictor_x_test"
+            )
+        }
+    )
+
+    assert settings.owner_database_url == (
+        "postgresql+psycopg://game_predictor:game_predictor_local@localhost:5433/"
+        "game_predictor_x_test"
+    )
+    assert settings.uses_separate_owner_role is True
+
+
 def test_import_root_and_limit_are_configurable(tmp_path) -> None:
     import_root = tmp_path / "incoming"
     settings = ApiSettings.from_environment(
@@ -220,6 +315,12 @@ def test_storage_gc_requires_explicit_rollout_after_observe_only() -> None:
     settings = ApiSettings.from_environment({"GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY": "false"})
 
     assert settings.storage_gc_observe_only is False
+
+
+def test_storage_hard_reserve_is_configurable() -> None:
+    settings = ApiSettings.from_environment({"GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB": "7"})
+
+    assert settings.storage_hard_reserve_gib == 7
 
 
 def test_semi_automatic_selection_can_be_disabled_for_rollback() -> None:

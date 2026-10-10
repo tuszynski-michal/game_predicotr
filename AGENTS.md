@@ -9,15 +9,37 @@ Ten plik zawiera nadrzędne zasady pracy dla Codex oraz innych agentów AI w tym
 Przed rozpoczęciem każdego zadania przeczytaj:
 
 1. `ai_docs/README.md`
-2. `ai_docs/process/CURRENT_STATE.md`
-3. dokument wymagań dotyczący zmienianego obszaru,
-4. dokument architektury dotyczący zmienianego obszaru,
-5. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
+2. `ai_docs/process/CURRENT_STATE.md` (okno kroczące: obowiązujące
+   ograniczenia, plany z niezakończonymi taskami, taski aktywne, 10 ostatnich
+   sekcji `done`),
+3. `ai_docs/process/DECISION_LOG.md` (indeks decyzji i pięć najnowszych wpisów
+   w pełnej postaci),
+4. dokument wymagań dotyczący zmienianego obszaru,
+5. dokument architektury dotyczący zmienianego obszaru,
+6. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
    istnieje.
+
+<!-- [mapa kodu] -->
+
+Szukając kodu, zacznij od `ai_docs/architecture/CODE_MAP.md` (obszar → katalogi,
+moduły wejściowe, testy, komendy), potem użyj `rg` na
+`ai_docs/architecture/CODE_MAP_SYMBOLS.md` (jedna linia na moduł) i dopiero na
+końcu otwórz konkretny plik z `offset`/`limit` (pilot TASK-0939: obowiązuje do
+czasu pomiaru; stałe włączenie zależy od wyniku). Mapa jest generowana
+(`scripts/generate_code_map.py`); jej aktualność sprawdza `npm run
+code-map:check` (poza `docs:check` i `quality`, żeby równoległe gałęzie nie
+psuły bramki przy niezwiązanych zmianach symboli). Zamykając task, który dodaje,
+usuwa lub przenosi moduł albo zmienia publiczny symbol, zregeneruj mapę
+(`python scripts/generate_code_map.py`) i dołącz ją do commita taska.
 
 Nie czytaj całej dokumentacji bez potrzeby. Otwieraj dokumenty wskazane w sekcji `Relevant docs` aktywnego zadania.
 Nie wczytuj `ai_docs/tasks/completed/` ani `ai_docs/archive/`, chyba że aktywne
-zadanie odwołuje się do nich jawnie.
+zadanie odwołuje się do nich jawnie. Pełne wpisy decyzji
+(`ai_docs/process/decisions/DECISION_LOG_2026.md`, kotwice `#d-nnn-…`) oraz
+archiwa stanu (`ai_docs/archive/CURRENT_STATE_*.md`) otwieraj tylko na żądanie:
+gdy `Relevant docs` zadania je wskazuje albo gdy indeks i okno nie wystarczają
+do oceny sprzeczności. Pliki `CURRENT_STATE.md` i `DECISION_LOG.md` nie są
+czytane w całości z archiwów; szukaj w nich skryptem lub `grep`.
 
 ## Zasady nadrzędne
 
@@ -27,6 +49,16 @@ zadanie odwołuje się do nich jawnie.
 - Z użytkownikiem komunikuj się i przedstawiaj plany po polsku, chyba że
   poprosi inaczej. Instrukcje zapisuj w języku edytowanego dokumentu; nie
   tłumacz przy okazji identyfikatorów, kodu ani istniejącej dokumentacji.
+- Odpowiedzi w czacie pisz w stylu `caveman lite`, aby ograniczyć zużycie
+  tokenów: bez wstępów, grzeczności, powtórzeń i asekuracji; pełne, zwięzłe
+  zdania; jedna myśl na zdanie; bez narracji przed wywołaniami narzędzi. Styl
+  dotyczy tylko rozmowy z użytkownikiem i pozostaje po polsku. Kod, komendy,
+  identyfikatory, cytowane błędy, dokumentację, komunikaty commitów, treść
+  tasków, `Outcome` i wpisy `DECISION_LOG.md` pisz normalnym stylem. Wyjdź ze
+  stylu przy ostrzeżeniach bezpieczeństwa, potwierdzaniu operacji
+  nieodwracalnych i wieloetapowych instrukcjach, w których skrót groziłby
+  błędnym odczytem, a także na prośbę „stop caveman” lub „normal mode”.
+  Agent z dostępnym skillem `caveman` uruchamia go z poziomem `lite`.
 - Ostatnią sekcją każdego planu musi być `Przypisanie modeli do zadań` z
   kompletną tabelą `Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy
 review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
@@ -35,9 +67,12 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
   `ai_docs/process/PLAN_STANDARD.md`.
 
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
-- Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj
-  kolejnego taska, nawet jeżeli jego zależności są gotowe, bez osobnego
-  polecenia użytkownika.
+- Domyślnie implementuj wyłącznie task wskazany przez użytkownika. Wyraźne
+  polecenie uruchomienia etapu zaakceptowanego planu obejmuje wszystkie jego
+  taski w kolejności planu oraz delegowanie wykonawców i audytorów według
+  tabeli modeli. Sama tabela nie jest zgodą na delegowanie. Dla planu bez
+  etapów obowiązuje zatrzymanie po tasku, chyba że użytkownik wyraźnie
+  polecił wykonanie całego planu.
 - Przed kodowaniem ponownie przeczytaj aktywny task oraz odpowiadające mu
   fragmenty zaakceptowanego planu. Jeżeli zakres taska i plan są sprzeczne,
   zgłoś konflikt przed implementacją.
@@ -50,6 +85,62 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 - Komendy i instrukcje lokalne muszą działać na Windows PowerShell, chyba że zadanie mówi inaczej.
 - Nie wykonuj destrukcyjnych operacji na danych bez wyraźnej zgody użytkownika.
 - Nie dodawaj kolejki Redis/Celery, mikroserwisów ani chmury, dopóki pomiary nie pokażą takiej potrzeby.
+
+## Budżet tokenów i zgoda na kosztowne prace
+
+- Zasada obowiązuje Codex, Claude Code i wszystkich innych agentów pracujących
+  w repozytorium, w tym subagentów, wykonawców oraz audytorów.
+- Przed rozpoczęciem długiej lub bardzo złożonej zmiany, która może zużyć
+  około 10% lub więcej pakietu użytkownika, agent musi ostrzec użytkownika
+  i uzyskać jego wyraźną zgodę na taki koszt. Do czasu odpowiedzi nie rozpoczyna
+  kosztownej implementacji, delegowania, audytów ani szerokich testów.
+- Ostrzeżenie musi zawierać zakres, powód złożoności, przewidywany czas oraz
+  szacunek zużycia tokenów lub pakietu, jeśli jest wiarygodnie dostępny.
+  Nie podawaj zmyślonych procentów. Gdy nie można wiarygodnie oszacować kosztu,
+  długą lub bardzo złożoną pracę również poprzedź ostrzeżeniem i zgodą użytkownika.
+- Koszt obejmuje łącznie pracę głównego agenta, subagentów, audyty, ponowne
+  odczyty dokumentacji i powtarzane kontrole. Nie dziel zadania na mniejsze
+  kroki w celu obejścia obowiązku uzyskania zgody.
+- Ogólne polecenia „kontynuuj”, „dokończ” lub „pracuj samodzielnie” nie zastępują
+  zgody na duże zużycie pakietu, jeśli użytkownik nie został wcześniej ostrzeżony
+  o przewidywanym koszcie. Zatwierdzony zakres nie upoważnia do nieograniczonego
+  zużycia tokenów.
+- Jeżeli w trakcie pracy przewidywany koszt lub czas istotnie wzrośnie,
+  zatrzymaj kosztowną część, podaj dotychczasowy wynik i pozostały zakres,
+  a następnie uzyskaj zgodę na kontynuację. Przestrzegaj limitów czasu i budżetu
+  wskazanych przez użytkownika. Wykorzystuj aktualne wyniki weryfikacji zamiast
+  niepotrzebnie powtarzać audyty i testy.
+
+### Oszczędzanie kontekstu
+
+Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyniku.
+
+- Szeroką eksplorację (szukanie miejsca zmiany w wielu plikach, ustalanie
+  przepływu) deleguj subagentowi na tańszym modelu. Subagent zwraca wnioski:
+  ścieżkę, symbol, zakres linii i 1–3 zdania, a nie zrzuty plików.
+- Brief audytu zawiera wyłącznie plik taska, fragment planu i diff (tak składa go
+  `scripts/audit_task.ps1`). Nie wklejaj całych dokumentów procesu
+  (`CURRENT_STATE.md`, `DECISION_LOG.md`, plany, archiwa) do promptów
+  subagentów ani audytorów; podaj ścieżkę i zakres do przeczytania.
+- Plik większy niż 200 KB czytaj tylko z `offset`/`limit`; hook `PreToolUse` w
+  `.claude/settings.json` odrzuca inny odczyt. Wyłączenie hooka i narzędzia
+  pilotowe (Serena, Graphify): `ai_docs/guides/TOKEN_TOOLING.md`.
+- Gdy MCP z narzędziami symbolowymi (Serena) jest włączone w sesji, preferuj
+  `find_symbol` i `find_referencing_symbols` nad czytaniem całych plików. Serena i
+  Graphify są pilotem: stały wpis o nich w tym pliku powstaje dopiero po werdykcie
+  „zostaje” z `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md`.
+
+## Kontrola lokalnych usług API i Admin
+
+- API i Admin uruchamia, zatrzymuje i restartuje ręcznie użytkownik, we własnych
+  terminalach. Agent nie wykonuje tych operacji bez osobnego, wyraźnego
+  polecenia użytkownika w bieżącym zadaniu.
+- Polecenie naprawy, diagnozy lub testowania nie jest zgodą na uruchomienie
+  API/Admin, przejęcie ich portów ani pozostawienie ukrytej instancji w tle.
+  Wcześniejsza zgoda na restart nie obowiązuje automatycznie w kolejnych zadaniach.
+- Jeżeli poprawka wymaga restartu, przekaż użytkownikowi właściwą komendę
+  i pozostaw jej wykonanie użytkownikowi. Status procesu i zajętość portu można
+  sprawdzać bez zmiany stanu; nie kończ cudzych procesów.
 
 ## Trwałość rozwiązań
 
@@ -72,13 +163,20 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 - Każdy ukończony task otrzymuje osobny commit. Niezależna poprawka błędu
   wykonana przed taskiem również wymaga osobnego commita.
-- Numer następnego commita wyznacz z najnowszego wersjonowanego commita w
-  bieżącym torze. Każdy kolejny commit zwiększa patch o jeden.
+- Dla pierwszego commita w bieżącym torze sprawdź historię aktualnego brancha
+  (`git log`) i ustal wersję na podstawie najnowszego wersjonowanego commita na
+  tym branchu. Nie zakładaj wersji z nazwy brancha ani nie używaj przykładowej
+  lub zapamiętanej wersji, takiej jak `v1.1`.
+- Każdy następny commit zwiększa patch o jeden względem poprzedniego commita w
+  tym torze. Po każdym commicie zapisz jego pełną wersję i hash w sekcji
+  `Outcome` aktywnego zadania oraz w `ai_docs/process/CURRENT_STATE.md`.
+  Przy kontynuacji odczytaj ten zapis i potwierdź go z historią bieżącego
+  brancha; w razie rozbieżności obowiązuje rzeczywisty commit na branchu.
 - Numer patch jest przypisany do kolejności commitów, nie do liczby zadań w
   commicie. Nie wolno ponownie użyć ani pominąć numeru bez jawnej decyzji
   użytkownika.
-- Komunikat commita zaczyna się od pełnej bieżącej wersji `vX.Y.N`; po niej może
-  zawierać krótki opis zakresu.
+- Komunikat commita ma format `vX.Y.N - {opis}`: zaczyna się od pełnej bieżącej
+  wersji ustalonej dla brancha, po której następuje krótki opis zakresu.
 - Przed commitem sprawdź `git diff --cached --check`, staged statystykę i listę
   staged plików. Po commicie sprawdź `git show --stat` oraz pozostały
   `git status`.
@@ -101,7 +199,10 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 2. Wypisz pliki, które prawdopodobnie zostaną zmienione.
 3. Sprawdź otwarte pytania blokujące.
 4. Jeżeli można bezpiecznie przyjąć założenie, zapisz je w zadaniu i `CURRENT_STATE.md`.
-5. Jeżeli założenie zmienia model domenowy albo architekturę, dodaj wpis do `DECISION_LOG.md`.
+5. Jeżeli założenie zmienia model domenowy albo architekturę, dodaj wpis do `DECISION_LOG.md`
+   (pełny wpis na początku `ai_docs/process/decisions/DECISION_LOG_2026.md`,
+   wiersz w indeksie `DECISION_LOG.md`, najstarszą z pięciu pełnych kopii w
+   `DECISION_LOG.md` zastąp nową).
 
 ### W czasie kodowania
 
@@ -166,7 +267,12 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 1. Uruchom formatowanie, lint, testy i kontrolę typów dla zmienionych części.
 2. Zaktualizuj dokumentację, jeżeli zmieniło się zachowanie, API, model danych lub decyzja.
-3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md`.
+3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md` zgodnie z regułą okna
+   kroczącego: dopisz sekcję `done` taska na początku sekcji „Ostatnie 10
+   ukończonych tasków”, przenieś najstarsze sekcje `done` ponad limit 10 na
+   początek najnowszego `ai_docs/archive/CURRENT_STATE_*.md` (tekst bez zmian),
+   usuń z „Aktywne taski” sekcję zamkniętego taska i zaktualizuj „Obowiązujące
+   ograniczenia”. Sprawdź `npm run docs:check`.
 4. Uzupełnij sekcję `Outcome` aktywnego zadania.
 5. Po zakończeniu zadania przenieś plik ze statusem `done` do
    `ai_docs/tasks/completed/`.
@@ -177,14 +283,72 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
    - jakie są następne kroki lub ryzyka.
 7. Porównaj rezultat punkt po punkcie z Definition of Done taska oraz jego
    zaakceptowanym planem.
-8. Po raporcie zatrzymaj się. Kontynuuj wyłącznie po osobnym poleceniu
-   użytkownika wskazującym następny task.
+8. Po raporcie zatrzymaj się, chyba że użytkownik wyraźnie uruchomił cały
+   etap albo cały plan bez etapów. Wtedy po audycie, osobnym commicie,
+   Outcome i aktualizacji CURRENT_STATE.md każdego taska kontynuuj do końca
+   zleconego zakresu. Zatrzymaj się na końcu etapu albo przy sprzeczności
+   wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, otwartych uwagach
+   audytu P0/P1 po jednej rundzie poprawek (uwagi P2 odnotowane w `Outcome`
+   nie zatrzymują; zasady w sekcji „Audyt krzyżowy”) lub przed operacją czy
+   kosztem poza zatwierdzonym zakresem. Nie wykonuj automatycznego push,
+   merge, aktywacji modelu ani wdrożenia.
+
+## Audyt krzyżowy
+
+- Zmiany taska audytuje model z innej rodziny niż wykonawca: pracę Claude
+  audytuje Codex, a pracę Codex audytuje Claude. Wykonawca nie audytuje
+  własnej pracy. Audyt jest wymagany po każdym tasku, który wskazuje go w
+  kolumnie `Dodatkowy review` zaakceptowanego planu, przed commitem.
+- Do czasu, gdy oba CLI (`codex`, `claude`) są zainstalowane i zalogowane przez
+  operatora, audytorem jest niezależny subagent Claude z innym modelem niż
+  wykonawca, w świeżym kontekście i wyłącznie do odczytu. Zastępstwo musi być
+  jawnie odnotowane w `Outcome` taska i zgodne z kolumną `Dodatkowy review`
+  planu; brak dostępnego modelu zatrzymuje task zgodnie z `PLAN_STANDARD.md`.
+- Brief audytu buduje `scripts/audit_task.ps1` (skill `audit-task` w Claude
+  Code, lustrzany skill `claude-audit` w Codex). Skrypt składa plik taska,
+  fragment planu, `git diff <base>...HEAD` wraz ze zmianami niezacommitowanymi
+  (domyślnie `-Base HEAD`, czyli audyt przed commitem; `-Paths` ogranicza
+  diff do plików taska) i linie weryfikacji z `Outcome`, zapisuje brief w
+  `artifacts/audits/` (katalog ignorowany przez git), a gdy CLI audytora jest
+  dostępne, uruchamia je w trybie tylko do odczytu z limitem czasu. Bez CLI
+  skrypt kończy się na briefie, a audyt wykonuje się ręcznie lub zastępczym
+  subagentem.
+- Wyjątek od domyślnego limitu 120 s z sekcji „Limity czasu i procesy
+  długotrwałe”: uruchomienie audytu może mieć timeout narzędzia do 600 s,
+  przy czym własny `-TimeoutSec` skryptu musi być niższy (zalecane 480 s,
+  bo po jego upływie skrypt potrzebuje jeszcze około 25 s na sprzątanie).
+  Alternatywnie uruchom skrypt jako kontrolowany proces w tle i monitoruj go.
+- Audytor nie zmienia plików. Przegląd jest statyczny: ocenia zgodność z
+  zakresem, kryteriami akceptacji, planem i regułami tego pliku, a nie
+  rozszerza zakresu.
+- Raport leży w `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md`, jest pisany
+  normalną prozą po polsku i ma format z
+  `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`: werdykt `PASS` albo `REVISE`,
+  znaleziska P0–P2 z `plik:linia`, listy zamkniętych i otwartych uwag,
+  proponowane testy oraz oświadczenie „przegląd statyczny, bez zmian w
+  plikach”. Raport wchodzi do commita taska.
+- Otwarte uwagi P0 i P1 blokują commit. Uwagi P2 wykonawca naprawia albo
+  odnotowuje w `Outcome` jako zaakceptowane ryzyko z uzasadnieniem.
+- Obowiązuje jedna runda audytu i jedna runda poprawek. Ponowny audyt
+  wykonuje się wyłącznie na żądanie operatora albo gdy poprawka zmieniła
+  zachowanie objęte uwagą P0/P1; nie powstaje automatyczna pętla. Jeżeli po
+  poprawkach uwaga P0/P1 pozostaje otwarta, zatrzymaj task i zgłoś to
+  operatorowi zgodnie z punktem 8 sekcji „Po kodowaniu”.
+- Domyślny audyt jest **szybki** (decyzja operatora 2026-10-09): audytor to `gpt-6-astra` na poziomie `medium` (poziom `high` tylko dla tasków zmieniających schemat bazy, migracje, wypłaty albo dane dowodowe), brief ograniczony `-Paths` do plików taska, a raport skupia się na P0 i P1; uwag P2 podaje najwyżej pięć najważniejszych. Audytor zastępczy Claude stosuje ten sam zakres i poziom `medium`, chyba że tabela planu wymaga `high`. Jedna runda audytu, jedna runda poprawek, bez pętli; brak odpowiedzi audytora w limicie czasu nie zatrzymuje taska, tylko jest odnotowany w `Outcome`.
+- Po commicie taska lead dopisuje wersję i pełny hash commita do sekcji taska w
+  `CURRENT_STATE.md` i do `Outcome` (w kolejnym commicie dokumentacyjnym lub
+  razem z następnym taskiem); audytor sprawdza obecność tego zapisu.
+- Codex CLI uruchamiany przez skrypt używa `node.exe` z `codex.js` (shim `.cmd`
+  nie przenosi cudzysłowów) oraz nadpisań `windows.sandbox="unelevated"` i
+  `model_reasoning_effort` (parametry `-CodexWindowsSandbox`, `-Effort`), bo
+  piaskownica `elevated` zarejestrowana przez aplikację ChatGPT nie działa z CLI.
+- Poświadczeń CLI nie wpisuje agent: instalację i logowanie wykonuje operator.
 
 ## Hierarchia źródeł prawdy
 
 W przypadku sprzeczności obowiązuje kolejność:
 
-1. zaakceptowane decyzje w `ai_docs/process/DECISION_LOG.md`,
+1. zaakceptowane decyzje w `ai_docs/process/DECISION_LOG.md` (pełne wpisy w `ai_docs/process/decisions/`),
 2. wymagania w `ai_docs/requirements/`,
 3. architektura w `ai_docs/architecture/`,
 4. aktywne zadanie,

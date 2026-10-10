@@ -1,12 +1,16 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from uuid import UUID
 
 import pytest
+from _application_role_database import provision_game
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.mobile_releases import (
+    CURRENT_ALGORITHM_VERSION,
+    CURRENT_SNAPSHOT_SCHEMA_VERSION,
     MobileReleaseService,
 )
 from game_predictor_api.config import ApiSettings
@@ -18,6 +22,7 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseStatus,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.storage.database import create_cross_game_owner_session_factory
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
@@ -45,7 +50,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -79,15 +84,12 @@ def isolated_mobile_release_database() -> Iterator[URL]:
 def _add_published_source(
     session: Session,
     *,
-    code: str,
+    game_id: UUID,
     rules_status: RulesVersionStatus = RulesVersionStatus.PUBLISHED,
 ) -> MobileReleaseGameInput:
-    game = GameModel(
-        code=code,
-        name=code,
-        status=GameStatus.ACTIVE,
-    )
-    session.add(game)
+    game = session.get(GameModel, game_id)
+    assert game is not None
+    game.status = GameStatus.ACTIVE
     session.flush()
     rules = RulesVersionModel(
         game_id=game.id,
@@ -131,12 +133,17 @@ def test_mobile_release_repository_persists_atomic_immutable_selection(
     )
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
-            game_z = _add_published_source(session, code="game-z")
-            game_a = _add_published_source(session, code="game-a")
+        # TASK-0797: game data lives in V2 partitions provisioned by the owner
+        # lifecycle (no public fallback store since 0125).
+        game_ids = {code: provision_game(engine, code) for code in ("game-z", "game-a", "x")}
+        # Production wiring: a release spans games, so the API runs it on the
+        # cross-game schema-owner session.
+        with create_cross_game_owner_session_factory(engine)() as session:
+            game_z = _add_published_source(session, game_id=game_ids["game-z"])
+            game_a = _add_published_source(session, game_id=game_ids["game-a"])
             invalid = _add_published_source(
                 session,
-                code="game-invalid",
+                game_id=game_ids["x"],
                 rules_status=RulesVersionStatus.DRAFT,
             )
             session.commit()
@@ -149,8 +156,8 @@ def test_mobile_release_repository_persists_atomic_immutable_selection(
             session.commit()
 
             assert release.status is MobileReleaseStatus.DRAFT
-            assert release.algorithm_version == "payout-v2"
-            assert release.snapshot_schema_version == 3
+            assert release.algorithm_version == CURRENT_ALGORITHM_VERSION
+            assert release.snapshot_schema_version == CURRENT_SNAPSHOT_SCHEMA_VERSION
             assert [game.game_code for game in release.games] == [
                 "game-a",
                 "game-z",

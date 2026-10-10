@@ -34,10 +34,16 @@ from game_predictor_api.schemas.semi_automatic_image_selections import (
     SemiAutomaticSelectionRunResponse,
     SemiAutomaticSelectionSourceItemResponse,
     SemiAutomaticSelectionSourcePageResponse,
+    V7OutputFolderSelectionResponse,
+    V7ReviewFolderResponse,
     to_filename_verification_history_deletion_response,
     to_filename_verification_review_response,
     to_range_response,
     to_run_response,
+)
+from game_predictor_api.schemas.v7_selection_delivery import (
+    V7OutputDecisionRequest,
+    V7SourceDiagnosticsResponse,
 )
 
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -84,6 +90,36 @@ def create_semi_automatic_image_selections_router(
         )
 
     @router.post(
+        "/output-folder",
+        response_model=V7OutputFolderSelectionResponse,
+        operation_id="selectSemiAutomaticImageSelectionOutputFolder",
+        responses=ERROR_RESPONSES,
+    )
+    def select_output_folder(
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+    ) -> V7OutputFolderSelectionResponse:
+        selected = service.select_output_folder()
+        return V7OutputFolderSelectionResponse(
+            status="cancelled" if selected is None else "selected",
+            path=None if selected is None else str(selected),
+        )
+
+    @router.post(
+        "/review-folder",
+        response_model=V7ReviewFolderResponse,
+        operation_id="openSemiAutomaticImageSelectionReviewFolder",
+        responses=ERROR_RESPONSES,
+    )
+    def open_review_folder(
+        service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
+    ) -> V7ReviewFolderResponse:
+        run = service.open_review_folder()
+        return V7ReviewFolderResponse(
+            status="cancelled" if run is None else "selected",
+            run_id=None if run is None else run.id,
+        )
+
+    @router.post(
         "",
         response_model=SemiAutomaticSelectionCreateResponse,
         operation_id="createSemiAutomaticImageSelection",
@@ -111,8 +147,12 @@ def create_semi_automatic_image_selections_router(
                 if payload.v7 is None
                 else payload.v7.border_style
             ),
+            output_base_directory=None if payload.v7 is None else payload.v7.output_base_directory,
         )
-        return SemiAutomaticSelectionCreateResponse(run=to_run_response(run), created=created)
+        return SemiAutomaticSelectionCreateResponse(
+            run=to_run_response(run, output_directory=service.output_directory(run)),
+            created=created,
+        )
 
     @router.get(
         "",
@@ -132,7 +172,9 @@ def create_semi_automatic_image_selections_router(
             limit=limit,
         )
         return SemiAutomaticSelectionRunPageResponse(
-            items=[to_run_response(run) for run in runs],
+            items=[
+                to_run_response(run, output_directory=service.output_directory(run)) for run in runs
+            ],
             next_offset=next_offset,
         )
 
@@ -146,7 +188,8 @@ def create_semi_automatic_image_selections_router(
         run_id: UUID,
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRunResponse:
-        return to_run_response(service.get(run_id))
+        run = service.get_for_display(run_id, include_checkpoint=True)
+        return to_run_response(run, output_directory=service.output_directory(run))
 
     @router.get(
         "/{run_id}/sources",
@@ -165,12 +208,18 @@ def create_semi_automatic_image_selections_router(
             after_source_index=after_source_index,
             limit=limit,
         )
+        diagnostics = service.v7_source_diagnostics(run_id, [item.source_index for item in items])
         responses = [
             SemiAutomaticSelectionSourceItemResponse(
                 source_index=item.source_index,
                 relative_path=item.relative_path,
                 size_bytes=item.size_bytes,
                 checksum_sha256=item.checksum_sha256,
+                v7_diagnostics=(
+                    V7SourceDiagnosticsResponse.model_validate(diagnostics[item.source_index])
+                    if item.source_index in diagnostics
+                    else None
+                ),
             )
             for item in items
         ]
@@ -316,7 +365,8 @@ def create_semi_automatic_image_selections_router(
         run_id: UUID,
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRunResponse:
-        return to_run_response(service.pause(run_id))
+        run = service.pause(run_id)
+        return to_run_response(run, output_directory=service.output_directory(run))
 
     @router.post(
         "/{run_id}/resume",
@@ -328,7 +378,8 @@ def create_semi_automatic_image_selections_router(
         run_id: UUID,
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRunResponse:
-        return to_run_response(service.resume(run_id))
+        run = service.resume(run_id)
+        return to_run_response(run, output_directory=service.output_directory(run))
 
     @router.post(
         "/{run_id}/cancel",
@@ -340,7 +391,8 @@ def create_semi_automatic_image_selections_router(
         run_id: UUID,
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRunResponse:
-        return to_run_response(service.cancel(run_id))
+        run = service.cancel(run_id)
+        return to_run_response(run, output_directory=service.output_directory(run))
 
     @router.post(
         "/{run_id}/ranges/{expected_index}/output-acknowledgements",
@@ -351,9 +403,13 @@ def create_semi_automatic_image_selections_router(
     def acknowledge(
         run_id: UUID,
         expected_index: int,
-        payload: SemiAutomaticSelectionOutputAcknowledgement,
+        payload: SemiAutomaticSelectionOutputAcknowledgement | V7OutputDecisionRequest,
         service: Annotated[SemiAutomaticImageSelectionService, service_parameter],
     ) -> SemiAutomaticSelectionRangeResponse:
+        if isinstance(payload, V7OutputDecisionRequest):
+            return to_range_response(
+                service.acknowledge_v7_output(run_id, expected_index, payload.to_domain())
+            )
         return to_range_response(
             service.acknowledge_output(
                 run_id,

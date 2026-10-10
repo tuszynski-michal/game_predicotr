@@ -3,10 +3,10 @@
   "cellHeight": 90,
   "cellWidth": 90,
   "corpusId": "m5-representative-corpus-v2",
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "cropReportSha256": "2a7840f140547c23c0941349a17f4146c94e5721c3a2a9923b5467f8fb1aa0ef",
   "cropperVersion": "board-cell-crops-v1",
-  "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+  "goldenAnnotationsSha256": "7c1eceb6d3ab980e25082d4dab99d58ad416eec40eee65fbe3bde55fba86b9cb",
   "inventoryVersion": "symbol-crop-inventory-v1",
   "sampleCount": 5805,
   "samples": [

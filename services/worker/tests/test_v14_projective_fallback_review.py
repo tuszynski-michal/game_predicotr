@@ -9,12 +9,14 @@ from game_predictor_worker.images.v14_projective_fallback_review import (
     SUGGESTION_VERSION,
     V14ProjectiveFallbackReview,
 )
+from local_corpus import require_local_corpus
 
 
 def test_real_v14_fallback_review_selects_only_fourteen_failed_boards(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "artifacts/m5-board-crops")
     output = tmp_path / "v14-fallback-review.json"
     review = V14ProjectiveFallbackReview(
         repository_root=root,

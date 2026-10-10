@@ -12,6 +12,10 @@ class SymbolDefinition:
     name: str
     is_wildcard: bool
     display_order: int
+    super_game_trigger_count: int | None = None
+    """`None` for an ordinary or Wild symbol. A number marks a super game
+    trigger symbol (D-535): it never pays on paylines and its payout rules
+    are paid per count of its cells on the whole board (`payout-v4-wild-count`)."""
 
 
 @dataclass(frozen=True)
@@ -64,9 +68,20 @@ class PayoutMatch:
 
 
 @dataclass(frozen=True)
+class CountMatch:
+    """A super game trigger symbol paid per count of its cells on the board."""
+
+    symbol_mobile_code: int
+    count: int
+    matched_cells: tuple[int, ...]
+    payout_credits: int
+
+
+@dataclass(frozen=True)
 class PayoutEvaluation:
     total_payout: int
     matches: tuple[PayoutMatch, ...]
+    count_matches: tuple[CountMatch, ...] = ()
 
 
 @dataclass(frozen=True)

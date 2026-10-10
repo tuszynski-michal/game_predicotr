@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import UUID
 
+from game_predictor_worker.symbols.protected_sources import MUMIE_GAME_ID
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,26 +18,48 @@ from game_predictor_api.domain.symbol_model_registry import (
     SymbolModelActivationAction,
     SymbolModelActivationPreview,
 )
+from game_predictor_api.storage.lab_symbol_candidate_validation import require_iteration_candidate
 from game_predictor_api.storage.models import (
     GameModel,
     GameSymbolModelActivationModel,
     SymbolModelIterationModel,
 )
+from game_predictor_api.storage.protected_control_truth import require_control_truth_promotion
 
 
 class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, *, artifact_root: Path | None = None) -> None:
         self._session = session
+        self._artifact_root = artifact_root
 
     def preview(
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
+        model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
     ) -> SymbolModelActivationPreview:
-        target = self._eligible_target(game_id, model_iteration_id)
         current = self._current(game_id)
+        if action is SymbolModelActivationAction.DEACTIVATE:
+            if (
+                model_iteration_id is not None
+                or current is None
+                or current.model_iteration_id is None
+            ):
+                raise JobConflictError(
+                    "SYMBOL_MODEL_NOT_ACTIVE", "No active model can be disabled."
+                )
+            return SymbolModelActivationPreview(
+                game_id=game_id,
+                model_iteration_id=None,
+                candidate_manifest_checksum_sha256=None,
+                current_model_iteration_id=current.model_iteration_id,
+                action=action,
+                can_activate=True,
+            )
+        if model_iteration_id is None:
+            raise JobConflictError("SYMBOL_MODEL_ACTIVATION_TARGET_INVALID", "Target is required.")
+        target = self._eligible_target(game_id, model_iteration_id)
         self._validate_transition(
             game_id=game_id,
             target_id=model_iteration_id,
@@ -43,6 +67,7 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
             action=action,
         )
         assert target.candidate_manifest_checksum_sha256 is not None
+        self._require_control_truth(target, lock=False)
         return SymbolModelActivationPreview(
             game_id=game_id,
             model_iteration_id=model_iteration_id,
@@ -50,14 +75,17 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
             current_model_iteration_id=(None if current is None else current.model_iteration_id),
             action=action,
             can_activate=True,
+            pilot_summary=(
+                dict(target.configuration_payload) if target.origin == "lab_import" else None
+            ),
         )
 
     def activate(
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
-        expected_manifest_checksum_sha256: str,
+        model_iteration_id: UUID | None,
+        expected_manifest_checksum_sha256: str | None,
         expected_current_model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
         actor: str,
@@ -83,8 +111,22 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
                     "The idempotency key was already used for another activation command.",
                 )
             return _to_domain(existing), False
-        target = self._eligible_target(game_id, model_iteration_id)
-        if target.candidate_manifest_checksum_sha256 != expected_manifest_checksum_sha256:
+        if action is SymbolModelActivationAction.DEACTIVATE:
+            if model_iteration_id is not None or expected_manifest_checksum_sha256 is not None:
+                raise JobConflictError(
+                    "SYMBOL_MODEL_ACTIVATION_TARGET_INVALID", "Deactivation has no target."
+                )
+            target = None
+        else:
+            if model_iteration_id is None:
+                raise JobConflictError(
+                    "SYMBOL_MODEL_ACTIVATION_TARGET_INVALID", "Target is required."
+                )
+            target = self._eligible_target(game_id, model_iteration_id)
+        if (
+            target is not None
+            and target.candidate_manifest_checksum_sha256 != expected_manifest_checksum_sha256
+        ):
             raise JobConflictError(
                 "SYMBOL_MODEL_ACTIVATION_PREVIEW_STALE",
                 "Candidate manifest differs from the explicitly confirmed preview.",
@@ -96,12 +138,16 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
                 "SYMBOL_MODEL_ACTIVATION_PREVIEW_STALE",
                 "The active model changed after preview; refresh and confirm again.",
             )
+        if action is SymbolModelActivationAction.DEACTIVATE and current_id is None:
+            raise JobConflictError("SYMBOL_MODEL_NOT_ACTIVE", "No active model can be disabled.")
         self._validate_transition(
             game_id=game_id,
             target_id=model_iteration_id,
             current=current,
             action=action,
         )
+        if target is not None:
+            self._require_control_truth(target, lock=True)
         record = GameSymbolModelActivationModel(
             game_id=game_id,
             model_iteration_id=model_iteration_id,
@@ -154,6 +200,12 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
                 "SYMBOL_MODEL_CANDIDATE_NOT_READY",
                 "Only a candidate with a complete passed gate may be activated.",
             )
+        if target.origin == "lab_import":
+            if self._artifact_root is None:
+                raise JobConflictError(
+                    "LAB_CANDIDATE_STORAGE_REQUIRED", "Managed candidate storage is unavailable."
+                )
+            require_iteration_candidate(self._session, self._artifact_root, target)
         return target
 
     def _current(self, game_id: UUID) -> GameSymbolModelActivationModel | None:
@@ -166,11 +218,27 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
             .limit(1)
         )
 
+    def _require_control_truth(self, target: SymbolModelIterationModel, *, lock: bool) -> None:
+        if str(target.game_id) != MUMIE_GAME_ID or target.origin != "production_training":
+            return
+        if self._artifact_root is None:
+            raise JobConflictError(
+                "PROTECTED_CONTROL_STORAGE_REQUIRED",
+                "Managed human control storage is unavailable.",
+            )
+        require_control_truth_promotion(
+            self._session,
+            self._artifact_root,
+            target.game_id,
+            target.configuration_payload,
+            lock=lock,
+        )
+
     def _validate_transition(
         self,
         *,
         game_id: UUID,
-        target_id: UUID,
+        target_id: UUID | None,
         current: GameSymbolModelActivationModel | None,
         action: SymbolModelActivationAction,
     ) -> None:

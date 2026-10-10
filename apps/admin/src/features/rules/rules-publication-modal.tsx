@@ -41,9 +41,14 @@ const ISSUE_LABELS: Readonly<Record<string, string>> = {
   NON_INCREASING_PAYOUT: 'Wypłaty symbolu muszą rosnąć wraz z długością ciągu.',
   PAYOUT_FOR_INACTIVE_SYMBOL: 'Aktywna wypłata należy do nieaktywnego symbolu.',
   RULES_VERSION_NOT_DRAFT: 'Publikować można wyłącznie wersję draft.',
+  SUPER_GAME_KIND_REQUIRED:
+    'Symbol uruchamiający supergrę wymaga wybrania rodzaju supergry w ustawieniach gry.',
+  SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED:
+    'Symbol uruchamiający supergrę nie ma minimalnej długości wygranej.',
   WILDCARD_MINIMUM_NOT_ALLOWED:
-    'Joker nie może mieć minimalnej długości wygranej.',
-  WILDCARD_PAYOUT_NOT_ALLOWED: 'Joker nie może mieć własnych wypłat.',
+    'Wild nie może mieć minimalnej długości wygranej.',
+  WILDCARD_PAYOUT_NOT_ALLOWED:
+    'Wild bez roli „Uruchamia supergrę” nie może mieć własnych wypłat.',
 };
 
 export function publicationIssueLabel(

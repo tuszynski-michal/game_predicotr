@@ -1,19 +1,17 @@
 """Local Admin API for bounded, checksum-bound symbol-cell review reads."""
 
 import asyncio
-import hashlib
 import logging
 from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
-from io import BytesIO
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
-from PIL import Image, UnidentifiedImageError
+from pydantic import AwareDatetime
 from starlette.concurrency import run_in_threadpool
 
 from game_predictor_api.application.image_symbol_review_backfill import (
@@ -45,6 +43,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewPredictionSource,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
@@ -500,9 +499,15 @@ def create_image_symbol_reviews_router(
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
         limit: Annotated[int, Query(ge=1, le=2500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_page_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -516,8 +521,13 @@ def create_image_symbol_reviews_router(
                     before_cursor=before_cursor,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
+                    import_job_id=import_job_id,
                     limit=limit,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -540,8 +550,14 @@ def create_image_symbol_reviews_router(
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
     ) -> SymbolCellReviewSkipResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_skip_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -555,8 +571,13 @@ def create_image_symbol_reviews_router(
                     before_cursor=before_cursor,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
+                    import_job_id=import_job_id,
                     count=count,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -577,8 +598,14 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.PENDING,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
     ) -> SymbolCellReviewCountSnapshotResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -591,7 +618,12 @@ def create_image_symbol_reviews_router(
                     expected_catalog_revision=catalog_revision,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
+                    import_job_id=import_job_id,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -619,31 +651,25 @@ def create_image_symbol_reviews_router(
             cell_review_id=cell_review_id,
             expected_crop_checksum_sha256=expected_crop_checksum_sha256,
         )
-        if asset.asset_mode == "virtual_source":
-            if expected_render_spec_checksum_sha256 is None:
-                raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_REQUIRED",
-                    "Virtual symbol-cell previews require expectedRenderSpecChecksumSha256.",
-                )
-            target = VirtualCellPreviewTarget(
-                cell_review_id=cell_review_id,
-                expected_revision=asset.revision,
-                expected_render_spec_checksum_sha256=expected_render_spec_checksum_sha256,
+        # D-467 S6 (TASK-0796): every symbol-cell image is a virtual render.
+        if expected_render_spec_checksum_sha256 is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PREVIEW_RENDER_SPEC_REQUIRED",
+                "Virtual symbol-cell previews require expectedRenderSpecChecksumSha256.",
             )
-            virtual_assets = service.virtual_preview_assets(game_id=game_id, targets=(target,))
-            batch = preview_service.render_batch(
-                game_id=game_id,
-                assets=virtual_assets,
-                preview_size=thumbnail_size,
-            )
-            content = preview_service.read_atlas(game_id=game_id, batch_key=batch.batch_key).content
-            return virtual_symbol_cell_review_thumbnail_response(content)
-        _path, content = read_symbol_cell_review_asset(
-            artifact_root,
-            _required_relative_path(asset.crop_relative_path),
-            asset.crop_checksum_sha256,
+        target = VirtualCellPreviewTarget(
+            cell_review_id=cell_review_id,
+            expected_revision=asset.revision,
+            expected_render_spec_checksum_sha256=expected_render_spec_checksum_sha256,
         )
-        return symbol_cell_review_thumbnail_response(content, thumbnail_size)
+        virtual_assets = service.virtual_preview_assets(game_id=game_id, targets=(target,))
+        batch = preview_service.render_batch(
+            game_id=game_id,
+            assets=virtual_assets,
+            preview_size=thumbnail_size,
+        )
+        content = preview_service.read_atlas(game_id=game_id, batch_key=batch.batch_key).content
+        return virtual_symbol_cell_review_thumbnail_response(content)
 
     @router.post(
         "/{game_id}/virtual-cell-preview-batches",
@@ -696,7 +722,7 @@ def create_image_symbol_reviews_router(
         "/{game_id}/symbol-cell-preview-batches",
         response_model=SymbolCellPreviewBatchResponse,
         operation_id="createSymbolCellPreviewBatch",
-        summary="Render a stable WebP atlas for current legacy or virtual symbol cells",
+        summary="Render a stable WebP atlas for current virtual symbol cells",
         responses=ERROR_RESPONSES,
     )
     def create_symbol_cell_preview_batch(
@@ -800,85 +826,6 @@ def create_image_symbol_reviews_router(
     return router
 
 
-def resolve_symbol_cell_review_asset(root: Path, relative_value: str, checksum: str) -> Path:
-    """Resolve a read-only crop below managed data and re-check its bytes."""
-
-    path, _content = read_symbol_cell_review_asset(root, relative_value, checksum)
-    return path
-
-
-def read_symbol_cell_review_asset(
-    root: Path,
-    relative_value: str,
-    checksum: str,
-) -> tuple[Path, bytes]:
-    """Read and verify one managed crop exactly once."""
-
-    relative = PurePosixPath(relative_value)
-    if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-            "The symbol-cell crop path is unsafe.",
-        )
-    resolved_root = root.resolve()
-    data_root = (resolved_root / "data").resolve()
-    candidate_paths = [(resolved_root / Path(*relative.parts)).resolve()]
-    if relative.parts[0] != "data":
-        candidate_paths.append((data_root / Path(*relative.parts)).resolve())
-    path = next(
-        (
-            candidate
-            for candidate in candidate_paths
-            if candidate.is_relative_to(data_root)
-            and candidate.is_file()
-            and not candidate.is_symlink()
-        ),
-        None,
-    )
-    if path is None:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
-            "The current symbol-cell crop is unavailable.",
-        )
-    if path.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_TYPE_INVALID",
-            "The symbol-cell crop must be a PNG or JPEG file.",
-        )
-    content = path.read_bytes()
-    if hashlib.sha256(content).hexdigest() != checksum:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
-            "The current symbol-cell crop bytes do not match their checksum.",
-        )
-    return path, content
-
-
-def symbol_cell_review_thumbnail_response(content: bytes, size: int) -> Response:
-    """Render one bounded card thumbnail and let the browser cache it immutably."""
-
-    try:
-        with Image.open(BytesIO(content)) as source:
-            image = source.convert("RGB")
-            image.thumbnail((size, size), Image.Resampling.LANCZOS)
-            output = BytesIO()
-            image.save(output, format="WEBP", quality=82, method=4)
-    except (OSError, UnidentifiedImageError) as error:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-            "The current symbol-cell crop cannot be rendered as a thumbnail.",
-        ) from error
-    content = output.getvalue()
-    return Response(
-        content=content,
-        media_type="image/webp",
-        headers={
-            "Cache-Control": "private, immutable, max-age=31536000",
-            "Content-Length": str(len(content)),
-        },
-    )
-
-
 def virtual_symbol_cell_review_thumbnail_response(content: bytes) -> Response:
     """Return a short-lived derived atlas; its cache key binds current provenance."""
 
@@ -905,32 +852,22 @@ def stable_symbol_cell_review_atlas_response(content: bytes) -> Response:
     )
 
 
-def _required_relative_path(value: str | None) -> str:
-    if value is None:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-            "A legacy symbol-cell crop has no relative path.",
-        )
-    return value
-
-
-def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool]:
+def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool, bool]:
+    if value == "outside":
+        return None, False, True
     if value == "all":
-        return None, True
+        return None, True, False
     if value == "unknown":
-        return None, False
+        return None, False, False
     try:
-        return UUID(value), False
+        return UUID(value), False, False
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
-            "symbolId must be an active symbol UUID, all, or unknown.",
+            "symbolId must be an active symbol UUID, all, unknown, or outside.",
         ) from error
 
 
 __all__ = [
     "create_image_symbol_reviews_router",
-    "read_symbol_cell_review_asset",
-    "resolve_symbol_cell_review_asset",
-    "symbol_cell_review_thumbnail_response",
 ]

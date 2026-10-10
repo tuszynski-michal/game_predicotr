@@ -16,6 +16,10 @@ const geometryEditorPath = new URL(
   '../src/features/operational-reviews/operational-review-geometry-editor.tsx',
   import.meta.url,
 );
+const correctionTargetPath = new URL(
+  '../src/features/operational-reviews/board-geometry-correction-target.ts',
+  import.meta.url,
+);
 const deferredGeometryPath = new URL(
   '../src/features/operational-reviews/deferred-board-cell-geometry-queue.tsx',
   import.meta.url,
@@ -35,6 +39,7 @@ test('operational workspace compares square cell crops with one cropped board', 
   const reviewerStyles = await readFile(reviewerStylesPath, 'utf8');
   const actions = await readFile(actionsPath, 'utf8');
   const geometryEditor = await readFile(geometryEditorPath, 'utf8');
+  const correctionTarget = await readFile(correctionTargetPath, 'utf8');
   const deferredGeometry = await readFile(deferredGeometryPath, 'utf8');
   const deferredGeometryEditor = await readFile(
     deferredGeometryEditorPath,
@@ -101,27 +106,23 @@ test('operational workspace compares square cell crops with one cropped board', 
   );
   assert.match(source, /OperationalReviewGeometryEditor/);
   assert.match(geometryEditor, /Edytuj siatkę/);
-  assert.match(geometryEditor, /Pojedynczy layout z marginesem/);
+  // TASK-0798: the dialog hosts the shared single-board editor of the
+  // correction queue with the operational target (same flags, qualification
+  // and validation), instead of its own copy of the canvas editor.
+  assert.match(geometryEditor, /BoardGeometryCorrectionEditor/);
+  assert.match(geometryEditor, /operationalBoardGeometryTarget/);
+  assert.match(geometryEditor, /saveLabel="Zapisz nową rewizję"/);
+  assert.match(geometryEditor, /Zamknij edytor i przeładuj planszę/);
   assert.doesNotMatch(geometryEditor, /Oryginał i ukośna siatka/);
-  assert.match(geometryEditor, /operationalReviewGeometryViewport/);
-  assert.match(geometryEditor, /viewport\.x/);
-  assert.match(geometryEditor, /operationalReviewPointInSourceImage/);
-  assert.match(geometryEditor, /operationalReviewPointInCanvas/);
-  assert.match(geometryEditor, /onPointerMove/);
-  assert.match(geometryEditor, /onPointerUp=\{finishDragging\}/);
-  assert.match(geometryEditor, /for \(let column = 0; column <= 5/);
-  assert.match(geometryEditor, /for \(let row = 0; row <= 3/);
-  assert.match(geometryEditor, /operationalReviewPointInLattice/);
-  assert.match(geometryEditor, /operationalReviewGeometryEdgeHandles/);
-  assert.match(geometryEditor, /Array\.from\(\{ length: 15 \}/);
-  assert.match(geometryEditor, /previewOperationalReviewGeometry/);
-  assert.match(geometryEditor, /saveOperationalReviewGeometry/);
-  assert.match(geometryEditor, /buildOperationalReviewGeometryCommand/);
-  assert.match(geometryEditor, /!previewIsCurrent \|\| saving/);
-  assert.match(geometryEditor, /usage: 'board-cell-geometry-editor-v19-v1'/);
-  assert.match(geometryEditor, /15 finalnych cropów source-direct/);
-  assert.match(geometryEditor, /backgroundSize: '500% 300%'/);
-  assert.match(geometryEditor, /Zapisz nową rewizję/);
+  assert.doesNotMatch(geometryEditor, /onPointerMove/);
+  assert.match(correctionTarget, /previewOperationalReviewGeometry/);
+  assert.match(correctionTarget, /saveOperationalReviewGeometry/);
+  assert.match(correctionTarget, /buildOperationalReviewGeometryCommand/);
+  assert.match(correctionTarget, /correctionGeometryQualification/);
+  assert.match(correctionTarget, /usage: 'board-cell-geometry-editor-v19-v1'/);
+  assert.match(deferredGeometryEditor, /15 finalnych cropów source-direct/);
+  assert.match(deferredGeometryEditor, /backgroundSize: '500% 300%'/);
+  assert.match(deferredGeometryEditor, /poza zdjęciem/);
   assert.match(source, /onGeometrySaved=\{handleGeometrySaved\}/);
   assert.match(source, /Plansza wróciła do weryfikacji symboli/);
   assert.match(source, /DeferredBoardCellGeometryQueue/);
@@ -136,6 +137,32 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /Array\.from\(\{ length: 15 \}/);
   assert.match(deferredGeometryEditor, /previewIsCurrent/);
   assert.match(deferredGeometryEditor, /idempotencyRef/);
+  assert.match(
+    deferredGeometryEditor,
+    /operationalReviewTranslatedGeometryCorners/,
+  );
+  assert.match(
+    deferredGeometryEditor,
+    /operationalReviewGeometryContainsPoint/,
+  );
+  assert.match(deferredGeometryEditor, /translateGridRef/);
+  assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
+  assert.doesNotMatch(deferredGeometryEditor, /Aktywne przesuwanie/);
+  // The JSX text wraps across lines, so the words are separated by any whitespace.
+  assert.match(deferredGeometryEditor, /obraz pozostaje\s+statyczny/i);
+  assert.match(deferredGeometryEditor, /przesunąć cały obrys/i);
+  assert.match(
+    deferredGeometryEditor,
+    /\{\s*recenterViewport = false,\s*\}: \{ readonly recenterViewport\?: boolean \} = \{\}/,
+  );
+  assert.match(deferredGeometryEditor, /replaceCorners\(next\);/);
+  assert.match(
+    deferredGeometryEditor,
+    // TASK-0882: resetting a stored board lattice restores the corners of the
+    // lattice boundary, and only a board without one the suggested corners.
+    /replaceCorners\(\s*original === null\s*\?\s*copyCorners\(context\.suggestedCorners\)\s*:\s*boardLatticeCorners\(original\),\s*\{\s*recenterViewport: true,/,
+  );
+  assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);
   assert.match(deferredGeometry, /onOrdinaryQueueChanged/);
   assert.match(reviewerStyles, /\.deferredGeometryQueue\s*\{/);
@@ -167,5 +194,23 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(
     reviewerStyles,
     /\.operationalReviewApprove:disabled\s*\{[\s\S]*cursor:\s*not-allowed/,
+  );
+});
+
+test('the operational screen offers the guarded board rejection (TASK-0970)', async () => {
+  const source = await readFile(workspacePath, 'utf8');
+
+  // One button with a reason picker and a confirmation, sent through the
+  // existing resolution route; a result goes through the normal resolve path.
+  assert.match(source, /<RejectBoardControl/);
+  assert.match(source, /rejectReviewItem\(/);
+  assert.match(source, /onDone=\{onResolved\}/);
+  assert.match(source, /BOARD_REJECT_CANONICAL|Kanonicznego właściciela/);
+  // Symbol shortcuts stay silent while a modal `div` (not only `dialog`) is open.
+  assert.match(source, /\[aria-modal="true"\]/);
+  // A rejected or superseded board has nothing to reject.
+  assert.match(
+    source,
+    /item\.status === 'rejected'\s*\|\|\s*item\.status === 'superseded'/,
   );
 });

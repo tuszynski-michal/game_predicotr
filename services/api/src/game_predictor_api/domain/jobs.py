@@ -27,6 +27,7 @@ class JobType(StrEnum):
     STORAGE_GC = "storage_gc"
     STORAGE_INVENTORY = "storage_inventory"
     STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
+    SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
 
 
 class JobStatus(StrEnum):

@@ -11,7 +11,7 @@
       "augmentationVersion": "none",
       "candidateId": "control_v3",
       "reportPath": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json",
-      "reportSha256": "226dd66414c435412001efe9b89d011a1f27358d7e808f5be51f4f3f85573de7",
+      "reportSha256": "a687c04a788c2b6fed04a5a973f4a4e9c2d54759d7d505da2f16487497988792",
       "validationMetrics": {
         "accuracy": 0.71,
         "confusionMatrix": [
@@ -168,7 +168,7 @@
       "augmentationVersion": "none",
       "candidateId": "spatial",
       "reportPath": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json",
-      "reportSha256": "01c9c3b76dbb29a0a11496e2984a7a4576ae97a3dd1b43fee2731b6699416c6f",
+      "reportSha256": "53519bf2708b2b208a6749bceca154e72e8cfda513402897a5ec5b68603199c6",
       "validationMetrics": {
         "accuracy": 0.97666667,
         "confusionMatrix": [
@@ -325,7 +325,7 @@
       "augmentationVersion": "bounded-affine-color-v1",
       "candidateId": "spatial_augmented",
       "reportPath": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json",
-      "reportSha256": "836c26c05eeb79e3fee0169e1e9fe1d4ea21d7a149e59f43216761ca594dc301",
+      "reportSha256": "38b2c0aef9790276bbf0dbbaea3d4ada5496a6b5e9f005970c082a1be7738917",
       "validationMetrics": {
         "accuracy": 0.97666667,
         "confusionMatrix": [
@@ -473,7 +473,7 @@
       }
     }
   ],
-  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "datasetSha256": "596ecb534bc68e5493aa9957c82c5af1780010277a27e541ad3a7c8418d3806b",
   "schemaVersion": 1,
   "selectedCandidateId": "spatial",
   "selectionRule": [
@@ -484,6 +484,6 @@
     "stable_candidate_id"
   ],
   "selectionVersion": "symbol-model-validation-selection-v1",
-  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "splitSha256": "e966a593122039b6e7af51fbb41074b9a4edc0db06f02431c9e7469a3fdec22a",
   "status": "selected_test_still_frozen"
 }

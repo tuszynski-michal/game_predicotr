@@ -7,7 +7,7 @@ const launcherPath = new URL(
   import.meta.url,
 );
 
-test('launcher exposes only the import-scoped local grid review control', async () => {
+test('launcher exposes only the game-scoped local Reviewer control', async () => {
   const source = await readFile(launcherPath, 'utf8');
 
   assert.match(source, /buildPreparedLocalReviewUrl/);
@@ -28,34 +28,40 @@ test('launcher exposes only the import-scoped local grid review control', async 
   assert.doesNotMatch(source, /maximumOnlineCount/);
   assert.doesNotMatch(source, /assignmentId/);
   assert.doesNotMatch(source, /accessCode/);
-  assert.match(source, /listImageGridReviews/);
+  assert.doesNotMatch(source, /listImageGridReviews/);
   assert.doesNotMatch(source, /listOperationalImageReviewItems/);
-  assert.match(source, /listPendingBoardCellGeometry/);
+  assert.doesNotMatch(source, /listPendingBoardCellGeometry/);
   assert.match(source, /listReadyBrowserImageSelections/);
   assert.match(source, /readyBoardImportStaging/);
   assert.match(source, /Gotowy staging plansz czeka na uruchomienie importu/);
-  assert.match(source, /className="reviewerImportSelect"/);
-  assert.match(source, /className="reviewerSelectedImportId"/);
-  assert.match(source, /ID: <code>\{selectedJob\.id\}<\/code>/);
+  // TASK-0964: no import selector, no import identifier, no per-import counts.
+  assert.doesNotMatch(source, /Gotowy import plansz/);
+  assert.doesNotMatch(source, /reviewerImportSelect/);
+  assert.doesNotMatch(source, /reviewerSelectedImportId/);
+  assert.doesNotMatch(source, /selectedJob/);
+  assert.doesNotMatch(source, /reviewReadyImports|selectReviewImportId/);
+  assert.doesNotMatch(source, /gridReviewTotal|hasReviewerWork/);
+  assert.doesNotMatch(source, /Stan plansz importu/);
+  assert.doesNotMatch(source, /importJobId/);
   assert.match(source, /Przejdź do Importu plansz/);
-  assert.match(source, /gridReviewTotal\(gridReviewCounts\) === 0/);
-  assert.match(source, /Geometria plansz ze stron 3×3/);
-  assert.match(source, /3×3 do korekty obrysu/);
-  assert.match(source, /Niepełne siatki symboli 3×5 do ręcznej korekty/);
+  // D-462: one correction queue instead of validation and correction views.
+  assert.match(source, /Korekta cięcia siatki/);
+  assert.match(source, /oraz zdjęć z\s+brakami/);
+  assert.doesNotMatch(source, /do walidacji|Zatwierdzanie cięcia siatki/);
+  assert.doesNotMatch(source, /hasVirtualGridAssets/);
+  assert.match(source, /reviewableGames/);
+  assert.match(source, /hasImageImport\(jobs, gameId\)/);
   assert.match(
     source,
-    /hasReviewerWork\(gridReviewCounts, deferredGeometryCounts\)/,
+    /onOpenReviewer=\{\(\) => void launchLocalReviewer\(\)\}/,
   );
-  assert.doesNotMatch(source, /hasVirtualGridAssets/);
-  assert.match(source, /reviewReadyImports/);
-  assert.match(source, /reviewableGames/);
   assert.doesNotMatch(source, /stopReviewerIngress/);
   assert.doesNotMatch(source, /revokeReviewerSession/);
   assert.doesNotMatch(source, /leaseToken/);
   assert.doesNotMatch(source, /game\.status === 'active'/);
 });
 
-test('local launch starts the process and retries the final scoped URL without creating an assignment', async () => {
+test('local launch starts the process and retries the final game-scoped URL without creating an assignment', async () => {
   const source = await readFile(launcherPath, 'utf8');
   const launchStart = source.indexOf('function launchLocalReviewer()');
   const launchEnd = source.indexOf('\n\n  return (', launchStart);

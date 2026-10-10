@@ -484,12 +484,10 @@ class V7OccurrenceTracker:
 
     def _confirm(self, expected_index: int) -> None:
         self._confirmed_indexes.add(expected_index)
+        previous_cursor = self._sequence_cursor_index
         self._sequence_cursor_index = max(self._sequence_cursor_index, expected_index)
-        self._unresolved_gap_indexes = {
-            index
-            for index in range(self._sequence_cursor_index + 1)
-            if index not in self._confirmed_indexes
-        }
+        self._unresolved_gap_indexes.update(range(previous_cursor + 1, self._sequence_cursor_index))
+        self._unresolved_gap_indexes.discard(expected_index)
 
     def _allocate_occurrence_id(self) -> str:
         occurrence_id = f"{_OCCURRENCE_ID_PREFIX}{self._next_occurrence_number:08d}"

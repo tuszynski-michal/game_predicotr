@@ -116,6 +116,13 @@ class V7GridLabelCrop:
     complete: bool
 
 
+class V7LabelLocator(Protocol):
+    @property
+    def config(self) -> V7LabelLocatorConfig: ...
+
+    def locate(self, rgb: NDArray[np.uint8]) -> tuple[V7GridLabelCrop, ...]: ...
+
+
 class V7GridLabelLocator:
     """Historical V1 whole-image locator."""
 
@@ -201,11 +208,20 @@ def recognize_grid_labels(
     rgb: NDArray[np.uint8],
     recognizer: V7LabelRecognitionBackend,
     *,
-    locator: V7GridLabelLocator | V7DynamicGridLabelLocator | None = None,
+    locator: V7LabelLocator | None = None,
 ) -> tuple[V7LabelEvidence, ...]:
     """Return only own numeric OCR labels; no expected range is an input here."""
     active_locator = locator or V7GridLabelLocator()
     crops = active_locator.locate(rgb)
+    return recognize_grid_label_crops(crops, recognizer, active_locator.config.position_confidence)
+
+
+def recognize_grid_label_crops(
+    crops: tuple[V7GridLabelCrop, ...],
+    recognizer: V7LabelRecognitionBackend,
+    position_confidence: float,
+) -> tuple[V7LabelEvidence, ...]:
+    """Recognize own observed crops without renumbering missing positions."""
     values = recognizer.recognize_many([crop.rgb for crop in crops])
     if len(values) != len(crops):
         raise ValueError("OCR result count differs from v7 label crop count.")
@@ -225,7 +241,7 @@ def recognize_grid_labels(
                     crop.position_index,
                     int(raw_text),
                     float(confidence),
-                    active_locator.config.position_confidence,
+                    position_confidence,
                 )
             )
     return tuple(evidence)
@@ -427,7 +443,9 @@ __all__ = [
     "V7GridLabelLocator",
     "V7GridLabelLocatorConfig",
     "V7LabelLocatorConfig",
+    "V7LabelLocator",
     "V7LabelRecognitionBackend",
     "build_v7_label_locator",
     "recognize_grid_labels",
+    "recognize_grid_label_crops",
 ]

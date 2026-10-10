@@ -51,7 +51,7 @@ export interface OperationalReviewGeometryOptions {
 }
 
 export async function previewOperationalReviewGeometry(
-  api: OperationalReviewsClient,
+  api: Pick<OperationalReviewsClient, 'previewOperationalImageReviewGeometry'>,
   options: OperationalReviewGeometryOptions & {
     readonly command: OperationalImageReviewGeometryPreviewCommand;
   },
@@ -75,12 +75,7 @@ export async function previewOperationalReviewGeometry(
           result.error,
           'Nie udało się wygenerować podglądu poprawionej siatki.',
         ),
-        isRevisionConflict:
-          isApiErrorCode(result.error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
-          isApiErrorCode(
-            result.error,
-            'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT',
-          ),
+        isRevisionConflict: isGeometryRevisionConflict(result.error),
         ok: false,
       };
     }
@@ -95,7 +90,10 @@ export async function previewOperationalReviewGeometry(
 }
 
 export async function saveOperationalReviewGeometry(
-  api: OperationalReviewsClient,
+  api: Pick<
+    OperationalReviewsClient,
+    'createOperationalImageReviewGeometryRevision'
+  >,
   options: OperationalReviewGeometryOptions & {
     readonly command: OperationalImageReviewGeometryCommand;
   },
@@ -122,12 +120,7 @@ export async function saveOperationalReviewGeometry(
           result.error,
           'Nie udało się zapisać poprawionej geometrii.',
         ),
-        isRevisionConflict:
-          isApiErrorCode(result.error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
-          isApiErrorCode(
-            result.error,
-            'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT',
-          ),
+        isRevisionConflict: isGeometryRevisionConflict(result.error),
         ok: false,
       };
     }
@@ -391,6 +384,13 @@ export type ResolveOperationalReviewResult =
 
 const DEFAULT_RESOLUTION_REQUEST_TIMEOUT_MS = 12_000;
 
+/**
+ * TASK-0798: the number of a board comes from its source (the `seq_*` range
+ * and the board position); a decision cannot move the board elsewhere.
+ */
+export const SEQUENCE_PINNED_BY_SOURCE_MESSAGE =
+  'Numer tej planszy wynika z nazwy zdjęcia seq_* i pozycji planszy na stronie, więc decyzja nie może przenieść jej pod inny numer. Zapisz ją z numerem z nazwy pliku, odrzuć albo zaimportuj zdjęcie ponownie pod poprawną nazwą. (IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE)';
+
 class OperationalReviewRequestTimeoutError extends Error {
   constructor() {
     super('Operational review request timed out.');
@@ -458,10 +458,15 @@ export async function resolveOperationalReview(
     }
     if (result.error !== undefined || result.data === undefined) {
       return {
-        error: apiErrorMessage(
+        error: isApiErrorCode(
           result.error,
-          'Nie udało się zapisać decyzji dla planszy.',
-        ),
+          'IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE',
+        )
+          ? SEQUENCE_PINNED_BY_SOURCE_MESSAGE
+          : apiErrorMessage(
+              result.error,
+              'Nie udało się zapisać decyzji dla planszy.',
+            ),
         isRevisionConflict:
           isApiErrorCode(result.error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
           isApiErrorCode(
@@ -550,6 +555,19 @@ export async function freezeVerifiedCohort(
       ok: false,
     };
   }
+}
+
+/**
+ * The board changed under the operator.  Since D-467 S6 (TASK-0796) the
+ * geometry correction runs on the virtual path, whose stale-revision code is
+ * `IMAGE_GRID_REVIEW_REVISION_CONFLICT`; the older codes stay recognized.
+ */
+function isGeometryRevisionConflict(error: unknown): boolean {
+  return (
+    isApiErrorCode(error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
+    isApiErrorCode(error, 'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT') ||
+    isApiErrorCode(error, 'IMAGE_GRID_REVIEW_REVISION_CONFLICT')
+  );
 }
 
 function isApiErrorCode(error: unknown, code: string): boolean {

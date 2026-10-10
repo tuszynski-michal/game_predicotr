@@ -309,6 +309,28 @@ test('labels the correction queue as final only after preflight completion', () 
   );
 });
 
+test('neural review flags describe proposals rather than mandatory correction', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      { status: 'completed', progress: {} },
+      2575,
+      true,
+    ),
+    `propozycje sieci dla zdjęć ${(2575).toLocaleString('pl-PL')}`,
+  );
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: { pageGeometryPreflight: { provisionalReviewRequired: 20 } },
+      },
+      0,
+      true,
+    ),
+    'trwa analiza siecią; wynik końcowy jeszcze niegotowy',
+  );
+});
+
 test('does not claim a final count for a legacy active checkpoint', () => {
   assert.equal(
     pageGeometryPreflightOutcomeLabel(
@@ -333,4 +355,31 @@ test('uses the durable staging status instead of job history', () => {
     'plansze utworzone · weryfikacja symboli poza importem',
   );
   assert.equal(readyBoardImportHasImport(staging('1-10', 'upload-1')), false);
+});
+
+test('import progress, processing errors and deferred geometry remain separate', () => {
+  const geometryPreflightJobs = [
+    job({
+      geometryManifestChecksum: 'g'.repeat(64),
+      jobType: 'validate',
+      provisionalReviewRequired: 2,
+      status: 'completed',
+    }),
+  ];
+  for (const boardImportStatus of ['boards_imported', 'importing', 'failed']) {
+    const label = lifecycle({
+      selection: { ...staging('1-10', 'upload-1'), boardImportStatus },
+      geometryPreflightJobs,
+    });
+    assert.match(label, /wymaga korekty geometrii · odroczone zdjęcia 2/);
+    if (boardImportStatus === 'boards_imported')
+      assert.match(
+        label,
+        /plansze utworzone.*weryfikacja symboli poza importem/,
+      );
+    if (boardImportStatus === 'failed')
+      assert.match(label, /błąd przetwarzania importu/);
+    if (boardImportStatus === 'importing')
+      assert.match(label, /trwa import plansz/);
+  }
 });

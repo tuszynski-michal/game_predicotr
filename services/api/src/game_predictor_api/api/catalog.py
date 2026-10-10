@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
+from game_predictor_worker.domain.super_games import list_super_game_kinds
 
 from game_predictor_api.api.catalog_responses import to_game_response
 from game_predictor_api.application.catalog import CatalogService
@@ -13,6 +14,7 @@ from game_predictor_api.schemas.catalog import (
     GameCreate,
     GameResponse,
     GameUpdate,
+    SuperGameKindResponse,
     SymbolCreate,
     SymbolResponse,
     SymbolUpdate,
@@ -61,6 +63,7 @@ def create_catalog_router(
             status=payload.status,
             expected_layout_count=payload.expected_layout_count,
             shape_geometry_configuration=payload.shape_geometry_configuration,
+            super_game_kind=payload.super_game_kind,
         )
         return to_game_response(service, game)
 
@@ -95,6 +98,7 @@ def create_catalog_router(
             status=payload.status,
             expected_layout_count=payload.expected_layout_count,
             shape_geometry_configuration=payload.shape_geometry_configuration,
+            super_game_kind=payload.super_game_kind,
         )
         return to_game_response(service, game)
 
@@ -143,6 +147,7 @@ def create_catalog_router(
                 game_id,
                 name=payload.name,
                 is_wildcard=payload.is_wildcard,
+                super_game_trigger_count=payload.super_game_trigger_count,
             )
         )
 
@@ -179,6 +184,11 @@ def create_catalog_router(
                 symbol_id,
                 name=payload.name,
                 is_wildcard=payload.is_wildcard,
+                super_game_trigger_count=payload.super_game_trigger_count,
+                update_super_game_trigger_count=(
+                    "super_game_trigger_count" in payload.model_fields_set
+                ),
+                display_order=payload.display_order,
             )
         )
 
@@ -196,5 +206,25 @@ def create_catalog_router(
     ) -> Response:
         service.delete_symbol(game_id, symbol_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    return router
+
+
+def create_super_game_kinds_router() -> APIRouter:
+    """Read-only list of the code-defined super game kinds (D-535)."""
+
+    router = APIRouter(prefix="/admin", tags=["catalog"])
+
+    @router.get(
+        "/super-game-kinds",
+        response_model=list[SuperGameKindResponse],
+        operation_id="listSuperGameKinds",
+        summary="List super game kinds a game can select",
+    )
+    def list_super_game_kinds_route() -> list[SuperGameKindResponse]:
+        return [
+            SuperGameKindResponse(code=kind.code, label=kind.label)
+            for kind in list_super_game_kinds()
+        ]
 
     return router

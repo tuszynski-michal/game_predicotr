@@ -123,6 +123,13 @@ export function markPaylineArchived(
   );
 }
 
+export function removePayline(
+  paylines: readonly PaylineResponse[],
+  paylineId: string,
+): readonly PaylineResponse[] {
+  return paylines.filter((item) => item.id !== paylineId);
+}
+
 export function formatRowPath1Based(rowPath: readonly number[]): string {
   return `[${rowPath.map((row) => row + 1).join(', ')}]`;
 }

@@ -1,10 +1,65 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-10-09
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Shadow siatek V3 — TASK-0805
+
+Addytywny zasób Admina dla odrębnych wyników inferencji na zmaterializowanych
+źródłach. Domyślnie wyłączony przełącznik odmawia startu; nie zmienia wyboru
+silnika importu. Trasy nie są częścią publicznego proxy Reviewera.
+
+- `POST /api/v1/admin/games/{gameId}/grid-shadow-jobs` (`startGridShadowJob`)
+  przyjmuje `requestId` UUID i `sourceImageIds` (1–20 unikalnych UUID),
+  zwraca istniejący `JobResponse`. Ten sam request i zakres odzyskuje job;
+  zmieniony payload pod tym samym requestId daje konflikt.
+- `GET /api/v1/admin/games/{gameId}/grid-shadow-results`
+  (`listGridShadowResults`) zwraca ograniczoną stronę podsumowań i nextCursor.
+- `GET /api/v1/admin/games/{gameId}/grid-shadow-results/{resultId}`
+  (`getGridShadowResult`) zwraca oddzielny wynik, wersję modelu, SHA źródła,
+  rewizje, powody i jawne sloty z pełnymi węzłami baseline/neural. Aktualne
+  reviewItem jest dostępne do korekty wyłącznie przy zgodnych bindingach.
+
+Serwer pinuje model i źródła, klient nie przesyła ścieżek ani wyników.
+Job jest istniejącym VALIDATE z `validation_kind=grid_geometry_shadow_v3`.
+3 × 3, niejednoznaczny zakres, obca gra oraz brak zgodnego modelu odmawiają
+startu przed zapisem. Kolejność slotów i sequence_number nie wynikają z
+liczby wykryć. Dodatkowe wykrycie nie tworzy planszy ani cropu produkcyjnego.
+
+Wynik jest powiązany z jobem i źródłem, ma checksum i oddzielną tabelę gry.
+Worker publikuje z fencingiem lease i kontrolą aktualności. GET po zmianie
+źródła/revision pokazuje stale i nie przekazuje starej propozycji do zapisu.
+Wszystkie propozycje wymagają ręcznego przeglądu; Mumie nie dziedziczą
+kalibracji runu1. Istniejące source/revision-bound komendy korekty pozostają
+jedyną drogą zatwierdzania, z dotychczasowym kontraktem symboli i partial.
+
+OpenAPI backendu pozostaje źródłem wygenerowanych typów i wrapperów klienta.
+Szczegółowy kontrakt: `delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`.
+
+## Profile silnika siatek gry — TASK-0830
+
+`shapeGeometryConfiguration` (`GameCreate`, `GameUpdate`, `GameResponse`,
+`ShapeGeometryReadinessResponse.configuration`) przyjmuje dodatkowo
+`grid_profile_777_v2` i `grid_profile_mumie_v1`. Istniejące wartości i
+domyślne `requires_clarification` są bez zmian. Gotowość nowych wartości jest
+liczona dokładnie jak dla `framed_full_page_v2` (te same statusy, kody powodu i
+`sharedProfile`), ale `configuration` zwraca zapisany profil.
+
+`GET /api/v1/admin/grid-engine-profiles` (`listGridEngineProfiles`, tylko
+odczyt, bez bazy) zwraca listę `GridEngineProfileResponse`: `configuration`,
+`label`, `description`, `modelKind` (`neural_grid`), `modelVersion`,
+`version` (bieżąca wersja rejestru profilu), `runId`, `exportId`, `preset`,
+`presetFingerprint`, `weightsSha256`, `frozenOn`, `managedPath` (względem
+katalogu artefaktów), `status` i `manifestStatus` (`GridEngineModelStatus`:
+`available`, `missing`, `checksum_mismatch`), `reasonCode`
+(`GRID_ENGINE_MODEL_AVAILABLE` / `_MISSING` / `_CHECKSUM_MISMATCH`), polską
+`message`, `files[]` (`name`, `expectedSha256`, `sizeBytes`, `status`) i
+`reportResults[]` (`dataset`, `result`). Każde wywołanie liczy SHA-256 plików
+na nowo. Status niezgodny z rejestrem nigdy nie jest zastępowany innym
+modelem.
 
 ## Gotowość wspólnej geometrii przy tworzeniu gry — TASK-0607
 
@@ -24,6 +79,13 @@ deklaracji lub inny format `requires_clarification`. Żaden z tych statusów nie
 jest zgodą na import ani automatycznym uruchomieniem preflightu.
 
 ## Warianty geometrii nowych stagingów — TASK-0562/0563/0579
+
+Wyjątek pilota Mumii: profil `grid_profile_mumie_v1` wybiera istniejącą
+trasę neural; API normalizuje brak wariantu lub klasyczne V1.1 do `null`.
+Admin od TASK-0887 pokazuje V3 na podstawie istniejącego pola
+`GameResponse.shapeGeometryConfiguration` i pomija `geometryEngineVariant`.
+Nie dodano endpointu, enumu ani pola odpowiedzi. Inne gry zachowują V1.1;
+ukrycie pozostałych wyborów UI nie usuwa obsługi historycznych payloadów.
 
 Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego
 przeglądarkowego stagingu oznacza techniczne
@@ -229,33 +291,80 @@ zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, ż
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
 
-Wynik zawiera `assetMode=operational_review|legacy_archive`. Dla trybu
-operacyjnego identyfikatory `reviewItemId`, `recognizedBoardId` i `importJobId`
-są wymagane. Dla zamrożonego archiwum wszystkie trzy są `null`, ponieważ ich
-rekordy mogą zostać później usunięte. Obraz archiwalny jest odczytywany przez:
-
-```text
-GET /api/v1/admin/games/{gameId}/board-search/archive-assets/{sequenceNumber}
-  ?expectedBoardChecksumSha256={sha256}
-```
-
-Endpoint sprawdza stan `ready`, dokładną checksumę dokumentu, bezpieczną
-ścieżkę wewnątrz zarządzanego `artifact_root/data`, typ obrazu oraz SHA-256
-pliku. Brak, drift albo częściowy stan nie korzysta z operacyjnego fallbacku.
-Gry bez stanu archiwum nadal używają dotychczasowego fast documentu oraz
-operacyjnego assetu bez zmiany semantyki.
+Wynik zawiera `assetMode=operational_review` (jedyna wartość enumu
+`BoardSearchAssetMode`) oraz wymagane w Admin API identyfikatory
+`reviewItemId`, `recognizedBoardId` i `importJobId`. Pola pozostają w
+schemacie jako nullable, bo publiczna powierzchnia udostępniania (D-471) je
+zeruje. Zamrożone archiwum wyszukiwarki (`legacy_archive`, endpoint
+`GET …/board-search/archive-assets/{sequenceNumber}`, tabele
+`legacy_board_search_archive_*`, kod `BOARD_SEARCH_ARCHIVE_*`) zostało
+usunięte w D-467 S5 (TASK-0759, migracja `0134`); trasa nie istnieje (404) i
+nie ma jej w OpenAPI.
 
 Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 `NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
 rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
 sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 
+#### Oznaczenie supergry w wynikach (TASK-0935, D-535)
+
+Wynik wyszukiwania (`results[]`) i wiersz przybliżonej wygranej (`rows[]`)
+dostają opcjonalne `superGame`, a cała odpowiedź obu endpointów —
+`superGameState`:
+
+```text
+superGame?:                  # brak/null = tryb bazowy WEDŁUG obowiązującej generacji serii
+  kind                       # "trigger" | "in_series" (retrigger to spin serii)
+  seriesId                   # tożsamość serii; tylko Admin API, nigdy w publicznych odpowiedziach
+  spinIndex                  # pozycja − trigger (1…length); null dla triggera
+  seriesLength               # 10 + 10 × retriggery
+  superSymbolCode            # kod super symbolu albo null = „do zdefiniowania”
+  completeness               # "complete" | "incomplete"
+  runVerification            # "verified" | "unverified"
+superGameState:              # na poziomie odpowiedzi
+  fresh, inputVersion, generationInputVersion   # jak w super-game-series/state
+```
+
+- Źródłem jest opublikowana generacja `super_game_series`: pozycja `p` należy do
+  serii o największym `triggerSequenceNumber ≤ p`, gdy
+  `p ≤ trigger + length`; `p = trigger` → `trigger`, w przeciwnym razie
+  `in_series`. Opublikowane serie nie zachodzą na siebie, więc wystarcza jedna
+  sonda indeksu `uq_super_game_series_trigger (game_id, trigger_sequence_number)`;
+  nowy indeks i migracja nie są potrzebne.
+- Serie i `superGameState` czytane są **jednym zapytaniem** (jeden snapshot),
+  więc znacznik nigdy nie jest sparowany ze świeżością innej generacji.
+  Wyszukiwanie czyta znaczniki dla znalezionych pozycji, przybliżona wygrana
+  dla pozycji wierszy z wygraną; tabela serii jest czytana raz na odpowiedź.
+- `fresh = false` oznacza przeliczanie serii: odpowiedź dalej niesie ostatnią
+  generację, ale także plansza bez `superGame` może należeć do nowej serii
+  (np. nowy trigger przed uruchomieniem joba). UI pokazuje wtedy dla całego
+  wyniku ostrzeżenie „Serie w trakcie przeliczania”.
+- Gra z `superGameKind = none`: brak `superGame` na planszach i
+  `superGameState.fresh = true` (`generationInputVersion = null`). Odczyt bez
+  źródła serii (fake w testach) daje to samo ze stanem `{0, null}`.
+- Wartości wypłat i `payoutKind` nie zależą od znacznika (wypłaty serii:
+  TASK-0936); `payout-v4-wild-count` liczy plansze serii jak dotąd.
+- Publiczne powierzchnie (udostępnianie online `…/board-search-shares/search` i
+  `…/approximate-win`, panel zarządzania `…/management-public/…/search` i
+  `…/approximate-win`) niosą te same pola **bez `seriesId`**: wyniki
+  wyszukiwania mają osobny model (`SuperGamePublicMarkerResponse`), wiersze
+  przybliżonej wygranej współdzielą model Admina i pomijają pole przez
+  `response_model_exclude`. Proxy Reviewera przepuszcza odpowiedzi GET bez
+  zmian (lista parametrów zapytania bez zmian). Zamrożone wyniki panelu
+  zarządzania (`getManagementResult`, historia, zapisane sloty) są
+  historyczne: nie mają znaczników ani `superGameState` (`null`), a
+  `superGameState` nie wchodzi w skrót treści migawki.
+- W kliencie `superGameState` jest opcjonalne (`null` w zapisanym wcześniej
+  potwierdzeniu wyszukiwania panelu zarządzania i w historii); jego brak UI
+  traktuje jak „świeże”.
+
 ### Przybliżona wygrana (kalkulator zakresu)
 
 ```text
 GET /api/v1/admin/games/{gameId}/board-search/approximate-win
   ?startSequenceNumber={S}
-  &spinCount={N, 1..10000}
+  &spinCount={N, 1..100000}
+  [&rulesVersionId={uuid}]
 ```
 
 Endpoint jest wyłącznie do odczytu, na tym samym routerze co wyszukiwanie
@@ -264,12 +373,15 @@ nie wchodzi do wyniku), zawijając cyklicznie z `N` do `1` na tej samej
 zasadzie co pełny cykl mobilnej prognozy celu
 (`evaluatedSpinCount = min(N, sequenceLength − 1)`); `sequenceLength` to
 `games.expected_layout_count`. Czyta to samo źródło co wyszukiwanie
-(`image_board_search_fast_documents` albo zamrożone archiwum, zależnie od
-stanu gry) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
+(`image_board_search_fast_documents`) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
 przechodzi przez koniec sekwencji), plus jedno dodatkowe zapytanie o status
 planszy startowej. Payout liczony jest tym samym kalkulatorem co wydania
-mobilne (`payout-v3-unknown-prefix-stop`) na podstawie najnowszej
-opublikowanej wersji reguł gry.
+mobilne (`payout-v3-unknown-prefix-stop`; gra z symbolem uruchamiającym
+supergrę: `payout-v4-wild-count`, `ALGORITHMS.md` §B) na podstawie
+najnowszej opublikowanej wersji reguł gry. Opcjonalny `rulesVersionId`
+(TASK-0932, D-535) wybiera w lokalnym Adminie wersję `draft` albo
+`published` tej samej gry; `rules.rulesVersionId` i
+`rules.algorithmVersion` odpowiedzi opisują faktycznie użytą wersję.
 
 Odpowiedź:
 
@@ -281,17 +393,65 @@ requestedSpinCount
 evaluatedSpinCount
 sequenceLength
 wrappedAtSequenceEnd    # true, gdy zakres przeszedł przez granicę L → 1
-dataSource              # "operational_review"|"legacy_archive"
+dataSource              # "operational_review"
 dataFingerprintSha256
 rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
-summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits }
+summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits,
+           provisionalCount, provisionalPayoutCredits,     # TASK-0936, domyślnie 0
+           superSpinRanges[] { startSpin, endSpin },       # darmowe spiny, domyślnie []
+           superSpinCost }                                 # koszt spinu w zakresach (0)
 completeness: { completeBoardCount, partialBoardCount, missingBoardCount }
 rows[]:                 # wyłącznie spiny z payoutCredits > 0
   spinNumber, sequenceNumber, payoutCredits,
   cumulativePayoutCredits, cumulativeCostCredits, cumulativeBalanceCredits,
-  payoutKind             # "exact"|"confirmed_minimum"
+  payoutKind             # "exact"|"confirmed_minimum"|"provisional"
   boardStatus
+  mode?                  # "base"|"super" (TASK-0936); null tylko w historii panelu
+  spinCostCredits?       # koszt tego spinu (0 w serii); null tylko w historii panelu
+  countMatches[]         # domyślnie []; payout-v4-wild-count, już w payoutCredits
+    symbolCode, count, cells[], payoutCredits
+  superGame?             # oznaczenie supergry wiersza (TASK-0935), patrz wyżej
+superGameState           # świeżość generacji serii (TASK-0935), patrz wyżej
 ```
+
+`countMatches` jest puste dla gier bez symbolu uruchamiającego. Zamrożone
+wyniki panelu zarządzania (historia, `result`) pokazują wiersze bez rozbicia
+na sztuki, bo wiersze formatu v1 mają tylko `ROW_FIELDS`; wypłata wiersza i
+bilans już zawierają wypłaty za sztuki. Świeży podgląd panelu (`preview`, od
+TASK-0936) zwraca bieżącą kalkulację, którą zapis by zamroził, razem ze
+znacznikami, `mode`, `spinCostCredits` i `countMatches` z jednego snapshotu.
+
+**Tryb pozycji i koszt per pozycja (TASK-0936, D-537).** Jedno zapytanie
+znaczników supergry (to samo co w TASK-0935, jeden snapshot) daje tryb każdej
+pozycji zakresu: pozycja objęta opublikowaną serią jako jej spin
+(`trigger + 1 … trigger + length`) ma `mode = "super"`, koszt darmowego spinu
+rodzaju supergry (`wild_super_spins`: 0) i jest liczona oceną planszy serii
+(`ALGORITHMS.md` §B, rozwinięcie super symbolu); każda inna pozycja, także
+plansza wyzwalająca, ma `mode = "base"` i koszt `rules.spinCost`.
+`summary.spinCostCredits` jest sumą kosztów pozycji (brakująca plansza w
+serii też jest darmowym spinem). Wynik planszy serii jest `provisional`, gdy
+super symbol nie jest zdefiniowany (albo nie jest zwykłym symbolem liniowym
+liczonej wersji reguł), gdy `superGameState.fresh = false` albo gdy plansza
+ma jakąkolwiek nieznaną komórkę; inaczej `exact`. `confirmed_minimum` w
+trybie `super` nie występuje. Przy `superGameState.fresh = false` każda
+oceniona plansza gry, także w trybie `base`, ma `payoutKind = "provisional"`
+(nowy trigger mógł już objąć ją serią). Wypłata `provisional` nie wchodzi do
+`recognizedPayoutCredits`, narastających sum ani bilansu: jest sumowana
+osobno w `provisionalPayoutCredits`, a `provisionalCount` liczy wszystkie
+ocenione plansze z wynikiem prowizorycznym (także z wypłatą 0).
+`summary.superSpinRanges` (włączne zakresy numerów spinów w trybie `super`)
+i `summary.superSpinCost` pozwalają klientowi policzyć dokładny koszt i
+bilans dowolnego spinu (wykres, piny, wkład); zapisany wynik panelu niesie
+je w tym samym podsumowaniu. Kalkulator zakresu i szczegóły planszy czytają
+reguły, plansze, znaczniki i stan generacji w jednej migawce
+`REPEATABLE READ` sesji żądania (pierwsze użycie sesji; audyt TASK-0936
+P0-3), także dla gier bez supergry, gdzie zmienia to tylko spójność
+odczytu, nie liczby. Gra bez
+rodzaju supergry (777) ma wszędzie `mode = "base"`, koszt `rules.spinCost` i
+`provisionalCount = 0`; jej liczby, `dataFingerprintSha256` oraz zamrożony
+wynik panelu i jego skrót treści są bajt w bajt takie jak przed TASK-0936.
+Udostępnienie online i publiczny panel zarządzania zwracają te same pola
+(bez `seriesId`).
 
 `completeness` jest rozłączna i sumuje się do `evaluatedSpinCount`: kompletna
 (15/15 znanych symboli), częściowa (≥1 nieznany, również gdy naliczono dla
@@ -301,8 +461,8 @@ wywoływane dla takiej pozycji). Narastające sumy w każdym wierszu obejmują
 wszystkie wcześniejsze spiny zakresu, również te bez własnego wiersza
 (przegrane i brakujące).
 
-Błędy: `404 GAME_NOT_FOUND`; `409 BOARD_SEARCH_PROJECTION_INCOMPLETE` /
-`BOARD_SEARCH_ARCHIVE_INCOMPLETE` (to samo źródło co wyszukiwanie);
+Błędy: `404 GAME_NOT_FOUND`; `409 BOARD_SEARCH_PROJECTION_INCOMPLETE`
+(to samo źródło co wyszukiwanie);
 `409 APPROXIMATE_WIN_START_OUT_OF_RANGE` (`startSequenceNumber` poza
 `1..sequenceLength`); `409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED` (gra bez
 opublikowanej wersji reguł); `409 APPROXIMATE_WIN_RULES_INVALID` (reguły o
@@ -310,12 +470,429 @@ wymiarach innych niż 3 × 5 albo niekompletna/niemonotoniczna macierz payout);
 `409 APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES` (plansza w zakresie zawiera
 kod symbolu spoza aktywnych symboli reguł — cała kalkulacja zakresu jest
 wtedy przerywana, żadna plansza nie jest po cichu pomijana);
+`404 APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND` (`rulesVersionId` nie jest
+wersją `draft` ani `published` tej gry);
 `422 APPROXIMATE_WIN_SPIN_COUNT_INVALID` albo standardowa walidacja FastAPI
 dla brakujących/nieprawidłowych parametrów zapytania.
 
 Kalkulacja nigdy nie zapisuje wyniku ani nie zmienia rozpoznanych symboli,
 zatwierdzeń czy danych treningowych; nie ma serwerowego cache — każde
 żądanie liczy od nowa dla aktualnego stanu danych i reguł.
+
+### Szczegóły planszy i przycięty widok (D-470)
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}
+  [?rulesVersionId={uuid}]
+GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}/view
+  ?expectedBoardChecksumSha256={sha256}[&viewRevision={sha256}]
+```
+
+Oba endpointy są tylko do odczytu i czytają ten sam dokument wyszukiwania co
+`board-search` i kalkulator zakresu. Szczegóły (`getBoardSearchBoardDetail`)
+oceniają jedną planszę tym samym ewaluatorem (`payout-v3-unknown-prefix-stop`
+albo `payout-v4-wild-count`) i tą samą najnowszą opublikowaną wersją reguł;
+opcjonalny `rulesVersionId` działa jak w kalkulatorze zakresu (podgląd
+wersji `draft`/`published` w lokalnym Adminie, nieznana wersja:
+`404 APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND`). Linia jest liczona wyłącznie
+od lewej krawędzi i kończy się na pierwszej nieznanej komórce, więc plansza
+przycięta z lewej nie ma żadnej linii.
+
+Odpowiedź szczegółów:
+
+```text
+gameId, sequenceNumber, boardStatus, boardChecksumSha256
+dataSource              # "operational_review"
+rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
+symbolCodes[15]         # kod symbolu albo null dla „?”
+payoutCredits           # suma, przy stawce bazowej
+payoutKind              # "exact"|"confirmed_minimum"|"provisional"|"none"
+mode                    # "base"|"super" (TASK-0936)
+spinCostCredits         # koszt tego spinu (0 w serii supergry)
+expandedSymbolCodes     # null albo [15]: plansza rozwinięta, na której liczono linie
+expansion: null | {     # rozwinięcie super symbolu planszy serii (wild_super_spins)
+  symbolCode, columns[], columnCount, linePayoutCredits, paylineCount,
+  payoutCredits }       # payoutCredits = linePayoutCredits × paylineCount
+matches[]:              # posortowane po displayOrder linii
+  paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
+  symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
+countMatches[]:         # payout-v4-wild-count: wypłata za sztuki symbolu
+  symbolCode, count, cells[], payoutCredits   # uruchamiającego; inaczej []
+view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
+documentStale           # TASK-0773: plansza zmieniła się po zapisaniu dokumentu
+cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
+  cellIndex, cellReviewId, revision, geometryRevision,
+  cropSampleId, cropChecksumSha256, reviewState, qualityIssue,
+  assignedSymbolCode
+```
+
+`cells` jest zwracane wyłącznie dla planszy operacyjnej ze statusem
+`pending`, `accepted` lub `corrected` (D-492), z rekordami `image_symbol_review_cells` tej planszy i jej
+bieżącej rewizji geometrii (reguła jak w projekcji wyszukiwania), i tylko
+gdy jest ich dokładnie 15. Nieaktualny dokument, archiwum i niepełny zestaw dają
+`cells = null`. Każdy element jest celem istniejącego
+`POST .../symbol-cell-reviews/{cellReviewId}/decision`
+(`applySymbolCellReviewDecision`) z polami `expected*` przepisanymi z
+rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
+wewnętrznych pól `cells`; D-492 zwraca osobny publiczny kształt z SHA wersji.
+
+`sum(matches.payoutCredits) + sum(countMatches.payoutCredits) +
+(expansion?.payoutCredits ?? 0) == payoutCredits`. `jokerCells` zachowuje
+historyczną nazwę i oznacza komórki Wilda. Nieznana komórka nigdy nie jest
+liczona jako sztuka, więc plansza częściowa z wypłatą za sztuki w trybie
+bazowym ma `payoutKind = "confirmed_minimum"`. Plansza w serii supergry
+(`mode = "super"`, TASK-0936) ma `matches` policzone na planszy rozwiniętej
+(`expandedSymbolCodes`, kolumny z super symbolem wypełnione nim w całości),
+`countMatches` policzone na planszy oryginalnej (`symbolCodes`), a wygrane
+liniowe super symbolu zastąpione wpisem `expansion`; jej `payoutKind` jest
+`provisional` (także przy wypłacie 0) albo `exact`/`none` według reguły z
+kalkulatora zakresu.
+`view` opisuje przycięty widok
+planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej
+strony, dłuższy bok najwyżej 1280 px; `cellPolygons` są we współrzędnych 0–1
+tego widoku (punkty planszy uciętej przez krawędź zdjęcia mogą wyjść poza
+0–1). Obszar poza zdjęciem jest wypełniony tłem, dlatego widok nie zależy od
+wymiarów zdjęcia. Geometria bez poprawnych 15 komórek, absurdalna geometria
+(obszar powyżej 60 mln pikseli) albo brak obrazu dają `view = null`. `revision` to
+tożsamość renderu (wersja renderera, SHA-256 zdjęcia, obszar i rozmiar) —
+zmienia się także wtedy, gdy zmieni się siatka przy tej samej sumie planszy.
+
+Widok (`getBoardSearchBoardView`) zwraca `image/webp` z `ETag` równym
+`revision`. Z parametrem `viewRevision` (z odpowiedzi szczegółów) odpowiedź
+ma `Cache-Control: private, immutable, max-age=31536000`, a niezgodny
+`viewRevision` daje `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`; bez niego
+`private, no-cache` z rewalidacją (`If-None-Match` → `304`). Widok jest
+przyciętym kadrem zdjęcia wokół planszy.
+Plik jest trzymany w jednorazowym cache `artifact_root/data/working/
+board-search-views-v1/` (klucz: wersja renderera, SHA-256 zdjęcia, obszar i
+rozmiar; zapis atomowy przez plik tymczasowy, jeden render dla równoległych
+żądań, najdawniej używane pliki usuwane powyżej 512 MiB, katalog będący
+dowiązaniem symbolicznym jest odrzucany). Trafienie w cache nie czyta zdjęcia
+źródłowego; chybienie sprawdza bezpieczną ścieżkę i SHA-256 zdjęcia. Zdjęcie
+powyżej 100 mln pikseli nie jest dekodowane.
+
+Oba endpointy porównują bieżącą sumę tożsamości planszy (suma geometrii
+źródła; każda plansza jest `virtual_source` od D-467 S6) z `boardChecksumSha256`
+dokumentu. Przy niezgodności (dokument wyszukiwania sprzed późniejszej
+zmiany siatki) szczegóły zwracają `documentStale = true`, linie i wypłatę z
+dokumentu (tak samo liczy kalkulator zakresu), `view = null` i
+`cells = null` (TASK-0773). Widok w tym stanie zwraca
+`409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`, aby obraz z cache `immutable`
+nigdy nie spotkał innych wielokątów; ten sam kod dostaje, gdy
+`expectedBoardChecksumSha256` różni się od dokumentu.
+
+```text
+POST /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}/refresh
+operationId: refreshBoardSearchBoardDocument
+```
+
+Przebudowuje dokument wyszukiwania jednej pozycji sekwencji z bieżących
+rekordów tą samą synchronizacją projekcji, którą system uruchamia po każdej
+decyzji pola lub geometrii (`sync_review_item` właściciela i
+`sync_sequence_candidates` pozycji), i zwraca
+`{ documentRemoved, detail: <szczegóły> | null }`. Jeżeli po przebudowie na
+tej pozycji nie ma już dokumentu (plansza wyszła ze stanów wyszukiwalnych
+albo zmieniła pozycję), wynik jest zapisany i zwracany jako
+`documentRemoved = true`, a nie jako 404. Nie zmienia żadnej decyzji
+człowieka; powtórzenie zmienia tylko `updated_at` wierszy projekcji.
+Dokument bez elementu przeglądu: `409 BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED`;
+brak dokumentu przed przebudową: `404 BOARD_SEARCH_BOARD_NOT_FOUND`.
+
+Błędy: `404 GAME_NOT_FOUND`, `404 BOARD_SEARCH_BOARD_NOT_FOUND` (brak
+dokumentu), `404 BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE` (brak obrazu, geometrii
+albo obrazu nie da się zdekodować), `404 BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND`;
+`409` jak w kalkulatorze zakresu (projekcja, reguły, symbol spoza
+reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
+`409 BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE` /
+`_MEDIA_TYPE_UNSUPPORTED` / `_CHECKSUM_DRIFT`,
+`409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych
+parametrów.
+
+### Sesje udostępniania wyszukiwarki online (D-471, TASK-0766)
+
+```text
+POST /api/v1/admin/board-search-shares/sessions
+operationId: createBoardSearchShareSession
+body: { gameId, label?: string (≤ 100 znaków po normalizacji),
+        lifetimeMinutes: 5..4320 = 480 }
+201:  { session: <sesja>, accessCode: "XXXX-XXXX" }
+
+GET  /api/v1/admin/board-search-shares/sessions?gameId=&limit=1..100
+operationId: listBoardSearchShareSessions
+200:  { sessions: [<sesja>] }   # od najnowszej, bez sekretów
+
+POST /api/v1/admin/board-search-shares/sessions/{sessionId}/revoke
+operationId: revokeBoardSearchShareSession
+200:  <sesja>                   # idempotentne, nie zależy od tunelu
+
+<sesja> = { sessionId, gameId, label, status: active|locked|expired|revoked,
+            failedAttempts, createdAt, expiresAt, lockedAt, revokedAt,
+            lastUnlockedAt, ready, shareUrl }
+```
+
+Tworzenie i unieważnienie są operacjami wysokiego wpływu (nagłówki
+`X-Admin-Intent`, `X-Admin-Confirmation`, `X-Admin-Target`
+`board-search-share-session:new|{sessionId}`). `create` najpierw sprawdza
+wszystko bez zapisu (czas życia, etykieta, gotowość gry, limit), dopiero
+potem uruchamia wspólny tunel Reviewera (`ensure_online_reviewer_ingress`) i
+zapisuje sesję. Gotowość: gra istnieje (`404 GAME_NOT_FOUND`), ma
+przydzielony magazyn danych (`409 GAME_STORAGE_LOCATION_MISSING`), gotową
+projekcję wyszukiwarki (`409 BOARD_SEARCH_PROJECTION_INCOMPLETE`) i
+opublikowane reguły
+(`409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED`). Najwyżej 5 aktywnych sesji
+(niewygasłych, nieunieważnionych, niezablokowanych), sprawdzane pod blokadą
+transakcyjną: `409 BOARD_SEARCH_SHARE_ACTIVE_LIMIT`.
+
+Kod ma 8 znaków bez znaków mylących (`access_credentials`), jest zwracany
+tylko w odpowiedzi `create`; baza przechowuje sól i skrót PBKDF2. Link
+(`shareUrl` = `{publiczny origin}/board-search?share={sessionId}`) nie zawiera
+kodu i jest podawany tylko, gdy sesja jest aktywna, a tunel online (`ready`).
+Odblokowanie (publiczna trasa w TASK-0767) wydaje nowy token i unieważnia
+poprzedni; 5 błędnych kodów blokuje sesję i czyści token. Audyt
+(`created|unlock_failed|unlocked|locked|revoked`) nie zawiera sekretów.
+
+Flaga `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED` (domyślnie `true`; włącza
+tylko `true` bez względu na wielkość liter i otaczające spacje, każda inna
+wartość wyłącza): wyłączone udostępnianie daje
+`503 BOARD_SEARCH_SHARE_DISABLED` dla tworzenia, odblokowania i dostępu;
+lista i unieważnienie działają zawsze. Pozostałe kody: `404
+BOARD_SEARCH_SHARE_NOT_FOUND`, `422 BOARD_SEARCH_SHARE_LIFETIME_INVALID` /
+`_LABEL_INVALID` / `_LIST_LIMIT_INVALID`, `401 BOARD_SEARCH_SHARE_CODE_INVALID`
+/ `_LOCKED` / `_REVOKED` / `_TOKEN_INVALID`.
+
+Migracja `0130_board_search_share_sessions` (po `0129_drop_orphaned_legacy_trigger_functions` z gałęzi biblioteki symboli) tworzy
+`board_search_share_sessions`, `board_search_share_audit_events` i (dla
+TASK-0767/0771) `board_search_share_query_events` z ograniczeniami rodzaju i
+rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id
+DESC)`. Migracja jest addytywna; downgrade jest zablokowany, bo tabele
+trzymają audyt i dziennik zapytań.
+
+### Sesje Panelu Administracyjnego (D-533, TASK-0925)
+
+Nowy typ dostępu jest niezależny od linków pojedynczej gry. Lokalna rodzina
+`/api/v1/admin/management/sessions` udostępnia `POST` tworzenia, `GET` listy
+oraz `POST /{sessionId}/revoke`. Tworzenie przyjmuje `label` i
+`lifetimeMinutes: 60|240|480|1440|2880|4320`, domyślnie 480. Kod pojawia się
+wyłącznie w lokalnej odpowiedzi tworzenia. Lista nie zwraca sekretów.
+Link wskazuje `/management?share={sessionId}`. Tworzenie i odwołanie
+wymagają lokalnych nagłówków potwierdzenia operacji wysokiego wpływu.
+
+Publiczna rodzina `/api/v1/management-public` obejmuje wyłącznie kontekst
+sesji, punkty, maszyny, przypisania gier, zapisy stawek, dziennik, wyniki,
+wyszukiwanie, przybliżone wygrane, symbole, podglądy i korekty plansz.
+`POST /sessions/{sessionId}/unlock` przyjmuje `accessCode`. Odpowiedź JSON
+zawiera tylko `sessionId`, etykietę i termin wygaśnięcia; token jest wydawany
+przez HttpOnly cookie. Backendowy OpenAPI i wygenerowany klient są źródłem
+dokładnych parametrów i odpowiedzi. Publiczne trasy nie obejmują tworzenia
+linków, importów, modeli, reguł ani pozostałego Admin API.
+`approximate-win` i `boards/{sequence}` tej rodziny zawsze liczą z najnowszej
+opublikowanej wersji reguł; parametr `rulesVersionId` daje
+`422 BOARD_SEARCH_RULES_VERSION_NOT_ALLOWED` (TASK-0932), a allowlista
+Reviewera i tak go nie przepuszcza (`403`).
+
+Reviewer przekazuje te operacje przez allowlistę `/management-api`.
+Cookie `gp_management_token` jest niezależne od cookie wyszukiwarki;
+ma Secure, HttpOnly, SameSite=Strict i ścieżkę `/management-api`.
+Każde uwierzytelnione żądanie zawiera `X-Management-Session` wskazujący
+sesję, w której rozpoczęto pracę. Obrazy zawierają odpowiednik
+`expectedSessionId` w URL. Zastąpienie cookie innym linkiem nie może
+przypisać operacji ze starej karty nowemu autorowi. Błąd starej karty
+nie usuwa cookie nowej sesji.
+
+Backend ponownie sprawdza sesję, przodków maszyny i powiązanie z grą.
+Bieżące operacje wymagają aktywnego powiązania; zachowana historia pozostaje
+dostępna w granicach panelu. Zapis wykonuje flush i ponowne sprawdzenie
+autoryzacji przed atomowym commit. Wygaśnięcie, odwołanie albo blokada
+zatrzymują nowe odczyty i zapisy. Pięć błędnych kodów blokuje sesję.
+Tożsamość autora zawiera UUID sesji, a publiczny dziennik pokazuje etykietę linku.
+
+Migracja `0150_management_sessions` dodaje wspólne tabele sesji i audytu.
+Flaga `GAME_PREDICTOR_MANAGEMENT_SHARE_ENABLED` kontroluje nowy typ dostępu.
+Wspólny tunel jest chroniony przed automatycznym zatrzymaniem przez
+zamknięcie ostatniego zadania Reviewera, jeżeli istnieje aktywny link panelu
+lub wyszukiwarki. Tworzenie linku panelu i sprawdzenie zatrzymania współdzielą
+blokadę transakcyjną.
+
+TASK-0925 rozszerza także maksimum istniejących linków wyszukiwarki do
+4320 minut i dodaje wybory 48/72 h. Ich zakres pozostaje ograniczony do jednej
+gry, a wcześniejsze daty wygaśnięcia nie są zmieniane. Nie zmienia to czasu
+życia pozostałych rodzajów sesji Reviewera.
+
+### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
+
+```text
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=&groupByPattern=
+operationId: listBoardSearchShareQueries
+200: { entries: [<wpis>], nextCursor: string | null }
+kind (opcjonalne): search | approximate_win | board_detail | symbol_correction |
+correction_review — tylko wpisy tego rodzaju. UI dziennika filtruje `search`;
+trwałe korekty i przeglądy mają osobną listę D-492.
+groupByPattern=true (D-486, tylko z kind=search; inaczej
+422 BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID): jeden wpis na wzór — najnowsze
+wyszukiwanie tego wzoru — z czasami wszystkich jego wyszukiwań w occurrenceTimes.
+
+DELETE /api/v1/admin/board-search-shares/queries/{eventId}
+operationId: deleteBoardSearchShareQuery (D-478; nagłówki operacji wysokiego wpływu,
+cel `board-search-share-query:{eventId}`)
+204; 404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND
+Wyszukiwanie usuwa też swoje późniejsze zapytania do następnego wyszukiwania sesji.
+Trwałe `symbol_correction` i `correction_review` są wykluczone z usuwania;
+bezpośrednie usunięcie takiego eventu daje `422 BOARD_SEARCH_SHARE_CORRECTION_DELETE_FORBIDDEN`.
+?wholePattern=true (D-486): dla wyszukiwania usuwa tak każde wyszukiwanie tego
+samego wzoru w sesji.
+
+GET /api/v1/admin/board-search-shares/queries/{eventId}
+operationId: getBoardSearchShareQueryReplay
+200: { event: <wpis>, search: <wpis> | null, approximateWin: <wpis> | null }
+
+<wpis> = { id, sessionId, gameId, occurredAt,
+           kind: search|approximate_win|board_detail|symbol_correction|correction_review,
+           request, resultSummary, outcomeCode,
+           followUpApproximateWin: { startSequenceNumber, spinCount, stakeGrosze? } | null,
+           occurrenceTimes: [datetime] }
+followUpApproximateWin (tylko dla search): żądanie najnowszej udanej przybliżonej
+wygranej po tym wyszukiwaniu, a przed następnym. We wpisie grupowym: z
+najnowszego wyszukiwania wzoru, po którym odbiorca otworzył wygraną.
+occurrenceTimes: czasy zapytania od najnowszego; bez grupowania jeden czas.
+```
+
+Lista jest stronicowana kursorem `(occurredAt, id)`, od najnowszego wpisu,
+50 na stronę (`before` = `nextCursor` poprzedniej strony; zły kursor:
+`422 BOARD_SEARCH_SHARE_QUERY_CURSOR_INVALID`; nieznany link: `404
+BOARD_SEARCH_SHARE_NOT_FOUND`). Wpis nie ma adresu IP ani nagłówków.
+Odtworzenie zwraca wpis, najbliższe wcześniejsze udane wyszukiwanie tego
+samego linku (dla wyszukiwania — ono samo) i, dla szczegółów planszy,
+najbliższy wcześniejszy udany zakres (dla zakresu — on sam); brak wpisu:
+`404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND`. Obie trasy są tylko lokalne (Admin);
+publiczna powierzchnia nie ma odczytu dziennika.
+
+### Korekty linku i przegląd operatora (D-492, TASK-0845)
+
+```text
+POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decision
+operationId: correctBoardSearchShareCell
+body: { operationId: UUID, expectedCellVersion: SHA256,
+        action: approve|reassign|mark_unreadable|mark_grid_issue,
+        targetSymbolCode?: string, searchContextId?: UUID,
+        startSequenceNumber?: int, spinCount?: 1..100000, stakeGrosze?: 1..10000000 }
+200: { saved: true, changed: bool, sequenceNumber, cellIndex, cellVersion }
+
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections
+operationId: listBoardSearchShareCorrections
+query: status=pending|reviewed|all, before?, limit=1..50 (default 25), pattern? (powtarzane)
+200: { entries: [<plansza>], totalCount, pendingCount, nextCursor }
+
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections/{sequenceNumber}
+operationId: getBoardSearchShareCorrection
+query: before?, limit=1..50 (default 50)
+200: { board: <plansza>, boardVersion: SHA256, changes: [<zmiana>], nextCursor }
+
+POST /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections/{sequenceNumber}/review
+operationId: reviewBoardSearchShareCorrection
+body: { expectedRevision: int >= 1, expectedBoardVersion: SHA256 }
+nagłówki potwierdzonego celu: board-search-share-correction:{sessionId}:{sequenceNumber}
+200: <plansza>
+
+<plansza>: { sequenceNumber, revision, changedCellCount, pending, lastChangedAt,
+            lastEventId, stakeGrosze: int|null, startSequenceNumber: int|null }
+<zmiana>: { id, occurredAt, cellIndex, beforeSymbolCode, afterSymbolCode,
+           beforeQualityIssue, afterQualityIssue, beforeReviewState, afterReviewState }
+```
+
+Publiczny zapis wymaga istniejącej autoryzacji proxy/cookie i budżetu JSON.
+Indeks pola 0..14; kod aktywnego symbolu wymagany tylko dla `reassign`.
+Nadmiarowy JSON jest odrzucany. Proxy wymaga zgodnego `Origin`,
+`Sec-Fetch-Site: same-origin`, JSON do 4 KiB i pustego query. Gra i aktor
+pochodzą wyłącznie z sesji. Kontekst wyszukiwania musi należeć do tego samego
+linku i gry; jawny zakres uwzględnia zawinięcie sekwencji gry.
+
+Zapis komórki, domenowy audyt i metadane korekty są atomowe. Dokładny retry
+`operationId` zwraca zapisany receipt przed sprawdzeniem dawnej wersji pola;
+inne body z tym samym UUID daje `409 BOARD_SEARCH_SHARE_CORRECTION_CONFLICT`.
+Taki sam kod obejmuje zmianę rewizji/właściciela/pikseli albo nieaktualny
+przegląd. Awaria DB daje `503 BOARD_SEARCH_SHARE_CORRECTION_UNAVAILABLE`,
+brak planszy/kontekstu `404 BOARD_SEARCH_SHARE_CORRECTION_NOT_FOUND`, błędny
+symbol `422 BOARD_SEARCH_SHARE_SYMBOL_INVALID`. Retry ponownie sprawdza
+aktywność i token linku pod blokadą. Nie zapisuje po revoke/rotacji.
+
+Lista i liczniki obejmują wszystkie korekty linku, również po usunięciu
+wyszukiwania. `pattern` filtruje plansze poprawione przy dowolnym powtórzeniu
+wzoru; bieżący stan planszy pozostaje wspólny dla całego linku. Szczegóły
+oczekującej planszy listują zmiany po ostatnio przejrzanej rewizji.
+Jawny przegląd sprawdza rewizję korekt i SHA wszystkich aktualnych komórek.
+Nowsza korekta ponownie otwiera przegląd. Zamknięcie okna nie wysyła POST.
+
+### Publiczna powierzchnia udostępniania (D-471, D-472, D-492, TASK-0767/0845)
+
+Trasy są osiągalne tylko przez proxy Reviewera: każde żądanie musi mieć
+nagłówek `X-Board-Search-Share-Proxy: reviewer-board-search-v1`
+(`403 BOARD_SEARCH_SHARE_PROXY_REQUIRED`), a poza odblokowaniem cookie
+`gp_board_search_token` (`HttpOnly`, `Secure`, `SameSite=Strict`,
+`Path=/board-search-api`; brak: `401 BOARD_SEARCH_SHARE_TOKEN_REQUIRED`,
+zły, wygasły, zablokowany albo unieważniony:
+`401 BOARD_SEARCH_SHARE_TOKEN_INVALID`). Gra pochodzi wyłącznie z sesji;
+parametr `gameId`/`game_id` w zapytaniu daje
+`422 BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN`; tak samo `rulesVersionId`/
+`rules_version_id` (TASK-0932: podgląd wersji roboczej jest wyłącznie lokalny,
+udostępnienie zawsze liczy z najnowszej opublikowanej wersji reguł). Odczyty danych działają w
+zakresie magazynu gry z sesji (`game_storage_scope`).
+
+```text
+POST /api/v1/board-search-shares/sessions/{sessionId}/unlock  { accessCode }
+GET  /api/v1/board-search-shares/context
+GET  /api/v1/board-search-shares/symbols
+GET  /api/v1/board-search-shares/symbols/{symbolId}/image?revision={sha256}
+GET  /api/v1/board-search-shares/search?cell=&scope=&limit=
+GET  /api/v1/board-search-shares/approximate-win?startSequenceNumber=&spinCount=
+GET  /api/v1/board-search-shares/approximate-win/stake
+     ?startSequenceNumber=&spinCount=&stakeGrosze=
+GET  /api/v1/board-search-shares/boards/{sequenceNumber}
+GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
+     ?expectedBoardChecksumSha256=&viewRevision=
+POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decision
+```
+
+- `unlock` i `context` zwracają `{ sessionId, label, gameName, expiresAt }`.
+- `symbols` zwraca symbole bez ścieżek: zamiast `imagePath` pole
+  `imageRevision` (suma obrazu wzorca albo `null`); obraz jest dostępny pod
+  URL z tą sumą (inna suma: `409 BOARD_SEARCH_SHARE_SYMBOL_IMAGE_CHANGED`).
+- `search` zwraca wyniki bez `reviewItemId`, `recognizedBoardId`,
+  `importJobId` i `assetMode`; D-492 dodaje `searchContextId` udanego wpisu
+  tego wyszukiwania. `approximate-win` ma kształt Admina;
+  `boards/{n}` ma publiczne `cells` dla bieżącej edytowalnej planszy, inaczej
+  `null`, oraz `countMatches[]` jak szczegóły Admina. Pole zawiera `cellIndex`, `cellVersion` (SHA-256),
+  `assignedSymbolCode`, `reviewState`, `qualityIssue`; bez wewnętrznych ID
+  lub sum cropów. Nie ma publicznego odświeżania odczytu. Oba
+  kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,
+  a wspólny UI porównuje `rulesVersionId` przy spójności okna planszy.
+- `approximate-win/stake` (D-487, `recordBoardSearchShareApproximateWinStake`)
+  niczego nie liczy: zapisuje stawkę, w której odbiorca ogląda policzony
+  zakres, i zwraca `{ recorded: true }`. `stakeGrosze` 1..10 000 000; brak
+  parametru oznacza stawkę bazową. Liczy się do limitu żądań JSON.
+- Wzór: najwyżej 15 komórek po najwyżej 67 znaków (`indeks:kod`); dłuższy
+  albo liczniejszy daje `422 BOARD_SEARCH_SHARE_QUERY_INVALID` bez odczytu i
+  bez wpisu.
+- Obrazy (`symbols/.../image`, widok z `viewRevision`):
+  `Cache-Control: private, immutable, max-age=86400`; widok bez rewizji:
+  `private, no-cache` z `ETag`/`304`.
+- Limity na sesję (w procesie API): 120 żądań JSON/min, 600 obrazów/min,
+  30 kalkulacji zakresu/min (sekcja liczy każdą wybraną planszę, D-476) i jedna naraz → `429
+  BOARD_SEARCH_SHARE_RATE_LIMITED`.
+
+Dziennik zapytań (R5): `search`, `approximate-win` i `boards/{n}` zapisują
+dokładnie jeden wpis `board_search_share_query_events` (czas serwera,
+rodzaj, parametry do odtworzenia, skrót wyniku, `outcomeCode` = `ok` albo
+stabilny kod błędu). Wzór wyszukiwania jest zapisany w całości, także z
+polami `?` przesłanymi przez klienta. Wpis jest zatwierdzany w osobnej
+krótkiej transakcji zanim odpowiedź z danymi opuści API (D-475); gdy zapis się nie
+uda, odpowiedź to `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych.
+Zapis stawki (D-487) to wpis rodzaju `approximate_win` z
+`request = { startSequenceNumber, spinCount, stakeGrosze: int | null }` i
+pustym skrótem wyniku; jako najnowszy wpis zakresu po wyszukiwaniu staje się
+jego `followUpApproximateWin`, więc Admin dostaje stawkę razem z zakresem.
+Nieprawidłowe parametry (`422`) nie są zapytaniami o dane i nie są
+zapisywane. Odblokowanie, kontekst, symbole i obrazy nie trafiają do
+dziennika. Nie są zapisywane adresy IP ani nagłówki przeglądarki.
 
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 
@@ -325,6 +902,7 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   ?symbolId={UUID|all|unknown}
+  &importJobId={UUID}
   &state=all|approved|pending|active_model_cohort
   &minConfidence=0..1
   &maxConfidence=0..1
@@ -344,6 +922,7 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-preview-batches
 GET  /api/v1/admin/games/{gameId}/symbol-cell-preview-batches/{batchKey}/atlas
 
 POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/decision
+POST /api/v1/admin/games/{gameId}/symbol-cell-reviews/{cellReviewId}/symbol-reference
 
 GET /api/v1/admin/games/{gameId}/unreadable-board-reviews
   ?view=pending|all
@@ -356,6 +935,14 @@ POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/cells/
 POST /api/v1/admin/games/{gameId}/unreadable-board-reviews/{reviewItemId}/save
 ```
 
+`symbol-reference` (TASK-0692) ustawia grafikę symbolu z jednej komórki
+weryfikacji: body jak przy `approved-image-candidates/{observationId}/selection`
+(`expectedChecksumSha256` = checksum cropa, `selectedBy`). Symbol to bieżący
+`assigned_symbol_id` komórki. Komórka musi spełniać te same warunki co kandydat
+pickera (zatwierdzony dokładny crop, bieżąca geometria, brak `quality_issue`,
+aktywny symbol), inaczej 409 `SYMBOL_REFERENCE_CELL_NOT_ELIGIBLE`. Zapis i plik
+są te same co w pickerze sekcji `Symbole`.
+
 Stan `active_model_cohort` jest rozwiązywany przez najnowsze zdarzenie
 `game_symbol_model_activations` dla gry. Odczyt wymaga zgodności identyfikatora
 komórki, checksummy cropa, trybu assetu oraz wirtualnej proweniencji z zamrożoną
@@ -364,13 +951,19 @@ aktywacja innego modelu unieważnia wcześniejszą paginację. Brak aktywacji da
 pustą stronę i zerowe liczniki. Operacje masowe obejmujące cały taki filtr są
 odrzucane; jawna lista checksum-bound targetów pozostaje dozwolona.
 
+Opcjonalne `importJobId` ogranicza listę do bieżących cropów zapisanych przez
+wskazany job importu katalogu obrazów. Ten sam scope obowiązuje liczniki,
+bezpośrednie przejście, kursory keysetowe oraz snapshot selekcji operacji
+masowej; cursor z innego importu jest nieważny. Identyfikator pochodzi z
+lokalnego katalogu jobów Admina, który nie zwraca ścieżki źródłowej.
+
 Klient Admina przekazuje standardowy `AbortSignal` do odczytu strony i
 liczników. Jeden workspace utrzymuje najwyżej jeden aktywny request każdego
 rodzaju i anuluje poprzedni przy zmianie scope'u lub kursora. To ogranicza
 niepotrzebne połączenia po stronie przeglądarki; przerwanie zapytania SQL po
 rozłączeniu klienta jest osobną odpowiedzialnością backendu.
 
-Use case listy ustawia transakcyjny PostgreSQL `statement_timeout=5000ms`, a
+Use case listy ustawia transakcyjny PostgreSQL `statement_timeout=20000ms`, a
 use case liczników `statement_timeout=15000ms`, zanim sprawdzi gotowość
 projekcji i wykona właściwy odczyt. Ustawienie jest parametryzowane przez
 `set_config(..., true)`, więc wygasa wraz z transakcją i nie wycieka przez pulę
@@ -408,6 +1001,15 @@ atomowo. W tym czasie odczyt zwraca
 `active_model_cohort` nadal wykonują dokładny, indeksowany SQL w limicie czasu.
 Legacy zachowuje agregat `COUNT(*) FILTER` oraz kanoniczny owner join.
 
+Odczyty listy, liczników i kluczy paginacji z dowolnym krańcem confidence
+zawierają jawny predykat `source_available`, zgodny z istniejącym częściowym
+indeksem confidence. Jest on równoważny dotychczasowej widoczności przy tym
+filtrze: constraint źródła wymaga `prediction_confidence IS NULL` dla komórek
+`outside`, a NULL nie spełnia porównań confidence. Bez filtra confidence
+pozostaje widoczność `source_available OR outside`. Zakres `outside` nadal
+ignoruje confidence zgodnie z regułą domenową. Predykat nie zmienia wyników,
+kolejności, izolacji gry, limitu strony ani limitów czasu.
+
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do
@@ -435,12 +1037,14 @@ wygaśnięcia. Atlas jest cache'em pochodnym pod `data/working/`, nie nowym
 artefaktem domenowym: TTL wynosi 24 godziny, limit wynosi 2 GiB, a render
 jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
 ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
-się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
-czyta swój istniejący PNG/JPEG.
+się kontrolowanym konfliktem zamiast podania starego obrazu. Od D-467 S6
+(TASK-0796) nie ma już assetów plikowych komórek: asset spoza `virtual_source`
+jest odrzucany (`SYMBOL_CELL_REVIEW_ASSET_MODE_UNSUPPORTED`), a
+`expectedRenderSpecChecksumSha256` jest wymagane.
 
-`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla obu
-trybów `legacy_file` i `virtual_source`. Każdy target wiąże rewizję i checksumę
-cropa, a źródło wirtualne dodatkowo checksumę render specu. Deterministyczny
+`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla
+komórek `virtual_source` (jedyny tryb od D-467 S6). Każdy target wiąże rewizję,
+checksumę cropa i checksumę render specu (brak = drift). Deterministyczny
 batch zawiera najwyżej 100 komórek i ma stabilny klucz niezależny od chwilowego
 viewportu. Cache pochodny ma TTL 24 godziny i limit 2 GiB; pełne pruning nie
 jest wykonywane po każdym renderze, tylko po przekroczeniu limitu. Atlas jest
@@ -453,7 +1057,7 @@ zwraca tryb, wersję i SHA-256 fingerprintu renderera, `availableCount` oraz
 komórki z kompletną bieżącą proweniencją `virtual_source`. Jeśli cały batch jest
 niedostępny, `batchKey`, `atlasUrl`, check­suma i czas wygaśnięcia są `null`, a
 lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie uruchamia
-joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
+joba; brak proweniencji nigdy nie powoduje fallbacku do pliku cropa.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=all` zwraca wszystkie bieżące
@@ -507,6 +1111,16 @@ append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
 Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
 kontekstu serwera.
 
+Jedna podstawowa akcja Admina `Zapisz i zatwierdź` (D-528) używa istniejącego
+`reassign` z aktywnym `targetSymbolId`, także identycznym z bieżącym symbolem.
+Oczekujące pole otrzymuje `approved`, aktualną tożsamość dostępnego cropa i
+pochodzenie człowieka; ten sam zapis na już zatwierdzonym bieżącym cropie
+pozostaje idempotentny. Outside zachowuje logiczne zatwierdzenie bez pikseli.
+`Niewyraźny` nadal używa `mark_blurry` z jawnym celem. Pojedynczy zapis oraz
+job masowy zachowują kontrolę rewizji i reguły jakości. Akcja `approve`
+pozostaje w API dla istniejących konsumentów; nie jest osobnym przyciskiem
+w toolbarze Weryfikacji symboli. Nie dodano nowych tras ani typów.
+
 Endpointy `unreadable-board-reviews` są lokalną, game-wide kolejką aktualnych
 właścicieli logicznych plansz. `pending` wymaga co najmniej jednej komórki
 `quality_issue = unreadable` i `review_state = pending`; `all` obejmuje również
@@ -517,8 +1131,10 @@ topologii, nie tylko nieczytelne.
 Każda komórka detailu zawiera opcjonalne `renderSpecChecksumSha256`, pobrane
 z bieżącej projekcji. Klient przekazuje je jako
 `expectedRenderSpecChecksumSha256` do istniejącego endpointu assetu. Jest
-wymagane dla virtual_source; legacy_file zachowuje null. Odczyt nie zmienia
-decyzji ani rewizji cropów.
+wymagane dla `virtual_source`; pozycja `none` (poza zdjęciem) ma null. Enum
+`assetMode` list weryfikacji (`SymbolCellReviewListItemResponse`,
+`UnreadableBoardReviewCellResponse`) to `virtual_source | none` i pole jest
+wymagane (TASK-0796). Odczyt nie zmienia decyzji ani rewizji cropów.
 
 Lista zwykłej weryfikacji cropów mapuje `grid_issue` i `unreadable` jako
 tymczasowy filtr techniczny `unknown`: nie zwraca ich pod historycznie
@@ -573,7 +1189,16 @@ wspólną bramkę jakości.
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
 żądanie z tym samym kluczem i tą samą komendą zwraca istniejącą operację,
-natomiast inna komenda z tym kluczem zwraca konflikt. Status zwraca liczniki
+natomiast inna komenda z tym kluczem zwraca konflikt.
+Start serializuje wyłącznie powtórzenia tej samej pary gra + klucz idempotencji
+transakcyjną blokadą advisory. Różne klucze nie mają wspólnego limitu jobów.
+Kontrola FK zamrożonych targetów poprzedza blokadę stanu katalogu, zgodnie
+z kolejnością blokad workera. Po flush i uzyskaniu blokady start odświeża stan
+oraz ponownie sprawdza rewizję filtra albo bieżące rewizje i tożsamości jawnych
+cropów. Konflikt wycofuje całą transakcję startu wraz z jobem i targetami.
+Limit 10 000 jawnych targetów dotyczy pojedynczej komendy.
+
+Status zwraca liczniki
 `pending`, `applied`, `conflict` i `failed`, identyfikator joba oraz
 kontrolowany komunikat błędu. Operacja ma częściową semantykę: każda plansza
 jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako
@@ -756,6 +1381,25 @@ Tworzenie gry przyjmuje stabilny `code`, `name` i opcjonalny `status`
 tożsamością domenową. `DELETE` jest idempotentną archiwizacją i zwraca `204`;
 rekord pozostaje w bazie.
 
+`superGameKind` (TASK-0931, D-535) jest polem `GameCreate` (opcjonalne,
+domyślnie `none`), `GameUpdate` (opcjonalne; jawne `null` daje `422
+VALIDATION_ERROR`) i wymaganym polem `GameResponse`. Wartość musi być kodem z
+rejestru rodzajów supergry; inny kod daje `422 INVALID_SUPER_GAME_KIND`.
+Zmiana na `none`, gdy symbol gry ma `superGameTriggerCount`, daje
+`409 SUPER_GAME_KIND_IN_USE`.
+
+```text
+GET    /api/v1/admin/super-game-kinds
+```
+
+Zwraca listę rodzajów supergry z rejestru w kodzie
+(`game_predictor_worker.domain.super_games`), w kolejności prezentacji, jako
+`SuperGameKindResponse { code, label }` (`operationId: listSuperGameKinds`):
+`[{ "code": "none", "label": "Brak" }, { "code": "wild_super_spins",
+"label": "Wild super spins" }]`. Endpoint jest tylko do odczytu, bez parametrów
+i bez danych gry; Admin buduje z niego select „Supergra” i nie trzyma własnej
+kopii listy.
+
 Operacje symboli:
 
 ```text
@@ -774,6 +1418,20 @@ binarną. Lista jest deterministycznie uporządkowana po `displayOrder`,
 `mobileCode` i technicznym UUID. `DELETE` ustawia `status = archived`.
 Puste po trimowaniu etykiety lokalizowane są odrzucane. W `PATCH` pominięte
 pole zachowuje poprzednią wartość, natomiast jawne `null` usuwa etykietę.
+`PATCH` symbolu przyjmuje `name`, `isWildcard` i `displayOrder` (liczba
+całkowita `0..2147483647`, TASK-0782); jawne `null` dla tych pól daje `422`.
+`displayOrder` nie jest unikalne — remis rozstrzyga `mobileCode`.
+
+`superGameTriggerCount` (TASK-0931, D-535; `null` albo `3`, `4`, `5`) jest
+opcjonalnym polem `SymbolCreate` i `SymbolUpdate` oraz wymaganym polem
+`SymbolResponse` (`number | null`). W `PATCH` pominięte
+pole zachowuje rolę, a jawne `null` ją usuwa; wartość spoza `3..5` daje `422
+VALIDATION_ERROR`. Wartość różna od `null` wymaga gry z `superGameKind !=
+none` (`422 SUPER_GAME_KIND_REQUIRED`). Zmiana `isWildcard` albo
+`superGameTriggerCount` symbolu użytego w opublikowanej lub zarchiwizowanej
+wersji reguł daje `409 SYMBOL_RULES_IDENTITY_IN_USE`; odwołanie z wersji
+roboczej nie blokuje zmiany, a zyskanie roli Wild albo uruchamiającej czyści
+`minimumMatchLength` symbolu w wersjach roboczych.
 
 Stabilne konflikty i brak zasobu:
 
@@ -788,6 +1446,58 @@ VALIDATION_ERROR
 
 Konflikty unikalności zwracają `409`, brak zasobu `404`, a walidacja `422`.
 Każda odpowiedź błędu ma wspólny kontrakt `code`, `message`, `details`.
+
+## Serie supergry (TASK-0933, D-535)
+
+```text
+GET    /api/v1/admin/games/{gameId}/super-game-series?completeness&runVerification&defined&cursor&limit
+GET    /api/v1/admin/games/{gameId}/super-game-series/state
+POST   /api/v1/admin/games/{gameId}/super-game-series/derive
+GET    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/boards
+PUT    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/super-symbol
+```
+
+- `listSuperGameSeries` zwraca `SuperGameSeriesListResponse { items,
+  nextCursor, superGameKind, superGameState, counts }`, posortowane po
+  `triggerSequenceNumber`. Filtry: `completeness` (`complete|incomplete`),
+  `runVerification` (`verified|unverified`), `defined` (`true` = z super
+  symbolem). `cursor` to numer ostatniego triggera poprzedniej strony
+  (cyfry), `limit` 1–200 (domyślnie 50). Seria
+  (`SuperGameSeriesResponse`): `id`, `gameId`, `triggerSequenceNumber`,
+  `startSequenceNumber`, `endSequenceNumber`, `length`,
+  `retriggerSequenceNumbers`, `completeness`, `runVerification`,
+  `superSymbolId`, `definedBy`, `definedAt`, `revision`, `updatedAt`. Gra z
+  `superGameKind = none` zwraca pustą listę.
+- `counts { total, undefined }` (TASK-0951) to dokładna liczba wszystkich
+  opublikowanych serii gry i serii bez super symbolu, niezależnie od
+  filtrów, kursora i `limit`; pochodzi z tego samego odczytu co strona.
+  Gra `none` zwraca `{ total: 0, undefined: 0 }`.
+- `superGameState { fresh, inputVersion, generationInputVersion }` jest na
+  poziomie odpowiedzi i wynika zawsze z porównania licznika wejścia gry z
+  licznikiem opublikowanej generacji (`fresh = false` od pierwszej zmiany
+  wejścia do publikacji nowej generacji; gra bez supergry jest zawsze
+  świeża). Do czasu publikacji API serwuje ostatnią opublikowaną generację.
+  `getSuperGameSeriesState` zwraca sam ten obiekt.
+- `deriveSuperGameSeries` (202) kolejkuje job `super_game_series_derive`
+  (lane `general`) albo zwraca już zakolejkowany job gry:
+  `SuperGameSeriesDeriveResponse { jobId, deduplicated, superGameState }`.
+  Ten sam job powstaje automatycznie po każdym zapisie zmieniającym wejście.
+- `listSuperGameSeriesBoards` zwraca `SuperGameSeriesBoardsResponse
+  { series, boards, superGameState }`; `boards` obejmuje pozycje
+  `trigger … start + length − 1` (bez pozycji poza `expectedLayoutCount`).
+  Pozycja: `sequenceNumber`, `role` (`trigger|retrigger|spin`),
+  `spinIndex` (1… dla spinów), `missing` oraz pola wyniku wyszukiwania plansz
+  (`assetMode`, `reviewItemId`, `recognizedBoardId`, `importJobId`, `status`,
+  `boardChecksumSha256`), `null` dla `missing: true`. Projekcja wyszukiwania
+  plansz, która nie jest gotowa, daje 409 `BOARD_SEARCH_PROJECTION_INCOMPLETE`.
+- `setSuperGameSeriesSuperSymbol` przyjmuje `SuperSymbolUpdate { symbolId |
+  null, expectedRevision }` i zwraca serię z `revision + 1`, `definedBy`,
+  `definedAt` oraz wpisem audytu. Nieaktualny `expectedRevision` → 409
+  `SUPER_GAME_SERIES_REVISION_CONFLICT` bez zapisu; symbol spoza gry → 422
+  `SUPER_SYMBOL_NOT_FOUND`; Wild, symbol uruchamiający albo zarchiwizowany →
+  422 `SUPER_SYMBOL_NOT_ORDINARY`; nieznana seria (także w grze `none`) → 404
+  `SUPER_GAME_SERIES_NOT_FOUND`. Zapis w stanie nieaktualnym jest dozwolony i
+  przechodzi do nowej generacji po tożsamości serii.
 
 ## Rules versions
 
@@ -863,8 +1573,14 @@ deterministycznie uporządkowany raport:
 
 Gotowość wymaga co najmniej jednej aktywnej payline, jednej aktywnej
 konfiguracji zwykłego symbolu oraz kompletnej, ściśle rosnącej macierzy
-aktywnych payoutów od `minimumMatchLength` do `columns`. Aktywny payout jokera,
-nieaktywnego symbolu albo długości poza zakresem blokuje publikację.
+aktywnych payoutów od `minimumMatchLength` do `columns`. Aktywny payout Wilda
+bez roli uruchamiającej, nieaktywnego symbolu albo długości poza zakresem
+blokuje publikację. Symbol z `superGameTriggerCount` (D-535) nie jest zwykłym
+symbolem: wymaga gry z rodzajem supergry (`SUPER_GAME_KIND_REQUIRED`), nie ma
+minimum (`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`), a jego aktywne payouty to
+wypłaty za liczbę sztuk na planszy `2..rows × columns`, ściśle rosnące
+(`NON_INCREASING_PAYOUT`, `INVALID_PAYOUT_MATCH_LENGTH`), bez wymogu wypłaty
+dla każdej liczby.
 
 POST `publish` blokuje rekord wersji, ponownie wykonuje tę samą walidację i w
 jednej transakcji ustawia `status = published` oraz serwerowy `publishedAt`.
@@ -901,6 +1617,7 @@ POST   /api/v1/admin/rules-versions/{rulesVersionId}/paylines
 GET    /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
 PATCH  /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
 DELETE /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
+DELETE /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}/permanent
 ```
 
 ### POST `/api/v1/admin/rules-versions/{rulesVersionId}/paylines`
@@ -928,6 +1645,11 @@ przyjmuje `code`, ale pozwala zmienić `name`, `rowPath`, `displayOrder` oraz
 `isActive` wyłącznie w drafcie. DELETE jest idempotentną archiwizacją
 `isActive = false`; nie zwalnia kodu ani `rowPath`. GET pozostaje dostępny dla
 każdego statusu wersji.
+
+`DELETE …/permanent` (D-477) fizycznie usuwa wzorzec wersji roboczej i zwalnia
+jego kod oraz `rowPath`; zwraca `204`, dla nieistniejącego wzorca
+`PAYLINE_NOT_FOUND`, a poza draftem `RULES_VERSION_IMMUTABLE`. Wymaga
+nagłówków operacji wysokiego wpływu z celem `payline:{paylineId}`.
 
 Zmiana liczby kolumn draftu z istniejącą payline zwraca
 `RULES_DIMENSIONS_IN_USE`. Zmniejszenie liczby rzędów zwraca ten sam konflikt,
@@ -973,12 +1695,15 @@ ale staje się częścią wersjonowanej konfiguracji dopiero po zapisie.
 ```
 
 API ustawia wersjonowany próg zwykłego symbolu. Domyślna wartość wynosi 3, a
-dozwolony zakres to `2..columns`. Joker nie przyjmuje tego pola. Zmiana progu w
+dozwolony zakres to `2..columns`. Wild i symbol uruchamiający supergrę nie
+przyjmują tego pola (`WILDCARD_MINIMUM_NOT_ALLOWED`,
+`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`). Zmiana progu w
 opublikowanej wersji jest zabroniona; w drafcie zmienia zestaw wymaganych
 payout rules.
 
 Payload zawiera również opcjonalne `isActive` z wartością domyślną `true`.
-Pierwszy PATCH wykonuje upsert. Joker wymaga `minimumMatchLength = null`.
+Pierwszy PATCH wykonuje upsert. Wild i symbol uruchamiający supergrę wymagają
+`minimumMatchLength = null`.
 Podniesienie progu archiwizuje istniejące payout rules poniżej nowego minimum.
 
 ### GET `/api/v1/admin/rules-versions/{rulesVersionId}/payout-rules`
@@ -998,8 +1723,11 @@ długości.
 
 API blokuje:
 
-- regułę jokera,
-- długość poniżej `minimumMatchLength` symbolu lub większą niż liczba kolumn,
+- regułę Wilda bez roli „Uruchamia supergrę” (`WILDCARD_PAYOUT_NOT_ALLOWED`),
+- dla zwykłego symbolu długość poniżej `minimumMatchLength` symbolu lub większą
+  niż liczba kolumn,
+- dla symbolu z `superGameTriggerCount` liczbę sztuk spoza `2..rows × columns`
+  (`INVALID_PAYOUT_MATCH_LENGTH` z `minimumCount` i `maximumCount`),
 - ujemną wypłatę,
 - duplikat `(rulesVersionId, symbolId, matchLength)`.
 
@@ -1509,13 +2237,25 @@ V3 jest dopuszczona wyłącznie dla `geometryMode = structured_lattice_v3` i
 zawiera `activeLatticeGeometry` z accepted-primary configiem oraz checksumą
 raportu odbiorczego. Brak lub drift snapshotu kończy replay fail-closed.
 
-Polityka silnika per gra przyjmuje `verified_v19`, historyczny
-`structured_shadow`, stabilny `structured_default` oraz odebrany
-`structured_lattice_v3`. Admin oferuje do nowych importów `verified_v19`,
-`structured_default` i `structured_lattice_v3`; dwa ostatnie korzystają z
-`cellAssetMode = virtual_default`, lecz tylko v3 używa lokalnie dopasowanej
-siatki symboli jako primary. Zmiana polityki jest preview-bound, rewizjonowana
-i nie zmienia żadnego istniejącego joba.
+Polityka silnika per gra przyjmuje od D-467 (TASK-0790) wyłącznie
+`structured_default` i `structured_lattice_v3` (domyślna polityka nowej gry);
+obie korzystają z `cellAssetMode = virtual_default`, lecz tylko v3 używa
+lokalnie dopasowanej siatki symboli jako primary. Wartości `verified_v19` i
+`structured_shadow` w `targetPolicy`, `boardCellProcessingMode` albo
+`imageEnginePolicy` dają `422` z kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`
+(w polu `code`, nie `VALIDATION_ERROR`). Snapshot joba (`geometryMode`) nadal
+dopuszcza historyczne wartości wyłącznie do odczytu starych jobów. Zmiana
+polityki jest preview-bound, rewizjonowana i nie zmienia żadnego istniejącego
+joba.
+
+Ręczna rezolucja odroczonej planszy (`geometry-preview`, `manual-resolution`
+pod `.../board-cell-geometry-pending/{pending_id}`) ma od TASK-0790 ten sam
+kontrakt wejścia i odpowiedzi, lecz zapisuje planszę `virtual_source` ścieżką
+`VirtualGridGeometryService.save_pending_slot`: podgląd to render wirtualny,
+zapis tworzy rewizję z `virtual_render_spec`, manifest renderu i komórki
+weryfikacji, bez plików cropów i `cell_observations`. Konflikty stanu ścieżki
+wirtualnej (`IMAGE_GRID_REVIEW_REVISION_CONFLICT`,
+`IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT`) są zwracane jako `409`.
 
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
@@ -2213,6 +2953,171 @@ zatwierdzonych co `dataset-completeness.acceptedBoardCount`, licząc jednak w
 oknie `1..expectedLayoutCount` — nie jest z nim identyczny przy numerach poza
 zakresem.
 
+TASK-0806 dodaje do tego samego routera raport kompletności geometrii zdjęć
+(D-484), a TASK-0808 go rozszerza — wyłącznie odczyt, bez migracji i bez zapisu:
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}?importJobId=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?importJobId=&imageState=&afterCursor=&limit=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/source
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/low-quality-boards?importJobId=&maxConfidence=&minCells=&limit=
+```
+
+`operationId`: `getImageGeometryCompleteness`, `listIncompleteGeometryImages`,
+`getImageGeometryCompletenessSourceAsset`, `getImageGeometryLowQualityBoards`.
+Jednostką jest zdjęcie źródłowe; oczekiwane pozycje to `active_board_slots`
+najnowszej rewizji geometrii źródła, a stan pozycji (`ok | uncertain | partial |
+missing | deferred | superseded`) i zdjęcia (`complete | incomplete_missing |
+incomplete_partial | incomplete_uncertain | no_source_geometry | import_failed |
+superseded`) wynika z reguł D-484 (`ADMIN_APP.md`, sekcja „Diagnostyka siatek
+zdjęć” w Korekcie cięcia siatki, D-525). Plansza `rejected` nie jest planszą z siatką. Pozycja bez żywej planszy,
+której numer sekwencji ma żywy element review (`pending | accepted |
+corrected`) na innym zdjęciu tej samej gry, jest `superseded`; zdjęcie jest
+`superseded`, gdy wszystkie jego oczekiwane pozycje są `superseded` albo gdy nie
+ma żywej planszy, a zdjęcie o tym samym `checksum_sha256` w tej grze ma żywe
+plansze; `import_failed` to zdjęcie bez żywej planszy, którego plik importu ma
+`workflow_status = 'failed'`. Opcjonalny `importJobId` zawęża wynik do jednego
+importu tej gry; import cudzej gry daje `404
+IMAGE_GEOMETRY_COMPLETENESS_IMPORT_NOT_FOUND`, nieznana gra `404
+IMAGE_REVIEW_GAME_NOT_FOUND`.
+
+Raport zwraca `gameId, importJobId | null, images{total, complete, incomplete,
+incompleteMissing, incompletePartial, incompleteUncertain, noSourceGeometry,
+superseded, importFailed}`, gdzie `incomplete = total - complete - superseded`
+(zdjęcia `superseded` nie są niekompletne, ale mają własny licznik),
+`expectedBoardCount` (suma oczekiwanych pozycji zdjęć z geometrią źródła),
+`positions[{state, reasonCode | null, count}]` (pozycje według stanu; stan
+`deferred` z kodem powodu odroczenia), `sourceStatuses[{imageState,
+sourceStatus, count}]` (m.in. zdjęcia `processing`), `computedAt` i
+`sequenceOwnership` (tylko z `importJobId`, inaczej `null`; D-543, TASK-0971):
+`{replacedCount, replacedSequenceNumbers, skippedCount,
+skippedSequenceNumbers}`. „Zastąpione” to sekwencje, których żywym właścicielem
+jest plansza tego importu, a inne zdjęcie miało dla nich odrzuconą pozycję
+review albo odrzucony (potem zastąpiony) slot odroczony; „pominięte” to
+sekwencje z wierszem `image_sequence_alternatives` tego importu o powodzie
+`superseded_existing_owner_kept` (żywa pozycja `pending` innego zdjęcia została)
+albo `superseded_first_save_wins` (właściciel kanoniczny). Liczniki są dokładne,
+listy numerów posortowane i obcięte do 500. Liczniki są
+agregowane w SQL po zdjęciu; liczba pozycji `ok`, `uncertain` i `partial` liczy
+tylko żywe plansze z oczekiwanych pozycji. Sprawdzenie „numer sekwencji ma żywy
+element review na innym zdjęciu” wykonuje się wyłącznie dla pozycji bez żywej
+planszy, przez indeks `(game_id, sequence_number, status)` elementów review.
+
+Lista zwraca zdjęcia posortowane po `(relativePath, sourceImageId)`, z kursorem
+`afterCursor` (nieprzejrzysty, błędny daje `422
+IMAGE_GEOMETRY_COMPLETENESS_CURSOR_INVALID`) i `limit` `1..100` (domyślnie 25).
+Bez `imageState` zawiera stany wymagające uwagi: `incomplete_*`, `import_failed`
+i `no_source_geometry`; zdjęcia `superseded` i `complete` nie wchodzą do listy
+domyślnej. `imageState` przyjmuje każdy stan poza `complete` (w tym
+`superseded`, żeby zdjęcia zastąpione dało się obejrzeć; `complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATE_INVALID`). Element: `sourceImageId,
+importJobId, relativePath, sourceStatus, imageState, sourceRevision |
+null, sequenceRangeStart/End | null, expectedBoardCount | null,
+orientedWidth/Height | null, importErrorCode | null, positions[{positionIndex,
+sequenceNumber, state, reasonCode | null, recognizedBoardId | null, quad |
+null}]`. `importErrorCode` to `error_code` nieudanego pliku importu zdjęcia
+(`image_import_job_files`), `null` gdy plik się nie powiódł. `quad` to
+cztery punkty w pikselach zdjęcia `exif-normalized-rgb-pixels-v1` (z rewizji, z
+której plansza została pocięta; dla pozycji bez żywej planszy z rewizji
+bieżącej), `null` gdy rewizja nie ma czworokąta. Pole `previewReviewItemId`
+(TASK-0806) zostało usunięte: podgląd każdego zdjęcia, także bez planszy, daje
+endpoint po `sourceImageId`.
+
+**TASK-0961 (realne braki i flaga zatwierdzenia ręcznego):**
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?gapsOnly=true
+```
+
+Parametr boolowski `gapsOnly` (domyślnie `false`) zawęża listę jednym
+zapytaniem do czterech stanów realnych braków: `incomplete_missing`,
+`incomplete_partial`, `import_failed`, `no_source_geometry` (stała
+`REAL_GAP_IMAGE_STATES` w `domain/image_geometry_completeness.py`). Nie
+obejmuje `incomplete_uncertain` (automatyczna siatka bez potwierdzenia
+człowieka — wyłącznie licznik) ani `superseded`. Połączenie `gapsOnly=true` z
+`imageState` albo `completenessStatus` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT` (bez cichego wyboru jednego z
+filtrów). Strona odpowiedzi ma pole `gapsOnly` (echo filtra). Kursor i
+sortowanie są takie same jak w liście domyślnej; klasyfikacja D-484 nie
+zmienia się.
+
+Każda pozycja (`positions[]`) ma pole `humanApproved: bool` — `true`, gdy
+człowiek zatwierdził bieżącą geometrię planszy na tej pozycji
+(`approved_geometry_revision == geometry_revision`, ten sam fakt
+`geometry_approved`, który czyta klasyfikator), `false` bez żywej planszy.
+Plansza częściowa zakwalifikowana ręcznie (D-449) pozostaje w stanie `partial`;
+flaga pozwala Reviewerowi domyślnie ukryć zdjęcia, których wszystkie pozycje
+`partial` są już zatwierdzone.
+
+`GET .../images/{sourceImageId}/source` zwraca plik zdjęcia źródłowego (`200`
+`image/jpeg|png|webp`, `Cache-Control: private, immutable, max-age=31536000`).
+Używa tego samego resolvera co `getOperationalImageReviewSourceAsset`
+(ścieżka względna bez `..`/`\`, korzeń `data/` pod katalogiem artefaktów, plik
+zwykły bez symlinku, typ obrazu, suma `checksum_sha256` z `source_images`) i
+tych samych kodów błędów (`404 IMAGE_REVIEW_ASSET_PATH_UNSAFE |
+IMAGE_REVIEW_ASSET_NOT_FOUND | IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED |
+IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT`). Zdjęcie innej gry albo nieznany
+identyfikator daje `404 IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND`,
+nieznana gra `404 IMAGE_REVIEW_GAME_NOT_FOUND`. Endpoint jest tylko dla Admina
+(bez sesji Reviewera).
+
+Sygnał niskiej jakości symboli jest osobnym, jawnie wywoływanym zapytaniem na
+tabeli komórek: plansza spełnia go, gdy co najmniej `minCells` (`1..15`,
+domyślnie 5) widocznych komórek (`source_available` albo `outside`) ma
+`review_state = pending` i `prediction_confidence <= maxConfidence`
+(`0..1`, domyślnie 0,80; ta sama definicja „bez decyzji człowieka” i
+pewności co filtry weryfikacji symboli). Odpowiedź: `gameId, importJobId |
+null, maxConfidence, minCells, totalBoards, boards[{recognizedBoardId,
+sourceImageId, importJobId, relativePath, positionIndex, sequenceNumber | null,
+lowCellCount, minConfidence}]` (najwyżej `limit` `1..100`, domyślnie 50,
+sortowane malejąco po `lowCellCount`) i `computedAt`. Zapytanie ma
+transakcyjny `statement_timeout` 10 s; jego przekroczenie to `409
+IMAGE_GEOMETRY_LOW_QUALITY_TIMEOUT` (z `details.timeoutMs`), nigdy pusty wynik.
+Progi poza zakresem dają `422`.
+
+TASK-0807 (bramka D-484) dodaje stan zapisany w bazie i wyjątek operatora:
+
+```text
+GET    /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?completenessStatus=
+POST   /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+DELETE /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+```
+
+Raport ma pole `gate{geometryComplete, geometryIncomplete, geometryException,
+outsideGate, notEvaluated, withheldBoards, withheldReasonCode}` liczone z
+`source_images.geometry_completeness_status` w zakresie gry albo importu:
+`outsideGate` to zdjęcia ocenione bez żywej planszy do cięcia (status `NULL`),
+`notEvaluated` — jeszcze bez oceny (przed backfillem), `withheldBoards` — żywe
+plansze aktywnych elementów review bez komórek weryfikacji na zdjęciach
+`geometry_incomplete`/`geometry_exception`, wstrzymane z powodem
+`withheldReasonCode = SOURCE_IMAGE_GEOMETRY_INCOMPLETE`. Element listy ma
+dodatkowo `completenessStatus | null`, `completenessEvaluatedAt | null`,
+`gateReasonCode | null` (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE` dla zdjęcia
+wstrzymanego), `exceptionReason | null`, `exceptionBy | null`, `exceptionAt |
+null`; strona ma `completenessStatus | null`. Parametr `completenessStatus`
+(`geometry_incomplete | geometry_exception`; `geometry_complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID`) wybiera zdjęcia po stanie z bazy —
+to kolejka siatek; `imageState` może ją dodatkowo zawęzić.
+
+`POST .../exception` (`setSourceImageGeometryException`, body `{reason}` o
+długości `1..1000`) i `DELETE .../exception`
+(`withdrawSourceImageGeometryException`) są operacjami wysokiego wpływu:
+wymagają `X-Admin-Confirmation: confirmed` i `X-Admin-Target:
+source-image-geometry-exception:{sourceImageId}` i trafiają do audytu Admina.
+Autorem wyjątku jest `local-admin`. Odpowiedź: `sourceImageId,
+completenessStatus | null, imageState, exceptionReason | null, exceptionBy |
+null, exceptionAt | null, materializedReviewItemCount`. Wyjątek jest dozwolony
+tylko dla zdjęcia, które po przeliczeniu ma stan `geometry_incomplete` (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_INCOMPLETE`); ponowienie z tym samym powodem jest
+idempotentne, z innym — `409 IMAGE_GEOMETRY_EXCEPTION_ALREADY_SET`. W tej samej
+transakcji tnie plansze `ok` i częściowe z zatwierdzoną kwalifikacją (D-449).
+Wycofanie przelicza stan (zwykle z powrotem `geometry_incomplete`), niczego nie
+usuwa i jest odrzucane po decyzji człowieka na komórkach zdjęcia (`409
+IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`) albo bez wyjątku (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_SET`). Zdjęcie innej gry: `404
+IMAGE_GEOMETRY_SOURCE_IMAGE_NOT_FOUND`; nieznana gra: `404
+IMAGE_REVIEW_GAME_NOT_FOUND`; pusty powód: `422`.
+
 Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
 jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda
 override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru
@@ -2220,8 +3125,9 @@ automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
 nie usuwa automatycznego rankingu ani historycznej decyzji.
 
 Katalog symboli jest wyłącznie ręczny. `POST /games/{gameId}/symbols` przyjmuje
-jedynie `name` i `isWildcard`; backend nadaje niezmienny kod, następny numer
-mobilny oraz kolejność. `PATCH` może zmienić nazwę i Jokera, ale nie identyfikację
+jedynie `name`, `isWildcard` i opcjonalne `superGameTriggerCount`; backend
+nadaje niezmienny kod, następny numer mobilny oraz kolejność. `PATCH` może
+zmienić nazwę, Wild i rolę „Uruchamia supergrę”, ale nie identyfikację
 symbolu. `DELETE /symbols/{symbolId}` jest fizycznym usunięciem tylko po
 kontroli zależności; `409 SYMBOL_DELETE_BLOCKED` zawiera liczniki reguł, plansz,
 predykcji, kohort, iteracji i aktywacji modelu. Automatyczny bootstrap katalogu
@@ -2293,6 +3199,18 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
+Numer planszy `virtual_source` jest przypięty do slotu jej geometrii źródła
+(`seq_*`: początek zakresu + pozycja planszy), a komórki weryfikacji symboli
+są kluczowane tym numerem (D-462). Accepted/corrected z `sequenceNumber`
+innym niż numer planszy (`suggestedSequenceNumber`) zwraca przed jakimkolwiek
+zapisem `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` z
+`details.boardSequenceNumber` i `details.requestedSequenceNumber`; item,
+eventy, staging i roszczenie kanoniczne pozostają bez zmian (TASK-0798).
+Wcześniej ta sama komenda kończyła się `500` (`ValueError` ze sprawdzenia slotu
+w write-through komórek). Właściwa droga to ponowny import zdjęcia pod
+poprawną nazwą `seq_*` albo odrzucenie planszy. Reviewer pokazuje komunikat i
+zachowuje szkic decyzji.
+
 Odpowiedź resolution zawiera zapisany item i event, `created`, a także
 autorytatywne `counts` oraz `queueVersion` odczytane z trwałej projekcji po
 zapisie. Zmiana statusu sąsiedniej pozycji nie unieważnia komendy bieżącego
@@ -2339,66 +3257,244 @@ sprawdzają checksumę przed wysłaniem pliku.
 
 Preview geometrii przyjmuje cztery narożniki zewnętrznych granic siatki symboli
 5 × 3 w przestrzeni oryginalnego obrazu oraz expected geometry i resolution
-revision. Zwraca PNG `5 × 3` złożony z dokładnie 15 finalnych cropów
-source-direct v19 i nie zapisuje pliku ani rewizji. Cztery pochodne uchwyty
-krawędziowe nie należą do payloadu.
+revision. Od TASK-0798 komenda przyjmuje też opcjonalne
+`geometryQualification` (ten sam `GeometryQualificationPayload` co kolejka
+korekty siatki) i narożniki ze znakiem (`ManualSourceGeometryPoint`): ujemne
+współrzędne wymagają kwalifikacji `pending_partial` (inaczej `422` walidacji),
+a granice edycji źródła i obowiązkową deklarację częściowości sprawdza domena
+geometrii wirtualnej. Item operacyjny niesie `geometryQualification`
+(zapisana kwalifikacja planszy, projekcja klienta v1/v2) oraz `sourceWidth` i
+`sourceHeight` (zorientowane wymiary źródła), z których edytor buduje
+kwalifikację. Od D-467 S6 (TASK-0796) trasa, kontrakt wejścia, allowlista proxy i
+autoryzacja sesji Reviewera są bez zmian, ale backend deleguje do
+`VirtualGridGeometryService` (ta sama ścieżka co korekta w Adminie): tożsamość
+źródła i topologia pochodzą z zapisanej proweniencji planszy, a odpowiedź to
+kontaktowy PNG `5 × 3` renderu wirtualnego w pamięci (nagłówki
+`X-Board-Cell-Count`, `X-Board-Cell-Cropper-Version`,
+`X-Board-Cell-Preview-Kind`; bez dawnego `X-Board-Cell-Cropper-Fingerprint-Sha256`).
+Nie powstaje plik ani rewizja.
 
-Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora. Cztery
-punkty mają tę samą semantykę `latticeBoundsQuad` co preview; backend ponownie
-wykonuje wspólną walidację v19, zapisuje dokładnie 15 finalnych cropów
-source-direct, ich ścieżki, checksumy i quady oraz ponownie otwiera review item.
-Klient nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora (sesja
+Reviewera nadpisuje `correctedBy` aktorem `reviewer-session:<id>`). Zapis to
+`save_virtual_geometry_revision` dla istniejącej planszy: najpierw replay po
+`idempotencyKey` (`created=false`, ta sama rewizja), potem CAS na
+`expectedGeometryRevision`/`expectedResolutionRevision`, append-only rewizja
+geometrii źródła i planszy `virtual_source` z manifestem renderu, podmiana
+komórek weryfikacji i ponowne otwarcie review item (zamyka się znowu, gdy
+weryfikacje komórek przetrwały — D-462). Pliki cropów nie powstają.
 
-Odpowiedź rewizji zawiera `decisionChecksumSha256`, które wiąże źródło,
-source-order, pozycję, numer, quad, wersje, oczekiwane rewizje, checksumę komendy
-i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
-Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
-UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
+Odpowiedź (`OperationalImageReviewGeometryResponse`) zachowuje kształt
+`item` + `geometryRevision` + `created`; rewizja niesie `id`, `reviewItemId`,
+`recognizedBoardId`, `revision`, `idempotencyKey`, `commandSha256`, `corners`,
+`sourceGeometryRevisionId`, `geometryChecksumSha256`,
+`virtualRenderSpecChecksumSha256`, `cropperVersion`, `cells` (do 15, z
+`cropSampleId` i `cropChecksumSha256` renderu), `correctedBy`, `createdAt`
+oraz `geometryQualification` (TASK-0798); `corners` są ze znakiem.
+Pola plików cropów v19 (`boardChecksumSha256`, `decisionChecksumSha256`) usunięto
+pionem (Reviewer ich nie czytał). Kody konfliktów: inna komenda z tym samym
+UUID → `409 IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT`, nieaktualna rewizja →
+`409 IMAGE_GRID_REVIEW_REVISION_CONFLICT` (Reviewer traktuje go jak dawne
+`IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT` i przeładowuje planszę), plansza
+`superseded` → `409 IMAGE_REVIEW_SUPERSEDED`, komenda bez kwalifikacji dla
+planszy, która ją ma → `422 IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED` (od
+TASK-0798 edytor operacyjny używa wspólnego edytora kolejki korekty i zawsze
+wysyła kwalifikację planszy już zakwalifikowanej). Kod
+`IMAGE_REVIEW_GEOMETRY_ASSET_MODE_UNSUPPORTED` nie istnieje.
 
 ### Lokalna kolejka walidacji geometrii 0.9
 
-Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
-łączy pozycję z bieżącym właścicielem `image_board_search_fast_documents`:
+Od D-462 (TASK-0727) jest to lokalna kolejka korekty cięcia siatki: nie ma
+zatwierdzania planszy ani zdjęcia. Game-wide odczyt nie materializuje całej
+gry i zawsze łączy pozycję z bieżącym właścicielem
+`image_board_search_fast_documents`:
 
 ```text
 GET  /api/v1/admin/games/{gameId}/grid-reviews
 GET  /api/v1/admin/games/{gameId}/image-geometry-rollout
 POST /api/v1/admin/games/{gameId}/image-geometry-rollout
 GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
-POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
-POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-approval
-POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions
 ```
 
-Lista ma widoki `needs_validation | needs_correction | all`, opcjonalne filtry
-`importJobId` i `sourceImageId`, limit domyślny 25 i maksymalny 100. Keyset
-opiera się na `(sequence_number, review_item_id)`. Opaque cursor jest związany
-z grą, widokiem, importem, źródłem i kierunkiem; nie może zostać odtworzony w
-innym scope. Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego
-scope gry/importu/źródła.
+TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
+`POST .../grid-reviews/source-geometry-approval` oraz endpoint HTTP
+`POST .../grid-reviews/source-geometry-revisions` (jedynym konsumentem był
+usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
+allowliście.
+
+**TASK-0961 (tanie liczniki korekty):** `GET .../grid-reviews` przyjmuje
+opcjonalny parametr `counts` o wartościach `all` (domyślna, liczniki i
+zachowanie bez zmian) i `correction`. W trybie `correction` odpowiedź ma
+poprawne `counts.correction` (plansze ze zgłoszeniem „Zła siatka” plus sloty
+odroczone bez żywej planszy — D-462 R4, te same predykaty co lista
+`view=correction`), a pozostałe liczniki (`needsValidation`,
+`needsCorrection`, `approved`, `total`, `fullGrids`,
+`lateralPartialProposals`, `confirmedPartialGrids`, `manualCorrection`) są
+równe `0` i nie oznaczają pustej kolejki; opis parametru i schematu
+`ImageGridReviewCountsResponse` w OpenAPI mówi to wprost. Implementacja:
+osobna metoda repozytorium `grid_review_correction_count` (dwa zliczenia
+zamiast siedmiu agregatów `grid_review_counts`), wybierana w
+`ImageGridReviewService.list`. Reviewer woła `counts=correction` po każdej
+planszy w zakresie całej gry.
+
+**D-488 (TASK-0820):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
+oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują
+opcjonalne `cellSymbols: [{ cellIndex, symbolId }]`. Każde wskazane pole jest
+zatwierdzane jako decyzja człowieka dla nowego cropa w transakcji zapisu
+geometrii. Zdublowany indeks → `IMAGE_GRID_REVIEW_CELL_SYMBOLS_INVALID` (422);
+pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422);
+symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
+tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
+
+**D-522 (TASK-0885):** ten sam kontrakt zapisu obsługuje bieżącą ręcznie
+zatwierdzoną siatkę 24 punktów z przypiętą checksumą propozycji sieci. Jej
+własna projekcja komórek nie czeka na pozostałe sloty zdjęcia ani historyczny
+backfill gry. Nie zmienia stanu kompletności źródła ani globalnej gotowości
+projekcji. Sprawdza nadal aktualnego właściciela, render i crop identity;
+pole poza zdjęciem zachowuje powyższy błąd i rollback. Bez nowych pól HTTP.
+
+**D-523 (TASK-0886):** istniejące payloady importu 2/5/6/7 mają opcjonalne
+`neuralGridExecutionPolicyVersion: "neural-auto-crop-v1"`; reprocess 6
+może przypiąć `neuralGridProposal`. Polityka uczestniczy w fingerprintach
+jobów i etapów. Brak pola zachowuje dawny przebieg.
+Managed reprocess weryfikuje także manifest neural schema5/v13, jego kompletny
+inwentarz, model, źródła i bindingi. Powtórzenie odzyskuje ten sam job.
+Wspólna bramka projekcji dopuszcza własne pełne cropy tylko przy zgodnych
+24 węzłach, policy, checksumie propozycji, grze, źródle, wymiarach i sekwencji.
+Geometria nadal ma niezatwierdzoną rewizję i diagnostykę jakości.
+Gotowa pusta projekcja powstaje tylko przy braku wcześniejszych plansz,
+pending i komórek. Historyczna projekcja korzysta z istniejącego trwałego
+`POST games/{gameId}/symbol-cell-review-projection`. Bez nowych tras i migracji.
+Backfill kończy także odbudowę niedostępnych historycznych liczników w
+ograniczonych partiach z trwałym kursorem. Aktualne gotowe liczniki pozostają
+bez skanowania. Nie publikuje liczników z częściowo wykonanej odbudowy.
+
+**D-488 (TASK-0821):** podpowiedzi symboli dla ekranu korekty, tylko do
+odczytu, wspólna odpowiedź `GridCorrectionSymbolsResponse`
+(`cells: [{ cellIndex, symbolId | null, origin: assigned | predicted }]`):
+
+```text
+GET  /api/v1/admin/image-reviews/{reviewItemId}/correction-symbols?gameId=
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-symbol-preview
+```
+
+`GET` zwraca symbole zapisane na bieżących komórkach z pikselami (przypisany,
+w razie braku predykcja). `POST` przyjmuje komendę `geometry-preview` i zwraca
+predykcję przypiętego modelu dla tego cięcia; bez modelu lista jest pusta.
+Kod spoza aktywnych symboli gry (także `?`) daje `symbolId = null`.
+
+**TASK-0840 (lista poprawek z audytu siatek):** dwa endpointy tylko do
+odczytu, bez tabeli i bez zapisu w bazie:
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-audit-proposals?afterOrdinal=&limit=
+GET  /api/v1/admin/games/{gameId}/grid-audit-proposals/{itemId}
+```
+
+Źródłem jest niezmienny artefakt
+`<artifact root>/grid-audit-proposals/<gameId>/<auditId>/proposals.json` z
+`manifest.json` (SHA-256 pliku), zapisany przez
+`scripts/import_grid_audit_proposals.py`; API czyta najnowszy manifest gry i
+odrzuca plik o innej sumie (`409 GRID_AUDIT_PROPOSALS_CHECKSUM_MISMATCH`).
+Brak listy → `404 GRID_AUDIT_PROPOSALS_NOT_FOUND`, nieznana pozycja →
+`404 GRID_AUDIT_PROPOSAL_ITEM_NOT_FOUND`. Stan pozycji (`open | corrected |
+stale | removed | no_proposal`) jest wyliczany przy każdym odczycie z bieżącej
+`geometry_revision` planszy: `open` tylko przy rewizji równej audytowanej i
+bieżącej pozycji review; nowsza rewizja → `corrected` (plansza znika z
+kolejki), inna → `stale`. Lista (`GridAuditQueuePageResponse`) zwraca liczniki
+stanów, pozycje `open` w kolejności pliku po `afterOrdinal` (limit 1–50,
+domyślnie 1) i `nextAfterOrdinal`. Pozycja (`GridAuditProposalResponse`)
+zwraca `proposal` (`corners` — cztery zewnętrzne narożniki siatki sieci,
+`nodes` — 24 węzły, `coordinateSpace = exif-normalized-rgb-pixels-v1`,
+`provenance = audit-network-proposal`) oraz `reviewItem` w kształcie pozycji
+`grid-reviews` — oba wyłącznie dla stanu `open`, więc plansza zmieniona po
+audycie nigdy nie dostaje starej propozycji. Zapis korekty idzie istniejącym
+`image-reviews/{reviewItemId}/geometry-revisions`; jego kontrakt nie ma pola
+pochodzenia, więc pochodzenie `audit-network-proposal` nie jest zapisywane w
+bazie. Trasy nie są na allowliście proxy Reviewera (tylko tryb lokalny).
+
+**D-491 (TASK-0844):** odpowiedź `getGridAuditProposal` ma opcjonalne
+`symbolSuggestions` (`null` przy braku wyniku lub nieaktualnym kontekście):
+`algorithmVersion = symbol-reference-library-v1`, `generatedAt`,
+`artifactSha256`, `previewCommand` zgodne z `ImageGridReviewGeometryPreviewCommand`
+oraz `cells: [{ cellIndex, symbolId | null, origin: predicted }]`.
+Wynik jest artefaktem `symbol-suggestions/<itemId>.json` obok audytu, z sumą
+w `<itemId>.manifest.json`. Serwer sprawdza sumę pliku i kontekst gry, audytu,
+pozycji review, źródła, obu rewizji, wymiarów i topologii. Klient porównuje
+całą komendę podglądu (także narożniki i kwalifikację) przed pokazaniem wyniku.
+Brak wyniku nie uruchamia odczytu starych zatwierdzonych etykiet w tej kolejce.
+Uszkodzony wynik daje `GRID_AUDIT_SYMBOL_SUGGESTIONS_INVALID` lub
+`GRID_AUDIT_SYMBOL_SUGGESTIONS_CHECKSUM_MISMATCH`. Nie ma nowego endpointu,
+tabeli ani automatycznego zatwierdzania. CLI `recognize_grid_audit_symbols`
+przelicza tylko otwarte pozycje, wykorzystując bezstratny PNG istniejącego
+podglądu i zamrożoną bibliotekę bez referencji z plansz audytu.
+
+**D-493 (TASK-0846):** `symbolSuggestions` rozszerza się o
+`tentativeCellIndices: number[]`, domyślnie pustą dla wcześniejszych artefaktów.
+Są to indeksy pól z najlepszym kandydatem bez jednomyślnej decyzji obu opisów.
+Artefakt zapisuje `isTentative` per pole i `displayPolicy = best-candidate-v1`;
+CLI uznaje wcześniejsze wyniki i cursor innej polityki za wymagające ponownego
+rozpoznania. Nie zmienia zamrożonej biblioteki ani ścisłej reguły pewności.
+API odrzuca niepoprawny znacznik i niepewny wynik bez `symbolId`. Edytor audytu
+wstępnie wybiera istniejące symbole tylko z wyniku zgodnego z całą komendą
+aktualnego podglądu; ręczna zmiana, usunięcie i `null` mają pierwszeństwo.
+Zapis używa istniejącego `cellSymbols` dopiero po kliknięciu operatora i
+potwierdza również niezmienione propozycje. Odczyt nadal nie zapisuje danych.
+
+**D-494 (TASK-0847):** `algorithmVersion` addytywnie dopuszcza
+`symbol-audit-rgb-classifier-v2`; historyczne `symbol-reference-library-v1`
+pozostaje obsługiwane. Nowa polityka sidecara `trained-rgb-candidate-v2`
+wybiera argmax głowicy zamrożonego checkpointu na RGB 64px (/127.5−1, bez
+gray-world). Stara reguła biblioteki 7/7 stanowi dodatkowe potwierdzenie:
+tylko zgodna klasa daje wynik bez `?`. Brak zgodności daje
+`tentativeCellIndices`, nie pusty kandydat. Nowy proces ładuje checksumę,
+klasy i architekturę checkpointu; cursor i wcześniejsze wyniki innej
+polityki wymagają przeliczenia. Nie ma nowego endpointu ani zapisu w bazie.
+
+Lista ma widoki `needs_validation | needs_correction | all | correction`;
+operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
+stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma
+opcjonalne filtry `importJobId` i `sourceImageId`, limit domyślny 25 i
+maksymalny 100. Keyset opiera się na `(sequence_number, id slotu)` (id pozycji
+review albo odroczonej geometrii).
+Opaque cursor jest związany z grą, widokiem, importem, źródłem i kierunkiem;
+nie może zostać odtworzony w innym scope. Odpowiedź zwraca liczniki wszystkich
+trzech stanów oraz `correction` dla tego samego scope gry/importu/źródła.
+
+Widok `correction` (D-462, TASK-0725) jest jedną kolejką ręcznej korekty:
+każda odroczona geometria `pending` (z propozycją automatu albo bez niej) oraz
+każda bieżąca plansza z co najmniej jedną komórką `grid_issue`. Slot planszy
+`(sourceImageId, positionIndex)` występuje najwyżej raz — odroczona geometria
+slotu, który ma już planszę, nie tworzy pozycji (jej ręczne rozwiązanie
+tylko by ją supersedowało), a kilka zgłoszeń jednej planszy daje jedną
+pozycję. Element niesie
+`reportedCellIndices` (row-major indeksy bieżących komórek z `grid_issue`,
+pusta lista dla slotu odroczonego). Zapis korekty używa istniejących ścieżek
+jednej planszy: `image-reviews/{reviewItemId}/geometry-*` dla bieżącej planszy
+oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` dla slotu
+odroczonego; żadna z nich nie zmienia innych plansz zdjęcia.
+
+Odczyt listy oraz checksum-bound assetu źródłowego sprawdza istnienie gry, ale
+nie wymaga gotowej projekcji pojedynczych komórek symboli: kolejka geometrii
+czyta własne aktualne plansze i źródła. Zapis kwalifikowanej geometrii
+`virtual_source` nadal wymaga tej projekcji: gdy po synchronizacji komórek w
+tej samej transakcji nie jest gotowa, zapis jest wycofywany z `409
+IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`; zwykły zapis wymaga kompletu komórek
+(`IMAGE_GRID_REVIEW_CELLS_INCOMPLETE`). Dzięki temu operator może obejrzeć
+i zdiagnozować wskazany import bez ryzyka zapisania geometrii przy niespójnych
+cropach.
 
 Element kolejki zawiera ponadto immutable identity zdjęcia źródłowego,
 `positionIndex` aktywnego slotu, `assetMode`, nazwę i wersję silnika geometrii,
-`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer może dzięki
-temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
-źródła, narysować overlay wyłącznie w pamięci i zachować kolejność row-major.
-Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
-geometrii.
+`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer pokazuje
+jedną planszę naraz z widoku `correction` i rysuje overlay wyłącznie w
+pamięci; filtr `sourceImageId` pozostaje odczytem diagnostycznym. Zdalny proxy
+Reviewera nie udostępnia ani tego filtra, ani endpointów korekty geometrii.
 
-`source-geometry-approval` przyjmuje dokładnie komplet aktualnych slotów
-jednego `sourceImageId`, wraz z tożsamością decyzji, geometrii, źródła i
-topologii każdego slotu. Serwer najpierw blokuje oraz ponownie sprawdza cały
-komplet, a następnie zatwierdza go w jednej transakcji. Stary snapshot,
-niepełny komplet albo zmiana właściciela zwracają konflikt bez częściowego
-zapisu.
-
-`source-geometry-revisions` jest dostępny wyłącznie dla `virtual_source`.
-Przyjmuje cztery narożniki każdego aktywnego slotu w kolejności row-major i
-zapisuje jedną append-only source geometry revision, z której tworzy zgodne
-rewizje plansz oraz wirtualne cropy. Niepełny albo niespójny komplet nie może
-utworzyć rewizji dla żadnego slotu.
+Atomowy zapis wszystkich slotów jednego źródła istnieje wyłącznie w warstwie
+aplikacji (`VirtualGridGeometryService.save_source`, używany przez
+`scripts/reverify_777_grids.py`); nie ma dla niego endpointu HTTP.
 
 Status rolloutu zwraca `not_started | processing | ready | failed`, liczby
 wszystkich i przetworzonych źródeł, liczbę źródeł `virtual_source`, aktywny job,
@@ -2435,14 +3531,16 @@ pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
 korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
 scope'u.
 
-Dla `virtual_source` te same endpointy preview i zapisu konsumują managed
-original, bieżącą source geometry oraz przypięty render spec. Preview tworzy
-kontaktowy PNG wyłącznie w pamięci. Zapis tworzy append-only source geometry i
-board geometry revision oraz podmienia bieżącą proweniencję komórek bez
-`board_relative_path`, `crop_relative_path` i trwałych bitmap. Odpowiedź ma
-`assetMode=virtual_source`, identyfikator source geometry, geometry checksum i
-checksum wirtualnego render manifestu; legacy nadal zwraca fizyczne ścieżki i
-`decisionChecksumSha256`.
+Każda plansza jest `virtual_source` (D-467 S6), więc te endpointy preview i
+zapisu zawsze konsumują managed original, bieżącą source geometry oraz
+przypięty render spec. Preview tworzy kontaktowy PNG wyłącznie w pamięci. Zapis
+tworzy append-only source geometry i board geometry revision oraz podmienia
+bieżącą proweniencję komórek bez `board_relative_path`, `crop_relative_path` i
+trwałych bitmap. Odpowiedź ma `assetMode=virtual_source` (enum jednowartościowy;
+również `ImageGridReviewItemResponse.assetMode`), wymagane
+`sourceGeometryRevisionId`, `geometryChecksumSha256` i
+`virtualRenderSpecChecksumSha256`; pola `boardChecksumSha256` i
+`decisionChecksumSha256` usunięto (TASK-0796).
 
 Jawny pending-only recrop v19 wykorzystuje:
 
@@ -2459,10 +3557,14 @@ stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
 
-`recalculableBoardCount` obejmuje wyłącznie `legacy_file` bez zatwierdzonej
-rewizji geometrii. Zatwierdzone siatki są chronione, a `virtual_source` jest
-raportowany osobno i nie pozwala utworzyć plikowego joba v19. Worker powtarza
-te same warunki pod blokadą bezpośrednio przed zapisem.
+Od D-467 S6 (TASK-0796) każda plansza jest `virtual_source`, więc
+`recalculableBoardCount` i `currentV19BoardCount` są zawsze `0`, a pozycje
+`pending` bez ochrony trafiają do `unsupportedVirtualBoardCount`; start kończy
+się `IMAGE_GRID_REINFERENCE_EMPTY`. Worker nie ma już ścieżek plikowych
+(schema 1 i 2): historyczny albo ponowiony job kończy się jawnym
+`IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`. Kontrakt endpointów i odpowiedzi
+pozostaje bez zmian; usunięcie funkcji pionem (API, Admin, job) to osobne
+zadanie.
 
 Kontrakt odroczonej geometrii komórek wykorzystuje:
 
@@ -2473,11 +3575,12 @@ GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry
 GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/source
 POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-preview
 POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/manual-resolution
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/rejection
 ```
 
 Lista ma stabilny keyset cursor po `(sequence_number, position_index, id)`,
 opcjonalny filtr `status`, limit maksymalnie 200 oraz liczniki `total`,
-`pending`, `resolved`, `superseded` dla wskazanego joba. Element zwraca reason
+`pending`, `resolved`, `superseded`, `rejected` dla wskazanego joba. Element zwraca reason
 code, scope źródła, opcjonalne identyfikatory planszy/review, checksumę i
 ścieżkę niezmiennego manifestu, fingerprint pipeline'u oraz oczekiwane i
 wynikowe rewizje. Kontekst zwraca wymiary źródła, pinned quad planszy i te same
@@ -2493,6 +3596,103 @@ modelu lub rewizji jest fail-closed. Endpointy są dostępne dla lokalnego
 administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
 `gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
 Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
+
+Odrzucenie slotu (`rejectPendingBoardCellGeometry`, TASK-0970, plan D-543)
+przyjmuje `{idempotencyKey, reason, note?, expectedGeometryRevision}`, gdzie
+`reason` to `cropped` („Plansza przycięta”), `blurred` („Rozmyta”) albo `other`
+(wymaga `note` 1-1000 znaków; przy pozostałych powodach notatka jest
+pomijana). Tylko slot `pending` bez planszy na swojej pozycji przechodzi w
+status `rejected` z powodem, notatką, czasem i autorem (`rejectionReason`,
+`rejectionNote`, `rejectedAt`, `rejectedBy` elementu); slot znika z widoku
+`correction` i jego liczników, a bramka zdjęcia jest przeliczana w tej samej
+transakcji i liczy odrzuconą pozycję jak brak planszy (zdjęcie zostaje
+`geometry_incomplete`, żadna jego plansza nie dostaje komórek; reguła D-484
+bez zmian). Blokady jak przy rozstrzygnięciu slotu: sekwencje, zdjęcie, slot.
+Idempotencja jest trwała: każde odrzucenie slotu zapisuje niezmienne zdarzenie
+w `image_board_geometry_pending_events` (klucz, suma kontrolna polecenia,
+numer odrzucenia `rejection_revision`, aktor). To samo polecenie z tym samym
+kluczem zwraca zapisane odrzucenie (`created=false`, to samo `rejectionId`)
+bez zmiany stanu, także po jego cofnięciu; ten sam klucz z innym poleceniem
+daje `409 IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT`; inny klucz dla już
+odrzuconego slotu `409 IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`; slot
+rozstrzygnięty, zastąpiony albo z istniejącą planszą `409
+IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE`; nieaktualna rewizja `409
+IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT`. Odpowiedź niesie element, liczniki
+joba, `created` i `rejectionId` (id wpisu w „Ostatnich korektach”). Odrzucony
+slot nie jest edytowalny przez `manual-resolution`.
+
+Istniejącą planszę odrzuca się dotychczasowym `POST
+/admin/image-review-items/{id}/resolution` z `action = rejected`. Odrzucenie
+kanonicznego właściciela sekwencji kończy się `409 BOARD_REJECT_CANONICAL`.
+Powód planszy jest jednym tekstem (1-500 znaków): `cropped`, `blurred` albo
+`other: <opis>`.
+
+Cofanie korekt geometrii importu (TASK-0968, plan D-542) udostępniają trzy
+trasy w zakresie gry (`game_storage_scope(gameId)`, D-442):
+
+```text
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections?limit=20
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections/{boardGeometryRevisionId}/revert-preview
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections/{boardGeometryRevisionId}/revert
+```
+
+`listGeometryCorrections` zwraca `{items}` z ostatnimi zapisami korekt importu,
+najnowszymi najpierw (`limit` 1-50, domyślnie 20). Element niesie
+`boardGeometryRevisionId`, `kind` (`pending_slot` | `board_revision`),
+identyfikatory planszy, pozycji przeglądu, slotu i zdjęcia, `sequenceNumber`,
+`positionIndex`, `createdAt`, `actor`, `geometryRevision`,
+`resolutionRevision`, `revertable` oraz pierwszy niespełniony warunek
+(`blockingReasonCode`, polski `blockingReasonMessage`).
+`previewGeometryCorrectionRevert` nie zapisuje niczego i zwraca korektę, skutki
+(`removesBoard`, `removedCellCount`, `repointedBoardCount`,
+`restoredCellDecisionCount`, rewizje źródła cofanego i przywracanego, silnik i
+status przywracanego) oraz tokeny CAS (`expectedGeometryRevision`,
+`expectedResolutionRevision`). `revertGeometryCorrection` przyjmuje
+`{idempotencyKey, expectedGeometryRevision, expectedResolutionRevision}` i
+zwraca identyfikator audytu (`revertId`), `created`, liczniki i stan zdjęcia
+po cofnięciu; powtórzenie tego samego klucza zwraca zapisany wynik z
+`created=false`.
+
+Błędy używają standardowej koperty `ErrorResponse` (`code`, `message`,
+`details`): `404 GEOMETRY_CORRECTION_NOT_FOUND`; `422` dla walidacji żądania;
+`409` z kodem blokady `GEOMETRY_REVERT_NOT_LATEST`, `_STALE`,
+`_SOURCE_ADVANCED`, `_SHARED_SOURCE_REVISION`, `_CELLS_CHANGED`, `_RESOLVED`,
+`_SEQUENCE_OWNERSHIP`, `_IMAGE_ADMITTED`, `_PINNED`, `_REOPENED_RESOLUTION`,
+`_HISTORY_INCOMPLETE`, `_NOT_SUPPORTED`, a także
+`GEOMETRY_REVERT_RENDERER_UNAVAILABLE`, `GEOMETRY_REVERT_RENDER_FAILED` i
+`GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`.
+
+Lista zawiera też odrzucenia (TASK-0970): element `kind = rejection` z
+`rejectionTarget` (`pending_slot` | `review_item`), `rejectionReason`
+(`cropped` | `blurred` | `other`, `null` dla dawnego tekstu wolnego) i
+`rejectionNote`. W takim elemencie `boardGeometryRevisionId` jest
+identyfikatorem odrzuconego slotu albo zdarzenia odrzucenia pozycji,
+`recognizedBoardId` i `reviewItemId` są `null` dla slotu (`boardGeometryRevisionId`
+slotu to `rejectionId`, więc cofnięcie starego odrzucenia nie cofa nowszego), a
+tokeny CAS to rewizje oczekiwane slotu albo rewizje planszy i pozycji. To samo
+`revert-preview` i `revert` cofają odrzucenie: slot wraca do `pending`,
+pozycja wraca do `pending` przez nowe zdarzenie rozstrzygnięcia `reopened`
+(klucz idempotencji zapisany przy zdarzeniu, więc powtórzenie zwraca zapisany
+wynik; dla slotu cofnięcie zapisuje zdarzenie `rejection_reverted` z kluczem,
+a jego `revertId` jest identyfikatorem tego zdarzenia). Podgląd i cofnięcie
+odrzucenia, które nie jest już bieżące (cofnięte w innej karcie), kończą się
+`409 GEOMETRY_REVERT_NOT_LATEST`. Pola rewizji źródła w podglądzie i wyniku są
+wtedy `null`. Cofnięcie jest
+odmawiane kodem `409 GEOMETRY_REVERT_REPLACED`, gdy numer sekwencji ma żywą
+pozycję (`pending`, `accepted`, `corrected`) na innym zdjęciu. Plansza odrzucona
+znika ze wspólnego zakresu weryfikacji symboli (listy, liczniki, operacje
+zbiorcze) bez usuwania wierszy i historii; cofnięcie przywraca ją.
+
+Aktorem zapisu jest
+`reviewer-session:{id}` dla bearer sesji Reviewera (po autoryzacji scope'u
+`gameId + importJobId`), w pozostałych przypadkach `local-admin`. Proxy
+Reviewera przepuszcza wyłącznie te trzy trasy z powyższymi metodami (oraz
+`POST .../board-cell-geometry-pending/{pendingId}/rejection`); nagłówek
+`Origin` Reviewera jest akceptowany tylko dla `POST .../revert` i `POST
+.../rejection`. Serwis dostaje
+`VirtualRestoredRenderVerifier` z konfigurowanym korzeniem artefaktów, więc
+cofnięcie istniejącej planszy (A) sprawdza rzeczywiste piksele przywracanego
+renderu.
 
 `JobProgressResponse.boardCellGeometry` jest opcjonalną projekcją checkpointu
 o statusie `processing | waiting_for_geometry | complete` i licznikach
@@ -2690,6 +3890,20 @@ wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
+Opcjonalny `view=overview` (D-529, TASK-0899) zwraca osobny typ
+`ModelQualityOverviewResponse`: `view`, `gameId`, `approvedLayoutCount`,
+`approvedCellCount`, `sourceImageCount`, `symbolCoverage`, `latestCohort`
+i `activeHeavyJob`. Są to logiczne zatwierdzenia bieżących właścicieli plansz
+dla aktywnych realnych symboli, w tym etykiety, których piksele mogą zostać
+wykluczone przed treningiem. Agregacja SQL i pojedynczy rekord kohorty nie
+odczytują zdjęć, render spec ani zbioru kontrolnego. Odpowiedź nie zawiera
+checksumy manifestu, delty treningowej ani `canFreeze`.
+
+Domyślny `view=full` zachowuje poniższy dokładny kontrakt. Admin wybiera
+overview przy wejściu; full dopiero w akcji przygotowania treningu. Oba tryby
+są generowane z backendowego OpenAPI. Sekcja siatki nie zależy od odpowiedzi
+sekcji symboli, a odczyty zachowują anulowanie bez arbitralnego timeoutu UI.
+
 Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), wersję
 manifestu, liczby
 próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,
@@ -2716,8 +3930,11 @@ nie warunkiem endpointu.
 GET jest odczytem bez `FOR UPDATE`. Dla v3 pobiera bounded pulę aktualnych
 komórek `approved`, których bieżąca i zatwierdzona tożsamość cropa jest
 identyczna, ponownie sprawdza checksumy plików i wylicza dHash w
-ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
-równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
+ograniczonej puli maksymalnie 4000 kandydatów per symbol. TASK-0898 grupuje
+próbki po źródle: do siedmiu wykonaniowych klatek RGB, jeden decode na grupę,
+wspólna atomowa kontrola bajtów/pikseli źródła i deskryptory bez round trip PNG.
+Kolejność, selekcja, checksum manifestu i kwalifikacja są zachowane. Odczyt
+nie wymaga rozgrzanego cache; `pending`, `?`, grid issue oraz
 stary właściciel sekwencji nie są wybierane. Jawny POST blokuje grę i
 ponownie weryfikuje bajty przed zapisem.
 
@@ -3175,6 +4392,15 @@ trwałym stagingiem:
   przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
 
 Start jest idempotentny po `gameId + uploadId + manifestChecksumSha256`.
+
+TASK-0889: fizyczny gotowy staging może przetrwać usunięcie swojej gry.
+Odczyt jego opcjonalnego `boardImportStatus` zwraca wtedy `null` wyłącznie
+dla błędu routingu `GAME_NOT_FOUND`, zamiast przerywać całą listę. `gameId`
+stagingu pozostaje niezmieniony; Admin nadal filtruje listę do kontekstu gry.
+Nie usuwa się plików ani nie udziela uprawnienia do importu w innej grze.
+Pozostałe błędy routingu i infrastruktury propagują się. Kontrakt nie zyskuje
+nowych pól ani operacji.
+
 Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
 a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
 operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
@@ -3338,9 +4564,12 @@ twardą rezerwę woluminu. Browser staging o purpose
 źródła do wyboru i nie tworzy cropów. Nadal może zwrócić
 `IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT`, gdy zadeklarowany upload
 wraz z rezerwą 512 MiB nie mieści się fizycznie na woluminie stagingu. Poniżej
-progu automatycznego GC system tworzy jeden idempotentny run `automatic`;
-trwający pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się
-błędem.
+progu automatycznego GC system tworzy jeden idempotentny run `automatic`.
+Trwający pipeline poniżej twardej rezerwy pokazuje etap `waiting_for_storage`
+zamiast kończyć się błędem. Wznawia ten sam job z zapisanych checkpointów,
+gdy wolne miejsce osiąga tę samą rezerwę, domyślnie 5 GiB. Cel GC 80 GiB
+nie blokuje kontynuacji importu. Worker zachowuje odstęp pollingu po
+odroczeniu; statusy i kształt odpowiedzi HTTP pozostają bez zmian.
 
 `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess` tworzy dla nowych
 wykonań payload schema v6. Odpowiedź zawiera `managedSourceJobId`, checksumę
@@ -3450,12 +4679,9 @@ snapshotcie.
 deferred ustawione jest `pendingGeometryId`, a identyfikatory jeszcze
 nieistniejącej planszy i review pozostają `null`.
 
-`POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions`
-przyjmuje dla każdego targetu dokładnie jedno z `reviewItemId` albo
-`pendingGeometryId`. Lista musi dokładnie pokrywać wszystkie aktywne pozycje
-jednej rewizji źródła w kolejności row-major. Polecenie pozostaje atomowe i
-idempotentne; deferred jest materializowany dopiero po poprawnym renderze
-pełnego zestawu.
+Slot `deferred_geometry` koryguje się pojedynczo przez
+`board-cell-geometry-pending/{pendingId}/manual-resolution`; endpoint
+`source-geometry-revisions` usunął TASK-0727.
 
 ### Kontrakt V7 półautomatu przed aktywacją
 

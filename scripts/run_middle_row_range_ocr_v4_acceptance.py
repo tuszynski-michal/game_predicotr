@@ -25,23 +25,23 @@ from uuid import NAMESPACE_URL, uuid5
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "services" / "worker" / "src"))
 
-from game_predictor_worker.semi_automatic_selection.contracts import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.contracts import (  # noqa: E402
     RangeEvidenceResult,
     RangeEvidenceStatus,
     SemiAutomaticSelectionRange,
     SemiAutomaticSelectionSource,
     SemiAutomaticSequenceBounds,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (  # noqa: E402
     MiddleRowGroupingAccumulator,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_locator import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_locator import (  # noqa: E402
     MiddleRowTripleLocator,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_range import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_range import (  # noqa: E402
     ExpectedRangeTable,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # noqa: E402
     DEFAULT_MIDDLE_ROW_RUNTIME_POLICY,
     MIDDLE_ROW_RECOGNIZER_CONTRACT_FINGERPRINT_V4,
     MiddleRowBatchRuntime,
@@ -593,7 +593,7 @@ def run_acceptance(
     )
     processing_time_totals: dict[str, float] = {}
     for _, evidence in results:
-        processing_times = evidence.runtime_diagnostics.get("processingTimes", {})
+        processing_times = (evidence.runtime_diagnostics or {}).get("processingTimes", {})
         if isinstance(processing_times, Mapping):
             for key, value in processing_times.items():
                 if isinstance(value, int | float) and not isinstance(value, bool):
@@ -629,7 +629,7 @@ def run_acceptance(
             "originalSourceIndex": case.source_index,
             "reasonCodes": list(evidence.reason_codes),
             "relativePath": case.relative_path,
-            "runtimeDiagnostics": dict(evidence.runtime_diagnostics),
+            "runtimeDiagnostics": dict(evidence.runtime_diagnostics or {}),
             "sha256": case.checksum_sha256,
             "status": evidence.status.value,
         }

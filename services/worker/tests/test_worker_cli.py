@@ -68,7 +68,9 @@ def reset_fake_worker() -> None:
 def _replace_dependencies(
     monkeypatch: pytest.MonkeyPatch,
     engine: FakeEngine,
+    owner_engine: FakeEngine | None = None,
 ) -> None:
+    resolved_owner_engine = owner_engine or FakeEngine()
     monkeypatch.setattr(
         cli.ApiSettings,
         "from_environment",
@@ -82,9 +84,21 @@ def _replace_dependencies(
             remote_selection_recovery_enabled=True,
             remote_selection_upload_timeout_seconds=120,
             remote_selection_recovery_limit=100,
+            # Read when the handlers are built: the three v7_* settings by the V7 pilot
+            # artifacts (added with the V7 integration, TASK-0920, v1.7.250) and
+            # grid_shadow_enabled by the grid shadow handler (TASK-0805, v1.7.191).
+            v7_label_geometry_runtime_root=Path(".runtime").resolve(),
+            v7_selection_ocr_model_root=Path(".runtime/ocr").resolve(),
+            v7_pilot_acceptance_scope=None,
+            grid_shadow_enabled=False,
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
+    monkeypatch.setattr(
+        cli, "create_owner_database_engine", lambda _settings: resolved_owner_engine
+    )
+    monkeypatch.setattr(cli, "create_owner_session_factory", lambda owner: ("owner-factory", owner))
+    monkeypatch.setattr(cli, "require_alembic_head", lambda _engine: None)
     monkeypatch.setattr(
         cli,
         "create_session_factory",
@@ -104,7 +118,8 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     engine = FakeEngine()
-    _replace_dependencies(monkeypatch, engine)
+    owner_engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine, owner_engine)
 
     assert cli.main(["--worker-id", "test-worker"]) == 0
 
@@ -114,6 +129,7 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.IMPORT in FakeWorker.instances[0].handlers
     assert JobType.VALIDATE in FakeWorker.instances[0].handlers
     assert JobType.STORAGE_PIPELINE_COMPACTION in FakeWorker.instances[0].handlers
+    assert JobType.SUPER_GAME_SERIES_DERIVE in FakeWorker.instances[0].handlers
     assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
     assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
     assert callable(FakeWorker.instances[0].options["auxiliary_work"])
@@ -122,6 +138,31 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 7
     assert FakeLaneHeartbeat.instances[0].entered
     assert FakeLaneHeartbeat.instances[0].exited
+    assert engine.disposed is True
+    # TASK-0795: only VACUUM and ANALYZE steps get the schema-owner engine.
+    compaction = FakeWorker.instances[0].handlers[JobType.STORAGE_PIPELINE_COMPACTION]
+    assert compaction._engine is owner_engine  # noqa: SLF001
+    backfill = FakeWorker.instances[0].handlers[JobType.IMAGE_SYMBOL_REVIEW_BACKFILL]
+    assert backfill._statistics_session_factory == ("owner-factory", owner_engine)  # noqa: SLF001
+
+
+def test_cli_refuses_a_database_schema_other_than_the_code_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from game_predictor_api.storage import schema_readiness
+
+    engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine)
+    monkeypatch.setattr(cli, "require_alembic_head", schema_readiness.require_alembic_head)
+    monkeypatch.setattr(
+        schema_readiness, "database_alembic_revision", lambda _engine: "0130_previous"
+    )
+
+    with pytest.raises(schema_readiness.AlembicHeadMismatchError) as error:
+        cli.main(["--worker-id", "test-worker"])
+
+    assert error.value.code == "ALEMBIC_HEAD_MISMATCH"
+    assert FakeWorker.instances == []
     assert engine.disposed is True
 
 

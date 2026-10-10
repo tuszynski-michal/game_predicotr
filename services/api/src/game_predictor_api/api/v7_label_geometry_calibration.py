@@ -18,6 +18,7 @@ from game_predictor_api.schemas.v7_label_geometry_calibration import (
     V7LabelGeometryAdoptionResponse,
     V7LabelGeometryProfileListResponse,
     V7LabelGeometryProfileResponse,
+    V7LabelGeometryReceiptResponse,
     V7LabelGeometrySessionCreate,
     V7LabelGeometrySessionExportRequest,
     V7LabelGeometrySessionExportResponse,
@@ -103,11 +104,13 @@ def create_v7_label_geometry_calibration_router(
         )
         return V7LabelGeometrySessionMutationResponse(
             session=_session_response(session),
-            receipt={
-                "operationId": receipt.operation_id,
-                "operationFingerprint": receipt.operation_fingerprint,
-                "revision": receipt.revision,
-            },
+            receipt=V7LabelGeometryReceiptResponse.model_validate(
+                {
+                    "operationId": receipt.operation_id,
+                    "operationFingerprint": receipt.operation_fingerprint,
+                    "revision": receipt.revision,
+                }
+            ),
         )
 
     @router.get(
@@ -276,12 +279,11 @@ def _session_response(session: object) -> V7LabelGeometrySessionResponse:
 
 
 def _profile_response(record: V7LabelGeometryProfileRecord) -> V7LabelGeometryProfileResponse:
-    value = record.as_dict()
     return V7LabelGeometryProfileResponse(
-        profile_fingerprint=value["profileFingerprint"],
-        revision=value["revision"],
-        session_export_checksum_sha256=value["sessionExportChecksumSha256"],
-        calibration=value["calibration"],
+        profile_fingerprint=record.profile.profile_fingerprint,
+        revision=record.profile.revision,
+        session_export_checksum_sha256=record.session_export_checksum_sha256,
+        calibration=record.profile.calibration.as_dict(),
     )
 
 

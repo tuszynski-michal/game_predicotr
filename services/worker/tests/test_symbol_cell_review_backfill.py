@@ -28,6 +28,11 @@ class _Context:
         self.checkpoints.append(values)
 
 
+class _ReadyCounts:
+    def ensure_current_count_projection_next_batch(self, _game_id: UUID) -> bool:
+        return True
+
+
 class _SessionFactory:
     @contextmanager
     def begin(self) -> Iterator[object]:
@@ -56,7 +61,10 @@ def _report(
     )
 
 
-def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: Any) -> None:
+@pytest.mark.parametrize("count_batches", [0, 2])
+def test_handler_processes_bounded_batches_and_persists_progress(
+    monkeypatch: Any, count_batches: int
+) -> None:
     game_id = uuid4()
     steps = iter(
         (
@@ -74,8 +82,9 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
     )
     batch_sizes: list[int] = []
     analyzed_sessions: list[object] = []
+    count_calls = 0
 
-    class _Repository:
+    class _Repository(_ReadyCounts):
         def __init__(self, _session: object) -> None:
             pass
 
@@ -109,6 +118,11 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
         def finalize_backfill(self, _game_id: UUID):
             return _report(game_id, status="ready", processed=250, cells=3750)
 
+        def ensure_current_count_projection_next_batch(self, _game_id: UUID) -> bool:
+            nonlocal count_calls
+            count_calls += 1
+            return count_calls > count_batches
+
     def _refresh_statistics(session: object) -> tuple[str, ...]:
         analyzed_sessions.append(session)
         return ("image_symbol_review_cells",)
@@ -133,24 +147,30 @@ def test_handler_processes_bounded_batches_and_persists_progress(monkeypatch: An
     SymbolCellReviewBackfillHandler(_SessionFactory())(context, job)  # type: ignore[arg-type]
 
     assert batch_sizes == [200, 200]
-    assert [checkpoint["current"] for checkpoint in context.checkpoints] == [
+    assert [checkpoint["current"] for checkpoint in context.checkpoints[:4]] == [
         200,
         250,
         250,
         250,
     ]
     assert context.checkpoints[-1]["success_count"] == 3750
-    assert context.checkpoints[-1]["stage"] == "symbol_cell_review_finalization"
-    assert context.checkpoints[-1]["checkpoint_payload"]["analyzed_query_tables"] == [
+    assert context.checkpoints[3]["stage"] == "symbol_cell_review_finalization"
+    assert context.checkpoints[3]["checkpoint_payload"]["analyzed_query_tables"] == [
         "image_symbol_review_cells"
     ]
     assert len(analyzed_sessions) == 1
+    assert len(context.checkpoints) == 4 + count_batches
+    assert count_calls == count_batches + 1
+    assert all(
+        checkpoint["stage"] == "symbol_cell_review_count_rebuild"
+        for checkpoint in context.checkpoints[4:]
+    )
 
 
 def test_handler_reports_controlled_integrity_failure(monkeypatch: Any) -> None:
     game_id = uuid4()
 
-    class _Repository:
+    class _Repository(_ReadyCounts):
         def __init__(self, _session: object) -> None:
             pass
 
@@ -201,7 +221,7 @@ def test_handler_does_not_publish_success_when_statistics_refresh_fails(
 ) -> None:
     game_id = uuid4()
 
-    class _Repository:
+    class _Repository(_ReadyCounts):
         def __init__(self, _session: object) -> None:
             pass
 
@@ -268,7 +288,7 @@ def test_handler_stops_after_three_failed_reconciliation_passes(monkeypatch: Any
     game_id = uuid4()
     pass_count = 0
 
-    class _Repository:
+    class _Repository(_ReadyCounts):
         def __init__(self, _session: object) -> None:
             pass
 
@@ -322,3 +342,87 @@ def test_handler_stops_after_three_failed_reconciliation_passes(monkeypatch: Any
         SymbolCellReviewBackfillHandler(_SessionFactory())(_Context(), job)  # type: ignore[arg-type]
 
     assert pass_count == 3
+
+
+def test_statistics_refresh_uses_the_owner_session_before_finalization_commits(
+    monkeypatch: Any,
+) -> None:
+    # TASK-0795: ANALYZE needs the schema owner; the runtime session is the
+    # application role. The owner session runs inside the finalization block.
+    game_id = uuid4()
+    events: list[str] = []
+    owner_session = object()
+
+    class _AppFactory:
+        @contextmanager
+        def begin(self) -> Iterator[object]:
+            events.append("app-begin")
+            yield object()
+            events.append("app-commit")
+
+    class _OwnerFactory:
+        @contextmanager
+        def begin(self) -> Iterator[object]:
+            events.append("owner-begin")
+            yield owner_session
+            events.append("owner-commit")
+
+    class _Repository(_ReadyCounts):
+        def __init__(self, _session: object) -> None:
+            pass
+
+        def start_or_resume_backfill(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
+
+        def backfill_next_batch(self, _game_id: UUID, **_options: object):
+            return SymbolCellReviewBackfillStep(
+                report=_report(game_id, status="rebuilding", processed=1, cells=15),
+                processed_review_item_count=1,
+                has_more=False,
+            )
+
+        def begin_reconciliation_pass(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=1, cells=15)
+
+        def reconcile_next_batch(self, _game_id: UUID, *, batch_size: int):
+            return SymbolCellReviewReconciliationStep(
+                report=_report(game_id, status="rebuilding", processed=1, cells=15),
+                processed_review_item_count=0,
+                has_more=False,
+            )
+
+        def finalize_backfill(self, _game_id: UUID):
+            events.append("finalize")
+            return _report(game_id, status="ready", processed=1, cells=15)
+
+    analyzed: list[object] = []
+
+    def _refresh_statistics(session: object) -> tuple[str, ...]:
+        analyzed.append(session)
+        events.append("analyze")
+        return ("image_symbol_review_cells",)
+
+    monkeypatch.setattr(backfill_module, "SqlAlchemyImageSymbolReviewRepository", _Repository)
+    monkeypatch.setattr(
+        backfill_module, "refresh_symbol_review_query_statistics", _refresh_statistics
+    )
+    job = create_job(
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        game_id=game_id,
+        input_payload={"schema_version": 1, "workflow": "image_symbol_review_backfill"},
+    )
+
+    SymbolCellReviewBackfillHandler(
+        _AppFactory(),  # type: ignore[arg-type]
+        statistics_session_factory=_OwnerFactory(),  # type: ignore[arg-type]
+    )(_Context(), job)
+
+    assert analyzed == [owner_session]
+    finalize_at = events.index("finalize")
+    assert events[finalize_at : finalize_at + 4] == [
+        "finalize",
+        "owner-begin",
+        "analyze",
+        "owner-commit",
+    ]
+    assert events[finalize_at + 4] == "app-commit"

@@ -9,6 +9,7 @@ from game_predictor_worker.images.symbol_mesh import (
     build_historical_centered_symbol_mesh_v4,
     build_symbol_mesh,
 )
+from local_corpus import require_local_corpus
 
 
 def test_real_sequence_316_complete_frame_builds_fifteen_local_crops() -> None:
@@ -22,6 +23,7 @@ def test_real_sequence_316_complete_frame_builds_fifteen_local_crops() -> None:
         / "board-00"
         / "board.png"
     )
+    require_local_corpus(path)
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     assert bgr is not None
     result = build_symbol_mesh(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
@@ -46,6 +48,7 @@ def test_expanded_sequence_192_fails_closed_on_false_outer_column() -> None:
         / "board-02"
         / "board.png"
     )
+    require_local_corpus(path)
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     assert bgr is not None
 
@@ -67,6 +70,7 @@ def test_historical_v4_builder_keeps_its_narrow_centered_contract() -> None:
         / "board-00"
         / "board.png"
     )
+    require_local_corpus(path)
     bgr = cv2.imread(str(path), cv2.IMREAD_COLOR)
     assert bgr is not None
 

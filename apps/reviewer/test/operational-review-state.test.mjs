@@ -14,8 +14,11 @@ import {
   operationalReviewBufferedAssetUrls,
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryContainsPoint,
   operationalReviewGeometryEdgeHandles,
   operationalReviewGeometryViewport,
+  operationalReviewTranslatedGeometryCorners,
+  operationalReviewTranslatedGeometryViewport,
   operationalReviewNativeContextViewport,
   operationalReviewPageAfterResolution,
   operationalReviewPageBufferAdvance,
@@ -59,7 +62,6 @@ function reviewItem() {
       cropChecksumSha256: `${cellIndex}`.padStart(64, '0'),
       cropSampleId: `sample-${cellIndex}`,
       currentSymbolCode: 'symbol-1',
-      observationId: `observation-${cellIndex}`,
       predictedSymbolCode: 'symbol-1',
       rowIndex: Math.floor(cellIndex / 5),
     })),
@@ -266,6 +268,20 @@ test('maps active symbols through digits and then QWERTY in stable order', () =>
     operationalReviewSymbolForKey(shortcuts, 'Q')?.code,
     'symbol-12',
   );
+});
+
+test('reserves explicit action keys without changing the default symbol shortcuts', () => {
+  const symbols = Array.from({ length: 11 }, (_, index) => symbol(index + 1));
+  const reserved = buildOperationalReviewSymbolShortcuts(symbols, {
+    reservedKeys: ['9'],
+  });
+  assert.deepEqual(
+    reserved.map(({ key }) => key),
+    ['1', '2', '3', '4', '5', '6', '7', '8', '0', 'q', 'w'],
+  );
+  assert.equal(operationalReviewSymbolForKey(reserved, '9'), null);
+  assert.equal(operationalReviewSymbolForKey(reserved, '0')?.code, 'symbol-9');
+  assert.equal(buildOperationalReviewSymbolShortcuts(symbols)[8].key, '9');
 });
 
 test('ignores editable keyboard targets', () => {
@@ -695,5 +711,108 @@ test('limits geometry editing to one board viewport and preserves source coordin
   assert.deepEqual(
     operationalReviewPointInSourceImage(visiblePoint, viewport, 1200, 900),
     corners[0],
+  );
+});
+
+test('geometry viewport translation moves only the source window', () => {
+  const viewport = { x: 100, y: 80, width: 400, height: 300 };
+
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -60, y: 40 },
+      1200,
+      900,
+    ),
+    { x: 40, y: 120, width: 400, height: 300 },
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -500, y: 900 },
+      1200,
+      900,
+    ),
+    { x: 0, y: 600, width: 400, height: 300 },
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryViewport(
+      viewport,
+      { x: -500, y: 900 },
+      1200,
+      900,
+      true,
+    ),
+    { x: -400, y: 980, width: 400, height: 300 },
+  );
+});
+
+test('translates a complete geometry quad rigidly and stops it at source edges', () => {
+  const corners = [
+    { x: 100, y: 70 },
+    { x: 420, y: 90 },
+    { x: 390, y: 300 },
+    { x: 80, y: 280 },
+  ];
+
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: 200, y: -100 },
+      500,
+      400,
+    ),
+    [
+      { x: 179, y: 0 },
+      { x: 499, y: 20 },
+      { x: 469, y: 230 },
+      { x: 159, y: 210 },
+    ],
+  );
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: -500, y: 500 },
+      500,
+      400,
+    ),
+    [
+      { x: 20, y: 169 },
+      { x: 340, y: 189 },
+      { x: 310, y: 399 },
+      { x: 0, y: 379 },
+    ],
+  );
+});
+
+test('keeps partial-grid translation outside the source and recognizes the quad interior', () => {
+  const corners = [
+    { x: -20, y: 30 },
+    { x: 220, y: 40 },
+    { x: 200, y: 210 },
+    { x: -10, y: 190 },
+  ];
+  assert.deepEqual(
+    operationalReviewTranslatedGeometryCorners(
+      corners,
+      { x: -50, y: 30 },
+      300,
+      240,
+      true,
+    ),
+    [
+      { x: -70, y: 60 },
+      { x: 170, y: 70 },
+      { x: 150, y: 240 },
+      { x: -60, y: 220 },
+    ],
+  );
+  assert.equal(
+    operationalReviewGeometryContainsPoint(corners, { x: 80, y: 120 }),
+    true,
+  );
+  assert.equal(
+    operationalReviewGeometryContainsPoint(corners, { x: 280, y: 120 }),
+    false,
   );
 });

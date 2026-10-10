@@ -13,8 +13,11 @@ from typing import Final
 from uuid import uuid4
 
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
+    V7_CALIBRATION_VERSION,
+    V7_SOURCE_LOCAL_CALIBRATION_VERSION,
     V7AnnotationState,
     V7CalibrationError,
+    V7CaptureGroupPolicy,
     V7CropAssessment,
     V7EvaluationStatus,
     V7GeometryAdoption,
@@ -39,6 +42,7 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration_sessions impo
     V7CalibrationSessionSource,
     V7CalibrationSessionStatus,
     V7CalibrationSessionStore,
+    read_immutable_v7_calibration_session,
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import (
     V7CorpusCase,
@@ -105,12 +109,28 @@ class V7LabelGeometryCalibrationService:
         *,
         runtime_root: Path,
         corpus_manifest_path: Path | None,
+        read_only: bool = False,
     ) -> None:
+        self._read_only = read_only
         self._runtime_root = Path(runtime_root).resolve()
         self._manifest_path = None if corpus_manifest_path is None else Path(corpus_manifest_path)
-        self._sessions = V7CalibrationSessionStore(self._runtime_root)
+        self._session_store: V7CalibrationSessionStore | None = None
         self._profiles_root = self._runtime_root / "v7-label-geometry" / "profiles"
-        self._validation = V7ValidationRegistry(self._runtime_root)
+        self._validation_registry: V7ValidationRegistry | None = None
+
+    @property
+    def _sessions(self) -> V7CalibrationSessionStore:
+        self._require_writable()
+        if self._session_store is None:
+            self._session_store = V7CalibrationSessionStore(self._runtime_root)
+        return self._session_store
+
+    @property
+    def _validation(self) -> V7ValidationRegistry:
+        self._require_writable()
+        if self._validation_registry is None:
+            self._validation_registry = V7ValidationRegistry(self._runtime_root)
+        return self._validation_registry
 
     def create_session(
         self,
@@ -118,6 +138,7 @@ class V7LabelGeometryCalibrationService:
         geometry_family_id: str,
         corpus_case_ids: tuple[str, ...],
     ) -> V7CalibrationSession:
+        self._require_writable()
         resolved = self._resolve_requested_cases(geometry_family_id, corpus_case_ids)
         try:
             return self._sessions.create(
@@ -129,14 +150,60 @@ class V7LabelGeometryCalibrationService:
             raise _session_error(error) from error
 
     def get_session(self, session_id: str) -> V7CalibrationSession:
+        if self._read_only:
+            directory = self._runtime_root / "v7-label-geometry" / "sessions" / session_id
+            if any(
+                _has_link_or_reparse_ancestor(path)
+                for path in (directory, directory / "state.json", directory / "state.json.tmp")
+            ):
+                raise V7LabelGeometryCalibrationApiError(
+                    "V7_CALIBRATION_SESSION_NOT_FOUND", "Invalid immutable session path."
+                )
+            try:
+                session = read_immutable_v7_calibration_session(self._runtime_root, session_id)
+                self._verify_read_only_session_sources(session)
+                return session
+            except V7CalibrationSessionError as error:
+                raise _session_error(error) from error
         session, _resolved = self._current_session(session_id)
         return session
+
+    def _verify_read_only_session_sources(self, session: V7CalibrationSession) -> None:
+        """Check only this session's current calibration cases; never inspect holdout JPEGs."""
+        manifest = self._load_manifest()
+        case_ids = tuple(dict.fromkeys(source.corpus_case_id for source in session.sources))
+        try:
+            files = manifest.resolve_calibration_sources_read_only(case_ids)
+        except V7SelectionConfigurationError as error:
+            raise V7LabelGeometryCalibrationApiError(error.code, str(error)) from error
+        cases = {case.case_id: case for case in manifest.cases}
+        current = tuple(
+            V7CalibrationSessionSource(
+                source_id=f"{item.case_id}-{item.source_checksum_sha256}",
+                source_checksum_sha256=item.source_checksum_sha256,
+                corpus_case_id=item.case_id,
+                split=cases[item.case_id].split,
+                geometry_family_id=cases[item.case_id].geometry_family_id or "",
+            )
+            for item in files
+        )
+        if set(current) != set(session.sources):
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_CALIBRATION_SESSION_SOURCE_DRIFT", "Current session sources changed."
+            )
+
+    def _require_writable(self) -> None:
+        if self._read_only:
+            raise V7LabelGeometryCalibrationApiError(
+                "V7_CALIBRATION_READ_ONLY", "Pilot calibration is read-only."
+            )
 
     def mutate_session(
         self,
         session_id: str,
         operation: V7CalibrationSessionOperation,
     ) -> tuple[V7CalibrationSession, V7CalibrationSessionReceipt]:
+        self._require_writable()
         # Preserve TASK-0600's receipt-before-revision/source rule at the HTTP
         # boundary. A lost answer can be recovered even when a later read would
         # now observe corpus drift.
@@ -329,6 +396,7 @@ class V7LabelGeometryCalibrationService:
     ) -> tuple[V7ValidationReport, bool]:
         """Seal non-holdout T05 inputs after server-owned corpus validation."""
 
+        self._require_writable()
         try:
             truths = tuple(_validation_truth_from_payload(item) for item in truth_values)
             source_observations = tuple(
@@ -442,6 +510,7 @@ class V7LabelGeometryCalibrationService:
     ) -> tuple[V7GeometryAdoption, bool]:
         """Approve one exact passed report for one source game without activation."""
 
+        self._require_writable()
         operation_fingerprint = _fingerprint(
             {
                 "profileFingerprint": profile_fingerprint,
@@ -525,6 +594,7 @@ class V7LabelGeometryCalibrationService:
             raise _validation_error(error) from error
 
     def list_adoptions(self) -> tuple[V7GeometryAdoption, ...]:
+        self._require_writable()
         try:
             return self._validation.list_adoptions()
         except V7ValidationRegistryError as error:
@@ -561,6 +631,7 @@ class V7LabelGeometryCalibrationService:
             raise _session_error(error) from error
 
     def _current_session(self, session_id: str) -> tuple[V7CalibrationSession, _ResolvedCorpus]:
+        self._require_writable()
         try:
             session = self._sessions.read(session_id)
         except V7CalibrationSessionError as error:
@@ -764,49 +835,65 @@ class V7LabelGeometryCalibrationService:
             temporary.unlink(missing_ok=True)
 
     def _read_profile(self, profile_fingerprint: str) -> V7LabelGeometryProfileRecord:
-        path = self._profiles_root / f"{profile_fingerprint}.json"
-        if not path.is_file() or path.is_symlink():
-            raise V7LabelGeometryCalibrationApiError(
-                "V7_CALIBRATION_PROFILE_NOT_FOUND", "The requested geometry profile does not exist."
-            )
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            if (
-                not isinstance(payload, dict)
-                or payload.get("schemaVersion") != _PROFILE_SCHEMA_VERSION
-            ):
-                raise ValueError("schema")
-            profile = payload["profile"]
-            export_checksum = payload["sessionExportChecksumSha256"]
-            if (
-                not isinstance(profile, dict)
-                or not isinstance(export_checksum, str)
-                or not _is_sha256(export_checksum)
-            ):
-                raise ValueError("content")
-            calibration = profile["calibration"]
-            if not isinstance(calibration, dict):
-                raise ValueError("calibration")
-            restored_profile = _profile_from_payload(profile)
-            expected_fingerprint = _fingerprint(
-                {
-                    "calibration": restored_profile.calibration.as_dict(),
-                    "sessionExportChecksumSha256": export_checksum,
-                }
-            )
-            if (
-                restored_profile.profile_fingerprint != profile_fingerprint
-                or restored_profile.profile_fingerprint != expected_fingerprint
-            ):
-                raise ValueError("fingerprint")
-            return V7LabelGeometryProfileRecord(
-                profile=restored_profile,
-                session_export_checksum_sha256=export_checksum,
-            )
-        except (IndexError, KeyError, OSError, TypeError, ValueError, V7CalibrationError) as error:
-            raise V7LabelGeometryCalibrationApiError(
-                "V7_CALIBRATION_PROFILE_CORRUPT", "The stored geometry profile is invalid."
-            ) from error
+        return read_immutable_v7_geometry_profile(self._profiles_root, profile_fingerprint)
+
+
+def read_immutable_v7_geometry_profile(
+    profiles_root: Path,
+    profile_fingerprint: str,
+) -> V7LabelGeometryProfileRecord:
+    """Read only the immutable profile; never open a session or recover temp files."""
+    if not _is_sha256(profile_fingerprint) or _has_link_or_reparse_ancestor(profiles_root):
+        raise V7LabelGeometryCalibrationApiError(
+            "V7_CALIBRATION_PROFILE_NOT_FOUND", "The immutable profile store is invalid."
+        )
+    path = profiles_root / f"{profile_fingerprint}.json"
+    return _read_immutable_v7_geometry_profile_file(path, profile_fingerprint)
+
+
+def _read_immutable_v7_geometry_profile_file(
+    path: Path,
+    profile_fingerprint: str,
+) -> V7LabelGeometryProfileRecord:
+    if not path.is_file() or _has_link_or_reparse_ancestor(path):
+        raise V7LabelGeometryCalibrationApiError(
+            "V7_CALIBRATION_PROFILE_NOT_FOUND", "The requested geometry profile does not exist."
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or payload.get("schemaVersion") != _PROFILE_SCHEMA_VERSION:
+            raise ValueError("schema")
+        profile = payload["profile"]
+        export_checksum = payload["sessionExportChecksumSha256"]
+        if (
+            not isinstance(profile, dict)
+            or not isinstance(export_checksum, str)
+            or not _is_sha256(export_checksum)
+        ):
+            raise ValueError("content")
+        calibration = profile["calibration"]
+        if not isinstance(calibration, dict):
+            raise ValueError("calibration")
+        restored_profile = _profile_from_payload(profile)
+        expected_fingerprint = _fingerprint(
+            {
+                "calibration": restored_profile.calibration.as_dict(),
+                "sessionExportChecksumSha256": export_checksum,
+            }
+        )
+        if (
+            restored_profile.profile_fingerprint != profile_fingerprint
+            or restored_profile.profile_fingerprint != expected_fingerprint
+        ):
+            raise ValueError("fingerprint")
+        return V7LabelGeometryProfileRecord(
+            profile=restored_profile,
+            session_export_checksum_sha256=export_checksum,
+        )
+    except (IndexError, KeyError, OSError, TypeError, ValueError, V7CalibrationError) as error:
+        raise V7LabelGeometryCalibrationApiError(
+            "V7_CALIBRATION_PROFILE_CORRUPT", "The stored geometry profile is invalid."
+        ) from error
 
 
 def _annotations_from_session(
@@ -932,8 +1019,8 @@ def _validate_validation_source_identities(
     for observation in source_observations:
         _validated_validation_source(source_by_id, observation.source)
     for snapshot in snapshots:
-        truth = truth_by_case.get(snapshot.case_id)
-        if truth is None:
+        snapshot_truth = truth_by_case.get(snapshot.case_id)
+        if snapshot_truth is None:
             raise V7LabelGeometryCalibrationApiError(
                 "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
                 "Validation prediction has no matching truth case.",
@@ -941,7 +1028,7 @@ def _validate_validation_source_identities(
         if snapshot.selected_source is None:
             continue
         source = _validated_validation_source(source_by_id, snapshot.selected_source)
-        if source.corpus_case_id != truth.corpus_case_id:
+        if source.corpus_case_id != snapshot_truth.corpus_case_id:
             raise V7LabelGeometryCalibrationApiError(
                 "V7_VALIDATION_SOURCE_IDENTITY_CONFLICT",
                 "Validation selected source belongs to another corpus case.",
@@ -1010,6 +1097,36 @@ def _profile_from_payload(payload: dict[str, object]) -> V7GeometryProfile:
     calibration_payload = payload["calibration"]
     if not isinstance(calibration_payload, dict):
         raise ValueError("calibration")
+    version = calibration_payload.get("version")
+    policy = V7CaptureGroupPolicy.PER_POSITION
+    capture_group_count = None
+    minimum_capture_groups = None
+    excluded_source_ids: tuple[str, ...] = ()
+    if version == V7_SOURCE_LOCAL_CALIBRATION_VERSION:
+        policy = V7CaptureGroupPolicy(calibration_payload["captureGroupPolicy"])
+        if policy is not V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES:
+            raise ValueError("captureGroupPolicy")
+        excluded_sources = calibration_payload["excludedSourceIds"]
+        if not isinstance(excluded_sources, list) or any(
+            not isinstance(value, str) for value in excluded_sources
+        ):
+            raise ValueError("excludedSourceIds")
+        capture_group_count = _validation_integer(calibration_payload["captureGroupCount"])
+        minimum_capture_groups = _validation_integer(calibration_payload["minimumCaptureGroups"])
+        excluded_source_ids = tuple(str(value) for value in excluded_sources)
+    elif version == V7_CALIBRATION_VERSION:
+        if any(
+            key in calibration_payload
+            for key in (
+                "captureGroupPolicy",
+                "captureGroupCount",
+                "minimumCaptureGroups",
+                "excludedSourceIds",
+            )
+        ):
+            raise ValueError("legacy coverage")
+    else:
+        raise ValueError("calibration version")
     from game_predictor_worker.semi_automatic_selection.v7_label_locator import (
         V7DynamicGridLabelLocatorConfig,
         V7GridLabelLocatorConfig,
@@ -1018,6 +1135,7 @@ def _profile_from_payload(payload: dict[str, object]) -> V7GeometryProfile:
     config_payload = calibration_payload["locatorConfig"]
     if not isinstance(config_payload, dict):
         raise ValueError("locatorConfig")
+    config: V7DynamicGridLabelLocatorConfig | V7GridLabelLocatorConfig
     if config_payload.get("kind") == "dynamic_lattice_v2":
         config = V7DynamicGridLabelLocatorConfig(
             crop_height_spacing_ratio=float(config_payload["cropHeightSpacingRatio"]),
@@ -1060,11 +1178,15 @@ def _profile_from_payload(payload: dict[str, object]) -> V7GeometryProfile:
         minimum_capture_groups_per_position=int(
             calibration_payload["minimumCaptureGroupsPerPosition"]
         ),
+        capture_group_policy=policy,
+        capture_group_count=capture_group_count,
+        minimum_capture_groups=minimum_capture_groups,
+        excluded_source_ids=excluded_source_ids,
     )
     return V7GeometryProfile(
         profile_fingerprint=str(payload["profileFingerprint"]),
         calibration=calibration,
-        revision=int(payload["revision"]),
+        revision=_validation_integer(payload["revision"]),
     )
 
 

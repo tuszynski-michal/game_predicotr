@@ -101,17 +101,8 @@ def test_board_search_openapi_exposes_the_read_only_partial_pattern_contract() -
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/BoardSearchResponse"
     }
-    archive_operation = schema["paths"][
-        "/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}"
-    ]["get"]
-    assert archive_operation["operationId"] == "getArchivedBoardSearchAsset"
-    archive_parameters = {
-        parameter["name"]: parameter for parameter in archive_operation["parameters"]
-    }
-    assert archive_parameters["sequence_number"]["schema"]["minimum"] == 1
-    assert archive_parameters["expectedBoardChecksumSha256"]["schema"]["pattern"] == (
-        "^[a-f0-9]{64}$"
-    )
+    # D-467 S5 (TASK-0759): the frozen board-search archive route is removed.
+    assert not any("archive-assets" in path for path in schema["paths"])
     assert set(operation["responses"]).issuperset({"404", "409", "422"})
 
 
@@ -127,10 +118,6 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "get",
         ): "getImageGridReviewSourceAsset",
         (
-            "/api/v1/admin/image-reviews/{review_item_id}/geometry-approval",
-            "post",
-        ): "approveImageGridReviewGeometry",
-        (
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-preview",
             "post",
         ): "previewImageGridReviewGeometry",
@@ -138,20 +125,25 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions",
             "post",
         ): "createImageGridReviewGeometryRevision",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval",
-            "post",
-        ): "approveImageGridReviewSourceGeometry",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions",
-            "post",
-        ): "createImageGridReviewSourceGeometryRevision",
     }
     for (path, method), operation_id in expected_operations.items():
         operation = schema["paths"][path][method]
         assert operation["operationId"] == operation_id
         assert operation["tags"] == ["image-grid-reviews"]
         assert set(operation["responses"]).issuperset({"404", "409", "422"})
+    # D-462 / TASK-0727: no board, photo or whole-source approval operation.
+    operation_ids = {
+        operation["operationId"]
+        for path_item in schema["paths"].values()
+        for operation in path_item.values()
+    }
+    assert operation_ids.isdisjoint(
+        {
+            "approveImageGridReviewGeometry",
+            "approveImageGridReviewSourceGeometry",
+            "createImageGridReviewSourceGeometryRevision",
+        }
+    )
 
     command = schema["components"]["schemas"]["ImageGridReviewGeometryCommand"]
     assert "correctedBy" not in command["properties"]
@@ -167,7 +159,9 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
     cells = schema["components"]["schemas"]["ImageGridReviewGeometryRevisionResponse"][
         "properties"
     ]["cells"]
-    assert cells["minItems"] == 1
+    # v0.10.224 (partial-board revisions) dropped the one-cell minimum: a partial
+    # revision may carry no rendered cell, so the schema has no lower bound.
+    assert "minItems" not in cells
     assert "maxItems" not in cells
 
 
@@ -210,6 +204,10 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
             "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}",
             "delete",
         ): "archivePayline",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+            "delete",
+        ): "deletePayline",
         (
             "/api/v1/admin/rules-versions/{rules_version_id}/symbols",
             "get",
@@ -530,8 +528,13 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
     assert page_schema["properties"]["queueVersion"]["minimum"] == 0
 
     item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
-    assert item_schema["properties"]["cells"]["minItems"] == 15
+    # A partial board has fewer rendered cells than its fifteen positions.
+    assert item_schema["properties"]["cells"]["minItems"] == 0
     assert item_schema["properties"]["cells"]["maxItems"] == 15
+    # TASK-0798: the editor needs the persisted qualification and source size.
+    assert {"geometryQualification", "sourceWidth", "sourceHeight"} <= set(
+        item_schema["properties"]
+    )
     cell_schema = schema["components"]["schemas"]["OperationalImageReviewCellResponse"]
     assert cell_schema["properties"]["alternatives"]["maxItems"] == 4
     command_schema = schema["components"]["schemas"]["OperationalImageReviewResolutionCommand"]
@@ -553,22 +556,24 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "expectedResolutionRevision",
         "idempotencyKey",
     } == set(geometry_command["required"])
+    # TASK-0798: signed corners and an optional partial qualification, as in
+    # the grid correction queue.
     assert (
         geometry_command["properties"]["corners"]["prefixItems"]
-        == [{"$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"}] * 4
+        == [{"$ref": "#/components/schemas/ManualSourceGeometryPoint"}] * 4
     )
+    assert "geometryQualification" in geometry_command["properties"]
     geometry_revision = schema["components"]["schemas"][
         "OperationalImageReviewGeometryRevisionResponse"
     ]
-    assert geometry_revision["properties"]["decisionChecksumSha256"]["anyOf"] == [
-        {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        {"type": "null"},
-    ]
+    # D-467 S6 (TASK-0796): no file-crop decision checksum on a virtual revision.
+    assert "decisionChecksumSha256" not in geometry_revision["properties"]
+    assert "geometryQualification" in geometry_revision["properties"]
     assert (
         schema["paths"]["/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions"][
             "post"
         ]["summary"]
-        == "Persist immutable v19 symbol-lattice geometry and reopen review"
+        == "Persist a virtual-source geometry revision of one board and reopen review"
     )
 
 
@@ -770,3 +775,47 @@ def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     assert parameters["after_line_number"]["schema"]["minimum"] == 0
     assert parameters["limit"]["schema"]["maximum"] == 100
     assert parameters["status"]["schema"]["$ref"].endswith("LayoutImportRowStatus")
+
+
+def test_geometry_correction_revert_openapi_exposes_three_scoped_operations() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    root = "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections"
+    item = f"{root}/{{board_geometry_revision_id}}"
+
+    assert set(schema["paths"][root]) == {"get"}
+    assert set(schema["paths"][f"{item}/revert-preview"]) == {"get"}
+    assert set(schema["paths"][f"{item}/revert"]) == {"post"}
+    assert schema["paths"][root]["get"]["operationId"] == "listGeometryCorrections"
+    assert schema["paths"][f"{item}/revert-preview"]["get"]["operationId"] == (
+        "previewGeometryCorrectionRevert"
+    )
+    assert schema["paths"][f"{item}/revert"]["post"]["operationId"] == "revertGeometryCorrection"
+    limit = next(
+        parameter
+        for parameter in schema["paths"][root]["get"]["parameters"]
+        if parameter["name"] == "limit"
+    )
+    assert limit["schema"]["default"] == 20
+    assert limit["schema"]["maximum"] == 50
+    command = schema["components"]["schemas"]["GeometryCorrectionRevertCommand"]
+    assert set(command["required"]) == {
+        "idempotencyKey",
+        "expectedGeometryRevision",
+        "expectedResolutionRevision",
+    }
+    entry = schema["components"]["schemas"]["GeometryCorrectionResponse"]
+    assert {
+        "boardGeometryRevisionId",
+        "kind",
+        "sequenceNumber",
+        "positionIndex",
+        "createdAt",
+        "actor",
+        "geometryRevision",
+        "resolutionRevision",
+        "revertable",
+        "blockingReasonCode",
+        "blockingReasonMessage",
+    } <= set(entry["required"])
+    for status in ("404", "409", "422"):
+        assert status in schema["paths"][f"{item}/revert"]["post"]["responses"]

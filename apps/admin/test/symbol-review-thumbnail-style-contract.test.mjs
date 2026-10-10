@@ -14,7 +14,16 @@ test('symbol review thumbnails fill their card and draw the border over the imag
   assert.match(styles, /\.card\s*\{[\s\S]*?border:\s*0;/);
   assert.match(styles, /\.card\s*\{[\s\S]*?background:\s*transparent;/);
   assert.match(styles, /\.cardToggle::after\s*\{[\s\S]*?inset:\s*0;/);
-  assert.match(styles, /\.cardToggle::after\s*\{[\s\S]*?border:\s*1px solid var\(--line\);/);
-  assert.match(styles, /\.virtualPreview\s*\{[\s\S]*?background-color:\s*transparent;/);
-  assert.doesNotMatch(styles, /\.virtualPreview\s*\{[\s\S]*?background:\s*#050b14;/);
+  assert.match(
+    styles,
+    /\.cardToggle::after\s*\{[\s\S]*?border:\s*2px solid var\(--line\);/,
+  );
+  assert.match(
+    styles,
+    /\.virtualPreview\s*\{[\s\S]*?background-color:\s*transparent;/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /\.virtualPreview\s*\{[\s\S]*?background:\s*#050b14;/,
+  );
 });

@@ -3,6 +3,7 @@
 import type {
   AdminApiClient,
   SemiAutomaticSelectionCreateResponse,
+  SemiAutomaticSelectionSourceItemResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
@@ -143,9 +144,14 @@ export async function createV7SelectionFromLocalSource(input: {
   readonly api: SemiAutomaticSelectionClient;
   readonly configuration: V7NormalizedSelectionForm;
   readonly source: SemiAutomaticLocalSourceSelection;
+  readonly outputBaseDirectory?: string;
 }): Promise<SemiAutomaticSelectionCreateResponse> {
   const result = await input.api.createSemiAutomaticImageSelection(
-    createV7SelectionPayload(input.configuration, input.source.selectionToken),
+    createV7SelectionPayload(
+      input.configuration,
+      input.source.selectionToken,
+      input.outputBaseDirectory,
+    ),
   );
   if (result.error !== undefined || result.data === undefined) {
     throw new Error(
@@ -178,41 +184,47 @@ export async function loadSemiAutomaticReviewSourceFiles(
       );
     }
     for (const source of page.data.items) {
-      files.push({
-        handle: {
-          kind: 'file',
-          name: source.relativePath.split('/').at(-1),
-          async getFile(): Promise<File> {
-            const asset = await api.getSemiAutomaticImageSelectionSourceAsset(
-              runId,
-              source.sourceIndex,
-              source.checksumSha256,
-            );
-            if (asset.error !== undefined || asset.data === undefined) {
-              throw new Error('Nie udało się odczytać zdjęcia źródłowego.');
-            }
-            const blob = toBlob(asset.data);
-            if (blob === null) {
-              throw new Error(
-                'Odpowiedź zdjęcia źródłowego jest nieprawidłowa.',
-              );
-            }
-            return new File(
-              [blob],
-              source.relativePath.split('/').at(-1) ?? 'source.jpg',
-              {
-                lastModified: 0,
-                type: blob.type || 'image/jpeg',
-              },
-            );
-          },
-        } as unknown as FileSystemFileHandle,
-        relativePath: source.relativePath,
-      });
+      files.push(createSemiAutomaticReviewSourceFile(api, runId, source));
     }
     afterSourceIndex = page.data.nextAfterSourceIndex ?? undefined;
   } while (afterSourceIndex !== undefined);
   return files;
+}
+
+export function createSemiAutomaticReviewSourceFile(
+  api: Pick<AdminApiClient, 'getSemiAutomaticImageSelectionSourceAsset'>,
+  runId: string,
+  source: SemiAutomaticSelectionSourceItemResponse,
+): SemiAutomaticReviewSourceFile {
+  return {
+    handle: {
+      kind: 'file',
+      name: source.relativePath.split('/').at(-1),
+      async getFile(): Promise<File> {
+        const asset = await api.getSemiAutomaticImageSelectionSourceAsset(
+          runId,
+          source.sourceIndex,
+          source.checksumSha256,
+        );
+        if (asset.error !== undefined || asset.data === undefined) {
+          throw new Error('Nie udało się odczytać zdjęcia źródłowego.');
+        }
+        const blob = toBlob(asset.data);
+        if (blob === null) {
+          throw new Error('Odpowiedź zdjęcia źródłowego jest nieprawidłowa.');
+        }
+        return new File(
+          [blob],
+          source.relativePath.split('/').at(-1) ?? 'source.jpg',
+          {
+            lastModified: 0,
+            type: blob.type || 'image/jpeg',
+          },
+        );
+      },
+    } as unknown as FileSystemFileHandle,
+    relativePath: source.relativePath,
+  };
 }
 
 export type SemiAutomaticSelectionUploadResult =

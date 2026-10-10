@@ -18,6 +18,7 @@ from uuid import UUID
 import numpy as np
 from game_predictor_worker.images.normalization import (
     RGB_PIXEL_CHECKSUM_VERSION,
+    CanonicalSourceFrame,
     CanonicalSourceLoader,
     CanonicalSourceLoadError,
     rgb_pixel_checksum_sha256,
@@ -27,6 +28,7 @@ from game_predictor_worker.images.virtual_cell_extraction import (
     VirtualCellExtractionError,
     source_direct_warp_rgb,
 )
+from numpy.typing import NDArray
 from PIL import Image
 
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
@@ -72,7 +74,7 @@ class VirtualCellPreviewTarget:
 
 @dataclass(frozen=True, slots=True)
 class SymbolCellPreviewTarget:
-    """One current cell identity for a shared legacy/virtual preview atlas."""
+    """One current cell identity for a shared virtual preview atlas."""
 
     cell_review_id: UUID
     expected_revision: int
@@ -298,25 +300,20 @@ class VirtualCellPreviewService:
         atlas = Image.new("RGB", (columns * preview_size, rows * preview_size), color=(0, 0, 0))
         try:
             for index, asset in enumerate(assets):
-                if asset.asset_mode == "virtual_source":
-                    frame = frames.get(asset.source_checksum_sha256 or "")
-                    if frame is None:
-                        source_path = _managed_virtual_source_path(self._artifact_root, asset)
-                        frame = loader.load(
-                            source_path,
-                            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
-                        )
-                        frames[_required(asset.source_checksum_sha256)] = frame
-                    preview = _render_virtual_preview(
-                        asset=asset,
-                        frame=frame,
-                        preview_size=preview_size,
+                # D-467 S6 (TASK-0796): every asset is a virtual render.
+                frame = frames.get(asset.source_checksum_sha256 or "")
+                if frame is None:
+                    source_path = _managed_virtual_source_path(self._artifact_root, asset)
+                    frame = loader.load(
+                        source_path,
+                        expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
                     )
-                else:
-                    preview = self._render_legacy_preview(
-                        asset=asset,
-                        preview_size=preview_size,
-                    )
+                    frames[_required(asset.source_checksum_sha256)] = frame
+                preview = _render_virtual_preview(
+                    asset=asset,
+                    frame=frame,
+                    preview_size=preview_size,
+                )
                 x = (index % columns) * preview_size
                 y = (index // columns) * preview_size
                 atlas.paste(preview, (x, y))
@@ -354,60 +351,6 @@ class VirtualCellPreviewService:
             ),
             content=content,
         )
-
-    def _render_legacy_preview(
-        self,
-        *,
-        asset: SymbolCellReviewAsset,
-        preview_size: int,
-    ) -> Image.Image:
-        relative_value = _required(asset.crop_relative_path)
-        relative = Path(relative_value.replace("/", os.sep))
-        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-                "The symbol-cell crop path is unsafe.",
-            )
-        data_root = (self._artifact_root / "data").resolve()
-        candidates = [(self._artifact_root / relative).resolve()]
-        if relative.parts[0] != "data":
-            candidates.append((data_root / relative).resolve())
-        path = next(
-            (
-                candidate
-                for candidate in candidates
-                if candidate.is_relative_to(data_root)
-                and candidate.is_file()
-                and not candidate.is_symlink()
-            ),
-            None,
-        )
-        if path is None:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
-                "The current symbol-cell crop is unavailable.",
-            )
-        content = path.read_bytes()
-        if hashlib.sha256(content).hexdigest() != asset.crop_checksum_sha256:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
-                "The current symbol-cell crop bytes do not match their checksum.",
-            )
-        try:
-            with Image.open(BytesIO(content)) as source:
-                image = source.convert("RGB")
-                # Atlas tiles have a fixed square viewport.  Resizing the current crop
-                # directly keeps the complete symbol visible while avoiding the black
-                # letterbox that the legacy ``thumbnail`` canvas added around it.
-                return image.resize(
-                    (preview_size, preview_size),
-                    Image.Resampling.LANCZOS,
-                )
-        except OSError as error:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-                "The current symbol-cell crop cannot be rendered as a thumbnail.",
-            ) from error
 
     def _read_cached(
         self,
@@ -593,28 +536,58 @@ def render_virtual_symbol_cell_png(*, artifact_root: Path, asset: SymbolCellRevi
     after all persisted source and render-provenance checks have passed.
     """
 
-    if asset.asset_mode != "virtual_source":
-        raise SymbolCellReviewError(
-            "SYMBOL_REFERENCE_VIRTUAL_ASSET_INVALID",
-            "Only a virtual symbol-cell asset can be materialized as a virtual reference.",
-        )
-    loader = CanonicalSourceLoader()
-    try:
-        frame = loader.load(
-            _managed_virtual_source_path(artifact_root.resolve(), asset),
-            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
-        )
-        image = _render_virtual_cell_image(asset=asset, frame=frame)
+    with VirtualSymbolCellImageRenderer(artifact_root) as renderer, renderer.render(asset) as image:
         output = BytesIO()
         image.save(output, format="PNG", optimize=False, compress_level=9)
         return output.getvalue()
-    except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
-        raise SymbolCellReviewError(
-            getattr(error, "code", "SYMBOL_REFERENCE_VIRTUAL_RENDER_FAILED"),
-            str(error),
-        ) from error
-    finally:
-        loader.clear()
+
+
+class VirtualSymbolCellImageRenderer:
+    """Reuse one attested source frame within a bounded execution only.
+
+    The existing canonical loader keeps at most one frame. Each cell still
+    validates source, geometry, render specification and rendered RGB checksum.
+    No pixels or files are cached beyond the caller's execution scope.
+    """
+
+    def __init__(self, artifact_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+        self._loader = CanonicalSourceLoader()
+        self._frame: CanonicalSourceFrame | None = None
+
+    def __enter__(self) -> VirtualSymbolCellImageRenderer:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self._loader.clear()
+        self._frame = None
+
+    def attest_source(self, source_path: Path, checksum: str) -> CanonicalSourceFrame:
+        """Load an attested managed original once for this source group."""
+        self._frame = self._loader.load(source_path, expected_source_checksum_sha256=checksum)
+        return self._frame
+
+    def render(self, asset: SymbolCellReviewAsset) -> Image.Image:
+        if asset.asset_mode != "virtual_source":
+            raise SymbolCellReviewError(
+                "SYMBOL_REFERENCE_VIRTUAL_ASSET_INVALID",
+                "Only a virtual symbol-cell asset can be materialized as a virtual reference.",
+            )
+        try:
+            checksum = _required(asset.source_checksum_sha256)
+            frame = self._frame
+            if frame is None or frame.source.source_checksum_sha256 != checksum:
+                frame = self._loader.load(
+                    _managed_virtual_source_path(self._artifact_root, asset),
+                    expected_source_checksum_sha256=checksum,
+                )
+                self._frame = frame
+            return _render_virtual_cell_image(asset=asset, frame=frame)
+        except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
+            raise SymbolCellReviewError(
+                getattr(error, "code", "SYMBOL_REFERENCE_VIRTUAL_RENDER_FAILED"),
+                str(error),
+            ) from error
 
 
 def _render_virtual_cell_image(*, asset: SymbolCellReviewAsset, frame: object) -> Image.Image:
@@ -626,21 +599,33 @@ def _render_virtual_cell_image(*, asset: SymbolCellReviewAsset, frame: object) -
         raise TypeError("frame must be a CanonicalSourceFrame")
     spec = dict(_required(asset.render_spec))
     _require_virtual_asset_contract(asset=asset, frame=frame, render_spec=spec)
-    configuration = _mapping(spec.get("configuration"), "configuration")
-    width = _positive_int(configuration.get("outputWidth"), "outputWidth")
-    height = _positive_int(configuration.get("outputHeight"), "outputHeight")
-    rgb = source_direct_warp_rgb(
-        frame.rgb,
-        source_quad=_quad(spec.get("paddedSourceQuad")),
-        output_width=width,
-        output_height=height,
-    )
+    rgb = render_spec_cell_rgb(render_spec=spec, frame=frame)
     if rgb_pixel_checksum_sha256(rgb) != _required(asset.rendered_pixel_checksum_sha256):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_PREVIEW_PIXEL_CHECKSUM_MISMATCH",
             "The virtual preview pixels differ from the current rendered-cell checksum.",
         )
     return Image.fromarray(np.asarray(rgb), mode="RGB")
+
+
+def render_spec_cell_rgb(
+    *, render_spec: Mapping[str, object], frame: CanonicalSourceFrame
+) -> NDArray[np.uint8]:
+    """The source-direct pixels of one stored cell render specification.
+
+    The single render every preview and the geometry correction revert
+    (TASK-0967) compare with a cell's ``rendered_pixel_checksum_sha256``.
+    """
+
+    configuration = _mapping(render_spec.get("configuration"), "configuration")
+    width = _positive_int(configuration.get("outputWidth"), "outputWidth")
+    height = _positive_int(configuration.get("outputHeight"), "outputHeight")
+    return source_direct_warp_rgb(
+        frame.rgb,
+        source_quad=_quad(render_spec.get("paddedSourceQuad")),
+        output_width=width,
+        output_height=height,
+    )
 
 
 def _managed_virtual_source_path(artifact_root: Path, asset: SymbolCellReviewAsset) -> Path:
@@ -926,6 +911,7 @@ __all__ = [
     "MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE",
     "SymbolCellPreviewTarget",
     "SymbolCellPreviewRendererMode",
+    "render_spec_cell_rgb",
     "render_virtual_symbol_cell_png",
     "symbol_cell_preview_renderer_fingerprint",
     "symbol_cell_preview_renderer_version",
@@ -933,4 +919,5 @@ __all__ = [
     "VirtualCellPreviewService",
     "VirtualCellPreviewTarget",
     "VirtualCellPreviewTile",
+    "VirtualSymbolCellImageRenderer",
 ]

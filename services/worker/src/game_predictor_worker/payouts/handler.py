@@ -12,7 +12,12 @@ from game_predictor_api.domain.rules import RulesVersionStatus
 
 from game_predictor_worker.domain.contracts import PayoutEvaluation
 from game_predictor_worker.domain.errors import DomainValidationError
-from game_predictor_worker.domain.payout import evaluate_payout, evaluate_payout_v2
+from game_predictor_worker.domain.payout import (
+    PAYOUT_V4_ALGORITHM_VERSION,
+    evaluate_payout,
+    evaluate_payout_v2,
+    payout_algorithm_version,
+)
 from game_predictor_worker.jobs.runtime import (
     JobExecutionContext,
     JobHandlerError,
@@ -188,6 +193,17 @@ def _validate_source(
         raise JobHandlerError(
             "UNSUPPORTED_PAYOUT_ALGORITHM",
             "The requested payout algorithm is not supported.",
+        )
+    if payout_algorithm_version(source.game) == PAYOUT_V4_ALGORITHM_VERSION:
+        # A game with a super game trigger symbol pays counts (D-535). Its
+        # results must never be stored under a v2/v3 label; precomputing
+        # payout-v4-wild-count is not supported by this job yet.
+        raise JobHandlerError(
+            "PAYOUT_ALGORITHM_GAME_MISMATCH",
+            (
+                "The game has a super game trigger symbol and is evaluated with "
+                f"{PAYOUT_V4_ALGORITHM_VERSION}, which payout precomputation does not support."
+            ),
         )
     if source.layout_count <= 0:
         raise JobHandlerError(

@@ -28,6 +28,11 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /Weryfikacja symboli/);
   assert.match(source, /wszystkie aktualne cropy[\s\S]*wybranej gry/);
   assert.match(source, /Symbol\s*<select/);
+  assert.match(source, /Katalog importu/);
+  assert.match(source, /Wszystkie katalogi importu/);
+  assert.match(source, /loadSymbolReviewImportFolders/);
+  assert.match(source, /importJobId: null/);
+  assert.match(source, /importFoldersState/);
   assert.match(source, /Wybierz grę/);
   assert.match(source, /Wybierz symbol lub zakres/);
   assert.match(source, /Na stronę\s*<select/);
@@ -35,7 +40,12 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /isSymbolReviewPageSize/);
   assert.match(source, />Wszystkie symbole</);
   assert.match(source, />Nierozpoznany \(\?\)</);
-  assert.doesNotMatch(source, /Pewność predykcji/);
+  assert.match(source, /Pewność rozpoznania/);
+  assert.match(source, /Dokładnie 100%/);
+  assert.match(source, /80–&lt;100%/);
+  assert.match(source, /60–&lt;80%/);
+  assert.match(source, /Poniżej 60%/);
+  assert.match(source, /symbolReviewConfidenceRange/);
   assert.match(source, /<legend>Stan weryfikacji<\/legend>/);
   assert.match(source, /name="symbol-review-state"/);
   assert.match(source, /state: 'pending'/);
@@ -48,6 +58,7 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /state: filters\.state/);
   assert.match(source, /symbolId: null/);
   assert.match(source, /symbolReviewFiltersReady\(filters\)/);
+  assert.match(source, /filters\.importJobId \?\? null/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
   assert.match(source, /mark_unreadable/);
@@ -91,7 +102,7 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.doesNotMatch(source, />\s*Nieczytelny symbol\s*</);
   assert.match(source, /className=\{styles\.qualityActions\}/);
   assert.match(styles, /\.qualityActions\s*\{[\s\S]*?flex-wrap:\s*nowrap;/);
-  assert.match(source, /Zmiana gry lub symbolu wyczyści bieżące zaznaczenie/);
+  assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
   assert.match(source, /activeOperations/);
@@ -136,8 +147,14 @@ test('jumps directly to a numbered review page without hydrating every page in b
   // loop).
   assert.doesNotMatch(jumpFlow, /while \(pageNumber !== targetPageNumber\)/);
   assert.match(jumpFlow, /skipSymbolReviewPages/);
-  assert.match(jumpFlow, /const skipCount = \(Math\.abs\(hops\) - 1\) \* pageFilters\.limit;/);
-  assert.match(jumpFlow, /findCachedSymbolReviewPage\(workspace, targetPageNumber\)/);
+  assert.match(
+    jumpFlow,
+    /const skipCount = \(Math\.abs\(hops\) - 1\) \* pageFilters\.limit;/,
+  );
+  assert.match(
+    jumpFlow,
+    /findCachedSymbolReviewPage\(\s*workspace,\s*targetPageNumber,?\s*\)/,
+  );
   assert.doesNotMatch(
     jumpFlow,
     /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
@@ -149,7 +166,9 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /Zapisywanie zmiany/);
   assert.match(source, /pendingCellIds/);
   assert.match(source, /hiddenCellIds/);
+  assert.match(source, /deselectedCellIds/);
   assert.match(styles, /\.cardPending/);
+  assert.match(styles, /\.cardDeselected/);
   assert.match(styles, /\.cardBadge/);
   assert.match(source, /className=\{styles\.sequenceNumber\}/);
   assert.match(source, /\{item\.sequenceNumber\}/);
@@ -160,15 +179,16 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /Poza kadrem/);
   assert.match(source, /item\.cropApprovalState === 'changed_since_approval'/);
   assert.match(styles, /symbolReviewSpin/);
+  assert.match(source, /Ponownie zaznacz odznaczony/);
   assert.match(source, /applySingleSymbolReviewDecision/);
-  assert.match(source, /Symbol został zmieniony/);
+  assert.match(source, /Symbol zapisano i zatwierdzono/);
   assert.match(styles, /\.toastSuccess/);
   assert.match(styles, /bottom: 50px/);
   assert.match(styles, /left: 50px/);
   assert.match(styles, /\.operationLoader/);
 });
 
-test('removes successful targets locally without reloading or refilling the page', () => {
+test('refreshes after a direct decision but preserves the current page after a bulk operation', () => {
   const directStart = source.indexOf(
     'const result = await applySingleSymbolReviewDecision',
   );
@@ -176,18 +196,49 @@ test('removes successful targets locally without reloading or refilling the page
     'const command = createSymbolReviewBulkCommand',
   );
   const directSuccess = source.slice(directStart, directEnd);
-  assert.match(directSuccess, /setHiddenCellIds/);
-  assert.match(directSuccess, /target\.cellReviewId/);
+  assert.match(directSuccess, /refreshDecisionPage\(\)/);
   assert.doesNotMatch(directSuccess, /setReloadRevision/);
   assert.doesNotMatch(directSuccess, /setPageState\('loading'\)/);
 
   const bulkStart = source.indexOf('const finishOperation = useCallback');
   const bulkEnd = source.indexOf('async function startPreviewedOperation');
   const bulkFinish = source.slice(bulkStart, bulkEnd);
+  assert.doesNotMatch(bulkFinish, /refreshDecisionPage\(\)/);
+  assert.match(bulkFinish, /setSettledCellIds/);
   assert.match(bulkFinish, /tracked\.submittedCellIds/);
-  assert.match(bulkFinish, /setHiddenCellIds/);
+  assert.match(
+    bulkFinish,
+    /tracked\.operation\.gameId === filtersRef\.current\.gameId/,
+  );
   assert.doesNotMatch(bulkFinish, /setReloadRevision/);
   assert.doesNotMatch(bulkFinish, /setPageState\('loading'\)/);
+  assert.match(source, />\s*Odśwież cropy\s*</);
+  assert.match(source, /settledCellIds\.has\(item\.id\)/);
+  assert.match(styles, /\.cardSettled\s*\{/);
+});
+
+test('can retry a stalled crop page without clearing its local selection', () => {
+  const retryStart = source.indexOf('const retryPageLoadPreservingSelection');
+  const retryEnd = source.indexOf('const requestFilterChange', retryStart);
+  const retry = source.slice(retryStart, retryEnd);
+
+  assert.match(source, /Ponów pobieranie cropów/);
+  assert.match(
+    source,
+    /Ponowienie pobierania zachowuje bieżącą stronę i zaznaczenia/,
+  );
+  assert.match(retry, /requestCoordinator\.cancel\('page'\)/);
+  assert.match(retry, /setDecisionPageRevision/);
+  assert.doesNotMatch(
+    retry,
+    /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
+  );
+  assert.doesNotMatch(retry, /dispatch\(\{ type: 'clear_page' \}\)/);
+  assert.doesNotMatch(retry, /setDeselectedCellIds\(new Set\(\)\)/);
+  assert.match(
+    source,
+    /projectionStatus\?\.status === 'ready' && currentPage !== null/,
+  );
 });
 
 test('retains previews for the active page while locally hiding decided cards', () => {

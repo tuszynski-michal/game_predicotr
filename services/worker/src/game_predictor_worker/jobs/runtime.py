@@ -382,7 +382,7 @@ class LocalJobWorker:
             raise ValueError("poll_interval_seconds must be positive.")
         while not should_stop():
             result = self.run_once()
-            if result is JobExecutionResult.NO_JOB:
+            if result in {JobExecutionResult.NO_JOB, JobExecutionResult.WAITING_FOR_STORAGE}:
                 sleep(poll_interval_seconds)
 
     def _fail_handler(

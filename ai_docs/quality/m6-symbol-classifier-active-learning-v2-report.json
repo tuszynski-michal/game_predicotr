@@ -58,7 +58,7 @@
     "seed": 61061,
     "weight_decay": 0.0001
   },
-  "datasetSha256": "99d0f943e4646a0e320bb4e5ca792bfbbf66522afad1135614b1753edffb6dc0",
+  "datasetSha256": "a30d14b8905e297460f5f76291b78e95a3e54ae488f34f74f3049d43e4276d54",
   "history": [
     {
       "epoch": 1,
@@ -280,7 +280,7 @@
   },
   "schemaVersion": 1,
   "splitSeed": "game-predictor-m6-split-v1",
-  "splitSha256": "4b91e36852d1cd2566be2caf65c27ac720d52aef06a208b1d97e7b23e6b59a99",
+  "splitSha256": "11028289dec53703b2e3b579e5d39d89276115d2c148d2a84844ac1fdfcd6a46",
   "status": "bootstrap",
   "testMetrics": {
     "accuracy": 0.68715084,

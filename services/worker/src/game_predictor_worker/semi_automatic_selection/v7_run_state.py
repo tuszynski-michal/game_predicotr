@@ -46,7 +46,12 @@ from .v7_quality import (
     V7SymbolContentLoss,
     rank_v7_representatives,
 )
-from .v7_range_proof import V7RangeProofKind, V7RangeProofResult, V7WeakFrameEvidence
+from .v7_range_proof import (
+    V7LabelEvidence,
+    V7RangeProofKind,
+    V7RangeProofResult,
+    V7WeakFrameEvidence,
+)
 
 V7_RUN_STATE_VERSION = "v7-scan-run-state-v1"
 V7_RUN_STATE_CHECKPOINT_SCHEMA_VERSION = 1
@@ -145,12 +150,15 @@ class V7PinnedSourceManifest:
             _fail("V7_SOURCE_MANIFEST_INVALID", "The v7 source manifest identity is invalid.")
 
     def as_dict(self) -> dict[str, object]:
+        return {**self.as_header_dict(), "sources": [item.as_dict() for item in self.sources]}
+
+    def as_header_dict(self) -> dict[str, object]:
+        """Return constant-size manifest identity without visiting source entries."""
         return {
             "manifestChecksumSha256": self.manifest_checksum_sha256,
             "selectionId": str(self.selection_id),
             "sourceFingerprint": self.source_fingerprint,
             "sourceRoot": str(self.source_root),
-            "sources": [item.as_dict() for item in self.sources],
         }
 
     @classmethod
@@ -190,8 +198,24 @@ class V7ScanObservation:
     quality: V7FrameQuality | None
     source_error_code: str | None = None
     weak_evidence: V7WeakFrameEvidence | None = None
+    labels: tuple[V7LabelEvidence, ...] = ()
+    observed_position_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
+        label_positions = tuple(label.position_index for label in self.labels)
+        if (
+            any(
+                type(position) is not int or not 0 <= position < 9
+                for position in self.observed_position_indices
+            )
+            or len(set(self.observed_position_indices)) != len(self.observed_position_indices)
+            or any(
+                type(position) is not int or not 0 <= position < 9 for position in label_positions
+            )
+            or len(set(label_positions)) != len(label_positions)
+            or not set(label_positions).issubset(self.observed_position_indices)
+        ):
+            _fail("V7_SCAN_OBSERVATION_INVALID", "V7 observed label positions are invalid.")
         if self.source_index < 0:
             _fail("V7_SCAN_OBSERVATION_INVALID", "V7 source index is invalid.")
         if self.source_error_code is not None:
@@ -200,6 +224,8 @@ class V7ScanObservation:
                 or self.proof.kind is not V7RangeProofKind.NONE
                 or self.quality is not None
                 or self.weak_evidence is not None
+                or self.labels
+                or self.observed_position_indices
             ):
                 _fail("V7_SCAN_OBSERVATION_INVALID", "A V7 source error is invalid.")
         elif self.quality is None:
@@ -236,6 +262,7 @@ class V7ScanRunState:
         self._phase = V7RunStatePhase.SCANNING
         self._qualities: dict[int, V7FrameQuality] = {}
         self._source_errors: dict[int, str] = {}
+        self._diagnostics: dict[int, dict[str, object]] = {}
         self._finalization: V7RunFinalization | None = None
         if checkpoint is not None:
             self._restore(checkpoint)
@@ -255,6 +282,10 @@ class V7ScanRunState:
     @property
     def source_errors(self) -> Mapping[int, str]:
         return dict(self._source_errors)
+
+    @property
+    def source_error_count(self) -> int:
+        return len(self._source_errors)
 
     @property
     def finalization(self) -> V7RunFinalization | None:
@@ -319,6 +350,7 @@ class V7ScanRunState:
             self._qualities.pop(source.source_index, None)
             self._source_errors.pop(source.source_index, None)
             raise V7RunStateError("V7_SCAN_OBSERVATION_INVALID", str(error)) from error
+        self._diagnostics[source.source_index] = _observation_diagnostics(observation)
 
     def complete_scan(self) -> None:
         """Close only after every pinned source produced one durable result."""
@@ -363,6 +395,25 @@ class V7ScanRunState:
         self._phase = V7RunStatePhase.FINALIZED
         return self._finalization
 
+    def diagnostic_checkpoint(self, source_indexes: tuple[int, ...]) -> dict[str, object]:
+        """Project only a newly consumed batch, without traversing previous results."""
+        if any(index < 0 or index >= self.cursors.next_source_index for index in source_indexes):
+            _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "Diagnostic source index is not consumed.")
+        return {
+            "sourceManifest": self._manifest.as_header_dict(),
+            "frameQualities": [
+                _frame_quality_as_dict(self._qualities[index])
+                for index in source_indexes
+                if index in self._qualities
+            ],
+            "sourceErrors": [
+                {"reasonCode": self._source_errors[index], "sourceIndex": index}
+                for index in source_indexes
+                if index in self._source_errors
+            ],
+            "sourceDiagnostics": [self._diagnostics[index] for index in source_indexes],
+        }
+
     def checkpoint(self) -> dict[str, object]:
         return {
             "borderStyle": self._border_style.value,
@@ -378,6 +429,7 @@ class V7ScanRunState:
                 {"reasonCode": reason, "sourceIndex": index}
                 for index, reason in sorted(self._source_errors.items())
             ],
+            "sourceDiagnostics": [self._diagnostics[index] for index in sorted(self._diagnostics)],
             "sourceManifest": self._manifest.as_dict(),
             "tracker": self._tracker.checkpoint(),
         }
@@ -404,8 +456,16 @@ class V7ScanRunState:
             phase = V7RunStatePhase(_string(checkpoint["phase"]))
             qualities = _frame_qualities(checkpoint["frameQualities"], self._manifest)
             source_errors = _source_errors(checkpoint["sourceErrors"], self._manifest)
+            diagnostics = _restore_diagnostics(
+                checkpoint.get("sourceDiagnostics", []),
+                qualities,
+                source_errors,
+                tracker.cursors.next_source_index,
+            )
             finalization = _finalization(checkpoint.get("finalization"))
-        except V7RunStateError:
+        except V7RunStateError as error:
+            if error.code == "V7_SCAN_OBSERVATION_INVALID":
+                raise V7RunStateError("V7_RUN_STATE_CHECKPOINT_INVALID", str(error)) from error
             raise
         except (KeyError, TypeError, ValueError, V7OccurrenceError, V7QualityError) as error:
             raise V7RunStateError(
@@ -424,6 +484,7 @@ class V7ScanRunState:
         self._phase = phase
         self._qualities = qualities
         self._source_errors = source_errors
+        self._diagnostics = diagnostics
         self._finalization = finalization
 
     def _source_for(self, source_index: int) -> V7PinnedSource:
@@ -501,6 +562,82 @@ def _validate_restored_state(
             raise V7RunStateError("V7_RUN_STATE_CHECKPOINT_INVALID", str(error)) from error
         if finalization != expected:
             _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "V7 proposals do not match durable ranking.")
+
+
+def _observation_diagnostics(observation: V7ScanObservation) -> dict[str, object]:
+    proof = observation.proof
+    return {
+        "sourceIndex": observation.source_index,
+        "sourceErrorCode": observation.source_error_code,
+        "observedPositionIndices": list(observation.observed_position_indices),
+        "labels": [
+            {
+                "positionIndex": label.position_index,
+                "sequenceNumber": label.sequence_number,
+                "recognitionConfidence": label.recognition_confidence,
+                "positionConfidence": label.position_confidence,
+            }
+            for label in observation.labels
+        ],
+        "proof": {
+            "kind": proof.kind.value,
+            "rangeStart": None if proof.sequence_range is None else proof.sequence_range.start,
+            "rangeEnd": None if proof.sequence_range is None else proof.sequence_range.end,
+            "supportingSourceIds": list(proof.supporting_source_ids),
+            "reasonCodes": list(proof.reason_codes),
+        },
+    }
+
+
+def _restore_diagnostics(
+    value: object,
+    qualities: dict[int, V7FrameQuality],
+    errors: dict[int, str],
+    next_index: int,
+) -> dict[int, dict[str, object]]:
+    result: dict[int, dict[str, object]] = {}
+    for item in _items(value):
+        raw = _mapping(item, "V7 source diagnostics must be an object.")
+        index = _int(raw["sourceIndex"])
+        if index in result or not 0 <= index < next_index:
+            _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "Foreign/duplicate V7 diagnostics.")
+        proof_raw = _mapping(raw["proof"], "V7 source proof must be an object.")
+        start, end = proof_raw.get("rangeStart"), proof_raw.get("rangeEnd")
+        sequence_range = (
+            None
+            if start is None and end is None
+            else SemiAutomaticSelectionRange(_int(start), _int(end))
+        )
+        labels = []
+        for label_value in _items(raw["labels"]):
+            label = _mapping(label_value, "V7 label must be an object.")
+            labels.append(
+                V7LabelEvidence(
+                    _int(label["positionIndex"]),
+                    _int(label["sequenceNumber"]),
+                    _float(label["recognitionConfidence"]),
+                    _float(label["positionConfidence"]),
+                )
+            )
+        observation = V7ScanObservation(
+            source_index=index,
+            proof=V7RangeProofResult(
+                V7RangeProofKind(_string(proof_raw["kind"])),
+                sequence_range,
+                tuple(_string(value) for value in _items(proof_raw["supportingSourceIds"])),
+                tuple(_string(value) for value in _items(proof_raw["reasonCodes"])),
+            ),
+            quality=qualities.get(index),
+            source_error_code=errors.get(index),
+            labels=tuple(labels),
+            observed_position_indices=tuple(
+                _int(value) for value in _items(raw["observedPositionIndices"])
+            ),
+        )
+        if _observation_diagnostics(observation) != raw:
+            _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "V7 source diagnostics are inconsistent.")
+        result[index] = raw
+    return result
 
 
 def _source_id(source: SemiAutomaticSelectionSource) -> str:
@@ -722,6 +859,12 @@ def _sha256(value: object) -> str:
     if len(result) != 64 or any(character not in "0123456789abcdef" for character in result):
         _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "V7 checkpoint SHA-256 is invalid.")
     return result
+
+
+def _float(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        _fail("V7_RUN_STATE_CHECKPOINT_INVALID", "V7 label confidence is invalid.")
+    return float(value)
 
 
 def _fail(code: str, message: str) -> NoReturn:

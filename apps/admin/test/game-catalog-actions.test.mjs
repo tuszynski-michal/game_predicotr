@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   archiveGameIdentity,
+  loadGridEngineProfiles,
+  loadSuperGameKinds,
   restoreGameIdentity,
   saveGameIdentity,
 } from '../src/features/games/game-catalog-actions.ts';
@@ -24,10 +26,71 @@ function createClient(overrides = {}) {
     createGame: async () => ({ data: savedGame }),
     getGame: async () => ({ data: savedGame }),
     listGames: async () => ({ data: [] }),
+    listGridEngineProfiles: async () => ({ data: [] }),
+    listSuperGameKinds: async () => ({ data: [] }),
     updateGame: async () => ({ data: savedGame }),
     ...overrides,
   };
 }
+
+test('creates a game with a grid engine profile as its page format', async () => {
+  let request;
+  const mumieGame = {
+    ...savedGame,
+    shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+  };
+  const client = createClient({
+    createGame: async (body) => {
+      request = body;
+      return { data: mumieGame };
+    },
+  });
+
+  const result = await saveGameIdentity(
+    client,
+    { mode: 'create' },
+    {
+      code: 'mumie',
+      expectedLayoutCount: '500000',
+      name: 'Mumie',
+      shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+      status: 'draft',
+    },
+  );
+
+  assert.equal(request.shapeGeometryConfiguration, 'grid_profile_mumie_v1');
+  assert.deepEqual(result, { game: mumieGame, ok: true });
+});
+
+test('loads grid engine profiles and reports a failure without throwing', async () => {
+  const profile = { configuration: 'grid_profile_777_v2', status: 'missing' };
+  assert.deepEqual(
+    await loadGridEngineProfiles(
+      createClient({
+        listGridEngineProfiles: async () => ({ data: [profile] }),
+      }),
+    ),
+    { ok: true, profiles: [profile] },
+  );
+  const failed = await loadGridEngineProfiles(
+    createClient({
+      listGridEngineProfiles: async () => ({
+        error: { code: 'X', details: {}, message: 'broken' },
+      }),
+    }),
+  );
+  assert.equal(failed.ok, false);
+  assert.match(failed.error, /broken/);
+  const offline = await loadGridEngineProfiles(
+    createClient({
+      listGridEngineProfiles: async () => {
+        throw new Error('socket');
+      },
+    }),
+  );
+  assert.equal(offline.ok, false);
+  assert.match(offline.error, /modele silnika siatek/);
+});
 
 test('creates a game with its stable code through the typed client boundary', async () => {
   let request;
@@ -47,6 +110,7 @@ test('creates a game with its stable code through the typed client boundary', as
       name: 'Game 1',
       shapeGeometryConfiguration: 'framed_full_page_v2',
       status: 'active',
+      superGameKind: 'none',
     },
   );
 
@@ -56,6 +120,7 @@ test('creates a game with its stable code through the typed client boundary', as
     name: 'Game 1',
     shapeGeometryConfiguration: 'framed_full_page_v2',
     status: 'active',
+    superGameKind: 'none',
   });
   assert.deepEqual(result, { game: savedGame, ok: true });
 });
@@ -80,6 +145,7 @@ test('edits only mutable game identity fields and never sends the stable code', 
       name: 'Renamed',
       shapeGeometryConfiguration: 'requires_clarification',
       status: 'draft',
+      superGameKind: 'wild_super_spins',
     },
   );
 
@@ -89,6 +155,7 @@ test('edits only mutable game identity fields and never sends the stable code', 
     name: 'Renamed',
     shapeGeometryConfiguration: 'requires_clarification',
     status: 'draft',
+    superGameKind: 'wild_super_spins',
   });
   assert.equal(result.ok, true);
 });
@@ -173,4 +240,66 @@ test('restores an archived game as a draft without changing its identity', async
     status: 'draft',
   });
   assert.deepEqual(result, { game: restoredGame, ok: true });
+});
+
+test('TASK-0931: loads the super game kinds and reports a failure without throwing', async () => {
+  const kinds = [
+    { code: 'none', label: 'Brak' },
+    { code: 'wild_super_spins', label: 'Wild super spins' },
+  ];
+  assert.deepEqual(
+    await loadSuperGameKinds(
+      createClient({ listSuperGameKinds: async () => ({ data: kinds }) }),
+    ),
+    { kinds, ok: true },
+  );
+  const failed = await loadSuperGameKinds(
+    createClient({
+      listSuperGameKinds: async () => ({
+        error: { code: 'X', details: {}, message: 'broken' },
+      }),
+    }),
+  );
+  assert.equal(failed.ok, false);
+  assert.match(failed.error, /broken/);
+  const offline = await loadSuperGameKinds(
+    createClient({
+      listSuperGameKinds: async () => {
+        throw new Error('socket');
+      },
+    }),
+  );
+  assert.equal(offline.ok, false);
+  assert.match(offline.error, /rodzaje supergry/);
+});
+
+test('TASK-0931: a lost edit response reconciles only with the saved super game kind', async () => {
+  const draft = {
+    code: savedGame.code,
+    expectedLayoutCount: '500000',
+    name: savedGame.name,
+    shapeGeometryConfiguration: 'requires_clarification',
+    status: 'active',
+    superGameKind: 'wild_super_spins',
+  };
+  const stale = await saveGameIdentity(
+    createClient({
+      getGame: async () => ({ data: { ...savedGame, superGameKind: 'none' } }),
+      updateGame: async () => ({ data: undefined }),
+    }),
+    { gameId: savedGame.id, mode: 'edit' },
+    draft,
+  );
+  const saved = { ...savedGame, superGameKind: 'wild_super_spins' };
+  const reconciled = await saveGameIdentity(
+    createClient({
+      getGame: async () => ({ data: saved }),
+      updateGame: async () => ({ data: undefined }),
+    }),
+    { gameId: savedGame.id, mode: 'edit' },
+    draft,
+  );
+
+  assert.equal(stale.ok, false);
+  assert.deepEqual(reconciled, { game: saved, ok: true });
 });

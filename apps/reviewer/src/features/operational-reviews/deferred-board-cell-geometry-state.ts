@@ -6,8 +6,19 @@ import type {
   BoardCellGeometryPendingResponse,
   OperationalImageReviewGeometryPoint,
 } from '@game-predictor/admin-api-client';
+import {
+  completeManualGridFlags,
+  manualGridQualification,
+  type ManualGridFlags,
+} from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
+import {
+  boardLatticeQualification,
+  boardLatticeTransportCorners,
+  boardLatticePayload,
+  type BoardLatticeNodes,
+} from './board-lattice-state.ts';
 
 const REASON_LABELS: Readonly<Record<BoardCellGeometryPendingReason, string>> =
   {
@@ -39,13 +50,45 @@ export function deferredBoardCellGeometryCorners(
 export function deferredBoardCellGeometryPreviewCommand(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
+  flags: ManualGridFlags = completeManualGridFlags,
+  latticeNodes?: BoardLatticeNodes,
 ): BoardCellGeometryManualPreviewCommand {
+  const qualification =
+    latticeNodes === undefined
+      ? manualGridQualification(
+          flags,
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        )
+      : boardLatticeQualification(
+          flags,
+          latticeNodes,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
   return {
-    corners,
+    corners:
+      latticeNodes === undefined
+        ? corners
+        : boardLatticeTransportCorners(latticeNodes),
+    ...(latticeNodes === undefined
+      ? {}
+      : { latticeNodes: boardLatticePayload(latticeNodes) }),
+    ...(context.expectedProposalChecksumSha256 == null
+      ? {}
+      : {
+          expectedProposalChecksumSha256:
+            context.expectedProposalChecksumSha256,
+        }),
     expectedGeometryRevision: context.item.expectedGeometryRevision,
     expectedManifestChecksumSha256:
       context.item.processingManifestChecksumSha256,
     expectedResolutionRevision: context.item.expectedReviewResolutionRevision,
+    geometryQualification:
+      qualification.completenessStatus === 'pending_partial'
+        ? qualification
+        : null,
   };
 }
 
@@ -53,9 +96,16 @@ export function deferredBoardCellGeometryResolutionCommand(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
   idempotencyKey: string,
+  flags: ManualGridFlags = completeManualGridFlags,
+  latticeNodes?: BoardLatticeNodes,
 ): BoardCellGeometryManualResolutionCommand {
   return {
-    ...deferredBoardCellGeometryPreviewCommand(context, corners),
+    ...deferredBoardCellGeometryPreviewCommand(
+      context,
+      corners,
+      flags,
+      latticeNodes,
+    ),
     correctedBy: 'reviewer-operator',
     idempotencyKey,
   };
@@ -64,9 +114,16 @@ export function deferredBoardCellGeometryResolutionCommand(
 export function deferredBoardCellGeometryCommandKey(
   context: BoardCellGeometryCorrectionContextResponse,
   corners: OperationalReviewGeometryCorners,
+  flags: ManualGridFlags = completeManualGridFlags,
+  latticeNodes?: BoardLatticeNodes,
 ): string {
   return JSON.stringify(
-    deferredBoardCellGeometryPreviewCommand(context, corners),
+    deferredBoardCellGeometryPreviewCommand(
+      context,
+      corners,
+      flags,
+      latticeNodes,
+    ),
   );
 }
 

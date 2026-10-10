@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
@@ -28,11 +29,21 @@ from game_predictor_api.storage.models import (
     MobileReleaseModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 
 class SqlAlchemyCleanupRepository(CleanupRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        cross_game_session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         self._session = session
+        # TASK-0797: the game session reads one game (application role, RLS).
+        # The safety checks that must see *other* games (shared artifacts,
+        # shared executions, multi-game releases) read through the cross-game
+        # schema-owner session; without it they would silently see nothing.
+        self._cross_game_session_factory = cross_game_session_factory
 
     def release_snapshot(
         self,
@@ -107,6 +118,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         counts = self._game_counts(game_id)
         artifacts, retained_shared = self._game_artifacts(game_id)
         blockers: list[str] = []
+        if self._game_has_grid_shadow_history(game_id):
+            blockers.append("GRID_SHADOW_HISTORY_PRESENT")
         if self._count(
             """
             SELECT count(*) FROM jobs
@@ -134,7 +147,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             game_id=game_id,
         ):
             blockers.append("ACTIVE_REVIEWER_SESSION")
-        if self._count(
+        if self._cross_game_count(
             """
             SELECT count(*)
             FROM mobile_release_games target
@@ -244,10 +257,27 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         snapshot: CleanupSnapshot,
         result: CleanupResult,
     ) -> None:
+        if self._game_has_grid_shadow_history(snapshot.target_id):
+            raise CleanupConflictError(
+                "CLEANUP_BLOCKED",
+                "The game gained protected geometry shadow history.",
+                details={"blockers": ["GRID_SHADOW_HISTORY_PRESENT"]},
+            )
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
+        record_super_game_input_change(
+            self._session, snapshot.target_id, source="game_layout_reset"
+        )
         self._record(result)
+
+    def _game_has_grid_shadow_history(self, game_id: UUID) -> bool:
+        return bool(
+            self._count(
+                "SELECT count(*) FROM image_geometry_shadow_results WHERE game_id = :game_id",
+                game_id=game_id,
+            )
+        )
 
     def delete_board_sources(
         self,
@@ -299,10 +329,15 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return tuple(CleanupCount(str(name), int(value or 0)) for name, value in row.items())
 
     def _game_artifacts(self, game_id: UUID) -> tuple[tuple[str, ...], int]:
-        rows = self._session.execute(
-            text(_GAME_ARTIFACTS_SQL),
-            {"game_id": game_id},
-        ).mappings()
+        # "shared" must see references of every game, or files still used by
+        # another game would be deleted (TASK-0797).
+        with self._cross_game_reader() as session:
+            rows = tuple(
+                session.execute(
+                    text(_GAME_ARTIFACTS_SQL),
+                    {"game_id": game_id},
+                ).mappings()
+            )
         deleted: list[str] = []
         retained = 0
         for row in rows:
@@ -431,8 +466,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "SELECT id FROM image_source_geometry_revisions WHERE source_image_id IN :source_ids",
             source_ids=source_ids,
         )
-        observation_ids = self._ids(
-            "SELECT id FROM cell_observations WHERE recognized_board_id IN :board_ids",
+        render_manifest_count = self._count(
+            "SELECT count(*) FROM board_render_manifests WHERE recognized_board_id IN :board_ids",
             board_ids=board_ids,
         )
         cohort_ids = tuple(
@@ -509,7 +544,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             board_ids=board_ids,
             review_item_ids=review_item_ids,
             cell_review_ids=cell_review_ids,
-            observation_ids=observation_ids,
+            render_manifest_count=render_manifest_count,
             source_geometry_ids=source_geometry_ids,
             cohort_ids=cohort_ids,
             model_ids=model_ids,
@@ -523,12 +558,24 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             source_job_execution_pairs=tuple(sorted((row[4], row[3]) for row in source_rows)),
             active_model_affected=active_model_affected,
             active_model_survives=active_model_id is not None and not active_model_affected,
+            deactivation_history_affected=latest_deactivation_selected(
+                activation_rows, activation_ids
+            ),
             artifact_paths=artifact_paths,
             retained_shared_artifact_count=0,
         )
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
+        if getattr(scope, "deactivation_history_affected", False):
+            blockers.append("SYMBOL_MODEL_DEACTIVATION_HISTORY_PRESENT")
+        if scope.source_ids and self._count(
+            "SELECT count(*) FROM image_geometry_shadow_results "
+            "WHERE game_id = :game_id AND source_image_id IN :source_ids",
+            game_id=scope.game_id,
+            source_ids=scope.source_ids,
+        ):
+            blockers.append("GRID_SHADOW_HISTORY_PRESENT")
         if self._count(
             """
             SELECT count(*) FROM jobs
@@ -545,7 +592,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             game_id=scope.game_id,
         ):
             blockers.append("ACTIVE_REVIEWER_SESSION")
-        if scope.release_ids and self._count(
+        if scope.release_ids and self._cross_game_count(
             """
             SELECT count(*) FROM mobile_release_games target
             WHERE target.mobile_release_id IN :release_ids
@@ -592,7 +639,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             CleanupCount("source_geometry_revisions", len(scope.source_geometry_ids)),
             CleanupCount("recognized_boards", len(scope.board_ids)),
             CleanupCount("image_review_items", len(scope.review_item_ids)),
-            CleanupCount("cell_observations", len(scope.observation_ids)),
+            CleanupCount("board_render_manifests", scope.render_manifest_count),
             CleanupCount("symbol_review_cells", len(scope.cell_review_ids)),
             CleanupCount("canonical_sequences", len(scope.selected_sequences)),
             CleanupCount("training_cohorts", len(scope.cohort_ids)),
@@ -643,14 +690,6 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 "CROSS JOIN LATERAL jsonb_array_elements(geometry.crop_artifacts) crop(value) "
                 "WHERE geometry.recognized_board_id IN :board_ids "
                 "AND crop.value->>'cropRelativePath' IS NOT NULL",
-                board_ids=board_ids,
-            )
-        )
-        paths.update(
-            self._paths(
-                "SELECT crop_relative_path FROM cell_observations "
-                "WHERE recognized_board_id IN :board_ids "
-                "AND crop_relative_path IS NOT NULL",
                 board_ids=board_ids,
             )
         )
@@ -828,8 +867,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             review_item_ids=scope.review_item_ids,
         )
         self._delete(
-            "DELETE FROM cell_observations WHERE id IN :observation_ids",
-            observation_ids=scope.observation_ids,
+            "DELETE FROM board_render_manifests WHERE recognized_board_id IN :board_ids",
+            board_ids=scope.board_ids,
         )
         self._delete(
             "DELETE FROM recognized_boards WHERE id IN :board_ids", board_ids=scope.board_ids
@@ -852,10 +891,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         self._delete(
             "DELETE FROM source_images WHERE id IN :source_ids", source_ids=scope.source_ids
         )
-        self._delete(
-            "DELETE FROM image_review_queue_states WHERE import_job_id IN :import_job_ids",
-            import_job_ids=scope.import_job_ids,
-        )
+        # The review-item delete trigger maintains each import's queue counts
+        # and removes the state only after its last item. A partial source
+        # cleanup must keep the state for the next batch and surviving items.
         self._delete(
             "DELETE FROM image_symbol_review_states WHERE game_id = :game_id",
             game_id=scope.game_id,
@@ -864,6 +902,10 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "DELETE FROM image_board_search_projection_states WHERE game_id = :game_id",
             game_id=scope.game_id,
         )
+        # Deleting boards, cells and prediction revisions changes the super
+        # game derivation input; recorded in this cleanup transaction, after the
+        # symbol-review state row (same lock order as the cell write-through).
+        record_super_game_input_change(self._session, scope.game_id, source="board_source_cleanup")
         for job_id, execution_key in scope.source_job_execution_pairs:
             self._session.execute(
                 text(
@@ -882,6 +924,21 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 {"execution_keys": scope.execution_keys},
             )
         )
+        # Links of other games keep an execution alive; this game's session
+        # cannot see them (TASK-0797), the cross-game owner reader can.
+        if self._cross_game_session_factory is not None and scope.execution_keys:
+            with self._cross_game_reader() as session:
+                shared_execution_keys.update(
+                    session.scalars(
+                        self._bound_statement(
+                            "SELECT DISTINCT file_execution_key FROM image_import_job_files "
+                            "WHERE file_execution_key IN :execution_keys "
+                            "AND game_id <> :other_than",
+                            {"execution_keys": scope.execution_keys},
+                        ),
+                        {"execution_keys": scope.execution_keys, "other_than": scope.game_id},
+                    )
+                )
         unshared_execution_keys = tuple(
             key for key in scope.execution_keys if key not in shared_execution_keys
         )
@@ -905,6 +962,27 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return tuple(
             self._session.scalars(self._bound_statement(statement, parameters), parameters)
         )
+
+    @contextmanager
+    def _cross_game_reader(self) -> Iterator[Session]:
+        if self._cross_game_session_factory is None:
+            yield self._session
+            return
+        with self._cross_game_session_factory() as session:
+            try:
+                yield session
+            finally:
+                session.rollback()
+
+    def _cross_game_count(self, statement: str, **parameters: object) -> int:
+        if self._cross_game_session_factory is None:
+            return self._count(statement, **parameters)
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return 0
+        with self._cross_game_reader() as session:
+            return int(
+                session.scalar(self._bound_statement(statement, parameters), parameters) or 0
+            )
 
     def _paths(self, statement: str, **parameters: object) -> tuple[str, ...]:
         if any(isinstance(value, tuple) and not value for value in parameters.values()):
@@ -941,7 +1019,7 @@ class _BoardSourceScope:
     board_ids: tuple[UUID, ...]
     review_item_ids: tuple[UUID, ...]
     cell_review_ids: tuple[UUID, ...]
-    observation_ids: tuple[UUID, ...]
+    render_manifest_count: int
     source_geometry_ids: tuple[UUID, ...]
     cohort_ids: tuple[UUID, ...]
     model_ids: tuple[UUID, ...]
@@ -957,6 +1035,18 @@ class _BoardSourceScope:
     active_model_survives: bool
     artifact_paths: tuple[str, ...]
     retained_shared_artifact_count: int
+    deactivation_history_affected: bool = False
+
+
+def latest_deactivation_selected(
+    activation_rows: Sequence[Sequence[object]], activation_ids: tuple[UUID, ...]
+) -> bool:
+    """Never expose an earlier active model by deleting the current off event."""
+    return bool(
+        activation_rows
+        and activation_rows[0][1] is None
+        and activation_rows[0][0] in activation_ids
+    )
 
 
 def _range_confirmation_target(
@@ -1088,10 +1178,6 @@ WITH refs(path, game_id) AS (
   SELECT b.board_relative_path, j.game_id FROM recognized_boards b
     JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
   UNION ALL
-  SELECT c.crop_relative_path, j.game_id FROM cell_observations c
-    JOIN recognized_boards b ON b.id = c.recognized_board_id
-    JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
-  UNION ALL
   SELECT g.board_relative_path, j.game_id FROM image_board_geometry_revisions g
     JOIN recognized_boards b ON b.id = g.recognized_board_id
     JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
@@ -1171,7 +1257,7 @@ _GAME_RESET_STATEMENTS = (
     """DELETE FROM image_review_items WHERE recognized_board_id IN
        (SELECT b.id FROM recognized_boards b JOIN source_images s ON s.id = b.source_image_id
         JOIN jobs j ON j.id = s.import_job_id WHERE j.game_id = :game_id)""",
-    """DELETE FROM cell_observations WHERE recognized_board_id IN
+    """DELETE FROM board_render_manifests WHERE recognized_board_id IN
        (SELECT b.id FROM recognized_boards b JOIN source_images s ON s.id = b.source_image_id
         JOIN jobs j ON j.id = s.import_job_id WHERE j.game_id = :game_id)""",
     """DELETE FROM recognized_boards WHERE source_image_id IN
@@ -1199,6 +1285,12 @@ _GAME_RESET_STATEMENTS = (
     """DELETE FROM paylines WHERE rules_version_id IN
        (SELECT id FROM rules_versions WHERE game_id = :game_id)""",
     "DELETE FROM rules_versions WHERE game_id = :game_id",
+    # TASK-0933: derived series reference symbols (super symbol); the audit and
+    # working rows go with them. The derivation state row stays: its input
+    # version only grows, so an older running derivation can never publish.
+    "DELETE FROM super_game_series_audit_events WHERE game_id = :game_id",
+    "DELETE FROM super_game_series_generation_rows WHERE game_id = :game_id",
+    "DELETE FROM super_game_series WHERE game_id = :game_id",
     "DELETE FROM symbols WHERE game_id = :game_id",
 )
 

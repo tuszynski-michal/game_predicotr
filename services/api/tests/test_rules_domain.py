@@ -24,6 +24,7 @@ class MemoryRulesRepository(RulesRepository):
         self.symbols: dict[UUID, RulesSymbolDefinition] = {}
         self.rules_symbols: dict[tuple[UUID, UUID], RulesVersionSymbol] = {}
         self.payout_rules: dict[UUID, PayoutRule] = {}
+        self.super_game_kind = "none"
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -153,21 +154,33 @@ class MemoryRulesRepository(RulesRepository):
         self.paylines[payline.id] = payline
         return payline
 
-    def payout_configuration_fits_columns(
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
+        del self.paylines[payline_id]
+
+    def payout_configuration_fits_dimensions(
         self,
         rules_version_id: UUID,
         *,
+        rows: int,
         columns: int,
     ) -> bool:
+        def limit(symbol_id: UUID) -> int:
+            symbol = self.symbols.get(symbol_id)
+            trigger = symbol is not None and symbol.is_super_game_trigger
+            return rows * columns if trigger else columns
+
         return all(
             item.minimum_match_length is None or item.minimum_match_length <= columns
             for item in self.rules_symbols.values()
             if item.rules_version_id == rules_version_id
         ) and all(
-            item.match_length <= columns
+            item.match_length <= limit(item.symbol_id)
             for item in self.payout_rules.values()
             if item.rules_version_id == rules_version_id
         )
+
+    def get_game_super_game_kind(self, game_id: UUID) -> str:
+        return self.super_game_kind
 
     def get_rules_symbol_definition(
         self,
@@ -864,3 +877,212 @@ def test_publish_is_atomic_immutable_and_archive_preserves_timestamp() -> None:
     assert archived.status is RulesVersionStatus.ARCHIVED
     assert archived.published_at == published.published_at
     assert service.archive_rules_version(rules_version.id) == archived
+
+
+def _super_game_rules_fixture(
+    *, super_game_kind: str, is_wildcard: bool = True
+) -> tuple[MemoryRulesRepository, RulesService, RulesVersion, UUID]:
+    """A 3x5 draft with one complete ordinary symbol and one trigger symbol."""
+
+    game_id = uuid4()
+    repository = MemoryRulesRepository(game_id)
+    repository.super_game_kind = super_game_kind
+    service = RulesService(repository)
+    rules_version = service.create_rules_version(game_id, rows=3, columns=5, spin_cost=100)
+    service.create_payline(
+        rules_version.id,
+        code="A",
+        name="A",
+        row_path=[1, 1, 1, 1, 1],
+        display_order=0,
+        is_active=True,
+    )
+    ordinary_id = uuid4()
+    repository.symbols[ordinary_id] = RulesSymbolDefinition(
+        id=ordinary_id, game_id=game_id, is_wildcard=False
+    )
+    service.update_rules_version_symbol(
+        rules_version.id, ordinary_id, minimum_match_length=3, is_active=True
+    )
+    for match_length, credits in ((3, 10), (4, 50), (5, 100)):
+        service.create_payout_rule(
+            rules_version.id,
+            symbol_id=ordinary_id,
+            match_length=match_length,
+            payout_credits=credits,
+            is_active=True,
+        )
+    trigger_id = uuid4()
+    repository.symbols[trigger_id] = RulesSymbolDefinition(
+        id=trigger_id,
+        game_id=game_id,
+        is_wildcard=is_wildcard,
+        super_game_trigger_count=3,
+    )
+    service.update_rules_version_symbol(
+        rules_version.id, trigger_id, minimum_match_length=None, is_active=True
+    )
+    return repository, service, rules_version, trigger_id
+
+
+def test_super_game_trigger_wild_may_have_count_payouts_and_is_publishable() -> None:
+    _, service, rules_version, trigger_id = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins"
+    )
+    for match_length, credits in ((3, 20), (4, 200), (5, 2000)):
+        service.create_payout_rule(
+            rules_version.id,
+            symbol_id=trigger_id,
+            match_length=match_length,
+            payout_credits=credits,
+            is_active=True,
+        )
+
+    readiness = service.get_publication_readiness(rules_version.id)
+
+    assert readiness.ready is True, readiness.issues
+
+
+def test_super_game_trigger_count_payouts_use_the_whole_board_range() -> None:
+    _, service, rules_version, trigger_id = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins"
+    )
+    # Two cells are below the trigger threshold but still a valid count payout.
+    low = service.create_payout_rule(
+        rules_version.id, symbol_id=trigger_id, match_length=2, payout_credits=5, is_active=True
+    )
+    high = service.create_payout_rule(
+        rules_version.id,
+        symbol_id=trigger_id,
+        match_length=15,
+        payout_credits=9000,
+        is_active=True,
+    )
+    assert (low.match_length, high.match_length) == (2, 15)
+    with pytest.raises(RulesError) as error:
+        service.create_payout_rule(
+            rules_version.id,
+            symbol_id=trigger_id,
+            match_length=16,
+            payout_credits=9999,
+            is_active=True,
+        )
+    assert error.value.code == "INVALID_PAYOUT_MATCH_LENGTH"
+    assert error.value.details["maximumCount"] == 15
+    assert service.get_publication_readiness(rules_version.id).ready is True
+
+    # Count payouts beyond the column count follow rows * columns, not columns.
+    with pytest.raises(RulesConflictError) as shrink:
+        service.update_rules_version(rules_version.id, rows=2)
+    assert shrink.value.code == "RULES_DIMENSIONS_IN_USE"
+
+
+def test_super_game_trigger_rejects_minimum_and_non_increasing_counts() -> None:
+    repository, service, rules_version, trigger_id = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins"
+    )
+    with pytest.raises(RulesError) as minimum:
+        service.update_rules_version_symbol(
+            rules_version.id, trigger_id, minimum_match_length=3, is_active=True
+        )
+    assert minimum.value.code == "SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED"
+
+    for match_length, credits in ((3, 200), (5, 100)):
+        service.create_payout_rule(
+            rules_version.id,
+            symbol_id=trigger_id,
+            match_length=match_length,
+            payout_credits=credits,
+            is_active=True,
+        )
+    # A stale minimum (for example from the time before the role) is reported.
+    repository.rules_symbols[(rules_version.id, trigger_id)] = RulesVersionSymbol(
+        rules_version_id=rules_version.id,
+        symbol_id=trigger_id,
+        minimum_match_length=3,
+        is_active=True,
+    )
+
+    readiness = service.get_publication_readiness(rules_version.id)
+
+    assert [issue.code for issue in readiness.issues] == [
+        "SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED",
+        "NON_INCREASING_PAYOUT",
+    ]
+    assert readiness.issues[1].details == {
+        "symbolId": str(trigger_id),
+        "previousMatchLength": 3,
+        "matchLength": 5,
+    }
+
+
+def test_super_game_trigger_requires_a_game_super_game_kind_for_publication() -> None:
+    _, service, rules_version, trigger_id = _super_game_rules_fixture(super_game_kind="none")
+    service.create_payout_rule(
+        rules_version.id, symbol_id=trigger_id, match_length=3, payout_credits=20, is_active=True
+    )
+
+    readiness = service.get_publication_readiness(rules_version.id)
+
+    assert [issue.code for issue in readiness.issues] == ["SUPER_GAME_KIND_REQUIRED"]
+    with pytest.raises(RulesConflictError) as error:
+        service.publish_rules_version(rules_version.id)
+    assert error.value.code == "RULES_VERSION_NOT_READY"
+
+
+def test_wild_without_super_game_trigger_keeps_the_line_rules() -> None:
+    repository, service, rules_version, _ = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins"
+    )
+    wild_id = uuid4()
+    repository.symbols[wild_id] = RulesSymbolDefinition(
+        id=wild_id, game_id=repository.game_id, is_wildcard=True
+    )
+    service.update_rules_version_symbol(
+        rules_version.id, wild_id, minimum_match_length=None, is_active=True
+    )
+    with pytest.raises(RulesConflictError) as payout:
+        service.create_payout_rule(
+            rules_version.id, symbol_id=wild_id, match_length=3, payout_credits=20, is_active=True
+        )
+    assert payout.value.code == "WILDCARD_PAYOUT_NOT_ALLOWED"
+    with pytest.raises(RulesError) as minimum:
+        service.update_rules_version_symbol(
+            rules_version.id, wild_id, minimum_match_length=3, is_active=True
+        )
+    assert minimum.value.code == "WILDCARD_MINIMUM_NOT_ALLOWED"
+
+
+def test_super_game_trigger_without_wild_is_not_an_ordinary_line_symbol() -> None:
+    _, service, rules_version, trigger_id = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins", is_wildcard=False
+    )
+    service.create_payout_rule(
+        rules_version.id, symbol_id=trigger_id, match_length=4, payout_credits=40, is_active=True
+    )
+
+    assert service.get_publication_readiness(rules_version.id).ready is True
+
+
+def test_symbol_without_roles_and_null_minimum_reports_invalid_minimum() -> None:
+    """Accepted TASK-0931 behaviour after a symbol loses both roles on a draft."""
+
+    repository, service, rules_version, former_trigger_id = _super_game_rules_fixture(
+        super_game_kind="wild_super_spins"
+    )
+    repository.symbols[former_trigger_id] = RulesSymbolDefinition(
+        id=former_trigger_id, game_id=repository.game_id, is_wildcard=False
+    )
+
+    readiness = service.get_publication_readiness(rules_version.id)
+
+    assert [issue.code for issue in readiness.issues] == ["INVALID_MINIMUM_MATCH_LENGTH"]
+    assert readiness.issues[0].details["symbolId"] == str(former_trigger_id)
+
+
+def test_super_game_trigger_without_payouts_is_publishable() -> None:
+    _, service, rules_version, _ = _super_game_rules_fixture(super_game_kind="wild_super_spins")
+
+    assert service.get_publication_readiness(rules_version.id).ready is True
+    published = service.publish_rules_version(rules_version.id)
+    assert published.status is RulesVersionStatus.PUBLISHED

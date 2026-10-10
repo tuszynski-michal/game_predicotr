@@ -24,12 +24,6 @@ import type {
   ApplySymbolCellReviewDecisionData,
   ApplySymbolCellReviewDecisionErrors,
   ApplySymbolCellReviewDecisionResponses,
-  ApproveImageGridReviewGeometryData,
-  ApproveImageGridReviewGeometryErrors,
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewSourceGeometryData,
-  ApproveImageGridReviewSourceGeometryErrors,
-  ApproveImageGridReviewSourceGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -60,6 +54,12 @@ import type {
   CancelSemiAutomaticImageSelectionData,
   CancelSemiAutomaticImageSelectionErrors,
   CancelSemiAutomaticImageSelectionResponses,
+  ClearManagementStakeData,
+  ClearManagementStakeErrors,
+  ClearManagementStakeResponses,
+  ClearPublicManagementStakeData,
+  ClearPublicManagementStakeErrors,
+  ClearPublicManagementStakeResponses,
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
@@ -72,6 +72,18 @@ import type {
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
+  CorrectBoardSearchShareCellData,
+  CorrectBoardSearchShareCellErrors,
+  CorrectBoardSearchShareCellResponses,
+  CorrectManagementBoardCellData,
+  CorrectManagementBoardCellErrors,
+  CorrectManagementBoardCellResponses,
+  CorrectPublicManagementBoardCellData,
+  CorrectPublicManagementBoardCellErrors,
+  CorrectPublicManagementBoardCellResponses,
+  CreateBoardSearchShareSessionData,
+  CreateBoardSearchShareSessionErrors,
+  CreateBoardSearchShareSessionResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
@@ -93,15 +105,21 @@ import type {
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionData,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
-  CreateImageGridReviewSourceGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
+  CreateManagementMachineData,
+  CreateManagementMachineErrors,
+  CreateManagementMachineResponses,
+  CreateManagementPointData,
+  CreateManagementPointErrors,
+  CreateManagementPointResponses,
+  CreateManagementSessionData,
+  CreateManagementSessionErrors,
+  CreateManagementSessionResponses,
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
@@ -117,6 +135,12 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreatePublicManagementMachineData,
+  CreatePublicManagementMachineErrors,
+  CreatePublicManagementMachineResponses,
+  CreatePublicManagementPointData,
+  CreatePublicManagementPointErrors,
+  CreatePublicManagementPointResponses,
   CreateRemoteManualSelectionBatchData,
   CreateRemoteManualSelectionBatchErrors,
   CreateRemoteManualSelectionBatchResponses,
@@ -168,24 +192,48 @@ import type {
   CreateVirtualCellPreviewBatchData,
   CreateVirtualCellPreviewBatchErrors,
   CreateVirtualCellPreviewBatchResponses,
+  DeactivateSymbolModelData,
+  DeactivateSymbolModelErrors,
+  DeactivateSymbolModelResponses,
   DecideSemiAutomaticFilenameRangeVerificationData,
   DecideSemiAutomaticFilenameRangeVerificationErrors,
   DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DeleteBoardSearchShareQueryData,
+  DeleteBoardSearchShareQueryErrors,
+  DeleteBoardSearchShareQueryResponses,
   DeleteBoardSourceRangesData,
   DeleteBoardSourceRangesErrors,
   DeleteBoardSourceRangesResponses,
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
+  DeleteManagementMachineData,
+  DeleteManagementMachineErrors,
+  DeleteManagementMachineResponses,
+  DeleteManagementPointData,
+  DeleteManagementPointErrors,
+  DeleteManagementPointResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeletePaylineData,
+  DeletePaylineErrors,
+  DeletePaylineResponses,
+  DeletePublicManagementMachineData,
+  DeletePublicManagementMachineErrors,
+  DeletePublicManagementMachineResponses,
+  DeletePublicManagementPointData,
+  DeletePublicManagementPointErrors,
+  DeletePublicManagementPointResponses,
   DeleteSemiAutomaticFilenameVerificationHistoryData,
   DeleteSemiAutomaticFilenameVerificationHistoryErrors,
   DeleteSemiAutomaticFilenameVerificationHistoryResponses,
   DeleteSymbolData,
   DeleteSymbolErrors,
   DeleteSymbolResponses,
+  DeriveSuperGameSeriesData,
+  DeriveSuperGameSeriesErrors,
+  DeriveSuperGameSeriesResponses,
   DiscardBrowserPageGeometrySourceReplacementData,
   DiscardBrowserPageGeometrySourceReplacementErrors,
   DiscardBrowserPageGeometrySourceReplacementResponses,
@@ -222,15 +270,39 @@ import type {
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetErrors,
   GetApprovedSymbolReferenceCandidateAssetResponses,
-  GetArchivedBoardSearchAssetData,
-  GetArchivedBoardSearchAssetErrors,
-  GetArchivedBoardSearchAssetResponses,
   GetBoardImportCoverageData,
   GetBoardImportCoverageErrors,
   GetBoardImportCoverageResponses,
   GetBoardSearchApproximateWinData,
   GetBoardSearchApproximateWinErrors,
   GetBoardSearchApproximateWinResponses,
+  GetBoardSearchBoardDetailData,
+  GetBoardSearchBoardDetailErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardViewData,
+  GetBoardSearchBoardViewErrors,
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchShareApproximateWinData,
+  GetBoardSearchShareApproximateWinErrors,
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareBoardDetailData,
+  GetBoardSearchShareBoardDetailErrors,
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardViewData,
+  GetBoardSearchShareBoardViewErrors,
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareContextData,
+  GetBoardSearchShareContextErrors,
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareCorrectionData,
+  GetBoardSearchShareCorrectionErrors,
+  GetBoardSearchShareCorrectionResponses,
+  GetBoardSearchShareQueryReplayData,
+  GetBoardSearchShareQueryReplayErrors,
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareSymbolImageData,
+  GetBoardSearchShareSymbolImageErrors,
+  GetBoardSearchShareSymbolImageResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -249,20 +321,38 @@ import type {
   GetGameData,
   GetGameErrors,
   GetGameResponses,
+  GetGridAuditProposalData,
+  GetGridAuditProposalErrors,
+  GetGridAuditProposalResponses,
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridShadowResultData,
+  GetGridShadowResultErrors,
+  GetGridShadowResultResponses,
   GetHealthData,
   GetHealthResponses,
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryCompletenessData,
+  GetImageGeometryCompletenessErrors,
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessSourceAssetData,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  GetImageGeometryCompletenessSourceAssetResponses,
   GetImageGeometryGuardSourceAssetData,
   GetImageGeometryGuardSourceAssetErrors,
   GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryLowQualityBoardsData,
+  GetImageGeometryLowQualityBoardsErrors,
+  GetImageGeometryLowQualityBoardsResponses,
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
+  GetImageGridReviewCorrectionSymbolsData,
+  GetImageGridReviewCorrectionSymbolsErrors,
+  GetImageGridReviewCorrectionSymbolsResponses,
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
@@ -299,6 +389,24 @@ import type {
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
+  GetManagementApproximateWinData,
+  GetManagementApproximateWinErrors,
+  GetManagementApproximateWinResponses,
+  GetManagementBoardDetailData,
+  GetManagementBoardDetailErrors,
+  GetManagementBoardDetailResponses,
+  GetManagementResultData,
+  GetManagementResultErrors,
+  GetManagementResultResponses,
+  GetManagementSessionContextData,
+  GetManagementSessionContextErrors,
+  GetManagementSessionContextResponses,
+  GetManagementSnapshotData,
+  GetManagementSnapshotErrors,
+  GetManagementSnapshotResponses,
+  GetManagementStakeData,
+  GetManagementStakeErrors,
+  GetManagementStakeResponses,
   GetManualImageSelectionFileData,
   GetManualImageSelectionFileErrors,
   GetManualImageSelectionFileResponses,
@@ -335,6 +443,27 @@ import type {
   GetPendingBoardCellGeometrySourceData,
   GetPendingBoardCellGeometrySourceErrors,
   GetPendingBoardCellGeometrySourceResponses,
+  GetPublicManagementApproximateWinData,
+  GetPublicManagementApproximateWinErrors,
+  GetPublicManagementApproximateWinResponses,
+  GetPublicManagementBoardDetailData,
+  GetPublicManagementBoardDetailErrors,
+  GetPublicManagementBoardDetailResponses,
+  GetPublicManagementBoardViewData,
+  GetPublicManagementBoardViewErrors,
+  GetPublicManagementBoardViewResponses,
+  GetPublicManagementResultData,
+  GetPublicManagementResultErrors,
+  GetPublicManagementResultResponses,
+  GetPublicManagementSnapshotData,
+  GetPublicManagementSnapshotErrors,
+  GetPublicManagementSnapshotResponses,
+  GetPublicManagementStakeData,
+  GetPublicManagementStakeErrors,
+  GetPublicManagementStakeResponses,
+  GetPublicManagementSymbolImageData,
+  GetPublicManagementSymbolImageErrors,
+  GetPublicManagementSymbolImageResponses,
   GetRemoteManualSelectionContextData,
   GetRemoteManualSelectionContextErrors,
   GetRemoteManualSelectionContextResponses,
@@ -390,6 +519,9 @@ import type {
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
+  GetSuperGameSeriesStateData,
+  GetSuperGameSeriesStateErrors,
+  GetSuperGameSeriesStateResponses,
   GetSymbolCellPreviewAtlasData,
   GetSymbolCellPreviewAtlasErrors,
   GetSymbolCellPreviewAtlasResponses,
@@ -438,12 +570,27 @@ import type {
   HeartbeatReviewerWorkAssignmentData,
   HeartbeatReviewerWorkAssignmentErrors,
   HeartbeatReviewerWorkAssignmentResponses,
+  ImportLabSymbolCandidateData,
+  ImportLabSymbolCandidateErrors,
+  ImportLabSymbolCandidateResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareCorrectionsData,
+  ListBoardSearchShareCorrectionsErrors,
+  ListBoardSearchShareCorrectionsResponses,
+  ListBoardSearchShareQueriesData,
+  ListBoardSearchShareQueriesErrors,
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareSessionsData,
+  ListBoardSearchShareSessionsErrors,
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSymbolsData,
+  ListBoardSearchShareSymbolsErrors,
+  ListBoardSearchShareSymbolsResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -461,12 +608,23 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGeometryCorrectionsData,
+  ListGeometryCorrectionsErrors,
+  ListGeometryCorrectionsResponses,
+  ListGridAuditProposalsData,
+  ListGridAuditProposalsErrors,
+  ListGridAuditProposalsResponses,
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridEngineProfilesData,
+  ListGridEngineProfilesResponses,
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
+  ListGridShadowResultsData,
+  ListGridShadowResultsErrors,
+  ListGridShadowResultsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -485,12 +643,27 @@ import type {
   ListImageSelectionsData,
   ListImageSelectionsErrors,
   ListImageSelectionsResponses,
+  ListIncompleteGeometryImagesData,
+  ListIncompleteGeometryImagesErrors,
+  ListIncompleteGeometryImagesResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
+  ListLabSymbolCandidatesData,
+  ListLabSymbolCandidatesErrors,
+  ListLabSymbolCandidatesResponses,
   ListLayoutImportNormalizedRowsData,
   ListLayoutImportNormalizedRowsErrors,
   ListLayoutImportNormalizedRowsResponses,
+  ListManagementJournalData,
+  ListManagementJournalErrors,
+  ListManagementJournalResponses,
+  ListManagementSessionsData,
+  ListManagementSessionsErrors,
+  ListManagementSessionsResponses,
+  ListManagementStakesData,
+  ListManagementStakesErrors,
+  ListManagementStakesResponses,
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
@@ -509,6 +682,15 @@ import type {
   ListPendingBoardCellGeometryData,
   ListPendingBoardCellGeometryErrors,
   ListPendingBoardCellGeometryResponses,
+  ListPublicManagementJournalData,
+  ListPublicManagementJournalErrors,
+  ListPublicManagementJournalResponses,
+  ListPublicManagementStakesData,
+  ListPublicManagementStakesErrors,
+  ListPublicManagementStakesResponses,
+  ListPublicManagementSymbolsData,
+  ListPublicManagementSymbolsErrors,
+  ListPublicManagementSymbolsResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
@@ -555,6 +737,14 @@ import type {
   ListSemiAutomaticImageSelectionSourcesErrors,
   ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
+  ListSuperGameKindsData,
+  ListSuperGameKindsResponses,
+  ListSuperGameSeriesBoardsData,
+  ListSuperGameSeriesBoardsErrors,
+  ListSuperGameSeriesBoardsResponses,
+  ListSuperGameSeriesData,
+  ListSuperGameSeriesErrors,
+  ListSuperGameSeriesResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -590,6 +780,9 @@ import type {
   OpenOnlineReviewerWorkData,
   OpenOnlineReviewerWorkErrors,
   OpenOnlineReviewerWorkResponses,
+  OpenSemiAutomaticImageSelectionReviewFolderData,
+  OpenSemiAutomaticImageSelectionReviewFolderErrors,
+  OpenSemiAutomaticImageSelectionReviewFolderResponses,
   PauseSemiAutomaticImageSelectionData,
   PauseSemiAutomaticImageSelectionErrors,
   PauseSemiAutomaticImageSelectionResponses,
@@ -602,6 +795,9 @@ import type {
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
+  PreviewGeometryCorrectionRevertData,
+  PreviewGeometryCorrectionRevertErrors,
+  PreviewGeometryCorrectionRevertResponses,
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
@@ -617,6 +813,18 @@ import type {
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
+  PreviewLabSymbolCandidateImportData,
+  PreviewLabSymbolCandidateImportErrors,
+  PreviewLabSymbolCandidateImportResponses,
+  PreviewManagementMachineDeletionData,
+  PreviewManagementMachineDeletionErrors,
+  PreviewManagementMachineDeletionResponses,
+  PreviewManagementMachineUpdateData,
+  PreviewManagementMachineUpdateErrors,
+  PreviewManagementMachineUpdateResponses,
+  PreviewManagementPointDeletionData,
+  PreviewManagementPointDeletionErrors,
+  PreviewManagementPointDeletionResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -626,12 +834,24 @@ import type {
   PreviewPendingBoardCellGeometryCorrectionData,
   PreviewPendingBoardCellGeometryCorrectionErrors,
   PreviewPendingBoardCellGeometryCorrectionResponses,
+  PreviewPendingBoardCellGeometrySymbolsData,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  PreviewPendingBoardCellGeometrySymbolsResponses,
   PreviewPendingGridReinferenceData,
   PreviewPendingGridReinferenceErrors,
   PreviewPendingGridReinferenceResponses,
   PreviewPendingSymbolReinferenceData,
   PreviewPendingSymbolReinferenceErrors,
   PreviewPendingSymbolReinferenceResponses,
+  PreviewPublicManagementMachineDeletionData,
+  PreviewPublicManagementMachineDeletionErrors,
+  PreviewPublicManagementMachineDeletionResponses,
+  PreviewPublicManagementMachineUpdateData,
+  PreviewPublicManagementMachineUpdateErrors,
+  PreviewPublicManagementMachineUpdateResponses,
+  PreviewPublicManagementPointDeletionData,
+  PreviewPublicManagementPointDeletionErrors,
+  PreviewPublicManagementPointDeletionResponses,
   PreviewReadyBrowserImageImportData,
   PreviewReadyBrowserImageImportErrors,
   PreviewReadyBrowserImageImportResponses,
@@ -644,6 +864,9 @@ import type {
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
+  PreviewSymbolModelDeactivationData,
+  PreviewSymbolModelDeactivationErrors,
+  PreviewSymbolModelDeactivationResponses,
   PreviewVerifiedTrainingCohortData,
   PreviewVerifiedTrainingCohortErrors,
   PreviewVerifiedTrainingCohortResponses,
@@ -659,12 +882,24 @@ import type {
   PutRemoteManualSelectionFileContentData,
   PutRemoteManualSelectionFileContentErrors,
   PutRemoteManualSelectionFileContentResponses,
+  RecordBoardSearchShareApproximateWinStakeData,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  RecordBoardSearchShareApproximateWinStakeResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshBoardSearchBoardDocumentData,
+  RefreshBoardSearchBoardDocumentErrors,
+  RefreshBoardSearchBoardDocumentResponses,
   RefreshImageStorageInventoryData,
   RefreshImageStorageInventoryErrors,
   RefreshImageStorageInventoryResponses,
+  RefreshManagementStakeData,
+  RefreshManagementStakeErrors,
+  RefreshManagementStakeResponses,
+  RefreshPublicManagementStakeData,
+  RefreshPublicManagementStakeErrors,
+  RefreshPublicManagementStakeResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -677,6 +912,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RejectPendingBoardCellGeometryData,
+  RejectPendingBoardCellGeometryErrors,
+  RejectPendingBoardCellGeometryResponses,
   ReopenRemoteManualSelectionBatchData,
   ReopenRemoteManualSelectionBatchErrors,
   ReopenRemoteManualSelectionBatchResponses,
@@ -716,6 +954,18 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevertGeometryCorrectionData,
+  RevertGeometryCorrectionErrors,
+  RevertGeometryCorrectionResponses,
+  ReviewBoardSearchShareCorrectionData,
+  ReviewBoardSearchShareCorrectionErrors,
+  ReviewBoardSearchShareCorrectionResponses,
+  RevokeBoardSearchShareSessionData,
+  RevokeBoardSearchShareSessionErrors,
+  RevokeBoardSearchShareSessionResponses,
+  RevokeManagementSessionData,
+  RevokeManagementSessionErrors,
+  RevokeManagementSessionResponses,
   RevokeRemoteManualSelectionSessionData,
   RevokeRemoteManualSelectionSessionErrors,
   RevokeRemoteManualSelectionSessionResponses,
@@ -728,15 +978,30 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SaveManagementStakeData,
+  SaveManagementStakeErrors,
+  SaveManagementStakeResponses,
+  SavePublicManagementStakeData,
+  SavePublicManagementStakeErrors,
+  SavePublicManagementStakeResponses,
   SaveUnreadableBoardReviewData,
   SaveUnreadableBoardReviewErrors,
   SaveUnreadableBoardReviewResponses,
   SealImageGeometryGuardResolutionManifestData,
   SealImageGeometryGuardResolutionManifestErrors,
   SealImageGeometryGuardResolutionManifestResponses,
+  SearchBoardSearchShareBoardsData,
+  SearchBoardSearchShareBoardsErrors,
+  SearchBoardSearchShareBoardsResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
+  SearchManagementBoardsData,
+  SearchManagementBoardsErrors,
+  SearchManagementBoardsResponses,
+  SearchPublicManagementBoardsData,
+  SearchPublicManagementBoardsErrors,
+  SearchPublicManagementBoardsResponses,
   SelectApprovedSymbolReferenceCandidateData,
   SelectApprovedSymbolReferenceCandidateErrors,
   SelectApprovedSymbolReferenceCandidateResponses,
@@ -746,15 +1011,30 @@ import type {
   SelectRemoteManualSelectionHostBaseData,
   SelectRemoteManualSelectionHostBaseErrors,
   SelectRemoteManualSelectionHostBaseResponses,
+  SelectSemiAutomaticImageSelectionOutputFolderData,
+  SelectSemiAutomaticImageSelectionOutputFolderErrors,
+  SelectSemiAutomaticImageSelectionOutputFolderResponses,
   SelectSemiAutomaticImageSelectionSourceFolderData,
   SelectSemiAutomaticImageSelectionSourceFolderErrors,
   SelectSemiAutomaticImageSelectionSourceFolderResponses,
+  SelectSymbolReferenceFromCellReviewData,
+  SelectSymbolReferenceFromCellReviewErrors,
+  SelectSymbolReferenceFromCellReviewResponses,
+  SetSourceImageGeometryExceptionData,
+  SetSourceImageGeometryExceptionErrors,
+  SetSourceImageGeometryExceptionResponses,
+  SetSuperGameSeriesSuperSymbolData,
+  SetSuperGameSeriesSuperSymbolErrors,
+  SetSuperGameSeriesSuperSymbolResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridShadowJobData,
+  StartGridShadowJobErrors,
+  StartGridShadowJobResponses,
   StartImageGeometryGuardReportReconstructionData,
   StartImageGeometryGuardReportReconstructionErrors,
   StartImageGeometryGuardReportReconstructionResponses,
@@ -791,6 +1071,12 @@ import type {
   TakeoverRemoteManualSelectionWriterLeaseData,
   TakeoverRemoteManualSelectionWriterLeaseErrors,
   TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockBoardSearchShareSessionData,
+  UnlockBoardSearchShareSessionErrors,
+  UnlockBoardSearchShareSessionResponses,
+  UnlockManagementSessionData,
+  UnlockManagementSessionErrors,
+  UnlockManagementSessionResponses,
   UnlockRemoteManualSelectionSessionData,
   UnlockRemoteManualSelectionSessionErrors,
   UnlockRemoteManualSelectionSessionResponses,
@@ -803,12 +1089,30 @@ import type {
   UpdateImageImportEnginePolicyData,
   UpdateImageImportEnginePolicyErrors,
   UpdateImageImportEnginePolicyResponses,
+  UpdateManagementAssignmentsData,
+  UpdateManagementAssignmentsErrors,
+  UpdateManagementAssignmentsResponses,
+  UpdateManagementMachineData,
+  UpdateManagementMachineErrors,
+  UpdateManagementMachineResponses,
+  UpdateManagementPointData,
+  UpdateManagementPointErrors,
+  UpdateManagementPointResponses,
   UpdatePaylineData,
   UpdatePaylineErrors,
   UpdatePaylineResponses,
   UpdatePayoutRuleData,
   UpdatePayoutRuleErrors,
   UpdatePayoutRuleResponses,
+  UpdatePublicManagementAssignmentsData,
+  UpdatePublicManagementAssignmentsErrors,
+  UpdatePublicManagementAssignmentsResponses,
+  UpdatePublicManagementMachineData,
+  UpdatePublicManagementMachineErrors,
+  UpdatePublicManagementMachineResponses,
+  UpdatePublicManagementPointData,
+  UpdatePublicManagementPointErrors,
+  UpdatePublicManagementPointResponses,
   UpdateRulesVersionData,
   UpdateRulesVersionErrors,
   UpdateRulesVersionResponses,
@@ -824,6 +1128,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  WithdrawSourceImageGeometryExceptionData,
+  WithdrawSourceImageGeometryExceptionErrors,
+  WithdrawSourceImageGeometryExceptionResponses,
 } from './types.gen';
 
 export type Options<
@@ -843,6 +1150,204 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Delete one query log entry; a search takes its follow-up entries with it
+ */
+export const deleteBoardSearchShareQuery = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteBoardSearchShareQueryData, ThrowOnError>,
+): RequestResult<
+  DeleteBoardSearchShareQueryResponses,
+  DeleteBoardSearchShareQueryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteBoardSearchShareQueryResponses,
+    DeleteBoardSearchShareQueryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
+ * Read one query log entry with what is needed to replay it
+ */
+export const getBoardSearchShareQueryReplay = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareQueryReplayData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareQueryReplayErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareQueryReplayResponses,
+    GetBoardSearchShareQueryReplayErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
+ * List board-search share sessions without secrets
+ */
+export const listBoardSearchShareSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSessionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSessionsResponses,
+    ListBoardSearchShareSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-shares/sessions', ...options });
+
+/**
+ * Create one online board-search share link with symbol correction
+ */
+export const createBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchShareSessionResponses,
+  CreateBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchShareSessionResponses,
+    CreateBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Corrections
+ */
+export const listBoardSearchShareCorrections = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareCorrectionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareCorrectionsResponses,
+  ListBoardSearchShareCorrectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareCorrectionsResponses,
+    ListBoardSearchShareCorrectionsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections',
+    ...options,
+  });
+
+/**
+ * Correction Detail
+ */
+export const getBoardSearchShareCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareCorrectionData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareCorrectionResponses,
+  GetBoardSearchShareCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareCorrectionResponses,
+    GetBoardSearchShareCorrectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Review Correction
+ */
+export const reviewBoardSearchShareCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReviewBoardSearchShareCorrectionData, ThrowOnError>,
+): RequestResult<
+  ReviewBoardSearchShareCorrectionResponses,
+  ReviewBoardSearchShareCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReviewBoardSearchShareCorrectionResponses,
+    ReviewBoardSearchShareCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}/review',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read a share link's query log, newest first (D-472)
+ */
+export const listBoardSearchShareQueries = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareQueriesData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareQueriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareQueriesResponses,
+    ListBoardSearchShareQueriesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries',
+    ...options,
+  });
+
+/**
+ * Immediately stop one board-search share link
+ */
+export const revokeBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchShareSessionResponses,
+  RevokeBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchShareSessionResponses,
+    RevokeBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke',
+    ...options,
+  });
 
 /**
  * Archive a published dataset version
@@ -1055,23 +1560,62 @@ export const getBoardSearchApproximateWin = <
   });
 
 /**
- * Read one checksum-bound board image from a frozen search archive
+ * Winning paylines, count payouts and cropped-view cell polygons of one board
  */
-export const getArchivedBoardSearchAsset = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<GetArchivedBoardSearchAssetData, ThrowOnError>,
+export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardDetailData, ThrowOnError>,
 ): RequestResult<
-  GetArchivedBoardSearchAssetResponses,
-  GetArchivedBoardSearchAssetErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardDetailErrors,
   ThrowOnError
 > =>
   (options.client ?? client).get<
-    GetArchivedBoardSearchAssetResponses,
-    GetArchivedBoardSearchAssetErrors,
+    GetBoardSearchBoardDetailResponses,
+    GetBoardSearchBoardDetailErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}',
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Rebuild one board's search document from its current records
+ */
+export const refreshBoardSearchBoardDocument = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshBoardSearchBoardDocumentData, ThrowOnError>,
+): RequestResult<
+  RefreshBoardSearchBoardDocumentResponses,
+  RefreshBoardSearchBoardDocumentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshBoardSearchBoardDocumentResponses,
+    RefreshBoardSearchBoardDocumentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped WebP view of one board
+ */
+export const getBoardSearchBoardView = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchBoardViewResponses,
+    GetBoardSearchBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view',
     ...options,
   });
 
@@ -1161,6 +1705,41 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List the open boards of the imported grid-audit proposal list
+ */
+export const listGridAuditProposals = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridAuditProposalsData, ThrowOnError>,
+): RequestResult<
+  ListGridAuditProposalsResponses,
+  ListGridAuditProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridAuditProposalsResponses,
+    ListGridAuditProposalsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-audit-proposals', ...options });
+
+/**
+ * Read one audited board with its network grid proposal
+ */
+export const getGridAuditProposal = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridAuditProposalData, ThrowOnError>,
+): RequestResult<
+  GetGridAuditProposalResponses,
+  GetGridAuditProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridAuditProposalResponses,
+    GetGridAuditProposalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}',
+    ...options,
   });
 
 /**
@@ -1338,24 +1917,22 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
 
 /**
- * Atomically approve every current board geometry of one source image
+ * Start Grid Shadow Job
  */
-export const approveImageGridReviewSourceGeometry = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<ApproveImageGridReviewSourceGeometryData, ThrowOnError>,
+export const startGridShadowJob = <ThrowOnError extends boolean = false>(
+  options: Options<StartGridShadowJobData, ThrowOnError>,
 ): RequestResult<
-  ApproveImageGridReviewSourceGeometryResponses,
-  ApproveImageGridReviewSourceGeometryErrors,
+  StartGridShadowJobResponses,
+  StartGridShadowJobErrors,
   ThrowOnError
 > =>
   (options.client ?? client).post<
-    ApproveImageGridReviewSourceGeometryResponses,
-    ApproveImageGridReviewSourceGeometryErrors,
+    StartGridShadowJobResponses,
+    StartGridShadowJobErrors,
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval',
+    url: '/api/v1/admin/games/{game_id}/grid-shadow-jobs',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1364,32 +1941,38 @@ export const approveImageGridReviewSourceGeometry = <
   });
 
 /**
- * Atomically persist and approve manual geometry for every board of one source
+ * List Grid Shadow Results
  */
-export const createImageGridReviewSourceGeometryRevision = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<
-    CreateImageGridReviewSourceGeometryRevisionData,
-    ThrowOnError
-  >,
+export const listGridShadowResults = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridShadowResultsData, ThrowOnError>,
 ): RequestResult<
-  CreateImageGridReviewSourceGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
+  ListGridShadowResultsResponses,
+  ListGridShadowResultsErrors,
   ThrowOnError
 > =>
-  (options.client ?? client).post<
-    CreateImageGridReviewSourceGeometryRevisionResponses,
-    CreateImageGridReviewSourceGeometryRevisionErrors,
+  (options.client ?? client).get<
+    ListGridShadowResultsResponses,
+    ListGridShadowResultsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-shadow-results', ...options });
+
+/**
+ * Get Grid Shadow Result
+ */
+export const getGridShadowResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridShadowResultData, ThrowOnError>,
+): RequestResult<
+  GetGridShadowResultResponses,
+  GetGridShadowResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridShadowResultResponses,
+    GetGridShadowResultErrors,
     ThrowOnError
   >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions',
+    url: '/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}',
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
@@ -1578,7 +2161,7 @@ export const getPendingBoardCellGeometryCorrectionContext = <
   });
 
 /**
- * Preview 15 manual source-direct crops for a deferred board
+ * Preview the virtual cells of a manual deferred-board geometry
  */
 export const previewPendingBoardCellGeometryCorrection = <
   ThrowOnError extends boolean = false,
@@ -1604,7 +2187,33 @@ export const previewPendingBoardCellGeometryCorrection = <
   });
 
 /**
- * Create one ordinary review item from manual deferred geometry
+ * Predict the symbols of the virtual cells of a manual deferred-board geometry
+ */
+export const previewPendingBoardCellGeometrySymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingBoardCellGeometrySymbolsData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingBoardCellGeometrySymbolsResponses,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPendingBoardCellGeometrySymbolsResponses,
+    PreviewPendingBoardCellGeometrySymbolsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resolve a deferred board as one virtual-source review item
  */
 export const resolvePendingBoardCellGeometryManually = <
   ThrowOnError extends boolean = false,
@@ -1622,6 +2231,32 @@ export const resolvePendingBoardCellGeometryManually = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reject a deferred board slot (cropped, blurred or other)
+ */
+export const rejectPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  RejectPendingBoardCellGeometryResponses,
+  RejectPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectPendingBoardCellGeometryResponses,
+    RejectPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/rejection',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1648,6 +2283,72 @@ export const getPendingBoardCellGeometrySource = <
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source',
+    ...options,
+  });
+
+/**
+ * List the latest manual geometry corrections of an import
+ */
+export const listGeometryCorrections = <ThrowOnError extends boolean = false>(
+  options: Options<ListGeometryCorrectionsData, ThrowOnError>,
+): RequestResult<
+  ListGeometryCorrectionsResponses,
+  ListGeometryCorrectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGeometryCorrectionsResponses,
+    ListGeometryCorrectionsErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections',
+    ...options,
+  });
+
+/**
+ * Revert one manual geometry correction atomically
+ */
+export const revertGeometryCorrection = <ThrowOnError extends boolean = false>(
+  options: Options<RevertGeometryCorrectionData, ThrowOnError>,
+): RequestResult<
+  RevertGeometryCorrectionResponses,
+  RevertGeometryCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevertGeometryCorrectionResponses,
+    RevertGeometryCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the effects of reverting one geometry correction without writing
+ */
+export const previewGeometryCorrectionRevert = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGeometryCorrectionRevertData, ThrowOnError>,
+): RequestResult<
+  PreviewGeometryCorrectionRevertResponses,
+  PreviewGeometryCorrectionRevertErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGeometryCorrectionRevertResponses,
+    PreviewGeometryCorrectionRevertErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert-preview',
     ...options,
   });
 
@@ -1822,7 +2523,107 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Render a stable WebP atlas for current legacy or virtual symbol cells
+ * List published super game series of a game
+ */
+export const listSuperGameSeries = <ThrowOnError extends boolean = false>(
+  options: Options<ListSuperGameSeriesData, ThrowOnError>,
+): RequestResult<
+  ListSuperGameSeriesResponses,
+  ListSuperGameSeriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSuperGameSeriesResponses,
+    ListSuperGameSeriesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/super-game-series', ...options });
+
+/**
+ * Queue (or reuse the queued) super game series derivation job
+ */
+export const deriveSuperGameSeries = <ThrowOnError extends boolean = false>(
+  options: Options<DeriveSuperGameSeriesData, ThrowOnError>,
+): RequestResult<
+  DeriveSuperGameSeriesResponses,
+  DeriveSuperGameSeriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeriveSuperGameSeriesResponses,
+    DeriveSuperGameSeriesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/super-game-series/derive',
+    ...options,
+  });
+
+/**
+ * Freshness of the published super game series
+ */
+export const getSuperGameSeriesState = <ThrowOnError extends boolean = false>(
+  options: Options<GetSuperGameSeriesStateData, ThrowOnError>,
+): RequestResult<
+  GetSuperGameSeriesStateResponses,
+  GetSuperGameSeriesStateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSuperGameSeriesStateResponses,
+    GetSuperGameSeriesStateErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/super-game-series/state',
+    ...options,
+  });
+
+/**
+ * Boards of one series from the trigger to the last spin
+ */
+export const listSuperGameSeriesBoards = <ThrowOnError extends boolean = false>(
+  options: Options<ListSuperGameSeriesBoardsData, ThrowOnError>,
+): RequestResult<
+  ListSuperGameSeriesBoardsResponses,
+  ListSuperGameSeriesBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSuperGameSeriesBoardsResponses,
+    ListSuperGameSeriesBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/boards',
+    ...options,
+  });
+
+/**
+ * Define or clear the super symbol of a series (compare-and-set)
+ */
+export const setSuperGameSeriesSuperSymbol = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSuperGameSeriesSuperSymbolData, ThrowOnError>,
+): RequestResult<
+  SetSuperGameSeriesSuperSymbolResponses,
+  SetSuperGameSeriesSuperSymbolErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SetSuperGameSeriesSuperSymbolResponses,
+    SetSuperGameSeriesSuperSymbolErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/super-symbol',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Render a stable WebP atlas for current virtual symbol cells
  */
 export const createSymbolCellPreviewBatch = <
   ThrowOnError extends boolean = false,
@@ -2082,6 +2883,32 @@ export const applySymbolCellReviewDecision = <
   });
 
 /**
+ * Persist one approved Symbol Verification crop as its symbol reference
+ */
+export const selectSymbolReferenceFromCellReview = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectSymbolReferenceFromCellReviewData, ThrowOnError>,
+): RequestResult<
+  SelectSymbolReferenceFromCellReviewResponses,
+  SelectSymbolReferenceFromCellReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectSymbolReferenceFromCellReviewResponses,
+    SelectSymbolReferenceFromCellReviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List Iterations
  */
 export const listSymbolModelIterations = <ThrowOnError extends boolean = false>(
@@ -2125,6 +2952,70 @@ export const createSymbolTraining = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Import Lab Candidate
+ */
+export const importLabSymbolCandidate = <ThrowOnError extends boolean = false>(
+  options: Options<ImportLabSymbolCandidateData, ThrowOnError>,
+): RequestResult<
+  ImportLabSymbolCandidateResponses,
+  ImportLabSymbolCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ImportLabSymbolCandidateResponses,
+    ImportLabSymbolCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Lab Candidates
+ */
+export const listLabSymbolCandidates = <ThrowOnError extends boolean = false>(
+  options: Options<ListLabSymbolCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListLabSymbolCandidatesResponses,
+  ListLabSymbolCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListLabSymbolCandidatesResponses,
+    ListLabSymbolCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/candidates',
+    ...options,
+  });
+
+/**
+ * Preview Lab Import
+ */
+export const previewLabSymbolCandidateImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewLabSymbolCandidateImportData, ThrowOnError>,
+): RequestResult<
+  PreviewLabSymbolCandidateImportResponses,
+  PreviewLabSymbolCandidateImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewLabSymbolCandidateImportResponses,
+    PreviewLabSymbolCandidateImportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/{fingerprint}/preview',
+    ...options,
+  });
+
+/**
  * List Activations
  */
 export const listSymbolModelActivations = <
@@ -2142,6 +3033,51 @@ export const listSymbolModelActivations = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations',
+    ...options,
+  });
+
+/**
+ * Deactivate
+ */
+export const deactivateSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<DeactivateSymbolModelData, ThrowOnError>,
+): RequestResult<
+  DeactivateSymbolModelResponses,
+  DeactivateSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeactivateSymbolModelResponses,
+    DeactivateSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Deactivation
+ */
+export const previewSymbolModelDeactivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolModelDeactivationData, ThrowOnError>,
+): RequestResult<
+  PreviewSymbolModelDeactivationResponses,
+  PreviewSymbolModelDeactivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewSymbolModelDeactivationResponses,
+    PreviewSymbolModelDeactivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivation-preview',
     ...options,
   });
 
@@ -2351,7 +3287,7 @@ export const getApprovedSymbolReferenceCandidateAsset = <
     GetApprovedSymbolReferenceCandidateAssetErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset',
     ...options,
   });
 
@@ -2373,7 +3309,7 @@ export const selectApprovedSymbolReferenceCandidate = <
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -2583,6 +3519,18 @@ export const getVirtualCellPreviewAtlas = <
     url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas',
     ...options,
   });
+
+/**
+ * List grid engine profiles and the state of their models
+ */
+export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGridEngineProfilesData, ThrowOnError>,
+): RequestResult<ListGridEngineProfilesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListGridEngineProfilesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
 
 /**
  * List finalized browser staging folders ready for layout import
@@ -3498,6 +4446,138 @@ export const getImageDatasetCompleteness = <
   });
 
 /**
+ * Count complete and incomplete source images of a game or import (D-484)
+ */
+export const getImageGeometryCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessResponses,
+    GetImageGeometryCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Withdraw the geometry exception of a source image before human decisions
+ */
+export const withdrawSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WithdrawSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  WithdrawSourceImageGeometryExceptionResponses,
+  WithdrawSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    WithdrawSourceImageGeometryExceptionResponses,
+    WithdrawSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+  });
+
+/**
+ * Admit an incomplete source image to symbol cutting by an operator exception
+ */
+export const setSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  SetSourceImageGeometryExceptionResponses,
+  SetSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetSourceImageGeometryExceptionResponses,
+    SetSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the checksum-bound source image of any image of a game (D-484)
+ */
+export const getImageGeometryCompletenessSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessSourceAssetResponses,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessSourceAssetResponses,
+    GetImageGeometryCompletenessSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source',
+    ...options,
+  });
+
+/**
+ * List one page of source images without a complete set of grids (D-484)
+ */
+export const listIncompleteGeometryImages = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListIncompleteGeometryImagesData, ThrowOnError>,
+): RequestResult<
+  ListIncompleteGeometryImagesResponses,
+  ListIncompleteGeometryImagesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListIncompleteGeometryImagesResponses,
+    ListIncompleteGeometryImagesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images',
+    ...options,
+  });
+
+/**
+ * List boards with many unreviewed low-confidence symbol cells
+ */
+export const getImageGeometryLowQualityBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryLowQualityBoardsData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryLowQualityBoardsResponses,
+  GetImageGeometryLowQualityBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryLowQualityBoardsResponses,
+    GetImageGeometryLowQualityBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
+    ...options,
+  });
+
+/**
  * Preview pending-only grid and crop recalculation
  */
 export const previewPendingGridReinference = <
@@ -3717,7 +4797,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview 15 corrected v19 board-cell crops without persistence
+ * Preview the virtual cells of a corrected board geometry without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,
@@ -3743,7 +4823,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable v19 symbol-lattice geometry and reopen review
+ * Persist a virtual-source geometry revision of one board and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -3823,29 +4903,24 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
- * Approve one exact current board geometry revision
+ * Read the symbols stored on the current cells of one board under correction
  */
-export const approveImageGridReviewGeometry = <
+export const getImageGridReviewCorrectionSymbols = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<ApproveImageGridReviewGeometryData, ThrowOnError>,
+  options: Options<GetImageGridReviewCorrectionSymbolsData, ThrowOnError>,
 ): RequestResult<
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewGeometryErrors,
+  GetImageGridReviewCorrectionSymbolsResponses,
+  GetImageGridReviewCorrectionSymbolsErrors,
   ThrowOnError
 > =>
-  (options.client ?? client).post<
-    ApproveImageGridReviewGeometryResponses,
-    ApproveImageGridReviewGeometryErrors,
+  (options.client ?? client).get<
+    GetImageGridReviewCorrectionSymbolsResponses,
+    GetImageGridReviewCorrectionSymbolsErrors,
     ThrowOnError
   >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval',
+    url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols',
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
@@ -3875,7 +4950,7 @@ export const previewImageGridReviewGeometry = <
   });
 
 /**
- * Persist and approve one topology-aware geometry revision
+ * Persist one topology-aware geometry revision of one board
  */
 export const createImageGridReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -3901,7 +4976,7 @@ export const createImageGridReviewGeometryRevision = <
   });
 
 /**
- * Read one current checksum-bound source image for grid validation
+ * Read one current checksum-bound source image for grid correction
  */
 export const getImageGridReviewSourceAsset = <
   ThrowOnError extends boolean = false,
@@ -4664,6 +5739,568 @@ export const rejectLayoutImportStaging = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/layout-import-validations/{validation_job_id}/staging',
+    ...options,
+  });
+
+/**
+ * Snapshot
+ */
+export const getManagementSnapshot = <ThrowOnError extends boolean = false>(
+  options?: Options<GetManagementSnapshotData, ThrowOnError>,
+): RequestResult<
+  GetManagementSnapshotResponses,
+  GetManagementSnapshotErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetManagementSnapshotResponses,
+    GetManagementSnapshotErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/management', ...options });
+
+/**
+ * Assignments
+ */
+export const updateManagementAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateManagementAssignmentsData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementAssignmentsResponses,
+  UpdateManagementAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementAssignmentsResponses,
+    UpdateManagementAssignmentsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/assignments',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview
+ */
+export const getManagementApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetManagementApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetManagementApproximateWinResponses,
+  GetManagementApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementApproximateWinResponses,
+    GetManagementApproximateWinErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/approximate-win',
+    ...options,
+  });
+
+/**
+ * Detail
+ */
+export const getManagementBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetManagementBoardDetailResponses,
+  GetManagementBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementBoardDetailResponses,
+    GetManagementBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/boards/{sequence}',
+    ...options,
+  });
+
+/**
+ * Result
+ */
+export const getManagementResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementResultData, ThrowOnError>,
+): RequestResult<
+  GetManagementResultResponses,
+  GetManagementResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementResultResponses,
+    GetManagementResultErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/results/{version_id}',
+    ...options,
+  });
+
+/**
+ * Search
+ */
+export const searchManagementBoards = <ThrowOnError extends boolean = false>(
+  options: Options<SearchManagementBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchManagementBoardsResponses,
+  SearchManagementBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchManagementBoardsResponses,
+    SearchManagementBoardsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Slots
+ */
+export const listManagementStakes = <ThrowOnError extends boolean = false>(
+  options: Options<ListManagementStakesData, ThrowOnError>,
+): RequestResult<
+  ListManagementStakesResponses,
+  ListManagementStakesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListManagementStakesResponses,
+    ListManagementStakesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes',
+    ...options,
+  });
+
+/**
+ * Slot
+ */
+export const getManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementStakeData, ThrowOnError>,
+): RequestResult<
+  GetManagementStakeResponses,
+  GetManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementStakeResponses,
+    GetManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+  });
+
+/**
+ * Save
+ */
+export const saveManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<SaveManagementStakeData, ThrowOnError>,
+): RequestResult<
+  SaveManagementStakeResponses,
+  SaveManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SaveManagementStakeResponses,
+    SaveManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Correct
+ */
+export const correctManagementBoardCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectManagementBoardCellData, ThrowOnError>,
+): RequestResult<
+  CorrectManagementBoardCellResponses,
+  CorrectManagementBoardCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectManagementBoardCellResponses,
+    CorrectManagementBoardCellErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Clear
+ */
+export const clearManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<ClearManagementStakeData, ThrowOnError>,
+): RequestResult<
+  ClearManagementStakeResponses,
+  ClearManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ClearManagementStakeResponses,
+    ClearManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Refresh
+ */
+export const refreshManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<RefreshManagementStakeData, ThrowOnError>,
+): RequestResult<
+  RefreshManagementStakeResponses,
+  RefreshManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshManagementStakeResponses,
+    RefreshManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Journal
+ */
+export const listManagementJournal = <ThrowOnError extends boolean = false>(
+  options: Options<ListManagementJournalData, ThrowOnError>,
+): RequestResult<
+  ListManagementJournalResponses,
+  ListManagementJournalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListManagementJournalResponses,
+    ListManagementJournalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/journal',
+    ...options,
+  });
+
+/**
+ * Preview Update
+ */
+export const previewManagementMachineUpdate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementMachineUpdateData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementMachineUpdateResponses,
+  PreviewManagementMachineUpdateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementMachineUpdateResponses,
+    PreviewManagementMachineUpdateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/update-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Point
+ */
+export const createManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementPointData, ThrowOnError>,
+): RequestResult<
+  CreateManagementPointResponses,
+  CreateManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementPointResponses,
+    CreateManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Point
+ */
+export const updateManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateManagementPointData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementPointResponses,
+  UpdateManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementPointResponses,
+    UpdateManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Point
+ */
+export const deleteManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteManagementPointData, ThrowOnError>,
+): RequestResult<
+  DeleteManagementPointResponses,
+  DeleteManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeleteManagementPointResponses,
+    DeleteManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Point
+ */
+export const previewManagementPointDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementPointDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementPointDeletionResponses,
+  PreviewManagementPointDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementPointDeletionResponses,
+    PreviewManagementPointDeletionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Machine
+ */
+export const createManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementMachineData, ThrowOnError>,
+): RequestResult<
+  CreateManagementMachineResponses,
+  CreateManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementMachineResponses,
+    CreateManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Machine
+ */
+export const updateManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateManagementMachineData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementMachineResponses,
+  UpdateManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementMachineResponses,
+    UpdateManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Machine
+ */
+export const deleteManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteManagementMachineData, ThrowOnError>,
+): RequestResult<
+  DeleteManagementMachineResponses,
+  DeleteManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeleteManagementMachineResponses,
+    DeleteManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Machine
+ */
+export const previewManagementMachineDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementMachineDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementMachineDeletionResponses,
+  PreviewManagementMachineDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementMachineDeletionResponses,
+    PreviewManagementMachineDeletionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Sessions
+ */
+export const listManagementSessions = <ThrowOnError extends boolean = false>(
+  options?: Options<ListManagementSessionsData, ThrowOnError>,
+): RequestResult<
+  ListManagementSessionsResponses,
+  ListManagementSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListManagementSessionsResponses,
+    ListManagementSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/management/sessions', ...options });
+
+/**
+ * Create
+ */
+export const createManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementSessionData, ThrowOnError>,
+): RequestResult<
+  CreateManagementSessionResponses,
+  CreateManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementSessionResponses,
+    CreateManagementSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Revoke
+ */
+export const revokeManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeManagementSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeManagementSessionResponses,
+  RevokeManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeManagementSessionResponses,
+    RevokeManagementSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/sessions/{session_id}/revoke',
     ...options,
   });
 
@@ -5559,6 +7196,22 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Permanently delete draft payline
+ */
+export const deletePayline = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePaylineData, ThrowOnError>,
+): RequestResult<DeletePaylineResponses, DeletePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    DeletePaylineResponses,
+    DeletePaylineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent',
+    ...options,
+  });
+
+/**
  * List rules-version payout rules
  */
 export const listPayoutRules = <ThrowOnError extends boolean = false>(
@@ -5809,6 +7462,56 @@ export const getSemiAutomaticImageSelectionCapabilities = <
     ThrowOnError
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/capabilities',
+    ...options,
+  });
+
+/**
+ * Select Output Folder
+ */
+export const selectSemiAutomaticImageSelectionOutputFolder = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    SelectSemiAutomaticImageSelectionOutputFolderData,
+    ThrowOnError
+  >,
+): RequestResult<
+  SelectSemiAutomaticImageSelectionOutputFolderResponses,
+  SelectSemiAutomaticImageSelectionOutputFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectSemiAutomaticImageSelectionOutputFolderResponses,
+    SelectSemiAutomaticImageSelectionOutputFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/output-folder',
+    ...options,
+  });
+
+/**
+ * Open Review Folder
+ */
+export const openSemiAutomaticImageSelectionReviewFolder = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    OpenSemiAutomaticImageSelectionReviewFolderData,
+    ThrowOnError
+  >,
+): RequestResult<
+  OpenSemiAutomaticImageSelectionReviewFolderResponses,
+  OpenSemiAutomaticImageSelectionReviewFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    OpenSemiAutomaticImageSelectionReviewFolderResponses,
+    OpenSemiAutomaticImageSelectionReviewFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/review-folder',
     ...options,
   });
 
@@ -6116,6 +7819,18 @@ export const getSemiAutomaticImageSelectionSourceAsset = <
   });
 
 /**
+ * List super game kinds a game can select
+ */
+export const listSuperGameKinds = <ThrowOnError extends boolean = false>(
+  options?: Options<ListSuperGameKindsData, ThrowOnError>,
+): RequestResult<ListSuperGameKindsResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListSuperGameKindsResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/super-game-kinds', ...options });
+
+/**
  * List Adoptions
  */
 export const listV7LabelGeometryAdoptions = <
@@ -6381,6 +8096,209 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/worker-lanes', ...options });
 
 /**
+ * Calculate the approximate win for a range of the shared game
+ */
+export const getBoardSearchShareApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareApproximateWinResponses,
+    GetBoardSearchShareApproximateWinErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Record the stake the recipient views a calculated range at (D-487)
+ */
+export const recordBoardSearchShareApproximateWinStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecordBoardSearchShareApproximateWinStakeData, ThrowOnError>,
+): RequestResult<
+  RecordBoardSearchShareApproximateWinStakeResponses,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    RecordBoardSearchShareApproximateWinStakeResponses,
+    RecordBoardSearchShareApproximateWinStakeErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win/stake', ...options });
+
+/**
+ * Winning paylines and opaque editable cells of one shared board
+ */
+export const getBoardSearchShareBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardDetailResponses,
+    GetBoardSearchShareBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Apply and atomically audit one share-scoped symbol correction
+ */
+export const correctBoardSearchShareCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectBoardSearchShareCellData, ThrowOnError>,
+): RequestResult<
+  CorrectBoardSearchShareCellResponses,
+  CorrectBoardSearchShareCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectBoardSearchShareCellResponses,
+    CorrectBoardSearchShareCellErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/cells/{cell_index}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the checksum-bound cropped view of one board of the shared game
+ */
+export const getBoardSearchShareBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardViewResponses,
+    GetBoardSearchShareBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/view',
+    ...options,
+  });
+
+/**
+ * Read the authenticated share context
+ */
+export const getBoardSearchShareContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetBoardSearchShareContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetBoardSearchShareContextResponses,
+    GetBoardSearchShareContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/context', ...options });
+
+/**
+ * Find boards of the shared game by a partial symbol pattern
+ */
+export const searchBoardSearchShareBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SearchBoardSearchShareBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchBoardSearchShareBoardsResponses,
+  SearchBoardSearchShareBoardsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    SearchBoardSearchShareBoardsResponses,
+    SearchBoardSearchShareBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/search', ...options });
+
+/**
+ * Exchange a share link's access code for a session cookie
+ */
+export const unlockBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockBoardSearchShareSessionResponses,
+  UnlockBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockBoardSearchShareSessionResponses,
+    UnlockBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List the shared game's symbols
+ */
+export const listBoardSearchShareSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSymbolsResponses,
+  ListBoardSearchShareSymbolsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSymbolsResponses,
+    ListBoardSearchShareSymbolsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/symbols', ...options });
+
+/**
+ * Read one checksum-bound symbol image of the shared game
+ */
+export const getBoardSearchShareSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareSymbolImageResponses,
+  GetBoardSearchShareSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareSymbolImageResponses,
+    GetBoardSearchShareSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/symbols/{symbol_id}/image',
+    ...options,
+  });
+
+/**
  * Get API health
  */
 export const getHealth = <ThrowOnError extends boolean = false>(
@@ -6389,6 +8307,623 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
     ...options,
+  });
+
+/**
+ * Snapshot
+ */
+export const getPublicManagementSnapshot = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetPublicManagementSnapshotData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementSnapshotResponses,
+  GetPublicManagementSnapshotErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetPublicManagementSnapshotResponses,
+    GetPublicManagementSnapshotErrors,
+    ThrowOnError
+  >({ url: '/api/v1/management-public', ...options });
+
+/**
+ * Context
+ */
+export const getManagementSessionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetManagementSessionContextData, ThrowOnError>,
+): RequestResult<
+  GetManagementSessionContextResponses,
+  GetManagementSessionContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetManagementSessionContextResponses,
+    GetManagementSessionContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/management-public/context', ...options });
+
+/**
+ * Assignments
+ */
+export const updatePublicManagementAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementAssignmentsData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementAssignmentsResponses,
+  UpdatePublicManagementAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementAssignmentsResponses,
+    UpdatePublicManagementAssignmentsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/assignments',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview
+ */
+export const getPublicManagementApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementApproximateWinResponses,
+  GetPublicManagementApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementApproximateWinResponses,
+    GetPublicManagementApproximateWinErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/approximate-win',
+    ...options,
+  });
+
+/**
+ * Detail
+ */
+export const getPublicManagementBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementBoardDetailResponses,
+  GetPublicManagementBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementBoardDetailResponses,
+    GetPublicManagementBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}',
+    ...options,
+  });
+
+/**
+ * Board View
+ */
+export const getPublicManagementBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementBoardViewResponses,
+  GetPublicManagementBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementBoardViewResponses,
+    GetPublicManagementBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}/view',
+    ...options,
+  });
+
+/**
+ * Result
+ */
+export const getPublicManagementResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetPublicManagementResultData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementResultResponses,
+  GetPublicManagementResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementResultResponses,
+    GetPublicManagementResultErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/results/{version_id}',
+    ...options,
+  });
+
+/**
+ * Search
+ */
+export const searchPublicManagementBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SearchPublicManagementBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchPublicManagementBoardsResponses,
+  SearchPublicManagementBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchPublicManagementBoardsResponses,
+    SearchPublicManagementBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Slots
+ */
+export const listPublicManagementStakes = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementStakesData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementStakesResponses,
+  ListPublicManagementStakesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementStakesResponses,
+    ListPublicManagementStakesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes',
+    ...options,
+  });
+
+/**
+ * Slot
+ */
+export const getPublicManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<GetPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementStakeResponses,
+  GetPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementStakeResponses,
+    GetPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+  });
+
+/**
+ * Save
+ */
+export const savePublicManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<SavePublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  SavePublicManagementStakeResponses,
+  SavePublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SavePublicManagementStakeResponses,
+    SavePublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Correct
+ */
+export const correctPublicManagementBoardCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectPublicManagementBoardCellData, ThrowOnError>,
+): RequestResult<
+  CorrectPublicManagementBoardCellResponses,
+  CorrectPublicManagementBoardCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectPublicManagementBoardCellResponses,
+    CorrectPublicManagementBoardCellErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Clear
+ */
+export const clearPublicManagementStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ClearPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  ClearPublicManagementStakeResponses,
+  ClearPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ClearPublicManagementStakeResponses,
+    ClearPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Refresh
+ */
+export const refreshPublicManagementStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  RefreshPublicManagementStakeResponses,
+  RefreshPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshPublicManagementStakeResponses,
+    RefreshPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Symbols
+ */
+export const listPublicManagementSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementSymbolsResponses,
+  ListPublicManagementSymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementSymbolsResponses,
+    ListPublicManagementSymbolsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols',
+    ...options,
+  });
+
+/**
+ * Symbol Image
+ */
+export const getPublicManagementSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementSymbolImageResponses,
+  GetPublicManagementSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementSymbolImageResponses,
+    GetPublicManagementSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols/{symbol_id}/image',
+    ...options,
+  });
+
+/**
+ * Journal
+ */
+export const listPublicManagementJournal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementJournalData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementJournalResponses,
+  ListPublicManagementJournalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementJournalResponses,
+    ListPublicManagementJournalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/journal',
+    ...options,
+  });
+
+/**
+ * Preview Update
+ */
+export const previewPublicManagementMachineUpdate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementMachineUpdateData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementMachineUpdateResponses,
+  PreviewPublicManagementMachineUpdateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementMachineUpdateResponses,
+    PreviewPublicManagementMachineUpdateErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/update-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Point
+ */
+export const createPublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreatePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  CreatePublicManagementPointResponses,
+  CreatePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreatePublicManagementPointResponses,
+    CreatePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Point
+ */
+export const updatePublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementPointResponses,
+  UpdatePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementPointResponses,
+    UpdatePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Point
+ */
+export const deletePublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeletePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  DeletePublicManagementPointResponses,
+  DeletePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeletePublicManagementPointResponses,
+    DeletePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Point
+ */
+export const previewPublicManagementPointDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementPointDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementPointDeletionResponses,
+  PreviewPublicManagementPointDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementPointDeletionResponses,
+    PreviewPublicManagementPointDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Machine
+ */
+export const createPublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreatePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  CreatePublicManagementMachineResponses,
+  CreatePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreatePublicManagementMachineResponses,
+    CreatePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Machine
+ */
+export const updatePublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementMachineResponses,
+  UpdatePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementMachineResponses,
+    UpdatePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Machine
+ */
+export const deletePublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeletePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  DeletePublicManagementMachineResponses,
+  DeletePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeletePublicManagementMachineResponses,
+    DeletePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Machine
+ */
+export const previewPublicManagementMachineDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementMachineDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementMachineDeletionResponses,
+  PreviewPublicManagementMachineDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementMachineDeletionResponses,
+    PreviewPublicManagementMachineDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Unlock
+ */
+export const unlockManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<UnlockManagementSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockManagementSessionResponses,
+  UnlockManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockManagementSessionResponses,
+    UnlockManagementSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

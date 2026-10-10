@@ -54184,7 +54184,7 @@
   ],
   "geometrySource": "detector",
   "normalizationReportSha256": "599f7af8a2b476be514a3693b77055ed1f46e48287f141a5a08ca900fc39cb46",
-  "profileSetSha256": "2c0e19b89b0fbbd03be3fef9af05233c31cbbef72bd5a2608659bf78b700c48c",
+  "profileSetSha256": "c1f31f5c293ab6d87a2c9dfe593ed2b7d645672275f215b4ff1feb3fdccd03cb",
   "refinerVersion": "symbol-grid-refiner-affine-v1",
   "reportVersion": "m5-full-symbol-grid-refinement-benchmark-v1",
   "status": "needs_tuning",

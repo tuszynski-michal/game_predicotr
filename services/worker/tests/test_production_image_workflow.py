@@ -249,12 +249,16 @@ def test_systemic_geometry_guard_fails_before_file_registration(
         "_symbol_model_snapshot",
         "_grid_profile_snapshot",
         "_page_registration_profile_snapshot",
-        "_geometry_rollout_snapshot",
     ):
         monkeypatch.setattr(
             f"game_predictor_worker.images.production_workflow.{helper_name}",
             lambda _job: None,
         )
+    # D-467 (TASK-0790): only a virtual rollout passes the import gate.
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._geometry_rollout_snapshot",
+        lambda _job: SimpleNamespace(cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT),
+    )
     monkeypatch.setattr(
         "game_predictor_worker.images.production_workflow.ProductionImageStageAdapterSuite",
         lambda *_args, **_kwargs: SimpleNamespace(),
@@ -2628,6 +2632,7 @@ def test_manual_import_defers_every_unregistered_source_slot_without_crops(
     suite.persist_board_cell_geometry_deferrals(context, geometry)
     context = replace(context, previous_results={"board_cell_geometry": geometry})
     crops = suite.board_crops(context)
+    validate_stage_payload("board_crops", crops, context)
     assert crops["boards"] == []
     assert len(crops["deferredBoards"]) == end - start + 1
     assert [item["sequence_number"] for item in deferred] == list(range(start, end + 1))

@@ -16,7 +16,7 @@ import json
 import os
 import stat
 from collections.abc import Callable, Mapping
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
@@ -235,6 +235,7 @@ class V7OutputOperation:
     expected_previous_checksum_sha256: str | None = None
     expected_previous_owner_operation_id: UUID | None = None
     conflict_code: str | None = None
+    publication_file_identity: tuple[int, int] | None = None
 
     @property
     def output_checksum_sha256(self) -> str:
@@ -263,6 +264,11 @@ class V7OutputOperation:
             ),
             "operationId": str(self.operation_id),
             "operatorConfirmedRange": self.operator_confirmed_range,
+            "publicationFileIdentity": (
+                None
+                if self.publication_file_identity is None
+                else list(self.publication_file_identity)
+            ),
             "sourceChecksumSha256": self.source_checksum_sha256,
             "sourceIndex": self.source_index,
             "sourceRelativePath": self.source_relative_path,
@@ -296,6 +302,9 @@ class V7OutputOperation:
                     raw.get("expectedPreviousOwnerOperationId")
                 ),
                 conflict_code=_optional_string(raw.get("conflictCode")),
+                publication_file_identity=_optional_file_identity(
+                    raw.get("publicationFileIdentity")
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise V7OutputWriterError(
@@ -444,6 +453,8 @@ class V7OutputJournal:
 
 FaultHook = Callable[[str, V7OutputOperation], None]
 GenerationValidator = Callable[[V7OutputOperation], bool]
+PublicationRecorder = Callable[[V7OutputOperation], None]
+PublicationGuard = Callable[[V7OutputOperation], AbstractContextManager[PublicationRecorder | None]]
 
 
 class V7OutputWriter:
@@ -457,17 +468,39 @@ class V7OutputWriter:
         generation_validator: GenerationValidator | None = None,
         fault_hook: FaultHook | None = None,
         filesystem_validator: Callable[[Path], bool] | None = None,
+        publication_guard: PublicationGuard | None = None,
+        output_root: Path | None = None,
     ) -> None:
         self._initial_manifest = initial_manifest
         self._pinned_manifest = V7PinnedSourceManifest.from_local_manifest(initial_manifest)
         self._refresh_manifest = refresh_manifest
         self._generation_validator = generation_validator or (lambda _operation: True)
+        if publication_guard is not None and generation_validator is None:
+            _fail(
+                "V7_OUTPUT_GUARD_REQUIRED",
+                "A publication guard needs its durable generation validator.",
+            )
+        self._publication_guard: PublicationGuard = publication_guard or (
+            lambda _operation: nullcontext()
+        )
         self._fault_hook = fault_hook or (lambda _phase, _operation: None)
         self._filesystem_validator = filesystem_validator or _is_supported_local_ntfs
         source_root = initial_manifest.source_root
         if not source_root.name:
             _fail("V7_OUTPUT_PATH_UNSAFE", "V7 source folder cannot be a filesystem root.")
-        self.output_root = source_root.with_name(f"{source_root.name} cut")
+        self.output_root = (
+            source_root.with_name(f"{source_root.name} cut") if output_root is None else output_root
+        )
+        if (
+            not self.output_root.is_absolute()
+            or not self.output_root.name
+            or self.output_root == source_root
+            or source_root in self.output_root.parents
+        ):
+            _fail(
+                "V7_OUTPUT_PATH_UNSAFE",
+                "V7 output must be an absolute directory outside its sources.",
+            )
         self._state_root = self.output_root / _STATE_DIRECTORY
         self._journal_path = self._state_root / _JOURNAL_FILE
 
@@ -523,7 +556,15 @@ class V7OutputWriter:
             if operation.state is V7OutputOperationState.PREPARED:
                 self._fault_hook("prepared", operation)
                 self._write_temp(source_path, operation)
-                operation = replace(operation, state=V7OutputOperationState.PUBLISHING)
+                operation = replace(
+                    operation,
+                    state=V7OutputOperationState.PUBLISHING,
+                    publication_file_identity=(
+                        _file_identity_if_regular(self._temp_path(operation))
+                        if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE
+                        else None
+                    ),
+                )
                 journal = _replace_operation(journal, operation)
                 self._save_journal(journal)
                 self._fault_hook("temp_written", operation)
@@ -532,11 +573,21 @@ class V7OutputWriter:
                 current = self._require_current_manifest()
                 self._require_source(current, operation)
                 self._fault_hook("before_publish", operation)
-                if not self._generation_validator(operation):
-                    operation = self._conflict(operation, "V7_OUTPUT_STALE_GENERATION")
-                    journal = _replace_operation(journal, operation)
-                    self._save_journal(journal)
-                    return operation
+            return self._publish_and_commit_guarded(journal, operation)
+
+    def _publish_and_commit_guarded(
+        self,
+        journal: V7OutputJournal,
+        operation: V7OutputOperation,
+    ) -> V7OutputOperation:
+        with self._publication_guard(operation) as record:
+            if not self._generation_validator(operation):
+                operation = self._conflict(operation, "V7_OUTPUT_STALE_GENERATION")
+                self._save_journal(_replace_operation(journal, operation))
+                if record is not None:
+                    record(operation)
+                return operation
+            if operation.state is V7OutputOperationState.PUBLISHING:
                 self._fault_hook("after_generation_validation", operation)
                 if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE:
                     self._require_replace_preconditions(journal, operation)
@@ -550,6 +601,9 @@ class V7OutputWriter:
                 self._save_journal(journal)
                 self._fault_hook("published", operation)
             committed, _ = self._commit_locked(journal, operation)
+            self._fault_hook("journal_committed", committed)
+            if record is not None:
+                record(committed)
             return committed
 
     def recover(self) -> V7OutputJournal:
@@ -561,6 +615,20 @@ class V7OutputWriter:
             self._require_journal_manifest(journal)
             self._require_current_manifest()
             return self._recover_locked(journal)
+
+    def publication_may_exist(self, operation_id: UUID) -> bool:
+        """Inspect a failed command under the directory lock without creating directories."""
+        if not self._state_root.exists():
+            return False
+        with _DirectoryLock(self._state_root / _LOCK_FILE):
+            journal = self._load_journal()
+            self._require_journal_manifest(journal)
+            operation = _operation_by_id(journal, operation_id)
+            return operation is not None and operation.state in {
+                V7OutputOperationState.PUBLISHING,
+                V7OutputOperationState.PUBLISHED,
+                V7OutputOperationState.COMMITTED,
+            }
 
     def supersede_pending(self, operation_id: UUID, *, next_generation: int) -> V7OutputOperation:
         """T09 seam: invalidate a pending old writer under the same directory lock."""
@@ -669,12 +737,25 @@ class V7OutputWriter:
             # recovery point must perform that last durable transition; leaving
             # it for a later HTTP retry would make "published" ambiguous.
             if updated.state is V7OutputOperationState.PUBLISHED:
-                if not self._generation_validator(updated):
-                    updated = self._conflict(updated, "V7_OUTPUT_STALE_GENERATION")
-                    journal = _replace_operation(journal, updated)
-                    changed = True
-                else:
-                    _, journal = self._commit_locked(journal, updated)
+                with self._publication_guard(updated) as record:
+                    if not self._generation_validator(updated):
+                        updated = self._conflict(updated, "V7_OUTPUT_STALE_GENERATION")
+                        journal = _replace_operation(journal, updated)
+                        changed = True
+                    else:
+                        updated, journal = self._commit_locked(journal, updated)
+                        self._fault_hook("journal_committed", updated)
+                    if record is not None:
+                        record(updated)
+            elif updated.state in {
+                V7OutputOperationState.COMMITTED,
+                V7OutputOperationState.CONFLICT,
+            }:
+                # A committed journal may have survived a SQL transaction rollback.
+                # The current claim can reconstruct its receipt without publishing.
+                with self._publication_guard(updated) as record:
+                    if record is not None:
+                        record(updated)
         if changed:
             self._save_journal(journal)
         return journal
@@ -712,7 +793,7 @@ class V7OutputWriter:
             return self._conflict(operation, "V7_OUTPUT_TARGET_CHECKSUM_MISMATCH")
         if operation.state is V7OutputOperationState.PREPARED:
             return (
-                replace(operation, state=V7OutputOperationState.PUBLISHED)
+                self._conflict(operation, "V7_OUTPUT_TARGET_CONFLICT")
                 if target_hash is not None
                 else (
                     replace(operation, state=V7OutputOperationState.PUBLISHING)
@@ -722,13 +803,19 @@ class V7OutputWriter:
             )
         if operation.state is V7OutputOperationState.PUBLISHING:
             return (
-                replace(operation, state=V7OutputOperationState.PUBLISHED)
+                (
+                    replace(operation, state=V7OutputOperationState.PUBLISHED)
+                    if _same_regular_file(target, temp)
+                    else self._conflict(operation, "V7_OUTPUT_TARGET_CONFLICT")
+                )
                 if target_hash
                 else operation
             )
         if operation.state is V7OutputOperationState.PUBLISHED:
             return (
-                operation if target_hash else self._conflict(operation, "V7_OUTPUT_TARGET_MISSING")
+                operation
+                if target_hash and _same_regular_file(target, temp)
+                else self._conflict(operation, "V7_OUTPUT_TARGET_OWNER_CONFLICT")
             )
         if operation.state is V7OutputOperationState.COMMITTED:
             owner = _owner_for(journal, operation.target_name)
@@ -759,8 +846,19 @@ class V7OutputWriter:
                 if target_hash == operation.output_checksum_sha256
                 else self._conflict(operation, "V7_OUTPUT_TARGET_CHECKSUM_MISMATCH")
             )
-        if target_hash == operation.output_checksum_sha256:
+        target = self.output_root / operation.target_name
+        # A rename preserves the temp's NTFS identity and removes the temp name.
+        # Equal bytes alone do not prove that this writer published the target.
+        if (
+            operation.state in {V7OutputOperationState.PUBLISHING, V7OutputOperationState.PUBLISHED}
+            and temp_hash is None
+            and operation.publication_file_identity is not None
+            and _file_identity_if_regular(target) == operation.publication_file_identity
+            and target_hash == operation.output_checksum_sha256
+        ):
             return replace(operation, state=V7OutputOperationState.PUBLISHED)
+        if operation.state is V7OutputOperationState.PUBLISHED:
+            return self._conflict(operation, "V7_OUTPUT_TARGET_OWNER_CONFLICT")
         if (
             owner.operation_id == expected_owner
             and owner.checksum_sha256 == expected_previous
@@ -770,7 +868,11 @@ class V7OutputWriter:
             if operation.state is V7OutputOperationState.PREPARED and temp_hash is None:
                 return operation
             return (
-                replace(operation, state=V7OutputOperationState.PUBLISHING)
+                replace(
+                    operation,
+                    state=V7OutputOperationState.PUBLISHING,
+                    publication_file_identity=_file_identity_if_regular(self._temp_path(operation)),
+                )
                 if temp_hash is not None
                 else self._conflict(operation, "V7_OUTPUT_TEMP_MISSING")
             )
@@ -788,6 +890,21 @@ class V7OutputWriter:
         target_hash = _file_sha256_if_regular(self.output_root / operation.target_name)
         if target_hash != operation.output_checksum_sha256:
             operation = self._conflict(operation, "V7_OUTPUT_TARGET_CHECKSUM_MISMATCH")
+            journal = _replace_operation(journal, operation)
+            self._save_journal(journal)
+            return operation, journal
+        owns_target = (
+            operation.publication_file_identity is not None
+            and _file_identity_if_regular(self.output_root / operation.target_name)
+            == operation.publication_file_identity
+            and not self._temp_path(operation).exists()
+            if operation.decision_kind is V7OutputDecisionKind.MANUAL_REPLACE
+            else _same_regular_file(
+                self.output_root / operation.target_name, self._temp_path(operation)
+            )
+        )
+        if not owns_target:
+            operation = self._conflict(operation, "V7_OUTPUT_TARGET_OWNER_CONFLICT")
             journal = _replace_operation(journal, operation)
             self._save_journal(journal)
             return operation, journal
@@ -929,6 +1046,11 @@ class V7OutputWriter:
         temp = self._temp_path(operation)
         if _file_sha256_if_regular(temp) != operation.output_checksum_sha256:
             _fail("V7_OUTPUT_TEMP_CHECKSUM_MISMATCH", "V7 replacement temp cannot be published.")
+        if (
+            operation.publication_file_identity is None
+            or _file_identity_if_regular(temp) != operation.publication_file_identity
+        ):
+            _fail("V7_OUTPUT_TARGET_OWNER_CONFLICT", "V7 replacement temp identity changed.")
         try:
             os.replace(temp, target)
         except OSError as error:
@@ -962,16 +1084,24 @@ class V7OutputWriter:
             _fail(
                 "V7_OUTPUT_SOURCE_CHANGED", "V7 selected source differs from the output operation."
             )
-        return cast(Path, path)
+        return path
 
     def _ensure_directories(self) -> None:
-        if not self._filesystem_validator(self._initial_manifest.source_root):
+        # Copy from any readable source volume. Temp/link/replace stay together
+        # on the validated NTFS output volume, including cross-volume sources.
+        ancestor = self.output_root.parent
+        while not ancestor.exists() and ancestor != ancestor.parent:
+            ancestor = ancestor.parent
+        _require_safe_directory(ancestor)
+        if not self._filesystem_validator(ancestor):
             _fail(
                 "V7_OUTPUT_FILESYSTEM_UNSUPPORTED",
-                "V7 output requires a local NTFS source volume without network shares.",
+                "V7 output requires a local NTFS output volume without network shares.",
             )
         _require_safe_directory(self._initial_manifest.source_root)
         try:
+            self.output_root.parent.mkdir(parents=True, exist_ok=True)
+            _require_safe_directory(self.output_root.parent)
             self.output_root.mkdir(exist_ok=True)
             _require_safe_directory(self.output_root)
             self._state_root.mkdir(exist_ok=True)
@@ -1021,7 +1151,7 @@ class V7OutputWriter:
             )
 
     def _temp_path(self, operation: V7OutputOperation) -> Path:
-        return cast(Path, self._state_root / f"{_TEMP_PREFIX}{operation.operation_id.hex}.part")
+        return self._state_root / f"{_TEMP_PREFIX}{operation.operation_id.hex}.part"
 
     @staticmethod
     def _conflict(operation: V7OutputOperation, code: str) -> V7OutputOperation:
@@ -1151,6 +1281,42 @@ def _file_sha256_if_regular(path: Path) -> str | None:
     except OSError as error:
         raise V7OutputWriterError("V7_OUTPUT_READ_FAILED", "V7 output cannot be read.") from error
     return digest.hexdigest()
+
+
+def _same_regular_file(target: Path, temp: Path) -> bool:
+    """A first-write recovery needs the writer's hardlink, not just equal bytes."""
+    try:
+        return target.is_file() and temp.is_file() and os.path.samefile(target, temp)
+    except OSError:
+        return False
+
+
+def _file_identity_if_regular(path: Path) -> tuple[int, int] | None:
+    """Persist the NTFS volume/file identity across a replacement rename."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise V7OutputWriterError(
+            "V7_OUTPUT_READ_FAILED", "V7 file identity cannot be read."
+        ) from error
+    if not stat.S_ISREG(metadata.st_mode) or _is_link_or_reparse(path):
+        _fail("V7_OUTPUT_PATH_UNSAFE", "V7 publication identity requires a safe regular file.")
+    if metadata.st_ino <= 0:
+        _fail("V7_OUTPUT_FILESYSTEM_UNSUPPORTED", "V7 publication requires a stable file identity.")
+    return metadata.st_dev, metadata.st_ino
+
+
+def _optional_file_identity(value: object) -> tuple[int, int] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) != 2:
+        _fail("V7_OUTPUT_JOURNAL_INVALID", "V7 publication file identity is invalid.")
+    volume, file_id = _int(value[0]), _int(value[1])
+    if volume < 0 or file_id < 1:
+        _fail("V7_OUTPUT_JOURNAL_INVALID", "V7 publication file identity is invalid.")
+    return volume, file_id
 
 
 def _require_safe_directory(path: Path) -> None:

@@ -28,12 +28,21 @@ pytestmark = pytest.mark.skipif(
     reason="Explicit isolated PostgreSQL tests only",
 )
 
+# 0105 bootstraps V2 from its maintained schema snapshot.  Its two geometry
+# qualification checks already accept v2 payloads introduced by 0111, while
+# the public tables in this historical migration target still have v1 checks.
+# The remaining checks must stay structurally identical.
+_EXPECTED_V1_V2_QUALIFICATION_CHECKS = {
+    "recognized_boards": "ck_recognized_boards_qualification",
+    "image_import_geometry_guard_decisions": "ck_guard_decisions_qualification",
+}
+
 
 @pytest.fixture
 def database() -> Iterator[tuple[Engine, Config]]:
     name = "game_predictor_task0518_" + uuid4().hex[:12]
     assert re.fullmatch(r"game_predictor_task0518_[0-9a-f]{12}", name)
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     assert url.database != name
     maintenance = create_engine(
         url.set(database="postgres"),
@@ -121,15 +130,22 @@ def test_catalog_partition_constraints_indexes_and_empty_downgrade(
                 if column["name"] != "game_id":
                     assert columns[column["name"]]["nullable"] == column["nullable"]
             legacy_checks = {
-                check["sqltext"]
+                check["name"]: check["sqltext"]
                 for check in inspector.get_check_constraints(table, schema="public")
                 if check["name"] != "ck_image_symbol_review_events_render_provenance"
             }
             v2_checks = {
-                check["sqltext"]
+                check["name"]: check["sqltext"]
                 for check in inspector.get_check_constraints(table, schema="game_data_v2")
                 if check["name"] != "ck_image_symbol_review_events_render_provenance"
             }
+            expected_qualification_check = _EXPECTED_V1_V2_QUALIFICATION_CHECKS.get(table)
+            if expected_qualification_check is not None:
+                legacy_qualification = legacy_checks.pop(expected_qualification_check)
+                v2_qualification = v2_checks.pop(expected_qualification_check)
+                assert legacy_qualification != v2_qualification
+                assert "manual-geometry-qualification-v1" in legacy_qualification
+                assert "manual-geometry-qualification-v2" in v2_qualification
             if legacy_checks != v2_checks:
                 check_differences.append(
                     f"{table}: missing={legacy_checks - v2_checks!r}; "

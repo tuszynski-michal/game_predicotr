@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +14,8 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
+    CatalogError,
+    GameShapeGeometryConfiguration,
     GameStatus,
     SymbolStatus,
 )
@@ -32,15 +35,17 @@ from game_predictor_api.domain.rules import (
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import LayoutModel
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -53,7 +58,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -94,13 +99,16 @@ def test_symbol_localized_names_survive_real_database_round_trip(
         columns = {column["name"] for column in inspect(engine).get_columns("symbols")}
         assert {"name_pl", "name_en"} <= columns
 
-        with Session(engine, expire_on_commit=False) as session:
+        session_factory = create_session_factory(engine)
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
                 code="localized-game",
                 name="Localized Game",
                 status=GameStatus.ACTIVE,
             )
+            stack.enter_context(game_storage_scope(game.id))
             symbol = service.create_symbol(
                 game.id,
                 mobile_code=1,
@@ -131,6 +139,42 @@ def test_symbol_localized_names_survive_real_database_round_trip(
         engine.dispose()
 
 
+def test_grid_engine_profile_page_format_survives_real_database_round_trip(
+    isolated_catalog_database: URL,
+) -> None:
+    """TASK-0830: the 0140 constraint accepts both profiles through the repository."""
+
+    command.upgrade(_migration_config(isolated_catalog_database), "head")
+    engine = create_engine(isolated_catalog_database, pool_pre_ping=True)
+
+    try:
+        session_factory = create_session_factory(engine)
+        with session_factory() as session:
+            service = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = service.create_game(
+                code="mumie",
+                name="Mumie",
+                status=GameStatus.DRAFT,
+                shape_geometry_configuration=GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+            )
+            session.commit()
+            assert service.get_game(game.id).shape_geometry_configuration is (
+                GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1
+            )
+            service.update_game(
+                game.id,
+                shape_geometry_configuration=GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+            )
+            session.commit()
+        with session_factory() as session:
+            stored = CatalogService(SqlAlchemyCatalogRepository(session)).get_game(game.id)
+            assert stored.shape_geometry_configuration is (
+                GameShapeGeometryConfiguration.GRID_PROFILE_777_V2
+            )
+    finally:
+        engine.dispose()
+
+
 def test_catalog_repository_uses_real_constraints(
     isolated_catalog_database: URL,
 ) -> None:
@@ -140,29 +184,37 @@ def test_catalog_repository_uses_real_constraints(
     try:
         assert {
             "alembic_version",
-            "dataset_versions",
             "games",
             "jobs",
-            "layout_import_rows",
-            "layout_import_normalized_rows",
-            "layouts",
-            "layout_payouts",
-            "mobile_release_games",
             "mobile_releases",
             "paylines",
             "payout_rules",
             "rules_versions",
             "rules_version_symbols",
             "symbols",
-        } <= set(inspect(engine).get_table_names())
+        } <= set(inspect(engine).get_table_names(schema="public"))
+        game_tables = {
+            "dataset_versions",
+            "layout_import_rows",
+            "layout_import_normalized_rows",
+            "layouts",
+            "layout_payouts",
+            "mobile_release_games",
+        }
+        assert game_tables <= set(inspect(engine).get_table_names(schema="game_data_v2"))
+        assert game_tables.isdisjoint(inspect(engine).get_table_names(schema="public"))
 
-        with Session(engine, expire_on_commit=False) as session:
+        session_factory = create_session_factory(engine)
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
                 code="game-1",
                 name="Game 1",
                 status=GameStatus.ACTIVE,
+                expected_layout_count=1000,
             )
+            stack.enter_context(game_storage_scope(game.id))
             job_service = JobService(SqlAlchemyJobRepository(session))
             job_payload: dict[str, object] = {
                 "schema_version": 1,
@@ -275,6 +327,29 @@ def test_catalog_repository_uses_real_constraints(
             with pytest.raises(RulesConflictError) as error:
                 rules_service.update_rules_version(first_rules.id, columns=6)
             assert error.value.code == "RULES_DIMENSIONS_IN_USE"
+            # D-477: a permanent delete frees the code and the row path.
+            disposable = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=False,
+            )
+            rules_service.delete_payline(first_rules.id, disposable.id)
+            session.flush()
+            assert disposable.id not in {
+                payline.id for payline in rules_service.list_paylines(first_rules.id)
+            }
+            recreated = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=True,
+            )
+            rules_service.delete_payline(first_rules.id, recreated.id)
             session.commit()
 
             with pytest.raises(RulesConflictError) as error:
@@ -342,13 +417,15 @@ def test_catalog_repository_uses_real_constraints(
             assert wildcard_config.minimum_match_length is None
             session.commit()
 
-            with pytest.raises(CatalogConflictError) as identity_error:
-                service.update_symbol(
-                    game.id,
-                    first.id,
-                    is_wildcard=True,
-                )
-            assert identity_error.value.code == "SYMBOL_RULES_IDENTITY_IN_USE"
+            # TASK-0931 (D-535): a reference from a draft rules version no longer
+            # locks the role; the lock after publication is covered by
+            # test_super_game_roles_survive_real_database_round_trip.
+            changed = service.update_symbol(
+                game.id,
+                first.id,
+                is_wildcard=True,
+            )
+            assert changed.is_wildcard is True
             session.rollback()
 
             with pytest.raises(RulesConflictError) as error:
@@ -494,7 +571,7 @@ def test_catalog_repository_uses_real_constraints(
             assert archived.published_at == published.published_at
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             with pytest.raises(CatalogConflictError) as game_conflict:
                 service.create_game(
@@ -531,5 +608,127 @@ def test_catalog_repository_uses_real_constraints(
                     status=SymbolStatus.ACTIVE,
                 )
             assert mobile_code_conflict.value.code == "SYMBOL_MOBILE_CODE_ALREADY_EXISTS"
+    finally:
+        engine.dispose()
+
+
+def test_super_game_roles_survive_real_database_round_trip(
+    isolated_catalog_database: URL,
+) -> None:
+    """TASK-0931: the 0151 columns, the draft-only role lock and the DB checks."""
+
+    command.upgrade(_migration_config(isolated_catalog_database), "head")
+    engine = create_engine(isolated_catalog_database, pool_pre_ping=True)
+
+    try:
+        columns = {column["name"]: column for column in inspect(engine).get_columns("games")}
+        assert columns["super_game_kind"]["nullable"] is False
+        symbol_columns = {column["name"] for column in inspect(engine).get_columns("symbols")}
+        assert "super_game_trigger_count" in symbol_columns
+
+        session_factory = create_session_factory(engine)
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
+            service = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = service.create_game(code="mumie", name="Mumie", status=GameStatus.DRAFT)
+            assert game.super_game_kind == "none"
+            stack.enter_context(game_storage_scope(game.id))
+            ten = service.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="10",
+                name="10",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            mumia = service.create_symbol(
+                game.id,
+                mobile_code=10,
+                code="MUMIA",
+                name="Mumia",
+                image_path=None,
+                is_wildcard=False,
+                display_order=9,
+                status=SymbolStatus.ACTIVE,
+            )
+            rules_service = RulesService(SqlAlchemyRulesRepository(session))
+            draft = rules_service.create_rules_version(game.id, rows=3, columns=5, spin_cost=100)
+            rules_service.create_payline(
+                draft.id,
+                code="A",
+                name="A",
+                row_path=[1, 1, 1, 1, 1],
+                display_order=0,
+                is_active=True,
+            )
+            for symbol in (ten, mumia):
+                rules_service.update_rules_version_symbol(
+                    draft.id, symbol.id, minimum_match_length=3, is_active=True
+                )
+            for symbol, payouts in ((ten, (5, 10, 20)), (mumia, (20, 200, 2000))):
+                for match_length, credits in zip((3, 4, 5), payouts, strict=True):
+                    rules_service.create_payout_rule(
+                        draft.id,
+                        symbol_id=symbol.id,
+                        match_length=match_length,
+                        payout_credits=credits,
+                        is_active=True,
+                    )
+            session.commit()
+
+            with pytest.raises(CatalogError) as kind_required:
+                service.update_symbol(
+                    game.id,
+                    mumia.id,
+                    super_game_trigger_count=3,
+                    update_super_game_trigger_count=True,
+                )
+            assert kind_required.value.code == "SUPER_GAME_KIND_REQUIRED"
+            session.rollback()
+
+            assert service.update_game(game.id, super_game_kind="wild_super_spins")
+            # Mumie: only a draft references the symbol, so the operator may set roles.
+            updated = service.update_symbol(
+                game.id,
+                mumia.id,
+                is_wildcard=True,
+                super_game_trigger_count=3,
+                update_super_game_trigger_count=True,
+            )
+            session.commit()
+            assert (updated.is_wildcard, updated.super_game_trigger_count) == (True, 3)
+            configuration = rules_service.list_rules_version_symbols(draft.id)
+            minimums = {item.symbol_id: item.minimum_match_length for item in configuration}
+            assert minimums == {ten.id: 3, mumia.id: None}
+            # The existing 3/4/5 payouts stay and now count Mumia cells.
+            assert sorted(
+                (rule.match_length, rule.payout_credits)
+                for rule in rules_service.list_payout_rules(draft.id)
+                if rule.symbol_id == mumia.id
+            ) == [(3, 20), (4, 200), (5, 2000)]
+            assert rules_service.get_publication_readiness(draft.id).ready is True
+
+            with pytest.raises(CatalogConflictError) as kind_in_use:
+                service.update_game(game.id, super_game_kind="none")
+            assert kind_in_use.value.code == "SUPER_GAME_KIND_IN_USE"
+            session.rollback()
+
+            rules_service.publish_rules_version(draft.id)
+            session.commit()
+            with pytest.raises(CatalogConflictError) as locked:
+                service.update_symbol(game.id, mumia.id, is_wildcard=False)
+            assert locked.value.code == "SYMBOL_RULES_IDENTITY_IN_USE"
+            session.rollback()
+            assert service.update_symbol(game.id, mumia.id, name="Mumia 2").name == "Mumia 2"
+            session.commit()
+
+        with engine.begin() as connection, pytest.raises(IntegrityError):
+            connection.exec_driver_sql(
+                "UPDATE symbols SET super_game_trigger_count = 6 WHERE code = 'MUMIA'"
+            )
+        with engine.begin() as connection, pytest.raises(IntegrityError):
+            connection.exec_driver_sql("UPDATE games SET super_game_kind = 'Wild super spins'")
     finally:
         engine.dispose()

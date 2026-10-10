@@ -10,6 +10,7 @@ from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7AcceptanceTruth,
     V7AutomaticOutcome,
     V7CalibrationError,
+    V7CaptureGroupPolicy,
     V7CropAssessment,
     V7EvaluationStatus,
     V7GeometryAdoption,
@@ -229,11 +230,19 @@ def test_dynamic_geometry_calibration_normalizes_each_source_local_grid() -> Non
     incomplete_source = tuple(
         item for item in annotations if item.source_id != "dynamic-0" or item.position_index < 4
     )
+    without_sparse = calibrate_v7_label_geometry(
+        incomplete_source,
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    assert without_sparse.source_count_by_position == (5,) * 9
+    assert without_sparse.excluded_source_ids == ("dynamic-0",)
     with pytest.raises(V7CalibrationError, match="five source-local points"):
         calibrate_v7_label_geometry(
             incomplete_source,
             manifest_fingerprint=FINGERPRINT,
             geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+            capture_group_policy=V7CaptureGroupPolicy.PER_POSITION,
         )
 
     mirrored = tuple(
@@ -252,7 +261,20 @@ def test_dynamic_geometry_calibration_normalizes_each_source_local_grid() -> Non
         )
 
 
-def test_api_profile_reader_reconstructs_the_dynamic_locator_payload() -> None:
+@pytest.mark.parametrize(
+    ("family", "policy"),
+    [
+        (V7_STANDARD_GEOMETRY_FAMILY_ID, V7CaptureGroupPolicy.PER_POSITION),
+        (V7_DYNAMIC_GEOMETRY_FAMILY_ID, V7CaptureGroupPolicy.PER_POSITION),
+        (V7_DYNAMIC_GEOMETRY_FAMILY_ID, V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES),
+    ],
+)
+@pytest.mark.parametrize("revision", [0, 118])
+def test_api_profile_reader_reconstructs_the_locator_payload(
+    family: str,
+    policy: V7CaptureGroupPolicy,
+    revision: int,
+) -> None:
     annotations = []
     for source_index in range(5):
         for position_index in range(9):
@@ -267,27 +289,222 @@ def test_api_profile_reader_reconstructs_the_dynamic_locator_payload() -> None:
                     center_y=0.2 + source_index * 0.01 + row * 0.18,
                     capture_group_id=f"capture-{source_index % 2}",
                     crop_assessment=V7CropAssessment.CONTAINED,
-                    geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+                    geometry_family_id=family,
                 )
             )
     calibration = calibrate_v7_label_geometry(
         annotations,
         manifest_fingerprint=FINGERPRINT,
-        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        geometry_family_id=family,
+        capture_group_policy=policy,
     )
     from game_predictor_api.application.v7_label_geometry_calibration import (
         _profile_from_payload,
     )
 
-    restored = _profile_from_payload(
-        {
-            "calibration": calibration.as_dict(),
-            "profileFingerprint": "b" * 64,
-            "revision": 0,
-        }
+    original = V7GeometryProfile(
+        calibration=calibration, profile_fingerprint="b" * 64, revision=revision
+    )
+    restored = _profile_from_payload(original.as_dict())
+
+    assert restored.as_dict() == original.as_dict()
+    assert restored.calibration.locator_config.as_dict() == calibration.locator_config.as_dict()
+    assert restored.calibration.as_dict() == calibration.as_dict()
+    if policy is V7CaptureGroupPolicy.PER_POSITION:
+        assert calibration.as_dict()["version"] == "v7-calibration-v2"
+        assert "captureGroupPolicy" not in calibration.as_dict()
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [True, False, "0", 0.0, {"value": 0}, object()],
+    ids=["true", "false", "string", "float", "mapping", "object"],
+)
+def test_api_profile_reader_rejects_non_integer_revision(revision: object) -> None:
+    from game_predictor_api.application.v7_label_geometry_calibration import (
+        _profile_from_payload,
     )
 
-    assert restored.calibration.locator_config.as_dict() == calibration.locator_config.as_dict()
+    calibration = calibrate_v7_label_geometry(
+        _annotations(), manifest_fingerprint=FINGERPRINT, geometry_family_id=FAMILY
+    )
+    with pytest.raises(ValueError, match="integer"):
+        _profile_from_payload(
+            {
+                "calibration": calibration.as_dict(),
+                "profileFingerprint": "b" * 64,
+                "revision": revision,
+            }
+        )
+
+
+def _occluded_dynamic_annotations() -> tuple[V7LabelGeometryAnnotation, ...]:
+    return tuple(
+        replace(
+            item,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+            capture_group_id="A" if int(item.source_id.split("-")[1]) < 4 else "B",
+        )
+        for item in _annotations(source_count=10)
+        if not (int(item.source_id.split("-")[1]) < 4 and item.position_index == 6)
+    )
+
+
+@pytest.mark.parametrize("field", ["captureGroupCount", "minimumCaptureGroups"])
+@pytest.mark.parametrize(
+    "count",
+    [True, False, "2", 2.9, {"value": 2}, object()],
+    ids=["true", "false", "string", "float", "mapping", "object"],
+)
+def test_api_profile_reader_rejects_non_integer_source_local_coverage(
+    field: str, count: object
+) -> None:
+    from game_predictor_api.application.v7_label_geometry_calibration import (
+        _profile_from_payload,
+    )
+
+    calibration = calibrate_v7_label_geometry(
+        _occluded_dynamic_annotations(),
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    payload = calibration.as_dict()
+    payload[field] = count
+    with pytest.raises(ValueError, match="integer"):
+        _profile_from_payload(
+            {"calibration": payload, "profileFingerprint": "b" * 64, "revision": 118}
+        )
+
+
+@pytest.mark.parametrize("occluded_in_first_capture", [0, 1, 20])
+def test_dynamic_calibration_keeps_occlusion_local_to_each_photo(
+    occluded_in_first_capture: int,
+) -> None:
+    # Twenty photos per capture cover 0%, 5% and 100% occlusion in A.
+    # A hidden label must not disable that position in the other A photos or B.
+    annotations = tuple(
+        replace(
+            item,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+            capture_group_id="A" if int(item.source_id.split("-")[1]) < 20 else "B",
+        )
+        for item in _annotations(source_count=40, spread=0)
+        if not (
+            int(item.source_id.split("-")[1]) < occluded_in_first_capture
+            and item.position_index == 6
+        )
+    )
+
+    calibration = calibrate_v7_label_geometry(
+        annotations,
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+
+    assert calibration.status is V7EvaluationStatus.PASSED
+    assert calibration.source_count_by_position == (
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40 - occluded_in_first_capture,
+        40,
+        40,
+    )
+    assert calibration.capture_group_count_by_position[6] == (
+        1 if occluded_in_first_capture == 20 else 2
+    )
+    assert calibration.capture_group_count == 2
+    assert calibration.excluded_source_ids == ()
+    assert calibration.p95_center_residual <= calibration.maximum_p95_center_residual
+    assert len(annotations) == 360 - occluded_in_first_capture
+    assert (
+        calibrate_v7_label_geometry(
+            reversed(annotations),
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+        == calibration
+    )
+
+
+def test_dynamic_calibration_uses_complete_grids_without_inventing_occluded_points() -> None:
+    annotations = _occluded_dynamic_annotations()
+    sparse = replace(annotations[-1], source_id="unfinished", source_checksum_sha256="f" * 64)
+    calibration = calibrate_v7_label_geometry(
+        (*annotations, sparse),
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    assert calibration.status is V7EvaluationStatus.PASSED
+    assert calibration.source_count_by_position == (10, 10, 10, 10, 10, 10, 6, 10, 10)
+    assert calibration.capture_group_count_by_position == (2, 2, 2, 2, 2, 2, 1, 2, 2)
+    assert calibration.capture_group_count == 2
+    assert calibration.excluded_source_ids == ("unfinished",)
+    assert calibration.as_dict()["version"] == "v7-calibration-v3"
+    assert len(annotations) == 86
+    reversed_result = calibrate_v7_label_geometry(
+        reversed((*annotations, sparse)),
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    assert reversed_result == calibration
+    # A diagnostic point remains bound into the audit fingerprint even when not fitted.
+    changed = calibrate_v7_label_geometry(
+        (*annotations, replace(sparse, center_x=sparse.center_x + 0.01)),
+        manifest_fingerprint=FINGERPRINT,
+        geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+    )
+    assert changed.input_fingerprint != calibration.input_fingerprint
+    assert changed.p95_center_residual == calibration.p95_center_residual
+
+
+def test_dynamic_calibration_does_not_count_sparse_second_group_or_missing_position() -> None:
+    annotations = _occluded_dynamic_annotations()
+    only_b = tuple(item for item in annotations if item.capture_group_id == "B")
+    with pytest.raises(V7CalibrationError, match="capture groups with complete local grids"):
+        calibrate_v7_label_geometry(
+            (*only_b, annotations[0]),
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+    missing = tuple(item for item in annotations if item.position_index != 6)
+    with pytest.raises(V7CalibrationError, match="lacks independent sources"):
+        calibrate_v7_label_geometry(
+            missing,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+    forged = (*only_b, replace(only_b[0], source_id="alias", capture_group_id="A"))
+    with pytest.raises(V7CalibrationError, match="byte-identical aliases"):
+        calibrate_v7_label_geometry(
+            forged,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
+
+
+def test_dynamic_calibration_keeps_bad_residuals_and_rejects_forged_groups() -> None:
+    annotations = _occluded_dynamic_annotations()
+    bad = tuple(
+        replace(item, center_x=item.center_x + 0.12) if item.position_index == 0 else item
+        for item in annotations
+    )
+    calibration = calibrate_v7_label_geometry(
+        bad, manifest_fingerprint=FINGERPRINT, geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID
+    )
+    assert calibration.status is V7EvaluationStatus.FAILED
+    assert calibration.maximum_p95_center_residual == 0.04
+    assert calibration.excluded_source_ids == ()
+    forged = (replace(annotations[0], capture_group_id="C"), *annotations[1:])
+    with pytest.raises(V7CalibrationError, match="conflicting capture groups"):
+        calibrate_v7_label_geometry(
+            forged,
+            manifest_fingerprint=FINGERPRINT,
+            geometry_family_id=V7_DYNAMIC_GEOMETRY_FAMILY_ID,
+        )
 
 
 def test_profile_adoption_and_exposure_contracts_are_explicit_and_serializable() -> None:

@@ -1,20 +1,24 @@
-"""PostgreSQL persistence for deferred board-cell geometry work."""
+"""PostgreSQL persistence for deferred board-cell geometry work.
+
+The manual resolution of a deferred board is persisted by the virtual source
+path (``SqlAlchemyVirtualGridGeometryRepository``); this repository only
+defers, lists, resolves automatically and reads the correction context
+(D-467, TASK-0790).
+"""
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from pathlib import PurePosixPath
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryCorrectionContext,
-    BoardCellGeometryManualResolution,
-    BoardCellGeometryManualResolutionProjection,
     BoardCellPendingOrderKey,
 )
 from game_predictor_api.domain.board_cell_geometry_pending import (
@@ -22,20 +26,25 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
     BoardCellProcessingManifestV1,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
+    rejection_command_sha256,
 )
-from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.domain.jobs import JobConflictError, JobNotFoundError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
-from game_predictor_api.storage.board_search_projection_repository import (
-    SqlAlchemyBoardSearchProjectionRepository,
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.geometry_correction_revert_models import (
+    ImageBoardGeometryPendingEventModel,
 )
-from game_predictor_api.storage.image_symbol_review_repository import (
-    SymbolCellReviewWriteThroughCoordinator,
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    recompute_source_image_geometry_completeness,
+)
+from game_predictor_api.storage.image_review_repository import (
+    acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryPendingModel,
-    ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
@@ -44,9 +53,15 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
-from game_predictor_api.storage.pending_sequence_ownership import (
-    create_owned_pending_review_item,
-)
+
+
+def _rejection_lock_key(game_id: UUID, idempotency_key: UUID) -> int:
+    """Transaction advisory lock key of one slot-rejection request (signed 64-bit)."""
+
+    digest = hashlib.sha256(
+        f"pending-slot-rejection:{game_id}:{idempotency_key}".encode("ascii")
+    ).digest()
+    return int.from_bytes(digest[:8], "big", signed=True)
 
 
 class SqlAlchemyBoardCellGeometryPendingRepository:
@@ -160,6 +175,10 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         )
         self._session.add(row)
         self._session.flush()
+        # D-484 (TASK-0807): an open deferred slot keeps the image incomplete.
+        recompute_source_image_geometry_completeness(
+            self._session, manifest.game_id, manifest.source_image_id
+        )
         return _to_domain(row), True
 
     def get(self, pending_id: UUID) -> ImageBoardGeometryPending | None:
@@ -225,6 +244,12 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                 func.sum(
                     case(
                         (ImageBoardGeometryPendingModel.status == "superseded", 1),
+                        else_=0,
+                    )
+                ),
+                func.sum(
+                    case(
+                        (ImageBoardGeometryPendingModel.status == "rejected", 1),
                         else_=0,
                     )
                 ),
@@ -305,7 +330,161 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             row.resolved_at = now
         row.updated_at = now
         self._session.flush()
+        recompute_source_image_geometry_completeness(
+            self._session, row.game_id, row.source_image_id
+        )
         return _to_domain(row)
+
+    def reject(
+        self,
+        *,
+        pending_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        reason: BoardRejectionReason,
+        note: str | None,
+        rejected_by: str,
+        rejected_at: datetime,
+    ) -> tuple[ImageBoardGeometryPending, UUID, bool]:
+        """Reject an open deferred slot (TASK-0970, W7/W8); returns ``(slot, event id, created)``.
+
+        Locks in the order of the manual resolution (sequence -> source ->
+        slot). The position stays a gap for the gate (D-484): the image is
+        recomputed in this transaction and remains incomplete, so no other
+        board of it gets cells. The command is identified durably by its
+        idempotency key (``image_board_geometry_pending_events``): the same key
+        with the same command replays the stored rejection without touching
+        the slot, even after the rejection was reverted; the same key with
+        another command conflicts; a rejected slot refuses any other key.
+        """
+
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.WRITE)
+        command_sha256 = rejection_command_sha256(
+            pending_id=pending_id,
+            reason=reason,
+            note=note,
+            expected_geometry_revision=expected_geometry_revision,
+        )
+        # Requests with one key run one after another: a retry that arrives
+        # while the first one commits waits and then reads the stored result.
+        self._session.execute(
+            select(func.pg_advisory_xact_lock(_rejection_lock_key(game_id, idempotency_key)))
+        )
+        known = self._session.scalar(
+            select(ImageBoardGeometryPendingModel).where(
+                ImageBoardGeometryPendingModel.id == pending_id,
+                ImageBoardGeometryPendingModel.game_id == game_id,
+                ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+            )
+        )
+        if known is None:
+            raise JobNotFoundError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_FOUND",
+                "The deferred board-cell geometry item does not exist in this import.",
+            )
+        prior = self._session.scalar(
+            select(ImageBoardGeometryPendingEventModel).where(
+                ImageBoardGeometryPendingEventModel.game_id == game_id,
+                ImageBoardGeometryPendingEventModel.idempotency_key == idempotency_key,
+            )
+        )
+        if prior is not None:
+            if (
+                prior.action != "rejected"
+                or prior.pending_geometry_id != pending_id
+                or prior.command_sha256 != command_sha256
+            ):
+                raise JobConflictError(
+                    "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key already represents another command.",
+                )
+            return _to_domain(known), prior.id, False
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
+        acquire_image_sequence_locks(
+            self._session, game_id=game_id, sequence_numbers={known.sequence_number}
+        )
+        self._session.execute(
+            select(SourceImageModel.id)
+            .where(SourceImageModel.id == known.source_image_id)
+            .with_for_update()
+        )
+        row = self._session.scalar(
+            select(ImageBoardGeometryPendingModel)
+            .where(ImageBoardGeometryPendingModel.id == pending_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        assert row is not None
+        if row.status == BoardCellGeometryPendingStatus.REJECTED.value:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED",
+                "The deferred geometry item is already rejected.",
+            )
+        if row.status != BoardCellGeometryPendingStatus.PENDING.value:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE",
+                "Only an open deferred slot can be rejected; revert its correction first.",
+            )
+        if row.expected_geometry_revision != expected_geometry_revision:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT",
+                "The deferred geometry item changed after it was loaded.",
+            )
+        occupied = self._session.scalar(
+            select(RecognizedBoardModel.id)
+            .where(
+                RecognizedBoardModel.source_image_id == row.source_image_id,
+                RecognizedBoardModel.position_index == row.position_index,
+            )
+            .with_for_update()
+        )
+        if occupied is not None:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE",
+                "A board already exists at this position; reject that board instead.",
+            )
+        revision = (
+            self._session.scalar(
+                select(func.max(ImageBoardGeometryPendingEventModel.rejection_revision)).where(
+                    ImageBoardGeometryPendingEventModel.game_id == game_id,
+                    ImageBoardGeometryPendingEventModel.pending_geometry_id == pending_id,
+                )
+            )
+            or 0
+        ) + 1
+        event = ImageBoardGeometryPendingEventModel(
+            id=uuid4(),
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_id,
+            rejection_revision=revision,
+            action="rejected",
+            idempotency_key=idempotency_key,
+            command_sha256=command_sha256,
+            reason=reason.value,
+            note=note,
+            actor=rejected_by,
+            created_at=rejected_at,
+        )
+        self._session.add(event)
+        row.status = BoardCellGeometryPendingStatus.REJECTED.value
+        row.rejection_reason = reason.value
+        row.rejection_note = note
+        row.rejected_at = rejected_at
+        row.rejected_by = rejected_by
+        row.updated_at = rejected_at
+        self._session.flush()
+        recompute_source_image_geometry_completeness(
+            self._session,
+            game_id,
+            row.source_image_id,
+            actor=rejected_by,
+            now=rejected_at,
+        )
+        settle_source_status_after_slot_rejection(self._session, game_id, row.source_image_id)
+        return _to_domain(row), event.id, True
 
     def correction_context(
         self,
@@ -401,290 +580,6 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             symbol_model=symbol_model,
         )
 
-    def materialize_manual_resolution(
-        self,
-        pending_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        expected_manifest_checksum_sha256: str,
-        projection: BoardCellGeometryManualResolutionProjection,
-        created_at: datetime,
-    ) -> BoardCellGeometryManualResolution | None:
-        row = self._session.scalar(
-            select(ImageBoardGeometryPendingModel)
-            .where(
-                ImageBoardGeometryPendingModel.id == pending_id,
-                ImageBoardGeometryPendingModel.game_id == game_id,
-                ImageBoardGeometryPendingModel.import_job_id == import_job_id,
-            )
-            .with_for_update()
-        )
-        if row is None:
-            return None
-        if row.processing_manifest_checksum_sha256 != expected_manifest_checksum_sha256:
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_MANIFEST_CONFLICT",
-                "The deferred geometry item was loaded from another processing manifest.",
-            )
-        prior = (
-            self._session.scalar(
-                select(ImageBoardGeometryRevisionModel).where(
-                    ImageBoardGeometryRevisionModel.review_item_id == row.review_item_id,
-                    ImageBoardGeometryRevisionModel.idempotency_key == projection.idempotency_key,
-                )
-            )
-            if row.review_item_id is not None
-            else None
-        )
-        if prior is not None:
-            if prior.command_sha256 != projection.command_sha256:
-                raise JobConflictError(
-                    "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
-                    "The idempotency key already represents another manual correction.",
-                )
-            return BoardCellGeometryManualResolution(
-                pending=_to_domain(row),
-                review_item_id=prior.review_item_id,
-                geometry_revision=prior.revision,
-                created=False,
-            )
-        if row.status == BoardCellGeometryPendingStatus.RESOLVED.value:
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_RESOLUTION_CONFLICT",
-                "The deferred geometry item was already resolved by another command.",
-            )
-        if row.status == BoardCellGeometryPendingStatus.SUPERSEDED.value:
-            return BoardCellGeometryManualResolution(
-                pending=_to_domain(row),
-                review_item_id=row.review_item_id,
-                geometry_revision=None,
-                created=False,
-            )
-        source = self._session.get(SourceImageModel, row.source_image_id, with_for_update=True)
-        job = self._session.get(JobModel, import_job_id)
-        if (
-            source is None
-            or job is None
-            or job.game_id != game_id
-            or source.import_job_id != import_job_id
-            or source.checksum_sha256 != row.source_checksum_sha256
-            or source.relative_path != row.source_relative_path
-        ):
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_CONTEXT_INVALID",
-                "The deferred geometry source changed before manual resolution.",
-            )
-        existing_board = self._session.scalar(
-            select(RecognizedBoardModel)
-            .where(
-                RecognizedBoardModel.source_image_id == row.source_image_id,
-                RecognizedBoardModel.position_index == row.position_index,
-            )
-            .with_for_update()
-        )
-        if existing_board is not None:
-            row.status = BoardCellGeometryPendingStatus.SUPERSEDED.value
-            row.superseded_at = created_at
-            row.updated_at = created_at
-            self._session.flush()
-            return BoardCellGeometryManualResolution(
-                pending=_to_domain(row),
-                review_item_id=row.review_item_id,
-                geometry_revision=None,
-                created=False,
-            )
-        try:
-            current_model = SymbolModelJobSnapshot.from_payload(
-                job.input_payload.get("symbol_model")
-            )
-        except ValueError as error:
-            raise JobConflictError(
-                "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID",
-                "The deferred geometry import has an invalid pinned symbol model.",
-            ) from error
-        if current_model.inference_fingerprint != projection.model_inference_fingerprint:
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_MODEL_CONFLICT",
-                "The pinned symbol model changed before manual resolution.",
-            )
-        artifacts = projection.artifacts
-        expected_order = [(r, c) for r in range(3) for c in range(5)]
-        if (
-            len(artifacts.cells) != 15
-            or [(cell.row_index, cell.column_index) for cell in artifacts.cells] != expected_order
-            or len(projection.prediction.cells) != 15
-            or [
-                (prediction.get("rowIndex"), prediction.get("columnIndex"))
-                for prediction in projection.prediction.cells
-            ]
-            != expected_order
-            or not _manual_projection_matches(
-                row,
-                source,
-                current_model,
-                projection,
-            )
-        ):
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_PROJECTION_INVALID",
-                "Manual resolution requires exactly 15 row-major crops and predictions.",
-            )
-        prediction_payload = {
-            "cells": list(projection.prediction.cells),
-            "modelIterationId": projection.prediction.model_iteration_id,
-            "modelManifestChecksumSha256": (projection.prediction.model_manifest_checksum_sha256),
-            "modelVersion": projection.prediction.model_version,
-            "temperatureApplied": projection.prediction.temperature_applied,
-        }
-        board = RecognizedBoardModel(
-            source_image_id=source.id,
-            position_index=row.position_index,
-            sequence_number_raw=str(row.sequence_number),
-            sequence_number=row.sequence_number,
-            sequence_confidence=1.0,
-            board_geometry=dict(artifacts.geometry),
-            board_relative_path=artifacts.board_relative_path,
-            board_checksum_sha256=artifacts.board_checksum_sha256,
-            cells_prediction=prediction_payload,
-            board_confidence=projection.board_confidence,
-            pipeline_fingerprint=row.pipeline_fingerprint_sha256,
-            geometry_revision=row.expected_geometry_revision + 1,
-            status="pending_review",
-            created_at=created_at,
-        )
-        self._session.add(board)
-        self._session.flush()
-        for artifact, prediction in zip(
-            artifacts.cells,
-            projection.prediction.cells,
-            strict=True,
-        ):
-            self._session.add(
-                CellObservationModel(
-                    recognized_board_id=board.id,
-                    row_index=artifact.row_index,
-                    column_index=artifact.column_index,
-                    crop_relative_path=artifact.crop_relative_path,
-                    crop_checksum_sha256=artifact.crop_checksum_sha256,
-                    cropper_version=artifacts.cropper_version,
-                    prediction=dict(prediction),
-                    created_at=created_at,
-                )
-            )
-        review, ownership_changes = create_owned_pending_review_item(
-            self._session,
-            board=board,
-            game_id=game_id,
-            import_job=job,
-            snapshot={
-                "boardChecksumSha256": artifacts.board_checksum_sha256,
-                "boardRelativePath": artifacts.board_relative_path,
-                "cells": list(projection.prediction.cells),
-                "geometry": dict(artifacts.geometry),
-                "pipelineFingerprint": row.pipeline_fingerprint_sha256,
-                "positionIndex": row.position_index,
-                "sequence": {
-                    "confidence": 1.0,
-                    "normalizedNumber": row.sequence_number,
-                    "positionIndex": row.position_index,
-                    "rawText": str(row.sequence_number),
-                    "reviewReasons": [],
-                    "sequenceSource": "filename",
-                },
-                "sourceChecksumSha256": source.checksum_sha256,
-                "sourceRelativePath": source.relative_path,
-            },
-            created_at=created_at,
-            resolution_revision=row.expected_review_resolution_revision,
-        )
-        revision = board.geometry_revision
-        self._session.add(
-            ImageBoardGeometryRevisionModel(
-                review_item_id=review.id,
-                recognized_board_id=board.id,
-                revision=revision,
-                idempotency_key=projection.idempotency_key,
-                command_sha256=projection.command_sha256,
-                corners=[{"x": point.x, "y": point.y} for point in projection.command.corners],
-                geometry=dict(artifacts.geometry),
-                board_relative_path=artifacts.board_relative_path,
-                board_checksum_sha256=artifacts.board_checksum_sha256,
-                cropper_version=artifacts.cropper_version,
-                crop_artifacts=[
-                    {
-                        "columnIndex": cell.column_index,
-                        "cropChecksumSha256": cell.crop_checksum_sha256,
-                        "cropRelativePath": cell.crop_relative_path,
-                        "rowIndex": cell.row_index,
-                    }
-                    for cell in artifacts.cells
-                ],
-                corrected_by=projection.command.corrected_by,
-                created_at=created_at,
-            )
-        )
-        row.recognized_board_id = board.id
-        row.review_item_id = review.id
-        row.status = BoardCellGeometryPendingStatus.RESOLVED.value
-        row.resolved_geometry_revision = revision
-        row.resolved_at = created_at
-        row.updated_at = created_at
-        source.status = "waiting_for_review" if review.status == "pending" else "completed"
-        source.processed_at = created_at
-        self._session.flush()
-        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_items(
-            ownership_changes
-        )
-        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
-        for changed_review_item_id in ownership_changes:
-            coordinator.synchronize_after_geometry_change(
-                game_id=game_id,
-                review_item_id=changed_review_item_id,
-                actor=projection.command.corrected_by,
-            )
-        coordinator.synchronize_after_projection_change(game_id=game_id)
-        return BoardCellGeometryManualResolution(
-            pending=_to_domain(row),
-            review_item_id=review.id,
-            geometry_revision=revision,
-            created=True,
-        )
-
-    def manual_resolution_by_idempotency(
-        self,
-        pending_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-    ) -> tuple[str, BoardCellGeometryManualResolution] | None:
-        row = self._session.get(ImageBoardGeometryPendingModel, pending_id)
-        if (
-            row is None
-            or row.game_id != game_id
-            or row.import_job_id != import_job_id
-            or row.review_item_id is None
-        ):
-            return None
-        revision = self._session.scalar(
-            select(ImageBoardGeometryRevisionModel).where(
-                ImageBoardGeometryRevisionModel.review_item_id == row.review_item_id,
-                ImageBoardGeometryRevisionModel.idempotency_key == idempotency_key,
-            )
-        )
-        if revision is None:
-            return None
-        return (
-            revision.command_sha256,
-            BoardCellGeometryManualResolution(
-                pending=_to_domain(row),
-                review_item_id=revision.review_item_id,
-                geometry_revision=revision.revision,
-                created=False,
-            ),
-        )
-
 
 def _to_domain(row: ImageBoardGeometryPendingModel) -> ImageBoardGeometryPending:
     return ImageBoardGeometryPending(
@@ -710,6 +605,12 @@ def _to_domain(row: ImageBoardGeometryPendingModel) -> ImageBoardGeometryPending
         updated_at=row.updated_at,
         resolved_at=row.resolved_at,
         superseded_at=row.superseded_at,
+        rejection_reason=(
+            None if row.rejection_reason is None else BoardRejectionReason(row.rejection_reason)
+        ),
+        rejection_note=row.rejection_note,
+        rejected_at=row.rejected_at,
+        rejected_by=row.rejected_by,
     )
 
 
@@ -773,6 +674,13 @@ def _validated_detected_board_geometry(
     source_width: int,
     source_height: int,
 ) -> dict[str, object]:
+    """Accept the pinned draft within the manual edit bounds, not the image.
+
+    A detected board may extend past the image edge (partially visible cells,
+    D-436). The draft only seeds manual correction, so it uses the same
+    one-width/one-height margin as ``SourceQuad.require_manual_edit_bounds``;
+    the save path still validates the corrected geometry on its own.
+    """
     if not isinstance(value, Mapping):
         raise JobConflictError(
             "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID",
@@ -802,74 +710,63 @@ def _validated_detected_board_geometry(
             or not isinstance(y, int | float)
             or not math.isfinite(float(x))
             or not math.isfinite(float(y))
-            or not 0 <= float(x) <= source_width
-            or not 0 <= float(y) <= source_height
+            or not -source_width <= float(x) <= 2 * source_width
+            or not -source_height <= float(y) <= 2 * source_height
         ):
             raise JobConflictError(
                 "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID",
-                "The pinned board quad is outside the immutable source bounds.",
+                "The pinned board quad exceeds the manual edit bounds of the source.",
             )
     return dict(value)
 
 
-def _manual_projection_matches(
-    row: ImageBoardGeometryPendingModel,
-    source: SourceImageModel,
-    model: SymbolModelJobSnapshot,
-    projection: BoardCellGeometryManualResolutionProjection,
-) -> bool:
-    artifacts = projection.artifacts
-    geometry = artifacts.geometry
-    prediction = projection.prediction
-    expected_iteration = None if model.iteration_id is None else str(model.iteration_id)
-    if (
-        projection.command.expected_geometry_revision != row.expected_geometry_revision
-        or projection.command.expected_resolution_revision
-        != row.expected_review_resolution_revision
-        or artifacts.board_relative_path != source.relative_path
-        or artifacts.board_checksum_sha256 != source.checksum_sha256
-        or geometry.get("source") != "manual_override"
-        or geometry.get("sourceImageId") != str(source.id)
-        or geometry.get("sourceImageChecksumSha256") != source.checksum_sha256
-        or geometry.get("sourceImageRelativePath") != source.relative_path
-        or geometry.get("sourceGroup") != str(row.import_job_id)
-        or geometry.get("sequenceNumber") != row.sequence_number
-        or geometry.get("positionIndex") != row.position_index
-        or geometry.get("expectedGeometryRevision") != row.expected_geometry_revision
-        or geometry.get("expectedResolutionRevision") != row.expected_review_resolution_revision
-        or geometry.get("commandChecksumSha256") != projection.command.command_sha256
-        or geometry.get("cropperVersion") != artifacts.cropper_version
-        or prediction.model_iteration_id != expected_iteration
-        or prediction.model_manifest_checksum_sha256 != model.manifest_checksum_sha256
-        or prediction.model_version != model.model_version
-        or not math.isfinite(projection.board_confidence)
-        or not 0 <= projection.board_confidence <= 1
-    ):
-        return False
-    return all(
-        _is_safe_relative_path(cell.crop_relative_path) and _is_sha256(cell.crop_checksum_sha256)
-        for cell in artifacts.cells
-    )
+_OPEN_WORK_SQL = text(
+    """
+SELECT EXISTS (
+  SELECT 1 FROM image_board_geometry_pending p
+  WHERE p.game_id = :game_id AND p.source_image_id = :source_image_id AND p.status = 'pending'
+) OR EXISTS (
+  SELECT 1 FROM recognized_boards b
+  JOIN image_review_items ri ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
+  WHERE b.game_id = :game_id AND b.source_image_id = :source_image_id AND ri.status = 'pending'
+)
+"""
+)
+_ACCEPTED_BOARD_SQL = text(
+    """
+SELECT EXISTS (
+  SELECT 1 FROM recognized_boards b
+  JOIN image_review_items ri ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
+  WHERE b.game_id = :game_id AND b.source_image_id = :source_image_id
+    AND ri.status IN ('accepted', 'corrected')
+)
+"""
+)
 
 
-def _is_safe_relative_path(value: str) -> bool:
-    relative = PurePosixPath(value)
-    return (
-        bool(value)
-        and not relative.is_absolute()
-        and ".." not in relative.parts
-        and "\\" not in value
-    )
+def settle_source_status_after_slot_rejection(
+    session: Session, game_id: UUID, source_image_id: UUID
+) -> None:
+    """Source image status once a deferred slot stopped being open work.
+
+    The status follows ``_refresh_source_states`` of the board decisions: an
+    image with no open slot or pending board is ``accepted`` when it keeps an
+    accepted board, else ``rejected``. A status other than ``waiting_for_review``
+    (the image is still being processed) is left alone.
+    """
+
+    parameters = {"game_id": game_id, "source_image_id": source_image_id}
+    source = session.get(SourceImageModel, source_image_id, populate_existing=True)
+    if source is None or source.status != "waiting_for_review":
+        return
+    if session.execute(_OPEN_WORK_SQL, parameters).scalar():
+        return
+    has_accepted = session.execute(_ACCEPTED_BOARD_SQL, parameters).scalar()
+    source.status = "accepted" if has_accepted else "rejected"
+    session.flush()
 
 
-def _is_sha256(value: str) -> bool:
-    if len(value) != 64 or value != value.lower():
-        return False
-    try:
-        int(value, 16)
-    except ValueError:
-        return False
-    return True
-
-
-__all__ = ["SqlAlchemyBoardCellGeometryPendingRepository"]
+__all__ = [
+    "SqlAlchemyBoardCellGeometryPendingRepository",
+    "settle_source_status_after_slot_rejection",
+]

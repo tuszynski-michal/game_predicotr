@@ -35,7 +35,12 @@ from game_predictor_api.schemas.geometry_qualification import (
     GeometryQualificationPayload,
     ManualSourceGeometryPoint,
 )
+from game_predictor_api.schemas.image_geometry_rollout import reject_removed_engine_policy
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.schemas.neural_grid_proposals import (
+    NeuralSourceBindingPayload,
+    NeuralSourceProposalPayload,
+)
 
 
 class ImageFolderSelectionResponse(ApiModel):
@@ -493,9 +498,7 @@ class PageGeometryRegistrationDiagnostics(ApiModel):
 class AutomaticPageGeometryProposalPayload(ApiModel):
     """Read-only editor prefill hint; never a materialized decision."""
 
-    origin: Literal[
-        "lateral_source_support", "frame_support_review", "standalone_frame_lines"
-    ]
+    origin: Literal["lateral_source_support", "frame_support_review", "standalone_frame_lines"]
     quads: list[list[ManualSourceGeometryPoint]] = Field(min_length=1, max_length=9)
     review_slots: list[Annotated[StrictInt, Field(ge=0, le=8)]] = Field(
         default_factory=list, max_length=9
@@ -503,14 +506,16 @@ class AutomaticPageGeometryProposalPayload(ApiModel):
 
 
 class BrowserPageGeometryReviewSourceResponse(ApiModel):
+    neural_proposal: NeuralSourceProposalPayload | None = None
+    neural_proposal_binding: NeuralSourceBindingPayload | None = None
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_relative_path: str = Field(min_length=1, max_length=2048)
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
     expected_board_count: int = Field(ge=1, le=9)
-    review_reason: Literal[
-        "manual_override", "review_required", "operator_inspection"
-    ] = "review_required"
+    review_reason: Literal["manual_override", "review_required", "operator_inspection"] = (
+        "review_required"
+    )
     geometry_origin: Literal["automatic", "manual_override", "manual_template"]
     rejection_reason_code: str | None = Field(default=None, min_length=1, max_length=128)
     registration_diagnostics: PageGeometryRegistrationDiagnostics | None = None
@@ -529,6 +534,8 @@ class BrowserPageGeometryReviewSourceResponse(ApiModel):
 
 
 class BrowserPageGeometryReviewSourcesResponse(ApiModel):
+    managed_source_job_id: UUID | None = None
+    expected_layout_count: int | None = Field(default=None, ge=1)
     job: JobResponse
     geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     registered_source_count: int = Field(ge=0)
@@ -542,6 +549,9 @@ class BrowserPageGeometryReviewSourcesResponse(ApiModel):
 
 
 class BrowserPageGeometryOverrideCreate(ApiModel):
+    neural_proposal_binding: NeuralSourceBindingPayload | None = None
+    geometry_preflight_job_id: UUID | None = None
+    geometry_manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     expected_override_revision: int | None = Field(default=None, ge=0)
     game_id: UUID
     source_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -554,30 +564,51 @@ class BrowserPageGeometryOverrideCreate(ApiModel):
             ManualSourceGeometryPoint,
             ManualSourceGeometryPoint,
         ]
-    ] = Field(min_length=1, max_length=9)
+    ] = Field(min_length=0, max_length=9)
     actor: str = Field(min_length=1, max_length=200)
     slot_qualifications: list[GeometryQualificationPayload] | None = Field(
         default=None, min_length=1, max_length=9
     )
-    board_frame_quads: list[
-        tuple[
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
+    board_frame_quads: (
+        list[
+            tuple[
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+            ]
         ]
-    ] | None = Field(default=None, min_length=1, max_length=9)
-    symbol_grid_quads: list[
-        tuple[
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
-            ManualSourceGeometryPoint,
+        | None
+    ) = Field(default=None, min_length=1, max_length=9)
+    symbol_grid_quads: (
+        list[
+            tuple[
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+                ManualSourceGeometryPoint,
+            ]
         ]
-    ] | None = Field(default=None, min_length=1, max_length=9)
+        | None
+    ) = Field(default=None, min_length=1, max_length=9)
 
     @model_validator(mode="after")
     def require_complete_v12_pair(self) -> "BrowserPageGeometryOverrideCreate":
+        if self.neural_proposal_binding is not None:
+            if (
+                self.final_quads
+                or self.board_frame_quads is not None
+                or self.symbol_grid_quads is not None
+                or self.slot_qualifications is not None
+                or self.geometry_preflight_job_id is None
+                or self.geometry_manifest_checksum_sha256 is None
+                or self.expected_override_revision is None
+            ):
+                raise ValueError(
+                    "A neural binding requires only frozen proposal pins and revision."
+                )
+        elif not self.final_quads:
+            raise ValueError("A legacy geometry correction requires one to nine final quads.")
         if (self.board_frame_quads is None) != (self.symbol_grid_quads is None):
             raise ValueError("V1.2 requires both boardFrameQuads and symbolGridQuads.")
         if self.symbol_grid_quads is not None and self.final_quads != self.symbol_grid_quads:
@@ -586,6 +617,7 @@ class BrowserPageGeometryOverrideCreate(ApiModel):
 
 
 class BrowserPageGeometryOverrideResponse(ApiModel):
+    neural_proposal_binding: NeuralSourceBindingPayload | None = None
     created: bool
     id: UUID
     revision: int = Field(ge=1)
@@ -634,8 +666,6 @@ class BrowserImageImportStart(ApiModel):
     )
     board_cell_processing_mode: (
         Literal[
-            "verified_v19",
-            "structured_shadow",
             "structured_default",
             "structured_lattice_v3",
         ]
@@ -643,6 +673,11 @@ class BrowserImageImportStart(ApiModel):
     ) = None
     image_engine_policy: ImageImportEnginePolicy | None = None
     image_engine_policy_revision: int | None = Field(default=None, ge=0)
+
+    # D-467 (TASK-0790): name a removed legacy engine with its explicit code.
+    _reject_removed_policy = field_validator(
+        "board_cell_processing_mode", "image_engine_policy", mode="before"
+    )(reject_removed_engine_policy)
 
 
 class BrowserImageImportStartResponse(ApiModel):

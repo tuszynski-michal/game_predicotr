@@ -11,7 +11,10 @@ from pathlib import Path, PurePosixPath
 
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType, create_job, job_input_key
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.pipeline_state_compaction_repository import (
     SqlAlchemyPipelineStateCompactionRepository,
@@ -60,14 +63,15 @@ def _manifest_path(artifact_root: Path, relative_value: str) -> Path:
 def _preview(settings: ApiSettings, retention_hours: int) -> dict[str, object]:
     if not 1 <= retention_hours <= 24 * 365:
         raise ValueError("--retention-hours must be between 1 and 8760")
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     factory = create_session_factory(engine)
     try:
-        with factory.begin() as session:
-            report = SqlAlchemyPipelineStateCompactionRepository(
-                session,
-                settings.artifact_root,
-            ).create_preview(cutoff_at=datetime.now(UTC) - timedelta(hours=retention_hours))
+        # Global candidates and per-game guards need separate transactions:
+        # one transaction may bind only one game store.
+        report = SqlAlchemyPipelineStateCompactionRepository(
+            factory,
+            settings.artifact_root,
+        ).create_preview(cutoff_at=datetime.now(UTC) - timedelta(hours=retention_hours))
     finally:
         engine.dispose()
     return {
@@ -103,7 +107,7 @@ def _start(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, ob
         "preview_token": expected_token,
         "mode": "execute",
     }
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     factory = create_session_factory(engine)
     try:
         with factory.begin() as session:

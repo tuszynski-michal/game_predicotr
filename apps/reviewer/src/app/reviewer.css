@@ -72,60 +72,6 @@ button[aria-busy='true'] {
   cursor: progress;
 }
 
-.localReviewerModeLoading,
-.localReviewerModeSwitch,
-.localReviewerModeError {
-  width: min(1440px, calc(100% - 32px));
-  margin-inline: auto;
-}
-
-.localReviewerModeLoading {
-  display: grid;
-  gap: 6px;
-  margin-top: 32px;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(13, 27, 45, 0.9);
-}
-
-.localReviewerModeLoading span,
-.localReviewerModeError {
-  color: var(--muted);
-}
-
-.localReviewerModeSwitch {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-block: 12px;
-  background: color-mix(in srgb, var(--background) 92%, transparent);
-  backdrop-filter: blur(12px);
-}
-
-.localReviewerModeSwitch button {
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: rgba(13, 27, 45, 0.92);
-  color: var(--muted);
-}
-
-.localReviewerModeSwitch button.isActive {
-  border-color: rgba(244, 211, 94, 0.72);
-  background: rgba(244, 211, 94, 0.16);
-  color: #fffaf0;
-}
-
-.localReviewerModeError {
-  margin-top: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(248, 113, 113, 0.42);
-  border-radius: 10px;
-}
-
 a {
   color: inherit;
   text-decoration: none;
@@ -442,6 +388,21 @@ a:focus-visible {
 .deferredGeometrySectionHeader {
   align-items: flex-start;
   margin-bottom: 10px;
+}
+
+.deferredGeometryLatticeHeader {
+  flex-wrap: wrap;
+}
+
+.deferredGeometryLatticeHeader > div {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.deferredGeometryLatticeHeader button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
 }
 
 .deferredGeometryCanvas {
@@ -1133,305 +1094,286 @@ a:focus-visible {
   font-size: 12px;
 }
 
-.gridReviewWorkspace {
-  display: grid;
-  gap: 16px;
+/* D-471: online board-search share. */
+.boardSearchShareNotice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.gridReviewHeader,
-.gridReviewCanvasHeading,
-.gridReviewActions,
-.gridReviewEditControls {
+.boardSearchShareForm {
+  display: grid;
+  gap: 12px;
+}
+
+.boardSearchShareForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchShareForm input {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.boardSearchShareApp {
+  display: grid;
+  gap: 16px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.boardSearchShareHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.boardSearchShareHeader p[role='status'] {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.geometryCorrectionHistory {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.geometryCorrectionHistoryHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.gridReviewHeader {
-  align-items: flex-end;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.gridReviewHeader h1,
-.gridReviewCanvasHeading h2,
-.gridReviewCanvasHeading h3,
-.gridReviewEditControls p {
+.geometryCorrectionHistoryHeader h3,
+.geometryCorrectionHistory p {
   margin: 0;
 }
 
-.gridReviewCounts {
+.geometryCorrectionHistoryList,
+.geometryCorrectionPreview {
   display: grid;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
   gap: 8px;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.gridReviewCounts > div {
+.geometryCorrectionHistoryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(5, 12, 22, 0.72);
-}
-
-.gridReviewCounts dt,
-.gridReviewCounts dd {
-  margin: 0;
-}
-
-.gridReviewCounts dt {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.gridReviewCounts dd {
-  margin-top: 3px;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.gridReviewFilters {
-  display: flex;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 6px;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-}
-
-.gridReviewFilters button {
-  appearance: none;
-  -webkit-appearance: none;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(5, 12, 22, 0.72);
-  color: var(--muted);
-}
-
-.gridReviewFilters button.isActive {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text);
-}
-
-.gridReviewFilters button:hover:not(:disabled, .isActive) {
-  border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--text);
-}
-
-.gridReviewEditor,
-.gridReviewState,
-.gridReviewError {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
   background: var(--panel-soft);
 }
 
-.gridReviewCanvasPanel {
-  min-width: 0;
+.geometryCorrectionHistoryBlocked {
+  color: var(--muted);
 }
 
-.gridReviewSourceStats {
+/* TASK-0970: rejection of a cropped board or a deferred slot. */
+.boardRejectionBar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.boardRejectionReasons {
   display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
   gap: 8px;
-}
-
-.gridReviewSourceStats > div {
-  display: grid;
-  gap: 3px;
+  margin: 12px 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(5, 12, 22, 0.72);
 }
 
-.gridReviewSourceStats span,
-.gridReviewMetadata {
+.boardRejectionReasons legend {
+  padding: 0 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.gridReviewSourceStats strong {
-  font-size: 18px;
+.reviewerTabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
 }
 
-.gridReviewMetadata {
-  margin: 8px 0 0;
+.reviewerTabs button[aria-selected='true'] {
+  border-color: var(--accent, #f4d35e);
+  font-weight: 700;
 }
 
-.gridReviewCanvasTools,
-.gridReviewWholeImageActions,
-.gridReviewPreviewTabs,
-.gridReviewSlotList {
+.reviewerTabPanel[hidden] {
+  display: none;
+}
+
+/* "Braki zdjęć" tab (TASK-0963): one image with its grids and positions. */
+.geometryGapsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.geometryGapsControls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: 10px 16px;
 }
 
-.gridReviewCanvasTools label {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  color: var(--muted);
+.geometryGapsFilters {
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+}
+
+.geometryGapsFilters button {
   font-size: 12px;
-  font-weight: 700;
 }
 
-.gridReviewCanvasTools select {
-  min-height: 36px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--text);
+.geometryGapsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.gridReviewSourceViewport {
-  max-height: 68vh;
-  margin-top: 12px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #03070d;
+.boardRejectionReasons label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.gridReviewCanvas {
-  display: block;
+.boardRejectionNote {
+  display: grid;
+  gap: 6px;
+  align-items: stretch !important;
+}
+
+.boardRejectionNote textarea {
   width: 100%;
-  min-width: 100%;
-  touch-action: none;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
 }
 
-.gridReviewCanvas.isSelecting {
-  cursor: pointer;
+.operationalReviewDialogBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 15, 0.78);
 }
 
-.gridReviewCanvas.isEditing {
-  cursor: crosshair;
-  outline: 2px solid rgba(244, 211, 94, 0.45);
-}
-
-.gridReviewCanvasHint {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.gridReviewEditControls,
-.gridReviewPreviewPanel,
-.gridReviewActions {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-
-.gridReviewActions {
-  align-items: center;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+.operationalReviewConfirmDialog {
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
   background: var(--panel);
 }
 
-.gridReviewEditControls > div {
+.operationalReviewConfirmDialog h2 {
+  margin: 5px 0 9px;
+  font-size: 21px;
+}
+
+.operationalReviewConfirmDialog .buttonRow {
   display: flex;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.gridReviewPreviewPanel {
+.geometryGapsImage {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
-.gridReviewSlotList {
-  margin-top: 12px;
+.geometryGapsImageHeader strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
 }
 
-.gridReviewSlotList button,
-.gridReviewPreviewTabs button {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(5, 12, 22, 0.72);
+.geometryGapsImageHeader p {
+  margin: 4px 0 0;
   color: var(--muted);
+}
+
+.geometryGapsPhoto {
+  display: grid;
+  gap: 6px;
+}
+
+.geometryGapsPhoto .geometryPreview {
+  max-width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+}
+
+.geometryGapsPhotoStatus {
+  color: var(--muted);
+}
+
+.geometryGapsHint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.geometryGapsPositions li.geometryPositionChip {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.geometryGapsPositions li.geometryPositionChip small {
+  color: var(--muted);
+}
+
+.geometryGapsPositions li.geometryPositionChip .secondaryButton {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.geometryGapsApproved {
+  color: var(--accent);
+  font-size: 11px;
   font-weight: 700;
 }
 
-.gridReviewSlotList button.isSelected,
-.gridReviewPreviewTabs button.isActive {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text);
-}
-
-.gridReviewCropPreview {
-  display: grid;
-  gap: 5px;
-}
-
-.gridReviewCropPreview > button {
-  aspect-ratio: 1;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background-repeat: no-repeat;
-}
-
-.gridReviewCropPreview > button.isSelected {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent-soft);
-}
-
-.gridReviewCropEnlarged {
-  width: min(280px, 100%);
-  aspect-ratio: 1;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background-repeat: no-repeat;
-}
-
-.gridReviewApprove {
-  min-width: 240px;
-}
-
-.gridReviewError p,
-.gridReviewState p {
-  margin: 0 0 10px;
-}
-
-@media (max-width: 760px) {
-  .gridReviewHeader,
-  .gridReviewCanvasHeading,
-  .gridReviewActions,
-  .gridReviewEditControls {
-    align-items: stretch;
+@media (max-width: 900px) {
+  .geometryGapsHeader {
     flex-direction: column;
-  }
-
-  .gridReviewCounts {
-    width: 100%;
-    grid-template-columns: 1fr;
-  }
-
-  .gridReviewSourceStats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .gridReviewFilters {
-    overflow-x: auto;
+    align-items: stretch;
   }
 }

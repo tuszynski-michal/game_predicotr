@@ -6,6 +6,7 @@ import type {
 
 const DEFAULT_READY_BOARD_IMPORT_GEOMETRY_VARIANT: GeometryEngineVariant =
   'selective_board_review_v1_1';
+import { isNeuralGeometryPreflight } from './neural-import-preflight-state.ts';
 
 interface ReadyImportStartState {
   readonly geometryGuardResolutionManifestAvailable: boolean;
@@ -107,16 +108,6 @@ export function readyBoardImportGeometryVariant(
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
-  switch (state.selection.boardImportStatus) {
-    case 'boards_imported':
-      return 'plansze utworzone · weryfikacja symboli poza importem';
-    case 'importing':
-      return 'trwa import plansz';
-    case 'failed':
-      return 'import przerwany · staging wymaga diagnozy';
-    default:
-      break;
-  }
   const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
     const payload = job.inputPayload as unknown as Record<string, unknown>;
     return (
@@ -140,7 +131,32 @@ export function readyBoardImportLifecycleLabel(
   const reviewRequired =
     latestCompletedGeometry?.progress.pageGeometryPreflight
       ?.provisionalReviewRequired;
+  const geometrySuffix =
+    typeof reviewRequired === 'number' && reviewRequired > 0
+      ? isNeuralGeometryPreflight(latestCompletedGeometry)
+        ? ` · propozycje sieci dla zdjęć ${reviewRequired.toLocaleString('pl-PL')}`
+        : ` · wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`
+      : '';
+  switch (state.selection.boardImportStatus) {
+    case 'boards_imported':
+      if (
+        isNeuralGeometryPreflight(latestCompletedGeometry) &&
+        (reviewRequired ?? 0) > 0
+      ) {
+        return `import zakończony${geometrySuffix} · weryfikacja symboli poza importem`;
+      }
+      return `plansze utworzone${geometrySuffix} · weryfikacja symboli poza importem`;
+    case 'importing':
+      return `trwa import plansz${geometrySuffix}`;
+    case 'failed':
+      return `błąd przetwarzania importu${geometrySuffix} · staging wymaga diagnozy`;
+    default:
+      break;
+  }
   if (typeof reviewRequired === 'number' && reviewRequired > 0) {
+    if (isNeuralGeometryPreflight(latestCompletedGeometry)) {
+      return `gotowe do importu${geometrySuffix}`;
+    }
     return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
   }
 
@@ -176,14 +192,19 @@ export function canStartReadyImport(state: ReadyImportStartState): boolean {
 export function pageGeometryPreflightOutcomeLabel(
   job: Pick<JobResponse, 'progress' | 'status'>,
   visibleGeometryCorrectionCount: number,
+  neuralPreflight = false,
 ): string {
   if (job.status === 'completed') {
+    if (neuralPreflight)
+      return `propozycje sieci dla zdjęć ${visibleGeometryCorrectionCount.toLocaleString('pl-PL')}`;
     return `odroczone zdjęcia ${visibleGeometryCorrectionCount.toLocaleString('pl-PL')}`;
   }
 
   const provisionalReviewRequired =
     job.progress.pageGeometryPreflight?.provisionalReviewRequired;
   if (typeof provisionalReviewRequired === 'number') {
+    if (neuralPreflight)
+      return 'trwa analiza siecią; wynik końcowy jeszcze niegotowy';
     return `jeszcze nierozstrzygnięte zdjęcia ${provisionalReviewRequired.toLocaleString('pl-PL')}`;
   }
 

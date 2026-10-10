@@ -1,0 +1,1355 @@
+{
+  "description": "Digest fields in ai_docs/quality/*.json that name a file without a path next to them. scripts/check_quality_evidence_digests.py compares each value with the raw SHA-256 of the target file (TASK-0940).",
+  "references": [
+    {
+      "file": "ai_docs/quality/image-selection-10000-report.json",
+      "pointer": "/annotationFingerprint",
+      "target": "ai_docs/quality/image-selection-scale-annotations-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-30000-report.json",
+      "pointer": "/annotationFingerprint",
+      "target": "ai_docs/quality/image-selection-scale-annotations-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-acceptance-report.json",
+      "pointer": "/profiles/0/reportSha256",
+      "target": "ai_docs/quality/image-selection-smoke-report.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-acceptance-report.json",
+      "pointer": "/profiles/1/reportSha256",
+      "target": "ai_docs/quality/image-selection-10000-report.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-acceptance-report.json",
+      "pointer": "/profiles/2/reportSha256",
+      "target": "ai_docs/quality/image-selection-30000-report.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-real-v9-3000-w4-report.json",
+      "pointer": "/goldenFingerprint",
+      "target": "ai_docs/quality/image-selection-real-corpus-golden-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-real-v9-500-w4-report.json",
+      "pointer": "/goldenFingerprint",
+      "target": "ai_docs/quality/image-selection-real-corpus-golden-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-smoke-report.json",
+      "pointer": "/annotationFingerprint",
+      "target": "ai_docs/quality/image-selection-scale-annotations-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/image-selection-v10-smoke-report.json",
+      "pointer": "/annotationFingerprint",
+      "target": "ai_docs/quality/image-selection-scale-annotations-v1.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v10-wide-frame-preflight-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v10-wide-frame-preflight-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v10-wide-frame-preflight-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-quality-report.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-grid-calibration-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-quality-report.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-quality-report.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-grid-calibration-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-quality-report.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v2-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-quality-report.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v2-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v3-local-report.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-local-grid-calibration-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v3-local-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v3-local-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v3-local-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v4-symbol-aware-report.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-complete-local-grid-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v4-symbol-aware-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v4-symbol-aware-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v4-symbol-aware-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v5-symbol-aware-affine-report.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-complete-local-grid-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v5-symbol-aware-affine-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v5-symbol-aware-affine-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v5-symbol-aware-affine-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v6-detector-symbol-aware-affine-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v6-detector-symbol-aware-affine-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v8-safe-context-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v8-safe-context-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v8-safe-context-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v9-safe-context-shifted-overlap-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v9-safe-context-shifted-overlap-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-board-cell-crops-v9-safe-context-shifted-overlap-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-bounding-frame-crop-spike-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-bounding-frame-crop-spike-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-bounding-frame-crop-spike-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-cell-grid-golden.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-cell-grid-golden.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-cell-grid-golden.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-cell-grid-v1-baseline-report.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-complete-local-grid-profiles.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-complete-local-grid-profiles.json",
+      "pointer": "/detectorReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-complete-local-grid-profiles.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-detector-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-detector-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-detector-report.json",
+      "pointer": "/profileSetSha256",
+      "target": "ai_docs/quality/m5-complete-local-grid-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-full-symbol-grid-refinement-report.json",
+      "pointer": "/profileSetSha256",
+      "target": "ai_docs/quality/m5-complete-local-grid-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-bounded-regression-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-bounded-regression-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-bounded-regression-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-bounded-regression-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-report.json",
+      "pointer": "/sourceFullReportSha256",
+      "target": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v2-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v2-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v2-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v2-report.json",
+      "pointer": "/sourceFullReportSha256",
+      "target": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v2-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json",
+      "pointer": "/sourceFullReportSha256",
+      "target": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-seq29-gate-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-seq29-gate-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-seq29-gate-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-bbox-fallback-v14-seq29-gate-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-bounded-regression-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-bounded-regression-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-bounded-regression-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-bounded-regression-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-seq29-gate-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-seq29-gate-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-seq29-gate-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-global-source-aware-v13-seq29-gate-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-grid-calibration-profiles.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-grid-calibration-profiles.json",
+      "pointer": "/detectorReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-grid-calibration-profiles.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/alternativeOcrReportSha256",
+      "target": "ai_docs/quality/m5-sequence-ocr-raw-input-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/baselineOcrReportSha256",
+      "target": "ai_docs/quality/m5-sequence-ocr-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/boardCropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/sourceDiscoverySha256",
+      "target": "ai_docs/quality/m5-source-discovery.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-image-benchmark-report.json",
+      "pointer": "/inputs/thresholdsSha256",
+      "target": "ai_docs/quality/m5-quality-thresholds.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-local-grid-calibration-profiles.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-local-grid-calibration-profiles.json",
+      "pointer": "/detectorReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-local-grid-calibration-profiles.json",
+      "pointer": "/goldenSha256",
+      "target": "ai_docs/quality/m5-cell-grid-golden.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-normalization-report.json",
+      "pointer": "/sourceManifestSha256",
+      "target": "ai_docs/quality/m5-source-discovery.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-page-board-detection-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-bounded-regression-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-bounded-regression-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-bounded-regression-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-bounded-regression-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-seq29-gate-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-seq29-gate-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-seq29-gate-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-projective-fixed-padding-v12-seq29-gate-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+      "pointer": "/controlDefinitionSha256",
+      "target": "ai_docs/quality/m5-v4-round1-clean-control-sequences.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+      "pointer": "/manifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+      "pointer": "/sourceV14FullReportSha256",
+      "target": "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+      "pointer": "/v7ReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json",
+      "pointer": "/fullReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-raw-input-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-raw-input-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-raw-input-report.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-raw-input-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-report.json",
+      "pointer": "/detectionReportSha256",
+      "target": "ai_docs/quality/m5-page-board-detection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-report.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-sequence-ocr-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-symbol-grid-refinement-report.json",
+      "pointer": "/normalizationReportSha256",
+      "target": "ai_docs/quality/m5-normalization-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m5-v7-owner-visual-feedback.json",
+      "pointer": "/artifactSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v7-reviewed-symbol-aware-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-active-learning-selection.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+      "pointer": "/provenance/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "pointer": "/provenance/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-v3-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "pointer": "/provenance/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-confidence-calibration-report.json",
+      "pointer": "/inputs/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-confidence-calibration-report.json",
+      "pointer": "/inputs/onnxReportSha256",
+      "target": "ai_docs/quality/m6-spatial-symbol-model-onnx-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-confidence-calibration-report.json",
+      "pointer": "/inputs/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-onnx-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-onnx-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-decision.json",
+      "pointer": "/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-spatial-symbol-model-confidence-calibration-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-decision.json",
+      "pointer": "/onnxReportSha256",
+      "target": "ai_docs/quality/m6-spatial-symbol-model-onnx-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-decision.json",
+      "pointer": "/verticalSliceReportSha256",
+      "target": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/benchmarkDecisionSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-decision.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/benchmarkReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/selectedTestReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-selected-test-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-validation-selection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json",
+      "pointer": "/inputs/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "pointer": "/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json",
+      "pointer": "/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection.json",
+      "pointer": "/calibrationReportSha256",
+      "target": "ai_docs/quality/m6-symbol-confidence-calibration-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-active-learning-selection.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-active-learning-v2-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-active-learning-v2-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-baseline-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-baseline-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-v3-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-classifier-onnx-v3-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-report.json",
+      "pointer": "/inputs/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-report.json",
+      "pointer": "/inputs/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-report.json",
+      "pointer": "/inputs/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json",
+      "pointer": "/inputs/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json",
+      "pointer": "/inputs/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json",
+      "pointer": "/inputs/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json",
+      "pointer": "/inputs/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json",
+      "pointer": "/inputs/onnxReportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-onnx-v3-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json",
+      "pointer": "/inputs/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v2.json",
+      "pointer": "/calibrationProfileSetSha256",
+      "target": "ai_docs/quality/m5-grid-calibration-profiles.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v2.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v2.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v2.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v2.json",
+      "pointer": "/qualityReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-v2-calibrated-quality-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+      "pointer": "/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+      "pointer": "/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-board-cell-crops-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-crop-inventory.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "pointer": "/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "pointer": "/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/m5-corpus-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/cropReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/geometryReportSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/goldenAnnotationsSha256",
+      "target": "ai_docs/quality/m5-golden-annotations.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/inventorySha256",
+      "target": "ai_docs/quality/m6-symbol-crop-inventory-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-export-report.json",
+      "pointer": "/ownerAcceptanceSha256",
+      "target": "ai_docs/quality/m5-reviewed-manual-merge-v16-owner-acceptance.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-dataset-split-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-decision.json",
+      "pointer": "/candidates/1/reportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-decision.json",
+      "pointer": "/candidates/2/reportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-decision.json",
+      "pointer": "/inputs/iterationV3ManifestSha256",
+      "target": "ai_docs/quality/m6-active-learning-iteration-v3-manifest.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-decision.json",
+      "pointer": "/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-validation-selection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-decision.json",
+      "pointer": "/testBoundary/selectedTestReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-selected-test-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-selected-test-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-selected-test-report.json",
+      "pointer": "/selectionReportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-validation-selection-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-selected-test-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-validation-selection-report.json",
+      "pointer": "/candidates/0/reportSha256",
+      "target": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-validation-selection-report.json",
+      "pointer": "/candidates/1/reportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-validation-selection-report.json",
+      "pointer": "/candidates/2/reportSha256",
+      "target": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-validation-selection-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-model-validation-selection-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-suggestion-validation-report.json",
+      "pointer": "/datasetSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-export-report.json"
+    },
+    {
+      "file": "ai_docs/quality/m6-symbol-suggestion-validation-report.json",
+      "pointer": "/splitSha256",
+      "target": "ai_docs/quality/m6-symbol-dataset-split-report.json"
+    },
+    {
+      "file": "ai_docs/quality/middle-row-range-ocr-v4-challenge-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/middle-row-range-ocr-v4-challenge.json"
+    },
+    {
+      "file": "ai_docs/quality/middle-row-range-ocr-v4-challenge-report.json",
+      "pointer": "/selectedReviewSha256",
+      "target": "ai_docs/quality/middle-row-range-ocr-v4-challenge-selected-review.json"
+    },
+    {
+      "file": "ai_docs/quality/row-first-range-ocr-v5-challenge-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/middle-row-range-ocr-v4-challenge.json"
+    },
+    {
+      "file": "ai_docs/quality/row-first-range-ocr-v5-golden-report.json",
+      "pointer": "/corpusManifestSha256",
+      "target": "ai_docs/quality/middle-row-range-ocr-v4-golden.json"
+    }
+  ]
+}

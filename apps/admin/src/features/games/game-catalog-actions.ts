@@ -3,6 +3,8 @@ import type {
   GameCreate,
   GameResponse,
   GameUpdate,
+  GridEngineProfileResponse,
+  SuperGameKindResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -10,8 +12,80 @@ import type { GameDraft } from './game-catalog-state.ts';
 
 export type GamesClient = Pick<
   AdminApiClient,
-  'archiveGame' | 'createGame' | 'getGame' | 'listGames' | 'updateGame'
+  | 'archiveGame'
+  | 'createGame'
+  | 'getGame'
+  | 'listGames'
+  | 'listGridEngineProfiles'
+  | 'listSuperGameKinds'
+  | 'updateGame'
 >;
+
+export type GridEngineProfilesResult =
+  | {
+      readonly ok: true;
+      readonly profiles: readonly GridEngineProfileResponse[];
+    }
+  | { readonly error: string; readonly ok: false };
+
+// TASK-0830: read-only state of the grid engine profiles shown at the page
+// format field. A failure never blocks the game catalog itself.
+export async function loadGridEngineProfiles(
+  api: Pick<GamesClient, 'listGridEngineProfiles'>,
+): Promise<GridEngineProfilesResult> {
+  try {
+    const result = await api.listGridEngineProfiles();
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać stanu modeli silnika siatek.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, profiles: result.data };
+  } catch {
+    return {
+      error:
+        'Nie można połączyć się z lokalnym Admin API, aby sprawdzić modele silnika siatek.',
+      ok: false,
+    };
+  }
+}
+
+export type SuperGameKindsResult =
+  | {
+      readonly kinds: readonly SuperGameKindResponse[];
+      readonly ok: true;
+    }
+  | { readonly error: string; readonly ok: false };
+
+// TASK-0931: the super game kinds come from the code registry behind the API.
+// A failure keeps the game catalog usable with the current value only.
+export async function loadSuperGameKinds(
+  api: Pick<GamesClient, 'listSuperGameKinds'>,
+): Promise<SuperGameKindsResult> {
+  try {
+    const result = await api.listSuperGameKinds();
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać rodzajów supergry.',
+        ),
+        ok: false,
+      };
+    }
+    return { kinds: result.data, ok: true };
+  } catch {
+    return {
+      error:
+        'Nie można połączyć się z lokalnym Admin API, aby pobrać rodzaje supergry.',
+      ok: false,
+    };
+  }
+}
 
 export type SaveGameIntent =
   | { readonly mode: 'create' }
@@ -36,12 +110,14 @@ export async function saveGameIdentity(
             status: draft.status,
             expectedLayoutCount: Number(draft.expectedLayoutCount),
             shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
+            superGameKind: draft.superGameKind,
           } satisfies GameCreate)
         : await api.updateGame(intent.gameId, {
             name: draft.name,
             status: draft.status,
             expectedLayoutCount: Number(draft.expectedLayoutCount),
             shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
+            superGameKind: draft.superGameKind,
           } satisfies GameUpdate);
 
     const mutationError = result.error;
@@ -89,7 +165,8 @@ async function reconcileEditedGame(
       game.name === draft.name &&
       game.status === draft.status &&
       game.expectedLayoutCount === Number(draft.expectedLayoutCount) &&
-      game.shapeGeometryConfiguration === draft.shapeGeometryConfiguration
+      game.shapeGeometryConfiguration === draft.shapeGeometryConfiguration &&
+      game.superGameKind === draft.superGameKind
     ) {
       return { game, ok: true };
     }

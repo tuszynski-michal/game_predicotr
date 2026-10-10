@@ -1,0 +1,71 @@
+{
+  "task": "TASK-0919",
+  "checkedAt": "2026-10-07T14:59:19.524603+00:00",
+  "checks": {
+    "focusedNode": "19/19",
+    "renderedInteractions": "6/6",
+    "prettier": "PASS",
+    "scopedEslint": "PASS, zero warnings",
+    "adminTypes": "PASS"
+  },
+  "scope": "main UI navigation to the existing calibration pilot",
+  "lifecycleActions": [],
+  "operatorDecisions": 0,
+  "limitations": [
+    "Main API8000 V7 remains blocked; this is local test navigation.",
+    "Estimated numbers require operator review.",
+    "No new scan, approval, training, merge, build or deployment was run."
+  ],
+  "capabilities": [
+    {
+      "port": 8000,
+      "httpStatus": 200,
+      "enabled": true,
+      "activationStatus": "blocked",
+      "startEnabled": false,
+      "configurationVersion": "v7-selection-configuration-v1"
+    },
+    {
+      "port": 8020,
+      "httpStatus": 200,
+      "enabled": true,
+      "activationStatus": "active",
+      "startEnabled": true,
+      "configurationVersion": "v7-selection-configuration-v2"
+    },
+    {
+      "port": 3020,
+      "httpStatus": 200,
+      "enabled": true,
+      "activationStatus": "active",
+      "startEnabled": true,
+      "configurationVersion": "v7-selection-configuration-v2"
+    }
+  ],
+  "existingOutputCoverage": [
+    {
+      "directory": "C:\\Users\\tuszy\\Documents\\blazing\\49420 - 77634 cut",
+      "expected": 3135,
+      "present": 3135,
+      "missing": 0,
+      "method": "file names only; no OCR or JPEG hashing in this task"
+    },
+    {
+      "directory": "C:\\Users\\tuszy\\Documents\\blazing\\77626 - 106335 cut\\propozycje",
+      "expected": 3190,
+      "present": 3190,
+      "missing": 0,
+      "method": "file names only; no OCR or JPEG hashing in this task"
+    }
+  ],
+  "browser": {
+    "mainReloadEntry": "PASS",
+    "mainToPilotNavigation": "PASS",
+    "sourcePickerEnabled": true,
+    "outputPickerEnabled": true,
+    "savedReviewEnabled": true,
+    "existingEstimatedRange": "77644-77652",
+    "mutatingControlsClicked": [],
+    "screenshot": "artifacts/v7-main-panel-entry-20261007/main-entry.jpg"
+  }
+}

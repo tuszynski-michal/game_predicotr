@@ -2,15 +2,15 @@
   "artifacts": {
     "calibrationReport": {
       "path": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json",
-      "sha256": "14cb18d062851d16ac4b9b4adf416f0fdab4fa8b9a790eecc1fefa3fc5fbca02"
+      "sha256": "f72aefacb8358fa5b57cc49479130f43d6a4222676937ef4aae8fd37af1ec639"
     },
     "datasetReport": {
       "path": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
-      "sha256": "99d0f943e4646a0e320bb4e5ca792bfbbf66522afad1135614b1753edffb6dc0"
+      "sha256": "a30d14b8905e297460f5f76291b78e95a3e54ae488f34f74f3049d43e4276d54"
     },
     "nextSelectionReport": {
       "path": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
-      "sha256": "fda4b76648d7b141ff63ae957bea4cfbc7781ecdd9eb1e9e5e853b3a0be55e62"
+      "sha256": "18160916bff675b407abd1bc3b1dbb015a65db71b87f5c2e9652f981da965634"
     },
     "onnxModel": {
       "bytes": 115133,
@@ -19,7 +19,7 @@
     },
     "onnxReport": {
       "path": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json",
-      "sha256": "b8e97bd88e39fd15c6fff6573fffa3b0ff8bf01f0d4a1ce3c76a8255c62b1cd9"
+      "sha256": "cf784a1501f333bb797f247590a340cd62711b39c11f489a85dfff29da33e4ce"
     },
     "pytorchModel": {
       "bytes": 100601,
@@ -28,15 +28,15 @@
     },
     "splitReport": {
       "path": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json",
-      "sha256": "4b91e36852d1cd2566be2caf65c27ac720d52aef06a208b1d97e7b23e6b59a99"
+      "sha256": "11028289dec53703b2e3b579e5d39d89276115d2c148d2a84844ac1fdfcd6a46"
     },
     "trainingReport": {
       "path": "ai_docs/quality/m6-symbol-classifier-active-learning-v2-report.json",
-      "sha256": "45c1f160e017e646dda36d3e2695fe0e99da67522ff8a4792fd048ef7ba2019d"
+      "sha256": "693747d8ef3e06d29b2a19e91bed050343beebaee648fdcda8d9adc0e6420ee2"
     },
     "verticalSliceReport": {
       "path": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
-      "sha256": "525084adf8a7c9aea3bb41d32f8bef21317c61db9b5a92ac334492dd344dc2b0"
+      "sha256": "86414208db3aa0831e70d8cb49b5a450adf3df1ba56feeee8935429513204b4f"
     }
   },
   "dataset": {
@@ -57,7 +57,7 @@
     },
     "selection": {
       "path": "ai_docs/quality/m6-symbol-active-learning-selection.json",
-      "sha256": "2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2"
+      "sha256": "6bf1fa62c26496ef09c21c057d3a28ea80da031d1ebed10317bf5e400f85e180"
     }
   },
   "iterationVersion": "m6-active-learning-iteration-v2",

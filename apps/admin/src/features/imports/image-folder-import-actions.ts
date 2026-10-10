@@ -13,6 +13,10 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import {
+  isNeuralGeometryPreflight,
+  neuralGeometryMatchesReport,
+} from './neural-import-preflight-state.ts';
 
 export type ImageFolderImportClient = Pick<
   AdminApiClient,
@@ -37,6 +41,12 @@ export type ImageFolderImportClient = Pick<
   | 'sealImageGeometryGuardResolutionManifest'
   | 'cancelBrowserImageSelection'
   | 'getBoardImportCoverage'
+  | 'getImageGeometryCompleteness'
+  | 'listIncompleteGeometryImages'
+  | 'getImageGeometryLowQualityBoards'
+  | 'getImageGeometryCompletenessSourceAsset'
+  | 'setSourceImageGeometryException'
+  | 'withdrawSourceImageGeometryException'
   | 'getImageSequenceSourceSelection'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'
@@ -101,17 +111,25 @@ export function replayGeometryPreflightProgress(
       undefined;
   const reviewRequired =
     job.progress.pageGeometryPreflight?.provisionalReviewRequired ?? 0;
-  const artifactReady = completed && reviewRequired === 0;
+  const neural = isNeuralGeometryPreflight(job);
+  const artifactReady =
+    completed &&
+    (neural
+      ? job.progress.pageGeometryPreflight?.complete === true &&
+        Boolean(
+          job.progress.pageGeometryPreflight.geometryManifestChecksumSha256,
+        )
+      : reviewRequired === 0);
   return {
     ...report,
     geometryPreflightArtifactBlockerCode: artifactReady
       ? null
-      : completed
+      : completed && !neural
         ? 'IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED'
         : report.geometryPreflightArtifactBlockerCode,
     geometryPreflightArtifactBlockerMessage: artifactReady
       ? null
-      : completed
+      : completed && !neural
         ? `Preflight wymaga ręcznej korekty ${reviewRequired} zdjęć przed rozpoczęciem importu.`
         : report.geometryPreflightArtifactBlockerMessage,
     geometryPreflightArtifactReady: artifactReady,
@@ -131,17 +149,20 @@ export function geometryPreflightMatchesReport(
     typeof payload.contrastFrameGridV12Profile === 'object' &&
     payload.contrastFrameGridV12Profile !== null &&
     lateral === undefined;
+  const neuralMatches = neuralGeometryMatchesReport(job, report);
   return (
     job.jobType === 'validate' &&
     job.gameId === report.gameId &&
     payload.validationKind === 'page_geometry_preflight' &&
     payload.sourceSelectionId === report.uploadId &&
     payload.sourceManifestSha256 === report.manifestChecksumSha256 &&
-    (payload.managedSourceJobId === undefined ||
-      payload.managedSourceJobId === null) &&
-    (variant !== undefined && variant !== null
-      ? v12Matches || isSupportedLateralPartialGeometry(lateral, variant)
-      : lateral === undefined)
+    (neuralMatches ||
+      ((payload.managedSourceJobId === undefined ||
+        payload.managedSourceJobId === null) &&
+        (variant !== undefined && variant !== null
+          ? v12Matches || isSupportedLateralPartialGeometry(lateral, variant)
+          : lateral === undefined) &&
+        payload.neuralGridProposal == null))
   );
 }
 
@@ -273,15 +294,12 @@ export function imageImportJobMatchesReportIdentity(
   const symbol = payload.symbolModel;
   const grid = payload.gridProfile;
   const symbolMatches = symbolSnapshotMatchesReport(symbol, report);
+  // D-467: every reusable import pins a virtual rollout snapshot.
   const rolloutMatches =
-    (typeof rollout === 'object' &&
-      rollout !== null &&
-      (rollout as Record<string, unknown>).rolloutRevision ===
-        report.imageEnginePolicyRevision) ||
-    (rollout === undefined &&
-      report.imageEnginePolicy === 'verified_v19' &&
-      report.imageEnginePolicyRevision === 0 &&
-      variant === undefined);
+    typeof rollout === 'object' &&
+    rollout !== null &&
+    (rollout as Record<string, unknown>).rolloutRevision ===
+      report.imageEnginePolicyRevision;
   return (
     job.gameId === gameId &&
     payload.sourceSelectionId === uploadId &&

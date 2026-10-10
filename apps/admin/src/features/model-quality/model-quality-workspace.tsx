@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ModelQualityOverviewResponse,
   ModelQualityResponse,
   PendingSymbolReinferencePreviewResponse,
   SymbolModelActivationAction,
@@ -13,10 +14,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
+import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
   loadModelQuality,
+  prepareModelQualityCohort,
   previewModelActivation,
   previewPendingSymbolReinference as loadPendingSymbolReinference,
   startPendingSymbolReinference,
@@ -37,6 +40,12 @@ const WARNING_LABELS: Readonly<Record<string, string>> = {
 };
 
 function warningLabel(code: string): string {
+  if (code.startsWith('PROTECTED_EVALUATION_SOURCE:')) {
+    return 'Zdjęcia kontrolne zostały wykluczone z treningu.';
+  }
+  if (code === 'SOURCE_SPLIT_WHOLE_PHOTO_ONLY:NO_PERSISTED_RECORDING_ID') {
+    return 'Dane rozdzielono po całych zdjęciach. Brak identyfikatora nagrania do kontroli całych sesji.';
+  }
   if (code.startsWith('LOW_SYMBOL_COVERAGE:')) {
     return `Mało przykładów symbolu ${code.slice('LOW_SYMBOL_COVERAGE:'.length)}.`;
   }
@@ -47,7 +56,7 @@ function shortChecksum(value: string): string {
   return `${value.slice(0, 12)}…${value.slice(-8)}`;
 }
 
-export function ModelQualityWorkspace({
+function SymbolQualityWorkspace({
   apiBaseUrl,
   client,
   gameId,
@@ -60,7 +69,11 @@ export function ModelQualityWorkspace({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const [quality, setQuality] = useState<ModelQualityResponse | null>(null);
+  const [quality, setQuality] = useState<ModelQualityOverviewResponse | null>(
+    null,
+  );
+  const [preparedQuality, setPreparedQuality] =
+    useState<ModelQualityResponse | null>(null);
   const [preview, setPreview] =
     useState<VerifiedTrainingCohortPreviewResponse | null>(null);
   const [iterations, setIterations] = useState<
@@ -71,6 +84,7 @@ export function ModelQualityWorkspace({
   >([]);
   const [pendingPreview, setPendingPreview] =
     useState<PendingSymbolReinferencePreviewResponse | null>(null);
+  const [pendingError, setPendingError] = useState('');
   const [recalculating, setRecalculating] = useState(false);
   const [activationPreview, setActivationPreview] =
     useState<SymbolModelActivationPreviewResponse | null>(null);
@@ -79,31 +93,57 @@ export function ModelQualityWorkspace({
   const [activating, setActivating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [freezing, setFreezing] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idempotencyKeyRef = useRef<string | null>(null);
   const activationIdempotencyKeyRef = useRef<string | null>(null);
+  const refreshControllerRef = useRef<AbortController | null>(null);
+  const prepareControllerRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
+      if (signal?.aborted) return;
+      prepareControllerRef.current?.abort();
+      setPreparing(false);
+      setConfirming(false);
+      setPreview(null);
+      setPreparedQuality(null);
+      refreshControllerRef.current?.abort();
+      const controller = new AbortController();
+      refreshControllerRef.current = controller;
+      const abort = () => controller.abort();
+      signal?.addEventListener('abort', abort, { once: true });
       setLoading(true);
       setError('');
-      const [result, pendingResult] = await Promise.all([
-        loadModelQuality(api, gameId, signal),
-        loadPendingSymbolReinference(api, gameId),
-      ]);
-      if (signal?.aborted) return;
+      setPendingPreview(null);
+      setPendingError('');
+      // This independent count must not hold the quality report in loading.
+      const pendingRead = loadPendingSymbolReinference(
+        api,
+        gameId,
+        controller.signal,
+      ).then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.ok) setPendingPreview(result.preview);
+        else if (result.error !== 'REQUEST_ABORTED')
+          setPendingError(result.error);
+      });
+      const result = await loadModelQuality(api, gameId, controller.signal);
+      // Keep forwarding unmount cancellation until both reads have settled.
+      void pendingRead.finally(() =>
+        signal?.removeEventListener('abort', abort),
+      );
+      if (controller.signal.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
         setLoading(false);
         return;
       }
       setQuality(result.quality);
-      setPreview(result.preview);
       setIterations(result.iterations);
       setActivations(result.activations);
-      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -112,12 +152,60 @@ export function ModelQualityWorkspace({
   useEffect(() => {
     const controller = new AbortController();
     idempotencyKeyRef.current = null;
-    queueMicrotask(() => void refresh(controller.signal));
-    return () => controller.abort();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setQuality(null);
+      setPreview(null);
+      setIterations([]);
+      setActivations([]);
+      void refresh(controller.signal);
+    });
+    return () => {
+      controller.abort();
+      refreshControllerRef.current?.abort();
+      prepareControllerRef.current?.abort();
+    };
   }, [refresh]);
 
+  async function prepareCohort() {
+    if (preparing || quality === null || quality.activeHeavyJob) return;
+    prepareControllerRef.current?.abort();
+    const controller = new AbortController();
+    prepareControllerRef.current = controller;
+    setPreparing(true);
+    setError('');
+    setNotice('');
+    setPreview(null);
+    setPreparedQuality(null);
+    const result = await prepareModelQualityCohort(
+      api,
+      gameId,
+      controller.signal,
+    );
+    if (controller.signal.aborted) return;
+    setPreparing(false);
+    if (!result.ok) {
+      if (result.error !== 'REQUEST_ABORTED') setError(result.error);
+      return;
+    }
+    setPreparedQuality(result.quality);
+    setPreview(result.preview);
+    if (result.quality.canFreeze) setConfirming(true);
+    else
+      setNotice(
+        result.quality.activeHeavyJob
+          ? 'Inna ciężka operacja tej gry jest aktywna. Poczekaj na jej zakończenie.'
+          : 'Brak wycinków spełniających warunki treningu. Sprawdź wykluczenia poniżej.',
+      );
+  }
+
   async function confirmFreeze() {
-    if (preview === null || quality === null || freezing || !quality.canFreeze)
+    if (
+      preview === null ||
+      preparedQuality === null ||
+      freezing ||
+      !preparedQuality.canFreeze
+    )
       return;
     setFreezing(true);
     setError('');
@@ -223,7 +311,7 @@ export function ModelQualityWorkspace({
     );
   }
 
-  if (quality === null || preview === null) {
+  if (quality === null) {
     return (
       <section className="modelQualityWorkspace">
         <div className="modelQualityError" role="alert">
@@ -236,7 +324,13 @@ export function ModelQualityWorkspace({
             Spróbuj ponownie
           </button>
         </div>
-        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+        <LabCandidateRegistryPanel
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          activeIterationId={activations[0]?.modelIterationId ?? null}
+          iterations={iterations}
+          onChanged={refresh}
+        />
       </section>
     );
   }
@@ -280,30 +374,37 @@ export function ModelQualityWorkspace({
           <article>
             <span>Aktywny model</span>
             <strong>
-              {activeIteration === null
-                ? 'Model bazowy'
-                : `Iteracja #${activeIteration.iterationNumber}`}
+              {latestActivation?.action === 'deactivate'
+                ? 'Rozpoznawanie wyłączone'
+                : activeIteration === null
+                  ? 'Model bazowy'
+                  : `Iteracja #${activeIteration.iterationNumber}`}
             </strong>
             <code>
               {activeIteration?.candidateManifestChecksumSha256
                 ? shortChecksum(activeIteration.candidateManifestChecksumSha256)
-                : 'Wbudowany model startowy'}
+                : latestActivation?.action === 'deactivate'
+                  ? 'Wymagana ponowna aktywacja'
+                  : 'Wbudowany model startowy'}
             </code>
           </article>
           <article>
-            <span>Plansze reprezentowane w kohorcie</span>
+            <span>Plansze z zatwierdzonymi symbolami</span>
             <strong>
-              {quality.resolvedLayoutCount.toLocaleString('pl-PL')}
+              {quality.approvedLayoutCount.toLocaleString('pl-PL')}
             </strong>
             <small>
-              Nowe cropy od kohorty: {quality.newVerifiedLayoutCount}
+              Nowe próbki do treningu:{' '}
+              {preparedQuality?.newVerifiedLayoutCount ??
+                'po przygotowaniu danych'}
             </small>
           </article>
           <article>
             <span>Zdjęcia źródłowe</span>
             <strong>{quality.sourceImageCount.toLocaleString('pl-PL')}</strong>
             <small>
-              Próbki komórek: {quality.cellSampleCount.toLocaleString('pl-PL')}
+              Zatwierdzone symbole:{' '}
+              {quality.approvedCellCount.toLocaleString('pl-PL')}
             </small>
           </article>
           <article>
@@ -329,7 +430,8 @@ export function ModelQualityWorkspace({
             <header>
               <h3 id="symbol-coverage-title">Pokrycie symboli</h3>
               <p>
-                Pełna liczba ręcznie potwierdzonych cropów dla każdego symbolu.
+                Zapisane zatwierdzenia dla każdego symbolu. Dane do treningu są
+                sprawdzane po kliknięciu „Ulepsz rozpoznawanie”.
               </p>
             </header>
             {quality.symbolCoverage.length === 0 ? (
@@ -352,10 +454,14 @@ export function ModelQualityWorkspace({
           >
             <header>
               <h3 id="readiness-title">Gotowość iteracji</h3>
-              <p>Progi 100 i 1000 są wskazówką, nie automatyczną blokadą.</p>
+              <p>
+                Przygotowanie danych sprawdzi bieżące wycinki i pokaże próbki
+                wybrane do treningu. Liczba zatwierdzeń nie jest liczbą próbek
+                treningowych.
+              </p>
             </header>
             <ul className="modelQualityThresholds">
-              {quality.advisoryThresholds.map((threshold) => (
+              {(preparedQuality?.advisoryThresholds ?? []).map((threshold) => (
                 <li key={threshold.layoutCount}>
                   <span aria-hidden="true">
                     {threshold.reached ? '✓' : '○'}
@@ -369,44 +475,46 @@ export function ModelQualityWorkspace({
                 </li>
               ))}
             </ul>
-            <dl className="modelQualityDecisionCounts">
-              <div>
-                <dt>Oczekujące</dt>
-                <dd>{quality.pendingItemCount}</dd>
-              </div>
-              <div>
-                <dt>Odrzucone</dt>
-                <dd>{quality.rejectedItemCount}</dd>
-              </div>
-              <div>
-                <dt>Niekompletne</dt>
-                <dd>{quality.incompleteItemCount}</dd>
-              </div>
-              <div>
-                <dt>Chronione decyzje</dt>
-                <dd>{quality.protectedItemCount}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: nowy crop</dt>
-                <dd>{quality.trainingExclusions.changedCrop}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: nieczytelne</dt>
-                <dd>{quality.trainingExclusions.unreadable}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: zła siatka</dt>
-                <dd>{quality.trainingExclusions.gridIssue}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: ?</dt>
-                <dd>{quality.trainingExclusions.unknown}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: brak pliku</dt>
-                <dd>{quality.trainingExclusions.missingAsset}</dd>
-              </div>
-            </dl>
+            {preparedQuality !== null ? (
+              <dl className="modelQualityDecisionCounts">
+                <div>
+                  <dt>Oczekujące</dt>
+                  <dd>{preparedQuality.pendingItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Odrzucone</dt>
+                  <dd>{preparedQuality.rejectedItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Niekompletne</dt>
+                  <dd>{preparedQuality.incompleteItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Chronione decyzje</dt>
+                  <dd>{preparedQuality.protectedItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: nowy crop</dt>
+                  <dd>{preparedQuality.trainingExclusions.changedCrop}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: nieczytelne</dt>
+                  <dd>{preparedQuality.trainingExclusions.unreadable}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: zła siatka</dt>
+                  <dd>{preparedQuality.trainingExclusions.gridIssue}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: ?</dt>
+                  <dd>{preparedQuality.trainingExclusions.unknown}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: brak pliku</dt>
+                  <dd>{preparedQuality.trainingExclusions.missingAsset}</dd>
+                </div>
+              </dl>
+            ) : null}
           </section>
         </div>
 
@@ -486,7 +594,11 @@ export function ModelQualityWorkspace({
           <dl className="modelQualityDecisionCounts">
             <div>
               <dt>Aktywna iteracja</dt>
-              <dd>{activeIterationId ?? 'Model bazowy'}</dd>
+              <dd>
+                {latestActivation?.action === 'deactivate'
+                  ? 'Rozpoznawanie wyłączone'
+                  : (activeIterationId ?? 'Model bazowy')}
+              </dd>
             </div>
             <div>
               <dt>Historia zmian</dt>
@@ -529,7 +641,7 @@ export function ModelQualityWorkspace({
               {activations.slice(0, 5).map((activation) => (
                 <li key={activation.id}>
                   <strong>{activation.action}</strong>{' '}
-                  <code>{activation.modelIterationId}</code>{' '}
+                  <code>{activation.modelIterationId ?? 'Wyłączone'}</code>{' '}
                   <time dateTime={activation.createdAt}>
                     {new Date(activation.createdAt).toLocaleString('pl-PL')}
                   </time>
@@ -549,14 +661,29 @@ export function ModelQualityWorkspace({
                   ? 'Potwierdź rollback modelu'
                   : 'Potwierdź aktywację modelu'}
               </h3>
-              <code title={activationPreview.candidateManifestChecksumSha256}>
+              <code
+                title={
+                  activationPreview.candidateManifestChecksumSha256 ?? undefined
+                }
+              >
                 SHA-256: {activationPreview.candidateManifestChecksumSha256}
               </code>
               <p>
                 Iteracja: {activationPreview.modelIterationId}. Bieżąca
                 iteracja:{' '}
-                {activationPreview.currentModelIterationId ?? 'model bazowy'}.
+                {activationPreview.currentModelIterationId ??
+                  (latestActivation?.action === 'deactivate'
+                    ? 'rozpoznawanie wyłączone'
+                    : 'model bazowy')}
+                .
               </p>
+              {activationPreview.pilotSummary ? (
+                <p>
+                  Pilot Mumii: 34/34 na wybranych zdjęciach kontrolnych. Nie
+                  jest to trafność całego zbioru. Dane rozwojowe obejmują ocenę
+                  AI.
+                </p>
+              ) : null}
               <div className="buttonRow">
                 <button
                   className="primaryButton"
@@ -579,14 +706,22 @@ export function ModelQualityWorkspace({
           ) : null}
         </section>
 
-        {quality.warnings.length > 0 ? (
+        <LabCandidateRegistryPanel
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          activeIterationId={activeIterationId}
+          iterations={iterations}
+          onChanged={refresh}
+        />
+
+        {(preparedQuality?.warnings.length ?? 0) > 0 ? (
           <aside
             className="modelQualityWarnings"
             aria-label="Ostrzeżenia jakości"
           >
             <strong>Ostrzeżenia</strong>
             <ul>
-              {quality.warnings.map((warning) => (
+              {preparedQuality?.warnings.map((warning) => (
                 <li key={warning}>{warningLabel(warning)}</li>
               ))}
             </ul>
@@ -599,28 +734,59 @@ export function ModelQualityWorkspace({
           </p>
         ) : null}
         {error ? (
-          <p className="modelQualityError" role="alert">
-            {error}
-          </p>
+          <div className="modelQualityError" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
+        ) : null}
+        {pendingError ? (
+          <div className="modelQualityError" role="alert">
+            <p>
+              Nie udało się wczytać liczby oczekujących plansz. {pendingError}
+            </p>
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
         ) : null}
 
-        {!confirming ? (
+        {preparing ? (
+          <p role="status">
+            Sprawdzanie wycinków do treningu… Możesz korzystać z sekcji siatki.
+          </p>
+        ) : null}
+        {!confirming || preview === null ? (
           <div className="buttonRow">
             <button
               className="primaryButton"
-              disabled={!quality.canFreeze || loading}
-              onClick={() => {
-                setError('');
-                setNotice('');
-                setConfirming(true);
-              }}
+              disabled={
+                quality.approvedCellCount === 0 ||
+                quality.activeHeavyJob ||
+                loading ||
+                preparing
+              }
+              onClick={() => void prepareCohort()}
               type="button"
             >
-              Ulepsz rozpoznawanie
+              {preparing ? 'Przygotowywanie danych…' : 'Ulepsz rozpoznawanie'}
             </button>
             <button
               className="secondaryButton"
-              disabled={recalculating || pendingPreview?.pendingCount === 0}
+              disabled={
+                recalculating ||
+                pendingPreview === null ||
+                pendingPreview.pendingCount === 0
+              }
               onClick={() => void recalculatePendingSymbols()}
               type="button"
             >
@@ -702,7 +868,18 @@ export function ModelQualityWorkspace({
           </section>
         )}
       </section>
+    </section>
+  );
+}
 
+export function ModelQualityWorkspace(props: {
+  readonly apiBaseUrl: string;
+  readonly client?: ModelQualityClient;
+  readonly gameId: string;
+}) {
+  return (
+    <section className="modelQualityWorkspace">
+      <SymbolQualityWorkspace key={props.gameId} {...props} />
       <section
         className="modelQualityWorkflowGroup"
         aria-labelledby="grid-quality-workflow-title"
@@ -716,7 +893,11 @@ export function ModelQualityWorkspace({
             symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
           </p>
         </header>
-        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+        <GridQualityPanel
+          key={props.gameId}
+          apiBaseUrl={props.apiBaseUrl}
+          gameId={props.gameId}
+        />
       </section>
     </section>
   );

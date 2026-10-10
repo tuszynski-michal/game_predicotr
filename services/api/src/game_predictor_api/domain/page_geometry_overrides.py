@@ -33,6 +33,7 @@ class ImagePageGeometryOverride:
     slot_qualifications: tuple[GeometryQualification, ...] | None = None
     board_frame_quads: PageGeometryQuads | None = None
     symbol_grid_quads: PageGeometryQuads | None = None
+    neural_proposal_binding: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)

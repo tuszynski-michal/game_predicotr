@@ -64,6 +64,12 @@ def _validate_symbols(symbols: Sequence[SymbolDefinition], cell_width: int) -> N
                 DomainErrorCode.INVALID_SYMBOL,
                 "Symbol display order must be a non-negative integer.",
             )
+        trigger_count = symbol.super_game_trigger_count
+        if trigger_count is not None and (isinstance(trigger_count, bool) or trigger_count < 1):
+            raise DomainValidationError(
+                DomainErrorCode.INVALID_SYMBOL,
+                "Super game trigger count must be a positive integer.",
+            )
         if symbol.mobile_code in mobile_codes:
             raise DomainValidationError(
                 DomainErrorCode.DUPLICATE_SYMBOL_MOBILE_CODE,
@@ -200,6 +206,27 @@ def validate_paylines(
         ids.add(payline.id)
 
 
+def is_super_game_trigger(symbol: SymbolDefinition) -> bool:
+    """A trigger symbol is paid per count on the board, never on paylines (D-535)."""
+
+    return symbol.super_game_trigger_count is not None
+
+
+def is_ordinary_line_symbol(symbol: SymbolDefinition) -> bool:
+    """A symbol evaluated on paylines: neither Wild nor a super game trigger."""
+
+    return not symbol.is_wildcard and not is_super_game_trigger(symbol)
+
+
+def count_payout_maximum(game: GameConfig) -> int:
+    """The largest count a trigger symbol can reach: every cell of the board."""
+
+    return game.rows * game.columns
+
+
+MINIMUM_COUNT_PAYOUT = 2
+
+
 def validate_payout_symbols(
     payout_symbols: Sequence[PayoutSymbolDefinition],
     game: GameConfig,
@@ -214,6 +241,11 @@ def validate_payout_symbols(
             raise DomainValidationError(
                 DomainErrorCode.INVALID_BOARD_SYMBOL,
                 (f"Payout symbol {payout_symbol.symbol_mobile_code} does not belong to the game."),
+            )
+        if is_super_game_trigger(symbol):
+            raise DomainValidationError(
+                DomainErrorCode.SUPER_GAME_TRIGGER_PAYOUT_SYMBOL,
+                "Super game trigger symbols are paid per count and have no minimum match length.",
             )
         if symbol.is_wildcard:
             raise DomainValidationError(
@@ -254,6 +286,33 @@ def validate_payout_rules(
                 DomainErrorCode.INVALID_BOARD_SYMBOL,
                 f"Payout symbol {rule.symbol_mobile_code} does not belong to the game.",
             )
+        if is_super_game_trigger(symbol):
+            maximum_count = count_payout_maximum(game)
+            if (
+                isinstance(rule.match_length, bool)
+                or rule.match_length < MINIMUM_COUNT_PAYOUT
+                or rule.match_length > maximum_count
+            ):
+                raise DomainValidationError(
+                    DomainErrorCode.INVALID_MATCH_LENGTH,
+                    (
+                        f"Count payout for symbol {rule.symbol_mobile_code} must be "
+                        f"between {MINIMUM_COUNT_PAYOUT} and {maximum_count}."
+                    ),
+                )
+            _require_non_negative_integer(
+                rule.payout_credits,
+                DomainErrorCode.INVALID_PAYOUT,
+                "Payout credits",
+            )
+            count_key = (rule.symbol_mobile_code, rule.match_length)
+            if count_key in keys:
+                raise DomainValidationError(
+                    DomainErrorCode.DUPLICATE_PAYOUT_RULE,
+                    "Payout rule symbol and match length must be unique.",
+                )
+            keys.add(count_key)
+            continue
         if symbol.is_wildcard:
             raise DomainValidationError(
                 DomainErrorCode.WILDCARD_PAYOUT_RULE,
@@ -297,13 +356,19 @@ def validate_payout_configuration(
     payout_symbols: Sequence[PayoutSymbolDefinition],
     game: GameConfig,
 ) -> None:
-    """Validate a complete rules matrix ready for payout precomputing."""
+    """Validate a complete rules matrix ready for payout precomputing.
+
+    Ordinary line symbols need a minimum and one rule per length up to the
+    column count. A super game trigger symbol (D-535) has no minimum; its
+    optional count rules only need strictly increasing payouts, and a trigger
+    symbol without any count rule is valid (it never pays).
+    """
 
     validate_payout_rules(rules, payout_symbols, game)
     payout_symbols_by_code = {
         payout_symbol.symbol_mobile_code: payout_symbol for payout_symbol in payout_symbols
     }
-    ordinary_symbols = tuple(symbol for symbol in game.symbols if not symbol.is_wildcard)
+    ordinary_symbols = tuple(symbol for symbol in game.symbols if is_ordinary_line_symbol(symbol))
     missing_symbols = [
         symbol.mobile_code
         for symbol in ordinary_symbols
@@ -347,3 +412,20 @@ def validate_payout_configuration(
                     ),
                 )
             previous_payout = payout
+
+    for symbol in game.symbols:
+        if not is_super_game_trigger(symbol):
+            continue
+        count_rules = rules_by_symbol.get(symbol.mobile_code, {})
+        previous_count_payout: int | None = None
+        for count in sorted(count_rules):
+            payout = count_rules[count]
+            if previous_count_payout is not None and payout <= previous_count_payout:
+                raise DomainValidationError(
+                    DomainErrorCode.NON_INCREASING_PAYOUT,
+                    (
+                        f"Count payout for symbol {symbol.mobile_code} must increase "
+                        f"with the count; count {count} has value {payout}."
+                    ),
+                )
+            previous_count_payout = payout

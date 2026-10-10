@@ -11,6 +11,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import NoReturn
 
 import numpy as np
 
@@ -38,6 +39,7 @@ from .v7_quality import (
 )
 from .v7_range_proof import (
     V7FrameEvidence,
+    V7LabelEvidence,
     V7RangeProofKind,
     V7RangeProofResolver,
     V7RangeProofResult,
@@ -107,29 +109,38 @@ class V7ProfileBoundObserver:
             return _source_error_observation(request.source.source_index)
 
         labels = recognize_grid_labels(canonical.rgb, self._recognizer, locator=self._locator)
-        frame = V7FrameEvidence(
-            source_id=request.source.source_id,
-            occurrence_id="source-local",
-            visual_cluster_id="source-local",
-            labels=labels,
-        )
-        proof = self._resolver.resolve_frame(frame)
-        if proof.kind is V7RangeProofKind.STRONG_FIVE_LABEL:
-            return _decoded_observation(request.source, proof)
+        return _observation_from_labels(request.source, canonical.rgb, labels, self._resolver)
 
-        weak_hypotheses = self._resolver.weak_hypotheses(frame)
-        visual_hash, visual_signature = _visual_features(canonical.rgb)
-        weak_evidence = (
-            None
-            if len(weak_hypotheses) != 1
-            else V7WeakFrameEvidence(
-                source_id=request.source.source_id,
-                labels=labels,
-                visual_hash=visual_hash,
-                visual_signature=visual_signature,
-            )
+
+def _observation_from_labels(
+    source: V7PinnedSource,
+    rgb: np.ndarray,
+    labels: tuple[V7LabelEvidence, ...],
+    resolver: V7RangeProofResolver,
+) -> V7ScanObservation:
+    """Keep source-local proof and visual independence identical across adapters."""
+    frame = V7FrameEvidence(
+        source_id=source.source_id,
+        occurrence_id="source-local",
+        visual_cluster_id="source-local",
+        labels=labels,
+    )
+    proof = resolver.resolve_frame(frame)
+    if proof.kind is V7RangeProofKind.STRONG_FIVE_LABEL:
+        return _decoded_observation(source, proof)
+    weak_hypotheses = resolver.weak_hypotheses(frame)
+    visual_hash, visual_signature = _visual_features(rgb)
+    weak_evidence = (
+        None
+        if len(weak_hypotheses) != 1
+        else V7WeakFrameEvidence(
+            source_id=source.source_id,
+            labels=labels,
+            visual_hash=visual_hash,
+            visual_signature=visual_signature,
         )
-        return _decoded_observation(request.source, proof, weak_evidence=weak_evidence)
+    )
+    return _decoded_observation(source, proof, weak_evidence=weak_evidence)
 
 
 def v7_profile_bound_localizer_fingerprint(profile: V7GeometryProfile) -> str:
@@ -162,6 +173,8 @@ def build_paddle_v7_profile_bound_observer_factory(
 def _require_profile_matches_configuration(
     profile: V7GeometryProfile,
     configuration: V7WorkerConfiguration,
+    *,
+    localizer_fingerprint: str | None = None,
 ) -> None:
     if profile.calibration.status is not V7EvaluationStatus.PASSED:
         _fail(
@@ -178,7 +191,8 @@ def _require_profile_matches_configuration(
             "V7_CALIBRATION_FINGERPRINT_MISMATCH",
             "The V7 run does not pin the requested geometry profile.",
         )
-    if configuration.localizer_fingerprint != v7_profile_bound_localizer_fingerprint(profile):
+    expected_localizer = localizer_fingerprint or v7_profile_bound_localizer_fingerprint(profile)
+    if configuration.localizer_fingerprint != expected_localizer:
         _fail(
             "V7_LOCALIZER_FINGERPRINT_MISMATCH",
             "The V7 run does not pin the requested numeric-label locator.",
@@ -262,7 +276,7 @@ def _canonical_sha256(value: object) -> str:
     ).hexdigest()
 
 
-def _fail(code: str, message: str) -> None:
+def _fail(code: str, message: str) -> NoReturn:
     raise V7WorkerRuntimeError(code, message)
 
 

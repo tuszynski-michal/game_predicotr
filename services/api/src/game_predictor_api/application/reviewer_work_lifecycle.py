@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -66,10 +66,19 @@ class ReviewerWorkLifecycleService:
         assignments: ReviewerWorkAssignmentService,
         access: ReviewerAccessService,
         ingress: ReviewerProcessLifecycle | ReviewerIngressService,
+        *,
+        recover_other_games: Callable[[UUID | None], None] | None = None,
+        stop_shared_ingress: Callable[[], None] | None = None,
     ) -> None:
         self._assignments = assignments
         self._access = access
         self._ingress = ingress
+        self._stop_shared_ingress = stop_shared_ingress
+        # TASK-0797: this service's transaction reads one game (application
+        # role, RLS). Expired online leases of the other games are recovered
+        # (lease expired, access session revoked) in their own transactions
+        # before this one takes the global online-capacity lock.
+        self._recover_other_games = recover_other_games
 
     def open_local(
         self,
@@ -79,6 +88,7 @@ class ReviewerWorkLifecycleService:
         lease_owner: str,
         lease_expires_at: datetime,
     ) -> OpenedReviewerWork:
+        self._recover_other(game_id)
         ingress = self._ensure_local_reviewer()
         try:
             assignment = self._assignments.open(
@@ -115,6 +125,7 @@ class ReviewerWorkLifecycleService:
         lease_expires_at: datetime,
         session_lifetime_minutes: int,
     ) -> OpenedReviewerWork:
+        self._recover_other(game_id)
         ingress: ReviewerIngressStatus | None = None
         access: CreatedReviewerAccess | None = None
 
@@ -176,6 +187,7 @@ class ReviewerWorkLifecycleService:
         )
 
     def overview(self, game_id: UUID) -> ReviewerWorkOverview:
+        self._recover_other(game_id)
         self.stop_if_unused()
         return ReviewerWorkOverview(
             assignments=tuple(self._assignments.list_active_for_game(game_id)),
@@ -213,6 +225,7 @@ class ReviewerWorkLifecycleService:
         reason: str,
         actor: str,
     ) -> ReviewerWorkAssignment:
+        self._recover_other(self._assignments.get(assignment_id).game_id)
         return self._assignments.close(
             assignment_id,
             lease_token=lease_token,
@@ -228,6 +241,10 @@ class ReviewerWorkLifecycleService:
             before_expire=self._revoke_assignment_session,
             after_last_online_close=self._stop_shared_ingress_if_current,
         )
+
+    def _recover_other(self, current_game_id: UUID | None) -> None:
+        if self._recover_other_games is not None:
+            self._recover_other_games(current_game_id)
 
     def _ensure_local_reviewer(self) -> ReviewerIngressStatus:
         status = self._ingress.status()
@@ -249,6 +266,9 @@ class ReviewerWorkLifecycleService:
             self._access.revoke(assignment.reviewer_access_session_id)
 
     def _stop_shared_ingress_if_current(self) -> None:
+        if self._stop_shared_ingress is not None:
+            self._stop_shared_ingress()
+            return
         status = self._ingress.status()
         if status.instance_id is None:
             return

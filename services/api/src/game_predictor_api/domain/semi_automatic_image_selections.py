@@ -12,6 +12,7 @@ from typing import cast
 from uuid import UUID, uuid4
 
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobType, create_job
+from game_predictor_api.domain.v7_selection_delivery import V7PilotSnapshot
 
 SEMI_AUTOMATIC_SELECTION_CONTRACT_VERSION = 1
 SEMI_AUTOMATIC_SELECTION_RANGE_CONVENTION = "seq-inclusive-v1"
@@ -19,9 +20,7 @@ SEMI_AUTOMATIC_SELECTION_FULL_RANGE_SIZE = 9
 SEMI_AUTOMATIC_SELECTION_ORDERING_POLICY = "natural_relative_path_v1"
 SEMI_AUTOMATIC_SELECTION_WORKFLOW = "semi_automatic_image_selection"
 V7_SELECTION_CONFIGURATION_VERSION = "v7-selection-configuration-v1"
-V7_SELECTION_LOCALIZER_FINGERPRINT = hashlib.sha256(
-    b"v7-label-locator-grid-3x3-v1"
-).hexdigest()
+V7_SELECTION_LOCALIZER_FINGERPRINT = hashlib.sha256(b"v7-label-locator-grid-3x3-v1").hexdigest()
 # T05 has no approved calibration artifact yet. This server-owned value makes the
 # blocked state explicit and must be replaced only by the T12 activation workflow.
 V7_SELECTION_UNAVAILABLE_CALIBRATION_FINGERPRINT = hashlib.sha256(
@@ -71,8 +70,19 @@ class SemiAutomaticV7SelectionConfiguration:
     border_style: SemiAutomaticV7BorderStyle
     localizer_fingerprint: str
     calibration_fingerprint: str
+    pilot: V7PilotSnapshot | None = None
+    output_directory: str | None = None
 
     def __post_init__(self) -> None:
+        if self.output_directory is not None and (
+            not isinstance(self.output_directory, str) or not self.output_directory.strip()
+        ):
+            raise ValueError("V7 output directory is invalid.")
+        if (
+            type(self.first_sequence_number) is not int
+            or type(self.last_sequence_number) is not int
+        ):
+            raise ValueError("V7 bounds must be strict integers.")
         if self.first_sequence_number < 1 or self.last_sequence_number < self.first_sequence_number:
             raise ValueError("V7 selection bounds must be positive and increasing.")
         page_span = self.last_sequence_number - self.first_sequence_number + 1
@@ -80,9 +90,15 @@ class SemiAutomaticV7SelectionConfiguration:
             raise ValueError("V7 selection accepts only complete 3x3 pages.")
         _require_sha256(self.localizer_fingerprint, "V7 localizer fingerprint")
         _require_sha256(self.calibration_fingerprint, "V7 calibration fingerprint")
+        if self.pilot is not None and (
+            self.mode is not SemiAutomaticV7SelectionMode.SEMI_AUTOMATIC
+            or self.pilot.profile_fingerprint != self.calibration_fingerprint
+            or self.pilot.observer_fingerprint != self.localizer_fingerprint
+        ):
+            raise ValueError("V7 configuration and pilot pins differ.")
 
     def as_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "version": V7_SELECTION_CONFIGURATION_VERSION,
             "mode": self.mode.value,
             "direction": self.direction.value,
@@ -92,6 +108,12 @@ class SemiAutomaticV7SelectionConfiguration:
             "localizerFingerprint": self.localizer_fingerprint,
             "calibrationFingerprint": self.calibration_fingerprint,
         }
+        if self.pilot is not None:
+            payload["version"] = "v7-selection-configuration-v2"
+            payload["pilot"] = self.pilot.as_payload()
+        if self.output_directory is not None:
+            payload["outputDirectory"] = self.output_directory
+        return payload
 
 
 def create_v7_selection_configuration(
@@ -103,6 +125,8 @@ def create_v7_selection_configuration(
     border_style: SemiAutomaticV7BorderStyle = SemiAutomaticV7BorderStyle.TOP_AND_SIDES,
     localizer_fingerprint: str = V7_SELECTION_LOCALIZER_FINGERPRINT,
     calibration_fingerprint: str = V7_SELECTION_UNAVAILABLE_CALIBRATION_FINGERPRINT,
+    pilot: V7PilotSnapshot | None = None,
+    output_directory: str | None = None,
 ) -> SemiAutomaticV7SelectionConfiguration:
     return SemiAutomaticV7SelectionConfiguration(
         mode=mode,
@@ -112,6 +136,8 @@ def create_v7_selection_configuration(
         border_style=border_style,
         localizer_fingerprint=localizer_fingerprint,
         calibration_fingerprint=calibration_fingerprint,
+        pilot=pilot,
+        output_directory=output_directory,
     )
 
 
@@ -145,6 +171,7 @@ class SemiAutomaticSelectionRunStatus(StrEnum):
 
 class SemiAutomaticSelectionRangeStatus(StrEnum):
     MISSING = "missing"
+    PROPOSED = "proposed"
     AUTO_SELECTED = "auto_selected"
     OUTPUT_SYNCED = "output_synced"
     CONFLICT = "conflict"
@@ -214,6 +241,14 @@ class SemiAutomaticSelectionRange:
     revision: int
     created_at: datetime
     updated_at: datetime
+    v7_review: dict[str, object] | None = None
+    v7_projection_fingerprint: str | None = None
+    v7_confirmed_range_start: int | None = None
+    v7_confirmed_range_end: int | None = None
+    v7_output_owner_operation_id: UUID | None = None
+    v7_output_generation: int | None = None
+    output_operation: dict[str, object] | None = None
+    acknowledgement_receipt: dict[str, object] | None = None
 
     def __post_init__(self) -> None:
         if self.expected_index < 0 or self.range_start < 1 or self.range_end < self.range_start:
@@ -397,6 +432,7 @@ def create_semi_automatic_selection_run(
                 "outputSynced": 0,
                 "conflicts": 0,
                 "missing": len(ranges),
+                **({"proposed": 0} if v7_configuration is not None else {}),
             },
             diagnostics_relative_path=None,
             diagnostics_checksum_sha256=None,
@@ -893,6 +929,7 @@ def _require_sha256(value: str, label: str) -> None:
 def _range_counter_key(status: SemiAutomaticSelectionRangeStatus) -> str:
     return {
         SemiAutomaticSelectionRangeStatus.MISSING: "missing",
+        SemiAutomaticSelectionRangeStatus.PROPOSED: "proposed",
         SemiAutomaticSelectionRangeStatus.AUTO_SELECTED: "autoSelected",
         SemiAutomaticSelectionRangeStatus.OUTPUT_SYNCED: "outputSynced",
         SemiAutomaticSelectionRangeStatus.CONFLICT: "conflicts",

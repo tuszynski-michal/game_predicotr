@@ -29,9 +29,8 @@ BOOTSTRAP_SYMBOL_INPUT_SIZE = 64
 BOOTSTRAP_SYMBOL_TEMPERATURE = 1.0338382913
 COLD_START_UNCLASSIFIED_MODEL_VERSION = "cold-start-unclassified-v1"
 COLD_START_UNCLASSIFIED_INPUT_SIZE = 64
-COLD_START_UNCLASSIFIED_STORAGE_PATH = (
-    "unclassified/cold-start-unclassified-v1.no-onnx"
-)
+LAB_RGB_SYMBOL_MODEL_VERSION = "lab-rgb-symbol-onnx-v1"
+COLD_START_UNCLASSIFIED_STORAGE_PATH = "unclassified/cold-start-unclassified-v1.no-onnx"
 
 
 class SymbolModelStorageRoot(StrEnum):
@@ -51,6 +50,30 @@ class SymbolModelJobSnapshot:
     input_size: int
     temperature: float
     inference_mode: str = "model"
+    crop_size: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION:
+            if (
+                not isinstance(self.crop_size, int)
+                or isinstance(self.crop_size, bool)
+                or self.input_size != 64
+                or self.crop_size != 96
+                or self.inference_mode != "model"
+            ):
+                raise ValueError("LAB_RGB_SNAPSHOT_RUNTIME_INVALID")
+        elif self.crop_size is not None:
+            raise ValueError("The cropSize override requires the lab RGB model contract.")
+
+    @property
+    def crop_output_size(self) -> int:
+        return self.input_size if self.crop_size is None else self.crop_size
+
+    @property
+    def crop_padding_fraction(self) -> float:
+        # The explicit model version binds the render footprint as well as the
+        # RGB transform. Legacy models retain their established inset.
+        return 0.0 if self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION else 0.08
 
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -68,6 +91,8 @@ class SymbolModelJobSnapshot:
             payload["inferenceMode"] = self.inference_mode
         if self.iteration_id is not None:
             payload["iterationId"] = str(self.iteration_id)
+        if self.crop_size is not None:
+            payload["cropSize"] = self.crop_size
         return payload
 
     @property
@@ -84,6 +109,8 @@ class SymbolModelJobSnapshot:
         }
         if self.inference_mode != "model":
             payload["inferenceMode"] = self.inference_mode
+        if self.crop_size is not None:
+            payload["cropSize"] = self.crop_size
         return hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
         ).hexdigest()
@@ -136,6 +163,7 @@ class SymbolModelJobSnapshot:
                 input_size=input_size,
                 temperature=float(temperature),
                 inference_mode=str(value.get("inferenceMode", "model")),
+                crop_size=cast(int | None, value.get("cropSize")),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("The pinned symbol model snapshot is invalid.") from error

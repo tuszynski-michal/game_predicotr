@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-09-21
+last_updated: 2026-10-09
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -21,6 +21,53 @@ W szczególności `global_geometry_profile_versions`,
 są biblioteką control plane. Nie mają `game_id`, nie mogą wejść do partycji
 gry ani uruchomić `GameStorageRouter`; `source_game_ref` jest wyłącznie
 opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
+
+Tabele historii półautomatycznej selekcji V7 (`semi_automatic_selection_v7_output_operations`,
+`semi_automatic_selection_v7_pilot_acceptances`, `semi_automatic_selection_v7_source_observations`;
+TASK-0940) są `shared`: nie mają `game_id`, wskazują wyłącznie wspólne tabele
+`semi_automatic_image_selection_runs`/`_ranges` albo są potwierdzeniem (receipt) singletonowej bramki
+aktywacji V7 (`semi_automatic_selection_v7_activation_gate`, także `shared`).
+Trzy nowe tabele V7 są w osobnym zbiorze `POST_V5_SHARED` manifestu v5, a
+`ownership()` je rozpoznaje. Nie wolno dopisywać ich do `SHARED` (ani do
+zamrożonego `game_data_v2_manifest_v2.SHARED`): migracje 0131, 0134 i 0142
+wstawiają do `game_storage_table_manifest` wiersze z
+`sorted(CATALOG | SHARED | GAME_TABLES | CONTROL_TABLES)`, więc te zbiory muszą
+zawierać tylko tabele istniejące w chwili tych migracji.
+## Manifest v6 — serie supergry (TASK-0933, D-535)
+
+`game_data_v2_manifest_v6.py` (migracja `0152_super_game_series`) dodaje do
+`GAME_TABLES` dokładnie cztery tabele klasy `game`:
+`super_game_series`, `super_game_series_generation_rows`,
+`super_game_derivation_state` i `super_game_series_audit_events`. Wszystkie
+mają NOT NULL `game_id`, partycję `LIST (game_id)`, wymuszone RLS
+`game_scope_v1` i FK właściciela do `games`; seria ma dodatkowo FK
+`(game_id, super_symbol_id)` → `symbols`. Migracja tworzy puste partycje
+istniejących gier, wpisuje wiersze manifestu v6 i przestawia
+`game_storage_locations` z v5 na v6; nowa gra dostaje partycje z
+`CREATE_TABLES` v6. Bieżące moduły (routing, cykl życia partycji, katalog,
+`scripts/delete_archived_v2_game.py`) importują v6; v5 pozostaje zamrożony.
+Downgrade odmawia, gdy istnieje zdefiniowany super symbol, wpis audytu albo
+niezakończony job wyprowadzania; wiersze wyprowadzone są odtwarzalne.
+
+## Manifest v7 — audyt cofnięć korekt siatki (TASK-0966)
+
+`game_data_v2_manifest_v7.py` (migracja `0154_geometry_correction_revert`)
+dodaje do `GAME_TABLES` dokładnie dwie tabele klasy `game`
+(TASK-0970 dopisał drugą przed pierwszym wdrożeniem migracji):
+`image_board_geometry_pending_events` (trwała tożsamość odrzuceń slotów) i
+`image_geometry_correction_reverts` (NOT NULL `game_id`, partycja
+`LIST (game_id)`, wymuszone RLS `game_scope_v1`, FK właściciela do `games` i
+FK `(game_id, import_job_id)` → `jobs`). Audyt celowo nie ma FK do usuwanych
+wierszy (plansza, pozycja, komórki, rewizja planszy); ich treść jest w
+`snapshot`. Migracja tworzy puste partycje istniejących gier, wpisuje wiersze
+manifestu v7 i przestawia `game_storage_locations` z v6 na v7; bieżące moduły
+importują v7, v6 pozostaje zamrożony. Downgrade odmawia przy jakiejkolwiek
+historii cofnięć (wiersz audytu, rewizja źródła `reverted`, zdarzenie
+`geometry_reverted`, wypełnione `previous_assignment_source`, odrzucony slot).
+
+Tabele `management_*` należą do niezależnej kontroli zarządzania
+(`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
+w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
 
 ## Reguły i granice
 
@@ -51,7 +98,7 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 |---|---|---|
 | `alembic_version` | shared | — |
 | `browser_selection_retention_states` | game | `games`, `jobs` |
-| `cell_observations` | game | `image_source_geometry_revisions`, `recognized_boards` |
+| `cell_observations` (usunięta w `0134`, poza manifestem v4) | game | `image_source_geometry_revisions`, `recognized_boards` |
 | `cleanup_operations` | shared | — |
 | `curated_image_import_batches` | game | `curated_image_import_sources`, `jobs` |
 | `curated_image_import_sources` | game | `games`, `image_selection_runs` |
@@ -110,8 +157,8 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `layout_import_rows` | game | `jobs` |
 | `layout_payouts` | game | `layouts`, `rules_versions` |
 | `layouts` | game | `dataset_versions` |
-| `legacy_board_search_archive_documents` | game | `games` |
-| `legacy_board_search_archive_states` | game | `games` |
+| `legacy_board_search_archive_documents` (usunięta w `0134`) | game | `games` |
+| `legacy_board_search_archive_states` (usunięta w `0134`) | game | `games` |
 | `legacy_game_operational_cleanup_receipts` | shared | `games` |
 | `mobile_release_games` | game | `dataset_versions`, `games`, `mobile_releases`, `rules_versions` |
 | `mobile_releases` | shared | `jobs` |
@@ -145,7 +192,11 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `storage_gc_runs` | shared | `jobs` |
 | `storage_usage_snapshots` | shared | — |
 | `symbol_model_iterations` | game | `games`, `jobs`, `verified_training_cohorts` |
-| `symbol_reference_images` | game | `cell_observations`, `games`, `image_review_items`, `recognized_boards`, `symbols` |
+| `symbol_reference_images` | game | `games`, `image_review_items`, `recognized_boards`, `symbols` (FK do `cell_observations` usunięty w `0132`) |
+| `super_game_derivation_state` | game | `games` |
+| `super_game_series` | game | `games`, `symbols` |
+| `super_game_series_audit_events` | game | `games` |
+| `super_game_series_generation_rows` | game | `games` |
 | `symbols` | catalog | `games` |
 | `verified_training_cohort_cells` | game | `image_review_items`, `image_source_geometry_revisions`, `image_symbol_review_cells`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
 | `verified_training_cohort_items` | game | `image_review_items`, `jobs`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
@@ -206,6 +257,48 @@ Downgrade najpierw blokuje wszystkie objęte tabele i sprawdza pustkę. Jakiekol
 dane v2, location, migration lub checkpoint zatrzymują rollback; nie używa
 CASCADE. Jest odwróceniem wyłącznie pustego wdrożenia, nie rollbackiem migracji
 użytkownika. Dodatkowe nieznane zależności także blokują DROP.
+
+## Role bazy i egzekwowanie RLS — TASK-0795
+
+RLS z migracji 0106 jest wymuszone także dla właściciela tabel, ale nie działa
+dla roli `SUPERUSER`/`BYPASSRLS`. Dlatego runtime (API, worker) łączy się rolą
+aplikacyjną `game_predictor_app` bez tych atrybutów, bez własności obiektów i
+bez DDL (`GAME_PREDICTOR_DATABASE_URL`); schemat, partycje i migracje należą do
+roli właściciela (`GAME_PREDICTOR_OWNER_DATABASE_URL`). Role tworzy skrypt
+`scripts/provision_database_roles.py`, nie migracja (role są globalne w
+klastrze). Właściciela używają w runtime wyłącznie: kroki DDL lifecycle
+partycji nowej gry (każdy krok w osobnej sesji właściciela; wiersz katalogu i
+receipt w sesji aplikacyjnej), `VACUUM (ANALYZE)` po kompaktacji wyników
+pipeline i `ANALYZE` po backfillu weryfikacji symboli. Usuwanie gry
+(`GameDeletionRepository`, lifecycle `delete`) nie ma trasy runtime; jego
+wykonanie wymaga roli właściciela.
+
+Kontrakt dla zapytań roli aplikacyjnej: transakcja dotyka danych jednej gry
+po `GameStorageRouter.bind` (albo `game_storage_scope`), który ustawia
+`game_predictor.game_id` i `search_path`. Bez wiązania niekwalifikowana
+tabela gry nie istnieje w `search_path` (`42P01`), a kwalifikowana
+`game_data_v2.*` rzuca `GAME_STORAGE_SCOPE_REQUIRED` (`42501`) — nigdy pusty
+wynik. Ścieżki między grami iterują po `public.game_storage_locations` z
+osobnym wiązaniem na grę (wzorzec `load_pipeline_execution_references`).
+Szczegóły i wycofanie: D-467 (nota TASK-0795), `LOCAL_OPERATION_GUIDE.md`.
+
+TASK-0797 uzupełnia kontrakt: gra żądania API pochodzi ze ścieżki
+`/games/{id}/` albo z parametru `gameId`/`game_id` tras Admina i Reviewera;
+trasa nazywająca tylko globalny identyfikator wiersza gry znajduje grę
+odczytami związanymi kolejno z każdą grą (`GameEntityLocator`, bez kopii
+mapowania poza magazynem gry); agregaty wielu gier (wydanie mobilne z
+buildem, snapshotem i payoutami, kontrole współdzielonych plików i wykonań
+przy sprzątaniu gry) używają jawnej sesji właściciela `CrossGameOwnerSession`.
+Funkcja polityki `current_game_id_v1()` jest od `0138` `PARALLEL SAFE`
+(bez zmiany polityk i zachowania błędów).
+
+TASK-0902: zapytania właściciela w `GameEntityLocator` są typowanymi
+instrukcjami SELECT SQLAlchemy. Odczyt nie przechodzi przez bramkę WRITE,
+więc stan `migrating`, `deleting` lub `blocked` innej gry nie blokuje
+identyfikacji właściciela. Każda próba zachowuje własny zakres gry,
+jawny predykat `game_id` i RLS; nie przenosi ani nie łączy danych gier.
+Nieznane tekstowe SQL nadal domyślnie wymaga WRITE, a zapis do nieaktywnego
+magazynu pozostaje zablokowany.
 
 ## Greenfield cutover
 

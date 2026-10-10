@@ -13,13 +13,14 @@ from uuid import UUID
 class SymbolModelActivationAction(StrEnum):
     ACTIVATE = "activate"
     ROLLBACK = "rollback"
+    DEACTIVATE = "deactivate"
 
 
 @dataclass(frozen=True, slots=True)
 class SymbolModelActivation:
     id: UUID
     game_id: UUID
-    model_iteration_id: UUID
+    model_iteration_id: UUID | None
     previous_model_iteration_id: UUID | None
     action: SymbolModelActivationAction
     activation_number: int
@@ -33,18 +34,19 @@ class SymbolModelActivation:
 @dataclass(frozen=True, slots=True)
 class SymbolModelActivationPreview:
     game_id: UUID
-    model_iteration_id: UUID
-    candidate_manifest_checksum_sha256: str
+    model_iteration_id: UUID | None
+    candidate_manifest_checksum_sha256: str | None
     current_model_iteration_id: UUID | None
     action: SymbolModelActivationAction
     can_activate: bool
+    pilot_summary: dict[str, object] | None = None
 
 
 def activation_command_sha256(
     *,
     game_id: UUID,
-    model_iteration_id: UUID,
-    expected_manifest_checksum_sha256: str,
+    model_iteration_id: UUID | None,
+    expected_manifest_checksum_sha256: str | None,
     expected_current_model_iteration_id: UUID | None,
     action: SymbolModelActivationAction,
     actor: str,
@@ -60,7 +62,7 @@ def activation_command_sha256(
             else str(expected_current_model_iteration_id)
         ),
         "gameId": str(game_id),
-        "modelIterationId": str(model_iteration_id),
+        "modelIterationId": None if model_iteration_id is None else str(model_iteration_id),
         "reason": None if reason is None else reason.strip() or None,
     }
     return hashlib.sha256(

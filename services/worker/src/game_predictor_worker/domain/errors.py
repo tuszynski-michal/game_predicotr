@@ -36,6 +36,7 @@ class DomainErrorCode(StrEnum):
     NON_PREFIX_BOARD = "non_prefix_board"
     NON_INCREASING_PAYOUT = "non_increasing_payout"
     SEQUENCE_INTEGRITY_ERROR = "sequence_integrity_error"
+    SUPER_GAME_TRIGGER_PAYOUT_SYMBOL = "super_game_trigger_payout_symbol"
     SYMBOL_CODE_OUT_OF_RANGE = "symbol_code_out_of_range"
     WILDCARD_PAYOUT_SYMBOL = "wildcard_payout_symbol"
     WILDCARD_PAYOUT_RULE = "wildcard_payout_rule"

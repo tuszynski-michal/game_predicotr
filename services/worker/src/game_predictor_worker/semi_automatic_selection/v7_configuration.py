@@ -274,6 +274,29 @@ class V7CorpusManifest:
         if any(case_id not in cases_by_id for case_id in case_ids):
             _fail("V7_CORPUS_CASE_INVALID", "Corpus source case is not declared.")
         self.freeze_inventory()
+        return self._resolve_direct_case_sources(case_ids)
+
+    def resolve_calibration_sources_read_only(
+        self, case_ids: tuple[str, ...]
+    ) -> tuple[V7CorpusSourceFile, ...]:
+        """Check only named calibration inventories, without touching other splits."""
+        cases = {case.case_id: case for case in self.cases}
+        if (
+            not case_ids
+            or len(set(case_ids)) != len(case_ids)
+            or any(case_id not in cases for case_id in case_ids)
+            or any(cases[case_id].split is not V7CorpusSplit.CALIBRATION for case_id in case_ids)
+        ):
+            _fail(
+                "V7_CALIBRATION_CASE_SPLIT_FORBIDDEN",
+                "Only explicit calibration cases are readable.",
+            )
+        return self._resolve_direct_case_sources(case_ids)
+
+    def _resolve_direct_case_sources(
+        self, case_ids: tuple[str, ...]
+    ) -> tuple[V7CorpusSourceFile, ...]:
+        cases_by_id = {case.case_id: case for case in self.cases}
         root = self.resolved_corpus_root()
         result: list[V7CorpusSourceFile] = []
         for case_id in case_ids:

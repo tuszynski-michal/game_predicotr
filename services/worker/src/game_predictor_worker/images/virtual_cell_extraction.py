@@ -451,6 +451,10 @@ def _padded_cell_quad(
     cell: VirtualCell,
     canonical_to_source: NDArray[np.float64],
 ) -> SourceQuad:
+    if cell.configuration.padding_fraction == 0.0:
+        # The lab RGB contract consumes the complete, explicitly pinned cell.
+        # Reprojection through the board would lose independent interior nodes.
+        return cell.source_quad
     padding = cell.configuration.padding_fraction * _CANONICAL_CELL_SIZE
     left = cell.column_index * _CANONICAL_CELL_SIZE + padding
     top = cell.row_index * _CANONICAL_CELL_SIZE + padding

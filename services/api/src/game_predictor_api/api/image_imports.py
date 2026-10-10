@@ -32,12 +32,18 @@ from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
     BrowserImageUpload,
+    BrowserReadySelection,
     ImageSelectionPurpose,
 )
 from game_predictor_api.application.iterative_image_imports import (
     IterativeImageImportService,
 )
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.managed_reprocess_evidence import (
+    ManagedReprocessEvidenceError,
+    resolve_managed_browser_selection,
+    resolve_managed_page_source,
+)
 from game_predictor_api.application.page_geometry_overrides import (
     PageGeometryOverrideService,
 )
@@ -50,7 +56,14 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
 )
-from game_predictor_api.domain.jobs import JobConflictError, JobError, JobStatus, JobType
+from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobStatus, JobType
+from game_predictor_api.domain.neural_grid_proposal import (
+    NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
+    NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+    NeuralGridSnapshot,
+    validate_neural_source_binding,
+    validate_neural_source_proposal,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.geometry_qualification import (
     AutomaticPartialGeometryProposalPayload,
@@ -100,6 +113,11 @@ from game_predictor_api.schemas.image_imports import (
     PageGeometryRegistrationDiagnostics,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.schemas.neural_grid_proposals import (
+    NeuralSourceBindingPayload,
+    NeuralSourceProposalPayload,
+)
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
 def _image_import_preflight_checksum(
@@ -255,6 +273,35 @@ def _load_page_geometry_manifest(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
             "The verified page geometry manifest has an unsupported structure.",
         )
+    if value.get("schemaVersion") == NEURAL_GRID_MANIFEST_SCHEMA_VERSION:
+        try:
+            snapshot = NeuralGridSnapshot.from_payload(value.get("neuralGridProposal"))
+            if value.get("version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION:
+                raise ValueError("The neural manifest policy differs.")
+            for source_sha, entry in value["entries"].items():
+                if not isinstance(entry, dict):
+                    raise ValueError("The neural source entry is invalid.")
+                if entry.get("status") == "skipped_human_resolved":
+                    continue
+                proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
+                if (
+                    proposal["gameId"] != value.get("gameId")
+                    or proposal["sourceSelectionId"] != value.get("sourceSelectionId")
+                    or proposal["sourceChecksumSha256"] != source_sha
+                    or proposal["engineSnapshot"] != snapshot.to_payload()
+                    or proposal["sourceWidth"] != entry.get("imageWidth")
+                    or proposal["sourceHeight"] != entry.get("imageHeight")
+                ):
+                    raise ValueError("The neural source provenance differs.")
+                binding = entry.get("neuralProposalBinding")
+                if binding is not None:
+                    validate_neural_source_binding(binding, proposal)
+                if entry.get("status") != (
+                    "review_required" if binding is not None else "slot_binding_required"
+                ):
+                    raise ValueError("The neural source status differs.")
+        except (ValueError, TypeError, KeyError) as error:
+            raise JobError("IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID", str(error)) from error
     return cast(dict[str, object], value)
 
 
@@ -415,6 +462,117 @@ def create_image_imports_router(
     }
     resolved_artifact_root = None if artifact_root is None else artifact_root.resolve()
 
+    def effective_browser_variant(
+        *, job_service: JobService, game_id: UUID, variant: GeometryEngineVariant | None
+    ) -> GeometryEngineVariant | None:
+        pilot = getattr(job_service, "uses_neural_grid_pilot", None)
+        if callable(pilot) and pilot(game_id=game_id):
+            if variant not in {None, GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1}:
+                raise JobConflictError(
+                    "NEURAL_GRID_CLASSICAL_VARIANT_INCOMPATIBLE",
+                    "The Mumie neural pilot requires its frozen neural proposal engine.",
+                )
+            return None
+        return variant
+
+    def managed_neural_import(
+        *, job_service: JobService, game_id: UUID, upload_id: UUID
+    ) -> Job | None:
+        resolver = getattr(job_service, "get_managed_neural_import_by_source_selection", None)
+        if callable(resolver):
+            return cast(Job | None, resolver(game_id=game_id, source_selection_id=upload_id))
+        return job_service.get_image_import_by_source_selection(
+            game_id=game_id, source_selection_id=upload_id
+        )
+
+    def ready_selection(
+        *,
+        upload_id: UUID,
+        game_id: UUID,
+        service: BrowserImageSelectionService,
+        job_service: JobService,
+        current: bool = False,
+        bind: bool = False,
+    ) -> BrowserReadySelection:
+        try:
+            return (
+                service.require_current_ready(upload_id, game_id)
+                if current
+                else service.bind_ready_game(upload_id, game_id)
+                if bind
+                else service.get_ready(upload_id)
+            )
+        except JobError as error:
+            if error.code not in {
+                "IMAGE_BROWSER_SELECTION_NOT_FOUND",
+                "IMAGE_BROWSER_SELECTION_NOT_FINALIZED",
+                "IMAGE_SEQUENCE_MANIFEST_INVALID",
+            }:
+                raise
+            source_job = managed_neural_import(
+                job_service=job_service, game_id=game_id, upload_id=upload_id
+            )
+            if (
+                source_job is None
+                or resolved_artifact_root is None
+                or source_job.input_payload.get("neural_grid_proposal") is None
+            ):
+                raise
+            try:
+                return resolve_managed_browser_selection(
+                    source_job,
+                    artifact_root=resolved_artifact_root,
+                    game_id=game_id,
+                    selection_id=upload_id,
+                )
+            except ManagedReprocessEvidenceError as managed_error:
+                raise JobConflictError(managed_error.code, managed_error.message) from managed_error
+
+    def page_source_asset(
+        *,
+        upload_id: UUID,
+        game_id: UUID,
+        checksum: str,
+        service: BrowserImageSelectionService,
+        job_service: JobService,
+    ) -> tuple[Path, str]:
+        try:
+            ready = service.bind_ready_game(upload_id, game_id)
+        except JobError as error:
+            if error.code not in {
+                "IMAGE_BROWSER_SELECTION_NOT_FOUND",
+                "IMAGE_BROWSER_SELECTION_NOT_FINALIZED",
+                "IMAGE_SEQUENCE_MANIFEST_INVALID",
+            }:
+                raise
+            source_job = managed_neural_import(
+                job_service=job_service, game_id=game_id, upload_id=upload_id
+            )
+            if source_job is None or resolved_artifact_root is None:
+                raise
+            try:
+                return resolve_managed_page_source(
+                    source_job,
+                    artifact_root=resolved_artifact_root,
+                    game_id=game_id,
+                    selection_id=upload_id,
+                    source_checksum_sha256=checksum,
+                )
+            except ManagedReprocessEvidenceError as managed_error:
+                raise JobConflictError(managed_error.code, managed_error.message) from managed_error
+        source = next(
+            (item for item in ready.manifest.files if item.checksum_sha256 == checksum), None
+        )
+        if source is None:
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_STAGING",
+                "The source is not part of this game-owned selection.",
+            )
+        path = (ready.upload.path / source.stored_file_name).resolve()
+        if not path.is_relative_to(ready.upload.path.resolve()) or not path.is_file():
+            raise JobError("IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE", "The source is unavailable.")
+        return path, source.relative_path
+
     def upload_response(upload: BrowserImageUpload) -> BrowserImageSelectionUploadResponse:
         return BrowserImageSelectionUploadResponse(
             upload_id=upload.upload_id,
@@ -448,12 +606,20 @@ def create_image_imports_router(
         override_service: PageGeometryOverrideService | None,
         geometry_engine_variant: GeometryEngineVariant | None = None,
     ) -> BrowserImageImportPreflightResponse:
+        geometry_engine_variant = effective_browser_variant(
+            job_service=job_service, game_id=game_id, variant=geometry_engine_variant
+        )
         if canonical_service is None:
             raise JobError(
                 "IMAGE_SEQUENCE_PREFLIGHT_UNAVAILABLE",
                 "Canonical sequence preflight is not configured.",
             )
-        ready = service.get_ready(upload_id)
+        ready = ready_selection(
+            upload_id=upload_id,
+            game_id=game_id,
+            service=service,
+            job_service=job_service,
+        )
         if ready.upload.game_id is not None and ready.upload.game_id != game_id:
             raise JobError(
                 "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
@@ -480,9 +646,52 @@ def create_image_imports_router(
             warnings=ready.manifest.warnings,
             checksum_sha256=ready.manifest.checksum_sha256,
         )
-        result = cast(ImageSequenceCanonicalService, canonical_service).preflight(
+        existing_geometry_preflight = job_service.get_page_geometry_preflight_by_source_selection(
             game_id=game_id,
-            manifest=filtered_manifest,
+            source_selection_id=upload_id,
+            source_manifest_sha256=ready.manifest.checksum_sha256,
+            geometry_engine_variant=geometry_engine_variant,
+        )
+        confirmed_ranges: dict[str, tuple[int, int] | None] | None = None
+        if (
+            existing_geometry_preflight is not None
+            and existing_geometry_preflight.status is JobStatus.COMPLETED
+            and existing_geometry_preflight.input_payload.get("neural_grid_proposal") is not None
+            and resolved_artifact_root is not None
+        ):
+            descriptor = _geometry_manifest_descriptor(
+                job_service=job_service,
+                game_id=game_id,
+                upload_id=upload_id,
+                preflight_job_id=existing_geometry_preflight.id,
+                expected_checksum=None,
+            )
+            if descriptor is not None:
+                neural_manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
+                confirmed_ranges = {}
+                for source_sha, entry in cast(
+                    dict[str, object], neural_manifest["entries"]
+                ).items():
+                    binding = (
+                        entry.get("neuralProposalBinding") if isinstance(entry, dict) else None
+                    )
+                    if isinstance(binding, dict):
+                        selected = cast(dict[str, int], binding["confirmedRange"])
+                        confirmed_ranges[source_sha] = (
+                            selected["sequenceRangeStart"],
+                            selected["sequenceRangeEnd"],
+                        )
+                    else:
+                        confirmed_ranges[source_sha] = None
+        canonical = cast(ImageSequenceCanonicalService, canonical_service)
+        result = (
+            canonical.preflight(game_id=game_id, manifest=filtered_manifest)
+            if confirmed_ranges is None
+            else canonical.preflight(
+                game_id=game_id,
+                manifest=filtered_manifest,
+                confirmed_ranges=confirmed_ranges,
+            )
         )
         _validate_skipped_canonical_ranges(
             canonical_service=cast(ImageSequenceCanonicalService, canonical_service),
@@ -562,7 +771,10 @@ def create_image_imports_router(
             if artifact_ready and isinstance(checkpoint, dict):
                 review_required = checkpoint.get("review_required_source_count")
                 if isinstance(review_required, int) and not isinstance(review_required, bool):
-                    if review_required > 0:
+                    if (
+                        review_required > 0
+                        and geometry_preflight.input_payload.get("neural_grid_proposal") is None
+                    ):
                         artifact_ready = False
                         artifact_blocker_code = "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED"
                         artifact_blocker_message = (
@@ -826,13 +1038,18 @@ def create_image_imports_router(
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportStartResponse:
+        effective_variant = effective_browser_variant(
+            job_service=job_service,
+            game_id=payload.game_id,
+            variant=payload.geometry_engine_variant,
+        )
         existing_staging_import = job_service.get_image_import_by_source_selection(
             game_id=payload.game_id, source_selection_id=upload_id
         )
         if (
             existing_staging_import is not None
-            and payload.geometry_engine_variant
-            is not GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
+            and effective_variant is not GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
+            and existing_staging_import.input_payload.get("neural_grid_proposal") is None
         ):
             return BrowserImageImportStartResponse(
                 created=False,
@@ -844,15 +1061,18 @@ def create_image_imports_router(
                     canonical_service=canonical_service,
                     job_service=job_service,
                     override_service=override_service,
-                    geometry_engine_variant=payload.geometry_engine_variant,
+                    geometry_engine_variant=effective_variant,
                 ),
             )
-        # Gate before binding staging or selecting/reusing any historical job.
+        # An import that already exists for this selection was returned above
+        # (TASK-0882). From here a new import would be created, so the variant
+        # gate and the lateral source-history checks run before binding staging
+        # or selecting/reusing any historical job.
         try:
-            require_geometry_engine_variant_available(payload.geometry_engine_variant)
+            require_geometry_engine_variant_available(effective_variant)
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
-        if payload.geometry_engine_variant is not None:
+        if effective_variant is not None:
             job_service.require_lateral_browser_source_history(
                 game_id=payload.game_id, source_selection_id=upload_id
             )
@@ -861,7 +1081,13 @@ def create_image_imports_router(
                     "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED",
                     "v0.10.4 cannot silently rebind a v3 guard resolution manifest.",
                 )
-        ready = service.require_current_ready(upload_id, payload.game_id)
+        ready = ready_selection(
+            upload_id=upload_id,
+            game_id=payload.game_id,
+            service=service,
+            job_service=job_service,
+            current=True,
+        )
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MANIFEST_CHANGED",
@@ -874,7 +1100,7 @@ def create_image_imports_router(
             canonical_service=canonical_service,
             job_service=job_service,
             override_service=override_service,
-            geometry_engine_variant=payload.geometry_engine_variant,
+            geometry_engine_variant=effective_variant,
         )
         (
             current_symbol,
@@ -963,7 +1189,7 @@ def create_image_imports_router(
         rerun = (
             requested_mode == "rerun_current_models"
             or existing is None
-            or payload.geometry_engine_variant is not None
+            or effective_variant is not None
         )
         if existing is not None and existing.input_payload.get("schema_version") != 7:
             rerun = True
@@ -972,13 +1198,9 @@ def create_image_imports_router(
             and existing.input_payload.get("source_exclusions", {}) != source_exclusions
         ):
             rerun = True
-        requested_v19 = (
-            payload.geometry_engine_variant is None
-            and preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
-        )
-        if existing is not None and (
-            (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
-        ):
+        # D-467 (TASK-0790): the verified_v19 legacy engine is gone, so a
+        # reusable job never carries a v20 board-cell processing snapshot.
+        if existing is not None and existing.input_payload.get("board_cell_processing") is not None:
             rerun = True
         geometry_manifest = _geometry_manifest_descriptor(
             job_service=job_service,
@@ -987,6 +1209,28 @@ def create_image_imports_router(
             preflight_job_id=payload.geometry_preflight_job_id,
             expected_checksum=payload.geometry_manifest_checksum_sha256,
         )
+        neural_replay: Job | None = None
+        if existing is not None and existing.input_payload.get("neural_grid_proposal") is not None:
+            if existing.input_payload.get("page_geometry_manifest") != geometry_manifest:
+                rerun = True
+            same_run = job_service.get_image_import_run_by_source_selection(
+                game_id=payload.game_id,
+                source_selection_id=upload_id,
+                source_manifest_sha256=ready.manifest.checksum_sha256,
+                engine_policy=job_service.current_image_import_engine_policy(
+                    game_id=payload.game_id
+                ),
+                symbol_model_inference_fingerprint=current_symbol,
+                symbol_model_snapshot_fingerprint=current_symbol_snapshot,
+                grid_profile_inference_fingerprint=current_grid,
+                geometry_engine_variant=effective_variant,
+            )
+            if (
+                same_run is not None
+                and same_run.input_payload.get("page_geometry_manifest") == geometry_manifest
+                and same_run.input_payload.get("source_exclusions", {}) == source_exclusions
+            ):
+                neural_replay = same_run
         if geometry_manifest is not None and resolved_artifact_root is not None:
             geometry_manifest_contents = _load_page_geometry_manifest(
                 resolved_artifact_root, geometry_manifest
@@ -997,12 +1241,16 @@ def create_image_imports_router(
                     "IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID",
                     "The verified page geometry manifest has an invalid review count.",
                 )
-            if review_required > 0:
+            if (
+                review_required > 0
+                and geometry_manifest_contents.get("schemaVersion")
+                != NEURAL_GRID_MANIFEST_SCHEMA_VERSION
+            ):
                 raise JobConflictError(
                     "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED",
                     "The page geometry preflight requires manual correction before import.",
                 )
-            if payload.geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
+            if effective_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
                 from game_predictor_worker.images.pipeline_execution import (
                     ImagePipelineExecutionError,
                 )
@@ -1077,7 +1325,7 @@ def create_image_imports_router(
                     symbol_model_inference_fingerprint=current_symbol,
                     symbol_model_snapshot_fingerprint=current_symbol_snapshot,
                     grid_profile_inference_fingerprint=current_grid,
-                    geometry_engine_variant=payload.geometry_engine_variant,
+                    geometry_engine_variant=effective_variant,
                 )
                 if (
                     same_run is not None
@@ -1090,6 +1338,25 @@ def create_image_imports_router(
                         job=JobResponse.from_domain(same_run),
                         preflight=preflight,
                     )
+        if neural_replay is not None:
+            return BrowserImageImportStartResponse(
+                created=False, job=JobResponse.from_domain(neural_replay), preflight=preflight
+            )
+        if (
+            existing is not None
+            and existing.input_payload.get("neural_grid_proposal") is not None
+            and existing.status
+            in {
+                JobStatus.CREATED,
+                JobStatus.PROCESSING,
+                JobStatus.WAITING_FOR_REVIEW,
+            }
+            and existing.input_payload.get("page_geometry_manifest") != geometry_manifest
+        ):
+            raise JobConflictError(
+                "NEURAL_GRID_IMPORT_RUN_IN_PROGRESS",
+                "Finish the current neural import before starting another proposal revision.",
+            )
         manifest_id = payload.geometry_guard_resolution_manifest_id
         manifest_checksum = payload.geometry_guard_resolution_manifest_checksum_sha256
         if (manifest_id is None) != (manifest_checksum is None):
@@ -1131,6 +1398,14 @@ def create_image_imports_router(
         ):
             rerun = True
         if rerun:
+            managed_source = (
+                managed_neural_import(
+                    job_service=job_service, game_id=payload.game_id, upload_id=upload_id
+                )
+                if existing_staging_import is not None
+                and existing_staging_import.input_payload.get("neural_grid_proposal") is not None
+                else None
+            )
             canonical_numbers = (
                 sorted(
                     cast(ImageSequenceCanonicalService, canonical_service).canonical_numbers(
@@ -1152,15 +1427,19 @@ def create_image_imports_router(
                     source_exclusions=source_exclusions,
                     start_mode="rerun_current_models",
                     previous_job_id=None
-                    if existing is None or payload.geometry_engine_variant is not None
+                    if existing is None or effective_variant is not None
                     else existing.id,
                     page_geometry_manifest=geometry_manifest,
                     geometry_guard_resolution_manifest=resolution_manifest,
-                    geometry_engine_variant=payload.geometry_engine_variant,
-                    use_verified_board_cell_geometry=requested_v19,
+                    geometry_engine_variant=effective_variant,
                     allow_unclassified_symbol_cold_start=(
                         preflight.unclassified_cold_start_allowed
                         and current_unclassified_cold_start_allowed
+                    ),
+                    **(
+                        {"managed_source_job_id": managed_source.id}
+                        if managed_source is not None
+                        else {}
                     ),
                 )
                 created = True
@@ -1190,7 +1469,7 @@ def create_image_imports_router(
                 )
             job = existing
             created = False
-        if not created:
+        if not created and ready.upload.path != resolved_artifact_root:
             service.mark_in_use(upload_id, game_id=payload.game_id, job_id=job.id)
         return BrowserImageImportStartResponse(
             created=created,
@@ -1213,8 +1492,13 @@ def create_image_imports_router(
         job_service: Annotated[JobService, job_parameter],
         canonical_service: object | None = canonical_parameter,
     ) -> BrowserPageGeometryPreflightResponse:
+        effective_variant = effective_browser_variant(
+            job_service=job_service,
+            game_id=payload.game_id,
+            variant=payload.geometry_engine_variant,
+        )
         try:
-            require_geometry_engine_variant_available(payload.geometry_engine_variant)
+            require_geometry_engine_variant_available(effective_variant)
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
         if payload.managed_source_job_id is not None:
@@ -1260,7 +1544,7 @@ def create_image_imports_router(
                 ),
                 page_registration_variant=payload.page_registration_variant,
                 managed_source_job_id=payload.managed_source_job_id,
-                geometry_engine_variant=payload.geometry_engine_variant,
+                geometry_engine_variant=effective_variant,
                 replacement_parent_upload_id=replacement_parent_upload_id,
                 replacement_parent_manifest_sha256=replacement_parent_manifest_sha256,
             )
@@ -1375,7 +1659,7 @@ def create_image_imports_router(
                 and not manual_review_required
             )
             if (
-                raw.get("status") != "review_required"
+                raw.get("status") not in {"review_required", "slot_binding_required"}
                 and not manual_review_required
                 and not operator_inspection
             ):
@@ -1384,12 +1668,52 @@ def create_image_imports_router(
             if not isinstance(source_relative_path, str) or not source_relative_path:
                 continue
             start, end = _attested_range_from_relative_path(source_relative_path)
+            neural_proposal = (
+                NeuralSourceProposalPayload.model_validate(raw["neuralProposal"])
+                if isinstance(raw.get("neuralProposal"), dict)
+                else None
+            )
+            current_neural_binding = (
+                current_override.get("neuralProposalBinding")
+                if isinstance(current_override, dict)
+                else None
+            )
+            human_neural_binding_current = False
+            if isinstance(current_neural_binding, dict) and neural_proposal is not None:
+                try:
+                    validate_neural_source_binding(
+                        current_neural_binding,
+                        neural_proposal.model_dump(mode="json", by_alias=True),
+                    )
+                    human_neural_binding_current = True
+                except ValueError:
+                    # A game-wide checksum override from another selection is
+                    # historical evidence, not approval of this scoped proposal.
+                    pass
+            neural_binding_raw = (
+                current_neural_binding
+                if human_neural_binding_current
+                else raw.get("neuralProposalBinding")
+            )
+            neural_binding = (
+                NeuralSourceBindingPayload.model_validate(neural_binding_raw)
+                if isinstance(neural_binding_raw, dict)
+                else None
+            )
+            if neural_binding is not None and neural_proposal is not None:
+                validate_neural_source_binding(
+                    neural_binding.model_dump(mode="json", by_alias=True),
+                    neural_proposal.model_dump(mode="json", by_alias=True),
+                )
+                start = neural_binding.confirmed_range.sequence_range_start
+                end = neural_binding.confirmed_range.sequence_range_end
             raw_quads = raw.get("quads")
             geometry_origin: Literal["automatic", "manual_override", "manual_template"] = (
                 "manual_override"
                 if isinstance(current_override, dict)
+                and (neural_proposal is None or human_neural_binding_current)
                 else "automatic"
-                if isinstance(raw_quads, list) and raw_quads
+                if (isinstance(raw_quads, list) and raw_quads) or neural_proposal is not None
                 else "manual_template"
             )
             rejection_reason_code = raw.get("reasonCode")
@@ -1398,10 +1722,14 @@ def create_image_imports_router(
                 BrowserPageGeometryReviewSourceResponse(
                     source_checksum_sha256=checksum,
                     source_relative_path=source_relative_path,
+                    neural_proposal=neural_proposal,
+                    neural_proposal_binding=neural_binding,
                     sequence_range_start=start,
                     sequence_range_end=end,
-                    expected_board_count=_expected_board_count_from_relative_path(
-                        source_relative_path
+                    expected_board_count=(
+                        end - start + 1
+                        if neural_binding is not None and start is not None and end is not None
+                        else _expected_board_count_from_relative_path(source_relative_path)
                     ),
                     review_reason=(
                         "manual_override"
@@ -1484,6 +1812,24 @@ def create_image_imports_router(
         return BrowserPageGeometryReviewSourcesResponse(
             job=JobResponse.from_domain(job),
             geometry_manifest_checksum_sha256=cast(str, descriptor["checksumSha256"]),
+            expected_layout_count=(
+                NeuralGridSnapshot.from_payload(
+                    manifest.get("neuralGridProposal")
+                ).expected_layout_count
+                if manifest.get("schemaVersion") == NEURAL_GRID_MANIFEST_SCHEMA_VERSION
+                else None
+            ),
+            managed_source_job_id=(
+                managed_job.id
+                if (
+                    managed_job := managed_neural_import(
+                        job_service=job_service, game_id=game_id, upload_id=upload_id
+                    )
+                )
+                is not None
+                and manifest.get("schemaVersion") == NEURAL_GRID_MANIFEST_SCHEMA_VERSION
+                else None
+            ),
             registered_source_count=cast(int, manifest["registeredSourceCount"]),
             review_required_source_count=sum(
                 source.review_reason == "review_required" for source in sources
@@ -1659,29 +2005,16 @@ def create_image_imports_router(
         source_checksum_sha256: str,
         game_id: Annotated[UUID, Query()],
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
     ) -> FileResponse:
-        ready = service.bind_ready_game(upload_id, game_id)
-        source = next(
-            (
-                item
-                for item in ready.manifest.files
-                if item.checksum_sha256 == source_checksum_sha256
-            ),
-            None,
+        path, relative = page_source_asset(
+            upload_id=upload_id,
+            game_id=game_id,
+            checksum=source_checksum_sha256,
+            service=service,
+            job_service=job_service,
         )
-        if source is None:
-            raise JobError(
-                "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_STAGING",
-                "The page geometry source is not part of this staging.",
-            )
-        path = (ready.upload.path / source.stored_file_name).resolve()
-        root = ready.upload.path.resolve()
-        if not path.is_relative_to(root) or not path.is_file():
-            raise JobError(
-                "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
-                "The staged page geometry source is unavailable.",
-            )
-        return FileResponse(path, media_type="image/jpeg", filename=source.relative_path)
+        return FileResponse(path, media_type="image/jpeg", filename=relative)
 
     @router.get(
         "/browser-selections/{upload_id}/geometry-guards/{guard_job_id}/boards",
@@ -2093,6 +2426,7 @@ def create_image_imports_router(
         upload_id: UUID,
         payload: BrowserPageGeometryOverrideCreate,
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+        job_service: Annotated[JobService, job_parameter],
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserPageGeometryOverrideResponse:
         if override_service is None:
@@ -2100,22 +2434,23 @@ def create_image_imports_router(
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_UNAVAILABLE",
                 "Page geometry corrections are not configured.",
             )
-        ready = service.bind_ready_game(upload_id, payload.game_id)
-        source = next(
-            (
-                item
-                for item in ready.manifest.files
-                if item.checksum_sha256 == payload.source_checksum_sha256
-            ),
-            None,
+        source_path, source_relative_path = page_source_asset(
+            upload_id=upload_id,
+            game_id=payload.game_id,
+            checksum=payload.source_checksum_sha256,
+            service=service,
+            job_service=job_service,
         )
-        if source is None:
-            raise JobError(
-                "IMAGE_PAGE_GEOMETRY_SOURCE_NOT_IN_STAGING",
-                "The geometry correction source is not part of this staging.",
-            )
         try:
-            with Image.open(ready.upload.path / source.stored_file_name) as image:
+            content = source_path.read_bytes()
+            if (
+                payload.neural_proposal_binding is not None
+                and hashlib.sha256(content).hexdigest() != payload.source_checksum_sha256
+            ):
+                raise JobConflictError(
+                    "NEURAL_SOURCE_PROPOSAL_STALE", "The source image checksum changed."
+                )
+            with Image.open(BytesIO(content)) as image:
                 image.load()
                 width, height = ImageOps.exif_transpose(image).size
         except (OSError, UnidentifiedImageError) as error:
@@ -2128,7 +2463,58 @@ def create_image_imports_router(
                 "IMAGE_PAGE_GEOMETRY_SOURCE_DIMENSIONS_CHANGED",
                 "The source dimensions differ from the geometry correction.",
             )
-        expected_board_count = _expected_board_count_from_relative_path(source.relative_path)
+        if payload.neural_proposal_binding is not None:
+            descriptor = _geometry_manifest_descriptor(
+                job_service=job_service,
+                game_id=payload.game_id,
+                upload_id=upload_id,
+                preflight_job_id=payload.geometry_preflight_job_id,
+                expected_checksum=payload.geometry_manifest_checksum_sha256,
+            )
+            if descriptor is None or resolved_artifact_root is None:
+                raise JobError(
+                    "IMAGE_PAGE_GEOMETRY_MANIFEST_UNAVAILABLE", "The proposal is unavailable."
+                )
+            manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
+            entries = cast(dict[str, object], manifest["entries"])
+            entry = entries.get(payload.source_checksum_sha256)
+            if (
+                not isinstance(entry, dict)
+                or entry.get("sourceRelativePath") != source_relative_path
+            ):
+                raise JobConflictError(
+                    "NEURAL_SOURCE_PROPOSAL_STALE", "The source proposal differs."
+                )
+            try:
+                current_source_sha = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            except OSError as error:
+                raise JobConflictError(
+                    "NEURAL_SOURCE_PROPOSAL_STALE", "The source image disappeared."
+                ) from error
+            if current_source_sha != payload.source_checksum_sha256:
+                raise JobConflictError(
+                    "NEURAL_SOURCE_PROPOSAL_STALE", "The source image checksum changed."
+                )
+            value, created = override_service.save_neural_binding(
+                game_id=payload.game_id,
+                source_checksum_sha256=payload.source_checksum_sha256,
+                image_width=width,
+                image_height=height,
+                proposal=entry.get("neuralProposal"),
+                binding=payload.neural_proposal_binding.model_dump(mode="json", by_alias=True),
+                actor=payload.actor,
+                expected_override_revision=payload.expected_override_revision,
+            )
+            return BrowserPageGeometryOverrideResponse(
+                created=created,
+                id=value.id,
+                revision=value.revision,
+                decision_checksum_sha256=value.decision_checksum_sha256,
+                neural_proposal_binding=NeuralSourceBindingPayload.model_validate(
+                    value.neural_proposal_binding
+                ),
+            )
+        expected_board_count = _expected_board_count_from_relative_path(source_relative_path)
         if len(payload.final_quads) != expected_board_count:
             raise JobConflictError(
                 "IMAGE_PAGE_GEOMETRY_BOARD_COUNT_CHANGED",
@@ -2204,7 +2590,13 @@ def create_image_imports_router(
                 "IMAGE_PAGE_SOURCE_EXCLUSION_UNAVAILABLE",
                 "Page source exclusions are not configured.",
             )
-        ready = service.bind_ready_game(upload_id, payload.game_id)
+        ready = ready_selection(
+            upload_id=upload_id,
+            game_id=payload.game_id,
+            service=service,
+            job_service=job_service,
+            bind=True,
+        )
         descriptor = _geometry_manifest_descriptor(
             job_service=job_service,
             game_id=payload.game_id,
@@ -2247,9 +2639,10 @@ def create_image_imports_router(
             game_id=payload.game_id,
             browser_selection_id=upload_id,
         )
-        if payload.source_checksum_sha256 not in current and len(current) + 1 >= len(
-            ready.manifest.files
-        ):
+        active_source_count = sum(
+            source.checksum_sha256 not in current for source in ready.manifest.files
+        )
+        if payload.source_checksum_sha256 not in current and active_source_count <= 1:
             raise JobConflictError(
                 "IMAGE_PAGE_SOURCE_EXCLUSION_LAST_SOURCE",
                 "At least one staged source must remain in the import.",
@@ -2350,12 +2743,15 @@ def create_image_imports_router(
         payload: CuratedImageImportSourceCreate,
         service: Annotated[IterativeImageImportService, iterative_import_parameter],
     ) -> CuratedImageImportSourceResponse:
-        return CuratedImageImportSourceResponse.from_domain(
-            service.register_source(
-                game_id=payload.game_id,
-                image_selection_run_id=payload.image_selection_run_id,
+        # TASK-0797: the game is named only in the body; bind it before the
+        # selection run (a game table) is read.
+        with game_storage_scope(payload.game_id):
+            return CuratedImageImportSourceResponse.from_domain(
+                service.register_source(
+                    game_id=payload.game_id,
+                    image_selection_run_id=payload.image_selection_run_id,
+                )
             )
-        )
 
     @router.get(
         "/curated-sources",

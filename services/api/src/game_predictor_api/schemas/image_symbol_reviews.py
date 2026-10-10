@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from game_predictor_api.application.image_symbol_review_backfill import (
     SymbolCellReviewProjectionStart,
@@ -35,6 +35,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
+    SymbolCellReviewPredictionSource,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -65,11 +66,12 @@ class SymbolCellReviewListItemResponse(ApiModel):
     crop_approval_state: str
     revision: int = Field(ge=0)
     geometry_revision: int = Field(ge=0)
-    crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
     board_status: str
     prediction_confidence: float | None = Field(default=None, ge=0, le=1)
-    asset_mode: Literal["legacy_file", "virtual_source"] = "legacy_file"
+    asset_mode: Literal["virtual_source", "none"]
+    source_visibility: Literal["full", "partial", "outside"] = "full"
     render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
@@ -179,8 +181,8 @@ class SymbolCellReviewBulkExplicitTargetRequest(ApiModel):
     cell_review_id: UUID
     expected_revision: int = Field(ge=0)
     expected_geometry_revision: int = Field(ge=0)
-    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class SymbolCellReviewBulkExplicitSelectionRequest(ApiModel):
@@ -193,10 +195,14 @@ class SymbolCellReviewBulkExplicitSelectionRequest(ApiModel):
 
 class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
     kind: Literal["filter"]
-    symbol_id: UUID | Literal["unknown"]
+    symbol_id: UUID | Literal["unknown", "outside", "all"]
     state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL
     min_confidence: float | None = Field(default=None, ge=0, le=1)
     max_confidence: float | None = Field(default=None, ge=0, le=1)
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: AwareDatetime | None = None
+    changed_to: AwareDatetime | None = None
+    import_job_id: UUID | None = None
     catalog_revision: int = Field(ge=0)
     excluded_cell_review_ids: tuple[UUID, ...] = Field(
         default=(),
@@ -211,6 +217,12 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
             and self.min_confidence > self.max_confidence
         ):
             raise ValueError("minConfidence cannot be greater than maxConfidence.")
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise ValueError("changedFrom cannot be later than changedTo.")
         return self
 
 
@@ -282,8 +294,8 @@ class SymbolCellReviewMutationRequest(ApiModel):
     action: SymbolCellReviewAction
     expected_revision: int = Field(ge=0)
     expected_geometry_revision: int = Field(ge=0)
-    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
     target_symbol_id: UUID | None = None
 
     @model_validator(mode="after")
@@ -335,6 +347,8 @@ class UnreadableBoardReviewPageResponse(ApiModel):
 
 
 class UnreadableBoardReviewCellResponse(ApiModel):
+    source_visibility: Literal["full", "partial", "outside"] = "full"
+    asset_mode: Literal["virtual_source", "none"]
     cell_review_id: UUID
     cell_index: int = Field(ge=0)
     row_index: int = Field(ge=0)
@@ -347,8 +361,8 @@ class UnreadableBoardReviewCellResponse(ApiModel):
     quality_issue: str | None
     revision: int = Field(ge=0)
     geometry_revision: int = Field(ge=0)
-    crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
     render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
@@ -382,8 +396,8 @@ class ResolveUnreadableCellRequest(ApiModel):
     assignment: UnreadableCellAssignmentRequest
     expected_revision: int = Field(ge=0)
     expected_geometry_revision: int = Field(ge=0)
-    expected_crop_sample_id: str = Field(pattern=r"^[a-f0-9]{64}$")
-    expected_crop_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class SaveUnreadableBoardCellRequest(ResolveUnreadableCellRequest):
@@ -483,6 +497,10 @@ def to_unreadable_board_review_detail_response(
         grid_columns=detail.grid_columns,
         cells=tuple(
             UnreadableBoardReviewCellResponse(
+                source_visibility=cast(
+                    Literal["full", "partial", "outside"], cell.source_visibility
+                ),
+                asset_mode=cast(Literal["virtual_source", "none"], cell.asset_mode),
                 cell_review_id=cell.cell_review_id,
                 cell_index=cell.cell_index,
                 row_index=cell.row_index,
@@ -582,9 +600,15 @@ def to_symbol_cell_review_bulk_request(
         explicit_targets=None,
         filter_selection=SymbolCellReviewBulkFilterSelection(
             symbol_id=symbol_id,
+            outside_only=selection.symbol_id == "outside",
+            include_all_symbols=selection.symbol_id == "all",
             state=selection.state,
             min_confidence=selection.min_confidence,
             max_confidence=selection.max_confidence,
+            prediction_source=selection.prediction_source,
+            changed_from=selection.changed_from,
+            changed_to=selection.changed_to,
+            import_job_id=selection.import_job_id,
             catalog_revision=selection.catalog_revision,
             excluded_cell_review_ids=selection.excluded_cell_review_ids,
         ),
@@ -661,7 +685,8 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         crop_checksum_sha256=item.crop_checksum_sha256,
         board_status=item.board_status,
         prediction_confidence=item.prediction_confidence,
-        asset_mode=cast(Literal["legacy_file", "virtual_source"], item.asset_mode),
+        source_visibility=item.source_visibility,
+        asset_mode=cast(Literal["virtual_source", "none"], item.asset_mode),
         render_spec_checksum_sha256=item.render_spec_checksum_sha256,
     )
 

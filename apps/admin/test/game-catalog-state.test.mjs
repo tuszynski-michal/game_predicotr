@@ -4,11 +4,67 @@ import test from 'node:test';
 import {
   countGamesByStatus,
   filterGamesByStatus,
+  findGridEngineProfile,
   GAME_STATUS_FILTERS,
+  gridEngineModelSummary,
+  isGridEngineProfileConfiguration,
   markGameArchived,
+  SHAPE_GEOMETRY_CONFIGURATION_LABELS,
+  shapeGeometryConfigurationLabel,
+  EMPTY_GAME_DRAFT,
+  superGameKindLabel,
+  superGameKindOptions,
   upsertGame,
   validateGameDraft,
 } from '../src/features/games/game-catalog-state.ts';
+
+test('page format offers the old values unchanged and both grid engine profiles', () => {
+  assert.deepEqual(SHAPE_GEOMETRY_CONFIGURATION_LABELS, {
+    framed_full_page_v2: 'Pełna strona z ramką',
+    requires_clarification: 'Format wymaga doprecyzowania',
+    grid_profile_777_v2: '777 v2',
+    grid_profile_mumie_v1: 'Mumie',
+  });
+  assert.equal(isGridEngineProfileConfiguration('grid_profile_777_v2'), true);
+  assert.equal(isGridEngineProfileConfiguration('grid_profile_mumie_v1'), true);
+  assert.equal(isGridEngineProfileConfiguration('framed_full_page_v2'), false);
+  assert.equal(
+    isGridEngineProfileConfiguration('requires_clarification'),
+    false,
+  );
+  assert.equal(isGridEngineProfileConfiguration(null), false);
+  assert.equal(
+    shapeGeometryConfigurationLabel('grid_profile_777_v2'),
+    '777 v2',
+  );
+  assert.equal(
+    shapeGeometryConfigurationLabel(null),
+    'Nie ustalono (rekord historyczny)',
+  );
+});
+
+test('summarizes the model state of a grid engine profile', () => {
+  const profile = {
+    configuration: 'grid_profile_mumie_v1',
+    modelKind: 'neural_grid',
+    preset: 'D',
+    runId: '5bc981568c3f42bd96f6f9238e57aedc',
+    status: 'checksum_mismatch',
+    version: 'v1',
+  };
+  assert.equal(
+    findGridEngineProfile([profile], 'grid_profile_mumie_v1'),
+    profile,
+  );
+  assert.equal(
+    findGridEngineProfile([profile], 'grid_profile_777_v2'),
+    undefined,
+  );
+  assert.equal(
+    gridEngineModelSummary(profile),
+    'Model niezgodny z rejestrem (SHA-256) · neural_grid v1 (run 5bc98156, preset D)',
+  );
+});
 import { apiErrorMessage } from '../src/features/catalog/catalog-api-error.ts';
 
 const game = {
@@ -33,6 +89,7 @@ test('validates and normalizes the game identity draft', () => {
       name: ' Game 1 ',
       shapeGeometryConfiguration: 'framed_full_page_v2',
       status: 'draft',
+      superGameKind: 'wild_super_spins',
     }),
     {
       valid: true,
@@ -42,6 +99,7 @@ test('validates and normalizes the game identity draft', () => {
         name: 'Game 1',
         shapeGeometryConfiguration: 'framed_full_page_v2',
         status: 'draft',
+        superGameKind: 'wild_super_spins',
       },
     },
   );
@@ -127,4 +185,27 @@ test('presents stable API error text and hides unknown transport details', () =>
     apiErrorMessage(new Error('socket details'), 'Fallback'),
     'Fallback',
   );
+});
+
+test('TASK-0931: the super game select uses the API registry and keeps the saved value', () => {
+  const kinds = [
+    { code: 'none', label: 'Brak' },
+    { code: 'wild_super_spins', label: 'Wild super spins' },
+  ];
+
+  assert.equal(EMPTY_GAME_DRAFT.superGameKind, 'none');
+  assert.deepEqual(superGameKindOptions(kinds, 'wild_super_spins'), kinds);
+  // Before the registry loads only „Brak” is offered, plus the saved kind.
+  assert.deepEqual(superGameKindOptions([], 'none'), [
+    { code: 'none', label: 'Brak' },
+  ]);
+  assert.deepEqual(superGameKindOptions([], 'wild_super_spins'), [
+    { code: 'none', label: 'Brak' },
+    { code: 'wild_super_spins', label: 'wild_super_spins' },
+  ]);
+  assert.equal(
+    superGameKindLabel(kinds, 'wild_super_spins'),
+    'Wild super spins',
+  );
+  assert.equal(superGameKindLabel([], 'none'), 'Brak');
 });

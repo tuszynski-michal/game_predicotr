@@ -5,7 +5,14 @@ import type {
   SemiAutomaticSelectionCapabilitiesResponse,
   SemiAutomaticSelectionRunResponse,
 } from '@game-predictor/admin-api-client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
@@ -16,6 +23,7 @@ import {
   jobStatusLabel,
 } from '@/features/jobs/job-state';
 
+import { localV7PilotHref } from './local-v7-pilot-entry.ts';
 import {
   createV7SelectionFromLocalSource,
   loadSemiAutomaticReviewSourceFiles,
@@ -34,6 +42,8 @@ import {
 import { SemiAutomaticSelectionReviewWorkspace } from './semi-automatic-selection-review-workspace';
 import { SelectedImageCropWorkspace } from './selected-image-crop-workspace';
 import { V7SelectionReviewWorkspace } from './v7-selection-review-workspace';
+import { reviewRunId, v7ReviewUrl } from './v7-review-navigation.ts';
+import { createV7ReviewSourceFiles } from './v7-review-sources.ts';
 import {
   deriveV7OutputDirectory,
   formatV7PageBoundary,
@@ -46,6 +56,19 @@ import {
 const RUN_STORAGE_KEY = 'game-predictor:semi-automatic-selection:last-run';
 const POLL_INTERVAL_MS = 2_000;
 const POLL_MAX_DURATION_MS = 45 * 60 * 1_000;
+
+// An origin cannot change within this document; navigation mounts a new one.
+function subscribeToBrowserOrigin() {
+  return () => {};
+}
+
+function browserOrigin(): string {
+  return window.location.origin;
+}
+
+function serverOrigin(): string {
+  return '';
+}
 
 interface SemiAutomaticSelectionWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -62,6 +85,9 @@ interface SemiAutomaticSelectionWorkspaceProps {
       | 'pauseSemiAutomaticImageSelection'
       | 'resumeSemiAutomaticImageSelection'
       | 'selectSemiAutomaticImageSelectionSourceFolder'
+      | 'selectSemiAutomaticImageSelectionOutputFolder'
+      | 'openSemiAutomaticImageSelectionReviewFolder'
+      | 'listSemiAutomaticImageSelections'
     >;
 }
 
@@ -79,6 +105,20 @@ export function SemiAutomaticSelectionWorkspace({
   );
   const [capabilities, setCapabilities] =
     useState<SemiAutomaticSelectionCapabilitiesResponse | null>(null);
+  const currentOrigin = useSyncExternalStore(
+    subscribeToBrowserOrigin,
+    browserOrigin,
+    serverOrigin,
+  );
+  const pilotHref = localV7PilotHref(
+    currentOrigin,
+    process.env.NEXT_PUBLIC_V7_SELECTION_PILOT_ORIGIN,
+  );
+  const [savedRuns, setSavedRuns] = useState<
+    readonly SemiAutomaticSelectionRunResponse[]
+  >([]);
+  const [savedRunsError, setSavedRunsError] = useState('');
+  const openingFolderRef = useRef(false);
   const [sourceSelection, setSourceSelection] =
     useState<SemiAutomaticLocalSourceSelection | null>(null);
   const [sourceFiles, setSourceFiles] = useState<
@@ -98,6 +138,12 @@ export function SemiAutomaticSelectionWorkspace({
     null,
   );
   const [sourceLoading, setSourceLoading] = useState(false);
+  const [outputPicking, setOutputPicking] = useState(false);
+  const [outputBase, setOutputBase] = useState(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (window.localStorage.getItem('game-predictor:v7:output-base') ?? ''),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -106,9 +152,13 @@ export function SemiAutomaticSelectionWorkspace({
   const [restoreComplete, setRestoreComplete] = useState(
     () =>
       typeof window === 'undefined' ||
-      window.localStorage.getItem(RUN_STORAGE_KEY) === null,
+      reviewRunId(
+        window.location.href,
+        window.localStorage.getItem(RUN_STORAGE_KEY),
+      ) === null,
   );
   const pollDeadlineRef = useRef<number | null>(null);
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
 
   const normalizedV7 = normalizeV7SelectionForm({
     borderStyle: v7BorderStyle,
@@ -123,6 +173,74 @@ export function SemiAutomaticSelectionWorkspace({
   const capabilitiesLoading = capabilities === null && error === '';
   const configurationEnabled = Boolean(capabilities?.enabled);
   const v7StartEnabled = Boolean(capabilities?.v7.startEnabled);
+  const showPilotEntry =
+    configurationEnabled && !v7StartEnabled && pilotHref !== null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .listSemiAutomaticImageSelections('v7_selection', 0, 100)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.error !== undefined || result.data === undefined) {
+          setSavedRunsError('Nie udało się wczytać zapisanych wyborów.');
+          return;
+        }
+        setSavedRuns(result.data.items);
+        setSavedRunsError('');
+      })
+      .catch(() => {
+        if (!cancelled)
+          setSavedRunsError('Nie udało się wczytać zapisanych wyborów.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  function openSavedRun(id: string) {
+    window.history.replaceState(
+      null,
+      '',
+      v7ReviewUrl(window.location.href, id),
+    );
+    window.localStorage.setItem(RUN_STORAGE_KEY, id);
+    setRun(null);
+    setSourceFiles([]);
+    setOutputDirectory(null);
+    setRestoredUi(null);
+    setRestoreComplete(false);
+    setRestoreAttempt((value) => value + 1);
+    setError('');
+  }
+
+  async function openSavedFolder() {
+    if (busy || openingFolderRef.current) return;
+    openingFolderRef.current = true;
+    setBusy(true);
+    try {
+      const result = await api.openSemiAutomaticImageSelectionReviewFolder();
+      if (result.error !== undefined || result.data === undefined) {
+        throw new Error(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się otworzyć folderu. Wybierz uruchomienie z listy zapisanych wyborów.',
+          ),
+        );
+      }
+      if (result.data.status === 'selected' && result.data.runId != null)
+        openSavedRun(result.data.runId);
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : 'Nie udało się otworzyć folderu.',
+      );
+    } finally {
+      openingFolderRef.current = false;
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -145,17 +263,26 @@ export function SemiAutomaticSelectionWorkspace({
   }, [api]);
 
   useEffect(() => {
-    const runId = window.localStorage.getItem(RUN_STORAGE_KEY);
+    const savedRunId = window.localStorage.getItem(RUN_STORAGE_KEY);
+    const runId = reviewRunId(window.location.href, savedRunId);
     if (runId === null) return undefined;
     let cancelled = false;
     void (async () => {
       const result = await api.getSemiAutomaticImageSelection(runId);
       if (cancelled) return;
       if (result.error !== undefined || result.data === undefined) {
-        window.localStorage.removeItem(RUN_STORAGE_KEY);
+        if (runId === savedRunId && result.response?.status === 404)
+          window.localStorage.removeItem(RUN_STORAGE_KEY);
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się otworzyć tego uruchomienia.',
+          ),
+        );
         return;
       }
       setRun(result.data);
+      window.localStorage.setItem(RUN_STORAGE_KEY, result.data.id);
       const firstPage = result.data.firstSequenceNumber;
       const lastPage = result.data.lastSequenceNumber - 8;
       setFirstSequenceNumber(
@@ -176,10 +303,14 @@ export function SemiAutomaticSelectionWorkspace({
         setV7Mode(result.data.v7Configuration.mode);
         setV7BorderStyle(result.data.v7Configuration.borderStyle);
       }
-      const restoredFiles = await loadSemiAutomaticReviewSourceFiles(
-        api,
-        result.data.id,
-      );
+      const restoredFiles =
+        result.data.workflowMode === 'v7_selection'
+          ? createV7ReviewSourceFiles(
+              api,
+              result.data.id,
+              result.data.source.sourceCount,
+            )
+          : await loadSemiAutomaticReviewSourceFiles(api, result.data.id);
       if (cancelled) return;
       setSourceFiles(restoredFiles);
       const restored = await restoreSemiAutomaticSelectionLocalSession(
@@ -195,8 +326,8 @@ export function SemiAutomaticSelectionWorkspace({
     })()
       .catch(() => {
         if (!cancelled) {
-          setNotice(
-            'Przywrócono identyfikator runu, ale katalog wyniku wymaga ponownego wskazania.',
+          setError(
+            'Nie udało się odtworzyć zdjęć do przeglądu. Odśwież ekran, aby ponowić odczyt.',
           );
         }
       })
@@ -206,7 +337,7 @@ export function SemiAutomaticSelectionWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, localSessionStore]);
+  }, [api, localSessionStore, restoreAttempt]);
 
   useEffect(() => {
     if (run === null || !isActiveRun(run)) {
@@ -245,7 +376,7 @@ export function SemiAutomaticSelectionWorkspace({
   }, [api, run]);
 
   async function chooseSourceDirectory(): Promise<void> {
-    if (busy || sourceLoading || !v7StartEnabled) return;
+    if (busy || sourceLoading || outputPicking || !v7StartEnabled) return;
     setSourceLoading(true);
     setError('');
     try {
@@ -267,9 +398,42 @@ export function SemiAutomaticSelectionWorkspace({
     }
   }
 
+  async function chooseOutputFolder(): Promise<void> {
+    if (busy || outputPicking || sourceLoading) return;
+    setOutputPicking(true);
+    setError('');
+    try {
+      const result = await api.selectSemiAutomaticImageSelectionOutputFolder();
+      if (result.error !== undefined || result.data === undefined) {
+        throw new Error(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się wybrać katalogu zapisu.',
+          ),
+        );
+      }
+      if (result.data.status === 'selected' && result.data.path) {
+        setOutputBase(result.data.path);
+        window.localStorage.setItem(
+          'game-predictor:v7:output-base',
+          result.data.path,
+        );
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się wybrać katalogu zapisu.',
+      );
+    } finally {
+      setOutputPicking(false);
+    }
+  }
+
   async function startAnalysis(): Promise<void> {
     if (
       busy ||
+      outputPicking ||
       !v7StartEnabled ||
       sourceSelection === null ||
       !normalizedV7.ok
@@ -284,10 +448,12 @@ export function SemiAutomaticSelectionWorkspace({
         api,
         configuration: normalizedV7.value,
         source: sourceSelection,
+        outputBaseDirectory: outputBase || undefined,
       });
-      const files = await loadSemiAutomaticReviewSourceFiles(
+      const files = createV7ReviewSourceFiles(
         api,
         result.run.id,
+        result.run.source.sourceCount,
       );
       setSourceFiles(files);
       setRun(result.run);
@@ -429,21 +595,24 @@ export function SemiAutomaticSelectionWorkspace({
             Automatyczna i półautomatyczna selekcja zdjęć V7
           </h1>
           <p>
-            Zakres jest potwierdzany wyłącznie przez numery widoczne na własnym
-            zdjęciu. Przed odbiorem V7 nie uruchamia analizy produkcyjnej.
+            {showPilotEntry
+              ? 'Poprawiony półautomat jest dostępny w osobnym panelu wyborów. Wskaż źródło i miejsce zapisu, a potem sprawdź przygotowane zdjęcia.'
+              : 'Zakres jest potwierdzany wyłącznie przez numery widoczne na własnym zdjęciu. Przed odbiorem V7 nie uruchamia analizy produkcyjnej.'}
           </p>
         </div>
         {capabilities !== null ? (
           <span
             className={
-              capabilities.v7.startEnabled
+              capabilities.v7.startEnabled || showPilotEntry
                 ? 'semiAutomaticSelectionCapability enabled'
                 : 'semiAutomaticSelectionCapability disabled'
             }
           >
-            {capabilities.v7.startEnabled
-              ? 'V7 dostępne'
-              : 'V7 oczekuje na odbiór'}
+            {showPilotEntry
+              ? 'Panel wyborów dostępny'
+              : capabilities.v7.startEnabled
+                ? 'V7 dostępne'
+                : 'V7 oczekuje na odbiór'}
           </span>
         ) : (
           <span className="semiAutomaticSelectionCapability loading">
@@ -454,13 +623,60 @@ export function SemiAutomaticSelectionWorkspace({
         )}
       </header>
 
+      <section aria-label="Zapisane wybory">
+        <button
+          type="button"
+          className="secondaryButton"
+          style={{ minHeight: 44 }}
+          disabled={busy}
+          onClick={() => void openSavedFolder()}
+        >
+          Otwórz zapisane wybory
+        </button>
+        <label>
+          Zapisany folder
+          <select
+            style={{ minHeight: 44 }}
+            disabled={busy}
+            value={savedRuns.some((item) => item.id === run?.id) ? run!.id : ''}
+            onChange={(event) => {
+              if (event.target.value !== '') openSavedRun(event.target.value);
+            }}
+          >
+            <option value="">Wybierz wcześniejsze uruchomienie</option>
+            {savedRuns.map((item) => (
+              <option value={item.id} key={item.id}>
+                {item.source.displayName} · {item.firstSequenceNumber}–
+                {item.lastSequenceNumber} ·{' '}
+                {new Date(item.createdAt).toLocaleString('pl-PL')}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>
+          Wskaż folder zapisanych zdjęć, podfolder „propozycje” albo folder
+          źródłowy. Otworzysz istniejące wybory bez ponownego skanowania.
+        </p>
+        {savedRunsError !== '' ? <p role="alert">{savedRunsError}</p> : null}
+      </section>
+
+      {capabilities?.v7.startEnabled ? (
+        <p className="semiAutomaticSelectionHint">
+          {capabilities.v7.sourcePolicy === 'operator_selected_local_folder'
+            ? 'Wybierz katalog dowolnej gry z numerowanymi planszami w układzie 3 × 3. Kalibracja 777 służy jako przykład; każdy wynik zatwierdzasz ręcznie.'
+            : 'Ten pilot obejmuje wyłącznie wcześniej zatwierdzone katalogi testowe.'}
+        </p>
+      ) : null}
+
       {capabilities !== null && !capabilities.enabled ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
           Półautomatyczna selekcja jest wyłączona przez lokalną flagę serwera.
           Ustawienie interfejsu nie może jej obejść.
         </p>
       ) : null}
-      {capabilities !== null && !capabilities.v7.startEnabled ? (
+      {capabilities !== null &&
+      !capabilities.v7.startEnabled &&
+      !showPilotEntry ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
           V7 jest zablokowane: {capabilities.v7.reason}
         </p>
@@ -471,135 +687,208 @@ export function SemiAutomaticSelectionWorkspace({
         </p>
       ) : null}
       {notice !== '' ? <p className="feedbackBanner">{notice}</p> : null}
-
-      <section
-        className="semiAutomaticSelectionSetup"
-        aria-label="Konfiguracja runu"
-      >
-        <div className="semiAutomaticSelectionSetupHeader">
-          <div>
-            <p className="eyebrow">1. Konfiguracja</p>
-            <h2>V7: folder i zakresy stron</h2>
-          </div>
-          {capabilities !== null ? (
-            <small>
-              {capabilities.rangeConvention} · pełny zakres:{' '}
-              {capabilities.fullRangeSize} plansz
-            </small>
-          ) : null}
-        </div>
-        <div className="semiAutomaticSelectionForm">
-          <label>
-            Pierwszy zakres w nagraniu
-            <input
-              disabled={busy || capabilitiesLoading || !configurationEnabled}
-              onChange={(event) => setFirstSequenceNumber(event.target.value)}
-              placeholder="np. 1-9 albo 1"
-              type="text"
-              value={firstSequenceNumber}
-            />
-          </label>
-          <label>
-            Ostatni zakres w nagraniu
-            <input
-              disabled={busy || capabilitiesLoading || !configurationEnabled}
-              onChange={(event) => setLastSequenceNumber(event.target.value)}
-              placeholder="np. 19-27 albo 19"
-              type="text"
-              value={lastSequenceNumber}
-            />
-          </label>
-          <label>
-            Kolejność numeracji
-            <select
-              disabled={busy || capabilitiesLoading || !configurationEnabled}
-              onChange={(event) =>
-                setDirection(event.target.value as 'ascending' | 'descending')
-              }
-              value={direction}
-            >
-              <option value="ascending">Rosnąco</option>
-              <option value="descending">Malejąco</option>
-            </select>
-          </label>
-          <label>
-            Tryb pracy
-            <select
-              disabled={busy || capabilitiesLoading || !configurationEnabled}
-              onChange={(event) =>
-                setV7Mode(event.target.value as V7SelectionMode)
-              }
-              value={v7Mode}
-            >
-              <option value="semi_automatic">Półautomat</option>
-              <option value="automatic">Automat</option>
-            </select>
-          </label>
-          <label>
-            Styl obramowania
-            <select
-              disabled={busy || capabilitiesLoading || !configurationEnabled}
-              onChange={(event) =>
-                setV7BorderStyle(event.target.value as V7BorderStyle)
-              }
-              value={v7BorderStyle}
-            >
-              <option value="top_and_sides">Góra oraz boki</option>
-              <option value="full_frame">Pełna ramka</option>
-              <option value="irregular_or_none">
-                Brak regularnej ramki / dekoracyjna
-              </option>
-            </select>
-          </label>
-          <div className="semiAutomaticSelectionFolderButtons">
-            <button
-              className="secondaryButton"
-              disabled={
-                busy || sourceLoading || capabilitiesLoading || !v7StartEnabled
-              }
-              onClick={() => void chooseSourceDirectory()}
-              type="button"
-            >
-              {sourceLoading
-                ? 'Odczytywanie źródła…'
-                : sourceSelection === null
-                  ? 'Wybierz katalog źródłowy'
-                  : `Źródło: ${sourceSelection.displayName}`}
-            </button>
-          </div>
-        </div>
-        <p className="semiAutomaticSelectionSummary">
-          {sourceSelection !== null
-            ? `${sourceSelection.supportedFileCount.toLocaleString('pl-PL')} JPEG-ów w źródle.`
-            : run !== null && sourceFiles.length > 0
-              ? `${sourceFiles.length.toLocaleString('pl-PL')} JPEG-ów w źródle.`
-              : 'Wybierz katalog ze zdjęciami JPG/JPEG.'}{' '}
-          {v7Summary}{' '}
-          {sourceSelection === null
-            ? 'Katalog wynikowy zostanie wyprowadzony po wskazaniu źródła.'
-            : `Wynik: ${deriveV7OutputDirectory(sourceSelection.path)}.`}
+      {!restoreComplete ? (
+        <p className="feedbackBanner" role="status">
+          Wczytywanie uruchomienia i zakresów…
         </p>
+      ) : null}
+      {restoreComplete &&
+      error !== '' &&
+      run === null &&
+      reviewRunId(
+        window.location.href,
+        window.localStorage.getItem(RUN_STORAGE_KEY),
+      ) !== null ? (
         <button
-          aria-busy={busy}
-          className="primaryButton"
-          disabled={
-            busy ||
-            sourceLoading ||
-            capabilitiesLoading ||
-            !v7StartEnabled ||
-            sourceSelection === null ||
-            !normalizedV7.ok
-          }
-          onClick={() => void startAnalysis()}
+          className="secondaryButton"
+          onClick={() => {
+            setRestoreComplete(false);
+            setError('');
+            setRestoreAttempt((attempt) => attempt + 1);
+          }}
           type="button"
         >
-          {busy
-            ? 'Przygotowywanie runu…'
-            : v7StartEnabled
-              ? 'Rozpocznij analizę V7'
-              : 'V7 czeka na odbiór'}
+          Ponów otwarcie uruchomienia
         </button>
-      </section>
+      ) : null}
+
+      {showPilotEntry ? (
+        <section
+          className="semiAutomaticSelectionSetup"
+          aria-label="Dostęp do półautomatu V7"
+        >
+          <h2>Wybierz i sprawdź zdjęcia</h2>
+          <p>
+            W otwartym panelu wybierz katalog źródłowy, katalog do zapisu oraz
+            pierwszy i ostatni zakres. Powstanie folder o nazwie źródła, a w nim
+            folder „propozycje” z wybranymi zdjęciami.
+          </p>
+          <p>
+            Półautomat przygotowuje zdjęcie dla każdego zakresu. Oszacowane
+            numery pozostają do sprawdzenia; zdjęcie możesz wymienić na
+            sąsiednie. Do zapisanych wyborów wrócisz przez „Otwórz zapisane
+            wybory”.
+          </p>
+          <a className="primaryButton" href={pilotHref ?? undefined}>
+            Otwórz półautomat V7
+          </a>
+          <small>
+            Panel wyborów działa osobno. Dane gry i wcześniejsze importy
+            pozostają w tym panelu.
+          </small>
+        </section>
+      ) : null}
+
+      {!showPilotEntry || run !== null ? (
+        <section
+          className="semiAutomaticSelectionSetup"
+          aria-label="Konfiguracja runu"
+        >
+          <div className="semiAutomaticSelectionSetupHeader">
+            <div>
+              <p className="eyebrow">1. Konfiguracja</p>
+              <h2>V7: folder i zakresy stron</h2>
+            </div>
+            {capabilities !== null ? (
+              <small>
+                {capabilities.rangeConvention} · pełny zakres:{' '}
+                {capabilities.fullRangeSize} plansz
+              </small>
+            ) : null}
+          </div>
+          <div className="semiAutomaticSelectionForm">
+            <label>
+              Pierwszy zakres w nagraniu
+              <input
+                disabled={busy || capabilitiesLoading || !configurationEnabled}
+                onChange={(event) => setFirstSequenceNumber(event.target.value)}
+                placeholder="np. 1-9 albo 1"
+                type="text"
+                value={firstSequenceNumber}
+              />
+            </label>
+            <label>
+              Ostatni zakres w nagraniu
+              <input
+                disabled={busy || capabilitiesLoading || !configurationEnabled}
+                onChange={(event) => setLastSequenceNumber(event.target.value)}
+                placeholder="np. 19-27 albo 19"
+                type="text"
+                value={lastSequenceNumber}
+              />
+            </label>
+            <label>
+              Kolejność numeracji
+              <select
+                disabled={busy || capabilitiesLoading || !configurationEnabled}
+                onChange={(event) =>
+                  setDirection(event.target.value as 'ascending' | 'descending')
+                }
+                value={direction}
+              >
+                <option value="ascending">Rosnąco</option>
+                <option value="descending">Malejąco</option>
+              </select>
+            </label>
+            <label>
+              Tryb pracy
+              <select
+                disabled={busy || capabilitiesLoading || !configurationEnabled}
+                onChange={(event) =>
+                  setV7Mode(event.target.value as V7SelectionMode)
+                }
+                value={v7Mode}
+              >
+                <option value="semi_automatic">Półautomat</option>
+                <option value="automatic">Automat</option>
+              </select>
+            </label>
+            <label>
+              Styl obramowania
+              <select
+                disabled={busy || capabilitiesLoading || !configurationEnabled}
+                onChange={(event) =>
+                  setV7BorderStyle(event.target.value as V7BorderStyle)
+                }
+                value={v7BorderStyle}
+              >
+                <option value="top_and_sides">Góra oraz boki</option>
+                <option value="full_frame">Pełna ramka</option>
+                <option value="irregular_or_none">
+                  Brak regularnej ramki / dekoracyjna
+                </option>
+              </select>
+            </label>
+            <div className="semiAutomaticSelectionFolderButtons">
+              <button
+                className="secondaryButton"
+                disabled={
+                  busy ||
+                  sourceLoading ||
+                  outputPicking ||
+                  capabilitiesLoading ||
+                  !v7StartEnabled
+                }
+                onClick={() => void chooseSourceDirectory()}
+                type="button"
+              >
+                {sourceLoading
+                  ? 'Odczytywanie źródła…'
+                  : sourceSelection === null
+                    ? 'Wybierz katalog źródłowy'
+                    : `Źródło: ${sourceSelection.displayName}`}
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={
+                  busy || sourceLoading || outputPicking || !v7StartEnabled
+                }
+                onClick={() => void chooseOutputFolder()}
+                type="button"
+              >
+                {outputPicking
+                  ? 'Wybieranie katalogu zapisu…'
+                  : 'Wybierz katalog zapisu'}
+              </button>
+              {outputBase ? <small>Katalog zapisu: {outputBase}</small> : null}
+            </div>
+          </div>
+          <p className="semiAutomaticSelectionSummary">
+            {sourceSelection !== null
+              ? `${sourceSelection.supportedFileCount.toLocaleString('pl-PL')} JPEG-ów w źródle.`
+              : run !== null && sourceFiles.length > 0
+                ? `${sourceFiles.length.toLocaleString('pl-PL')} JPEG-ów w źródle.`
+                : 'Wybierz katalog ze zdjęciami JPG/JPEG.'}{' '}
+            {v7Summary}{' '}
+            {sourceSelection === null
+              ? 'Katalog wynikowy zostanie wyprowadzony po wskazaniu źródła.'
+              : outputBase
+                ? `Wynik: ${deriveV7OutputDirectory(sourceSelection.path, outputBase)}. Propozycje zostaną zapisane w podfolderze propozycje; zatwierdzone zdjęcia w katalogu wynikowym.`
+                : 'Wybierz katalog zapisu lub użyj domyślnego folderu serwera.'}
+          </p>
+          <button
+            aria-busy={busy}
+            className="primaryButton"
+            disabled={
+              busy ||
+              sourceLoading ||
+              outputPicking ||
+              capabilitiesLoading ||
+              !v7StartEnabled ||
+              sourceSelection === null ||
+              !normalizedV7.ok
+            }
+            onClick={() => void startAnalysis()}
+            type="button"
+          >
+            {busy
+              ? 'Przygotowywanie runu…'
+              : v7StartEnabled
+                ? 'Rozpocznij analizę V7'
+                : 'V7 czeka na odbiór'}
+          </button>
+        </section>
+      ) : null}
 
       {run !== null ? (
         <section
@@ -610,7 +899,10 @@ export function SemiAutomaticSelectionWorkspace({
             <div>
               <p className="eyebrow">2. Analiza zakresów</p>
               <h2>
-                {jobStageLabel(run.job.progress.stage, run.job.inputPayload)}
+                {run.workflowMode === 'v7_selection' &&
+                run.job.progress.stage?.endsWith(':finalized')
+                  ? 'Skan zdjęć zakończony'
+                  : jobStageLabel(run.job.progress.stage, run.job.inputPayload)}
               </h2>
               <p>
                 {run.firstSequenceNumber}–{run.lastSequenceNumber} ·{' '}
@@ -618,7 +910,12 @@ export function SemiAutomaticSelectionWorkspace({
               </p>
             </div>
             <span className={`jobStatus jobStatus-${run.job.status}`}>
-              {jobStatusLabel(run.job.status)}
+              {run.workflowMode === 'v7_selection' &&
+              run.status === 'review_mode' &&
+              run.job.status === 'failed' &&
+              run.job.error?.code.startsWith('V7_OUTPUT_')
+                ? 'Skan zakończony · ostatni zapis nieudany'
+                : jobStatusLabel(run.job.status)}
             </span>
           </div>
           <div className="semiAutomaticSelectionRunBody">
@@ -637,19 +934,42 @@ export function SemiAutomaticSelectionWorkspace({
               <Counter label="Źródła" value={run.source.sourceCount} />
               <Counter
                 label="Zeskanowane"
-                value={counter(run, ['scanned', 'sourcesScanned', 'processed'])}
+                value={counter(run, [
+                  'processedSources',
+                  'scanned',
+                  'sourcesScanned',
+                  'processed',
+                ])}
               />
               <Counter
-                label="Wybory"
+                label={
+                  run.workflowMode === 'v7_selection'
+                    ? 'Zatwierdzone'
+                    : 'Wybory'
+                }
                 value={counter(run, ['selected', 'autoSelected'])}
               />
-              <Counter label="Luki" value={counter(run, ['missing', 'gaps'])} />
+              <Counter
+                label={
+                  run.workflowMode === 'v7_selection'
+                    ? 'Niepewne zakresy'
+                    : 'Luki'
+                }
+                value={counter(run, ['missing', 'gaps'])}
+              />
               <Counter label="Konflikty" value={counter(run, ['conflicts'])} />
               <Counter
                 label="Błędy"
                 value={counter(run, ['errors', 'sourceErrors'])}
               />
             </dl>
+            {run.workflowMode === 'v7_selection' ? (
+              <p>
+                Niepewne zakresy obejmują też zapisane propozycje z niepełnego
+                odczytu lub oszacowania. Nie oznaczają wyłącznie brakujących
+                plików.
+              </p>
+            ) : null}
           </div>
           <div className="semiAutomaticSelectionActions">
             {run.job.status === 'processing' ? (
@@ -700,8 +1020,9 @@ export function SemiAutomaticSelectionWorkspace({
           run.job.status !== 'failed' &&
           run.job.status !== 'cancelled' ? (
             <p className="semiAutomaticSelectionNextStep">
-              Analiza jest gotowa. Przegląd automatycznych wyborów i ręczne
-              uzupełnianie luk zostaną udostępnione w kolejnym kroku workflow.
+              {run.workflowMode === 'v7_selection'
+                ? 'Sprawdź propozycje poniżej. Zapis wymaga potwierdzenia zdjęcia i zakresu.'
+                : 'Analiza jest gotowa. Przegląd automatycznych wyborów i ręczne uzupełnianie luk zostaną udostępnione w kolejnym kroku workflow.'}
             </p>
           ) : null}
         </section>
@@ -731,6 +1052,13 @@ export function SemiAutomaticSelectionWorkspace({
       restoreComplete &&
       sourceFiles.length > 0 ? (
         <V7SelectionReviewWorkspace
+          key={run.id}
+          feedbackTraceReady={
+            capabilities?.v7.feedbackTraceVersion ===
+            'v7-selection-feedback-context-v1'
+          }
+          client={api}
+          onRunUpdated={setRun}
           initialUi={restoredUi}
           onPersistUi={persistV7ReviewUi}
           run={run}

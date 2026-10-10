@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,10 +22,16 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.domain.image_import_engine_policy import (
+    DEFAULT_CELL_ASSET_MODE,
+    DEFAULT_GEOMETRY_MODE,
+)
+from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
+    GamePartitionLifecycleReceipt,
     GamePartitionLifecycleRepository,
 )
 from game_predictor_api.storage.game_storage_routing import (
@@ -33,7 +40,6 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageStatus,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
     ImageGeometryRolloutStateModel,
@@ -42,6 +48,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewEventModel,
     JobModel,
     RecognizedBoardModel,
+    RulesVersionModel,
     RulesVersionSymbolModel,
     SourceImageModel,
     SymbolModel,
@@ -49,6 +56,7 @@ from game_predictor_api.storage.models import (
     SymbolReferenceImageModel,
     VerifiedTrainingCohortModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 _CONFLICTS = {
     "uq_games_code": (
@@ -67,9 +75,23 @@ _CONFLICTS = {
 
 
 class SqlAlchemyCatalogRepository(CatalogRepository):
-    def __init__(self, session: Session, storage_router: GameStorageRouter | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage_router: GameStorageRouter | None = None,
+        *,
+        partition_ddl_session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         self._session = session
-        self._storage_router = storage_router
+        # PostgreSQL game creation is never a catalog-only operation: the
+        # router drives the bounded V2 partition lifecycle before returning.
+        # Non-PostgreSQL test adapters retain the router's virtual V2 behavior.
+        self._storage_router = storage_router or GameStorageRouter()
+        # TASK-0795: the runtime session uses the application role, which has
+        # no DDL rights. Each partition DDL step (CREATE TABLE ... PARTITION
+        # OF, ANALYZE) then runs in its own schema-owner session. The catalog
+        # row and the lifecycle receipt stay in the caller's session.
+        self._partition_ddl_session_factory = partition_ddl_session_factory
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(
@@ -104,6 +126,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str = "none",
     ) -> Game:
         record = self._session.scalar(select(GameModel).where(GameModel.code == code))
         if record is not None:
@@ -113,6 +136,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
                 status=status,
                 expected_layout_count=expected_layout_count,
                 shape_geometry_configuration=shape_geometry_configuration,
+                super_game_kind=super_game_kind,
             ):
                 raise CatalogConflictError(
                     "GAME_CODE_ALREADY_EXISTS", "A game with this code already exists."
@@ -125,6 +149,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             status=status,
             expected_layout_count=expected_layout_count,
             shape_geometry_configuration=shape_geometry_configuration.value,
+            super_game_kind=super_game_kind,
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
@@ -138,8 +163,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
-                geometry_mode="legacy",
-                cell_asset_mode="legacy_files",
+                geometry_mode=DEFAULT_GEOMETRY_MODE,
+                cell_asset_mode=DEFAULT_CELL_ASSET_MODE,
                 revision=0,
                 backfill_status="not_started",
                 updated_by="system:catalog-game-create",
@@ -159,24 +184,20 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         operation_id = receipt.operation_id
         self._session.commit()
         for _ in range(len(CREATE_TABLES) + 2):
-            try:
-                receipt = GamePartitionLifecycleRepository(self._session).run_next(operation_id)
-            except GamePartitionLifecycleError:
-                # Domain drift is deliberately persisted as `blocked`; the
-                # outer request rollback must not erase that diagnostic.
-                self._session.commit()
-                raise
-            self._session.commit()
+            receipt = self._run_partition_step(operation_id)
             if receipt.status == "done":
                 location = self._storage_router.describe(self._session, record.id)
-                if (
-                    location.status is not GameStorageStatus.ACTIVE
-                    or not location.write_available
-                ):
+                if location.status is not GameStorageStatus.ACTIVE or not location.write_available:
                     raise RuntimeError("Provisioned game storage did not become writable.")
                 self._session.refresh(record)
                 return _to_game(record, location)
         raise RuntimeError("Game partition provisioning exceeded the frozen manifest bound.")
+
+    def _run_partition_step(self, operation_id: UUID) -> GamePartitionLifecycleReceipt:
+        if self._partition_ddl_session_factory is None:
+            return _run_partition_step_in(self._session, operation_id)
+        with self._partition_ddl_session_factory() as ddl_session:
+            return _run_partition_step_in(ddl_session, operation_id)
 
     def _is_resumable_create(
         self,
@@ -186,6 +207,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str,
     ) -> bool:
         if self._storage_router is None:
             return False
@@ -196,12 +218,17 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             and record.status == status
             and record.expected_layout_count == expected_layout_count
             and record.shape_geometry_configuration == shape_geometry_configuration.value
+            and record.super_game_kind == super_game_kind
         )
 
     def save_game(self, game: Game) -> Game:
         record = self._session.get(GameModel, game.id)
         if record is None:
             raise RuntimeError("Game disappeared during a catalog transaction.")
+        # Both changes alter the derivation input; compare before assigning.
+        kind_changed = record.super_game_kind != game.super_game_kind
+        # The derivation walks 1..expected_layout_count (audit TASK-0933 P0-1).
+        layout_count_changed = record.expected_layout_count != game.expected_layout_count
         record.name = game.name
         record.status = game.status
         record.expected_layout_count = game.expected_layout_count
@@ -210,8 +237,14 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             if game.shape_geometry_configuration is None
             else game.shape_geometry_configuration.value
         )
+        record.super_game_kind = game.super_game_kind
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
+        if kind_changed:
+            record_super_game_input_change(self._session, game.id, source="super_game_kind")
+        if layout_count_changed:
+            # One bump per transaction: a kind change in the same save already counted.
+            record_super_game_input_change(self._session, game.id, source="expected_layout_count")
         location = (
             self._storage_router.describe(self._session, game.id)
             if self._storage_router is not None
@@ -262,6 +295,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         is_wildcard: bool,
         display_order: int,
         status: SymbolStatus,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
         record = SymbolModel(
             game_id=game_id,
@@ -272,11 +306,14 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             name_en=name_en,
             image_path=image_path,
             is_wildcard=is_wildcard,
+            super_game_trigger_count=super_game_trigger_count,
             display_order=display_order,
             status=status,
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        if super_game_trigger_count is not None:
+            record_super_game_input_change(self._session, game_id, source="symbol_role")
         return _to_symbol(record)
 
     def add_manual_symbol(
@@ -285,6 +322,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         game_id: UUID,
         name: str,
         is_wildcard: bool,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
         game = self._session.execute(
             select(GameModel).where(GameModel.id == game_id).with_for_update()
@@ -305,11 +343,15 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             name=name,
             image_path=None,
             is_wildcard=is_wildcard,
+            super_game_trigger_count=super_game_trigger_count,
             display_order=max((item.display_order for item in existing), default=-1) + 1,
             status=SymbolStatus.ACTIVE,
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        if super_game_trigger_count is not None:
+            # Same write point as ``add_symbol`` (symbol_role).
+            record_super_game_input_change(self._session, game_id, source="symbol_role")
         return _to_symbol(record)
 
     def save_symbol(self, symbol: Symbol) -> Symbol:
@@ -320,10 +362,17 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.name_pl = symbol.name_pl
         record.name_en = symbol.name_en
         record.image_path = symbol.image_path
+        role_changed = (
+            record.is_wildcard != symbol.is_wildcard
+            or record.super_game_trigger_count != symbol.super_game_trigger_count
+        )
         record.is_wildcard = symbol.is_wildcard
+        record.super_game_trigger_count = symbol.super_game_trigger_count
         record.display_order = symbol.display_order
         record.status = symbol.status
         self._flush_or_raise_conflict()
+        if role_changed:
+            record_super_game_input_change(self._session, symbol.game_id, source="symbol_role")
         reference_path = self._session.scalar(
             select(SymbolReferenceImageModel.image_relative_path).where(
                 SymbolReferenceImageModel.symbol_id == record.id
@@ -331,11 +380,49 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         return _to_symbol(record, image_path=reference_path)
 
-    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+    def symbol_is_used_in_published_rules(self, symbol_id: UUID) -> bool:
+        # Archived versions were published first, so they count as published:
+        # their historical results depend on the roles at publication time.
         return (
             self._session.scalar(
                 select(RulesVersionSymbolModel.symbol_id)
-                .where(RulesVersionSymbolModel.symbol_id == symbol_id)
+                .join(
+                    RulesVersionModel,
+                    RulesVersionModel.id == RulesVersionSymbolModel.rules_version_id,
+                )
+                .where(
+                    RulesVersionSymbolModel.symbol_id == symbol_id,
+                    RulesVersionModel.status != RulesVersionStatus.DRAFT,
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    def clear_draft_rule_minimums(self, symbol_id: UUID) -> None:
+        draft_version_ids = select(RulesVersionModel.id).where(
+            RulesVersionModel.status == RulesVersionStatus.DRAFT
+        )
+        self._session.execute(
+            update(RulesVersionSymbolModel)
+            .where(
+                RulesVersionSymbolModel.symbol_id == symbol_id,
+                RulesVersionSymbolModel.rules_version_id.in_(draft_version_ids),
+                RulesVersionSymbolModel.minimum_match_length.is_not(None),
+            )
+            .values(minimum_match_length=None)
+            .execution_options(synchronize_session="fetch")
+        )
+        self._session.flush()
+
+    def game_has_super_game_trigger_symbols(self, game_id: UUID) -> bool:
+        return (
+            self._session.scalar(
+                select(SymbolModel.id)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.super_game_trigger_count.is_not(None),
+                )
                 .limit(1)
             )
             is not None
@@ -354,7 +441,10 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         resolved_symbols = ImageReviewItemModel.resolved_value["symbolCodes"].contains(
             [symbol_code]
         )
-        predicted_symbol = CellObservationModel.prediction["symbolCode"].as_string()
+        # Predictions are counted on the current V2 cell projection instead of the per-cell
+        # observation history (D-467): current predictions only, so superseded boards and
+        # predictions overwritten by a later revision no longer block deletion.
+        cell = ImageSymbolReviewCellModel
         return SymbolUsageSummary(
             rules=_count(
                 self._session,
@@ -364,21 +454,16 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             pending_board_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                select(cell.id)
                 .join(
                     ImageReviewItemModel,
-                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                    (ImageReviewItemModel.game_id == cell.game_id)
+                    & (ImageReviewItemModel.id == cell.review_item_id),
                 )
                 .where(
-                    JobModel.game_id == game_id,
+                    cell.game_id == game_id,
                     ImageReviewItemModel.status == "pending",
-                    predicted_symbol == symbol_code,
+                    cell.prediction_symbol_code == symbol_code,
                 ),
             ),
             resolved_board_decisions=_count(
@@ -398,14 +483,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             observation_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                .where(JobModel.game_id == game_id, predicted_symbol == symbol_code),
+                select(cell.id).where(
+                    cell.game_id == game_id, cell.prediction_symbol_code == symbol_code
+                ),
             ),
             symbol_cell_assignments=_count(
                 self._session,
@@ -482,9 +562,9 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        storage_version=(storage.storage_version if storage is not None else "legacy-public-v1"),
-        storage_schema=(storage.store_schema.value if storage is not None else "public"),
-        storage_generation=(storage.generation if storage is not None else 1),
+        storage_version=(storage.storage_version if storage is not None else VERSION),
+        storage_schema=(storage.store_schema.value if storage is not None else "game_data_v2"),
+        storage_generation=(storage.generation if storage is not None else 2),
         storage_status=(storage.status.value if storage is not None else "active"),
         storage_write_available=(storage.write_available if storage is not None else True),
         shape_geometry_configuration=(
@@ -492,7 +572,20 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
             if record.shape_geometry_configuration is None
             else GameShapeGeometryConfiguration(record.shape_geometry_configuration)
         ),
+        super_game_kind=record.super_game_kind,
     )
+
+
+def _run_partition_step_in(session: Session, operation_id: UUID) -> GamePartitionLifecycleReceipt:
+    try:
+        receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
+    except GamePartitionLifecycleError:
+        # Domain drift is deliberately persisted as `blocked`; the outer
+        # request rollback must not erase that diagnostic.
+        session.commit()
+        raise
+    session.commit()
+    return receipt
 
 
 def _next_symbol_code(name: str, existing_codes: tuple[str, ...]) -> str:
@@ -528,4 +621,5 @@ def _to_symbol(record: SymbolModel, *, image_path: str | None = None) -> Symbol:
         is_wildcard=record.is_wildcard,
         display_order=record.display_order,
         status=record.status,
+        super_game_trigger_count=record.super_game_trigger_count,
     )

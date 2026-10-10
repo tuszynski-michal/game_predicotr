@@ -9,12 +9,14 @@ from game_predictor_worker.images.symbol_grid_fallback_review import (
     SUGGESTION_VERSION,
     SymbolGridFallbackReview,
 )
+from local_corpus import require_local_corpus
 
 
 def test_real_strict_fallback_review_selects_only_six_failed_boards(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "artifacts/m5-board-crops")
     output = tmp_path / "fallback-review.json"
     review = SymbolGridFallbackReview(
         repository_root=root,

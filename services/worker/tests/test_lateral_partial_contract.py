@@ -135,16 +135,20 @@ def test_absent_extension_preserves_historical_bytes(
     replay = GeometryPipelineRolloutSnapshot.from_payload(json.loads(before))
     assert canonical_json_bytes(replay.to_payload()) == before
     assert "lateralPartialGeometry" not in replay.to_payload()
-    # Obtained from the pre-change implementation at d74fc4d7, not from replay.
+    # Pinned values for the current constants, not obtained from replay. The first
+    # pins came from the implementation at d74fc4d7; TASK-0940 re-pinned them because
+    # VIRTUAL_CELL_RENDERER_VERSION changed from "...source-direct-v1" to
+    # "...source-direct-v4" afterwards, which changes the bytes of every snapshot.
+    # That the absent lateral extension leaves the bytes unchanged is asserted above.
     historical_checksums = {
         "virtual-geometry-rollout-snapshot-v1": (
-            "16c93e04945897e097204850d551dbdcc98825e7df02c0d3ea5da7e763721b82"
+            "9e2dec31c725cef36035dde98fdfe717ac9c873a1787739b4a0a7d4224d1f4d9"
         ),
         "virtual-geometry-rollout-snapshot-v2": (
-            "2be44b7f5b673b3a9c870171b859609ff88f5fd73fcea3257f216c4ee664e6e4"
+            "3212493d8ef62a93c2e9957f470a021d1a80811cce9ea71f71bb7645159ea017"
         ),
         "virtual-geometry-rollout-snapshot-v3": (
-            "ee4a22d5670c71e8b0601948ed3ab6dbeba38b38751d134cef0a69c2986ab878"
+            "b2e924f4b5d944fb1e771e2516d388316d3b044011589bc4a81b13f5af1d6678"
         ),
     }
     assert replay.checksum_sha256 == historical_checksums[replay.to_payload()["schemaVersion"]]

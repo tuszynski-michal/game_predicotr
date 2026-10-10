@@ -11,7 +11,13 @@ from game_predictor_api.domain.board_search import (
     BoardSearchResult,
     BoardSearchScope,
 )
+from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.super_game_markers import (
+    SuperGameMarkerResponse,
+    marker_response_at,
+)
+from game_predictor_api.schemas.super_game_series import SuperGameStateResponse
 
 
 class BoardSearchScoreResponse(ApiModel):
@@ -32,6 +38,14 @@ class BoardSearchResultResponse(ApiModel):
     status: str
     board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     score: BoardSearchScoreResponse
+    super_game: SuperGameMarkerResponse | None = Field(
+        default=None,
+        description=(
+            "Super game role of this board in the published series generation "
+            "(trigger or spin of a series); absent: base mode according to that "
+            "generation. Never present for a game without a super game kind."
+        ),
+    )
 
 
 class BoardSearchResponse(ApiModel):
@@ -39,6 +53,16 @@ class BoardSearchResponse(ApiModel):
     scope: BoardSearchScope
     query_cell_count: int = Field(ge=1, le=15)
     results: tuple[BoardSearchResultResponse, ...] = Field(max_length=100)
+    super_game_state: SuperGameStateResponse | None = Field(
+        default=None,
+        description=(
+            "Freshness of the series generation behind the per-board markers, "
+            "read in the same snapshot; present on every live response (null only "
+            "in a stored management receipt written before the field existed). "
+            "`fresh = false`: the series are being recalculated, so even boards "
+            "without a marker may be part of a series."
+        ),
+    )
 
 
 def to_board_search_response(
@@ -47,11 +71,15 @@ def to_board_search_response(
     scope: BoardSearchScope,
     query_cell_count: int,
     results: tuple[BoardSearchResult, ...],
+    super_game: SuperGameMarkers | None = None,
 ) -> BoardSearchResponse:
     return BoardSearchResponse(
         game_id=game_id,
         scope=scope,
         query_cell_count=query_cell_count,
+        super_game_state=(
+            None if super_game is None else SuperGameStateResponse.from_domain(super_game.state)
+        ),
         results=tuple(
             BoardSearchResultResponse(
                 asset_mode=result.asset_mode,
@@ -69,6 +97,7 @@ def to_board_search_response(
                     mismatch_count=result.score.mismatch_count,
                     unknown_count=result.score.unknown_count,
                 ),
+                super_game=marker_response_at(super_game, result.sequence_number),
             )
             for result in results
         ),

@@ -33,12 +33,20 @@ from game_predictor_api.schemas.board_cell_geometry_pending import (
     BoardCellGeometryManualResolutionResponse,
     BoardCellGeometryPendingPageResponse,
     BoardCellGeometryPendingResponse,
+    BoardCellGeometryRejectionCommand,
+    BoardCellGeometryRejectionResponse,
     to_correction_context_response,
     to_manual_resolution_response,
     to_pending_page_response,
     to_pending_response,
+    to_rejection_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.geometry_qualification import (
+    GridCorrectionSymbolsResponse,
+    to_grid_correction_symbols_response,
+)
+from game_predictor_api.schemas.source_lattice_geometry import to_source_lattice_nodes
 
 BoardCellGeometryPendingServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -200,12 +208,12 @@ def create_board_cell_geometry_pending_router(
         "/{pending_id}/geometry-preview",
         response_class=Response,
         operation_id="previewPendingBoardCellGeometryCorrection",
-        summary="Preview 15 manual source-direct crops for a deferred board",
+        summary="Preview the virtual cells of a manual deferred-board geometry",
         responses={
             **ERROR_RESPONSES,
             200: {
                 "content": {"image/png": {}},
-                "description": "Five by three contact sheet of manual v19 crops",
+                "description": "Five by three contact sheet of virtual source renders",
             },
         },
     )
@@ -230,6 +238,13 @@ def create_board_cell_geometry_pending_router(
             expected_geometry_revision=payload.expected_geometry_revision,
             expected_resolution_revision=payload.expected_resolution_revision,
             corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+            lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+            expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
+            ),
         )
         return Response(
             content=preview.contact_sheet_png,
@@ -242,10 +257,49 @@ def create_board_cell_geometry_pending_router(
         )
 
     @router.post(
+        "/{pending_id}/geometry-symbol-preview",
+        response_model=GridCorrectionSymbolsResponse,
+        operation_id="previewPendingBoardCellGeometrySymbols",
+        summary="Predict the symbols of the virtual cells of a manual deferred-board geometry",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_pending_board_cell_geometry_symbols(
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_id: UUID,
+        payload: BoardCellGeometryManualPreviewCommand,
+        service: Annotated[BoardCellGeometryPendingService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
+    ) -> GridCorrectionSymbolsResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
+        return to_grid_correction_symbols_response(
+            service.preview_manual_symbols(
+                pending_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+                expected_manifest_checksum_sha256=payload.expected_manifest_checksum_sha256,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                expected_resolution_revision=payload.expected_resolution_revision,
+                corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+                geometry_qualification=(
+                    None
+                    if payload.geometry_qualification is None
+                    else payload.geometry_qualification.to_domain()
+                ),
+            )
+        )
+
+    @router.post(
         "/{pending_id}/manual-resolution",
         response_model=BoardCellGeometryManualResolutionResponse,
         operation_id="resolvePendingBoardCellGeometryManually",
-        summary="Create one ordinary review item from manual deferred geometry",
+        summary="Resolve a deferred board as one virtual-source review item",
         responses=ERROR_RESPONSES,
     )
     def resolve_pending_board_cell_geometry_manually(
@@ -278,8 +332,55 @@ def create_board_cell_geometry_pending_router(
                 corners=tuple(
                     ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
                 ),
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
                 corrected_by=reviewer_actor or payload.corrected_by,
                 resolved_at=datetime.now(UTC),
+                geometry_qualification=(
+                    None
+                    if payload.geometry_qualification is None
+                    else payload.geometry_qualification.to_domain()
+                ),
+                cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),
+            )
+        )
+
+    @router.post(
+        "/{pending_id}/rejection",
+        response_model=BoardCellGeometryRejectionResponse,
+        operation_id="rejectPendingBoardCellGeometry",
+        summary="Reject a deferred board slot (cropped, blurred or other)",
+        responses=ERROR_RESPONSES,
+    )
+    def reject_pending_board_cell_geometry(
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_id: UUID,
+        payload: BoardCellGeometryRejectionCommand,
+        service: Annotated[BoardCellGeometryPendingService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
+    ) -> BoardCellGeometryRejectionResponse:
+        reviewer_actor = authorize(
+            reviewer_session,
+            reviewer_access_service,
+            game_id,
+            import_job_id,
+        )
+        return to_rejection_response(
+            service.reject(
+                pending_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+                idempotency_key=payload.idempotency_key,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                reason=payload.reason,
+                note=payload.note,
+                rejected_by=reviewer_actor or "local-admin",
+                rejected_at=datetime.now(UTC),
             )
         )
 

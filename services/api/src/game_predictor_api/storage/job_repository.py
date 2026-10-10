@@ -33,14 +33,20 @@ from game_predictor_api.storage.models import (
     CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
+    ImageBoardGeometryPendingModel,
     ImageGeometryRolloutStateModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
     ImageSelectionManualDecisionModel,
     ImageSelectionRunModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewStateModel,
     JobModel,
     MobileReleaseModel,
+    RecognizedBoardModel,
     RulesVersionModel,
+    SemiAutomaticImageSelectionRunModel,
+    SourceImageModel,
 )
 
 
@@ -148,6 +154,7 @@ class SqlAlchemyJobRepository(JobRepository):
         )
 
     def add_job(self, job: Job) -> Job:
+        self._initialize_empty_neural_projection(job)
         record = job_record_from_domain(job)
         self._session.add(record)
         self._flush_or_raise_conflict()
@@ -161,6 +168,7 @@ class SqlAlchemyJobRepository(JobRepository):
     ) -> Job:
         if job.game_id is not None:
             self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
+        self._initialize_empty_neural_projection(job)
         retention = self._session.scalar(
             select(BrowserSelectionRetentionModel)
             .where(BrowserSelectionRetentionModel.upload_id == source_selection_id)
@@ -197,14 +205,95 @@ class SqlAlchemyJobRepository(JobRepository):
             self._flush_or_raise_conflict()
         return job_from_record(record)
 
+    def _initialize_empty_neural_projection(self, job: Job) -> None:
+        """Only a genuinely empty store can skip a historical backfill."""
+        from game_predictor_api.domain.neural_crop_policy import (
+            NEURAL_AUTO_CROP_PAYLOAD_KEY,
+            NEURAL_AUTO_CROP_POLICY,
+        )
+
+        from .image_symbol_review_repository import _COUNT_SEMANTICS, _COUNT_SEMANTICS_KEY
+
+        if (
+            job.game_id is None
+            or job.job_type is not JobType.IMPORT
+            or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) != NEURAL_AUTO_CROP_POLICY
+        ):
+            return
+        self._session.scalar(select(GameModel).where(GameModel.id == job.game_id).with_for_update())
+        self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
+        if self._session.get(ImageSymbolReviewStateModel, job.game_id) is not None:
+            return
+        historical_board = self._session.scalar(
+            select(RecognizedBoardModel.id)
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(JobModel.game_id == job.game_id)
+            .limit(1)
+        )
+        if historical_board is not None:
+            return
+        for model in (
+            ImageBoardGeometryPendingModel,
+            ImageSymbolReviewCellModel,
+        ):
+            if (
+                self._session.scalar(select(model.id).where(model.game_id == job.game_id).limit(1))
+                is not None
+            ):
+                return
+        self._session.add(
+            ImageSymbolReviewStateModel(
+                game_id=job.game_id,
+                status="ready",
+                count_projection_status="ready",
+                count_projection={_COUNT_SEMANTICS_KEY: dict(_COUNT_SEMANTICS)},
+            )
+        )
+        self._session.flush()
+
     def get_job(self, job_id: UUID) -> Job | None:
         record = self._session.get(JobModel, job_id)
         return None if record is None else job_from_record(record)
 
     def get_job_for_update(self, job_id: UUID) -> Job | None:
+        # Public cancel/retry must serialize with V7 reservations and publication.
+        # Inspect only identity before acquiring Gate -> Job -> Run locks.
+        identity = self._session.get(JobModel, job_id, populate_existing=True)
+        v7_run_id = None
+        if (
+            identity is not None
+            and identity.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+            and identity.input_payload.get("workflow_mode") == "v7_selection"
+        ):
+            from game_predictor_api.storage.semi_automatic_image_selection_repository import (
+                SqlAlchemySemiAutomaticSelectionRepository,
+            )
+
+            selections = SqlAlchemySemiAutomaticSelectionRepository(self._session)
+            selections.get_v7_pilot_gate(for_update=True)
+            v7_run_id = self._session.scalar(
+                select(SemiAutomaticImageSelectionRunModel.id).where(
+                    SemiAutomaticImageSelectionRunModel.job_id == job_id,
+                    SemiAutomaticImageSelectionRunModel.workflow_mode == "v7_selection",
+                )
+            )
         record = self._session.scalar(
-            select(JobModel).where(JobModel.id == job_id).with_for_update()
+            select(JobModel)
+            .where(JobModel.id == job_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
+        if v7_run_id is not None:
+            self._session.scalar(
+                select(SemiAutomaticImageSelectionRunModel)
+                .where(SemiAutomaticImageSelectionRunModel.id == v7_run_id)
+                .with_for_update()
+            )
+            if selections.get_pending_v7_output(v7_run_id) is not None:
+                raise JobConflictError(
+                    "V7_OUTPUT_DECISION_PENDING", "An output decision is still pending."
+                )
         return None if record is None else job_from_record(record)
 
     def get_job_by_input_key(self, input_key: str) -> Job | None:
@@ -258,6 +347,7 @@ class SqlAlchemyJobRepository(JobRepository):
                 details={"jobId": str(job.id)},
             )
         apply_job_to_record(record, job)
+        synchronize_lab_import_iteration(self._session, job)
         if job.job_type is JobType.ANDROID_BUILD and job.status is JobStatus.CANCELLED:
             release = self._session.scalar(
                 select(MobileReleaseModel).where(MobileReleaseModel.build_job_id == job.id)
@@ -356,6 +446,35 @@ class SqlAlchemyJobRepository(JobRepository):
                 "JOB_PERSISTENCE_CONFLICT",
                 "Job data conflicts with a persisted record.",
             ) from error
+
+
+def synchronize_lab_import_iteration(session: Session, job: Job) -> None:
+    """Project terminal import state and explicit retry without affecting TRAIN."""
+    if job.game_id is None or job.input_payload.get("validation_kind") != "symbol_model_lab_import":
+        return
+    from game_predictor_api.storage.models import SymbolModelIterationModel
+
+    GameStorageRouter().bind(session, job.game_id, intent=GameStorageIntent.WRITE)
+    iteration = session.scalar(
+        select(SymbolModelIterationModel)
+        .where(
+            SymbolModelIterationModel.game_id == job.game_id,
+            SymbolModelIterationModel.job_id == job.id,
+            SymbolModelIterationModel.origin == "lab_import",
+        )
+        .with_for_update()
+    )
+    if iteration is None:
+        return
+    if job.status in {JobStatus.CANCELLED, JobStatus.FAILED}:
+        iteration.status = job.status.value
+        iteration.error_code = job.error_code
+        iteration.error_message = job.error_message
+        iteration.updated_at = job.updated_at
+    elif job.status is JobStatus.CREATED and iteration.status in {"failed", "cancelled"}:
+        iteration.status = "created"
+        iteration.error_code = iteration.error_message = None
+        iteration.updated_at = job.updated_at
 
 
 def apply_job_to_record(record: JobModel, job: Job) -> None:

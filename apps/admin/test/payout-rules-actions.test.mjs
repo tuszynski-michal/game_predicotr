@@ -115,3 +115,69 @@ test('reactivates an existing length instead of creating a duplicate', async () 
   });
   assert.equal(result.ok, true);
 });
+
+test('TASK-0931: saving trigger count payouts archives the counts left empty', async () => {
+  const calls = [];
+  const existing = [
+    { id: 'p3', isActive: true, matchLength: 3, payoutCredits: 20, symbolId },
+    { id: 'p4', isActive: true, matchLength: 4, payoutCredits: 200, symbolId },
+    {
+      id: 'p5',
+      isActive: false,
+      matchLength: 5,
+      payoutCredits: 2000,
+      symbolId,
+    },
+  ];
+  const result = await savePayoutConfiguration(
+    createClient({
+      updateRulesVersionSymbol: async (_rulesId, _symbolId, body) => {
+        calls.push(['symbol', body]);
+        return { data: { ...configuration, minimumMatchLength: null } };
+      },
+      updatePayoutRule: async (_rulesId, payoutRuleId, body) => {
+        calls.push(['update', payoutRuleId, body]);
+        return {
+          data: {
+            ...existing.find((item) => item.id === payoutRuleId),
+            ...body,
+            rulesVersionId,
+          },
+        };
+      },
+      createPayoutRule: async (_rulesId, body) => {
+        calls.push(['create', body.matchLength]);
+        return { data: { id: 'p8', isActive: true, rulesVersionId, ...body } };
+      },
+    }),
+    rulesVersionId,
+    symbolId,
+    existing,
+    {
+      archiveUnlistedPayouts: true,
+      isActive: true,
+      minimumMatchLength: null,
+      payouts: [
+        { matchLength: 3, payoutCredits: 20 },
+        { matchLength: 8, payoutCredits: 500 },
+      ],
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, [
+    ['symbol', { isActive: true, minimumMatchLength: null }],
+    ['update', 'p3', { isActive: true, payoutCredits: 20 }],
+    ['create', 8],
+    // Count 4 was cleared in the form; the already inactive 5 is untouched.
+    ['update', 'p4', { isActive: false }],
+  ]);
+  assert.deepEqual(
+    result.payoutRules.map((item) => [item.matchLength, item.isActive]),
+    [
+      [3, true],
+      [8, true],
+      [4, false],
+    ],
+  );
+});

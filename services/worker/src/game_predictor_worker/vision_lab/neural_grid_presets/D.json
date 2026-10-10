@@ -1,0 +1,156 @@
+{
+  "augmentation": {
+    "blur_max_sigma": 1.6,
+    "blur_probability": 0.3,
+    "brightness": 0.25,
+    "color_probability": 0.8,
+    "contrast": 0.25,
+    "glare_max_count": 3,
+    "glare_probability": 0.55,
+    "glare_radius_range": [
+      0.05,
+      0.25
+    ],
+    "glare_strength_range": [
+      0.35,
+      0.95
+    ],
+    "hand_probability": 0.5,
+    "hand_size_range": [
+      0.15,
+      0.4
+    ],
+    "hue_degrees": 6.0,
+    "jpeg_probability": 0.3,
+    "jpeg_quality_range": [
+      40,
+      90
+    ],
+    "noise_max_std": 8.0,
+    "noise_probability": 0.3,
+    "occlusion_max_count": 3,
+    "occlusion_probability": 0.6,
+    "occlusion_size_range": [
+      0.05,
+      0.25
+    ],
+    "perspective": 0.04,
+    "rotation_degrees": 6.0,
+    "saturation": 0.3,
+    "scale_range": [
+      0.8,
+      1.15
+    ],
+    "translate": 0.06
+  },
+  "backbone": "torchvision-mobilenet_v3_large-features-fpn-stride4",
+  "board": {
+    "boards_per_image": 4,
+    "canvas": [
+      320,
+      192
+    ],
+    "coordinate_loss_weight": 0.125,
+    "corner_jitter": 0.015,
+    "heatmap_loss_weight": 0.05,
+    "heatmap_sigma": 1.0,
+    "margin": 0.15,
+    "rotation_jitter_degrees": 2.0,
+    "scale_jitter": 0.06,
+    "shift_jitter": 0.04,
+    "stride": 4,
+    "visibility_loss_weight": 0.5
+  },
+  "finetune": {
+    "candidates_per_iteration": 3,
+    "decision_reference": "D-490",
+    "development_max_drop": 0.005,
+    "game": "mumie",
+    "holdout_every": 5,
+    "holdout_key": "sha256('TASK-0825-mumie-holdout-v1:' + source sha256); new complete photos are numbered in key order after all earlier assignments and every fifth number is holdout; an assignment is permanent",
+    "holdout_min_photos": 3,
+    "init": {
+      "best_round": 3,
+      "checkpoint_sha256": "2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+      "development_evaluation": "43933ac8d7d443c8b9079630a83de2e6/evaluations/2cd19738367121e6-best-development.json",
+      "development_image_macro": 0.0028703064783595768,
+      "development_photo_complete_correct_rate": 0.9233333333333333,
+      "development_photos": 600,
+      "export_directory": "43933ac8d7d443c8b9079630a83de2e6/exports/2cd19738367121e6-round3",
+      "preset": "A",
+      "preset_fingerprint": "027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
+      "run_id": "43933ac8d7d443c8b9079630a83de2e6",
+      "weights_sha256": "19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9"
+    },
+    "iteration_overhead_seconds": 420.0,
+    "iteration_train_seconds_max": 900.0,
+    "iteration_train_seconds_min": 300.0,
+    "mumie_images_per_batch": 4,
+    "parity_images": 8,
+    "proposal_threads": 4,
+    "reference_sample": "777 role training of the production-geometry-split-v2 snapshot, the remaining images of every batch drawn uniformly with replacement",
+    "train_seconds_per_mumie_photo": 60.0,
+    "version": "neural-grid-finetune-v1"
+  },
+  "fit": {
+    "inlier_threshold": 0.02,
+    "method": "opencv-ransac-homography-then-least-squares-on-inliers",
+    "min_inliers": 8
+  },
+  "hypothesis": "Short iterative fine-tunes of the run-1 best state on the operator's complete Mumie photos, mixed 4:8 with 777 training photos at a small learning rate and with the full preset-B augmentations, raise the share of complete and correct Mumie photos and make the proposals for the remaining photos faster to accept, without losing more than 0.5 percentage points of complete and correct 777 development photos.",
+  "metrics": {
+    "board_correct_max_nme": 0.02,
+    "board_correct_max_node_error": 0.05,
+    "false_board": "prediction whose quad IoU with every label is below 0.5",
+    "image_macro": "T05: per label min(1, NME), missing or invalid = 1, mean per photo, mean over photos",
+    "match_min_iou": 0.5,
+    "matching": "hungarian-max-quad-iou; pairs below min IoU are not matched",
+    "normalization": "euclidean distance of label nodes 0 and 23 (TL-BR diagonal, as T05)",
+    "photo_complete_correct": "every label board matched and correct and no false board",
+    "quad": "corner nodes 0, 5, 23, 18 (TL, TR, BR, BL)",
+    "selection": "max photo_complete_correct_rate on development; tie -> lower image_macro; tie -> earlier round",
+    "version": "neural-grid-metrics-v1"
+  },
+  "model_version": "neural-grid-v1",
+  "name": "D",
+  "optimization": {
+    "batch_images": 12,
+    "data_workers": 6,
+    "final_learning_rate_fraction": 0.1,
+    "gradient_clip": 5.0,
+    "learning_rate": 0.0001,
+    "mixed_precision": "float16-autocast-gradscaler",
+    "optimizer": "AdamW",
+    "warmup_fraction": 0.05,
+    "weight_decay": 0.0001
+  },
+  "preprocessing_version": "neural-grid-screen768-board320x192-v1",
+  "pretrained": "run1-43933ac8-best-round3-weights",
+  "schedule": {
+    "final_reserve_seconds": 60.0,
+    "max_run_seconds": 14400,
+    "minimum_round_seconds": 240.0,
+    "round_seconds": 900.0,
+    "rounds": 16
+  },
+  "screen": {
+    "decode_threshold": 0.3,
+    "heat_sigma_fraction": 0.1,
+    "long_side": 768,
+    "min_heat_sigma": 1.0,
+    "nms_iou": 0.5,
+    "offset_loss_weight": 5.0,
+    "offset_scale": 64.0,
+    "pad_multiple": 32,
+    "positive_radius": 0.5,
+    "stride": 4,
+    "top_k": 64,
+    "train_canvas": [
+      768,
+      576
+    ]
+  },
+  "seed": 825001,
+  "snapshot_policy": "production-geometry-split-v2",
+  "version": "neural-grid-preset-v1"
+}

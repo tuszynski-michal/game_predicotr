@@ -1,0 +1,84 @@
+{
+  "name": "@game-predictor/board-search-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./board-search.css": "./src/board-search.css",
+    "./management": {
+      "types": "./src/management/index.ts",
+      "default": "./src/management/index.ts"
+    },
+    "./management/*": {
+      "types": "./src/management/*.ts",
+      "default": "./src/management/*.ts"
+    },
+    "./management/management-workspace": {
+      "types": "./src/management/management-workspace.tsx",
+      "default": "./src/management/management-workspace.tsx"
+    },
+    "./management/management-client": {
+      "types": "./src/management/management-client.ts",
+      "default": "./src/management/management-client.ts"
+    },
+    "./management/management-operation": {
+      "types": "./src/management/management-operation.ts",
+      "default": "./src/management/management-operation.ts"
+    },
+    "./management/management-data-source": {
+      "types": "./src/management/management-data-source.ts",
+      "default": "./src/management/management-data-source.ts"
+    },
+    "./management/management-game-workspace": {
+      "types": "./src/management/management-game-workspace.tsx",
+      "default": "./src/management/management-game-workspace.tsx"
+    },
+    "./management/management-cards": {
+      "types": "./src/management/management-cards.tsx",
+      "default": "./src/management/management-cards.tsx"
+    },
+    "./management/management-journal": {
+      "types": "./src/management/management-journal.tsx",
+      "default": "./src/management/management-journal.tsx"
+    },
+    "./management/management-result-view": {
+      "types": "./src/management/management-result-view.tsx",
+      "default": "./src/management/management-result-view.tsx"
+    },
+    "./management/management-slot-operation": {
+      "types": "./src/management/management-slot-operation.ts",
+      "default": "./src/management/management-slot-operation.ts"
+    },
+    "./management/management-slot-state": {
+      "types": "./src/management/management-slot-state.ts",
+      "default": "./src/management/management-slot-state.ts"
+    },
+    "./management.css": "./src/management/management.css"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "test:interactions": "tsx --tsconfig tsconfig.json --test test-interactions/*.test.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@game-predictor/admin-api-client": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "eslint": "^9.25.1",
+    "eslint-config-next": "16.2.11",
+    "jsdom": "20.0.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "4.23.1",
+    "typescript": "~6.0.3"
+  }
+}

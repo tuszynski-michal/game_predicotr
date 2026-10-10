@@ -1,10 +1,34 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-08-03
+last_updated: 2026-10-05
 ---
 
 # Architektura systemu
+
+## Zapis przez udostępnioną wyszukiwarkę — D-492 / TASK-0845
+
+Powierzchnia `board-search-api` Reviewera dopuszcza dokładny POST decyzji
+jednego pola wskazanego pozycją planszy. Backend bierze grę i aktora z sesji,
+pod blokadą ponownie sprawdza token i aktualne komórki, po czym korzysta z
+istniejącego writera decyzji. Jedna transakcja zapisuje decyzję, projekcję
+i audyt linku; commit następuje przed odpowiedzią. Publiczny port korekty
+wspólnego modala używa opaque SHA zamiast tożsamości review Admina.
+
+Udane wyszukiwanie zwraca własny identyfikator kontekstu, zachowywany także
+przez cache karty. Korekta przekazuje go jawnie z zakresem i stawką; kilka
+kart nie przypisuje zmian przez kolejność zegara. Jeden oczekujący request
+z UUID jest zachowywany w sessionStorage linku przed wysłaniem. Po utracie
+odpowiedzi lub odświeżeniu karty odbiorca jawnie sprawdza ten sam zapis.
+Odblokowanie innej sesji nie odtwarza operacji automatycznie.
+
+Lokalny Admin czyta indeksowane metadane korekt, bez pobierania 100 000
+plansz. Historię pól i bieżącą planszę pobiera dopiero po kliknięciu.
+Przegląd sprawdza rewizję korekt linku i fingerprint aktualnych komórek;
+zmiana z innego linku lub lokalnego edytora również chroni przed
+zatwierdzeniem nieobejrzanego stanu. Historia pozostaje po revoke/usunięciu
+wyszukiwania. Geometria, archiwum i pozostałe powierzchnie Reviewera nie
+otrzymują nowych tras.
 
 ## Aktualizacja granicy zdalnego Reviewera v0.1
 
@@ -510,7 +534,8 @@ samym trwałym jobie zapis managed originals, rejestrację plików oraz adaptery
 `discovery` → `normalization` → `board_detection` → `board_crops` →
 `sequence_ocr` → `symbol_inference`. Wyniki tworzą job-scoped projekcje
 `source_images`, `recognized_boards`, `cell_observations` i
-`image_review_items`. Checkpoint źródła oraz checkpoint per plik umożliwiają
+`image_review_items` (od TASK-0790 zamiast obserwacji powstaje manifest
+renderu `board_render_manifests`; tabela obserwacji usunięta w `0134`). Checkpoint źródła oraz checkpoint per plik umożliwiają
 wznowienie po restarcie workera bez ponownego uploadu i bez nadpisywania
 ukończonych etapów. OCR numerów jednej strony jest wykonywany jako jeden batch
 od jednego do dziewięciu cropów.
@@ -587,8 +612,8 @@ etapów; wynik jest walidowany przed zapisem.
 
 Automatyczne wyniki są zapisywane globalnie w
 `image_pipeline_stage_results`, natomiast `source_images`,
-`recognized_boards`, 15 `cell_observations` i `image_review_items` są
-projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
+`recognized_boards`, manifest renderu (do TASK-0790: 15 `cell_observations`)
+i `image_review_items` są projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
 `pending_review`. Dopiero atomowa decyzja całej planszy materializuje
 `image_layout_staging_rows`; rejected nie tworzy layoutu. Walidacja ciągłości
 raportuje luki i duplikaty bez modyfikowania raw OCR ani zaakceptowanego numeru.
@@ -841,9 +866,11 @@ uruchomienia modelu keypoint.
 W odbiorze 2026-08-29 nie było kompletnego raportu 0.10. Produkcyjne tryby nie
 zostały promowane, a aliasy, legacy cropy i dual-schema pozostają. Jest to
 świadomy finalny stan bezpiecznego cutoveru, nie automatyczne zaliczenie jakości.
-Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
-`legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
-canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
+Pełny rollback do `legacy/legacy_files` był operacyjny do D-467; od
+TASK-0790 (migracja `0133`) tryby legacy i shadow nie istnieją, a rollback
+silnika oznacza wybór drugiej polityki wirtualnej. Istniejące joby zachowują
+snapshot, a source geometry, canonical ownership i decyzje człowieka nie są
+usuwane ani przepisywane.
 
 TASK-0319 dodaje izolowany pakiet `images/keypoint_geometry`, lecz nie nowy
 produkcyjny pipeline. Dataset zamraża wyłącznie ręcznie zatwierdzone source
@@ -1566,6 +1593,18 @@ każdym spinie.
   deduplikuje wspólne woluminy `artifact_root`/`import_root` i zapisuje
   `storage_usage_snapshots`; GET panelu czyta ostatni snapshot oraz bieżące
   metadane wolnego miejsca bez materializowania listy plików,
+- composition root tworzy jedną runtime'ową politykę pojemności dla admission
+  zapisu oraz receiptów `storage_gc`: domyślnie ostrzega przy 80 GiB, uruchamia
+  jeden GC przy 60 GiB i wymaga 5 GiB wolnego miejsca po konserwatywnej
+  estymacji materializowanych artefaktów; ustawienia środowiskowe nadpisują te
+  progi spójnie w obu ścieżkach,
+- worker używa tej samej konfigurowalnej twardej rezerwy podczas kopiowania
+  managed originals, przetwarzania i wznowienia `waiting_for_storage`.
+  Domyślne 5 GiB dopuszcza kontynuację także przy dokładnej równości;
+  cel GC 80 GiB nie trafia do warunku wznowienia. Odroczenie nadal zapisuje
+  checkpoint, zwalnia ogrodzony lease i pozostawia job do wznowienia.
+  Pętla pollingu czeka swój dodatni interwał po odroczeniu, zamiast natychmiast
+  przejmować ten sam job ponownie,
 - `storage_pipeline_compaction` usuwa po 24 godzinach wyłącznie odtwarzalne,
   późne payloady etapów z terminalnych wykonań. Preview jest keysetowym JSONL,
   a worker przed każdą partią ponownie sprawdza execution, zależności,
@@ -1661,11 +1700,12 @@ layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
 ### Per-game image import engine policy
 
 `image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
-nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
-projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19
-oraz produkcyjny `structured_default/virtual_default` v0.10. Historyczny
-`structured_shadow/virtual_shadow` pozostaje odtwarzalny, ale nie jest opcją
-nowego importu. Polityka i jej rewizja wchodzą do checksummy preflightu i
+nowych importów danej gry. Od D-467 (TASK-0790) warstwa HTTP udostępnia
+wyłącznie projekcje wirtualne `structured_default/virtual_default` i
+`structured_lattice_v3/virtual_default` (domyślna dla nowej gry); dawne
+`legacy/legacy_files` (v20/v19) i `structured_shadow/virtual_shadow` są
+odrzucane kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, a worker i writer
+importu odmawiają ich wykonania. Polityka i jej rewizja wchodzą do checksummy preflightu i
 snapshotu joba; zmiana nie mutuje istniejących jobów.
 
 Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.

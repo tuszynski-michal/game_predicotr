@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, cast
+from typing import Any, Final, cast
 
 import cv2
 import numpy as np
@@ -239,7 +239,7 @@ def detect_shape_geometry_v2(
     resolved_config = config or ShapeGeometryV2Config()
     _validate_rgb(rgb, resolved_config)
     height, width = rgb.shape[:2]
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    gray = cast(NDArray[np.uint8], cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY))
     candidates = _find_frame_candidates(gray, resolved_config)
     if not candidates:
         return ShapeGeometryV2Result(
@@ -258,12 +258,16 @@ def detect_shape_geometry_v2(
 
     selected = candidates[0]
     homography = _source_to_canonical_homography(selected.quad, resolved_config)
-    rectified = cv2.warpPerspective(
-        rgb,
-        np.asarray(homography, dtype=np.float64),
-        (resolved_config.canonical_width, resolved_config.canonical_height),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_CONSTANT,
+    # OpenCV's stubs widen the dtype; warpPerspective keeps the uint8 input dtype.
+    rectified = cast(
+        NDArray[np.uint8],
+        cv2.warpPerspective(
+            rgb,
+            np.asarray(homography, dtype=np.float64),
+            (resolved_config.canonical_width, resolved_config.canonical_height),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+        ),
     )
     color_evidence = _color_evidence(rectified)
     complete = _is_complete_frame(selected.quad, width, height, resolved_config)
@@ -363,7 +367,7 @@ def _find_frame_candidates(
     return tuple(_deduplicate_candidates(candidates)[: config.maximum_frame_candidates])
 
 
-def _ordered_quad(points: NDArray[np.int32] | NDArray[np.float32]) -> _QUAD | None:
+def _ordered_quad(points: NDArray[np.integer[Any] | np.floating[Any]]) -> _QUAD | None:
     values = np.asarray(points, dtype=np.float64)
     sums = values[:, 0] + values[:, 1]
     differences = values[:, 0] - values[:, 1]
@@ -504,8 +508,14 @@ def _grid_evidence(
     config: ShapeGeometryV2Config,
 ) -> ShapeGeometryV2GridEvidence:
     gray = cv2.cvtColor(rectified_rgb, cv2.COLOR_RGB2GRAY)
-    horizontal_gradient = np.abs(cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)) / 255.0
-    vertical_gradient = np.abs(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)) / 255.0
+    # Sobel with CV_32F yields float32; dividing by a Python float keeps float32 at
+    # runtime, but the numpy stubs widen the result to float64.
+    horizontal_gradient = cast(
+        NDArray[np.float32], np.abs(cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)) / 255.0
+    )
+    vertical_gradient = cast(
+        NDArray[np.float32], np.abs(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)) / 255.0
+    )
     vertical_scores: list[float] = []
     horizontal_scores: list[float] = []
     board_support: list[float] = []

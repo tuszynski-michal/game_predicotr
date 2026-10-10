@@ -16,13 +16,21 @@ niegotowych części systemu.
 
 Przed rozpoczęciem pracy czytaj w tej kolejności:
 
-1. ten indeks,
-2. [Current State](process/CURRENT_STATE.md),
-3. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
-4. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
+1. ten indeks (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md)),
+2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
+   obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
+   i 10 ostatnich sekcji `done`,
+3. [Decision Log](process/DECISION_LOG.md) — indeks decyzji wraz z pięcioma
+   najnowszymi wpisami w pełnej postaci,
+4. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
+5. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
 
-Materiały archiwalne i ukończone zadania nie są domyślnym kontekstem
-implementacyjnym.
+Pełne wpisy decyzji ([DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md))
+oraz archiwa stanu ([Q4 2026](archive/CURRENT_STATE_2026Q4.md),
+[Q3 2026](archive/CURRENT_STATE_2026Q3.md)) otwieraj na żądanie, gdy `Relevant
+docs` aktywnego zadania je wskazuje albo gdy indeks nie wystarcza do oceny
+sprzeczności. Pozostałe materiały archiwalne i ukończone zadania nie są
+domyślnym kontekstem implementacyjnym.
 
 ## Aktywna dokumentacja
 
@@ -38,6 +46,11 @@ implementacyjnym.
 
 - [Mobile app](requirements/MOBILE_APP.md)
 - [Admin app](requirements/ADMIN_APP.md)
+- [Management panel](requirements/MANAGEMENT_PANEL.md) — compact point/machine
+  navigation, independent stake saves, scoped deletion and online access
+  (D-533, D-536).
+- [Aplikacja V3 — rejestr przeglądu ekranów](requirements/APP_V3_FUNCTIONAL_INVENTORY.md)
+  — robocze potrzeby, funkcje do zachowania/przeniesienia i oddzielny panel online.
 - [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)
@@ -45,15 +58,24 @@ implementacyjnym.
 - [Local manual image selection](requirements/MANUAL_IMAGE_SELECTION.md)
 - [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
 - [Iterative supervised model improvement](requirements/SUPERVISED_MODEL_IMPROVEMENT.md)
+- [Vision lab requirements](requirements/VISION_LAB.md) — zatwierdzenia
+  laboratoryjne, podziały, topologie i granice integracji (D-447).
 
 ### Architektura
 
 - [Tech stack](architecture/TECH_STACK.md)
 - [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
+- [Code map](architecture/CODE_MAP.md) — **pierwsze miejsce szukania kodu**:
+  obszar → katalogi, moduły wejściowe, testy, komendy; generowana przez
+  `scripts/generate_code_map.py`. Indeks symboli do `rg`:
+  [CODE_MAP_SYMBOLS.md](architecture/CODE_MAP_SYMBOLS.md) (nie czytać w całości).
+- [Management panel architecture](architecture/MANAGEMENT_PANEL.md)
 - [Data model](architecture/DATA_MODEL.md)
 - [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
 - [API contract](architecture/API_CONTRACT.md)
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
+- [Vision lab architecture](architecture/VISION_LAB.md) — izolacja,
+  kontrakty, eksport, UI i środowisko treningowe.
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
 - [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
 - [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
@@ -64,6 +86,23 @@ implementacyjnym.
   między planszami); prototyp TASK-0648, status `proposed`.
 
 ### Dostarczanie
+
+- [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
+  — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).
+
+- [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+  — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
+  manual Claude review before each task commit.
+
+- [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
+  — accepted T1–T7, TASK-0921–0927.
+- [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
+  — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
+
+- [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
+  — implemented, awaiting operator migration and acceptance; etapy R1–R4,
+  TASK-0966–0972 (dawniej TASK-0945–0951), D-542/D-543, migracja `0154`;
+  [instrukcja operatora](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
 
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
@@ -79,6 +118,21 @@ implementacyjnym.
 - [Milestone 07.0 image selection execution plan](delivery/MILESTONE_07_0_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
+- [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
+  zaakceptowany plan P00/T01–T13 i punkty STOP A–E.
+- [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
+  zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
+- [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
+  — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
+- [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
+  — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
+- [Board search share plan](delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md)
+  — modal linii wypłat, wykres, stawki i udostępnianie online (D-470, D-471).
+- [Legacy V1 remnants removal plan](delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md)
+  — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
+  i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
+- [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
+  naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
@@ -90,12 +144,23 @@ implementacyjnym.
 
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
 - [Definition of Done](process/DEFINITION_OF_DONE.md)
-- [Decision log](process/DECISION_LOG.md)
-- [Current state](process/CURRENT_STATE.md)
+- [Decision log](process/DECISION_LOG.md) — indeks i najnowsze wpisy; pełne
+  wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
+  starszy indeks w
+  [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
+- [Current state](process/CURRENT_STATE.md) — okno kroczące; historia w
+  [archive/CURRENT_STATE_2026Q4.md](archive/CURRENT_STATE_2026Q4.md) i
+  [archive/CURRENT_STATE_2026Q3.md](archive/CURRENT_STATE_2026Q3.md).
 - [Task template](process/TASK_TEMPLATE.md)
 - [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
   planowaniem, aktualizacją lub wykonaniem planu.
 - [Test strategy](quality/TEST_STRATEGY.md)
+- [Protokół pomiaru narzędzi tokenowych](quality/TOKEN_TOOLING_PILOT_PROTOCOL.md)
+  — zadania pomiarowe, warianty, rubryka jakości i reguła decyzyjna pilota
+  (TASK-0939); zużycie zbiera `scripts/token_pilot_collect.py`.
+- [Szablon raportu audytu krzyżowego](quality/AUDIT_REPORT_TEMPLATE.md) —
+  format raportu `TASK-NNNN_AUDIT_<model>.md`; skill `/audit-task`,
+  skrypt `scripts/audit_task.ps1` (TASK-0929, D-535).
 - [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
 - [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)
 - [Virtual geometry 0.10 cutover acceptance](quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md)
@@ -113,8 +178,29 @@ implementacyjnym.
 
 ### Instrukcje operatorskie
 
+- [Management panel operations](process/MANAGEMENT_PANEL_OPERATIONS.md) —
+  compact rollout prerequisites, binary backup/restore, local/recipient access
+  and live acceptance gates.
+- [Compact management acceptance](quality/ADMIN_COMPACT_PANEL_ACCEPTANCE.md) —
+  bounded browser/database evidence and open operator rollout gates (TASK-0943).
+- [Compact management Claude handoff](quality/ADMIN_COMPACT_PANEL_CLAUDE_HANDOFF.md)
+  — deferred audit scopes, corrected stage snapshots and remaining closure work.
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Narzędzia oszczędzania tokenów](guides/TOKEN_TOOLING.md) — mapa kodu, hook
+  odczytu, pilot Serena MCP i Graphify, wyłączanie i rejestracja (TASK-0939).
+- [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
+  zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
+  kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.
+- [Cofanie korekt cięcia siatki i zdjęcie zastępcze](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md)
+  — stop usług, scalenie, migracja `0154`, cofnięcie i odrzucenie w Reviewerze,
+  import zastępczy i zapytania odbioru (D-542, D-543).
+- [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
+  — preflight, odrębne approval, apply i postflight migracji `0125`.
+- [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
+  manifest wejściowy, uruchomienie eksportera i format wyniku.
+- [Lokalna galeria laboratorium wizji](guides/VISION_LAB_LOCAL.md) — import
+  folderu zdjęć, uruchomienie galerii i ograniczenia baseline.
 
 ### Materiały warunkowe
 
@@ -166,4 +252,11 @@ krótkie podsumowanie i link do właściciela reguły.
 
 Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
 wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
-jest istotna, `DECISION_LOG.md`.
+jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
+indeksu).
+
+Przy zamykaniu taska agent dopisuje jego sekcję `done` w `CURRENT_STATE.md`,
+przenosi sekcje `done` ponad limit 10 do najnowszego archiwum
+`archive/CURRENT_STATE_*.md` (tekst bez zmian) i aktualizuje sekcję
+„Obowiązujące ograniczenia”. Spójność oba pliki sprawdza `npm run docs:check`
+(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`).

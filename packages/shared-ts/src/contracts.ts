@@ -7,6 +7,12 @@ export interface SymbolDefinition {
   readonly isWildcard: boolean;
   readonly displayOrder: number;
   readonly imageAssetKey?: string;
+  /**
+   * Absent or `null` for an ordinary or Wild symbol. A number marks a super
+   * game trigger symbol (D-535): it never pays on paylines and its payout
+   * rules are paid per count of its cells on the board.
+   */
+  readonly superGameTriggerCount?: number | null;
 }
 
 export interface GameConfig {
@@ -52,9 +58,18 @@ export interface PayoutMatch {
   readonly interpretation: readonly JokerInterpretation[];
 }
 
+/** A super game trigger symbol paid per count of its cells on the board. */
+export interface CountMatch {
+  readonly symbolMobileCode: number;
+  readonly count: number;
+  readonly matchedCells: readonly number[];
+  readonly payoutCredits: number;
+}
+
 export interface PayoutEvaluation {
   readonly totalPayout: number;
   readonly matches: readonly PayoutMatch[];
+  readonly countMatches: readonly CountMatch[];
 }
 
 export interface SequencePayout {

@@ -149,32 +149,31 @@ async function prepareCrop(request: PrepareCropRequest): Promise<
       rgba: pixels.data,
     };
     const noTimerYield = () => Promise.resolve();
-    const proposal =
-      isFourPointRegistrationCropPolicy(policy)
-        ? await (async () => {
-            const structural = await prepareStructuralCrop(
-              sourceSample,
-              noTimerYield,
-            );
-            return finishFourPointRegisteredCropForPolicy(
-              policy,
-              sourceSample,
-              structural,
-              request.anchor === null
-                ? null
-                : {
-                    descriptor: request.anchor.anchor,
-                    prepared: request.anchor,
-                  },
-              noTimerYield,
-            );
-          })()
-        : policy === CROP_V11_POLICY
-          ? await prepareStructuralCrop(sourceSample, noTimerYield)
-          : detectSelectedImageCropBand(
-              { width: sampleWidth, height: sampleHeight, rgba: pixels.data },
-              { width: bitmap.width, height: bitmap.height },
-            );
+    const proposal = isFourPointRegistrationCropPolicy(policy)
+      ? await (async () => {
+          const structural = await prepareStructuralCrop(
+            sourceSample,
+            noTimerYield,
+          );
+          return finishFourPointRegisteredCropForPolicy(
+            policy,
+            sourceSample,
+            structural,
+            request.anchor === null
+              ? null
+              : {
+                  descriptor: request.anchor.anchor,
+                  prepared: request.anchor,
+                },
+            noTimerYield,
+          );
+        })()
+      : policy === CROP_V11_POLICY
+        ? await prepareStructuralCrop(sourceSample, noTimerYield)
+        : detectSelectedImageCropBand(
+            { width: sampleWidth, height: sampleHeight, rgba: pixels.data },
+            { width: bitmap.width, height: bitmap.height },
+          );
     const analyzedAt = performance.now();
     const outputHeight = proposal.crop.bottomY - proposal.crop.topY;
     const outputCanvas = new OffscreenCanvas(bitmap.width, outputHeight);

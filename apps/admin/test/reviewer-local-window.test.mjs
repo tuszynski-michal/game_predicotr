@@ -37,6 +37,31 @@ test('prepares the scoped Reviewer URL directly instead of opening about:blank',
   assert.equal(reviewerWindow.opener, null);
 });
 
+test('omits importJobId from the URL when no import is given', () => {
+  assert.equal(
+    buildPreparedLocalReviewUrl('http://127.0.0.1:3000/', {
+      gameId: 'game-1',
+    }),
+    'http://127.0.0.1:3001/?mode=local&gameId=game-1',
+  );
+  assert.equal(
+    buildPreparedLocalReviewUrl('http://127.0.0.1:3000/', input),
+    'http://127.0.0.1:3001/?mode=local&gameId=game-1&importJobId=job-1',
+  );
+  const calls = [];
+  prepareLocalReviewerWindow(
+    'http://localhost:3000/',
+    { gameId: 'game-1' },
+    (...args) => {
+      calls.push(args);
+      return null;
+    },
+  );
+  assert.deepEqual(calls, [
+    ['http://localhost:3001/?mode=local&gameId=game-1', '_blank'],
+  ]);
+});
+
 test('an opener isolation error does not abort the prepared local launch', () => {
   const reviewerWindow = {
     close() {},

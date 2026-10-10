@@ -15,13 +15,19 @@ from game_predictor_api.application.browser_staging_retention import (
     ManagedOriginalsHandoff,
 )
 from game_predictor_api.domain.jobs import JobConflictError
-from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.game_entity_locator import GameEntityLocator
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageRoutingError,
+)
 
 from .models import (
     BrowserSelectionRetentionModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
+    ImageGeometryShadowResultModel,
     ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImagePipelineTerminalManifestModel,
@@ -38,6 +44,26 @@ from .models import (
 RETENTION_DELAY = timedelta(hours=24)
 
 
+def require_no_grid_shadow_history(session: Session, source_image_ids: tuple[UUID, ...]) -> None:
+    """An immutable comparison is retained even when no board was materialized."""
+    if not source_image_ids:
+        return
+    count = int(
+        session.scalar(
+            select(func.count(ImageGeometryShadowResultModel.id)).where(
+                ImageGeometryShadowResultModel.source_image_id.in_(source_image_ids)
+            )
+        )
+        or 0
+    )
+    if count:
+        raise JobConflictError(
+            "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS",
+            "The staging has immutable grid comparison history and cannot be deleted as unused.",
+            details={"gridShadowResultCount": count},
+        )
+
+
 class SqlAlchemyBrowserStagingRetentionRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -51,7 +77,14 @@ class SqlAlchemyBrowserStagingRetentionRepository:
         if game_id is None:
             return None
         with self._session_factory() as session:
-            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            try:
+                GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            except GameStorageRoutingError as error:
+                if error.code != "GAME_NOT_FOUND":
+                    raise
+                # Physical finalized folders can outlive a deleted game. Its
+                # optional status must not break listing other games' uploads.
+                return None
             row = session.get(BrowserSelectionRetentionModel, upload_id)
             if row is None or row.game_id not in {None, game_id}:
                 return None
@@ -179,6 +212,15 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                 )
                 if game_id is not None:
                     game_ids.add(game_id)
+                if not game_ids:
+                    # TASK-0797: no job names the game; the retention record
+                    # (game data) is found through per-game RLS-bound reads.
+                    located = GameEntityLocator(self._session_factory).locate(
+                        "browser_selection_retention_states", "upload_id", upload_id
+                    )
+                    if located is None:
+                        return
+                    game_ids.add(located)
                 if len(game_ids) > 1:
                     raise JobConflictError(
                         "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
@@ -265,6 +307,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         .with_for_update()
                     )
                 )
+                require_no_grid_shadow_history(session, source_image_ids)
                 pending_geometry = tuple(
                     session.scalars(
                         select(ImageBoardGeometryPendingModel)

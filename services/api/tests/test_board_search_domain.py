@@ -6,10 +6,13 @@ import pytest
 from game_predictor_api.domain.board_search import (
     BOARD_SEARCH_ALGORITHM_VERSION,
     BoardSearchCandidate,
+    BoardSearchCellDecision,
+    BoardSearchCellEvidence,
     BoardSearchError,
     BoardSearchProjectionPayload,
     BoardSearchQueryCell,
     BoardSearchScope,
+    apply_board_search_cell_decisions,
     rank_board_search_candidates,
     score_board_search_candidate,
     select_board_search_document,
@@ -258,3 +261,41 @@ def test_partial_query_validation_is_fail_closed(
         )
 
     assert error.value.code == code
+
+
+def test_verified_cell_overrides_prediction_without_alternatives() -> None:
+    primary, alternatives = apply_board_search_cell_decisions(
+        primary_symbol_codes=("seven",) * 15,
+        alternative_symbol_codes=(("bell",),) * 15,
+        decisions=(
+            BoardSearchCellDecision(
+                cell_index=0,
+                evidence=BoardSearchCellEvidence.VERIFIED,
+                symbol_code="lemon",
+            ),
+            BoardSearchCellDecision(cell_index=1, evidence=BoardSearchCellEvidence.VERIFIED),
+            BoardSearchCellDecision(cell_index=2, evidence=BoardSearchCellEvidence.WITHHELD),
+        ),
+    )
+
+    assert primary[:4] == ("lemon", None, None, "seven")
+    assert alternatives[:4] == ((), (), (), ("bell",))
+    assert primary[4:] == ("seven",) * 11
+
+
+def test_cell_decisions_reject_duplicates_and_withheld_symbols() -> None:
+    decision = BoardSearchCellDecision(
+        cell_index=3, evidence=BoardSearchCellEvidence.VERIFIED, symbol_code="seven"
+    )
+    with pytest.raises(ValueError, match="two decisions"):
+        apply_board_search_cell_decisions(
+            primary_symbol_codes=(None,) * 15,
+            alternative_symbol_codes=((),) * 15,
+            decisions=(decision, decision),
+        )
+    with pytest.raises(ValueError, match="withheld"):
+        BoardSearchCellDecision(
+            cell_index=0, evidence=BoardSearchCellEvidence.WITHHELD, symbol_code="seven"
+        )
+    with pytest.raises(ValueError, match="outside"):
+        BoardSearchCellDecision(cell_index=15, evidence=BoardSearchCellEvidence.WITHHELD)

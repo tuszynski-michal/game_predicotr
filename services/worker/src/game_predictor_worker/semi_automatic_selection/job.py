@@ -9,10 +9,10 @@ import re
 import shutil
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, NoReturn, cast
+from typing import Any, NoReturn, TypedDict, cast
 from uuid import UUID
 
 import numpy as np
@@ -28,6 +28,7 @@ from game_predictor_api.domain.semi_automatic_image_selections import (
     complete_filename_verification_cleanup,
     resume_filename_verification_cleanup,
 )
+from game_predictor_api.domain.v7_selection_delivery import V7PilotGate
 from game_predictor_api.schemas.jobs import SemiAutomaticImageSelectionJobPayload
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
@@ -42,7 +43,7 @@ from game_predictor_api.storage.semi_automatic_image_selection_repository import
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, defer, sessionmaker
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
@@ -120,6 +121,18 @@ from .row_first_runtime_v5 import (
     RowFirstSourcePayload,
 )
 from .v7_configuration import V7BorderStyle
+from .v7_delivery import V7ReviewedDelivery
+from .v7_delivery_store import (
+    persist_v7_observations,
+    project_v7_finalization,
+    verify_v7_observation_prefix,
+)
+from .v7_draft_preparation import drafts_ready, prepare_drafts
+from .v7_independent_progress import (
+    V7PreparedIndependentProgress,
+    prepare_independent_progress,
+)
+from .v7_run_state import V7RunFinalization
 from .v7_worker_runtime import (
     V7WorkerConfiguration,
     V7WorkerRuntime,
@@ -133,6 +146,11 @@ SEMI_AUTOMATIC_CHECKPOINT_SCHEMA_VERSION = 1
 SEMI_AUTOMATIC_SELECTION_STAGE = "semi_automatic_image_selection"
 _NATURAL_PATH_PART = re.compile(r"(\d+)")
 LOGGER = logging.getLogger(__name__)
+
+
+class _V7CheckpointArguments(TypedDict, total=False):
+    v7_progress: V7WorkerRuntimeProgress
+    current_run: SemiAutomaticSelectionRun
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,17 +190,34 @@ class SemiAutomaticSelectionJobStore:
 
     def get_run_for_job(self, job_id: UUID) -> SemiAutomaticSelectionRun:
         with self._session_factory() as session:
-            run_id = session.scalar(
-                select(SemiAutomaticImageSelectionRunModel.id).where(
-                    SemiAutomaticImageSelectionRunModel.job_id == job_id
-                )
-            )
-            if run_id is None:
+            identity = session.execute(
+                select(
+                    SemiAutomaticImageSelectionRunModel.id,
+                    SemiAutomaticImageSelectionRunModel.workflow_mode,
+                    SemiAutomaticImageSelectionRunModel.status,
+                ).where(SemiAutomaticImageSelectionRunModel.job_id == job_id)
+            ).one_or_none()
+            if identity is None:
                 raise JobHandlerError(
                     "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
                     "The semi-automatic selection job has no durable run.",
                 )
-            run = SqlAlchemySemiAutomaticSelectionRepository(session).get(run_id)
+            run_id, workflow, status = identity
+            repo = SqlAlchemySemiAutomaticSelectionRepository(session)
+            run = (
+                repo.get_for_v7_review(run_id)
+                if workflow == "v7_selection"
+                and status in {"analysis_complete", "review_mode", "syncing_output"}
+                else repo.get(run_id)
+            )
+            if (
+                run is not None
+                and workflow == "v7_selection"
+                and status in {"analysis_complete", "review_mode"}
+                and run.checkpoint.get("v7ProjectionFingerprint") is None
+            ):
+                # Incomplete/legacy finalization still needs its full recovery state.
+                run = repo.get(run_id)
             if run is None:
                 raise JobHandlerError(
                     "SEMI_AUTOMATIC_SELECTION_NOT_FOUND",
@@ -199,10 +234,52 @@ class SemiAutomaticSelectionJobStore:
         checkpoint: Mapping[str, object],
         counters: Mapping[str, int],
         persisted_at: datetime,
+        v7_progress: V7WorkerRuntimeProgress | None = None,
+        current_run: SemiAutomaticSelectionRun | None = None,
     ) -> SemiAutomaticSelectionRun:
+        if current_run is not None and (
+            current_run.id != run_id
+            or current_run.job.id != job_id
+            or current_run.workflow_mode is not SemiAutomaticSelectionWorkflowMode.V7_SELECTION
+            or v7_progress is None
+            or v7_progress.observations is None
+        ):
+            raise JobHandlerError(
+                "V7_RUN_STATE_CHECKPOINT_INVALID", "Invalid independent run snapshot."
+            )
+        updated_run = None
         with self._session_factory() as session, session.begin():
+            _lock_v7_gate_for_run(session, run_id)
             _assert_fence(session, job_id, lease_token, persisted_at)
-            record = _locked_run(session, run_id)
+            record = (
+                _locked_run(session, run_id, include_checkpoint=False)
+                if current_run is not None
+                else _locked_run(session, run_id)
+            )
+            if record.workflow_mode == SemiAutomaticSelectionWorkflowMode.V7_SELECTION.value:
+                if v7_progress is not None and v7_progress.source_indexes != tuple(
+                    range(
+                        record.counters.get("processedSources", 0),
+                        counters["processedSources"],
+                    )
+                ):
+                    raise JobHandlerError(
+                        "V7_SOURCE_OBSERVATION_CHANGED", "The new observation prefix changed."
+                    )
+                persist_v7_observations(
+                    session,
+                    run_id,
+                    dict(checkpoint),
+                    persisted_at,
+                    source_indexes=None if v7_progress is None else v7_progress.source_indexes,
+                    pinned_manifest=None if v7_progress is None else v7_progress.pinned_manifest,
+                    diagnostic_scan_state=None
+                    if v7_progress is None
+                    else getattr(v7_progress, "diagnostic_scan_state", None),
+                    observations=None
+                    if v7_progress is None
+                    else getattr(v7_progress, "observations", None),
+                )
             if record.status == SemiAutomaticSelectionRunStatus.PAUSED.value:
                 _apply_run_progress(record, checkpoint, counters, persisted_at)
             elif record.status in {
@@ -217,7 +294,92 @@ class SemiAutomaticSelectionJobStore:
             else:
                 record.status = SemiAutomaticSelectionRunStatus.RUNNING.value
                 _apply_run_progress(record, checkpoint, counters, persisted_at)
+            if current_run is not None:
+                updated_run = replace(
+                    current_run,
+                    status=SemiAutomaticSelectionRunStatus(record.status),
+                    checkpoint=dict(checkpoint),
+                    counters=dict(record.counters),
+                    revision=record.revision,
+                    updated_at=record.updated_at,
+                )
+        if updated_run is not None:
+            return updated_run
         return self._get_run(run_id)
+
+    def verify_v7_prefix(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        persisted_at: datetime,
+        checkpoint: dict[str, object] | None = None,
+    ) -> None:
+        with self._session_factory() as session, session.begin():
+            _lock_v7_gate_for_run(session, run_id)
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            record = _locked_run(session, run_id)
+            if checkpoint is not None:
+                scan = checkpoint.get("scanState")
+                if checkpoint and (
+                    not isinstance(scan, dict)
+                    or cast(dict[str, Any], scan["tracker"])["cursors"]["nextSourceIndex"]
+                    != record.counters.get("processedSources", 0)
+                ):
+                    raise JobHandlerError(
+                        "V7_SOURCE_OBSERVATION_CHANGED", "The claimed prefix changed."
+                    )
+            verify_v7_observation_prefix(
+                session, run_id, dict(record.checkpoint) if checkpoint is None else checkpoint
+            )
+
+    def prepare_v7_independent_progress(
+        self,
+        *,
+        artifact_root: Path,
+        run: SemiAutomaticSelectionRun,
+        configuration: V7WorkerConfiguration,
+        manifest: LocalSourceManifest,
+    ) -> V7PreparedIndependentProgress:
+        with self._session_factory() as session:
+            return prepare_independent_progress(
+                session,
+                artifact_root=artifact_root,
+                run_id=run.id,
+                checkpoint=dict(run.checkpoint),
+                configuration=configuration,
+                manifest=manifest,
+            )
+
+    def finalize_v7(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        checkpoint: dict[str, object],
+        finalization: V7RunFinalization,
+        persisted_at: datetime,
+    ) -> SemiAutomaticSelectionRun:
+        with self._session_factory() as session, session.begin():
+            _lock_v7_gate_for_run(session, run_id)
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            record = _locked_run(session, run_id)
+            if record.status in {"cancelled", "failed", "completed", "paused"}:
+                raise JobHandlerError("V7_REVIEW_PROJECTION_CHANGED", "Run cannot finalize now.")
+            verify_v7_observation_prefix(session, run_id, checkpoint)
+            projected = project_v7_finalization(
+                session, record, checkpoint, finalization, persisted_at
+            )
+            if record.checkpoint.get("v7ProjectionFingerprint") is None:
+                record.status = SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE.value
+                _apply_run_progress(record, projected, record.counters, persisted_at)
+        return self._get_run(run_id)
+
+    def read_v7_pilot_gate(self) -> V7PilotGate:
+        with self._session_factory() as session:
+            return SqlAlchemySemiAutomaticSelectionRepository(session).get_v7_pilot_gate()
 
     def apply_selection(
         self,
@@ -583,6 +745,7 @@ class SemiAutomaticImageSelectionJobHandler:
         five_anchor_locator_factory: FiveAnchorLocatorFactory = FiveAnchorRangeLabelLocator,
         v4_orientation_override: MiddleRowRunOrientation = MiddleRowRunOrientation.AUTO,
         v7_runtime: V7WorkerRuntime | None = None,
+        v7_delivery: V7ReviewedDelivery | None = None,
     ) -> None:
         self._store = store
         self._browser_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
@@ -595,11 +758,14 @@ class SemiAutomaticImageSelectionJobHandler:
         self._five_anchor_locator_factory = five_anchor_locator_factory
         self._v4_orientation_override = v4_orientation_override
         self._v7_runtime = v7_runtime or V7WorkerRuntime()
+        self._v7_delivery = v7_delivery
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        run: SemiAutomaticSelectionRun | None = None
+        local_manifest = None
         try:
-            payload = SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
             run = self._store.get_run_for_job(job.id)
+            payload = SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
             self._validate_contract(run, payload)
             if run.status in {
                 SemiAutomaticSelectionRunStatus.CLEANUP_PENDING,
@@ -690,21 +856,48 @@ class SemiAutomaticImageSelectionJobHandler:
                     checkpoint=checkpoint,
                 )
             self._finish(context, job, run=run, audit=audit, checkpoint=checkpoint)
+        except JobHandlerError as error:
+            self._record_v7_dispatch_failure(context, run, error.code, local_manifest)
+            raise
         except V7WorkerRuntimeError as error:
+            self._record_v7_dispatch_failure(context, run, error.code, local_manifest)
             raise JobHandlerError(error.code, str(error)) from error
         except SemiAutomaticSelectionError as error:
+            self._record_v7_dispatch_failure(context, run, error.code, local_manifest)
             raise JobHandlerError(error.code, error.message) from error
-        except JobError:
+        except JobError as error:
+            if error.code != "JOB_LEASE_LOST":
+                self._record_v7_dispatch_failure(context, run, error.code, local_manifest)
             raise
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             LOGGER.exception(
                 "Semi-automatic selection failed while validating durable input for job %s.",
                 job.id,
             )
+            self._record_v7_dispatch_failure(
+                context,
+                run,
+                "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
+                local_manifest,
+            )
             raise JobHandlerError(
                 "SEMI_AUTOMATIC_SELECTION_CHECKPOINT_INVALID",
                 "The semi-automatic selection could not validate its durable input.",
             ) from error
+
+    def _record_v7_dispatch_failure(
+        self,
+        context: JobExecutionContext,
+        run: SemiAutomaticSelectionRun | None,
+        code: str,
+        manifest: LocalSourceManifest | None,
+    ) -> None:
+        if (
+            self._v7_delivery is not None
+            and run is not None
+            and run.workflow_mode is SemiAutomaticSelectionWorkflowMode.V7_SELECTION
+        ):
+            self._v7_delivery.dispatch_failure(context, run, code, manifest)
 
     def _run_v7(
         self,
@@ -714,11 +907,7 @@ class SemiAutomaticImageSelectionJobHandler:
         run: SemiAutomaticSelectionRun,
         local_manifest: LocalSourceManifest,
     ) -> None:
-        """Dispatch V7 before legacy audit, scan and writer code.
-
-        This task persists only the V7 scan state.  It intentionally leaves the
-        legacy selection projection and every output operation untouched.
-        """
+        """Scan to EOF, project canonical ranges, then execute confirmed SQL commands."""
 
         configuration = run.v7_configuration
         if configuration is None:
@@ -726,6 +915,15 @@ class SemiAutomaticImageSelectionJobHandler:
                 "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_REQUIRED",
                 "The V7 run has no durable configuration.",
             )
+        if self._v7_delivery is not None:
+            pending = self._v7_delivery.pending(run.id)
+            if pending is not None:
+                self._v7_delivery.execute(context, run, local_manifest)
+                context.wait_for_review()
+            if run.checkpoint.get("v7ProjectionFingerprint") is not None:
+                self._v7_delivery.require_review_current(run, local_manifest)
+                self._prepare_draft_outputs(context, run, local_manifest)
+                context.wait_for_review()
         runtime_configuration = V7WorkerConfiguration(
             first_sequence_number=configuration.first_sequence_number,
             last_sequence_number=configuration.last_sequence_number,
@@ -733,7 +931,26 @@ class SemiAutomaticImageSelectionJobHandler:
             border_style=V7BorderStyle(configuration.border_style.value),
             localizer_fingerprint=configuration.localizer_fingerprint,
             calibration_fingerprint=configuration.calibration_fingerprint,
+            pilot=None if configuration.pilot is None else configuration.pilot.as_payload(),
         )
+        resume_reference = None
+        if self._v7_runtime.independent_progress:
+            prepared = self._store.prepare_v7_independent_progress(
+                artifact_root=self._artifact_root,
+                run=run,
+                configuration=runtime_configuration,
+                manifest=local_manifest,
+            )
+            run = replace(run, checkpoint=prepared.checkpoint)
+            resume_reference = prepared.resume_reference
+        if self._v7_delivery is not None:
+            self._store.verify_v7_prefix(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                persisted_at=context.now(),
+                **({"checkpoint": dict(run.checkpoint)} if resume_reference is not None else {}),
+            )
 
         def persist(progress: V7WorkerRuntimeProgress) -> None:
             nonlocal run
@@ -743,6 +960,11 @@ class SemiAutomaticImageSelectionJobHandler:
                 progress.phase.value in {"finalization_pending", "finalized"}
             )
             counters["v7SourceDriftBlocked"] = int(progress.blocked_source_drift)
+            checkpoint_arguments: _V7CheckpointArguments = {}
+            if progress.source_indexes is not None:
+                checkpoint_arguments["v7_progress"] = progress
+            if progress.observations is not None:
+                checkpoint_arguments["current_run"] = run
             run = self._store.persist_checkpoint(
                 job_id=job.id,
                 run_id=run.id,
@@ -750,18 +972,70 @@ class SemiAutomaticImageSelectionJobHandler:
                 checkpoint=progress.checkpoint,
                 counters=counters,
                 persisted_at=context.now(),
+                **checkpoint_arguments,
             )
             _v7_job_checkpoint(context, run, progress)
             if run.status is SemiAutomaticSelectionRunStatus.PAUSED:
                 context.wait_for_review()
 
-        self._v7_runtime.run(
-            manifest=local_manifest,
-            configuration=runtime_configuration,
-            checkpoint=run.checkpoint,
-            persist=persist,
-        )
+        try:
+            result = self._v7_runtime.run(
+                manifest=local_manifest,
+                configuration=runtime_configuration,
+                checkpoint=run.checkpoint,
+                persist=persist,
+                **({"resume_reference": resume_reference} if resume_reference is not None else {}),
+            )
+            self._store.finalize_v7(
+                job_id=job.id,
+                run_id=run.id,
+                lease_token=context.lease_token,
+                checkpoint=result.checkpoint,
+                finalization=result.finalization,
+                persisted_at=context.now(),
+            )
+            self._prepare_draft_outputs(
+                context, run, local_manifest, result.checkpoint, result.finalization
+            )
+        except V7WorkerRuntimeError as error:
+            if self._v7_delivery is not None:
+                self._v7_delivery.block_scan_failure(context, run, error.code)
+            raise
         context.wait_for_review()
+
+    def _prepare_draft_outputs(
+        self,
+        context: JobExecutionContext,
+        run: SemiAutomaticSelectionRun,
+        manifest: LocalSourceManifest,
+        checkpoint: dict[str, object] | None = None,
+        finalization: V7RunFinalization | None = None,
+    ) -> None:
+        config = run.v7_configuration
+        if config is None or config.output_directory is None:
+            return
+        try:
+            output = Path(config.output_directory)
+            if drafts_ready(output, run_id=str(run.id), fingerprint=manifest.source_fingerprint):
+                return
+            # Only an interrupted draft export fetches full EOF evidence. Normal
+            # review/receipt commands continue to use bounded control reads.
+            if checkpoint is None:
+                checkpoint = self._store._get_run(run.id).checkpoint
+            prepare_drafts(
+                manifest,
+                cast(dict[str, Any], checkpoint["scanState"]),
+                finalization,
+                output_directory=output,
+                run_id=str(run.id),
+                first=config.first_sequence_number,
+                last=config.last_sequence_number,
+                direction=str(getattr(config, "direction", "ascending")),
+                artifact_root=getattr(self, "_artifact_root", None),
+                pulse=context.heartbeat,
+            )
+        except (OSError, ValueError) as error:
+            raise JobHandlerError("V7_DRAFT_EXPORT_FAILED", str(error)) from error
 
     def _scan(
         self,
@@ -1671,6 +1945,21 @@ class SemiAutomaticImageSelectionJobHandler:
                 != configuration.localizer_fingerprint
                 or payload_configuration.calibration_fingerprint
                 != configuration.calibration_fingerprint
+                or payload_configuration.version != configuration.as_payload()["version"]
+                or (
+                    None
+                    if payload_configuration.pilot is None
+                    else payload_configuration.pilot.model_dump(by_alias=True)
+                )
+                != (None if configuration.pilot is None else configuration.pilot.as_payload())
+                or (
+                    configuration.pilot is not None
+                    and (
+                        run.recognizer_fingerprint != configuration.pilot.ocr_model_fingerprint
+                        or payload.recognizer_fingerprint != run.recognizer_fingerprint
+                        or payload.grouping_policy_fingerprint != run.grouping_policy_fingerprint
+                    )
+                )
             ):
                 raise JobHandlerError(
                     "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID",
@@ -2129,12 +2418,27 @@ def _v7_job_checkpoint(
 
     scan_state = progress.checkpoint["scanState"]
     assert isinstance(scan_state, dict)
-    source_errors = scan_state["sourceErrors"]
-    assert isinstance(source_errors, list)
+    source_error_count = progress.source_error_count
+    if source_error_count is None:
+        source_errors = scan_state["sourceErrors"]
+        assert isinstance(source_errors, list)
+        source_error_count = len(source_errors)
     context.checkpoint(
         checkpoint_payload={
             "schema_version": 1,
-            "v7_semi_automatic_image_selection": dict(progress.checkpoint),
+            "v7_semi_automatic_image_selection": {
+                "version": "v7-job-progress-reference-v1",
+                "runId": str(run.id),
+                "runtimeVersion": progress.checkpoint["runtimeVersion"],
+                "calibrationFingerprint": progress.checkpoint["calibrationFingerprint"],
+                "localizerFingerprint": progress.checkpoint["localizerFingerprint"],
+                "processedSources": progress.processed_sources,
+                "totalSources": progress.total_sources,
+                "phase": progress.phase.value,
+                "blockedSourceDrift": progress.blocked_source_drift,
+                "sourceFingerprint": run.source.source_fingerprint,
+                "pilotSnapshot": progress.checkpoint.get("pilotSnapshot"),
+            },
         },
         stage=(
             f"{SEMI_AUTOMATIC_SELECTION_STAGE}:v7:blocked_source_drift"
@@ -2144,7 +2448,7 @@ def _v7_job_checkpoint(
         current=progress.processed_sources,
         total=progress.total_sources,
         success_count=0,
-        failure_count=len(source_errors),
+        failure_count=source_error_count,
         review_count=run.counters.get("missing", 0),
     )
 
@@ -2334,9 +2638,28 @@ def _assert_fence(
         )
 
 
-def _locked_run(session: Session, run_id: UUID) -> SemiAutomaticImageSelectionRunModel:
+def _lock_v7_gate_for_run(session: Session, run_id: UUID) -> None:
+    mode = session.scalar(
+        select(SemiAutomaticImageSelectionRunModel.workflow_mode).where(
+            SemiAutomaticImageSelectionRunModel.id == run_id
+        )
+    )
+    if mode == SemiAutomaticSelectionWorkflowMode.V7_SELECTION.value:
+        SqlAlchemySemiAutomaticSelectionRepository(session).get_v7_pilot_gate(for_update=True)
+
+
+def _locked_run(
+    session: Session, run_id: UUID, *, include_checkpoint: bool = True
+) -> SemiAutomaticImageSelectionRunModel:
     record = session.scalar(
         select(SemiAutomaticImageSelectionRunModel)
+        .options(
+            *(
+                ()
+                if include_checkpoint
+                else (defer(SemiAutomaticImageSelectionRunModel.checkpoint, raiseload=True),)
+            )
+        )
         .where(SemiAutomaticImageSelectionRunModel.id == run_id)
         .with_for_update()
     )

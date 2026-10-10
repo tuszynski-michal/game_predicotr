@@ -1,0 +1,58 @@
+"""Frozen v5 ownership: add the opt-in geometry comparison history."""
+
+from game_predictor_api.storage.game_data_v2_manifest_v4 import (
+    CATALOG,
+    CONTROL_TABLES,
+    DUAL_SCOPE,
+    SCHEMA,
+    SHARED,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import GAME_TABLES as _V4_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION as PREVIOUS_VERSION
+
+VERSION = "game-data-v2-manifest-v5"
+ADDED_GAME_TABLES = ("image_geometry_shadow_results",)
+# Shared tables created after v5 (TASK-0940 classification): V7 semi-automatic
+# selection history. No game_id; the FKs go only to the shared semi-automatic
+# runs/ranges, and pilot_acceptances is a receipt of the singleton activation
+# gate. A separate set, not part of SHARED: migrations 0131/0134/0142 bulk-insert
+# sorted(CATALOG | SHARED | ...) into game_storage_table_manifest, so SHARED (and
+# the frozen v2 set it derives from) must keep the tables that existed then.
+POST_V5_SHARED = frozenset(
+    {
+        "semi_automatic_selection_v7_output_operations",
+        "semi_automatic_selection_v7_pilot_acceptances",
+        "semi_automatic_selection_v7_source_observations",
+    }
+)
+GAME_TABLES = tuple(sorted((*_V4_GAME_TABLES, *ADDED_GAME_TABLES)))
+PARTITIONED_TABLES = CREATE_TABLES = MIGRATE_TABLES = DELETE_TABLES = GAME_TABLES
+
+
+def ownership(table: str) -> str:
+    if table in CATALOG:
+        return "catalog"
+    if table in GAME_TABLES:
+        return "game"
+    if table in SHARED or table in CONTROL_TABLES or table in POST_V5_SHARED:
+        return "shared"
+    raise ValueError(f"GAME_STORAGE_UNKNOWN_TABLE: {table}")
+
+
+__all__ = [
+    "ADDED_GAME_TABLES",
+    "CATALOG",
+    "CONTROL_TABLES",
+    "CREATE_TABLES",
+    "DELETE_TABLES",
+    "DUAL_SCOPE",
+    "GAME_TABLES",
+    "MIGRATE_TABLES",
+    "PARTITIONED_TABLES",
+    "POST_V5_SHARED",
+    "PREVIOUS_VERSION",
+    "SCHEMA",
+    "SHARED",
+    "VERSION",
+    "ownership",
+]

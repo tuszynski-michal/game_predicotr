@@ -1,7 +1,7 @@
 {
   "activeLearningVersion": "whole-layout-active-learning-v1",
   "batchSize": 30,
-  "calibrationReportSha256": "f84d9a2eada2424587876bd30d41278f895c69043ed55cf263df79747144e3f8",
+  "calibrationReportSha256": "0e11b3ad56f3728ad5bae6fa47af62949712287d6d8646428218755483ad4886",
   "candidateCompletePendingBoardCount": 299,
   "classes": [
     "cherries",
@@ -13,9 +13,9 @@
     "star",
     "watermelon"
   ],
-  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "datasetSha256": "596ecb534bc68e5493aa9957c82c5af1780010277a27e541ad3a7c8418d3806b",
   "excludedPartialPendingBoardCount": 4,
-  "inventorySha256": "55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1",
+  "inventorySha256": "d8734d311f57e5667e1dc437a14f500971c88cfe304001e780e98e80bfdeec32",
   "inventoryVersion": "symbol-crop-inventory-v3",
   "model": {
     "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
@@ -11768,6 +11768,6 @@
     "maximumOneBoardPerSourceUntilAllSourcesCovered": true,
     "mutatesReviewedLabels": false
   },
-  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "splitSha256": "e966a593122039b6e7af51fbb41074b9a4edc0db06f02431c9e7469a3fdec22a",
   "status": "ready_for_manual_review"
 }

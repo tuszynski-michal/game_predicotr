@@ -88,7 +88,10 @@ test('conflict can stop a queue but cannot silently rebase pending actions', () 
       }),
     /QUEUE_STOPPED/,
   );
-  assert.throws(() => resumeV7LabelGeometryQueue(stopped, 3), /REBASE_FORBIDDEN/);
+  assert.throws(
+    () => resumeV7LabelGeometryQueue(stopped, 3),
+    /REBASE_FORBIDDEN/,
+  );
 });
 
 test('a lost receipt keeps the immutable first expected revision through refresh', () => {

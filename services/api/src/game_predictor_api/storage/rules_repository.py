@@ -26,6 +26,7 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SymbolModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 _CONFLICTS = {
     "uq_rules_versions_game_version": (
@@ -112,9 +113,15 @@ class SqlAlchemyRulesRepository(RulesRepository):
         record.rows = rules_version.rows
         record.columns = rules_version.columns
         record.spin_cost = rules_version.spin_cost
+        status_changed = record.status != rules_version.status
         record.status = rules_version.status
         record.published_at = rules_version.published_at
         self._flush_or_raise_conflict()
+        if status_changed and rules_version.status is not RulesVersionStatus.DRAFT:
+            # Publication (or archival) changes the active rules of the game.
+            record_super_game_input_change(
+                self._session, rules_version.game_id, source="rules_publication"
+            )
         return _to_rules_version(record)
 
     def get_or_clone_current_draft(
@@ -295,10 +302,18 @@ class SqlAlchemyRulesRepository(RulesRepository):
         self._flush_or_raise_conflict()
         return _to_payline(record)
 
-    def payout_configuration_fits_columns(
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
+        record = self._session.get(PaylineModel, payline_id)
+        if record is None or record.rules_version_id != rules_version_id:
+            raise RuntimeError("Payline disappeared during a rules transaction.")
+        self._session.delete(record)
+        self._session.flush()
+
+    def payout_configuration_fits_dimensions(
         self,
         rules_version_id: UUID,
         *,
+        rows: int,
         columns: int,
     ) -> bool:
         minimums = self._session.scalars(
@@ -309,12 +324,21 @@ class SqlAlchemyRulesRepository(RulesRepository):
         )
         if any(minimum is not None and minimum > columns for minimum in minimums):
             return False
-        match_lengths = self._session.scalars(
-            select(PayoutRuleModel.match_length).where(
-                PayoutRuleModel.rules_version_id == rules_version_id
-            )
+        payout_lengths = self._session.execute(
+            select(PayoutRuleModel.match_length, SymbolModel.super_game_trigger_count)
+            .join(SymbolModel, SymbolModel.id == PayoutRuleModel.symbol_id)
+            .where(PayoutRuleModel.rules_version_id == rules_version_id)
         )
-        return all(match_length <= columns for match_length in match_lengths)
+        return all(
+            match_length <= (columns if trigger_count is None else rows * columns)
+            for match_length, trigger_count in payout_lengths
+        )
+
+    def get_game_super_game_kind(self, game_id: UUID) -> str:
+        kind = self._session.scalar(
+            select(GameModel.super_game_kind).where(GameModel.id == game_id)
+        )
+        return "none" if kind is None else kind
 
     def get_rules_symbol_definition(
         self,
@@ -327,6 +351,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
             id=record.id,
             game_id=record.game_id,
             is_wildcard=record.is_wildcard,
+            super_game_trigger_count=record.super_game_trigger_count,
         )
 
     def list_rules_version_symbols(

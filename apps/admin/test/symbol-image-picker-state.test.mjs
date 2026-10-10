@@ -8,8 +8,8 @@ import {
   currentSymbolReferenceCandidatePage,
 } from '../src/features/symbols/symbol-image-picker-state.ts';
 
-const first = { items: [{ observationId: 'first' }], nextCursor: 'cursor-1' };
-const last = { items: [{ observationId: 'last' }], nextCursor: null };
+const first = { items: [{ cellReviewId: 'first' }], nextCursor: 'cursor-1' };
+const last = { items: [{ cellReviewId: 'last' }], nextCursor: null };
 
 test('retains already loaded pages and moves one page at a time', () => {
   const pages = appendSymbolReferenceCandidatePage([first], last);

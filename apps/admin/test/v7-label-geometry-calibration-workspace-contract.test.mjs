@@ -31,8 +31,27 @@ test('the calibration screen has only calibration case choices and no holdout co
   assert.doesNotMatch(workspace, /id: 'reels_test'/);
   assert.match(workspace, /geometryFamilyId: GEOMETRY_FAMILY_ID/);
   assert.match(workspace, /corpusCaseIds: \[\.\.\.selectedCaseIds\]/);
-  assert.match(workspace, /DEFAULT_CALIBRATION_CASE_IDS = \['small_777'\]/);
-  assert.match(workspace, /opcjonalnie, nie do podstawowej kalibracji/);
+  assert.match(
+    workspace,
+    /DEFAULT_CALIBRATION_CASE_IDS = \['small_777', 'occluded_777'\]/,
+  );
+  assert.match(
+    workspace,
+    /GEOMETRY_FAMILY_ID = V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID/,
+  );
+  assert.match(workspace, /Ujęcie A\)/);
+  assert.match(workspace, /Ujęcie B\)/);
+});
+
+test('a new session forgets only the local view and keeps the server session', () => {
+  assert.match(workspace, /Zacznij nową sesję/);
+  assert.match(
+    workspace,
+    /await store\.forgetSession\(currentSession\.sessionId\)/,
+  );
+  assert.match(workspace, /queueRef\.current\.pending\.length > 0/);
+  assert.match(store, /async forgetSession\(sessionId: string\)/);
+  assert.match(store, /objectStore\(VIEW_STORE\)\.delete\(sessionId\)/);
 });
 
 test('the screen uses a checksum-bound Blob asset and click coordinates from the image itself', () => {
@@ -68,7 +87,10 @@ test('a durable queue serializes clicks, stops persistently, and never rebases',
   assert.match(workspace, /CAPTURE_GROUP_OPTIONS/);
   assert.match(workspace, /Ujęcie A/);
   assert.match(workspace, /Porzuć niepotwierdzone/);
-  assert.match(store, /DATABASE_NAME = 'game-predictor-v7-label-geometry-calibration'/);
+  assert.match(
+    store,
+    /DATABASE_NAME = 'game-predictor-v7-label-geometry-calibration'/,
+  );
   assert.match(store, /QUEUE_STORE = 'queue'/);
   assert.match(store, /VIEW_STORE = 'views'/);
   assert.doesNotMatch(store, /FileSystemDirectoryHandle|Blob|ImageBitmap/);

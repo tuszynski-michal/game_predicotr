@@ -18,11 +18,11 @@
     "trainUsedForCalibration": false
   },
   "inputs": {
-    "datasetSha256": "99d0f943e4646a0e320bb4e5ca792bfbbf66522afad1135614b1753edffb6dc0",
+    "datasetSha256": "a30d14b8905e297460f5f76291b78e95a3e54ae488f34f74f3049d43e4276d54",
     "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
     "onnxArtifactSha256": "3010d89f36f71dde4ffb24e14d030c03ef85b4111642eb4f813942753db4c711",
-    "onnxReportSha256": "b8e97bd88e39fd15c6fff6573fffa3b0ff8bf01f0d4a1ce3c76a8255c62b1cd9",
-    "splitSha256": "4b91e36852d1cd2566be2caf65c27ac720d52aef06a208b1d97e7b23e6b59a99"
+    "onnxReportSha256": "cf784a1501f333bb797f247590a340cd62711b39c11f489a85dfff29da33e4ce",
+    "splitSha256": "11028289dec53703b2e3b579e5d39d89276115d2c148d2a84844ac1fdfcd6a46"
   },
   "policy": {
     "autoAccept": {

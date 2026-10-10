@@ -10,7 +10,6 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 
 def _cell(symbol_code: str) -> ImageReviewCell:
     return ImageReviewCell(
-        observation_id=uuid4(),
         cell_index=0,
         row_index=0,
         column_index=0,

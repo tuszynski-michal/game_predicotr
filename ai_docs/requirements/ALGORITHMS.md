@@ -1,7 +1,7 @@
 ---
 title: Algorithms specification
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-10-09
 ---
 
 # Specyfikacja algorytmów
@@ -91,7 +91,15 @@ matches[]:
   joker_cells
   payout
   interpretation
+count_matches[]:        # payout-v4-wild-count; puste dla v2/v3
+  symbol_code
+  count
+  matched_cells
+  payout
 ```
+
+`joker_cells` zachowuje historyczną nazwę pola: oznacza komórki z symbolem
+Wild (dawniej „Joker”, D-535).
 
 `start_column` oraz indeksy w `matched_cells` i `joker_cells` są 0-based.
 Komórki używają indeksu `row-major`: `row * columns + column`.
@@ -126,16 +134,16 @@ Dla każdej pary `(payline, zwykły symbol)`:
 
 1. odczytaj po jednej komórce z kolejnych kolumn, zaczynając zawsze od
    pierwszej kolumny,
-2. traktuj komórkę jako zgodną, gdy zawiera oceniany symbol albo joker,
+2. traktuj komórkę jako zgodną, gdy zawiera oceniany symbol albo Wild,
 3. zakończ dopasowanie na pierwszej niezgodnej komórce; zgodne komórki po tej
    pozycji nie należą już do zwycięskiego ciągu,
 4. odczytaj `minimum_match_length` skonfigurowane dla symbolu w aktywnej wersji
    reguł,
 5. odrzuć prefiks krótszy niż `minimum_match_length` albo złożony wyłącznie z
-   jokerów,
+   Wildów,
 6. wybierz najdłuższą zdefiniowaną długość nieprzekraczającą długości
    dopasowanego prefiksu,
-7. zapisz użyte komórki i interpretację jokerów.
+7. zapisz użyte komórki i interpretację Wildów.
 
 Ciąg:
 
@@ -149,7 +157,7 @@ Przykłady dla symbolu `S2`:
 - `[S2, S2, S2, S7, S2]` daje ciąg długości 3; ostatnie `S2` nie jest liczone,
 - `[S7, S2, S2, S2, S2]` nie daje wygranej dla `S2`, ponieważ pierwsza
   kolumna nie pasuje,
-- `[S2, joker, S7, S2, S2]` daje długość 2, ale wygrywa tylko wtedy, gdy
+- `[S2, Wild, S7, S2, S2]` daje długość 2, ale wygrywa tylko wtedy, gdy
   `minimum_match_length` symbolu `S2` wynosi 2.
 
 `payout-v2` nie szuka rozłącznych ciągów i nie ocenia ponownie payline od
@@ -158,19 +166,126 @@ dla plansz szerszych niż 5 kolumn.
 
 `payout-v3-unknown-prefix-stop` zachowuje tę samą kolejność i reguły dla
 znanych symboli, ale zarezerwowany kod layoutu `0` kończy analizowany prefiks.
-Nie jest jokerem ani niezgodnym symbolem: pozycje po nim są ignorowane, a
+Nie jest Wildem ani niezgodnym symbolem: pozycje po nim są ignorowane, a
 prefiks przed nim może wygrać, jeśli sam spełnia minimalną długość. Kod `0` w
 pierwszej kolumnie daje prefiks długości zero. Historyczne obliczenia v2
 pozostają odtwarzalne i nadal odrzucają kod `0`.
 
-### Joker
+### `payout-v4-wild-count` (D-535, TASK-0932)
+
+Gra, której katalog ma co najmniej jeden symbol uruchamiający supergrę
+(`symbols.super_game_trigger_count` różne od `null`), jest liczona wersją
+`payout-v4-wild-count`. Gra bez takiego symbolu nadal raportuje
+`payout-v3-unknown-prefix-stop` i ma wyniki identyczne bajt w bajt z v3
+(777 i 777 v2 bez zmian). Wersję wybiera się per gra z konfiguracji
+symboli reguł, a nie z parametru wywołania.
+
+- **Linie:** reguły v3 bez zmian, z jednym wyjątkiem: symbol uruchamiający
+  nie jest zwykłym symbolem liniowym. Symbol uruchamiający, który jest też
+  Wildem (Mumia), nadal zastępuje inne symbole na liniach; symbol
+  uruchamiający bez roli Wild kończy prefiks jak każdy niezgodny symbol.
+- **Sztuki na planszy:** dla każdego symbolu uruchamiającego liczy się jego
+  komórki w dowolnym miejscu planszy (pozycja i kolejność nie mają
+  znaczenia). Wypłaca się regułę dla największej skonfigurowanej liczby
+  sztuk nie większej niż wynik liczenia (`payout_rules.match_length` symbolu
+  uruchamiającego oznacza liczbę sztuk, zakres `2..rows × columns`, wypłaty
+  ściśle rosnące, nie każda liczba musi mieć regułę). Brak takiej reguły (np.
+  2 sztuki przy regułach od 3) albo brak reguł symbolu daje brak wypłaty za
+  sztuki, bez błędu.
+- **Nieznane pola:** kod `0` nigdy nie jest liczony jako sztuka. Na planszy
+  częściowej liczba sztuk jest więc dolnym ograniczeniem, a wypłata za sztuki
+  rośnie z liczbą sztuk, dlatego pozostaje bezpiecznym dolnym ograniczeniem
+  prawdziwej wypłaty (§D).
+- **Suma:** `total_payout = suma wypłat linii + suma wypłat za sztuki`.
+  Wypłata za sztuki jest osobnym dopasowaniem (`count_matches`), nie udaje
+  linii i nie ma `payline_id`.
+
+Przykład (Mumia = Wild i symbol uruchamiający, reguły Mumii 3→20):
+
+```text
+[10, Mumia, 10, 10, J]     linia górna:   10 ×4 (Mumia jako 10)
+[K,  K,  Mumia, Q,  Q]     linia środkowa: K ×3 (Mumia jako K)
+[Mumia, A, A,  A,  10]     linia dolna:   A ×4 (Mumia jako A; ciąg kończy 10)
+Mumia na planszy: 3 sztuki → 20
+total = payout(10, 4) + payout(K, 3) + payout(A, 4) + 20
+```
+
+Złote przypadki obu języków (`packages/domain-fixtures/payout-golden-cases.json`,
+sekcja `wildCountScenario`) wykonują ewaluator workera i jego lustrzany
+odpowiednik w `packages/shared-ts` (`evaluatePayout`).
+
+Prekomputacja wydań (`layout_payouts`, snapshot mobilny) nie obsługuje
+jeszcze `payout-v4-wild-count`: zadanie payout odrzuca zlecenie v2/v3 dla gry
+z symbolem uruchamiającym (`PAYOUT_ALGORITHM_GAME_MISMATCH`), aby wynik v4
+nigdy nie został zapisany pod etykietą v3.
+
+### Plansza w serii supergry `wild_super_spins` (D-537, TASK-0936)
+
+Pozycja sekwencji objęta opublikowaną serią supergry jako jej spin
+(`trigger + 1 … trigger + length`, TASK-0933) jest liczona oceną planszy
+serii rodzaju gry (`evaluate_series_board(board, super_symbol, rules)`,
+`services/worker/.../domain/super_games/wild_super_spins.py`). Plansza
+wyzwalająca serię jest w trybie bazowym. Dla rodzaju `wild_super_spins` i
+super symbolu `X` (zwykły symbol liniowy wybrany przez operatora):
+
+1. `k` = liczba kolumn planszy **oryginalnej**, w których występuje `X`
+   (kolumny nie muszą sąsiadować). Gdy `k < minimum_match_length(X)`,
+   plansza nie jest przekształcana: linie (z Wildem) i sztuki liczy się
+   dokładnie jak w trybie bazowym.
+2. Gdy `k ≥ minimum_match_length(X)`: każda z tych `k` kolumn jest w całości
+   wypełniona `X` — przykrycie usuwa symbole pod spodem, także Wildy
+   (plansza rozwinięta).
+3. Linie liczy się na planszy rozwiniętej (Wild nadal podmienia), sztuki
+   symbolu uruchamiającego na planszy **oryginalnej**. Wygrane liniowe `X` z
+   planszy rozwiniętej są **zastąpione** (nie sumują się) wartością
+   rozwinięcia `payout_line(X, k) × liczba aktywnych linii`; wygrane linii
+   innych symboli z planszy rozwiniętej zostają.
+4. Koszt spinu = 0. Plansza serii z co najmniej `N` symbolami
+   uruchamiającymi dostaje wypłatę za sztuki i przedłuża serię
+   (wyprowadzanie serii, TASK-0933).
+
+`total = linie innych symboli (plansza rozwinięta) + sztuki (plansza
+oryginalna) + rozwinięcie`. Wynik ma osobne składowe: linie, sztuki i
+rozwinięcie (`symbol`, kolumny, `k`, `payout_line(X, k)`, liczba linii,
+wypłata).
+
+Przykład (Mumie, `X = K`, minimum 3, `payout_line(K, 3) = 10`, 5 linii):
+K w kolumnach 2, 4 i 5 → `k = 3` → rozwinięcie `10 × 5 = 50`; kolumny 1 i 3
+nie mają znaczenia. K w kolumnach 2 i 4 → `k = 2 < 3` → bez rozwinięcia,
+linie liczone normalnie. Sarkofag (minimum 2) w jednej kolumnie → bez
+rozwinięcia, w dwóch → `payout_line(Sarkofag, 2) × 5`.
+
+**Wynik dokładny albo prowizoryczny.** Wynik planszy serii jest `exact`
+wyłącznie dla planszy w pełni znanej, ze zdefiniowanym super symbolem i przy
+świeżej generacji serii (`superGameState.fresh = true`). Każdy inny przypadek
+jest `provisional`: brak super symbolu (system liczy linie z Wildem i sztuki,
+ale nie zna rozwinięcia, które może zarówno dodać wygraną, jak i przykryć
+wygrane innych symboli), nieaktualna generacja serii albo **jakakolwiek**
+nieznana komórka — nieznana komórka poza kolumnami `X` może dodać kolumnę,
+przekroczyć próg i przykryć wcześniejszą wygraną, a nieznana komórka w
+kolumnie już przykrytej nie zmienia linii, ale nadal może zmienić wypłatę za
+sztuki i retrigger (sztuki liczone są na planszy oryginalnej). Wynik
+prowizoryczny nie jest dolnym ograniczeniem; `confirmed_minimum` w trybie
+`super` nie występuje. Super symbol, który w liczonej wersji reguł nie jest
+zwykłym symbolem liniowym (np. zmieniona rola w drafcie), jest traktowany
+jak niezdefiniowany.
+
+Złote przypadki obu języków (`payout-golden-cases.json`, sekcja
+`wildSuperSpinsScenario`) wykonuje ewaluator workera i lustrzany
+`evaluateSeriesBoard` w `packages/shared-ts`.
+
+### Wild
+
+Dawniej „Joker”; kolumna `symbols.is_wildcard` i pola audytu `joker_cells`
+zachowują historyczne nazwy.
 
 - zastępuje dowolny zwykły symbol,
-- nie ma własnej reguły payoutu,
-- ciąg złożony wyłącznie z jokerów nie wygrywa,
+- nie ma własnej reguły payoutu liniowego (Wild, który jest też symbolem
+  uruchamiającym, ma wyłącznie wypłaty za sztuki na planszy),
+- ciąg złożony wyłącznie z Wildów nie wygrywa jako linia,
 - dla jednej pary `(payline, symbol)` wybierana jest interpretacja o najwyższym payout,
 - każda payline jest oceniana niezależnie,
-- ta sama komórka jokera może reprezentować `S1` na jednej payline i `S3` na innej,
+- ta sama komórka Wilda może reprezentować `S1` na jednej payline i `S3` na innej,
 - wynik zawiera ślad interpretacji.
 
 ### Sumowanie
@@ -178,7 +293,10 @@ pozostają odtwarzalne i nadal odrzucają kod `0`.
 - sumowane są wszystkie prawidłowe pary `(payline, symbol)`,
 - ten sam symbol na dwóch różnych paylines jest liczony dwa razy,
 - komórka może uczestniczyć w wielu wzorcach i nie jest „zużywana”,
-- wspólne komórki i jokery nie blokują innych wypłat,
+- wspólne komórki i Wildy nie blokują innych wypłat,
+- wypłaty za sztuki na planszy (`payout-v4-wild-count`) dodają się do sumy
+  linii; komórka symbolu uruchamiającego może jednocześnie liczyć się jako
+  sztuka i jako Wild na liniach,
 - dla jednej pary nie sumuje się wartości za krótsze długości; wybierana jest
   wartość najdłuższego dopasowania.
 
@@ -193,7 +311,9 @@ Konfiguracja gotowa do precomputingu:
 - zawiera dokładnie jedną regułę dla każdej pary
   `(zwykły symbol, długość minimum_match_length..columns)`,
 - nie zawiera aktywnej reguły dla długości mniejszej niż próg symbolu,
-- nie zawiera reguły jokera,
+- nie zawiera reguły liniowej Wilda; symbol uruchamiający supergrę nie ma
+  `minimum_match_length`, a jego reguły są wypłatami za liczbę sztuk
+  `2..rows × columns` o ściśle rosnących wartościach,
 - ma nieujemne wypłaty,
 - dla danego symbolu payout rośnie ściśle wraz z długością.
 
@@ -369,7 +489,8 @@ Wiersze są uporządkowane rosnąco według `spin_number`.
 Podsekcja „Przybliżona wygrana” w „Wyszukaj plansze” (panel administracyjny)
 liczy ostrożne, dolnoograniczone oszacowanie payoutu dla `N` kolejnych pozycji
 sekwencji po wybranej planszy `S`. Wykorzystuje ten sam kalkulator co §B
-(`payout-v3-unknown-prefix-stop`, `PreparedPayoutEvaluator`) i tę samą
+(`payout-v3-unknown-prefix-stop`, a dla gry z symbolem uruchamiającym
+`payout-v4-wild-count`; `PreparedPayoutEvaluator`) i tę samą
 definicję pełnego cyklu z zawijaniem co §C (mobilna prognoza celu), ale
 liczy z żywych danych projekcji wyszukiwania plansz, nie z prekomputowanego
 snapshotu — jest to operacja wyłącznie do odczytu, bez cache serwerowego.
@@ -413,23 +534,67 @@ z widocznego prefiksu nigdy nie przekracza prawdziwej wypłaty dla faktycznie
 kompletnej planszy. Wszystkie pary `(payline, symbol)` są sumowane
 niezależnie (§B „Sumowanie”), więc nieznane komórki mogą co najwyżej dodać
 kolejne, jeszcze nienaliczone wypłaty — nigdy nie usuwają już potwierdzonej.
-To samo dotyczy jokerów: prefiks złożony wyłącznie z jokerów nadal nie
-wygrywa (§B „Joker”), więc nieznana komórka nigdy nie zamienia przegranego
+To samo dotyczy Wildów: prefiks złożony wyłącznie z Wildów nadal nie
+wygrywa (§B „Wild”), więc nieznana komórka nigdy nie zamienia przegranego
 prefiksu w wygrany przez zgadywanie. Ta własność jest wewnętrzna dla
 `payout-v3-unknown-prefix-stop` (nie jest osobnym trzecim algorytmem) i nie
 wymaga zmiany reguł domenowych.
+
+Wypłaty za sztuki symbolu uruchamiającego (`payout-v4-wild-count`) zachowują
+tę własność: nieznana komórka nigdy nie jest liczona jako sztuka, więc liczba
+sztuk na planszy częściowej może tylko wzrosnąć po rozpoznaniu brakujących
+pól, a wypłata za sztuki rośnie wraz z liczbą sztuk. Wiersz zakresu i modal
+linii pokazują wypłatę za sztuki w osobnej liście (`countMatches`), już
+wliczonej do wypłaty wiersza; plansza częściowa z wypłatą za sztuki pozostaje
+`confirmed_minimum`.
+
+**Podgląd wersji roboczej (D-535, TASK-0932).** W lokalnym Adminie
+kalkulator zakresu i modal linii mogą liczyć z wybranej wersji reguł tej
+samej gry (`draft` albo `published`, parametr `rulesVersionId`); domyślnie,
+bez wyboru, liczą z najnowszej opublikowanej wersji. Udostępniony panel
+online, panel zarządzania i proxy Reviewera nigdy nie przekazują tego
+parametru, a API odrzuca go na tych powierzchniach. Podgląd służy testom
+ról Wild i symbolu uruchamiającego przed publikacją reguł.
 
 Symbol spoza aktywnych symboli opublikowanej wersji reguł (błąd
 integralności danych, nie normalny brak dowodu) przerywa całą kalkulację
 zakresu jako błąd zamiast po cichu pomijać jedną planszę.
 
+### Tryb pozycji i koszt per pozycja (D-537, TASK-0936)
+
+Każda pozycja zakresu ma projekcję `mode` (`base` | `super`),
+`super_symbol_id` (w API kod symbolu), `remaining_spins`,
+`spin_cost_credits`, `payout_credits` i `payout_kind` (`exact` |
+`confirmed_minimum` | `provisional`). Projekcja powstaje z tego samego
+odczytu znaczników supergry co oznaczenia wierszy i `superGameState`
+(jedno zapytanie, jeden snapshot). Pozycja objęta opublikowaną serią jako
+jej spin jest w trybie `super`: koszt darmowego spinu rodzaju gry (0), ocena
+planszy serii z §B z super symbolem tej serii (brak symbolu → wynik
+prowizoryczny). Każda inna pozycja, także plansza wyzwalająca serię, jest w
+trybie `base` z kosztem `spin_cost` reguł. Brakująca plansza w serii zużywa
+darmowy spin (koszt 0, wypłata 0). Przy `superGameState.fresh = false`
+**każda** oceniona plansza gry jest prowizoryczna, także w trybie bazowym, bo
+nowy trigger mógł już objąć ją serią (decyzja leada po audycie TASK-0936,
+zgodna z planem). Reguły, plansze, znaczniki i stan generacji są czytane w
+jednej migawce `REPEATABLE READ`, więc publikacja generacji w trakcie odczytu
+nie łączy starych plansz z nową generacją. Podsumowanie niesie dokładne
+zakresy darmowych spinów (`superSpinRanges`, `superSpinCost`), z których
+klient liczy koszt i bilans dowolnego spinu. Gra bez rodzaju supergry (777) ma wszędzie
+tryb `base` i stały koszt, więc jej wyniki, odcisk danych i zamrożone wyniki
+panelu zarządzania są bajt w bajt takie jak przed projekcją (bramka
+regresji).
+
 ### Podsumowanie i wiersze
 
 Wynik rozdziela trzy wartości: rozpoznane wypłaty (suma naliczonych
-payoutów), koszt spinów (suma kosztu wszystkich `evaluated_spin_count`
-spinów, w tym brakujących) i bilans (wypłaty minus koszt) — bilans może
+payoutów `exact` i `confirmed_minimum`), koszt spinów (suma kosztu
+wszystkich `evaluated_spin_count` pozycji według ich trybu, w tym
+brakujących) i bilans (wypłaty minus koszt) — bilans może
 pozostać ujemny mimo występujących wypłat i nigdy nie jest nazywany
-„zyskiem”. Tabela wyników pokazuje wyłącznie spiny z dodatnią wypłatą, z
+„zyskiem”. Wypłaty `provisional` (plansze serii supergry) są pokazywane
+osobno: liczba takich pozycji i ich suma; nie wchodzą do rozpoznanych
+wypłat, narastających sum ani bilansu, bo po definicji super symbolu,
+przeliczeniu serii albo uzupełnieniu planszy mogą wzrosnąć albo zmaleć. Tabela wyników pokazuje wyłącznie spiny z dodatnią wypłatą, z
 narastającą sumą wypłat/kosztu/bilansu obejmującą wszystkie wcześniejsze
 spiny zakresu — również te bez własnego wiersza w tabeli.
 

@@ -4,9 +4,10 @@ import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
-import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -21,18 +22,23 @@ from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewRepository,
     ImageGridReviewService,
 )
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbolSuggestion,
+    VirtualGridGeometryCell,
+    VirtualGridGeometryRevision,
+    VirtualGridGeometrySaveResult,
+)
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_grid_reviews import (
-    ImageGridApprovalResult,
     ImageGridReviewCounts,
+    ImageGridReviewCountsMode,
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
     ImageGridReviewSlotKind,
-    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
-    ImageGridSourceApprovalResult,
+    ImageGridReviewView,
 )
 from game_predictor_api.domain.image_import_engine_policy import (
     ImageImportEnginePolicy,
@@ -41,27 +47,22 @@ from game_predictor_api.domain.image_import_engine_policy import (
     engine_policy_preview_token,
     policy_rollout_modes,
 )
-from game_predictor_api.domain.image_reviews import (
-    ImageReviewGeometryCellArtifact,
-    ImageReviewGeometryPoint,
-    ImageReviewGeometryRevision,
-)
+from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
-    ImageGridReviewSourceGeometryTargetCommand,
     to_image_grid_review_counts_response,
-    to_image_grid_review_geometry_response,
     to_image_grid_review_item_response,
+    to_virtual_grid_review_geometry_response,
 )
 from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
     _confirmed_partial_expression,
     _pending_automatic_proposal_expression,
 )
 from game_predictor_worker.images.lateral_partial_contract import (
     LateralPartialGeometrySnapshot,
 )
-from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
 SOURCE_BYTES = b"source"
@@ -115,41 +116,12 @@ def test_confirmed_partial_sql_uses_mask_and_persisted_qualification() -> None:
     assert "completenessStatus" in sql
 
 
-def test_source_geometry_target_requires_exactly_one_slot_identity() -> None:
-    common = {
-        "corners": [
-            {"x": 1, "y": 1},
-            {"x": 10, "y": 1},
-            {"x": 10, "y": 10},
-            {"x": 1, "y": 10},
-        ],
-        "expectedGeometryRevision": 0,
-        "expectedResolutionRevision": 0,
-        "expectedSourceChecksumSha256": SHA,
-        "expectedSourceWidth": 20,
-        "expectedSourceHeight": 20,
-        "expectedGridRows": 3,
-        "expectedGridColumns": 5,
-    }
-    pending_id = uuid4()
-    target = ImageGridReviewSourceGeometryTargetCommand.model_validate(
-        {**common, "pendingGeometryId": pending_id}
-    )
-    assert target.pending_geometry_id == pending_id
-    assert target.review_item_id is None
-    with pytest.raises(ValidationError):
-        ImageGridReviewSourceGeometryTargetCommand.model_validate(common)
-    with pytest.raises(ValidationError):
-        ImageGridReviewSourceGeometryTargetCommand.model_validate(
-            {**common, "pendingGeometryId": pending_id, "reviewItemId": uuid4()}
-        )
-
-
 class MemoryGridReviewRepository(ImageGridReviewRepository):
     def __init__(self, items: tuple[ImageGridReviewListItem, ...], source_path: str) -> None:
         self.items = items
         self.source_path = source_path
-        self.approved: list[UUID] = []
+        # Which counting method each ``list`` call used (TASK-0961).
+        self.count_calls: list[str] = []
 
     def require_game(self, game_id: UUID) -> None:
         if not self.items or self.items[0].game_id != game_id:
@@ -174,7 +146,14 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
                 review_filter.source_image_id is None
                 or item.source_image_id == review_filter.source_image_id
             )
-            and (review_filter.view.value == "all" or item.state.value == review_filter.view.value)
+            and (
+                review_filter.view.value == "all"
+                or item.state.value == review_filter.view.value
+                or (
+                    review_filter.view.value == "correction"
+                    and item.state is ImageGridReviewState.NEEDS_CORRECTION
+                )
+            )
         ]
         if after_key is not None:
             matching = [item for item in matching if item.cursor_key > after_key]
@@ -189,12 +168,10 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             has_next=bool(visible and self.items[-1].cursor_key > visible[-1].cursor_key),
         )
 
-    def grid_review_counts(
-        self,
-        *,
-        review_filter: ImageGridReviewListFilter,
-    ) -> ImageGridReviewCounts:
-        items = tuple(
+    def _scoped_items(
+        self, review_filter: ImageGridReviewListFilter
+    ) -> tuple[ImageGridReviewListItem, ...]:
+        return tuple(
             item
             for item in self.items
             if review_filter.import_job_id is None
@@ -202,6 +179,14 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             if review_filter.source_image_id is None
             or item.source_image_id == review_filter.source_image_id
         )
+
+    def grid_review_counts(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> ImageGridReviewCounts:
+        self.count_calls.append("all")
+        items = self._scoped_items(review_filter)
         return ImageGridReviewCounts(
             needs_validation=sum(
                 item.state is ImageGridReviewState.NEEDS_VALIDATION for item in items
@@ -210,6 +195,18 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
                 item.state is ImageGridReviewState.NEEDS_CORRECTION for item in items
             ),
             approved=sum(item.state is ImageGridReviewState.APPROVED for item in items),
+            correction=sum(item.state is ImageGridReviewState.NEEDS_CORRECTION for item in items),
+        )
+
+    def grid_review_correction_count(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> int:
+        self.count_calls.append("correction")
+        return sum(
+            item.state is ImageGridReviewState.NEEDS_CORRECTION
+            for item in self._scoped_items(review_filter)
         )
 
     def get_grid_review_source_asset(
@@ -233,107 +230,32 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             topology=item.topology,
         )
 
-    def approve_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        review_item_id: UUID,
-        expected_resolution_revision: int,
-        expected_geometry_revision: int,
-        expected_source_checksum_sha256: str,
-        expected_source_width: int,
-        expected_source_height: int,
-        expected_grid_rows: int,
-        expected_grid_columns: int,
-        actor: str,
-    ) -> ImageGridApprovalResult:
-        item = next(item for item in self.items if item.review_item_id == review_item_id)
-        assert item.game_id == game_id
-        assert expected_resolution_revision == item.resolution_revision
-        assert expected_geometry_revision == item.geometry_revision
-        assert expected_source_checksum_sha256 == item.source_checksum_sha256
-        assert (expected_source_width, expected_source_height) == (
-            item.source_width,
-            item.source_height,
-        )
-        assert (expected_grid_rows, expected_grid_columns) == (
-            item.topology.rows,
-            item.topology.columns,
-        )
-        assert actor == "local-admin"
-        self.approved.append(review_item_id)
-        return ImageGridApprovalResult(
-            item=replace(
-                item,
-                approved_geometry_revision=item.geometry_revision,
-                state=ImageGridReviewState.APPROVED,
+
+STORED_SYMBOL_ID = UUID("88888888-8888-4888-8888-888888888888")
+
+
+class UnusedVirtualGeometryService:
+    """Only the read-only correction symbols are served by this fixture."""
+
+    symbol_scopes: ClassVar[list[object]] = []
+
+    def review_item_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        self.symbol_scopes.append(current_game_storage_scope())
+        return (
+            VirtualGridCellSymbolSuggestion(
+                cell_index=0, symbol_id=STORED_SYMBOL_ID, origin="assigned"
             ),
-            changed=True,
+            VirtualGridCellSymbolSuggestion(cell_index=1, symbol_id=None, origin="predicted"),
         )
-
-    def approve_source_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        source_image_id: UUID,
-        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
-        actor: str,
-    ) -> ImageGridSourceApprovalResult:
-        current = tuple(item for item in self.items if item.source_image_id == source_image_id)
-        expected = {target.review_item_id: target for target in targets}
-        if {item.review_item_id for item in current} != set(expected):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
-                "The active board slots changed after this source image was loaded.",
-            )
-        changed: list[UUID] = []
-        replacement: list[ImageGridReviewListItem] = []
-        for item in self.items:
-            target = expected.get(item.review_item_id)
-            if target is None:
-                replacement.append(item)
-                continue
-            assert item.game_id == game_id
-            assert target.expected_resolution_revision == item.resolution_revision
-            assert target.expected_geometry_revision == item.geometry_revision
-            assert target.expected_source_checksum_sha256 == item.source_checksum_sha256
-            assert (target.expected_source_width, target.expected_source_height) == (
-                item.source_width,
-                item.source_height,
-            )
-            assert (target.expected_grid_rows, target.expected_grid_columns) == (
-                item.topology.rows,
-                item.topology.columns,
-            )
-            assert actor == "local-admin"
-            if item.state is not ImageGridReviewState.APPROVED:
-                changed.append(item.review_item_id)
-                replacement.append(
-                    replace(
-                        item,
-                        approved_geometry_revision=item.geometry_revision,
-                        state=ImageGridReviewState.APPROVED,
-                    )
-                )
-            else:
-                replacement.append(item)
-        self.items = tuple(replacement)
-        self.approved.extend(changed)
-        return ImageGridSourceApprovalResult(
-            source_image_id=source_image_id,
-            approved_review_item_ids=tuple(changed),
-        )
-
-
-class UnusedOperationalService:
-    pass
 
 
 class MemoryImageGeometryRolloutRepository:
     def __init__(self, game_id: UUID) -> None:
         self.game_id = game_id
         self.job: Job | None = None
-        self.policy = ImageImportEnginePolicy.VERIFIED_V19
+        self.policy = ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
         self.revision = 0
 
     def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot:
@@ -479,9 +401,8 @@ def _client(
     app.include_router(
         create_image_grid_reviews_router(
             lambda: ImageGridReviewService(repository),
-            lambda: UnusedOperationalService(),
             lambda: ImageGeometryRolloutService(rollout_repository),
-            lambda: UnusedOperationalService(),
+            lambda: UnusedVirtualGeometryService(),
             tmp_path,
         ),
         prefix="/api/v1",
@@ -652,17 +573,21 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     endpoint = f"/api/v1/admin/games/{items[0].game_id}/image-import-engine-policy"
 
     current = client.get(endpoint)
-    preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_shadow"})
-    applied = client.put(
+    # D-467 (TASK-0790): the removed legacy policies are refused explicitly.
+    legacy_previews = [
+        client.post(f"{endpoint}/preview", json={"targetPolicy": removed})
+        for removed in ("verified_v19", "structured_shadow")
+    ]
+    legacy_update = client.put(
         endpoint,
         json={
-            "targetPolicy": "structured_shadow",
+            "targetPolicy": "verified_v19",
             "expectedRevision": 0,
-            "previewToken": preview.json()["previewToken"],
+            "previewToken": "a" * 64,
         },
     )
 
-    assert current.json()["policy"] == "verified_v19"
+    assert current.json()["policy"] == "structured_lattice_v3"
     assert current.json()["geometryEngineVariants"] == [
         {
             "variant": "structured_lattice_v4_partial_sides",
@@ -686,10 +611,11 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
             "blockerMessage": None,
         },
     ]
-    assert preview.json()["changesExistingJobs"] is False
-    assert applied.status_code == 200
-    assert applied.json()["policy"] == "structured_shadow"
-    assert applied.json()["revision"] == 1
+    for response in (*legacy_previews, legacy_update):
+        assert response.status_code == 422
+        assert [error["type"] for error in response.json()["detail"]] == [
+            "IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED"
+        ]
 
     production_preview = client.post(
         f"{endpoint}/preview", json={"targetPolicy": "structured_default"}
@@ -698,24 +624,25 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
         endpoint,
         json={
             "targetPolicy": "structured_default",
-            "expectedRevision": 1,
+            "expectedRevision": 0,
             "previewToken": production_preview.json()["previewToken"],
         },
     )
 
     assert production_preview.status_code == 200
+    assert production_preview.json()["changesExistingJobs"] is False
     assert production_preview.json()["target"]["geometryMode"] == "structured_default"
     assert production_preview.json()["target"]["cellAssetMode"] == "virtual_default"
     assert production.status_code == 200
     assert production.json()["policy"] == "structured_default"
-    assert production.json()["revision"] == 2
+    assert production.json()["revision"] == 1
 
     v3_preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_lattice_v3"})
     v3 = client.put(
         endpoint,
         json={
             "targetPolicy": "structured_lattice_v3",
-            "expectedRevision": 2,
+            "expectedRevision": 1,
             "previewToken": v3_preview.json()["previewToken"],
         },
     )
@@ -725,11 +652,11 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     assert v3_preview.json()["changesExistingJobs"] is False
     assert v3.status_code == 200
     assert v3.json()["policy"] == "structured_lattice_v3"
-    assert v3.json()["revision"] == 3
+    assert v3.json()["revision"] == 2
 
 
-def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path: Path) -> None:
-    client, repository, items = _client(tmp_path)
+def test_grid_review_api_lists_keyset_page_and_serves_the_source(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
     first = client.get(
         f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
         params={"view": "needs_validation", "limit": 1},
@@ -745,6 +672,7 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
         "lateralPartialProposals": 0,
         "confirmedPartialGrids": 0,
         "manualCorrection": 1,
+        "correction": 1,
     }
     second = client.get(
         f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
@@ -769,24 +697,6 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
     assert [item["sequenceNumber"] for item in previous.json()["items"]] == [1]
 
     target = items[0]
-    approved = client.post(
-        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-approval",
-        params={"gameId": str(target.game_id)},
-        json={
-            "expectedResolutionRevision": target.resolution_revision,
-            "expectedGeometryRevision": target.geometry_revision,
-            "expectedSourceChecksumSha256": target.source_checksum_sha256,
-            "expectedSourceWidth": target.source_width,
-            "expectedSourceHeight": target.source_height,
-            "expectedGridRows": target.topology.rows,
-            "expectedGridColumns": target.topology.columns,
-        },
-    )
-    assert approved.status_code == 200
-    assert approved.json()["changed"] is True
-    assert approved.json()["item"]["state"] == "approved"
-    assert repository.approved == [target.review_item_id]
-
     asset = client.get(
         f"/api/v1/admin/image-reviews/{target.review_item_id}/source-asset",
         params={
@@ -798,108 +708,44 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
     assert asset.content == SOURCE_BYTES
 
 
-def test_grid_review_api_approves_one_source_atomically_from_one_snapshot(
+def test_grid_review_read_paths_filter_the_import_and_serve_the_source(
     tmp_path: Path,
 ) -> None:
     client, repository, items = _client(tmp_path)
-    source_image_id = uuid4()
-    source_items = (
-        _item(
-            items[0].game_id,
-            items[0].import_job_id,
-            1,
-            ImageGridReviewState.NEEDS_VALIDATION,
-            source_image_id=source_image_id,
-            position_index=0,
-        ),
-        _item(
-            items[0].game_id,
-            items[0].import_job_id,
-            2,
-            ImageGridReviewState.NEEDS_VALIDATION,
-            source_image_id=source_image_id,
-            position_index=1,
-        ),
-    )
-    repository.items = source_items
+    target = replace(items[0], source_image_id=uuid4())
+    repository.items = (target,)
 
-    response = client.post(
-        f"/api/v1/admin/games/{items[0].game_id}/grid-reviews/source-geometry-approval",
-        json={
-            "sourceImageId": str(source_image_id),
-            "targets": [
-                {
-                    "reviewItemId": str(item.review_item_id),
-                    "expectedResolutionRevision": item.resolution_revision,
-                    "expectedGeometryRevision": item.geometry_revision,
-                    "expectedSourceChecksumSha256": item.source_checksum_sha256,
-                    "expectedSourceWidth": item.source_width,
-                    "expectedSourceHeight": item.source_height,
-                    "expectedGridRows": item.topology.rows,
-                    "expectedGridColumns": item.topology.columns,
-                }
-                for item in source_items
-            ],
+    listing = client.get(
+        f"/api/v1/admin/games/{target.game_id}/grid-reviews",
+        params={"view": "all", "importJobId": str(target.import_job_id), "limit": 1},
+    )
+    asset = client.get(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/source-asset",
+        params={
+            "gameId": str(target.game_id),
+            "expectedSourceChecksumSha256": target.source_checksum_sha256,
         },
     )
-
-    assert response.status_code == 200
-    assert response.json()["sourceImageId"] == str(source_image_id)
-    assert response.json()["changedCount"] == 2
-    assert set(response.json()["approvedReviewItemIds"]) == {
-        str(item.review_item_id) for item in source_items
-    }
-    assert repository.approved == [item.review_item_id for item in source_items]
+    assert listing.status_code == 200
+    assert [item["importJobId"] for item in listing.json()["items"]] == [str(target.import_job_id)]
+    assert asset.status_code == 200
+    assert asset.content == SOURCE_BYTES
 
 
-def test_grid_review_source_approval_rejects_a_stale_or_incomplete_snapshot(
-    tmp_path: Path,
-) -> None:
-    client, repository, items = _client(tmp_path)
-    source_image_id = uuid4()
-    source_items = (
-        _item(
-            items[0].game_id,
-            items[0].import_job_id,
-            1,
-            ImageGridReviewState.NEEDS_VALIDATION,
-            source_image_id=source_image_id,
-            position_index=0,
-        ),
-        _item(
-            items[0].game_id,
-            items[0].import_job_id,
-            2,
-            ImageGridReviewState.NEEDS_VALIDATION,
-            source_image_id=source_image_id,
-            position_index=1,
-        ),
+def test_grid_approval_and_whole_source_save_paths_are_removed(tmp_path: Path) -> None:
+    """D-462 / TASK-0727: no board, photo or whole-source approval exists."""
+
+    client, _repository, items = _client(tmp_path)
+    target = items[0]
+    removed = (
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-approval"
+        f"?gameId={target.game_id}",
+        f"/api/v1/admin/games/{target.game_id}/grid-reviews/source-geometry-approval",
+        f"/api/v1/admin/games/{target.game_id}/grid-reviews/source-geometry-revisions"
+        f"?importJobId={target.import_job_id}",
     )
-    repository.items = source_items
-    stale = source_items[0]
-
-    response = client.post(
-        f"/api/v1/admin/games/{items[0].game_id}/grid-reviews/source-geometry-approval",
-        json={
-            "sourceImageId": str(source_image_id),
-            "targets": [
-                {
-                    "reviewItemId": str(stale.review_item_id),
-                    "expectedResolutionRevision": stale.resolution_revision,
-                    "expectedGeometryRevision": stale.geometry_revision,
-                    "expectedSourceChecksumSha256": stale.source_checksum_sha256,
-                    "expectedSourceWidth": stale.source_width,
-                    "expectedSourceHeight": stale.source_height,
-                    "expectedGridRows": stale.topology.rows,
-                    "expectedGridColumns": stale.topology.columns,
-                }
-            ],
-        },
-    )
-
-    assert response.status_code == 409
-    assert response.json()["code"] == "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT"
-    assert repository.approved == []
+    for path in removed:
+        assert client.post(path, json={}).status_code in {404, 405}, path
 
 
 def test_grid_review_cursor_cannot_be_replayed_in_another_filter(tmp_path: Path) -> None:
@@ -983,29 +829,38 @@ def test_grid_review_api_lists_only_one_source_and_binds_cursor_scope(tmp_path: 
 
 
 def test_grid_geometry_response_uses_the_pinned_topology_for_row_major_indices() -> None:
-    revision = ImageReviewGeometryRevision(
+    board_id = uuid4()
+    revision = VirtualGridGeometryRevision(
         id=uuid4(),
         review_item_id=uuid4(),
-        recognized_board_id=uuid4(),
+        recognized_board_id=board_id,
         revision=1,
         idempotency_key=uuid4(),
         command_sha256="1" * 64,
-        decision_checksum_sha256="2" * 64,
         corners=(
             ImageReviewGeometryPoint(0, 0),
             ImageReviewGeometryPoint(80, 0),
             ImageReviewGeometryPoint(80, 20),
             ImageReviewGeometryPoint(0, 20),
         ),
-        board_relative_path="boards/board.png",
-        board_checksum_sha256="3" * 64,
+        source_geometry_revision_id=uuid4(),
+        geometry_checksum_sha256="2" * 64,
+        virtual_render_spec_checksum_sha256="3" * 64,
         cropper_version="topology-aware-test-v1",
         cells=tuple(
-            ImageReviewGeometryCellArtifact(
+            VirtualGridGeometryCell(
+                cell_index=index,
                 row_index=index // 4,
                 column_index=index % 4,
-                crop_relative_path=f"cells/{index}.png",
+                crop_sample_id=f"{index + 20:064x}",
                 crop_checksum_sha256=f"{index + 10:064x}",
+                logical_cell_key="4" * 64,
+                logical_cell_key_v2=None,
+                render_identity_v2_sha256=None,
+                render_spec={"cellIndex": index},
+                render_spec_checksum_sha256="5" * 64,
+                rendered_pixel_checksum_sha256=f"{index + 10:064x}",
+                extractor_version="virtual-test",
             )
             for index in range(8)
         ),
@@ -1013,16 +868,19 @@ def test_grid_geometry_response_uses_the_pinned_topology_for_row_major_indices()
         created_at=datetime(2026, 8, 28, tzinfo=UTC),
     )
 
-    response = to_image_grid_review_geometry_response(
-        revision=revision,
+    response = to_virtual_grid_review_geometry_response(
+        VirtualGridGeometrySaveResult(revision=revision, created=True),
         grid_rows=2,
         grid_columns=4,
-        created=True,
     )
 
+    # D-467 S6 (TASK-0796): every revision is a virtual render, no crop files.
+    assert response.geometry_revision.asset_mode == "virtual_source"
+    assert response.geometry_revision.geometry_checksum_sha256 == "2" * 64
     assert response.geometry_revision.grid_rows == 2
     assert response.geometry_revision.grid_columns == 4
     assert [cell.cell_index for cell in response.geometry_revision.cells] == list(range(8))
+    assert "boardChecksumSha256" not in response.geometry_revision.model_dump(by_alias=True)
 
 
 def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Path) -> None:
@@ -1041,7 +899,6 @@ def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Pa
     observed_scopes: list[object] = []
     original_require_game = repository.require_game
     original_get_source_asset = repository.get_grid_review_source_asset
-    original_approve_grid_geometry = repository.approve_grid_geometry
 
     def require_game(game_id: UUID) -> None:
         observed_scopes.append(current_game_storage_scope())
@@ -1053,13 +910,8 @@ def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Pa
         observed_scopes.append(current_game_storage_scope())
         return original_get_source_asset(game_id=game_id, review_item_id=review_item_id)
 
-    def approve_grid_geometry(**kwargs: object) -> ImageGridApprovalResult:
-        observed_scopes.append(current_game_storage_scope())
-        return original_approve_grid_geometry(**kwargs)
-
     repository.require_game = require_game  # type: ignore[method-assign]
     repository.get_grid_review_source_asset = get_grid_review_source_asset  # type: ignore[method-assign]
-    repository.approve_grid_geometry = approve_grid_geometry  # type: ignore[method-assign]
 
     corners = [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}, {"x": 0, "y": 100}]
 
@@ -1071,21 +923,6 @@ def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Pa
         },
     )
     assert asset.status_code == 200
-
-    approved = client.post(
-        f"/api/v1/admin/image-reviews/{target.review_item_id}/geometry-approval",
-        params={"gameId": str(target.game_id)},
-        json={
-            "expectedResolutionRevision": target.resolution_revision,
-            "expectedGeometryRevision": target.geometry_revision,
-            "expectedSourceChecksumSha256": target.source_checksum_sha256,
-            "expectedSourceWidth": target.source_width,
-            "expectedSourceHeight": target.source_height,
-            "expectedGridRows": target.topology.rows,
-            "expectedGridColumns": target.topology.columns,
-        },
-    )
-    assert approved.status_code == 200
 
     # Mismatched expected width forces a deterministic 409 (SOURCE_DRIFT)
     # right after the source lookup, without reaching the geometry engines
@@ -1126,6 +963,142 @@ def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Pa
     assert revision.status_code == 409
     assert revision.json()["code"] == "IMAGE_GRID_REVIEW_SOURCE_DRIFT"
 
-    assert len(observed_scopes) == 8
+    assert len(observed_scopes) == 6
     assert all(scope is not None for scope in observed_scopes)
     assert all(scope.game_id == target.game_id for scope in observed_scopes)  # type: ignore[union-attr]
+
+
+def test_correction_view_lists_reported_boards_with_their_cells(tmp_path: Path) -> None:
+    client, repository, items = _client(tmp_path)
+    repository.items = tuple(
+        replace(item, reported_cell_indices=(2, 7))
+        if item.state is ImageGridReviewState.NEEDS_CORRECTION
+        else item
+        for item in items
+    )
+
+    page = client.get(
+        f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
+        params={"view": "correction", "limit": 1},
+    )
+
+    # D-462 R4: one queue for manual correction, naming the reported cells.
+    assert page.status_code == 200
+    assert page.json()["view"] == "correction"
+    assert [item["sequenceNumber"] for item in page.json()["items"]] == [3]
+    assert page.json()["items"][0]["reportedCellIndices"] == [2, 7]
+    assert page.json()["counts"]["correction"] == 1
+
+
+def test_counts_correction_mode_skips_the_full_counters(tmp_path: Path) -> None:
+    """TASK-0961: ``counts=correction`` counts only the queue; the rest is 0."""
+
+    client, repository, items = _client(tmp_path)
+    url = f"/api/v1/admin/games/{items[0].game_id}/grid-reviews"
+
+    cheap = client.get(url, params={"view": "correction", "limit": 1, "counts": "correction"})
+    full = client.get(url, params={"view": "correction", "limit": 1})
+    explicit_all = client.get(url, params={"view": "correction", "limit": 1, "counts": "all"})
+    invalid = client.get(url, params={"view": "correction", "counts": "cheap"})
+
+    assert cheap.status_code == 200, cheap.text
+    assert cheap.json()["counts"] == {
+        "needsValidation": 0,
+        "needsCorrection": 0,
+        "approved": 0,
+        "total": 0,
+        "fullGrids": 0,
+        "lateralPartialProposals": 0,
+        "confirmedPartialGrids": 0,
+        "manualCorrection": 0,
+        "correction": 1,
+    }
+    assert [item["sequenceNumber"] for item in cheap.json()["items"]] == [3]
+    assert full.status_code == 200 and explicit_all.status_code == 200
+    assert full.json()["counts"] == explicit_all.json()["counts"]
+    assert full.json()["counts"]["correction"] == cheap.json()["counts"]["correction"] == 1
+    assert full.json()["counts"]["needsValidation"] == 2
+    assert invalid.status_code == 422
+    assert repository.count_calls == ["correction", "all", "all"]
+
+
+def test_service_counts_mode_selects_the_repository_method() -> None:
+    game_id, import_job_id = uuid4(), uuid4()
+    repository = MemoryGridReviewRepository(
+        (
+            _item(game_id, import_job_id, 1, ImageGridReviewState.NEEDS_CORRECTION),
+            _item(game_id, import_job_id, 2, ImageGridReviewState.APPROVED),
+        ),
+        "sources/source.jpg",
+    )
+    service = ImageGridReviewService(repository)
+    common = {
+        "game_id": game_id,
+        "view": ImageGridReviewView.CORRECTION,
+        "import_job_id": None,
+        "source_image_id": None,
+        "after_cursor": None,
+        "before_cursor": None,
+    }
+
+    cheap = service.list(**common, counts=ImageGridReviewCountsMode.CORRECTION)
+    default = service.list(**common)
+
+    assert cheap.counts == ImageGridReviewCounts(
+        needs_validation=0, needs_correction=0, approved=0, full_grids=0, correction=1
+    )
+    assert default.counts.correction == 1 and default.counts.approved == 1
+    assert repository.count_calls == ["correction", "all"]
+
+
+def test_correction_view_sql_keeps_one_entry_per_board_slot() -> None:
+    session = MagicMock()
+    repository = SqlAlchemyImageGridReviewRepository(session)
+    correction = ImageGridReviewListFilter(
+        game_id=uuid4(),
+        view=ImageGridReviewView.CORRECTION,
+        import_job_id=None,
+    )
+    current_sql = str(
+        repository._visible_statement(review_filter=correction).compile(
+            dialect=postgresql.dialect()
+        )
+    ).lower()
+    pending_sql = str(
+        repository._pending_statement(review_filter=correction).compile(
+            dialect=postgresql.dialect()
+        )
+    ).lower()
+
+    # A reported board is listed; a deferred slot only while no live board
+    # owns it, with or without an automatic proposal (D-462 R4).
+    assert "image_symbol_review_cells.quality_issue" in current_sql
+    assert "not (exists" in pending_sql
+    assert "recognized_boards.source_image_id = image_board_geometry_pending.source_image_id" in (
+        pending_sql
+    )
+    assert "recognized_boards.position_index = image_board_geometry_pending.position_index" in (
+        pending_sql
+    )
+    assert "automaticpartialproposal" not in pending_sql
+
+
+def test_correction_symbols_are_read_inside_the_query_game_storage(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
+    target = items[0]
+    UnusedVirtualGeometryService.symbol_scopes.clear()
+
+    response = client.get(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/correction-symbols",
+        params={"gameId": str(target.game_id)},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "cells": [
+            {"cellIndex": 0, "origin": "assigned", "symbolId": str(STORED_SYMBOL_ID)},
+            {"cellIndex": 1, "origin": "predicted", "symbolId": None},
+        ]
+    }
+    scopes = UnusedVirtualGeometryService.symbol_scopes
+    assert len(scopes) == 1 and scopes[0].game_id == target.game_id  # type: ignore[union-attr]

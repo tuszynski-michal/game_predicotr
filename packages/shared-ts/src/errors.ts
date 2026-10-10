@@ -30,6 +30,7 @@ export type DomainErrorCode =
   | 'non_prefix_board'
   | 'non_increasing_payout'
   | 'sequence_integrity_error'
+  | 'super_game_trigger_payout_symbol'
   | 'symbol_code_out_of_range'
   | 'wildcard_payout_symbol'
   | 'wildcard_payout_rule';

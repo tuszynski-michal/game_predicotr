@@ -1,4 +1,4 @@
-"""Bounded game-wide geometry validation use cases."""
+"""Bounded game-wide grid correction queue use cases."""
 
 from __future__ import annotations
 
@@ -7,17 +7,15 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.image_grid_reviews import (
-    ImageGridApprovalResult,
     ImageGridReviewCounts,
+    ImageGridReviewCountsMode,
     ImageGridReviewCursorDirection,
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
     ImageGridReviewPage,
-    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewView,
-    ImageGridSourceApprovalResult,
     decode_image_grid_review_cursor,
     encode_image_grid_review_cursor,
 )
@@ -51,36 +49,20 @@ class ImageGridReviewRepository(Protocol):
         review_filter: ImageGridReviewListFilter,
     ) -> ImageGridReviewCounts: ...
 
+    def grid_review_correction_count(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> int:
+        """Only the D-462 R4 correction queue size (TASK-0961); cheap by design."""
+        ...
+
     def get_grid_review_source_asset(
         self,
         *,
         game_id: UUID,
         review_item_id: UUID,
     ) -> ImageGridReviewSourceAsset | None: ...
-
-    def approve_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        review_item_id: UUID,
-        expected_resolution_revision: int,
-        expected_geometry_revision: int,
-        expected_source_checksum_sha256: str,
-        expected_source_width: int,
-        expected_source_height: int,
-        expected_grid_rows: int,
-        expected_grid_columns: int,
-        actor: str,
-    ) -> ImageGridApprovalResult: ...
-
-    def approve_source_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        source_image_id: UUID,
-        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
-        actor: str,
-    ) -> ImageGridSourceApprovalResult: ...
 
 
 class ImageGridReviewService:
@@ -97,6 +79,7 @@ class ImageGridReviewService:
         after_cursor: str | None,
         before_cursor: str | None,
         limit: int = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
+        counts: ImageGridReviewCountsMode = ImageGridReviewCountsMode.ALL,
     ) -> ImageGridReviewPage:
         if not 1 <= limit <= MAX_IMAGE_GRID_REVIEW_PAGE_SIZE:
             raise ImageGridReviewError(
@@ -142,7 +125,7 @@ class ImageGridReviewService:
         items = page_slice.items
         return ImageGridReviewPage(
             items=items,
-            counts=self._repository.grid_review_counts(review_filter=review_filter),
+            counts=self._counts(review_filter=review_filter, mode=counts),
             previous_cursor=(
                 encode_image_grid_review_cursor(
                     review_filter=review_filter,
@@ -162,6 +145,26 @@ class ImageGridReviewService:
                 else None
             ),
         )
+
+    def _counts(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+        mode: ImageGridReviewCountsMode,
+    ) -> ImageGridReviewCounts:
+        if mode is ImageGridReviewCountsMode.CORRECTION:
+            # TASK-0961: only the correction queue is counted; every other
+            # counter is reported as 0, as the OpenAPI description says.
+            return ImageGridReviewCounts(
+                needs_validation=0,
+                needs_correction=0,
+                approved=0,
+                full_grids=0,
+                correction=self._repository.grid_review_correction_count(
+                    review_filter=review_filter
+                ),
+            )
+        return self._repository.grid_review_counts(review_filter=review_filter)
 
     def source_asset(
         self,
@@ -187,63 +190,6 @@ class ImageGridReviewService:
                 "The source image changed after the grid review was loaded.",
             )
         return asset
-
-    def approve(
-        self,
-        *,
-        game_id: UUID,
-        review_item_id: UUID,
-        expected_resolution_revision: int,
-        expected_geometry_revision: int,
-        expected_source_checksum_sha256: str,
-        expected_source_width: int,
-        expected_source_height: int,
-        expected_grid_rows: int,
-        expected_grid_columns: int,
-        actor: str,
-    ) -> ImageGridApprovalResult:
-        _validate_sha256(expected_source_checksum_sha256)
-        self._repository.require_game(game_id)
-        return self._repository.approve_grid_geometry(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            expected_resolution_revision=expected_resolution_revision,
-            expected_geometry_revision=expected_geometry_revision,
-            expected_source_checksum_sha256=expected_source_checksum_sha256,
-            expected_source_width=expected_source_width,
-            expected_source_height=expected_source_height,
-            expected_grid_rows=expected_grid_rows,
-            expected_grid_columns=expected_grid_columns,
-            actor=actor,
-        )
-
-    def approve_source(
-        self,
-        *,
-        game_id: UUID,
-        source_image_id: UUID,
-        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
-        actor: str,
-    ) -> ImageGridSourceApprovalResult:
-        if not targets:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
-                "Source approval requires at least one current board target.",
-            )
-        if len({target.review_item_id for target in targets}) != len(targets):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
-                "A source approval command cannot repeat a board target.",
-            )
-        for target in targets:
-            _validate_sha256(target.expected_source_checksum_sha256)
-        self._repository.require_game(game_id)
-        return self._repository.approve_source_grid_geometry(
-            game_id=game_id,
-            source_image_id=source_image_id,
-            targets=targets,
-            actor=actor,
-        )
 
 
 def _validate_sha256(value: str) -> None:

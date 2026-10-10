@@ -1,11 +1,139 @@
+import {
+  getManagementSnapshot,
+  listManagementStakes,
+  getManagementStake,
+  getManagementResult,
+  searchManagementBoards,
+  saveManagementStake,
+  clearManagementStake,
+  refreshManagementStake,
+  listManagementJournal,
+  getManagementBoardDetail,
+  correctManagementBoardCell,
+  getManagementApproximateWin,
+  createManagementPoint,
+  updateManagementPoint,
+  createManagementMachine,
+  updateManagementMachine,
+  updateManagementAssignments,
+  previewManagementPointDeletion,
+  deleteManagementPoint,
+  previewManagementMachineDeletion,
+  deleteManagementMachine,
+  previewManagementMachineUpdate,
+} from './generated/sdk.gen';
+import type {
+  ManagementStake,
+  ManagementSearchCommand,
+  ManagementSaveCommand,
+  ManagementClearCommand,
+  ManagementRefreshCommand,
+  ManagementCorrectionCommand,
+} from './generated/types.gen';
+export type {
+  ManagementStake,
+  ManagementSearchCommand,
+  ManagementSaveCommand,
+  ManagementClearCommand,
+  ManagementRefreshCommand,
+  ManagementCorrectionCommand,
+  ManagementStakeResponse,
+  ManagementStakeListResponse,
+  ManagementResultResponse,
+  ManagementSearchResponse,
+  ManagementRefreshResponse,
+  ManagementJournalResponse,
+  ManagementJournalEntry,
+  ManagementChartPoint,
+  ManagementPinnedPoint,
+} from './generated/types.gen';
+import type {
+  ManagementPointCommand,
+  ManagementMachineCommand,
+  ManagementAssignmentCommand,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
+} from './generated/types.gen';
+export type {
+  ManagementSnapshotResponse,
+  ManagementMutationPreviewResponse,
+  ManagementMutationCounts,
+  ManagementDeleteResponse,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
+  ManagementPointResponse,
+  ManagementMachineResponse,
+  ManagementAssignmentResponse,
+  ManagementPointCommand,
+  ManagementMachineCommand,
+  ManagementAssignmentCommand,
+} from './generated/types.gen';
 import { createClient as createGeneratedClient } from './generated/client';
+import type { GetModelQualityData } from './generated/types.gen';
+export type { ModelQualityOverviewResponse } from './generated/types.gen';
+export type {
+  SourceLatticePoint,
+  NeuralDetectionPayload,
+  NeuralGridSnapshotPayload,
+  NeuralSourceProposalPayload,
+  NeuralSourceBindingPayload,
+  NeuralSourceAssignmentPayload,
+  NeuralSourceRangePayload,
+} from './generated/types.gen';
+import {
+  listLabSymbolCandidates as listGeneratedLabSymbolCandidates,
+  previewLabSymbolCandidateImport as previewGeneratedLabSymbolCandidateImport,
+  importLabSymbolCandidate as importGeneratedLabSymbolCandidate,
+  previewSymbolModelDeactivation as previewGeneratedSymbolModelDeactivation,
+  deactivateSymbolModel as deactivateGeneratedSymbolModel,
+} from './generated/sdk.gen';
+import type {
+  ImportLabSymbolCandidateCommand,
+  SymbolModelDeactivationCommand,
+} from './generated/types.gen';
+export type {
+  ImportLabSymbolCandidateCommand,
+  LabSymbolCandidateResponse,
+  LabSymbolCandidateSummaryResponse,
+  SymbolModelDeactivationCommand,
+} from './generated/types.gen';
+import type {
+  V7OutputDecisionRequest,
+  SemiAutomaticSelectionWorkflowMode,
+} from './generated/types.gen';
+export type {
+  V7OutputDecisionRequest,
+  V7ConfirmedRange,
+  V7OutputOperationResponse,
+  V7OutputReceiptResponse,
+  V7ReviewResponse,
+  V7SourceDiagnosticsResponse,
+  V7PilotSnapshotResponse,
+  V7LabelSlotResponse,
+} from './generated/types.gen';
+import type {
+  ListBoardSearchShareCorrectionsData,
+  GetBoardSearchShareCorrectionData,
+  BoardSearchShareCorrectionReviewRequest,
+  ListBoardSearchShareQueriesData,
+} from './generated/types.gen';
+export type {
+  BoardSearchSharePublicBoardDetailResponse,
+  BoardSearchSharePublicCellResponse,
+  BoardSearchShareCellCorrectionRequest,
+  BoardSearchShareCellCorrectionResponse,
+  BoardSearchShareCorrectionBoardResponse,
+  BoardSearchShareCorrectionPageResponse,
+  BoardSearchShareCorrectionDetailResponse,
+  BoardSearchShareCorrectionChangeResponse,
+} from './generated/types.gen';
 import {
   acknowledgeSemiAutomaticImageSelectionOutput as acknowledgeGeneratedSemiAutomaticImageSelectionOutput,
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
   applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
-  approveImageGridReviewGeometry as approveGeneratedImageGridReviewGeometry,
-  approveImageGridReviewSourceGeometry as approveGeneratedImageGridReviewSourceGeometry,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -13,6 +141,7 @@ import {
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
+  deletePayline as deleteGeneratedPayline,
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
   deleteSymbol as deleteGeneratedSymbol,
@@ -40,7 +169,6 @@ import {
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
-  createImageGridReviewSourceGeometryRevision as createGeneratedImageGridReviewSourceGeometryRevision,
   createSymbolCellPreviewBatch as createGeneratedSymbolCellPreviewBatch,
   createVirtualCellPreviewBatch as createGeneratedVirtualCellPreviewBatch,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
@@ -67,6 +195,13 @@ import {
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
+  createBoardSearchShareSession as createGeneratedBoardSearchShareSession,
+  deleteBoardSearchShareQuery as deleteGeneratedBoardSearchShareQuery,
+  getBoardSearchShareQueryReplay as getGeneratedBoardSearchShareQueryReplay,
+  listBoardSearchShareQueries as listGeneratedBoardSearchShareQueries,
+  listBoardSearchShareCorrections as listGeneratedBoardSearchShareCorrections,
+  getBoardSearchShareCorrection as getGeneratedBoardSearchShareCorrection,
+  reviewBoardSearchShareCorrection as reviewGeneratedBoardSearchShareCorrection,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
@@ -80,9 +215,15 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getGridAuditProposal as getGeneratedGridAuditProposal,
+  getGridShadowResult as getGeneratedGridShadowResult,
+  listGridShadowResults as listGeneratedGridShadowResults,
+  startGridShadowJob as startGeneratedGridShadowJob,
+  getImageGridReviewCorrectionSymbols as getGeneratedImageGridReviewCorrectionSymbols,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
-  getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
+  getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
+  refreshBoardSearchBoardDocument as refreshGeneratedBoardSearchBoardDocument,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -98,6 +239,12 @@ import {
   handoffImageSelection as handoffGeneratedImageSelection,
   getBoardImportCoverage as getGeneratedBoardImportCoverage,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
+  getImageGeometryCompleteness as getGeneratedImageGeometryCompleteness,
+  getImageGeometryCompletenessSourceAsset as getGeneratedImageGeometryCompletenessSourceAsset,
+  getImageGeometryLowQualityBoards as getGeneratedImageGeometryLowQualityBoards,
+  listIncompleteGeometryImages as listGeneratedIncompleteGeometryImages,
+  setSourceImageGeometryException as setGeneratedSourceImageGeometryException,
+  withdrawSourceImageGeometryException as withdrawGeneratedSourceImageGeometryException,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getStorageGcRun as getGeneratedStorageGcRun,
@@ -140,10 +287,18 @@ import {
   listGames as listGeneratedGames,
   listBrowserPageGeometryReviewSources as listGeneratedBrowserPageGeometryReviewSources,
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
+  listGridEngineProfiles as listGeneratedGridEngineProfiles,
+  listSuperGameKinds as listGeneratedSuperGameKinds,
+  listSuperGameSeries as listGeneratedSuperGameSeries,
+  listSuperGameSeriesBoards as listGeneratedSuperGameSeriesBoards,
+  getSuperGameSeriesState as getGeneratedSuperGameSeriesState,
+  deriveSuperGameSeries as deriveGeneratedSuperGameSeries,
+  setSuperGameSeriesSuperSymbol as setGeneratedSuperGameSeriesSuperSymbol,
   listGridProfileActivations as listGeneratedGridProfileActivations,
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listGridAuditProposals as listGeneratedGridAuditProposals,
   listImageGridReviews as listGeneratedImageGridReviews,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
@@ -167,6 +322,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
+  listBoardSearchShareSessions as listGeneratedBoardSearchShareSessions,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
   listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
@@ -193,6 +349,7 @@ import {
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   previewImageGridReviewGeometry as previewGeneratedImageGridReviewGeometry,
   previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
+  previewPendingBoardCellGeometrySymbols as previewGeneratedPendingBoardCellGeometrySymbols,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
   previewSymbolCellReviewBulkOperation as previewGeneratedSymbolCellReviewBulkOperation,
@@ -214,6 +371,7 @@ import {
   retryImageJobFile as retryGeneratedImageJobFile,
   pauseSemiAutomaticImageSelection as pauseGeneratedSemiAutomaticImageSelection,
   revokeReviewerSession as revokeGeneratedReviewerSession,
+  revokeBoardSearchShareSession as revokeGeneratedBoardSearchShareSession,
   revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
   reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -222,10 +380,17 @@ import {
   resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
+  rejectPendingBoardCellGeometry as rejectGeneratedPendingBoardCellGeometry,
+  listGeometryCorrections as listGeneratedGeometryCorrections,
+  previewGeometryCorrectionRevert as previewGeneratedGeometryCorrectionRevert,
+  revertGeometryCorrection as revertGeneratedGeometryCorrection,
   selectSemiAutomaticImageSelectionSourceFolder as selectGeneratedSemiAutomaticImageSelectionSourceFolder,
+  selectSemiAutomaticImageSelectionOutputFolder as selectGeneratedSemiAutomaticImageSelectionOutputFolder,
+  openSemiAutomaticImageSelectionReviewFolder as openGeneratedSemiAutomaticImageSelectionReviewFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
+  selectSymbolReferenceFromCellReview as selectGeneratedSymbolReferenceFromCellReview,
   searchGameBoards as searchGeneratedGameBoards,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
@@ -249,6 +414,8 @@ import type {
   ApproximateWinRulesResponse,
   ApproximateWinSummaryResponse,
   BoardImportCoverageView,
+  GeometryImageState,
+  SourceImageGeometryStatus,
   ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
   BrowserImageUploadPlanResponse,
@@ -261,6 +428,8 @@ import type {
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
+  BoardCellGeometryRejectionCommand,
+  GeometryCorrectionRevertCommand,
   BoardSearchResponse,
   BoardSearchAssetMode,
   BoardSearchResultResponse,
@@ -279,11 +448,9 @@ import type {
   CuratedImageImportBatchCreate,
   CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewSourceApprovalCommand,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
+  ImageGridReviewCountsMode,
   ImageGridReviewView,
   ImageImportEnginePolicyPreviewRequest,
   ImageImportEnginePolicyResponse,
@@ -321,6 +488,8 @@ import type {
   GameCreate,
   GameShapeGeometryConfiguration,
   GameUpdate,
+  ListSuperGameSeriesData,
+  SuperSymbolUpdate,
   PaylineCreate,
   PaylineUpdate,
   PayoutRuleCreate,
@@ -341,6 +510,7 @@ import type {
   ReviewerSessionUnlockResponse,
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
+  BoardSearchShareCreate,
   RemoteManualSelectionSessionCreate,
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
@@ -350,6 +520,7 @@ import type {
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
   SymbolCellReviewFilterState,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewAction,
   SymbolCellReviewBulkOperationRequest,
   SymbolCellReviewBulkOperationResponse,
@@ -393,10 +564,21 @@ import type {
 export type {
   ApproximateWinCompletenessResponse,
   ApproximateWinResponse,
+  BoardSearchBoardCellResponse,
+  BoardSearchBoardDetailResponse,
+  BoardSearchBoardViewResponse,
+  BoardSearchCountMatchResponse,
+  BoardSearchExpansionResponse,
+  BoardSearchLineMatchResponse,
+  BoardSearchViewPointResponse,
   ApproximateWinRowResponse,
   ApproximateWinRulesResponse,
+  ApproximateWinSpinRangeResponse,
   ApproximateWinSummaryResponse,
   GeometryQualificationPayload,
+  GridCorrectionCellSymbolPayload,
+  GridCorrectionCellSymbolSuggestionResponse,
+  GridCorrectionSymbolsResponse,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
@@ -434,6 +616,17 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  BoardCellGeometryRejectionCommand,
+  BoardCellGeometryRejectionResponse,
+  BoardRejectionReason,
+  GeometryCorrectionKind,
+  GeometryCorrectionListResponse,
+  GeometryCorrectionResponse,
+  GeometryCorrectionRevertCommand,
+  GeometryCorrectionRevertPreviewResponse,
+  GeometryCorrectionRevertResponse,
+  RejectionTarget,
+  RevertBlockingReason,
   BoardSearchResponse,
   BoardSearchAssetMode,
   BoardSearchResultResponse,
@@ -469,6 +662,25 @@ export type {
   GameShapeGeometryConfiguration,
   GameStatus,
   GameUpdate,
+  GridEngineModelFileResponse,
+  GridEngineModelStatus,
+  GridEngineProfileResponse,
+  GridEngineReportResultResponse,
+  SuperGameKindResponse,
+  ListSuperGameSeriesData,
+  RunVerification,
+  SeriesCompleteness,
+  SuperGameMarkerKind,
+  SuperGameMarkerResponse,
+  SuperGamePublicMarkerResponse,
+  SuperGameSeriesBoardResponse,
+  SuperGameSeriesBoardsResponse,
+  SuperGameSeriesCountsResponse,
+  SuperGameSeriesDeriveResponse,
+  SuperGameSeriesListResponse,
+  SuperGameSeriesResponse,
+  SuperGameStateResponse,
+  SuperSymbolUpdate,
   CreateGridCalibrationCandidateResponse,
   CreateGridCalibrationCandidateCommand,
   GeometryCohortDiagnosticsResponse,
@@ -492,17 +704,19 @@ export type {
   ImageImportEnginePolicyUpdateRequest,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewApprovalResponse,
-  ImageGridReviewSourceApprovalCommand,
-  ImageGridReviewSourceApprovalResponse,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
-  ImageGridReviewSourceGeometryResponse,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewGeometryResponse,
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
+  GridAuditNodeResponse,
+  GridAuditProposalGridResponse,
+  GridAuditProposalResponse,
+  GridAuditSymbolSuggestionsResponse,
+  GridAuditQueueCountsResponse,
+  GridAuditQueueItemResponse,
+  GridAuditQueuePageResponse,
+  ImageGridReviewCountsMode,
   ImageGridReviewState,
   ImageGridReviewView,
   ImageSelectionCreate,
@@ -536,6 +750,22 @@ export type {
   BoardImportCoverageRangeResponse,
   BoardImportCoverageRangeCountsResponse,
   BoardImportCoverageSegmentResponse,
+  GeometryCompletenessImageCountsResponse,
+  GeometryCompletenessPointResponse,
+  GeometryCompletenessPositionCountResponse,
+  GeometryCompletenessPositionResponse,
+  GeometryCompletenessSourceStatusCountResponse,
+  GeometryGateCountsResponse,
+  GeometryImageState,
+  GeometryLowQualityBoardResponse,
+  GeometryPositionState,
+  ImageGeometryCompletenessResponse,
+  ImageGeometryLowQualityBoardsResponse,
+  ImportSequenceOwnershipResponse,
+  IncompleteGeometryImagePageResponse,
+  IncompleteGeometryImageResponse,
+  SourceImageGeometryExceptionResponse,
+  SourceImageGeometryStatus,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -588,7 +818,7 @@ export type {
   OperationalImageReviewCountsResponse,
   OperationalImageReviewGeometryCellResponse,
   OperationalImageReviewGeometryCommand,
-  OperationalImageReviewGeometryPoint,
+  ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryPreviewCommand,
   OperationalImageReviewGeometryResponse,
   OperationalImageReviewGeometryRevisionResponse,
@@ -644,6 +874,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewSkipResponse,
   SymbolCellPreviewBatchRequest,
   VirtualCellPreviewBatchRequest,
@@ -704,6 +935,16 @@ export type {
   ReviewerWorkHeartbeatResponse,
   ReviewerWorkOpenCommand,
   ReviewerWorkOpenedResponse,
+  BoardSearchShareCreate,
+  BoardSearchShareCreatedResponse,
+  BoardSearchShareSessionListResponse,
+  BoardSearchSharePublicContextResponse,
+  BoardSearchShareQueryEntryResponse,
+  BoardSearchShareQueryPageResponse,
+  BoardSearchShareQueryReplayResponse,
+  BoardSearchSharePublicSearchResponse,
+  BoardSearchSharePublicSymbolResponse,
+  BoardSearchShareSessionResponse,
   RemoteManualSelectionSessionCreate,
   ReviewerWorkOverviewResponse,
   RemoteManualSelectionBaseCapabilityResponse,
@@ -749,12 +990,34 @@ export type {
   ValidateJobPayload,
 } from './generated/types.gen';
 
+export type {
+  GridShadowJobCreate,
+  GridShadowResultPageResponse,
+  GridShadowResultResponse,
+  GridShadowResultSummaryResponse,
+  GridShadowSlotResponse,
+} from './generated/types.gen';
+
+export type StartGridShadowJobOptions =
+  import('./generated/types.gen').StartGridShadowJobData['body'] & {
+    readonly gameId: string;
+  };
+
+export type ListGridShadowResultsOptions =
+  import('./generated/types.gen').ListGridShadowResultsData['query'] & {
+    readonly gameId: string;
+  };
+
 export interface AdminApiClientOptions {
   readonly baseUrl: string;
   readonly fetch?: typeof globalThis.fetch;
 }
 
 export type JobCreate = CreateJobData['body'];
+
+export type V7SourcePolicy = NonNullable<
+  import('./generated/types.gen').SemiAutomaticV7CapabilitiesResponse['sourcePolicy']
+>;
 
 export interface ListJobsOptions {
   readonly status?: JobStatus;
@@ -783,6 +1046,13 @@ export interface OperationalImageReviewContext {
 
 export type ImageGridReviewContext = OperationalImageReviewContext;
 
+/** TASK-0840: the read-only grid-audit proposal queue (local Reviewer only). */
+export interface ListGridAuditProposalsOptions {
+  readonly gameId: string;
+  readonly afterOrdinal?: number;
+  readonly limit?: number;
+}
+
 export interface ListImageGridReviewsOptions {
   readonly gameId: string;
   readonly view?: ImageGridReviewView;
@@ -791,6 +1061,9 @@ export interface ListImageGridReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  // TASK-0961: `correction` computes only `counts.correction`; the other
+  // counters come back as 0.
+  readonly counts?: ImageGridReviewCountsMode;
 }
 
 export interface GetBoardImportCoverageOptions {
@@ -799,6 +1072,36 @@ export interface GetBoardImportCoverageOptions {
   readonly from?: number;
   readonly to?: number;
   readonly afterSequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface GetImageGeometryCompletenessOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+}
+
+export interface ListIncompleteGeometryImagesOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+  // `complete` is never listed; `superseded` only when asked for explicitly.
+  readonly imageState?: Exclude<GeometryImageState, 'complete'>;
+  // The gate queue (TASK-0807): images by their persisted status.
+  readonly completenessStatus?: Exclude<
+    SourceImageGeometryStatus,
+    'geometry_complete'
+  >;
+  // TASK-0961: only the four real-gap states in one request; the server
+  // refuses it together with `imageState` or `completenessStatus` (422).
+  readonly gapsOnly?: boolean;
+  readonly afterCursor?: string;
+  readonly limit?: number;
+}
+
+export interface GetImageGeometryLowQualityBoardsOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+  readonly maxConfidence?: number;
+  readonly minCells?: number;
   readonly limit?: number;
 }
 
@@ -812,9 +1115,39 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly limit?: number;
 }
 
-export interface ListSymbolCellReviewsOptions {
+/** Optional symbol-review filters beyond game, symbol, state and confidence. */
+export interface SymbolCellReviewExtendedFilterOptions {
+  /** Immutable job that imported the folder from which the crop originated. */
+  readonly importJobId?: string;
+  readonly predictionSource?: SymbolCellReviewPredictionSource;
+  /** Inclusive lower bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedFrom?: string;
+  /** Inclusive upper bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedTo?: string;
+}
+
+function symbolCellReviewExtendedFilterQuery(
+  options: SymbolCellReviewExtendedFilterOptions,
+): SymbolCellReviewExtendedFilterOptions {
+  return {
+    ...(options.importJobId === undefined
+      ? {}
+      : { importJobId: options.importJobId }),
+    ...(options.predictionSource === undefined
+      ? {}
+      : { predictionSource: options.predictionSource }),
+    ...(options.changedFrom === undefined
+      ? {}
+      : { changedFrom: options.changedFrom }),
+    ...(options.changedTo === undefined
+      ? {}
+      : { changedTo: options.changedTo }),
+  };
+}
+
+export interface ListSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly state?: SymbolCellReviewFilterState;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
@@ -824,9 +1157,9 @@ export interface ListSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface SkipSymbolCellReviewsOptions {
+export interface SkipSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly count: number;
   readonly state?: SymbolCellReviewFilterState;
   readonly afterCursor?: string;
@@ -836,13 +1169,13 @@ export interface SkipSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface GetSymbolCellReviewCountsOptions {
+export interface GetSymbolCellReviewCountsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
   readonly state?: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly signal?: AbortSignal;
 }
 
@@ -856,6 +1189,10 @@ export interface ListUnreadableBoardReviewsOptions {
 export interface ListPendingBoardCellGeometryOptions extends OperationalImageReviewContext {
   readonly status?: BoardCellGeometryPendingStatus;
   readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface ListGeometryCorrectionsOptions extends OperationalImageReviewContext {
   readonly limit?: number;
 }
 
@@ -877,6 +1214,16 @@ export interface BoardSearchQueryCell {
 export interface GetBoardSearchApproximateWinOptions {
   readonly startSequenceNumber: number;
   readonly spinCount: number;
+  /**
+   * Admin-only draft preview (D-535): a draft or published rules version of
+   * the game. Omitted: the latest published rules version.
+   */
+  readonly rulesVersionId?: string;
+}
+
+export interface GetBoardSearchBoardDetailOptions {
+  /** Admin-only draft preview (D-535); omitted: latest published rules. */
+  readonly rulesVersionId?: string;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -897,9 +1244,226 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
   });
 
   return {
+    getManagementSnapshot: () => getManagementSnapshot({ client }),
+    previewManagementPointDeletion: (
+      pointId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementPointDeletion({
+        client,
+        body,
+        path: { point_id: pointId },
+      }),
+    deleteManagementPoint: (pointId: string, body: ManagementDeleteCommand) =>
+      deleteManagementPoint({ client, body, path: { point_id: pointId } }),
+    previewManagementMachineDeletion: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementMachineDeletion({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    deleteManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeleteCommand,
+    ) =>
+      deleteManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    previewManagementMachineUpdate: (
+      machineId: string,
+      body: ManagementUpdatePreviewCommand,
+    ) =>
+      previewManagementMachineUpdate({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
+    listManagementStakes: (
+      machineId: string,
+      gameId: string,
+      signal?: AbortSignal,
+    ) =>
+      listManagementStakes({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        signal,
+      }),
+    getManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      signal?: AbortSignal,
+    ) =>
+      getManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        signal,
+      }),
+    getManagementResult: (
+      machineId: string,
+      gameId: string,
+      versionId: string,
+      signal?: AbortSignal,
+    ) =>
+      getManagementResult({
+        client,
+        path: { machine_id: machineId, game_id: gameId, version_id: versionId },
+        signal,
+      }),
+    searchManagementBoards: (
+      machineId: string,
+      gameId: string,
+      body: ManagementSearchCommand,
+      signal?: AbortSignal,
+    ) =>
+      searchManagementBoards({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        body,
+        signal,
+      }),
+    saveManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementSaveCommand,
+      signal?: AbortSignal,
+    ) =>
+      saveManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    clearManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementClearCommand,
+      signal?: AbortSignal,
+    ) =>
+      clearManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    refreshManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementRefreshCommand,
+      signal?: AbortSignal,
+    ) =>
+      refreshManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    listManagementJournal: (
+      machineId: string,
+      options: {
+        gameId?: string;
+        stakeGrosze?: ManagementStake;
+        before?: string;
+        limit?: number;
+        signal?: AbortSignal;
+      } = {},
+    ) =>
+      listManagementJournal({
+        client,
+        path: { machine_id: machineId },
+        query: {
+          gameId: options.gameId,
+          stakeGrosze: options.stakeGrosze,
+          before: options.before,
+          limit: options.limit,
+        },
+        signal: options.signal,
+      }),
+    getManagementBoardDetail: (
+      machineId: string,
+      gameId: string,
+      sequence: number,
+      signal?: AbortSignal,
+    ) =>
+      getManagementBoardDetail({
+        client,
+        path: { machine_id: machineId, game_id: gameId, sequence },
+        signal,
+      }),
+    correctManagementBoardCell: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      sequence: number,
+      cell: number,
+      body: ManagementCorrectionCommand,
+      signal?: AbortSignal,
+    ) =>
+      correctManagementBoardCell({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake, sequence, cell },
+        body,
+        signal,
+      }),
+    getManagementApproximateWin: (
+      machineId: string,
+      gameId: string,
+      options: {
+        startSequenceNumber: number;
+        spinCount: number;
+        signal?: AbortSignal;
+      },
+    ) =>
+      getManagementApproximateWin({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        query: {
+          startSequenceNumber: options.startSequenceNumber,
+          spinCount: options.spinCount,
+        },
+        signal: options.signal,
+      }),
+    createManagementPoint: (body: ManagementPointCommand) =>
+      createManagementPoint({ client, body }),
+    updateManagementPoint: (pointId: string, body: ManagementPointCommand) =>
+      updateManagementPoint({ client, body, path: { point_id: pointId } }),
+    createManagementMachine: (
+      pointId: string,
+      body: ManagementMachineCommand,
+    ) => createManagementMachine({ client, body, path: { point_id: pointId } }),
+    updateManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementMachineCommand,
+    ) =>
+      updateManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    updateManagementAssignments: (
+      machineId: string,
+      body: ManagementAssignmentCommand,
+    ) =>
+      updateManagementAssignments({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
     getHealth: () => getGeneratedHealth({ client }),
-    createV7LabelGeometryCalibrationSession: (body: V7LabelGeometrySessionCreate) =>
-      createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
+    createV7LabelGeometryCalibrationSession: (
+      body: V7LabelGeometrySessionCreate,
+    ) => createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
     getV7LabelGeometryCalibrationSession: (sessionId: string) =>
       getGeneratedV7LabelGeometryCalibrationSession({
         client,
@@ -942,7 +1506,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId, source_id: sourceId },
         query: { expectedSourceChecksumSha256 },
       }),
-    listV7LabelGeometryProfiles: () => listGeneratedV7LabelGeometryProfiles({ client }),
+    listV7LabelGeometryProfiles: () =>
+      listGeneratedV7LabelGeometryProfiles({ client }),
     getV7LabelGeometryProfile: (profileFingerprint: string) =>
       getGeneratedV7LabelGeometryProfile({
         client,
@@ -950,7 +1515,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createV7LabelGeometryValidationReport: (body: V7ValidationReportCreate) =>
       createGeneratedV7LabelGeometryValidationReport({ body, client }),
-    listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
+    listV7LabelGeometryAdoptions: () =>
+      listGeneratedV7LabelGeometryAdoptions({ client }),
     createV7LabelGeometryAdoption: (body: V7LabelGeometryAdoptionCreate) =>
       createGeneratedV7LabelGeometryAdoption({ body, client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
@@ -962,6 +1528,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           'semi-automatic-selection:source-folder',
         ),
       }),
+    selectSemiAutomaticImageSelectionOutputFolder: () =>
+      selectGeneratedSemiAutomaticImageSelectionOutputFolder({
+        client,
+        headers: confirmedTargetHeaders(
+          'semi-automatic-selection:output-folder',
+        ),
+      }),
+    openSemiAutomaticImageSelectionReviewFolder: () =>
+      openGeneratedSemiAutomaticImageSelectionReviewFolder({
+        client,
+        headers: confirmedTargetHeaders(
+          'semi-automatic-selection:review-folder',
+        ),
+      }),
     createSemiAutomaticImageSelection: (body: SemiAutomaticSelectionCreate) =>
       createGeneratedSemiAutomaticImageSelection({ body, client }),
     getSemiAutomaticImageSelection: (runId: string) =>
@@ -970,7 +1550,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { run_id: runId },
       }),
     listSemiAutomaticImageSelections: (
-      workflowMode: 'selection' | 'filename_verification',
+      workflowMode: SemiAutomaticSelectionWorkflowMode,
       offset = 0,
       limit = 20,
     ) =>
@@ -1067,7 +1647,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     acknowledgeSemiAutomaticImageSelectionOutput: (
       runId: string,
       expectedIndex: number,
-      body: SemiAutomaticSelectionOutputAcknowledgement,
+      body:
+        SemiAutomaticSelectionOutputAcknowledgement | V7OutputDecisionRequest,
     ) =>
       acknowledgeGeneratedSemiAutomaticImageSelectionOutput({
         body,
@@ -1127,6 +1708,107 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       revokeGeneratedReviewerSession({
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
+        path: { session_id: sessionId },
+      }),
+    /** Create one online board-search share link (D-492). */
+    createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
+      createGeneratedBoardSearchShareSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('board-search-share-session:new'),
+      }),
+    listBoardSearchShareSessions: (
+      options: { readonly gameId?: string; readonly limit?: number } = {},
+    ) =>
+      listGeneratedBoardSearchShareSessions({
+        client,
+        query: {
+          ...(options.gameId === undefined ? {} : { gameId: options.gameId }),
+          limit: options.limit ?? 100,
+        },
+      }),
+    /** One share link's query log, newest first, 50 per page (D-472). */
+    listBoardSearchShareCorrections: (
+      sessionId: string,
+      options: NonNullable<ListBoardSearchShareCorrectionsData['query']> = {},
+    ) =>
+      listGeneratedBoardSearchShareCorrections({
+        client,
+        path: { session_id: sessionId },
+        query: options,
+      }),
+    getBoardSearchShareCorrection: (
+      sessionId: string,
+      sequenceNumber: number,
+      options: NonNullable<GetBoardSearchShareCorrectionData['query']> = {},
+    ) =>
+      getGeneratedBoardSearchShareCorrection({
+        client,
+        path: { session_id: sessionId, sequence_number: sequenceNumber },
+        query: options,
+      }),
+    reviewBoardSearchShareCorrection: (
+      sessionId: string,
+      sequenceNumber: number,
+      body: BoardSearchShareCorrectionReviewRequest,
+    ) =>
+      reviewGeneratedBoardSearchShareCorrection({
+        client,
+        path: { session_id: sessionId, sequence_number: sequenceNumber },
+        body,
+        headers: confirmedTargetHeaders(
+          `board-search-share-correction:${sessionId}:${sequenceNumber}`,
+        ),
+      }),
+    listBoardSearchShareQueries: (
+      sessionId: string,
+      options: {
+        readonly before?: string;
+        /** Only entries of this kind, e.g. the searches (D-478). */
+        readonly kind?: NonNullable<
+          ListBoardSearchShareQueriesData['query']
+        >['kind'];
+        readonly limit?: number;
+        /** With `kind: 'search'`: one entry per searched pattern. */
+        readonly groupByPattern?: boolean;
+      } = {},
+    ) =>
+      listGeneratedBoardSearchShareQueries({
+        client,
+        path: { session_id: sessionId },
+        query: {
+          ...(options.before === undefined ? {} : { before: options.before }),
+          ...(options.kind === undefined ? {} : { kind: options.kind }),
+          ...(options.groupByPattern ? { groupByPattern: true } : {}),
+          limit: options.limit ?? 50,
+        },
+      }),
+    /**
+     * Removes a log entry; a search takes its follow-up entries with it.
+     * `wholePattern` removes every search of the same pattern that way.
+     */
+    deleteBoardSearchShareQuery: (
+      eventId: string,
+      options: { readonly wholePattern?: boolean } = {},
+    ) =>
+      deleteGeneratedBoardSearchShareQuery({
+        client,
+        headers: confirmedTargetHeaders(`board-search-share-query:${eventId}`),
+        path: { event_id: eventId },
+        ...(options.wholePattern ? { query: { wholePattern: true } } : {}),
+      }),
+    /** A query log entry with what is needed to replay it in the Admin. */
+    getBoardSearchShareQueryReplay: (eventId: string) =>
+      getGeneratedBoardSearchShareQueryReplay({
+        client,
+        path: { event_id: eventId },
+      }),
+    revokeBoardSearchShareSession: (sessionId: string) =>
+      revokeGeneratedBoardSearchShareSession({
+        client,
+        headers: confirmedTargetHeaders(
+          `board-search-share-session:${sessionId}`,
+        ),
         path: { session_id: sessionId },
       }),
     selectRemoteManualSelectionHostBase: () =>
@@ -1432,7 +2114,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body: file,
         client,
         headers: {
-          ...confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+          ...confirmedTargetHeaders(
+            `image-import:${gameId}:page-source-replacement`,
+          ),
           'X-Game-Id': gameId,
           'X-Source-Checksum-Sha256': sourceChecksumSha256,
           'X-Source-Relative-Path': sourceRelativePath,
@@ -1456,8 +2140,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           replacementChecksumSha256,
         },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     discardBrowserPageGeometrySourceReplacement: (
       uploadId: string,
@@ -1467,8 +2156,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       discardGeneratedBrowserPageGeometrySourceReplacement({
         body: { gameId },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({
@@ -1809,27 +2503,43 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     approvedSymbolReferenceCandidateAssetUrl: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
     ) =>
-      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(observationId)}/asset`,
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(cellReviewId)}/asset`,
     symbolImageAssetUrl: (gameId: string, symbolId: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
     selectApprovedSymbolReferenceCandidate: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
       body: ApprovedSymbolReferenceSelectionCommand,
     ) =>
       selectGeneratedApprovedSymbolReferenceCandidate({
         body,
         client,
         headers: confirmedTargetHeaders(
-          `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+          `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
         ),
         path: {
+          cell_review_id: cellReviewId,
           game_id: gameId,
-          observation_id: observationId,
           symbol_id: symbolId,
+        },
+      }),
+    selectSymbolReferenceFromCellReview: (
+      gameId: string,
+      cellReviewId: string,
+      body: ApprovedSymbolReferenceSelectionCommand,
+    ) =>
+      selectGeneratedSymbolReferenceFromCellReview({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-reference:${gameId}:cell:${cellReviewId}`,
+        ),
+        path: {
+          cell_review_id: cellReviewId,
+          game_id: gameId,
         },
       }),
     getImageDatasetCompleteness: (gameId: string) =>
@@ -1851,6 +2561,96 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
+    getImageGeometryCompleteness: (
+      options: GetImageGeometryCompletenessOptions,
+    ) =>
+      getGeneratedImageGeometryCompleteness({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+        },
+      }),
+    listIncompleteGeometryImages: (
+      options: ListIncompleteGeometryImagesOptions,
+    ) =>
+      listGeneratedIncompleteGeometryImages({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+          ...(options.imageState === undefined
+            ? {}
+            : { imageState: options.imageState }),
+          ...(options.completenessStatus === undefined
+            ? {}
+            : { completenessStatus: options.completenessStatus }),
+          ...(options.gapsOnly === undefined
+            ? {}
+            : { gapsOnly: options.gapsOnly }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    /** D-484: admits an incomplete image to symbol cutting (high impact). */
+    setSourceImageGeometryException: (
+      gameId: string,
+      sourceImageId: string,
+      reason: string,
+    ) =>
+      setGeneratedSourceImageGeometryException({
+        body: { reason },
+        client,
+        headers: confirmedTargetHeaders(
+          `source-image-geometry-exception:${sourceImageId}`,
+        ),
+        path: { game_id: gameId, source_image_id: sourceImageId },
+      }),
+    /** Withdraws an exception before any human cell decision (high impact). */
+    withdrawSourceImageGeometryException: (
+      gameId: string,
+      sourceImageId: string,
+    ) =>
+      withdrawGeneratedSourceImageGeometryException({
+        client,
+        headers: confirmedTargetHeaders(
+          `source-image-geometry-exception:${sourceImageId}`,
+        ),
+        path: { game_id: gameId, source_image_id: sourceImageId },
+      }),
+    getImageGeometryCompletenessSourceAsset: (
+      gameId: string,
+      sourceImageId: string,
+    ) =>
+      getGeneratedImageGeometryCompletenessSourceAsset({
+        client,
+        path: { game_id: gameId, source_image_id: sourceImageId },
+      }),
+    getImageGeometryLowQualityBoards: (
+      options: GetImageGeometryLowQualityBoardsOptions,
+    ) =>
+      getGeneratedImageGeometryLowQualityBoards({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+          ...(options.maxConfidence === undefined
+            ? {}
+            : { maxConfidence: options.maxConfidence }),
+          ...(options.minCells === undefined
+            ? {}
+            : { minCells: options.minCells }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
     searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
       searchGeneratedGameBoards({
         client,
@@ -1863,16 +2663,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
-    getArchivedBoardSearchAsset: (
-      gameId: string,
-      sequenceNumber: number,
-      expectedBoardChecksumSha256: string,
-    ) =>
-      getGeneratedArchivedBoardSearchAsset({
-        client,
-        path: { game_id: gameId, sequence_number: sequenceNumber },
-        query: { expectedBoardChecksumSha256 },
-      }),
     getBoardSearchApproximateWin: (
       gameId: string,
       options: GetBoardSearchApproximateWinOptions,
@@ -1883,15 +2673,41 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: {
           startSequenceNumber: options.startSequenceNumber,
           spinCount: options.spinCount,
+          ...(options.rulesVersionId === undefined
+            ? {}
+            : { rulesVersionId: options.rulesVersionId }),
         },
       }),
-    archivedBoardSearchAssetUrl: (
+    getBoardSearchBoardDetail: (
+      gameId: string,
+      sequenceNumber: number,
+      options: GetBoardSearchBoardDetailOptions = {},
+    ) =>
+      getGeneratedBoardSearchBoardDetail({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+        ...(options.rulesVersionId === undefined
+          ? {}
+          : { query: { rulesVersionId: options.rulesVersionId } }),
+      }),
+    /** Rebuild one board's stale search document (TASK-0773). */
+    refreshBoardSearchBoardDocument: (gameId: string, sequenceNumber: number) =>
+      refreshGeneratedBoardSearchBoardDocument({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    /** Checksum-bound cropped WebP view of one board (D-470); immutable. */
+    boardSearchBoardViewUrl: (
       gameId: string,
       sequenceNumber: number,
       expectedBoardChecksumSha256: string,
+      viewRevision?: string,
     ) => {
+      // With `viewRevision` (from the board detail) the image is immutable;
+      // without it the browser revalidates by ETag.
       const query = new URLSearchParams({ expectedBoardChecksumSha256 });
-      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/archive-assets/${sequenceNumber}?${query.toString()}`;
+      if (viewRevision !== undefined) query.set('viewRevision', viewRevision);
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/boards/${sequenceNumber}/view?${query.toString()}`;
     },
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({
@@ -1960,11 +2776,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getModelQuality: (
       gameId: string,
-      options: { readonly signal?: AbortSignal } = {},
+      options: {
+        readonly signal?: AbortSignal;
+        readonly view?: NonNullable<GetModelQualityData['query']>['view'];
+      } = {},
     ) =>
       getGeneratedModelQuality({
         client,
         path: { game_id: gameId },
+        ...(options.view === undefined
+          ? {}
+          : { query: { view: options.view } }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
     previewVerifiedTrainingCohort: (
@@ -1992,6 +2814,54 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
         path: { game_id: gameId },
+      }),
+    listLabSymbolCandidates: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedLabSymbolCandidates({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewLabSymbolCandidateImport: (
+      gameId: string,
+      fingerprint: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedLabSymbolCandidateImport({
+        client,
+        path: { game_id: gameId, fingerprint },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    importLabSymbolCandidate: (
+      gameId: string,
+      body: ImportLabSymbolCandidateCommand,
+    ) =>
+      importGeneratedLabSymbolCandidate({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
+      }),
+    previewSymbolModelDeactivation: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedSymbolModelDeactivation({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    deactivateSymbolModel: (
+      gameId: string,
+      body: SymbolModelDeactivationCommand,
+    ) =>
+      deactivateGeneratedSymbolModel({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`symbol-model-registry:${gameId}`),
       }),
     listSymbolModelIterations: (
       gameId: string,
@@ -2248,7 +3118,45 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.counts === undefined ? {} : { counts: options.counts }),
         },
+      }),
+    listGridAuditProposals: (options: ListGridAuditProposalsOptions) =>
+      listGeneratedGridAuditProposals({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.afterOrdinal === undefined
+            ? {}
+            : { afterOrdinal: options.afterOrdinal }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    startGridShadowJob: (options: StartGridShadowJobOptions) => {
+      const { gameId, ...body } = options;
+      return startGeneratedGridShadowJob({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+    },
+    listGridShadowResults: (options: ListGridShadowResultsOptions) => {
+      const { gameId, ...query } = options;
+      return listGeneratedGridShadowResults({
+        client,
+        path: { game_id: gameId },
+        query,
+      });
+    },
+    getGridShadowResult: (gameId: string, resultId: string) =>
+      getGeneratedGridShadowResult({
+        client,
+        path: { game_id: gameId, result_id: resultId },
+      }),
+    getGridAuditProposal: (gameId: string, itemId: string) =>
+      getGeneratedGridAuditProposal({
+        client,
+        path: { game_id: gameId, item_id: itemId },
       }),
     getImageGridReviewSourceAsset: (
       reviewItemId: string,
@@ -2271,25 +3179,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-reviews/${encodeURIComponent(reviewItemId)}/source-asset?${query.toString()}`;
     },
-    approveImageGridReviewGeometry: (
+    getImageGridReviewCorrectionSymbols: (
       reviewItemId: string,
       gameId: string,
-      body: ImageGridReviewApprovalCommand,
     ) =>
-      approveGeneratedImageGridReviewGeometry({
-        body,
+      getGeneratedImageGridReviewCorrectionSymbols({
         client,
         path: { review_item_id: reviewItemId },
         query: { gameId },
-      }),
-    approveImageGridReviewSourceGeometry: (
-      gameId: string,
-      body: ImageGridReviewSourceApprovalCommand,
-    ) =>
-      approveGeneratedImageGridReviewSourceGeometry({
-        body,
-        client,
-        path: { game_id: gameId },
       }),
     previewImageGridReviewGeometry: (
       reviewItemId: string,
@@ -2311,17 +3208,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { review_item_id: reviewItemId },
-        query: context,
-      }),
-    createImageGridReviewSourceGeometryRevision: (
-      gameId: string,
-      context: ImageGridReviewContext,
-      body: ImageGridReviewSourceGeometryCommand,
-    ) =>
-      createGeneratedImageGridReviewSourceGeometryRevision({
-        body,
-        client,
-        path: { game_id: gameId },
         query: context,
       }),
     getSymbolCellReviewProjectionStatus: (gameId: string) =>
@@ -2357,6 +3243,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2380,6 +3267,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2397,6 +3285,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2582,6 +3471,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           pending_id: pendingId,
         },
       }),
+    previewPendingBoardCellGeometrySymbols: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualPreviewCommand,
+    ) =>
+      previewGeneratedPendingBoardCellGeometrySymbols({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
     resolvePendingBoardCellGeometryManually: (
       pendingId: string,
       context: OperationalImageReviewContext,
@@ -2594,6 +3497,58 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           game_id: context.gameId,
           import_job_id: context.importJobId,
           pending_id: pendingId,
+        },
+      }),
+    // D-539 (TASK-0949): reject a cropped or blurred deferred slot.
+    rejectPendingBoardCellGeometry: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryRejectionCommand,
+    ) =>
+      rejectGeneratedPendingBoardCellGeometry({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    listGeometryCorrections: (options: ListGeometryCorrectionsOptions) =>
+      listGeneratedGeometryCorrections({
+        client,
+        path: {
+          game_id: options.gameId,
+          import_job_id: options.importJobId,
+        },
+        query: {
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    previewGeometryCorrectionRevert: (
+      boardGeometryRevisionId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      previewGeneratedGeometryCorrectionRevert({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          board_geometry_revision_id: boardGeometryRevisionId,
+        },
+      }),
+    revertGeometryCorrection: (
+      boardGeometryRevisionId: string,
+      context: OperationalImageReviewContext,
+      body: GeometryCorrectionRevertCommand,
+    ) =>
+      revertGeneratedGeometryCorrection({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          board_geometry_revision_id: boardGeometryRevisionId,
         },
       }),
     resolveOperationalImageReviewItem: (
@@ -2795,6 +3750,37 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedGame({ client, path: { game_id: gameId } }),
     updateGame: (gameId: string, body: GameUpdate) =>
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
+    listGridEngineProfiles: () => listGeneratedGridEngineProfiles({ client }),
+    listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
+    // TASK-0933: published super game series of a game (D-535).
+    listSuperGameSeries: (
+      gameId: string,
+      query?: NonNullable<ListSuperGameSeriesData['query']>,
+    ) =>
+      listGeneratedSuperGameSeries({
+        client,
+        path: { game_id: gameId },
+        query,
+      }),
+    getSuperGameSeriesState: (gameId: string) =>
+      getGeneratedSuperGameSeriesState({ client, path: { game_id: gameId } }),
+    deriveSuperGameSeries: (gameId: string) =>
+      deriveGeneratedSuperGameSeries({ client, path: { game_id: gameId } }),
+    listSuperGameSeriesBoards: (gameId: string, seriesId: string) =>
+      listGeneratedSuperGameSeriesBoards({
+        client,
+        path: { game_id: gameId, series_id: seriesId },
+      }),
+    setSuperGameSeriesSuperSymbol: (
+      gameId: string,
+      seriesId: string,
+      body: SuperSymbolUpdate,
+    ) =>
+      setGeneratedSuperGameSeriesSuperSymbol({
+        body,
+        client,
+        path: { game_id: gameId, series_id: seriesId },
+      }),
     archiveGame: (gameId: string) =>
       archiveGeneratedGame({
         client,
@@ -2929,6 +3915,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           rules_version_id: rulesVersionId,
         },
       }),
+    deletePayline: (rulesVersionId: string, paylineId: string) =>
+      deleteGeneratedPayline({
+        client,
+        headers: confirmedTargetHeaders(`payline:${paylineId}`),
+        path: {
+          payline_id: paylineId,
+          rules_version_id: rulesVersionId,
+        },
+      }),
     listRulesVersionSymbols: (rulesVersionId: string) =>
       listGeneratedRulesVersionSymbols({
         client,
@@ -3017,3 +4012,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 }
 
 export type AdminApiClient = ReturnType<typeof createAdminApiClient>;
+
+export {
+  createManagementLinkClient,
+  createManagementPublicApiClient,
+} from './management';
+export type {
+  ManagementPublicApiClient,
+  ManagementLinkClient,
+} from './management';
+export type {
+  ManagementSessionCreate,
+  ManagementSessionCreated,
+  ManagementSessionList,
+  ManagementSessionContext,
+  ManagementSessionResponse,
+  ManagementPublicSearchResponse,
+} from './generated/types.gen';

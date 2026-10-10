@@ -1,14 +1,8 @@
 import type {
-  BoardCellGeometryJobCountsResponse,
   BrowserReadySelectionResponse,
   GameResponse,
-  ImageGridReviewPageResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
-
-const REVIEW_READY_STATUSES = new Set<JobResponse['status']>([
-  'waiting_for_review',
-]);
 
 export function reviewableGames(
   games: readonly GameResponse[],
@@ -24,58 +18,11 @@ export function isImageImport(job: JobResponse): boolean {
   );
 }
 
-export function reviewReadyImports(
-  jobs: readonly JobResponse[],
-  gameId: string,
-): readonly JobResponse[] {
-  return jobs
-    .filter(
-      (job) =>
-        job.gameId === gameId &&
-        isImageImport(job) &&
-        REVIEW_READY_STATUSES.has(job.status),
-    )
-    .sort(
-      (left, right) =>
-        Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
-        left.id.localeCompare(right.id),
-    );
-}
-
-export function selectReviewImportId(
-  jobs: readonly JobResponse[],
-  gameId: string,
-  currentId: string,
-): string {
-  const available = reviewReadyImports(jobs, gameId);
-  return available.some((job) => job.id === currentId)
-    ? currentId
-    : (available[0]?.id ?? '');
-}
-
 export function hasImageImport(
   jobs: readonly JobResponse[],
   gameId: string,
 ): boolean {
   return jobs.some((job) => job.gameId === gameId && isImageImport(job));
-}
-
-export function hasReviewerWork(
-  gridReviewCounts: ImageGridReviewPageResponse['counts'] | null,
-  deferredGeometryCounts: BoardCellGeometryJobCountsResponse | null,
-): boolean {
-  return (
-    gridReviewCounts !== null &&
-    deferredGeometryCounts !== null &&
-    (gridReviewTotal(gridReviewCounts) > 0 ||
-      deferredGeometryCounts.pending > 0)
-  );
-}
-
-export function gridReviewTotal(
-  counts: ImageGridReviewPageResponse['counts'],
-): number {
-  return counts.needsValidation + counts.needsCorrection + counts.approved;
 }
 
 export function readyBoardImportStaging(
@@ -93,22 +40,4 @@ export function readyBoardImportStaging(
         Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
         left.uploadId.localeCompare(right.uploadId),
     );
-}
-
-export function reviewJobLabel(job: JobResponse): string {
-  const timestamp = new Intl.DateTimeFormat('pl-PL', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  }).format(new Date(job.createdAt));
-  const status = job.status === 'completed' ? 'gotowy' : 'do zatw.';
-  const displayName =
-    'sourceDisplayName' in job.inputPayload &&
-    typeof job.inputPayload.sourceDisplayName === 'string' &&
-    job.inputPayload.sourceDisplayName.trim() !== ''
-      ? job.inputPayload.sourceDisplayName.trim()
-      : 'Import bez nazwy katalogu';
-  return `${timestamp} · ${displayName} · ${status}`;
 }

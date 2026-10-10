@@ -974,7 +974,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                         "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
                         "role": "geometry-benchmark",
                         "sha256": (
-                            "0c2904331a764c5ed3bd5e122afe1380ca83665bfb9441c6d0bb1ea3d7792011"
+                            "ec714a8311f9170577cb9ad7d8d343f1b23f774790d816840b090f1c2bd7c8ff"
                         ),
                     }
                 ],
@@ -1029,7 +1029,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                         "relativePath": "ai_docs/quality/m5-sequence-ocr-report.json",
                         "role": "ocr-benchmark",
                         "sha256": (
-                            "6c5e17ca1aea9074be60547559e73c137c64e46969e265a079889827b232cd43"
+                            "31420b5fc6f90fddd13788a3d00481c0961deb34e48e269fee779c4b6cad0a4c"
                         ),
                     },
                 ],
@@ -1054,7 +1054,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                         "relativePath": "ai_docs/quality/m6-symbol-classifier-onnx-report.json",
                         "role": "symbol-onnx-report",
                         "sha256": (
-                            "6f4596ae8ae938b7e9e89dac05e1a888ac4e53fe1d780dcc9325abfac33ad98c"
+                            "ee7c3d7294ae8e87d415eb740a453bfce8070fae143e9bcead0536eee196768f"
                         ),
                     },
                     {
@@ -1063,7 +1063,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                         ),
                         "role": "symbol-confidence-calibration",
                         "sha256": (
-                            "a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7"
+                            "5a2e10686ca17f464efbc1ac221c167cac5db284e97c231e2abba5e0fef6f9d7"
                         ),
                     },
                 ],

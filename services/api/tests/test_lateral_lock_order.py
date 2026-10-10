@@ -64,6 +64,8 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
             assert "FOR UPDATE" in sql
             events.append("source")
             return source
+        if "FROM image_source_geometry_revisions" in sql:
+            return NS(id=uuid4())
         return None
 
     session.scalar.side_effect = scalar
@@ -80,19 +82,30 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
     monkeypatch.setattr(worker, "_pending_board_geometry_count", lambda *a, **kw: 0)
     monkeypatch.setattr(worker, "_append_prediction_revision", Mock())
     monkeypatch.setattr(worker, "SqlAlchemyBoardSearchProjectionRepository", Mock())
+    # TASK-0807: the import writer recomputes the image's geometry gate status
+    # in the same transaction, after the source lock and before the cell state.
+    monkeypatch.setattr(
+        worker,
+        "recompute_source_image_geometry_completeness",
+        lambda *a, **kw: events.append("gate") or NS(became_admitted=False),
+    )
+    monkeypatch.setattr(worker, "recompute_source_images_of_review_items", Mock())
     coordinator = Mock()
     coordinator.synchronize_after_prediction_refresh.side_effect = lambda **kw: events.append(
         "state"
     )
     monkeypatch.setattr(worker, "SymbolCellReviewWriteThroughCoordinator", lambda _: coordinator)
     boards = [{"positionIndex": index, "confidence": 0.99} for index in range(2)]
+    # D-467 (TASK-0790): only virtual_source boards can be projected.
     crops = [
         {
             **board,
+            "assetMode": "virtual_source",
             "cells": [],
-            "boardRelativePath": "board.jpg",
-            "boardChecksumSha256": "c" * 64,
             "cropperVersion": "test",
+            "geometryChecksumSha256": "d" * 64,
+            "geometryEngineName": "structured_opencv_v1",
+            "geometryEngineVersion": "test",
         }
         for board in boards
     ]
@@ -102,7 +115,13 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
     ]
     stages = {
         "board_detection": NS(payload={"boards": boards}),
-        "board_crops": NS(payload={"boards": crops}),
+        "board_crops": NS(
+            payload={
+                "assetMode": "virtual_source",
+                "boards": crops,
+                "geometryChecksumSha256": "d" * 64,
+            }
+        ),
         "sequence_ocr": NS(payload={"boards": sequences}),
         "symbol_inference": NS(
             payload={
@@ -116,7 +135,7 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
         candidate, stage_results=stages
     )
     assert events[:3] == ["lease", ("sequence", (1, 2)), "source"]
-    assert events[-1] == "state"
+    assert events[-2:] == ["gate", "state"]
     created = [call.args[0] for call in session.add.call_args_list]
     assert len(created) == 1 and created[0].position_index == 1
 
@@ -131,10 +150,15 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
         position_index=0,
         pending_geometry_id=None,
         review_item_id=uuid4(),
+        source_image_id=uuid4(),
     )
     prepared = NS(entries=[NS(context=context, command=NS(geometry_qualification=None))])
     monkeypatch.setattr(
         editor, "acquire_image_sequence_locks", lambda *a, **kw: events.append("sequence")
+    )
+    # TASK-0971 (P0-4): the game's sequence-ownership lock precedes every other lock.
+    monkeypatch.setattr(
+        editor, "acquire_sequence_ownership_lock", lambda *a, **kw: events.append("ownership")
     )
 
     def execute(query):
@@ -150,7 +174,7 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
         ).save_virtual_source_geometry_revision(
             prepared=prepared, idempotency_key=uuid4(), created_at=datetime.now(UTC)
         )
-    assert events == ["sequence", "source"]
+    assert events == ["ownership", "sequence", "source"]
 
 
 def test_symbol_mutation_locks_board_before_shared_state():
@@ -161,7 +185,9 @@ def test_symbol_mutation_locks_board_before_shared_state():
     repository._acquire_board_locks = lambda **kw: events.append("sequence")
     repository._locked_current_rows = lambda _: events.append("source") or []
 
-    def state(_):
+    # TASK-0885: the ready-state lookup also receives the locked board's current
+    # state, so the stand-in accepts that keyword.
+    def state(_, current_board=None):
         events.append("state")
         raise StopAtLock
 
@@ -223,7 +249,7 @@ def test_pending_owner_does_not_lock_immutable_incumbent_job(monkeypatch):
     session = Mock()
     game_id = uuid4()
     import_job = NS(id=uuid4(), created_at=datetime.now(UTC))
-    board = NS(id=uuid4(), sequence_number=1)
+    board = NS(id=uuid4(), sequence_number=1, source_image_id=uuid4())
     session.scalar.return_value = None
     session.execute.return_value.all.return_value = []
     monkeypatch.setattr(

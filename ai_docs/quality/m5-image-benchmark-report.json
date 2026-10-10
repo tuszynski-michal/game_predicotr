@@ -1772,12 +1772,12 @@
     "unrecognizedCount": 12
   },
   "inputs": {
-    "alternativeOcrReportSha256": "2e9521eca5fbe2808d20904a293df9480bf08f83be12dbc1293a4bdf8050f3c6",
-    "baselineOcrReportSha256": "6c5e17ca1aea9074be60547559e73c137c64e46969e265a079889827b232cd43",
+    "alternativeOcrReportSha256": "99f3a8b69f449b8439773530482593ac571dd492b0669a65b16c1a185cb715c8",
+    "baselineOcrReportSha256": "31420b5fc6f90fddd13788a3d00481c0961deb34e48e269fee779c4b6cad0a4c",
     "boardCropReportSha256": "2a7840f140547c23c0941349a17f4146c94e5721c3a2a9923b5467f8fb1aa0ef",
-    "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+    "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
     "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
-    "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+    "goldenAnnotationsSha256": "7c1eceb6d3ab980e25082d4dab99d58ad416eec40eee65fbe3bde55fba86b9cb",
     "normalizationReportSha256": "599f7af8a2b476be514a3693b77055ed1f46e48287f141a5a08ca900fc39cb46",
     "sourceDiscoverySha256": "4c52f86532e3c088559b502a36c9ab05c4824f90dd1b4a9d75c1f6cc86f76390",
     "thresholdsSha256": "d408f8d0bbc3806023e92d6a1f24cf732a830f52f1790449e667e2acd3f049b3"

@@ -144,9 +144,13 @@ export function orderOperationalReviewSymbols(
 
 export function buildOperationalReviewSymbolShortcuts(
   symbols: readonly SymbolResponse[],
+  { reservedKeys = [] }: { readonly reservedKeys?: readonly string[] } = {},
 ): readonly OperationalReviewSymbolShortcut[] {
+  const keys = OPERATIONAL_REVIEW_SHORTCUT_KEYS.filter(
+    (key) => !reservedKeys.includes(key),
+  );
   return orderOperationalReviewSymbols(symbols).map((symbol, index) => ({
-    key: OPERATIONAL_REVIEW_SHORTCUT_KEYS[index] ?? null,
+    key: keys[index] ?? null,
     symbol,
   }));
 }
@@ -516,14 +520,19 @@ export function operationalReviewGeometryViewport(
   imageWidth: number,
   imageHeight: number,
   paddingRatio = 0.25,
+  allowOutsideSource = false,
 ): OperationalReviewGeometryViewport {
   const boundedWidth = Math.max(1, Math.round(imageWidth));
   const boundedHeight = Math.max(1, Math.round(imageHeight));
   const xs = corners.map((point) =>
-    Math.min(boundedWidth - 1, Math.max(0, point.x)),
+    allowOutsideSource
+      ? point.x
+      : Math.min(boundedWidth - 1, Math.max(0, point.x)),
   );
   const ys = corners.map((point) =>
-    Math.min(boundedHeight - 1, Math.max(0, point.y)),
+    allowOutsideSource
+      ? point.y
+      : Math.min(boundedHeight - 1, Math.max(0, point.y)),
   );
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
@@ -533,16 +542,106 @@ export function operationalReviewGeometryViewport(
   const boardHeight = Math.max(1, maxY - minY);
   const paddingX = Math.max(16, Math.round(boardWidth * paddingRatio));
   const paddingY = Math.max(16, Math.round(boardHeight * paddingRatio));
-  const x = Math.max(0, Math.floor(minX - paddingX));
-  const y = Math.max(0, Math.floor(minY - paddingY));
-  const right = Math.min(boundedWidth, Math.ceil(maxX + paddingX));
-  const bottom = Math.min(boundedHeight, Math.ceil(maxY + paddingY));
+  const x = allowOutsideSource
+    ? Math.floor(minX - paddingX)
+    : Math.max(0, Math.floor(minX - paddingX));
+  const y = allowOutsideSource
+    ? Math.floor(minY - paddingY)
+    : Math.max(0, Math.floor(minY - paddingY));
+  const right = allowOutsideSource
+    ? Math.ceil(maxX + paddingX)
+    : Math.min(boundedWidth, Math.ceil(maxX + paddingX));
+  const bottom = allowOutsideSource
+    ? Math.ceil(maxY + paddingY)
+    : Math.min(boundedHeight, Math.ceil(maxY + paddingY));
   return {
     height: Math.max(1, bottom - y),
     width: Math.max(1, right - x),
     x,
     y,
   };
+}
+
+/**
+ * Moves only the source-space window shown by a geometry canvas. The saved
+ * lattice remains in the original image coordinate system.
+ */
+export function operationalReviewTranslatedGeometryViewport(
+  viewport: OperationalReviewGeometryViewport,
+  offset: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryViewport {
+  const x = Math.round(viewport.x + offset.x);
+  const y = Math.round(viewport.y + offset.y);
+  if (allowOutsideSource) {
+    return { ...viewport, x, y };
+  }
+  const maxX = Math.max(0, Math.round(imageWidth) - viewport.width);
+  const maxY = Math.max(0, Math.round(imageHeight) - viewport.height);
+  return {
+    ...viewport,
+    x: Math.min(maxX, Math.max(0, x)),
+    y: Math.min(maxY, Math.max(0, y)),
+  };
+}
+
+/**
+ * Returns whether a point is inside a convex geometry quad, including its
+ * border. Deferred-board quads use the fixed clockwise corner ordering.
+ */
+export function operationalReviewGeometryContainsPoint(
+  corners: OperationalReviewGeometryCorners,
+  point: OperationalImageReviewGeometryPoint,
+): boolean {
+  let direction = 0;
+  for (let index = 0; index < corners.length; index += 1) {
+    const start = corners[index];
+    const end = corners[(index + 1) % corners.length];
+    const cross =
+      (end.x - start.x) * (point.y - start.y) -
+      (end.y - start.y) * (point.x - start.x);
+    if (Math.abs(cross) <= Number.EPSILON) continue;
+    const nextDirection = Math.sign(cross);
+    if (direction !== 0 && nextDirection !== direction) return false;
+    direction = nextDirection;
+  }
+  return true;
+}
+
+/**
+ * Moves a complete geometry quad as one rigid source-space translation. A
+ * bounded quad stops as a whole at the source image edge, so its perspective
+ * cannot change while it is being repositioned.
+ */
+export function operationalReviewTranslatedGeometryCorners(
+  corners: OperationalReviewGeometryCorners,
+  offset: OperationalImageReviewGeometryPoint,
+  imageWidth: number,
+  imageHeight: number,
+  allowOutsideSource = false,
+): OperationalReviewGeometryCorners {
+  let offsetX = offset.x;
+  let offsetY = offset.y;
+  if (!allowOutsideSource) {
+    const minX = Math.min(...corners.map((point) => point.x));
+    const maxX = Math.max(...corners.map((point) => point.x));
+    const minY = Math.min(...corners.map((point) => point.y));
+    const maxY = Math.max(...corners.map((point) => point.y));
+    offsetX = Math.min(
+      Math.max(0, Math.round(imageWidth) - 1) - maxX,
+      Math.max(-minX, offsetX),
+    );
+    offsetY = Math.min(
+      Math.max(0, Math.round(imageHeight) - 1) - maxY,
+      Math.max(-minY, offsetY),
+    );
+  }
+  return corners.map((point) => ({
+    x: Math.round(point.x + offsetX),
+    y: Math.round(point.y + offsetY),
+  })) as OperationalReviewGeometryCorners;
 }
 
 export function operationalReviewNativeContextViewport(
@@ -619,12 +718,12 @@ export function operationalReviewPointInSourceImage(
   viewport: OperationalReviewGeometryViewport,
   imageWidth: number,
   imageHeight: number,
+  allowOutsideSource = false,
 ): OperationalImageReviewGeometryPoint {
-  return clampOperationalReviewGeometryPoint(
-    { x: point.x + viewport.x, y: point.y + viewport.y },
-    imageWidth,
-    imageHeight,
-  );
+  const absolute = { x: point.x + viewport.x, y: point.y + viewport.y };
+  return allowOutsideSource
+    ? { x: Math.round(absolute.x), y: Math.round(absolute.y) }
+    : clampOperationalReviewGeometryPoint(absolute, imageWidth, imageHeight);
 }
 
 export function buildOperationalReviewGeometryPreviewCommand(

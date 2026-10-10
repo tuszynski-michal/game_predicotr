@@ -35,8 +35,8 @@ def test_backfill_conflict_target_matches_the_v2_partition_unique_key(
     session = MagicMock()
     game_id = uuid4()
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda _session, _game_id: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda _session, _game_id: None,
     )
 
     columns = _backfill_cell_conflict_columns(session, game_id)
@@ -46,21 +46,6 @@ def test_backfill_conflict_target_matches_the_v2_partition_unique_key(
         "review_item_id",
         "cell_index",
     )
-
-
-def test_backfill_conflict_target_keeps_the_legacy_unique_key(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session = MagicMock()
-    game_id = uuid4()
-    monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda _session, _game_id: False,
-    )
-
-    columns = _backfill_cell_conflict_columns(session, game_id)
-
-    assert columns == ("review_item_id", "cell_index")
 
 
 def test_storage_metrics_keep_database_sizes_when_data_directory_is_inaccessible(

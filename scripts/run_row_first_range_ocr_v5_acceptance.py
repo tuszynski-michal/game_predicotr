@@ -26,28 +26,28 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 sys.path.insert(0, str(REPOSITORY_ROOT / "services" / "worker" / "src"))
 
-from game_predictor_worker.semi_automatic_selection.contracts import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.contracts import (  # noqa: E402
     RangeEvidenceResult,
     RangeEvidenceStatus,
     SemiAutomaticSelectionSource,
     SemiAutomaticSequenceBounds,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_grouping import (  # noqa: E402
     ROW_FIRST_EVIDENCE_SELECTOR_VERSION,
     ROW_FIRST_GROUPING_VERSION,
     MiddleRowGroupingAccumulator,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # noqa: E402
     MiddleRowPaddleRecognitionAdapter,
     build_middle_row_paddle_adapter,
 )
-from game_predictor_worker.semi_automatic_selection.range_proof_v5 import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.range_proof_v5 import (  # noqa: E402
     RowExpectedRangeTable,
 )
-from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import (  # noqa: E402
     RowFirstTripleLocator,
 )
-from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (  # type: ignore[import-untyped] # noqa: E402
+from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (  # noqa: E402
     DEFAULT_ROW_FIRST_RUNTIME_POLICY,
     ROW_FIRST_RECOGNIZER_CONTRACT_FINGERPRINT_V5,
     RowFirstBatchRuntime,
@@ -278,7 +278,9 @@ def run_acceptance(
             "checkpointSeconds": 0.0,
             "groupingSeconds": grouping_seconds,
             "locatorSeconds": sum(
-                float(evidence.runtime_diagnostics.get("locatorSeconds", 0.0))
+                float(
+                    cast(float, (evidence.runtime_diagnostics or {}).get("locatorSeconds", 0.0))
+                )
                 for _, evidence in results
             ),
             "medianTimePerSource": _percentile(source_seconds, 0.50),
@@ -347,7 +349,7 @@ def _result_payload(
         "originalSourceIndex": case.source_index,
         "reasonCodes": list(evidence.reason_codes),
         "relativePath": case.relative_path,
-        "runtimeDiagnostics": dict(evidence.runtime_diagnostics),
+        "runtimeDiagnostics": dict(evidence.runtime_diagnostics or {}),
         "sha256": case.checksum_sha256,
         "status": evidence.status.value,
     }

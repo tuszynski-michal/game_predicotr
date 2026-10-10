@@ -82,6 +82,17 @@ function validateSymbols(
         'Symbol display order must be a non-negative integer.',
       );
     }
+    const triggerCount = symbol.superGameTriggerCount;
+    if (
+      triggerCount !== undefined &&
+      triggerCount !== null &&
+      (!Number.isSafeInteger(triggerCount) || triggerCount < 1)
+    ) {
+      throw new DomainValidationError(
+        'invalid_symbol',
+        'Super game trigger count must be a positive integer.',
+      );
+    }
     if (mobileCodes.has(symbol.mobileCode)) {
       throw new DomainValidationError(
         'duplicate_symbol_mobile_code',
@@ -247,6 +258,21 @@ export function validatePaylines(
   }
 }
 
+/** A trigger symbol is paid per count on the board, never on paylines (D-535). */
+export function isSuperGameTrigger(symbol: SymbolDefinition): boolean {
+  return (
+    symbol.superGameTriggerCount !== undefined &&
+    symbol.superGameTriggerCount !== null
+  );
+}
+
+/** A symbol evaluated on paylines: neither Wild nor a super game trigger. */
+export function isOrdinaryLineSymbol(symbol: SymbolDefinition): boolean {
+  return !symbol.isWildcard && !isSuperGameTrigger(symbol);
+}
+
+const MINIMUM_COUNT_PAYOUT = 2;
+
 export function validatePayoutSymbols(
   payoutSymbols: readonly PayoutSymbolDefinition[],
   game: GameConfig,
@@ -263,6 +289,12 @@ export function validatePayoutSymbols(
       throw new DomainValidationError(
         'invalid_board_symbol',
         `Payout symbol ${payoutSymbol.symbolMobileCode} does not belong to the game.`,
+      );
+    }
+    if (isSuperGameTrigger(symbol)) {
+      throw new DomainValidationError(
+        'super_game_trigger_payout_symbol',
+        'Super game trigger symbols are paid per count and have no minimum match length.',
       );
     }
     if (symbol.isWildcard) {
@@ -313,6 +345,33 @@ export function validatePayoutRules(
         `Payout symbol ${rule.symbolMobileCode} does not belong to the game.`,
       );
     }
+    if (isSuperGameTrigger(symbol)) {
+      const maximumCount = game.rows * game.columns;
+      if (
+        !Number.isSafeInteger(rule.matchLength) ||
+        rule.matchLength < MINIMUM_COUNT_PAYOUT ||
+        rule.matchLength > maximumCount
+      ) {
+        throw new DomainValidationError(
+          'invalid_match_length',
+          `Count payout for symbol ${rule.symbolMobileCode} must be between ${MINIMUM_COUNT_PAYOUT} and ${maximumCount}.`,
+        );
+      }
+      requireNonNegativeInteger(
+        rule.payoutCredits,
+        'invalid_payout',
+        'Payout credits',
+      );
+      const countKey = `${rule.symbolMobileCode}:${rule.matchLength}`;
+      if (keys.has(countKey)) {
+        throw new DomainValidationError(
+          'duplicate_payout_rule',
+          'Payout rule symbol and match length must be unique.',
+        );
+      }
+      keys.add(countKey);
+      continue;
+    }
     if (symbol.isWildcard) {
       throw new DomainValidationError(
         'wildcard_payout_rule',
@@ -361,7 +420,7 @@ export function validatePayoutConfiguration(
   const payoutSymbolsByCode = new Map(
     payoutSymbols.map((symbol) => [symbol.symbolMobileCode, symbol]),
   );
-  const ordinarySymbols = game.symbols.filter((symbol) => !symbol.isWildcard);
+  const ordinarySymbols = game.symbols.filter(isOrdinaryLineSymbol);
 
   const missingSymbols = ordinarySymbols
     .filter((symbol) => !payoutSymbolsByCode.has(symbol.mobileCode))
@@ -411,6 +470,23 @@ export function validatePayoutConfiguration(
         );
       }
       previousPayout = payout;
+    }
+  }
+
+  // Count rules of a trigger symbol are optional, but must increase strictly.
+  for (const symbol of game.symbols.filter(isSuperGameTrigger)) {
+    const countRules =
+      rulesBySymbol.get(symbol.mobileCode) ?? new Map<number, number>();
+    let previousCountPayout: number | undefined;
+    for (const count of [...countRules.keys()].sort((a, b) => a - b)) {
+      const payout = countRules.get(count) ?? 0;
+      if (previousCountPayout !== undefined && payout <= previousCountPayout) {
+        throw new DomainValidationError(
+          'non_increasing_payout',
+          `Count payout for symbol ${symbol.mobileCode} must increase with the count.`,
+        );
+      }
+      previousCountPayout = payout;
     }
   }
 }

@@ -30,6 +30,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   storage_gc: 'Bezpieczne czyszczenie pamięci',
   storage_inventory: 'Pomiar zajętości pamięci',
   storage_pipeline_compaction: 'Kompakcja danych pipeline’u',
+  super_game_series_derive: 'Wyprowadzanie serii supergry',
 };
 
 export const JOB_STATUS_OPTIONS = Object.keys(

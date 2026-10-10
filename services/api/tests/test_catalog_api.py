@@ -25,6 +25,8 @@ class MemoryCatalogRepository(CatalogRepository):
         self.games: dict[UUID, Game] = {}
         self.symbols: dict[UUID, Symbol] = {}
         self.rules_symbol_ids: set[UUID] = set()
+        self.published_rules_symbol_ids: set[UUID] = set()
+        self.cleared_draft_minimums: list[UUID] = []
         self.usage_overrides: dict[UUID, SymbolUsageSummary] = {}
 
     def list_games(self) -> list[Game]:
@@ -41,6 +43,7 @@ class MemoryCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str = "none",
     ) -> Game:
         if any(game.code == code for game in self.games.values()):
             raise CatalogConflictError(
@@ -57,6 +60,7 @@ class MemoryCatalogRepository(CatalogRepository):
             shape_geometry_configuration=shape_geometry_configuration,
             created_at=timestamp,
             updated_at=timestamp,
+            super_game_kind=super_game_kind,
         )
         self.games[game.id] = game
         return game
@@ -88,6 +92,7 @@ class MemoryCatalogRepository(CatalogRepository):
         is_wildcard: bool,
         display_order: int,
         status: SymbolStatus,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
         game_symbols = self.list_symbols(game_id)
         if any(symbol.code == code for symbol in game_symbols):
@@ -112,6 +117,7 @@ class MemoryCatalogRepository(CatalogRepository):
             is_wildcard=is_wildcard,
             display_order=display_order,
             status=status,
+            super_game_trigger_count=super_game_trigger_count,
         )
         self.symbols[symbol.id] = symbol
         return symbol
@@ -120,10 +126,26 @@ class MemoryCatalogRepository(CatalogRepository):
         self.symbols[symbol.id] = symbol
         return symbol
 
-    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
-        return symbol_id in self.rules_symbol_ids
+    def symbol_is_used_in_published_rules(self, symbol_id: UUID) -> bool:
+        return symbol_id in self.published_rules_symbol_ids
 
-    def add_manual_symbol(self, *, game_id: UUID, name: str, is_wildcard: bool) -> Symbol:
+    def clear_draft_rule_minimums(self, symbol_id: UUID) -> None:
+        self.cleared_draft_minimums.append(symbol_id)
+
+    def game_has_super_game_trigger_symbols(self, game_id: UUID) -> bool:
+        return any(
+            symbol.game_id == game_id and symbol.super_game_trigger_count is not None
+            for symbol in self.symbols.values()
+        )
+
+    def add_manual_symbol(
+        self,
+        *,
+        game_id: UUID,
+        name: str,
+        is_wildcard: bool,
+        super_game_trigger_count: int | None = None,
+    ) -> Symbol:
         game_symbols = self.list_symbols(game_id)
         stem = stable_code_stem_from_name(name)
         code = stem
@@ -143,6 +165,7 @@ class MemoryCatalogRepository(CatalogRepository):
             is_wildcard=is_wildcard,
             display_order=max((item.display_order for item in game_symbols), default=-1) + 1,
             status=SymbolStatus.ACTIVE,
+            super_game_trigger_count=super_game_trigger_count,
         )
         self.symbols[symbol.id] = symbol
         return symbol
@@ -168,6 +191,65 @@ def _client(repository: MemoryCatalogRepository) -> TestClient:
     return TestClient(app)
 
 
+def test_game_page_format_accepts_the_grid_engine_profiles_and_keeps_old_values() -> None:
+    """TASK-0830: both profiles are stored and returned; old values behave as before."""
+
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        created: dict[str, dict[str, object]] = {}
+        for code, configuration in (
+            ("mumie", "grid_profile_mumie_v1"),
+            ("777-v2", "grid_profile_777_v2"),
+            ("framed", "framed_full_page_v2"),
+            ("unclear", "requires_clarification"),
+        ):
+            response = client.post(
+                "/api/v1/admin/games",
+                json={"code": code, "name": code, "shapeGeometryConfiguration": configuration},
+            )
+            assert response.status_code == 201
+            body = response.json()
+            assert body["shapeGeometryConfiguration"] == configuration
+            assert body["shapeGeometryReadiness"]["configuration"] == configuration
+            created[code] = body
+
+        for code in ("mumie", "777-v2", "framed"):
+            readiness = created[code]["shapeGeometryReadiness"]
+            assert readiness == {
+                "configuration": created[code]["shapeGeometryConfiguration"],
+                "message": (
+                    "Brak aktywnego wspólnego profilu geometrii; pierwszy import wymaga "
+                    "ręcznej korekty."
+                ),
+                "reasonCode": "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED",
+                "sharedProfile": None,
+                "status": "manual_review_required",
+            }
+        assert created["unclear"]["shapeGeometryReadiness"]["status"] == "requires_clarification"
+
+        game_id = created["mumie"]["id"]
+        listed = {game["code"]: game for game in client.get("/api/v1/admin/games").json()}
+        assert listed["mumie"]["shapeGeometryConfiguration"] == "grid_profile_mumie_v1"
+        switched = client.patch(
+            f"/api/v1/admin/games/{game_id}",
+            json={"shapeGeometryConfiguration": "grid_profile_777_v2"},
+        )
+        assert switched.status_code == 200
+        assert switched.json()["shapeGeometryConfiguration"] == "grid_profile_777_v2"
+        fetched = client.get(f"/api/v1/admin/games/{game_id}").json()
+        assert fetched["shapeGeometryConfiguration"] == "grid_profile_777_v2"
+        assert repository.games[UUID(str(game_id))].shape_geometry_configuration is (
+            GameShapeGeometryConfiguration.GRID_PROFILE_777_V2
+        )
+
+        rejected = client.post(
+            "/api/v1/admin/games",
+            json={"code": "x", "name": "x", "shapeGeometryConfiguration": "grid_profile_777_v3"},
+        )
+        assert rejected.status_code == 422
+
+
 def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols() -> None:
     repository = MemoryCatalogRepository()
 
@@ -181,9 +263,9 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         game_id = game["id"]
         assert game["name"] == "Blazing Hot"
         assert game["status"] == "draft"
-        assert game["storageVersion"] == "legacy-public-v1"
-        assert game["storageSchema"] == "public"
-        assert game["storageGeneration"] == 1
+        assert game["storageVersion"] == "game-data-v2-manifest-v7"
+        assert game["storageSchema"] == "game_data_v2"
+        assert game["storageGeneration"] == 2
         assert game["storageStatus"] == "active"
         assert game["storageWriteAvailable"] is True
         assert game["shapeGeometryConfiguration"] == "requires_clarification"
@@ -226,6 +308,7 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         assert symbol["displayOrder"] == 0
 
         repository.rules_symbol_ids.add(UUID(symbol_id))
+        repository.published_rules_symbol_ids.add(UUID(symbol_id))
         identity_change = client.patch(
             f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
             json={"isWildcard": False},
@@ -253,6 +336,7 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         assert blocked.json()["code"] == "SYMBOL_DELETE_BLOCKED"
         assert blocked.json()["details"]["rules"] == 1
         repository.rules_symbol_ids.clear()
+        repository.published_rules_symbol_ids.clear()
         assert (
             client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code == 204
         )
@@ -328,6 +412,59 @@ def test_manual_symbol_creation_assigns_stable_identity_and_resolves_name_collis
     assert (first.json()["displayOrder"], second.json()["displayOrder"]) == (0, 1)
 
 
+def test_symbol_patch_changes_display_order_and_rejects_invalid_values() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "game-1", "name": "Game 1"},
+        ).json()["id"]
+        star_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Star"},
+        ).json()["id"]
+        seven_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Seven"},
+        ).json()["id"]
+
+        moved_seven = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{seven_id}",
+            json={"displayOrder": 0},
+        )
+        moved_star = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": 1},
+        )
+        renamed = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"name": "Gwiazda"},
+        )
+        listed = client.get(f"/api/v1/admin/games/{game_id}/symbols")
+        negative = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": -1},
+        )
+        explicit_null = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": None},
+        )
+
+    assert moved_seven.status_code == 200
+    assert moved_seven.json()["displayOrder"] == 0
+    assert moved_star.status_code == 200
+    assert moved_star.json()["displayOrder"] == 1
+    assert renamed.status_code == 200
+    assert renamed.json()["displayOrder"] == 1
+    assert [item["id"] for item in listed.json()] == [seven_id, star_id]
+    assert negative.status_code == 422
+    assert negative.json()["code"] == "VALIDATION_ERROR"
+    assert explicit_null.status_code == 422
+    assert explicit_null.json()["code"] == "VALIDATION_ERROR"
+    assert repository.symbols[UUID(star_id)].display_order == 1
+
+
 def test_delete_reports_each_durable_usage_blocker() -> None:
     repository = MemoryCatalogRepository()
     usage_fields = (
@@ -358,3 +495,200 @@ def test_delete_reports_each_durable_usage_blocker() -> None:
             assert blocked.status_code == 409
             assert blocked.json()["code"] == "SYMBOL_DELETE_BLOCKED"
             assert any(value == 1 for value in blocked.json()["details"].values())
+
+
+def test_super_game_kinds_endpoint_returns_the_code_registry() -> None:
+    with _client(MemoryCatalogRepository()) as client:
+        response = client.get("/api/v1/admin/super-game-kinds")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"code": "none", "label": "Brak"},
+        {"code": "wild_super_spins", "label": "Wild super spins"},
+    ]
+
+
+def test_game_super_game_kind_defaults_to_none_and_is_validated() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        default = client.post("/api/v1/admin/games", json={"code": "777", "name": "777"})
+        mumie = client.post(
+            "/api/v1/admin/games",
+            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+        )
+        unknown = client.post(
+            "/api/v1/admin/games",
+            json={"code": "x", "name": "x", "superGameKind": "free_spins"},
+        )
+        game_id = default.json()["id"]
+        switched = client.patch(
+            f"/api/v1/admin/games/{game_id}", json={"superGameKind": "wild_super_spins"}
+        )
+        explicit_null = client.patch(f"/api/v1/admin/games/{game_id}", json={"superGameKind": None})
+        unknown_update = client.patch(
+            f"/api/v1/admin/games/{game_id}", json={"superGameKind": "bonus"}
+        )
+
+    assert default.status_code == 201
+    assert default.json()["superGameKind"] == "none"
+    assert mumie.status_code == 201
+    assert mumie.json()["superGameKind"] == "wild_super_spins"
+    assert unknown.status_code == 422
+    assert unknown.json()["code"] == "INVALID_SUPER_GAME_KIND"
+    assert switched.status_code == 200
+    assert switched.json()["superGameKind"] == "wild_super_spins"
+    assert explicit_null.status_code == 422
+    assert explicit_null.json()["code"] == "VALIDATION_ERROR"
+    assert unknown_update.status_code == 422
+    assert unknown_update.json()["code"] == "INVALID_SUPER_GAME_KIND"
+    assert repository.games[UUID(game_id)].super_game_kind == "wild_super_spins"
+
+
+def test_super_game_trigger_role_requires_a_game_super_game_kind() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post("/api/v1/admin/games", json={"code": "777", "name": "777"}).json()[
+            "id"
+        ]
+        created = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Mumia", "isWildcard": True, "superGameTriggerCount": 4},
+        )
+        symbol_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols", json={"name": "Mumia"}
+        ).json()["id"]
+        updated = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"superGameTriggerCount": 4},
+        )
+        out_of_range = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"superGameTriggerCount": 6},
+        )
+
+    assert created.status_code == 422
+    assert created.json()["code"] == "SUPER_GAME_KIND_REQUIRED"
+    assert updated.status_code == 422
+    assert updated.json()["code"] == "SUPER_GAME_KIND_REQUIRED"
+    assert out_of_range.status_code == 422
+    assert out_of_range.json()["code"] == "VALIDATION_ERROR"
+    assert repository.symbols[UUID(symbol_id)].super_game_trigger_count is None
+    assert len(repository.symbols) == 1
+
+
+def test_super_game_roles_change_on_draft_rules_and_lock_after_publication() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+        ).json()["id"]
+        mumia = client.post(f"/api/v1/admin/games/{game_id}/symbols", json={"name": "Mumia"})
+        mumia_id = mumia.json()["id"]
+        # Referenced only by a draft rules version, like the Mumie v1 rules.
+        repository.rules_symbol_ids.add(UUID(mumia_id))
+        roles = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{mumia_id}",
+            json={"name": "Mumia", "isWildcard": True, "superGameTriggerCount": 3},
+        )
+        unchanged = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{mumia_id}",
+            json={"name": "Mumia", "isWildcard": True},
+        )
+        kind_none = client.patch(f"/api/v1/admin/games/{game_id}", json={"superGameKind": "none"})
+
+        repository.published_rules_symbol_ids.add(UUID(mumia_id))
+        locked_wild = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{mumia_id}", json={"isWildcard": False}
+        )
+        locked_trigger = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{mumia_id}",
+            json={"superGameTriggerCount": None},
+        )
+        rename = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{mumia_id}",
+            json={"name": "Mumia 2", "isWildcard": True, "superGameTriggerCount": 3},
+        )
+
+    assert mumia.json()["superGameTriggerCount"] is None
+    assert roles.status_code == 200
+    assert roles.json()["isWildcard"] is True
+    assert roles.json()["superGameTriggerCount"] == 3
+    # Gaining a role clears the line minimum of the symbol in draft versions once.
+    assert repository.cleared_draft_minimums == [UUID(mumia_id)]
+    assert unchanged.status_code == 200
+    assert unchanged.json()["superGameTriggerCount"] == 3
+    assert kind_none.status_code == 409
+    assert kind_none.json()["code"] == "SUPER_GAME_KIND_IN_USE"
+    assert locked_wild.status_code == 409
+    assert locked_wild.json()["code"] == "SYMBOL_RULES_IDENTITY_IN_USE"
+    assert locked_trigger.status_code == 409
+    assert locked_trigger.json()["code"] == "SYMBOL_RULES_IDENTITY_IN_USE"
+    assert rename.status_code == 200
+    assert rename.json()["name"] == "Mumia 2"
+    assert repository.symbols[UUID(mumia_id)].super_game_trigger_count == 3
+
+
+def test_super_game_trigger_role_can_be_removed_on_a_draft() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+        ).json()["id"]
+        created = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Mumia", "isWildcard": True, "superGameTriggerCount": 5},
+        )
+        symbol_id = created.json()["id"]
+        removed = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"superGameTriggerCount": None},
+        )
+        kind_none = client.patch(f"/api/v1/admin/games/{game_id}", json={"superGameKind": "none"})
+
+    assert created.status_code == 201
+    assert created.json()["superGameTriggerCount"] == 5
+    assert removed.status_code == 200
+    assert removed.json()["superGameTriggerCount"] is None
+    assert removed.json()["isWildcard"] is True
+    assert kind_none.status_code == 200
+    assert kind_none.json()["superGameKind"] == "none"
+
+
+def test_super_game_roles_removed_on_a_draft_do_not_restore_the_minimum() -> None:
+    """Accepted TASK-0931 behaviour: losing both roles leaves the draft minimum null.
+
+    The rules readiness then reports INVALID_MINIMUM_MATCH_LENGTH until the
+    operator sets a line minimum again (see test_rules_domain).
+    """
+
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+        ).json()["id"]
+        symbol_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols", json={"name": "Mumia"}
+        ).json()["id"]
+        repository.rules_symbol_ids.add(UUID(symbol_id))
+        gained = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"isWildcard": True, "superGameTriggerCount": 3},
+        )
+        lost = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"isWildcard": False, "superGameTriggerCount": None},
+        )
+
+    assert gained.status_code == 200
+    assert lost.status_code == 200
+    assert (lost.json()["isWildcard"], lost.json()["superGameTriggerCount"]) == (False, None)
+    # Cleared once when the roles were gained; nothing restores it on loss.
+    assert repository.cleared_draft_minimums == [UUID(symbol_id)]

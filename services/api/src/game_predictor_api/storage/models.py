@@ -27,7 +27,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -38,6 +38,7 @@ from game_predictor_api.domain.image_selections import (
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.domain.prediction_revisions import require_slim_predictions
 from game_predictor_api.domain.reviews import (
     ReviewItemStatus,
     ReviewResolutionAction,
@@ -45,6 +46,7 @@ from game_predictor_api.domain.reviews import (
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.metadata import Base
+from game_predictor_api.storage.neural_page_geometry_constraints import NEURAL_PAGE_BINDING_CHECK
 
 
 def _enum_values(
@@ -71,6 +73,12 @@ class GameModel(Base):
             "expected_layout_count BETWEEN 1 AND 10000000",
             name="ck_games_expected_layout_count_range",
         ),
+        # PostgreSQL regex CHECK (migration 0151_super_game_roles); emitted only
+        # on PostgreSQL so SQLite test schemas built from metadata still work.
+        CheckConstraint(
+            "super_game_kind ~ '^[a-z][a-z0-9_]{0,63}$'",
+            name="ck_games_super_game_kind_format",
+        ).ddl_if(dialect="postgresql"),
         UniqueConstraint("code", name="uq_games_code"),
         Index(
             "ix_games_board_topology_rules_version",
@@ -100,6 +108,14 @@ class GameModel(Base):
     shape_geometry_configuration: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
+    )
+    # D-535: code of a registered super game kind
+    # (game_predictor_worker.domain.super_games); 'none' for games without one.
+    super_game_kind: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="none",
+        server_default=text("'none'"),
     )
     board_topology_rules_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("rules_versions.id", ondelete="RESTRICT"),
@@ -196,6 +212,32 @@ class LegacyGameOperationalCleanupReceiptModel(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class PartialBoardReconciliationReceiptModel(Base):
+    """Control-plane receipt committed atomically with one repaired board."""
+
+    __tablename__ = "partial_board_reconciliation_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "preview_sha256 ~ '^[0-9a-f]{64}$' AND guard_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND sequence_number > 0",
+            name="ck_partial_board_reconciliation_receipt_identity",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(result) = 'object'", name="ck_partial_board_reconciliation_receipt_result"
+        ),
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="CASCADE"), primary_key=True
+    )
+    preview_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    guard_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SymbolModel(Base):
     __tablename__ = "symbols"
     __table_args__ = (
@@ -215,6 +257,10 @@ class SymbolModel(Base):
             "name_en IS NULL OR length(btrim(name_en)) > 0",
             name="ck_symbols_name_en_nonblank",
         ),
+        CheckConstraint(
+            "super_game_trigger_count IS NULL OR super_game_trigger_count IN (3, 4, 5)",
+            name="ck_symbols_super_game_trigger_count",
+        ),
         UniqueConstraint("game_id", "mobile_code", name="uq_symbols_game_mobile_code"),
         UniqueConstraint("game_id", "code", name="uq_symbols_game_code"),
     )
@@ -232,6 +278,8 @@ class SymbolModel(Base):
     name_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # D-535: null = no super game trigger role; 3/4/5 = cells on a cut board.
+    super_game_trigger_count: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[SymbolStatus] = mapped_column(
         Enum(
@@ -278,9 +326,6 @@ class SymbolReferenceImageModel(Base):
     )
     source_recognized_board_id: Mapped[UUID] = mapped_column(
         ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
-    )
-    source_observation_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cell_observations.id", ondelete="RESTRICT"), nullable=False
     )
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
@@ -764,14 +809,33 @@ class SemiAutomaticV7ActivationGateModel(Base):
 
     __tablename__ = "semi_automatic_selection_v7_activation_gate"
     __table_args__ = (
-        CheckConstraint(
-            "singleton = TRUE", name="ck_semi_automatic_v7_activation_gate_singleton"
-        ),
+        CheckConstraint("singleton = TRUE", name="ck_semi_automatic_v7_activation_gate_singleton"),
         CheckConstraint(
             "status IN ('blocked', 'active')", name="ck_semi_automatic_v7_activation_gate_status"
         ),
+        CheckConstraint("generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"),
         CheckConstraint(
-            "generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"
+            "pilot_status IN ('blocked', 'active') AND pilot_generation >= 0 AND "
+            "pilot_mode = 'semi_automatic' AND jsonb_typeof(pilot_source_bindings) = 'array'",
+            name="ck_v7_pilot_gate_policy",
+        ),
+        CheckConstraint(
+            "pilot_status <> 'active' OR (pilot_geometry_family_id IS NOT NULL AND "
+            "pilot_profile_fingerprint IS NOT NULL AND "
+            "pilot_observer_fingerprint IS NOT NULL AND "
+            "pilot_ocr_model_fingerprint IS NOT NULL AND "
+            "pilot_acceptance_receipt_fingerprint IS NOT NULL AND "
+            "pilot_accepted_at IS NOT NULL AND "
+            "pilot_accepted_by IS NOT NULL AND "
+            "((pilot_source_policy = 'exact_sources' AND pilot_source_game_ref IS NOT NULL AND "
+            "jsonb_array_length(pilot_source_bindings) > 0) OR "
+            "(pilot_source_policy = 'operator_selected_local_folder' AND "
+            "pilot_source_game_ref IS NULL AND jsonb_array_length(pilot_source_bindings) = 0)))",
+            name="ck_v7_pilot_gate_active_identity",
+        ),
+        CheckConstraint(
+            "pilot_source_policy IN ('exact_sources', 'operator_selected_local_folder')",
+            name="ck_v7_pilot_gate_source_policy",
         ),
     )
 
@@ -780,11 +844,57 @@ class SemiAutomaticV7ActivationGateModel(Base):
     generation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="blocked")
+    pilot_generation: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    pilot_mode: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="semi_automatic"
+    )
+    pilot_geometry_family_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_source_game_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_source_policy: Mapped[str] = mapped_column(
+        String(40), nullable=False, server_default="exact_sources"
+    )
+    pilot_profile_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_observer_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_ocr_model_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_source_bindings: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    pilot_acceptance_receipt_fingerprint: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    pilot_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pilot_accepted_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class V7PilotAcceptanceModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_pilot_acceptances"
+    __table_args__ = (
+        CheckConstraint(
+            "expected_generation >= 0 AND resulting_generation = expected_generation + 1",
+            name="ck_v7_pilot_acceptance_generation",
+        ),
+        CheckConstraint(
+            "request_fingerprint ~ '^[0-9a-f]{64}$' AND receipt_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_v7_pilot_acceptance_fingerprints",
+        ),
+    )
+    operation_id: Mapped[UUID] = mapped_column(primary_key=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    receipt_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    receipt: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    expected_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resulting_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
@@ -838,7 +948,7 @@ class SemiAutomaticImageSelectionRangeModel(Base):
             name="ck_semi_automatic_selection_ranges_bounds",
         ),
         CheckConstraint(
-            "status IN ('missing', 'auto_selected', 'output_synced', 'conflict')",
+            "status IN ('missing', 'proposed', 'auto_selected', 'output_synced', 'conflict')",
             name="ck_semi_automatic_selection_ranges_status",
         ),
         CheckConstraint(
@@ -861,6 +971,14 @@ class SemiAutomaticImageSelectionRangeModel(Base):
         CheckConstraint(
             "output_checksum_sha256 IS NULL OR output_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_semi_automatic_selection_ranges_output_checksum",
+        ),
+        CheckConstraint(
+            "(v7_output_generation IS NULL OR v7_output_generation >= 0) AND "
+            "((v7_confirmed_range_start IS NULL AND v7_confirmed_range_end IS NULL) OR "
+            "(v7_confirmed_range_start >= range_start AND v7_confirmed_range_end <= range_end "
+            "AND v7_confirmed_range_end >= v7_confirmed_range_start)) AND "
+            "(v7_projection_fingerprint IS NULL OR v7_projection_fingerprint ~ '^[0-9a-f]{64}$')",
+            name="ck_v7_range_output_identity",
         ),
         CheckConstraint(
             "source_relative_path IS NULL OR "
@@ -902,12 +1020,81 @@ class SemiAutomaticImageSelectionRangeModel(Base):
     range_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     selection_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
     output_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    v7_review: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    v7_projection_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    v7_confirmed_range_start: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    v7_confirmed_range_end: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    v7_output_owner_operation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    v7_output_generation: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class V7SourceObservationModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_source_observations"
+    __table_args__ = (
+        PrimaryKeyConstraint("run_id", "source_index"),
+        CheckConstraint("source_index >= 0", name="ck_v7_source_observation_index"),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "payload_fingerprint ~ '^[0-9a-f]{64}$' AND jsonb_typeof(payload) = 'object'",
+            name="ck_v7_source_observation_payload",
+        ),
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_runs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class V7OutputOperationModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_output_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('reserved', 'recovery_required', 'committed', 'conflict', 'failed') AND "
+            "decision_generation >= 0 AND reserved_revision >= 0",
+            name="ck_v7_output_operation_state",
+        ),
+        CheckConstraint(
+            "request_fingerprint ~ '^[0-9a-f]{64}$' AND jsonb_typeof(request_payload) = 'object' "
+            "AND jsonb_typeof(context_payload) = 'object'",
+            name="ck_v7_output_operation_payload",
+        ),
+        Index(
+            "uq_v7_output_operation_pending_run",
+            "run_id",
+            unique=True,
+            postgresql_where=text("state IN ('reserved', 'recovery_required')"),
+        ),
+        Index("ix_v7_output_operation_range_created", "range_id", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_runs.id", ondelete="RESTRICT"), nullable=False
+    )
+    range_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_ranges.id", ondelete="RESTRICT"), nullable=False
+    )
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    context_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    decision_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    reserved_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    receipt: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
@@ -1699,6 +1886,66 @@ class ImagePipelineTerminalManifestModel(Base):
     )
 
 
+class ImageGeometryShadowResultModel(Base):
+    """Append-only, game-owned comparison; never a production geometry revision."""
+
+    __tablename__ = "image_geometry_shadow_results"
+    __table_args__ = (
+        UniqueConstraint("game_id", "job_id", "source_image_id", name="uq_grid_shadow_job_source"),
+        CheckConstraint(
+            "status IN ('needs_review', 'failed', 'unsupported')", name="ck_grid_shadow_status"
+        ),
+        CheckConstraint(
+            "source_geometry_revision >= 0 AND source_width > 0 AND source_height > 0",
+            name="ck_grid_shadow_source",
+        ),
+        CheckConstraint(
+            "output_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_geometry_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND model_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND binding_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_shadow_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(output) = 'object' AND jsonb_typeof(source_binding) = 'object' "
+            "AND jsonb_typeof(model_binding) = 'object' AND jsonb_typeof(reasons) = 'array'",
+            name="ck_grid_shadow_payloads",
+        ),
+        Index("ix_grid_shadow_game_created", "game_id", "created_at", "id"),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_geometry_revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_geometry_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_width: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_height: Mapped[int] = mapped_column(Integer, nullable=False)
+    model_profile: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_binding: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    model_binding: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    binding_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    output: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    output_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SourceImageModel(Base):
     __tablename__ = "source_images"
     __table_args__ = (
@@ -1733,6 +1980,29 @@ class SourceImageModel(Base):
             "AND length(btrim(normalization_adapter_version)) > 0 "
             "AND normalized_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_source_images_coordinate_metadata",
+        ),
+        # D-484 gate (TASK-0807, migration 0139).
+        CheckConstraint(
+            "geometry_completeness_status IS NULL OR geometry_completeness_status IN "
+            "('geometry_complete', 'geometry_incomplete', 'geometry_exception')",
+            name="ck_source_images_geometry_completeness_status",
+        ),
+        CheckConstraint(
+            "geometry_completeness_status IS NULL "
+            "OR geometry_completeness_evaluated_at IS NOT NULL",
+            name="ck_source_images_geometry_completeness_evaluated",
+        ),
+        CheckConstraint(
+            "(geometry_completeness_status = 'geometry_exception' "
+            "AND geometry_exception_reason IS NOT NULL "
+            "AND length(btrim(geometry_exception_reason)) > 0 "
+            "AND geometry_exception_by IS NOT NULL "
+            "AND length(btrim(geometry_exception_by)) > 0 "
+            "AND geometry_exception_at IS NOT NULL) OR "
+            "(geometry_completeness_status IS DISTINCT FROM 'geometry_exception' "
+            "AND geometry_exception_reason IS NULL AND geometry_exception_by IS NULL "
+            "AND geometry_exception_at IS NULL)",
+            name="ck_source_images_geometry_exception",
         ),
         UniqueConstraint(
             "import_job_id",
@@ -1779,6 +2049,16 @@ class SourceImageModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    # D-484 gate (TASK-0807): NULL = not evaluated or outside the gate.
+    geometry_completeness_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    geometry_completeness_evaluated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    geometry_exception_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    geometry_exception_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    geometry_exception_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ImageSourceGeometryRevisionModel(Base):
@@ -1820,13 +2100,13 @@ class ImageSourceGeometryRevisionModel(Base):
         ),
         CheckConstraint(
             "engine_kind IN ('legacy_v20', 'structured_opencv_v1', "
-            "'manual_v1', 'keypoint_fallback_v1') "
+            "'manual_v1', 'keypoint_fallback_v1', 'neural_grid_v1') "
             "AND length(btrim(engine_version)) > 0",
             name="ck_image_source_geometry_revisions_engine",
         ),
         CheckConstraint(
             "geometry_source IN ('auto', 'manual', 'backfill') "
-            "AND status IN ('pending', 'accepted', 'needs_review', 'rejected') "
+            "AND status IN ('pending', 'accepted', 'needs_review', 'rejected', 'reverted') "
             "AND (processing_time_ms IS NULL OR processing_time_ms >= 0) "
             "AND length(btrim(created_by)) > 0",
             name="ck_image_source_geometry_revisions_state",
@@ -1845,10 +2125,14 @@ class ImageSourceGeometryRevisionModel(Base):
             "revision",
             name="uq_image_source_geometry_revisions_source_revision",
         ),
-        UniqueConstraint(
+        # TASK-0966: a reverted revision keeps its row but frees its checksum,
+        # so the same geometry saved again appends a new revision.
+        Index(
+            "uq_image_source_geometry_revisions_live_checksum",
             "source_image_id",
             "geometry_checksum_sha256",
-            name="uq_image_source_geometry_revisions_source_checksum",
+            unique=True,
+            postgresql_where=text("status <> 'reverted'"),
         ),
         Index(
             "ix_image_source_geometry_revisions_source_created",
@@ -1910,13 +2194,13 @@ class ImageGeometryRolloutStateModel(Base):
 
     __tablename__ = "image_geometry_rollout_states"
     __table_args__ = (
+        # D-467 (TASK-0790, migration 0133): only virtual import policies.
         CheckConstraint(
-            "geometry_mode IN ('legacy', 'structured_shadow', "
-            "'structured_review', 'structured_default', 'structured_lattice_v3')",
+            "geometry_mode IN ('structured_default', 'structured_lattice_v3')",
             name="ck_image_geometry_rollout_states_geometry_mode",
         ),
         CheckConstraint(
-            "cell_asset_mode IN ('legacy_files', 'virtual_shadow', 'virtual_default')",
+            "cell_asset_mode IN ('virtual_default')",
             name="ck_image_geometry_rollout_states_asset_mode",
         ),
         CheckConstraint(
@@ -1951,13 +2235,16 @@ class ImageGeometryRolloutStateModel(Base):
         ForeignKey("games.id", ondelete="CASCADE"), primary_key=True
     )
     geometry_mode: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="legacy", server_default=text("'legacy'")
+        String(30),
+        nullable=False,
+        default="structured_lattice_v3",
+        server_default=text("'structured_lattice_v3'"),
     )
     cell_asset_mode: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        default="legacy_files",
-        server_default=text("'legacy_files'"),
+        default="virtual_default",
+        server_default=text("'virtual_default'"),
     )
     revision: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
@@ -2035,11 +2322,9 @@ class RecognizedBoardModel(Base):
             "pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
             name="ck_recognized_boards_pipeline_checksum",
         ),
+        # D-467 S6 (migration 0135): one data mode; equivalent to the live
+        # ``pg_get_constraintdef`` after 0135/0136.
         CheckConstraint(
-            "(asset_mode = 'legacy_file' "
-            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            r"AND length(btrim(board_relative_path)) > 0 "
-            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
             "(asset_mode = 'virtual_source' "
             "AND board_relative_path IS NULL AND board_checksum_sha256 IS NULL "
             "AND source_geometry_revision_id IS NOT NULL "
@@ -2117,7 +2402,10 @@ class RecognizedBoardModel(Base):
     sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     board_geometry: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     asset_mode: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
     )
     source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
@@ -2160,74 +2448,53 @@ class RecognizedBoardModel(Base):
     )
 
 
-class CellObservationModel(Base):
-    __tablename__ = "cell_observations"
+class BoardRenderManifestModel(Base):
+    """One immutable render manifest per virtual board geometry revision (D-467).
+
+    ``cells`` has the ``virtual_render_spec`` shape; revision 0 is built from
+    the import cells, revisions above zero copy the geometry revision.
+    """
+
+    __tablename__ = "board_render_manifests"
     __table_args__ = (
+        CheckConstraint("geometry_revision >= 0", name="ck_board_render_manifests_revision"),
         CheckConstraint(
-            "row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4",
-            name="ck_cell_observations_coordinates",
-        ),
-        CheckConstraint(
-            "crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
-            name="ck_cell_observations_checksum",
+            "asset_mode = 'virtual_source'", name="ck_board_render_manifests_asset_mode"
         ),
         CheckConstraint(
-            "(asset_mode = 'legacy_file' "
-            r"AND length(btrim(crop_relative_path)) > 0 "
-            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
-            "(asset_mode = 'virtual_source' AND crop_relative_path IS NULL "
-            "AND source_geometry_revision_id IS NOT NULL "
-            "AND logical_cell_key ~ '^[0-9a-f]{64}$' "
-            "AND jsonb_typeof(render_spec) = 'object' "
-            "AND render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND length(btrim(extractor_version)) > 0)",
-            name="ck_cell_observations_asset_provenance",
+            "jsonb_typeof(cells) = 'object' AND jsonb_typeof(cells->'cells') = 'array' "
+            "AND jsonb_array_length(cells->'cells') > 0",
+            name="ck_board_render_manifests_cells",
         ),
         CheckConstraint(
-            "(logical_cell_key_v2 IS NULL AND render_identity_v2_sha256 IS NULL) OR "
-            "(logical_cell_key_v2 ~ '^[0-9a-f]{64}$' "
-            "AND render_identity_v2_sha256 ~ '^[0-9a-f]{64}$')",
-            name="ck_cell_observations_v2_identity",
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_board_render_manifests_checksum",
         ),
-        UniqueConstraint(
-            "recognized_board_id",
-            "row_index",
-            "column_index",
-            name="uq_cell_observations_board_cell",
-        ),
-        Index(
-            "ix_cell_observations_logical_cell",
-            "logical_cell_key",
-            "source_geometry_revision_id",
-            postgresql_where=text("logical_cell_key IS NOT NULL"),
+        CheckConstraint(
+            "length(btrim(extractor_version)) > 0",
+            name="ck_board_render_manifests_extractor",
         ),
     )
 
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
     recognized_board_id: Mapped[UUID] = mapped_column(
-        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("recognized_boards.id", ondelete="CASCADE"), primary_key=True
     )
-    row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, primary_key=True)
     asset_mode: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
     )
-    source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
+    source_geometry_revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=False
     )
-    logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
-    render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    crop_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
-    prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    extractor_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    cells: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -2497,9 +2764,7 @@ class ImageSymbolReviewStateModel(Base):
     count_rebuild_accumulator: Mapped[dict[str, object]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
-    count_projection_failure_message: Mapped[str | None] = mapped_column(
-        String(500), nullable=True
-    )
+    count_projection_failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -2515,10 +2780,28 @@ class ImageSymbolReviewCellModel(Base):
     """Current human-review state for one checksum-bound symbol crop."""
 
     __tablename__ = "image_symbol_review_cells"
+    source_visibility: Mapped[str | None] = mapped_column(String(10), nullable=True)
     source_available: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
     __table_args__ = (
+        CheckConstraint(
+            "source_visibility IS NULL OR source_visibility IN ('full', 'partial', 'outside')",
+            name="ck_image_symbol_review_cells_source_visibility",
+        ),
+        CheckConstraint(
+            "(asset_mode = 'none' AND source_visibility IS NOT DISTINCT FROM 'outside' "
+            "AND NOT source_available AND crop_sample_id IS NULL "
+            "AND crop_checksum_sha256 IS NULL AND crop_relative_path IS NULL "
+            "AND render_spec_checksum_sha256 IS NULL "
+            "AND rendered_pixel_checksum_sha256 IS NULL AND render_identity_v2_sha256 IS NULL "
+            "AND logical_cell_key IS NULL AND logical_cell_key_v2 IS NULL "
+            "AND extractor_version IS NULL "
+            "AND prediction_symbol_code IS NULL AND prediction_confidence IS NULL) OR "
+            "(asset_mode <> 'none' AND source_visibility IS DISTINCT FROM 'outside' "
+            "AND crop_sample_id IS NOT NULL AND crop_checksum_sha256 IS NOT NULL)",
+            name="ck_image_symbol_review_cells_source_asset",
+        ),
         CheckConstraint(
             "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
             "AND row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4 "
@@ -2529,14 +2812,12 @@ class ImageSymbolReviewCellModel(Base):
             "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_symbol_review_cells_checksums",
         ),
+        # D-467 S6 (migrations 0135/0136): ``none`` or ``virtual_source`` only.
         CheckConstraint(
-            "(asset_mode = 'legacy_file' "
-            r"AND length(btrim(crop_relative_path)) > 0 "
-            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
+            "asset_mode = 'none' OR "
             "(asset_mode = 'virtual_source' AND crop_relative_path IS NULL "
             "AND source_geometry_revision_id IS NOT NULL "
             "AND logical_cell_key ~ '^[0-9a-f]{64}$' "
-            "AND jsonb_typeof(render_spec) = 'object' "
             "AND render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND length(btrim(extractor_version)) > 0)",
@@ -2598,13 +2879,8 @@ class ImageSymbolReviewCellModel(Base):
             "AND approved_source_geometry_revision_id IS NULL "
             "AND approved_render_spec_checksum_sha256 IS NULL "
             "AND approved_rendered_pixel_checksum_sha256 IS NULL) OR "
-            "(approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
-            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND approved_geometry_revision >= 0 "
-            "AND (approved_asset_mode IS NULL OR approved_asset_mode = 'legacy_file') "
-            "AND approved_source_geometry_revision_id IS NULL "
-            "AND approved_render_spec_checksum_sha256 IS NULL "
-            "AND approved_rendered_pixel_checksum_sha256 IS NULL) OR "
+            # The historical file-crop approval branch was removed by
+            # 0138 (TASK-0797): an approval is always a virtual render.
             "(approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
             "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND approved_geometry_revision >= 0 "
@@ -2640,6 +2916,15 @@ class ImageSymbolReviewCellModel(Base):
             "sequence_number",
             "cell_index",
             "review_item_id",
+        ),
+        Index(
+            "v2_ix_symbol_review_list_import",
+            "game_id",
+            "import_job_id",
+            "sequence_number",
+            "cell_index",
+            "id",
+            postgresql_where=text("source_available OR source_visibility = 'outside'"),
         ),
         Index(
             "ix_image_symbol_review_cells_grid_quality_issue",
@@ -2679,7 +2964,10 @@ class ImageSymbolReviewCellModel(Base):
     row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     asset_mode: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
     )
     source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
@@ -2687,13 +2975,15 @@ class ImageSymbolReviewCellModel(Base):
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    # D-467 S7 (TASK-0793, migration 0136): the cell keeps only the checksum
+    # of its render specification; the specification itself lives in the
+    # board render manifest (``storage/cell_render_specs.py``).
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     crop_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
     prediction_symbol_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -2758,8 +3048,13 @@ class ImageSymbolReviewEventModel(Base):
         CheckConstraint(
             "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', "
             "'mark_unreadable', "
-            "'board_synchronized', 'geometry_invalidated')",
+            "'board_synchronized', 'geometry_invalidated', 'geometry_reverted')",
             name="ck_image_symbol_review_events_action",
+        ),
+        CheckConstraint(
+            "previous_assignment_source IS NULL OR previous_assignment_source IN "
+            "('model', 'human', 'board_decision', 'backfill', 'geometry_partial')",
+            name="ck_image_symbol_review_events_previous_assignment_source",
         ),
         CheckConstraint(
             "previous_review_state IN ('pending', 'approved') "
@@ -2797,12 +3092,12 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_current_approved_crop_identity",
         ),
         CheckConstraint(
-            "(previous_asset_mode = 'legacy_file' OR "
+            "(previous_asset_mode IN ('legacy_file', 'none') OR "
             "(previous_asset_mode = 'virtual_source' "
             "AND previous_source_geometry_revision_id IS NOT NULL "
             "AND previous_render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND previous_rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$')) "
-            "AND (asset_mode = 'legacy_file' OR "
+            "AND (asset_mode IN ('legacy_file', 'none') OR "
             "(asset_mode = 'virtual_source' "
             "AND source_geometry_revision_id IS NOT NULL "
             "AND render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
@@ -2878,8 +3173,8 @@ class ImageSymbolReviewEventModel(Base):
     )
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     cell_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     action: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -2893,6 +3188,8 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # TASK-0966: the cell's assignment source before this event (NULL before 0154).
+    previous_assignment_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
     previous_verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     previous_verified_symbol_id_v2: Mapped[UUID | None] = mapped_column(
@@ -3000,6 +3297,7 @@ class ImageSymbolReviewBulkOperationModel(Base):
     filter_symbol_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
     )
+    filter_scope: Mapped[str | None] = mapped_column(String(50), nullable=True)
     filter_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
     catalog_revision: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
@@ -3038,8 +3336,10 @@ class ImageSymbolReviewBulkTargetModel(Base):
             name="ck_image_symbol_review_bulk_targets_revisions",
         ),
         CheckConstraint(
-            "expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
-            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            "(expected_crop_sample_id IS NULL AND expected_crop_checksum_sha256 IS NULL) OR "
+            "(expected_crop_sample_id IS NOT NULL AND expected_crop_checksum_sha256 IS NOT NULL "
+            "AND expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
+            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_image_symbol_review_bulk_targets_checksums",
         ),
         CheckConstraint(
@@ -3081,8 +3381,8 @@ class ImageSymbolReviewBulkTargetModel(Base):
     cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    expected_crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    expected_crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -3240,7 +3540,7 @@ class ImageBoardGeometryReviewEventModel(Base):
             name="ck_image_board_geometry_review_events_checksum",
         ),
         CheckConstraint(
-            "action IN ('approved', 'geometry_saved', 'backfilled')",
+            "action IN ('approved', 'geometry_saved', 'backfilled', 'geometry_reverted')",
             name="ck_image_board_geometry_review_events_action",
         ),
         Index(
@@ -3292,8 +3592,14 @@ class ImagePageGeometryOverrideModel(Base):
         ),
         CheckConstraint(
             "jsonb_typeof(final_quads) = 'array' "
-            "AND jsonb_array_length(final_quads) BETWEEN 1 AND 9",
+            "AND ((neural_proposal_binding IS NULL AND "
+            "jsonb_array_length(final_quads) BETWEEN 1 AND 9) OR "
+            "(neural_proposal_binding IS NOT NULL AND jsonb_array_length(final_quads) = 0))",
             name="ck_image_page_geometry_overrides_quads",
+        ),
+        CheckConstraint(
+            NEURAL_PAGE_BINDING_CHECK,
+            name="ck_page_override_neural_binding",
         ),
         UniqueConstraint(
             "game_id",
@@ -3317,6 +3623,9 @@ class ImagePageGeometryOverrideModel(Base):
     image_width: Mapped[int] = mapped_column(Integer, nullable=False)
     image_height: Mapped[int] = mapped_column(Integer, nullable=False)
     final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    neural_proposal_binding: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     board_frame_quads: Mapped[list[list[dict[str, int]]] | None] = mapped_column(
         JSONB(none_as_null=True), nullable=True
     )
@@ -3404,7 +3713,7 @@ class ImageBoardGeometryPendingModel(Base):
             name="ck_image_board_geometry_pending_checksums",
         ),
         CheckConstraint(
-            "status IN ('pending', 'resolved', 'superseded')",
+            "status IN ('pending', 'resolved', 'superseded', 'rejected')",
             name="ck_image_board_geometry_pending_status",
         ),
         CheckConstraint(
@@ -3412,15 +3721,29 @@ class ImageBoardGeometryPendingModel(Base):
             "'residual_too_high', 'source_unavailable')",
             name="ck_image_board_geometry_pending_reason",
         ),
+        # TASK-0966 (migration 0154): ``rejected`` schema for W7; a rejected
+        # slot superseded later by a replacement keeps its rejection history.
         CheckConstraint(
             "(status = 'pending' AND resolved_geometry_revision IS NULL "
-            "AND resolved_at IS NULL AND superseded_at IS NULL) OR "
+            "AND resolved_at IS NULL AND superseded_at IS NULL AND rejected_at IS NULL) OR "
             "(status = 'resolved' AND resolved_geometry_revision IS NOT NULL "
             "AND resolved_geometry_revision > expected_geometry_revision "
-            "AND resolved_at IS NOT NULL AND superseded_at IS NULL) OR "
+            "AND resolved_at IS NOT NULL AND superseded_at IS NULL AND rejected_at IS NULL) OR "
             "(status = 'superseded' AND resolved_geometry_revision IS NULL "
-            "AND resolved_at IS NULL AND superseded_at IS NOT NULL)",
+            "AND resolved_at IS NULL AND superseded_at IS NOT NULL) OR "
+            "(status = 'rejected' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NULL AND rejected_at IS NOT NULL)",
             name="ck_image_board_geometry_pending_lifecycle",
+        ),
+        CheckConstraint(
+            "(rejection_reason IS NULL OR rejection_reason IN ('cropped', 'blurred', 'other')) "
+            "AND (rejection_reason IS NULL) = (rejected_at IS NULL) "
+            "AND (rejected_at IS NULL) = (rejected_by IS NULL) "
+            "AND (rejected_by IS NULL OR length(btrim(rejected_by)) > 0) "
+            "AND (rejection_note IS NULL OR (rejection_reason IS NOT NULL "
+            "AND length(btrim(rejection_note)) BETWEEN 1 AND 1000)) "
+            "AND (rejection_reason IS DISTINCT FROM 'other' OR rejection_note IS NOT NULL)",
+            name="ck_image_board_geometry_pending_rejection",
         ),
         CheckConstraint(
             r"length(btrim(source_relative_path)) > 0 "
@@ -3490,6 +3813,10 @@ class ImageBoardGeometryPendingModel(Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    rejection_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class ReviewerAccessSessionModel(Base):
@@ -3988,6 +4315,19 @@ class SymbolModelIterationModel(Base):
             name="ck_symbol_model_iterations_gate_sha256",
         ),
         UniqueConstraint("game_id", "iteration_number", name="uq_symbol_model_iterations_number"),
+        CheckConstraint(
+            "(origin = 'production_training' AND cohort_id IS NOT NULL "
+            "AND origin_fingerprint IS NULL AND origin_manifest_relative_path IS NULL "
+            "AND origin_manifest_checksum_sha256 IS NULL) OR "
+            "(origin = 'lab_import' AND cohort_id IS NULL "
+            "AND origin_fingerprint IS NOT NULL AND origin_manifest_checksum_sha256 IS NOT NULL "
+            "AND origin_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND origin_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND origin_manifest_relative_path IS NOT NULL "
+            "AND btrim(origin_manifest_relative_path) <> '')",
+            name="ck_symbol_model_iterations_origin",
+        ),
+        UniqueConstraint("game_id", "origin_fingerprint", name="uq_symbol_model_iterations_origin"),
         UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
         UniqueConstraint(
             "game_id",
@@ -4002,9 +4342,18 @@ class SymbolModelIterationModel(Base):
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    cohort_id: Mapped[UUID] = mapped_column(
-        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    cohort_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=True
     )
+    origin: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="production_training",
+        server_default="production_training",
+    )
+    origin_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    origin_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    origin_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -4040,8 +4389,13 @@ class GameSymbolModelActivationModel(Base):
     __tablename__ = "game_symbol_model_activations"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('activate','rollback')",
+            "action IN ('activate','rollback','deactivate')",
             name="ck_game_symbol_model_activations_action",
+        ),
+        CheckConstraint(
+            "(action = 'deactivate' AND model_iteration_id IS NULL) OR "
+            "(action IN ('activate','rollback') AND model_iteration_id IS NOT NULL)",
+            name="ck_game_symbol_model_activations_target",
         ),
         CheckConstraint(
             "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
@@ -4068,8 +4422,8 @@ class GameSymbolModelActivationModel(Base):
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    model_iteration_id: Mapped[UUID] = mapped_column(
-        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=False
+    model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=True
     )
     previous_model_iteration_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
@@ -5158,7 +5512,15 @@ class ReviewFeedbackExportModel(Base):
 
 
 class ImageSymbolPredictionRevisionModel(Base):
-    """Append-only predictions produced by explicit pending-only inference."""
+    """Append-only predictions produced by explicit pending-only inference.
+
+    ``predictions`` has the slim shape (D-467 S8, TASK-0794): a virtual cell
+    entry carries checksums and keys in ``virtualCell``, never the full
+    ``renderSpec`` (validated on assignment).  ``legacy_predictions_sha256``
+    keeps the pre-slimming v1 digest of a revision slimmed by
+    ``scripts/slim_prediction_revisions.py`` (reference-library manifests
+    written before TASK-0794 carry that digest).
+    """
 
     __tablename__ = "image_symbol_prediction_revisions"
     __table_args__ = (
@@ -5169,6 +5531,10 @@ class ImageSymbolPredictionRevisionModel(Base):
         CheckConstraint(
             "crop_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_symbol_prediction_revisions_crop_manifest",
+        ),
+        CheckConstraint(
+            "legacy_predictions_sha256 IS NULL OR legacy_predictions_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_legacy_digest",
         ),
         UniqueConstraint(
             "review_item_id",
@@ -5203,9 +5569,17 @@ class ImageSymbolPredictionRevisionModel(Base):
     model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     crop_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     predictions: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    legacy_predictions_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    @validates("predictions")
+    def _validate_predictions(
+        self, _key: str, value: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
+        require_slim_predictions(value)
+        return value
 
 
 class ImageSequenceCanonicalModel(Base):
@@ -5442,99 +5816,6 @@ class ImageBoardSearchProjectionStateModel(Base):
     candidate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     document_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     skipped_review_item_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-
-
-class LegacyBoardSearchArchiveDocumentModel(Base):
-    """Frozen search evidence and whole-board asset reference for one sequence."""
-
-    __tablename__ = "legacy_board_search_archive_documents"
-    __table_args__ = (
-        CheckConstraint(
-            "sequence_number > 0",
-            name="ck_legacy_board_search_archive_documents_sequence_positive",
-        ),
-        CheckConstraint(
-            "status IN ('pending', 'accepted', 'corrected')",
-            name="ck_legacy_board_search_archive_documents_status",
-        ),
-        CheckConstraint(
-            "board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
-            name="ck_legacy_board_search_archive_documents_checksum",
-        ),
-        CheckConstraint(
-            r"length(btrim(board_relative_path)) > 0 "
-            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
-            name="ck_legacy_board_search_archive_documents_path",
-        ),
-    )
-
-    game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
-    )
-    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
-    board_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
-    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    known_evidence_positions: Mapped[list[str]] = mapped_column(ARRAY(String(2)), nullable=False)
-    primary_symbol_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_1_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_2_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_3_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    alternative_rank_4_mobile_codes: Mapped[list[int | None]] = mapped_column(
-        ARRAY(SmallInteger), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-
-class LegacyBoardSearchArchiveStateModel(Base):
-    """Fail-closed activation marker for a frozen board-search archive."""
-
-    __tablename__ = "legacy_board_search_archive_states"
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('building', 'ready', 'failed')",
-            name="ck_legacy_board_search_archive_states_status",
-        ),
-        CheckConstraint(
-            "sequence_start > 0 AND sequence_end >= sequence_start AND document_count >= 0",
-            name="ck_legacy_board_search_archive_states_range",
-        ),
-        CheckConstraint(
-            "source_preview_fingerprint ~ '^[0-9a-f]{64}$' "
-            "AND archive_fingerprint ~ '^[0-9a-f]{64}$'",
-            name="ck_legacy_board_search_archive_states_fingerprints",
-        ),
-    )
-
-    game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
-    )
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
-    sequence_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    sequence_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    document_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    source_preview_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
-    archive_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -6394,9 +6675,7 @@ class BrowserSelectionRetentionModel(Base):
     )
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
-    board_import_status: Mapped[str] = mapped_column(
-        String(24), nullable=False, default="ready"
-    )
+    board_import_status: Mapped[str] = mapped_column(String(24), nullable=False, default="ready")
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     managed_manifest_relative_path: Mapped[str | None] = mapped_column(Text)
     managed_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
@@ -6565,3 +6844,139 @@ class ImageImportGeometryGuardResolutionManifestModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class BoardSearchShareSessionModel(Base):
+    """Online read-only board-search share session (D-471)."""
+
+    __tablename__ = "board_search_share_sessions"
+    __table_args__ = (
+        CheckConstraint("failed_attempts BETWEEN 0 AND 5", name="ck_bss_sessions_attempts"),
+        CheckConstraint(
+            "label IS NULL OR length(btrim(label)) BETWEEN 1 AND 100",
+            name="ck_bss_sessions_label",
+        ),
+        CheckConstraint("expires_at > created_at", name="ck_bss_sessions_timestamps"),
+        CheckConstraint(
+            "octet_length(code_salt) = 16 AND octet_length(code_hash) = 32",
+            name="ck_bss_sessions_code_hash",
+        ),
+        CheckConstraint(
+            "(token_hash IS NULL AND token_expires_at IS NULL) OR "
+            "(token_hash IS NOT NULL AND octet_length(token_hash) = 32 "
+            "AND token_expires_at IS NOT NULL)",
+            name="ck_bss_sessions_token_hash",
+        ),
+        Index(
+            "uq_bss_sessions_token_hash",
+            "token_hash",
+            unique=True,
+            postgresql_where=text("token_hash IS NOT NULL"),
+        ),
+        Index("ix_bss_sessions_game_created", "game_id", "created_at", "id"),
+        Index("ix_bss_sessions_expiry", "expires_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    code_salt: Mapped[bytes] = mapped_column(LargeBinary(16), nullable=False)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_unlocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BoardSearchShareAuditEventModel(Base):
+    __tablename__ = "board_search_share_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('created','unlock_failed','unlocked','locked','revoked')",
+            name="ck_bss_audit_event_type",
+        ),
+        CheckConstraint("length(btrim(outcome_code)) > 0", name="ck_bss_audit_outcome"),
+        CheckConstraint("jsonb_typeof(payload) = 'object'", name="ck_bss_audit_payload"),
+        Index("ix_bss_audit_session_created", "session_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("board_search_share_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class BoardSearchShareQueryEventModel(Base):
+    """One data query made through a share link (D-472); written by the
+    public read endpoints in the same transaction as the read."""
+
+    __tablename__ = "board_search_share_query_events"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('search','approximate_win','board_detail',"
+            "'symbol_correction','correction_review')",
+            name="ck_bss_query_kind",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(request) = 'object' AND octet_length(request::text) <= 4096",
+            name="ck_bss_query_request",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(result_summary) = 'object' "
+            "AND octet_length(result_summary::text) <= 2048",
+            name="ck_bss_query_result_summary",
+        ),
+        CheckConstraint("length(btrim(outcome_code)) > 0", name="ck_bss_query_outcome"),
+        Index(
+            "ix_bss_query_session_occurred",
+            "session_id",
+            text("occurred_at DESC"),
+            text("id DESC"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("board_search_share_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    request: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    result_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+# Register independently owned management control-plane mappings.
+from game_predictor_api.storage import (  # noqa: E402
+    geometry_correction_revert_models as geometry_correction_revert_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
+    management_models as management_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
+    management_stake_models as management_stake_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
+    super_game_series_models as super_game_series_models,
+)

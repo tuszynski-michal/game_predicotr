@@ -3,10 +3,12 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
-from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.jobs import JobService, _baseline_grid_profile_snapshot
+from game_predictor_api.domain.image_geometry_v2 import AttestedSequenceRange
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -18,6 +20,10 @@ from game_predictor_api.domain.jobs import (
     request_job_cancellation,
     start_job,
 )
+from game_predictor_api.domain.neural_grid_proposal import (
+    build_neural_source_binding,
+    proposal_checksum_sha256,
+)
 from game_predictor_api.domain.symbol_model_snapshots import cold_start_unclassified_symbol_snapshot
 from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_worker.images.pipeline_contract import (
@@ -25,6 +31,7 @@ from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
 )
 from test_jobs_domain import MemoryJobRepository
+from test_neural_grid_proposal import proposal
 
 NOW = datetime(2026, 9, 4, 12, tzinfo=UTC)
 
@@ -206,6 +213,114 @@ def _arrange_source_with_evidence(
     repository.add_job(source)
     _write_managed_manifest(artifact_root, source, source_checksum=source_checksum)
     return repository, source, source_checksum, descriptor
+
+
+@pytest.mark.parametrize(
+    "bound,fault", [(False, None), (True, None), (True, "source"), (True, "model")]
+)
+def test_neural_managed_reprocess_preserves_provenance_and_cold_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    bound: bool,
+    fault: str | None,
+) -> None:
+    repository, source, source_sha, old_descriptor = _arrange_source_with_evidence(tmp_path)
+    root = tmp_path / "artifacts"
+    value = proposal(4)
+    value.update(
+        gameId=str(source.game_id),
+        sourceSelectionId=source.input_payload["source_selection_id"],
+        sourceChecksumSha256=source_sha if fault != "source" else "f" * 64,
+        originalRange={"sequenceRangeStart": 1, "sequenceRangeEnd": 9},
+    )
+    value["proposalChecksumSha256"] = proposal_checksum_sha256(value)
+    selected = (
+        build_neural_source_binding(
+            value,
+            confirmed_range=AttestedSequenceRange(1, 9),
+            assignments=[
+                {"detectionId": chr(97 + i), "positionIndex": pos}
+                for i, pos in enumerate([0, 1, 3, 4])
+            ],
+        )
+        if bound
+        else None
+    )
+    manifest = {
+        "schemaVersion": 5,
+        "version": "page-geometry-preflight-v13-neural-mumie-pilot",
+        "gameId": str(source.game_id),
+        "sourceSelectionId": source.input_payload["source_selection_id"],
+        "sourceManifestChecksumSha256": source.input_payload["source_manifest_sha256"],
+        "neuralGridProposal": value["engineSnapshot"],
+        "pageRegistrationProfile": {},
+        "sourceCount": 1,
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+        "entries": {
+            source_sha: {
+                "status": "review_required" if bound else "slot_binding_required",
+                "sourceRelativePath": "seq_1-9.jpg",
+                "imageWidth": 500,
+                "imageHeight": 300,
+                "neuralProposal": value,
+                "neuralProposalBinding": selected,
+            }
+        },
+    }
+    checksum, _ = _write_json(root / "data/page-geometry-manifests/neural.json", manifest)
+    descriptor = {
+        **old_descriptor,
+        "checksumSha256": checksum,
+        "relativePath": "data/page-geometry-manifests/neural.json",
+    }
+    preflight = repository.items[UUID(str(descriptor["preflightJobId"]))]
+    repository.items[preflight.id] = replace(
+        preflight,
+        input_payload={
+            **preflight.input_payload,
+            "preflight_policy_version": manifest["version"],
+            "neural_grid_proposal": {} if fault == "model" else value["engineSnapshot"],
+        },
+        checkpoint_payload={
+            **preflight.checkpoint_payload,
+            "geometry_manifest_checksum_sha256": checksum,
+            "geometry_manifest_relative_path": descriptor["relativePath"],
+        },
+    )
+    repository.items[source.id] = replace(
+        source, input_payload={**source.input_payload, "page_geometry_manifest": descriptor}
+    )
+    monkeypatch.setattr(
+        "game_predictor_api.application.jobs.ManagedGridEngineModelStore.require", lambda *_: None
+    )
+    options = dict(
+        artifact_root=root,
+        grid_profile_snapshot_resolver=SimpleNamespace(
+            uses_neural_grid_pilot=lambda **_: True,
+            resolve=lambda **_: _baseline_grid_profile_snapshot(),
+        ),
+    )
+    service = JobService(repository, **options)
+    if fault:
+        with pytest.raises(JobConflictError) as error:
+            service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
+        assert error.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
+        return
+    job = service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
+    assert job.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
+    assert job.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
+    assert (
+        JobResponse.from_domain(job).input_payload.neural_grid_execution_policy_version
+        == "neural-auto-crop-v1"
+    )
+    assert (
+        JobService(repository, **options)
+        .create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
+        .id
+        == job.id
+    )
 
 
 def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Path) -> None:

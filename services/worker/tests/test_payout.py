@@ -16,7 +16,13 @@ from game_predictor_worker.domain import (
     PayoutSymbolDefinition,
     SymbolDefinition,
 )
-from game_predictor_worker.domain.payout import evaluate_payout, prepare_payout_evaluator
+from game_predictor_worker.domain.payout import (
+    PAYOUT_V3_ALGORITHM_VERSION,
+    PAYOUT_V4_ALGORITHM_VERSION,
+    evaluate_payout,
+    payout_algorithm_version,
+    prepare_payout_evaluator,
+)
 
 FIXTURE_PATH = (
     Path(__file__).parents[3] / "packages" / "domain-fixtures" / "payout-golden-cases.json"
@@ -43,6 +49,7 @@ def _game_from_fixture(data: Mapping[str, Any]) -> GameConfig:
                 name=symbol["name"],
                 is_wildcard=symbol["isWildcard"],
                 display_order=symbol["displayOrder"],
+                super_game_trigger_count=symbol.get("superGameTriggerCount"),
             )
             for symbol in data["symbols"]
         ),
@@ -82,7 +89,22 @@ def _payout_symbols_from_fixture(
     )
 
 
-def _serialize_result(result: PayoutEvaluation) -> dict[str, Any]:
+def _serialize_result(result: PayoutEvaluation, *, with_counts: bool = False) -> dict[str, Any]:
+    serialized = _serialize_lines(result)
+    if with_counts:
+        serialized["countMatches"] = [
+            {
+                "symbolMobileCode": match.symbol_mobile_code,
+                "count": match.count,
+                "matchedCells": list(match.matched_cells),
+                "payoutCredits": match.payout_credits,
+            }
+            for match in result.count_matches
+        ]
+    return serialized
+
+
+def _serialize_lines(result: PayoutEvaluation) -> dict[str, Any]:
     return {
         "totalPayout": result.total_payout,
         "matches": [
@@ -133,6 +155,9 @@ def test_payout_golden_cases(case: Mapping[str, Any]) -> None:
 
     assert case["manualCalculation"], "Golden case must document manual calculation."
     assert _serialize_result(result) == case["expected"]
+    # A game without a super game trigger symbol stays on v3 (777 unchanged).
+    assert result.count_matches == ()
+    assert payout_algorithm_version(game) == PAYOUT_V3_ALGORITHM_VERSION
 
 
 def test_payout_evaluation_is_deterministic_and_does_not_mutate_inputs() -> None:
@@ -486,3 +511,154 @@ def test_partial_prefix_payout_is_a_confirmed_lower_bound_of_the_full_board(
     partial_result = evaluator.evaluate(cells_partial)
 
     assert partial_result.total_payout <= full_result.total_payout
+
+
+# --- payout-v4-wild-count (TASK-0932, D-535) --------------------------------
+#
+# The `wildCountScenario` golden section is a Mumie-like game where Mumia is
+# both Wild and a super game trigger symbol. The TypeScript evaluator in
+# `packages/shared-ts` executes the same cases.
+
+
+def _scenario() -> Mapping[str, Any]:
+    return cast(Mapping[str, Any], _load_fixture()["wildCountScenario"])
+
+
+def _scenario_inputs(
+    case: Mapping[str, Any],
+) -> tuple[
+    GameConfig,
+    tuple[int, ...],
+    tuple[PaylineDefinition, ...],
+    tuple[PayoutSymbolDefinition, ...],
+    tuple[PayoutRuleDefinition, ...],
+]:
+    scenario = _scenario()
+    game = _game_from_fixture(scenario["game"])
+    paylines_by_id = {
+        payline.id: payline for payline in _paylines_from_fixture(scenario["paylines"])
+    }
+    paylines = tuple(paylines_by_id[payline_id] for payline_id in case["paylineIds"])
+    omitted = set(case.get("omitPayoutRulesForSymbols", ()))
+    rules = tuple(
+        rule
+        for rule in _rules_from_fixture(scenario["payoutRules"])
+        if rule.symbol_mobile_code not in omitted
+    )
+    payout_symbols = _payout_symbols_from_fixture(scenario["payoutSymbols"])
+    cells = tuple(cell for row in case["rows"] for cell in row)
+    return game, cells, paylines, payout_symbols, rules
+
+
+@pytest.mark.parametrize(
+    "case",
+    _scenario()["cases"],
+    ids=lambda case: cast(Mapping[str, Any], case)["id"],
+)
+def test_wild_count_golden_cases(case: Mapping[str, Any]) -> None:
+    game, cells, paylines, payout_symbols, rules = _scenario_inputs(case)
+
+    one_shot = evaluate_payout(game, cells, paylines, payout_symbols, rules)
+    evaluator = prepare_payout_evaluator(game, paylines, payout_symbols, rules)
+    prepared = evaluator.evaluate(cells)
+
+    assert case["manualCalculation"], "Golden case must document manual calculation."
+    assert _serialize_result(one_shot, with_counts=True) == case["expected"]
+    assert prepared == one_shot
+    assert payout_algorithm_version(game) == _scenario()["algorithmVersion"]
+    assert evaluator.algorithm_version == PAYOUT_V4_ALGORITHM_VERSION
+
+
+def test_board_without_trigger_symbol_pays_the_same_lines_as_v3() -> None:
+    """Removing the trigger role (and its count rules) gives a v3 game whose
+    line results on a board without Mumia are identical to v4."""
+
+    case = next(
+        case
+        for case in _scenario()["cases"]
+        if case["id"] == "board-without-trigger-symbol-matches-v3"
+    )
+    game, cells, paylines, payout_symbols, rules = _scenario_inputs(case)
+    v3_game = replace(
+        game,
+        symbols=tuple(replace(symbol, super_game_trigger_count=None) for symbol in game.symbols),
+    )
+    trigger_codes = {
+        symbol.mobile_code for symbol in game.symbols if symbol.super_game_trigger_count
+    }
+    v3_rules = tuple(rule for rule in rules if rule.symbol_mobile_code not in trigger_codes)
+
+    v4_result = evaluate_payout(game, cells, paylines, payout_symbols, rules)
+    v3_result = evaluate_payout(v3_game, cells, paylines, payout_symbols, v3_rules)
+
+    assert payout_algorithm_version(v3_game) == PAYOUT_V3_ALGORITHM_VERSION
+    assert v4_result == v3_result
+    assert v4_result.count_matches == ()
+
+
+def test_non_wild_trigger_symbol_is_not_a_line_symbol_and_breaks_the_prefix() -> None:
+    """A trigger symbol without the Wild role never pays on a line and ends
+    the prefix like any non-matching symbol."""
+
+    case = _scenario()["cases"][0]
+    game, _cells, _paylines, payout_symbols, rules = _scenario_inputs(case)
+    game = replace(
+        game,
+        symbols=tuple(
+            replace(symbol, is_wildcard=False) if symbol.super_game_trigger_count else symbol
+            for symbol in game.symbols
+        ),
+    )
+    middle = _paylines_from_fixture(_scenario()["paylines"])[1]
+    # middle: K,K,Mumia,K,K gives K only a two-cell prefix (minimum 3); the
+    # three Mumia on the board pay their count rule.
+    cells = (1, 2, 3, 6, 5, 4, 4, 6, 4, 4, 6, 1, 2, 3, 5)
+
+    result = evaluate_payout(game, cells, (middle,), payout_symbols, rules)
+
+    assert result.matches == ()
+    assert [(match.count, match.payout_credits) for match in result.count_matches] == [(3, 20)]
+    assert result.total_payout == 20
+
+
+@pytest.mark.parametrize("count", (1, 16))
+def test_count_rule_outside_two_to_board_size_is_rejected(count: int) -> None:
+    game, cells, paylines, payout_symbols, rules = _scenario_inputs(_scenario()["cases"][0])
+
+    _assert_domain_error(
+        "invalid_match_length",
+        lambda: evaluate_payout(
+            game,
+            cells,
+            paylines,
+            payout_symbols,
+            (*rules, PayoutRuleDefinition(6, count, 5)),
+        ),
+    )
+
+
+def test_count_rules_must_increase_with_the_count() -> None:
+    game, cells, paylines, payout_symbols, rules = _scenario_inputs(_scenario()["cases"][0])
+    flat = tuple(
+        replace(rule, payout_credits=20) if rule.symbol_mobile_code == 6 else rule for rule in rules
+    )
+
+    _assert_domain_error(
+        "non_increasing_payout",
+        lambda: evaluate_payout(game, cells, paylines, payout_symbols, flat),
+    )
+
+
+def test_trigger_symbol_cannot_have_a_minimum_match_length() -> None:
+    game, cells, paylines, payout_symbols, rules = _scenario_inputs(_scenario()["cases"][0])
+
+    _assert_domain_error(
+        "super_game_trigger_payout_symbol",
+        lambda: evaluate_payout(
+            game,
+            cells,
+            paylines,
+            (*payout_symbols, PayoutSymbolDefinition(6, 3)),
+            rules,
+        ),
+    )

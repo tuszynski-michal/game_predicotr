@@ -83,7 +83,9 @@ test('exposes only unlock, scoped context and operational review routes', () => 
     ['GET', 'correction-context'],
     ['GET', 'source'],
     ['POST', 'geometry-preview'],
+    ['POST', 'geometry-symbol-preview'],
     ['POST', 'manual-resolution'],
+    ['POST', 'rejection'],
   ]) {
     const path =
       `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
@@ -93,6 +95,14 @@ test('exposes only unlock, scoped context and operational review routes', () => 
   const pendingCollection =
     `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
     'board-cell-geometry-pending';
+  // The rejection is a mutation: no other method may reach it.
+  for (const method of ['GET', 'PUT', 'DELETE']) {
+    assert.equal(
+      reviewerProxyTarget(method, `${pendingCollection}/${itemId}/rejection`),
+      null,
+      method,
+    );
+  }
   assert.equal(
     reviewerProxyTarget('GET', pendingCollection),
     pendingCollection,
@@ -101,6 +111,30 @@ test('exposes only unlock, scoped context and operational review routes', () => 
     reviewerProxyTarget('GET', `${pendingCollection}/${itemId}`),
     `${pendingCollection}/${itemId}`,
   );
+});
+
+test('admits only the three geometry-correction revert routes with their methods', () => {
+  const base = `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/geometry-corrections`;
+  for (const [method, path] of [
+    ['GET', base],
+    ['GET', `${base}/${itemId}/revert-preview`],
+    ['POST', `${base}/${itemId}/revert`],
+  ]) {
+    assert.equal(reviewerProxyTarget(method, path), path, `${method} ${path}`);
+  }
+  for (const [method, path] of [
+    ['POST', base],
+    ['DELETE', base],
+    ['DELETE', `${base}/${itemId}/revert`],
+    ['GET', `${base}/${itemId}/revert`],
+    ['POST', `${base}/${itemId}/revert-preview`],
+    ['PUT', `${base}/${itemId}/revert`],
+    ['GET', `${base}/${itemId}`],
+    ['POST', `${base}/${itemId}/other`],
+    ['POST', `${base}/${itemId}/revert/extra`],
+  ]) {
+    assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
+  }
 });
 
 test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
@@ -128,6 +162,9 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
       `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
         `board-cell-geometry-pending/${itemId}`,
     ],
+    // TASK-0840: the grid-audit list is local-only (loopback Admin API).
+    ['GET', `/api/v1/admin/games/${gameId}/grid-audit-proposals`],
+    ['GET', `/api/v1/admin/games/${gameId}/grid-audit-proposals/p00001`],
   ]) {
     assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
   }

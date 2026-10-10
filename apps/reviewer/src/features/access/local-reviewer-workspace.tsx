@@ -1,16 +1,22 @@
 'use client';
 
 import type { AdminApiClient } from '@game-predictor/admin-api-client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { GridReviewWorkspace } from '@/features/grid-reviews/grid-review-workspace';
-import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
+import { BoardGeometryCorrectionWorkspace } from '@/features/operational-reviews/board-geometry-correction-workspace';
+import { GeometryGapsWorkspace } from '@/features/operational-reviews/geometry-gaps-workspace';
 
-import {
-  initialLocalReviewerWorkspaceMode,
-  type LocalReviewerWorkspaceMode,
-} from './local-reviewer-workspace-state';
+type LocalReviewerTab = 'correction' | 'gaps';
 
+/**
+ * The local Reviewer (port 3001) is the single grid-correction screen of
+ * D-462: one queue, one board at a time, no validation of finished grids.
+ * TASK-0962: it works on the whole game (the import is optional) and has two
+ * tabs: the board queue "Do korekty" and the image-level "Braki zdjęć"
+ * (TASK-0963). Both panels stay mounted, so switching tabs never discards
+ * the board the operator is editing; the hidden panel only stops listening
+ * to keys.
+ */
 export function LocalReviewerWorkspace({
   api,
   apiBaseUrl,
@@ -20,130 +26,68 @@ export function LocalReviewerWorkspace({
   readonly api: AdminApiClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly importJobId: string;
+  readonly importJobId?: string | undefined;
 }) {
-  const [mode, setMode] = useState<LocalReviewerWorkspaceMode | null>(null);
-  const [gridReviewCount, setGridReviewCount] = useState(0);
-  const [deferredGeometryCount, setDeferredGeometryCount] = useState(0);
-  const [diagnosticError, setDiagnosticError] = useState('');
-
-  useEffect(() => {
-    let active = true;
-    void Promise.resolve()
-      .then(() => {
-        if (!active) return null;
-        setMode(null);
-        setDiagnosticError('');
-        return Promise.all([
-          api.listImageGridReviews({
-            gameId,
-            importJobId,
-            limit: 1,
-            view: 'all',
-          }),
-          api.listPendingBoardCellGeometry({
-            gameId,
-            importJobId,
-            limit: 1,
-            status: 'pending',
-          }),
-        ]);
-      })
-      .then((results) => {
-        if (results === null) return;
-        const [gridResult, deferredResult] = results;
-        if (!active) return;
-        if (
-          gridResult.error !== undefined ||
-          gridResult.data === undefined ||
-          deferredResult.error !== undefined ||
-          deferredResult.data === undefined
-        ) {
-          setDiagnosticError(
-            'Nie udało się odczytać obu kolejek. Otwieram standardową walidację geometrii.',
-          );
-          setMode('grid');
-          return;
-        }
-        const gridCount = gridResult.data.counts.total;
-        const deferredCount = deferredResult.data.counts.pending;
-        setGridReviewCount(gridCount);
-        setDeferredGeometryCount(deferredCount);
-        setMode(initialLocalReviewerWorkspaceMode(gridCount, deferredCount));
-      })
-      .catch(() => {
-        if (!active) return;
-        setDiagnosticError(
-          'Połączenie z kolejkami geometrii zostało przerwane. Otwieram standardową walidację.',
-        );
-        setMode('grid');
-      });
-    return () => {
-      active = false;
-    };
-  }, [api, gameId, importJobId]);
-
-  if (mode === null) {
-    return (
-      <section className="localReviewerModeLoading" role="status">
-        <strong>Sprawdzam kolejki geometrii…</strong>
-        <span>Wybieram właściwy edytor dla tego importu.</span>
-      </section>
-    );
-  }
-
+  const [tab, setTab] = useState<LocalReviewerTab>('correction');
   return (
     <>
-      <nav
-        className="localReviewerModeSwitch"
-        aria-label="Tryb korekty geometrii"
+      <div
+        aria-label="Widok lokalnego Reviewera"
+        className="reviewerTabs"
+        role="tablist"
       >
         <button
-          aria-pressed={mode === 'grid'}
-          className={mode === 'grid' ? 'isActive' : undefined}
-          onClick={() => setMode('grid')}
+          aria-controls="reviewer-tab-correction"
+          aria-selected={tab === 'correction'}
+          className="secondaryButton"
+          id="reviewer-tab-correction-button"
+          onClick={() => setTab('correction')}
+          role="tab"
           type="button"
         >
-          Walidacja gotowych siatek ({gridReviewCount.toLocaleString('pl-PL')})
+          Do korekty
         </button>
         <button
-          aria-pressed={mode === 'deferred'}
-          className={mode === 'deferred' ? 'isActive' : undefined}
-          disabled={deferredGeometryCount === 0}
-          onClick={() => setMode('deferred')}
+          aria-controls="reviewer-tab-gaps"
+          aria-selected={tab === 'gaps'}
+          className="secondaryButton"
+          id="reviewer-tab-gaps-button"
+          onClick={() => setTab('gaps')}
+          role="tab"
           type="button"
         >
-          Niepełne siatki do ręcznej korekty (
-          {deferredGeometryCount.toLocaleString('pl-PL')})
+          Braki zdjęć
         </button>
-      </nav>
-      {diagnosticError ? (
-        <p className="localReviewerModeError" role="alert">
-          {diagnosticError}
-        </p>
-      ) : null}
-      {mode === 'grid' ? (
-        <GridReviewWorkspace
+      </div>
+      <div
+        aria-labelledby="reviewer-tab-correction-button"
+        className="reviewerTabPanel"
+        hidden={tab !== 'correction'}
+        id="reviewer-tab-correction"
+        role="tabpanel"
+      >
+        <BoardGeometryCorrectionWorkspace
+          api={api}
           apiBaseUrl={apiBaseUrl}
-          client={api}
           gameId={gameId}
           importJobId={importJobId}
-          initialView={
-            typeof window !== 'undefined' &&
-            new URLSearchParams(window.location.search).get('gridView') ===
-              'needs_correction'
-              ? 'needs_correction'
-              : 'needs_validation'
-          }
+          keyboardEnabled={tab === 'correction'}
         />
-      ) : (
-        <OperationalReviewWorkspace
+      </div>
+      <div
+        aria-labelledby="reviewer-tab-gaps-button"
+        className="reviewerTabPanel"
+        hidden={tab !== 'gaps'}
+        id="reviewer-tab-gaps"
+        role="tabpanel"
+      >
+        <GeometryGapsWorkspace
+          api={api}
           apiBaseUrl={apiBaseUrl}
-          client={api}
           gameId={gameId}
-          importJobId={importJobId}
+          keyboardEnabled={tab === 'gaps'}
         />
-      )}
+      </div>
     </>
   );
 }

@@ -10,8 +10,8 @@ from uuid import UUID
 
 from game_predictor_api.domain.jobs import JobStatus, require_active_job_lease
 from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
     GameStorageRouter,
-    GameStorageSchema,
 )
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
@@ -42,9 +42,8 @@ from .pipeline_contract import (
     validate_file_checkpoint,
 )
 
-_V2_ASSOCIATION_INSERT = text(
-    """
-    INSERT INTO image_import_job_files (
+_V2_ASSOCIATION_INSERT_TEMPLATE = """
+    INSERT INTO {table_name} (
         game_id,
         job_id,
         file_execution_key,
@@ -79,7 +78,6 @@ _V2_ASSOCIATION_INSERT = text(
     )
     ON CONFLICT (game_id, job_id, file_execution_key) DO NOTHING
     """
-).bindparams(bindparam("workflow_checkpoint_payload", type_=JSONB))
 
 
 class ImageOrchestrationStoreError(JobHandlerError):
@@ -417,6 +415,7 @@ class SqlAlchemyImageBatchStore:
         pipeline_fingerprint: str,
     ) -> int:
         with self._session_factory() as session:
+            _bind_image_job(session, job_id, intent=GameStorageIntent.READ)
             value = session.scalar(
                 select(func.count())
                 .select_from(ImageImportJobFileModel)
@@ -464,6 +463,7 @@ class SqlAlchemyImageBatchStore:
         after_order_index: int,
     ) -> ImageBatchCandidate | None:
         with self._session_factory() as session:
+            _bind_image_job(session, job_id, intent=GameStorageIntent.READ)
             row = session.execute(
                 select(ImageImportJobFileModel, ImageFileExecutionModel)
                 .join(
@@ -698,6 +698,7 @@ class SqlAlchemyImageBatchStore:
         pipeline_fingerprint: str,
     ) -> ImageBatchStats:
         with self._session_factory() as session:
+            _bind_image_job(session, job_id, intent=GameStorageIntent.READ)
             row = session.execute(
                 select(
                     func.count(),
@@ -772,7 +773,32 @@ def _locked_job(session: Session, job_id: UUID) -> JobModel:
             "IMAGE_BATCH_JOB_NOT_FOUND",
             "The image import job no longer exists.",
         )
+    _bind_image_job(session, job_id, intent=GameStorageIntent.WRITE, job=job)
     return job
+
+
+def _bind_image_job(
+    session: Session,
+    job_id: UUID,
+    *,
+    intent: GameStorageIntent,
+    job: JobModel | None = None,
+) -> JobModel:
+    """Resolve a shared job before entering its game-owned association store."""
+
+    resolved = session.get(JobModel, job_id) if job is None else job
+    if resolved is None:
+        raise ImageOrchestrationStoreError(
+            "IMAGE_BATCH_JOB_NOT_FOUND",
+            "The image import job no longer exists.",
+        )
+    if resolved.game_id is None:
+        raise ImageOrchestrationStoreError(
+            "IMAGE_BATCH_JOB_CONTRACT_MISMATCH",
+            "The image import job must belong to one game.",
+        )
+    GameStorageRouter().bind(session, resolved.game_id, intent=intent)
+    return resolved
 
 
 def _insert_job_file_associations(
@@ -786,17 +812,16 @@ def _insert_job_file_associations(
             "IMAGE_BATCH_JOB_CONTRACT_MISMATCH",
             "The image import job must belong to one game.",
         )
-    location = GameStorageRouter().describe(session, job.game_id)
-    if location.store_schema is GameStorageSchema.V2:
-        session.execute(
-            _V2_ASSOCIATION_INSERT,
-            [{"game_id": job.game_id, **value} for value in values],
+    router = GameStorageRouter()
+    location = router.bind(session, job.game_id, intent=GameStorageIntent.WRITE)
+    association_insert = text(
+        _V2_ASSOCIATION_INSERT_TEMPLATE.format(
+            table_name=router.qualified_game_table(location, "image_import_job_files")
         )
-        return
+    ).bindparams(bindparam("workflow_checkpoint_payload", type_=JSONB))
     session.execute(
-        postgresql_insert(ImageImportJobFileModel)
-        .values(list(values))
-        .on_conflict_do_nothing(index_elements=["job_id", "file_execution_key"])
+        association_insert,
+        [{"game_id": job.game_id, **value} for value in values],
     )
 
 

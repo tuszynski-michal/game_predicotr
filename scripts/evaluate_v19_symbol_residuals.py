@@ -15,7 +15,10 @@ from uuid import UUID
 
 import numpy as np
 from game_predictor_api.config import get_settings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.symbol_model_snapshot_resolver import (
     SqlAlchemySymbolModelSnapshotResolver,
 )
@@ -72,7 +75,7 @@ def main() -> int:
         if not isinstance(cohort, Mapping) or cohort.get("version") != COHORT_VERSION:
             raise _error("V19_SYMBOL_EVALUATION_COHORT_INVALID", "Cohort version is invalid.")
         settings = get_settings()
-        session = create_session_factory(create_database_engine(settings))()
+        session = create_session_factory(create_maintenance_database_engine(settings))()
         snapshot = SqlAlchemySymbolModelSnapshotResolver(
             session, artifact_root=settings.artifact_root
         ).resolve(game_id=UUID(cast(str, cohort["gameId"])))

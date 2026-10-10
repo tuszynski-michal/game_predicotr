@@ -44,7 +44,14 @@ export async function loadSymbolReviewPreviewAtlases(
     availability: SymbolReviewPreviewAvailability,
   ) => void,
 ): Promise<SymbolReviewVirtualPreviewResult> {
-  const chunks = symbolReviewPreviewChunks(pageItems);
+  const chunks = symbolReviewPreviewChunks(
+    pageItems.filter(
+      (item) =>
+        item.sourceVisibility !== 'outside' &&
+        item.assetMode !== 'none' &&
+        item.cropChecksumSha256 !== null,
+    ),
+  );
   if (chunks.length === 0) {
     return {
       ok: true,
@@ -68,16 +75,23 @@ export async function loadSymbolReviewPreviewAtlases(
     )) {
       const chunk = chunks[chunkIndex]!;
       const result = await api.createSymbolCellPreviewBatch(gameId, {
-        cells: chunk.map((item) => ({
-          cellReviewId: item.id,
-          expectedCropChecksumSha256: item.cropChecksumSha256,
-          expectedRevision: item.revision,
-          ...(item.renderSpecChecksumSha256 === null
-            ? {}
-            : {
-                expectedRenderSpecChecksumSha256: item.renderSpecChecksumSha256,
-              }),
-        })),
+        cells: chunk.flatMap((item) =>
+          item.cropChecksumSha256 === null
+            ? []
+            : [
+                {
+                  cellReviewId: item.id,
+                  expectedCropChecksumSha256: item.cropChecksumSha256,
+                  expectedRevision: item.revision,
+                  ...(item.renderSpecChecksumSha256 === null
+                    ? {}
+                    : {
+                        expectedRenderSpecChecksumSha256:
+                          item.renderSpecChecksumSha256,
+                      }),
+                },
+              ],
+        ),
         previewSize: 100,
         rendererMode: previewMode,
       });

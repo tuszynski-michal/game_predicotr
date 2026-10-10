@@ -1,16 +1,16 @@
 {
   "boardCount": 387,
-  "calibrationProfileSetSha256": "6928c0cb6909c9106d9f4e1a9bd153500eec56f0b96be3d7f8b6cc2a06ec6242",
+  "calibrationProfileSetSha256": "1536fa9255d14d5b8710c436221c030065f7a99bbaa663888da30eaa270d4b55",
   "calibrationProfileSetVersion": "grid-calibration-profiles-v1",
   "cellHeight": 90,
   "cellWidth": 90,
   "corpusId": "m5-representative-corpus-v2",
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
-  "cropReportSha256": "cefe1a54ea912cac6d8a7cc9dff74d432c3cd56898b91e6213abff5af3a4787b",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
+  "cropReportSha256": "e652ef9bf4e84c2b85a80b95d2715e75109151317c59f41b5442b90847df6569",
   "cropperVersion": "board-cell-crops-v2-calibrated-v1",
-  "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+  "goldenAnnotationsSha256": "7c1eceb6d3ab980e25082d4dab99d58ad416eec40eee65fbe3bde55fba86b9cb",
   "inventoryVersion": "symbol-crop-inventory-v2",
-  "qualityReportSha256": "8e53f463a42897265bc36cd82b56c72dbd6f05fd128e18de7fc066e09f0470eb",
+  "qualityReportSha256": "3da1947c6c126c55f279cdb8029d8c5eb3fd23fc411aed53a02f121716d5b0d7",
   "sampleCount": 5805,
   "samples": [
     {

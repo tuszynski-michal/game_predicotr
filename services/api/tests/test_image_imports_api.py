@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -50,6 +51,7 @@ from game_predictor_api.domain.jobs import (
     start_job,
 )
 from game_predictor_api.domain.symbol_model_snapshots import (
+    LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
     bootstrap_symbol_model_snapshot,
     cold_start_unclassified_symbol_snapshot,
@@ -735,8 +737,10 @@ def test_v12_browser_import_waits_for_registered_inner_grids(tmp_path: Path) -> 
         assert not tuple((tmp_path / "artifacts").rglob("*cell*.png"))
 
 
+@pytest.mark.parametrize("lab_rgb", [False, True])
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
+    lab_rgb: bool,
 ) -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
@@ -748,7 +752,29 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         clock=lambda: NOW,
     )
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
-    job_service = JobService(repository, artifact_root=tmp_path / "artifacts")
+    snapshot = bootstrap_symbol_model_snapshot()
+    if lab_rgb:
+        snapshot = replace(
+            snapshot,
+            model_version=LAB_RGB_SYMBOL_MODEL_VERSION,
+            crop_size=96,
+            iteration_id=uuid4(),
+            class_codes=("10", "J", "Q", "K", "A", "MUMIA"),
+        )
+
+    class SnapshotResolver:
+        def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+            assert game_id == repository.game_id
+            return snapshot
+
+        def resolve_unclassified_cold_start(self, *, game_id: UUID) -> None:
+            return None
+
+    job_service = JobService(
+        repository,
+        symbol_model_snapshot_resolver=SnapshotResolver(),
+        artifact_root=tmp_path / "artifacts",
+    )
     image_bytes: list[bytes] = []
     for color in ((255, 0, 0), (0, 255, 0)):
         stream = BytesIO()
@@ -1062,6 +1088,16 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert started.status_code == 201
     assert started.json()["created"] is True
     assert started.json()["job"]["inputPayload"]["schemaVersion"] == 7
+    job_id = started.json()["job"]["id"]
+    fetched = client.get(f"/api/v1/admin/jobs/{job_id}")
+    listed = client.get(f"/api/v1/admin/jobs?game_id={game_id}&job_type=import")
+    assert fetched.status_code == 200, fetched.text
+    assert listed.status_code == 200, listed.text
+    listed_job = next(item for item in listed.json() if item["id"] == job_id)
+    for returned in (started.json()["job"], fetched.json(), listed_job):
+        returned_snapshot = returned["inputPayload"]["symbolModel"]
+        assert returned_snapshot["cropSize"] == (96 if lab_rgb else None)
+        assert returned_snapshot["inferenceFingerprint"] == snapshot.inference_fingerprint
     assert invalid_resolution_reference.status_code == 409
     assert (
         invalid_resolution_reference.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
@@ -1347,7 +1383,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             == preflight["gridProfileInferenceFingerprint"]
         )
         current_policy = job_service.current_image_import_engine_policy(game_id=game_id)
-        assert current_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
+        assert current_policy.policy is ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
         assert (
             started_job.input_payload["image_geometry_rollout"]["geometryMode"]
             == "structured_lattice_v3"
@@ -1390,7 +1426,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
     assert replayed.json()["existingImportJob"]["id"] == started.json()["job"]["id"]
 
 
-def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
+def test_structured_default_cold_start_bootstraps_required_geometry_preflight(
     tmp_path: Path,
 ) -> None:
     class RetentionGuard:
@@ -1411,8 +1447,8 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
     repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
-        geometry_mode="structured_shadow",
-        cell_asset_mode="virtual_shadow",
+        geometry_mode="structured_default",
+        cell_asset_mode="virtual_default",
         revision=1,
     )
     selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
@@ -1478,7 +1514,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         )
         assert preflight.status_code == 200
         report = preflight.json()
-        assert report["imageEnginePolicy"] == "structured_shadow"
+        assert report["imageEnginePolicy"] == "structured_default"
         assert report["imageEnginePolicyRevision"] == 1
         assert report["geometryPreflightRequired"] is True
 
@@ -1488,9 +1524,9 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
                 "gameId": str(game_id),
                 "manifestChecksumSha256": report["manifestChecksumSha256"],
                 "preflightChecksumSha256": report["preflightChecksumSha256"],
-                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicy": "structured_default",
                 "imageEnginePolicyRevision": 1,
-                "boardCellProcessingMode": "structured_shadow",
+                "boardCellProcessingMode": "structured_default",
             },
         )
         geometry = client.post(
@@ -1589,9 +1625,9 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
                 "preflightChecksumSha256": report["preflightChecksumSha256"],
                 "geometryPreflightJobId": str(geometry_job_id),
                 "geometryManifestChecksumSha256": geometry_checksum,
-                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicy": "structured_default",
                 "imageEnginePolicyRevision": 1,
-                "boardCellProcessingMode": "structured_shadow",
+                "boardCellProcessingMode": "structured_default",
             },
         )
 
@@ -2065,9 +2101,7 @@ def _lateral_candidate_payload(
     payload: dict[str, object] = {
         "origin": "automatic_search_proposal",
         "analysisQuads": quads,
-        "activeBoardSlots": (
-            list(range(9)) if active_board_slots is None else active_board_slots
-        ),
+        "activeBoardSlots": (list(range(9)) if active_board_slots is None else active_board_slots),
     }
     payload.update(overrides)
     return payload
@@ -2213,15 +2247,9 @@ def test_review_sources_expose_automatic_page_proposal_for_cropped_page(tmp_path
     "mutate",
     [
         lambda candidate: candidate.pop("analysisQuads"),
-        lambda candidate: candidate.__setitem__(
-            "analysisQuads", candidate["analysisQuads"][:8]
-        ),
-        lambda candidate: candidate["analysisQuads"][0].__setitem__(
-            0, {"x": 0.5, "y": 0}
-        ),
-        lambda candidate: candidate["analysisQuads"][0].__setitem__(
-            0, {"x": 2 * 1080 + 1, "y": 0}
-        ),
+        lambda candidate: candidate.__setitem__("analysisQuads", candidate["analysisQuads"][:8]),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(0, {"x": 0.5, "y": 0}),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(0, {"x": 2 * 1080 + 1, "y": 0}),
         lambda candidate: candidate.__setitem__("recoveryKind", "unknown_kind"),
     ],
     ids=[
@@ -2649,6 +2677,11 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
             job_service_dependency=lambda: JobService(repository),
             browser_image_selection_service_dependency=lambda: browser_service,
             image_folder_selection_service_dependency=lambda: selection_service,
+            # A unit test never reads the local database (the default
+            # dependency would open a session on GAME_PREDICTOR_DATABASE_URL).
+            image_sequence_canonical_service_dependency=lambda: ImageSequenceCanonicalService(
+                _MutableBrowserCanonicalRepository(set())
+            ),
             page_geometry_override_service_dependency=lambda: Overrides(),
         )
     )

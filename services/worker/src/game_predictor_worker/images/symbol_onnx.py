@@ -7,16 +7,18 @@ import importlib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, TypedDict, cast
 
 import cv2
 import numpy as np
 import onnx
 import onnxruntime as ort  # type: ignore[import-untyped]
-import torch
+from game_predictor_api.domain.symbol_model_snapshots import LAB_RGB_SYMBOL_MODEL_VERSION
 from numpy.typing import NDArray
 from onnx import TensorProto
-from torch import Tensor, nn
+
+if TYPE_CHECKING:
+    from torch import Tensor, nn
 
 ONNX_MODEL_VERSION = "bootstrap-symbol-cnn-onnx-v1"
 ONNX_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
@@ -58,6 +60,7 @@ def validate_onnx_contract(
     *,
     input_size: int,
     class_count: int,
+    model_version: str = ONNX_MODEL_VERSION,
 ) -> None:
     """Validate the exact fixed-image/dynamic-batch model boundary."""
 
@@ -102,7 +105,8 @@ def validate_onnx_contract(
             "Expected dynamic batch and fixed N x class_count logits output.",
         )
     opsets = {value.domain: int(value.version) for value in model.opset_import}
-    if opsets.get("", 0) != ONNX_OPSET_VERSION:
+    expected_opset = 17 if model_version == LAB_RGB_SYMBOL_MODEL_VERSION else ONNX_OPSET_VERSION
+    if opsets.get("", 0) != expected_opset:
         raise SymbolOnnxError(
             "SYMBOL_ONNX_OPSET_INVALID",
             "The ONNX model uses an unexpected default opset.",
@@ -117,6 +121,8 @@ def export_symbol_classifier_onnx(
     model_version: str = ONNX_MODEL_VERSION,
 ) -> bytes:
     """Export deterministic ONNX bytes without changing the source checkpoint."""
+
+    import torch
 
     model.eval()
     example = torch.zeros((1, 3, input_size, input_size), dtype=torch.float32)
@@ -183,6 +189,7 @@ class LocalSymbolOnnxAdapter:
         expected_sha256: str,
         class_codes: tuple[str, ...],
         input_size: int,
+        model_version: str = ONNX_MODEL_VERSION,
     ) -> None:
         try:
             content = model_path.read_bytes()
@@ -212,6 +219,7 @@ class LocalSymbolOnnxAdapter:
             model,
             input_size=input_size,
             class_count=len(class_codes),
+            model_version=model_version,
         )
         if "CPUExecutionProvider" not in ort.get_available_providers():
             raise SymbolOnnxError(
@@ -302,15 +310,28 @@ def preprocess_rgb_batch(
     images: Sequence[NDArray[np.uint8]],
     *,
     input_size: int,
+    model_version: str | None = None,
 ) -> NDArray[np.float32]:
     """Build one bounded NCHW batch without persistent intermediate crops."""
+
+    if model_version == LAB_RGB_SYMBOL_MODEL_VERSION:
+        from .lab_rgb_preprocessing import LAB_RGB_INPUT_SIZE, preprocess_lab_rgb96
+
+        try:
+            if input_size != LAB_RGB_INPUT_SIZE:
+                raise ValueError("LAB_RGB_INPUT_SIZE_INVALID")
+            return preprocess_lab_rgb96(images)
+        except ValueError as error:
+            raise SymbolOnnxError("SYMBOL_ONNX_INPUT_INVALID", str(error)) from error
 
     if not images or input_size < 1:
         raise SymbolOnnxError(
             "SYMBOL_ONNX_INPUT_INVALID",
             "Symbol preprocessing requires at least one RGB image and a positive input size.",
         )
-    batch = np.empty((len(images), 3, input_size, input_size), dtype=np.float32)
+    batch: NDArray[np.float32] = np.empty(
+        (len(images), 3, input_size, input_size), dtype=np.float32
+    )
     for index, rgb in enumerate(images):
         if (
             not isinstance(rgb, np.ndarray)
@@ -327,7 +348,7 @@ def preprocess_rgb_batch(
             if rgb.shape[:2] == (input_size, input_size)
             else cv2.resize(rgb, (input_size, input_size), interpolation=cv2.INTER_AREA)
         )
-        chw = model_rgb.transpose(2, 0, 1).astype(np.float32, copy=False)
+        chw: NDArray[np.float32] = model_rgb.transpose(2, 0, 1).astype(np.float32, copy=False)
         np.multiply(chw, 1.0 / 127.5, out=batch[index])
         batch[index] -= 1.0
     return batch
@@ -335,3 +356,12 @@ def preprocess_rgb_batch(
 
 def tensor_batch_to_numpy(value: Tensor) -> NDArray[np.float32]:
     return value.detach().cpu().numpy().astype(np.float32, copy=False)
+
+
+class SymbolOnnxVariantArguments(TypedDict, total=False):
+    model_version: str
+
+
+def symbol_onnx_variant_arguments(model_version: str) -> SymbolOnnxVariantArguments:
+    """Pass an explicit lab contract while retaining legacy constructor calls."""
+    return {"model_version": model_version} if model_version == LAB_RGB_SYMBOL_MODEL_VERSION else {}

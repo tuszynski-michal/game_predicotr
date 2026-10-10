@@ -3,8 +3,7 @@ import type {
   V7LabelGeometrySlotResponse,
 } from '@game-predictor/admin-api-client';
 
-export interface PendingV7LabelGeometryOperation
-  extends V7LabelGeometrySessionMutation {
+export interface PendingV7LabelGeometryOperation extends V7LabelGeometrySessionMutation {
   readonly sequence: number;
   readonly sessionId: string;
 }

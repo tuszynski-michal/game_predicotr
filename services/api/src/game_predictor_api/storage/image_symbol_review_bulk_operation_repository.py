@@ -6,12 +6,10 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast as typing_cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, Select, and_, cast, func, insert, literal, select
+from sqlalchemy import Select, func, insert, literal, select
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.sql import ColumnElement
 
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkFilterSelection,
@@ -32,18 +30,21 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
 )
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    _bind_game_store,
+    _count_semantics_current,
+    _logical_cell_visible_clause,
+    _symbol_scope_filter_clause,
+    extended_symbol_cell_review_filter_clauses,
     symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
-    ImageBoardSearchFastDocumentModel,
-    ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewBulkOperationModel,
     ImageSymbolReviewBulkTargetModel,
     ImageSymbolReviewCellModel,
@@ -51,6 +52,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SymbolModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
 
 MAX_BULK_OPERATION_BOARDS_PER_BATCH = 100
 _BULK_WORKFLOW = "image_symbol_review_bulk"
@@ -82,8 +84,8 @@ class _FrozenTarget:
     cell_index: int
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
 
 
 class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOperationRepository):
@@ -121,7 +123,22 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         request: SymbolCellReviewBulkRequest,
         idempotency_key: UUID,
     ) -> tuple[SymbolCellReviewBulkOperation, bool]:
-        state = _require_ready_state(self._session, game_id=game_id, for_update=True)
+        # Target inserts take FK locks on board/cell rows. The worker and
+        # geometry editor lock those rows before catalog state, so start must
+        # not hold catalog state while waiting for the target FK checks.
+        state = _require_ready_state(self._session, game_id=game_id, for_update=False)
+        # Serialize retries of this command only. The previous early catalog
+        # lock also serialized identical keys; unrelated jobs need no such lock.
+        self._session.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(
+                        f"symbol-review-bulk-start:{game_id}:{idempotency_key}",
+                        0,
+                    )
+                )
+            )
+        )
         existing = self._session.scalar(
             select(ImageSymbolReviewBulkOperationModel)
             .where(
@@ -166,6 +183,17 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
             selection_kind=request.selection_kind.value,
             filter_symbol_id=(None if filter_selection is None else filter_selection.symbol_id),
             filter_state=(None if filter_selection is None else filter_selection.state.value),
+            filter_scope=(
+                None
+                if filter_selection is None
+                else "outside"
+                if filter_selection.outside_only
+                else "all"
+                if filter_selection.include_all_symbols
+                else "unknown"
+                if filter_selection.symbol_id is None
+                else str(filter_selection.symbol_id)
+            ),
             catalog_revision=(
                 None if filter_selection is None else filter_selection.catalog_revision
             ),
@@ -203,6 +231,10 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
                 for target in self._snapshot_explicit_targets(game_id=game_id, request=request)
             )
         self._session.flush()
+        # All target FK checks precede the catalog lock. Revalidate after any
+        # wait: a worker may have changed crop revisions or the frozen filter.
+        state = _require_ready_state(self._session, game_id=game_id, for_update=True)
+        self._preview_counts(game_id=game_id, request=request, state=state)
         return _operation_from_model(operation), True
 
     def get(self, *, game_id: UUID, operation_id: UUID) -> SymbolCellReviewBulkOperation | None:
@@ -219,10 +251,16 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         state: ImageSymbolReviewStateModel,
     ) -> tuple[int, int]:
         if request.filter_selection is not None:
+            if not _count_semantics_current(state):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE",
+                    "Rebuild the count projection before freezing this filter.",
+                )
             _require_fresh_filter_revision(
                 selection=request.filter_selection,
                 current_catalog_revision=int(state.catalog_revision),
             )
+            _bind_game_store(self._session, game_id)
             visible_cells = _visible_cells_statement(
                 game_id=game_id,
                 selection=request.filter_selection,
@@ -250,11 +288,12 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
     ) -> tuple[_FrozenTarget, ...]:
         assert request.explicit_targets is not None
         requested = {target.cell_review_id: target for target in request.explicit_targets}
+        _bind_game_store(self._session, game_id)
         rows = tuple(
             self._session.scalars(
-                _visible_cells_statement(game_id=game_id).where(
-                    ImageSymbolReviewCellModel.id.in_(tuple(requested))
-                )
+                _visible_cells_statement(game_id=game_id)
+                .where(ImageSymbolReviewCellModel.id.in_(tuple(requested)))
+                .execution_options(populate_existing=True)
             )
         )
         actual = {row.id: row for row in rows}
@@ -297,10 +336,8 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         selection: SymbolCellReviewBulkFilterSelection,
     ) -> None:
         cell = ImageSymbolReviewCellModel
-        visible_cells = _visible_cells_statement(
-            game_id=game_id,
-            selection=selection,
-        )
+        _bind_game_store(self._session, game_id)
+        visible_cells = _visible_cells_statement(game_id=game_id, selection=selection)
         target_columns = (
             "operation_id",
             "cell_review_id",
@@ -481,6 +518,10 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
             return
         try:
             with self._session_factory() as session, session.begin():
+                # TASK-0971 (P0-5): a batch may resolve boards; the ownership
+                # lock precedes the operation, sequence and cell locks.
+                if job.game_id is not None:
+                    acquire_sequence_ownership_lock(session, game_id=job.game_id)
                 operation = _locked_operation_for_job(session, job=job, operation_id=operation_id)
                 _require_target_symbol_still_active(session, operation=operation)
                 mutation_repository = SqlAlchemySymbolCellReviewMutationRepository(session)
@@ -588,7 +629,7 @@ def _require_ready_state(
         ImageSymbolReviewStateModel.game_id == game_id
     )
     if for_update:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     state = session.scalar(statement)
     if state is None or not symbol_cell_review_projection_is_available(
         session,
@@ -656,75 +697,42 @@ def _visible_cells_statement(
     game_id: UUID,
     selection: SymbolCellReviewBulkFilterSelection | None = None,
 ) -> Select[tuple[ImageSymbolReviewCellModel]]:
+    """Current V2 cells of one game at the board's current geometry, optionally filtered."""
+
     cell = ImageSymbolReviewCellModel
-    document = ImageBoardSearchFastDocumentModel
-    prediction_revision = ImageSymbolPredictionRevisionModel
-    observation = CellObservationModel
     statement = (
         select(cell)
-        .join(
-            document,
-            and_(
-                document.game_id == cell.game_id,
-                document.sequence_number == cell.sequence_number,
-                document.review_item_id == cell.review_item_id,
-                document.recognized_board_id == cell.recognized_board_id,
-                document.import_job_id == cell.import_job_id,
-            ),
-        )
         .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
-        .outerjoin(
-            prediction_revision,
-            prediction_revision.id == cell.prediction_revision_id,
-        )
-        .outerjoin(
-            observation,
-            and_(
-                observation.recognized_board_id == cell.recognized_board_id,
-                observation.row_index == cell.row_index,
-                observation.column_index == cell.column_index,
-            ),
-        )
         .where(
             cell.game_id == game_id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,
-            cell.source_available.is_(True),
+            _logical_cell_visible_clause(),
         )
     )
     if selection is None:
         return statement
-    if selection.symbol_id is None:
-        statement = statement.where(cell.assigned_symbol_id.is_(None))
-    else:
-        statement = statement.where(cell.assigned_symbol_id == selection.symbol_id)
+    review_filter = SymbolCellReviewListFilter(
+        game_id=game_id,
+        symbol_id=selection.symbol_id,
+        state=selection.state,
+        outside_only=selection.outside_only,
+        include_all_symbols=selection.include_all_symbols,
+        prediction_source=selection.prediction_source,
+        changed_from=selection.changed_from,
+        changed_to=selection.changed_to,
+        import_job_id=selection.import_job_id,
+    )
+    statement = statement.where(_symbol_scope_filter_clause(review_filter))
+    statement = statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
     if selection.state is not SymbolCellReviewFilterState.ALL:
         statement = statement.where(cell.review_state == selection.state.value)
-    confidence = _prediction_confidence_expression()
     if selection.min_confidence is not None:
-        statement = statement.where(confidence >= selection.min_confidence)
+        statement = statement.where(cell.prediction_confidence >= selection.min_confidence)
     if selection.max_confidence is not None:
-        statement = statement.where(confidence <= selection.max_confidence)
+        statement = statement.where(cell.prediction_confidence <= selection.max_confidence)
     if selection.excluded_cell_review_ids:
         statement = statement.where(cell.id.not_in(selection.excluded_cell_review_ids))
     return statement
-
-
-def _prediction_confidence_expression() -> ColumnElement[float | None]:
-    """Use the same persisted confidence sources as the bounded list API."""
-
-    cell = ImageSymbolReviewCellModel
-    revision = ImageSymbolPredictionRevisionModel
-    observation = CellObservationModel
-    return typing_cast(
-        ColumnElement[float | None],
-        func.coalesce(
-            cast(
-                revision.predictions.op("->")(cell.cell_index).op("->>")("confidence"),
-                Float(),
-            ),
-            cast(observation.prediction.op("->>")("confidence"), Float()),
-        ),
-    )
 
 
 def _frozen_target(cell: ImageSymbolReviewCellModel) -> _FrozenTarget:

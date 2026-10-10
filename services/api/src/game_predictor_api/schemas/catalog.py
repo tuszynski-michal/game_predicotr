@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from game_predictor_api.domain.catalog import (
     DEFAULT_EXPECTED_LAYOUT_COUNT,
     MAX_EXPECTED_LAYOUT_COUNT,
+    NO_SUPER_GAME,
     GameShapeGeometryConfiguration,
     GameStatus,
     ShapeGeometryReadinessStatus,
@@ -50,6 +51,8 @@ class GameCreate(ApiModel):
     shape_geometry_configuration: GameShapeGeometryConfiguration = (
         GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
     )
+    # D-535: a code from GET /api/v1/admin/super-game-kinds; validated by the domain.
+    super_game_kind: str = Field(default=NO_SUPER_GAME, min_length=1, max_length=64)
 
 
 class GameUpdate(ApiModel):
@@ -61,11 +64,14 @@ class GameUpdate(ApiModel):
         le=MAX_EXPECTED_LAYOUT_COUNT,
     )
     shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
+    super_game_kind: str | None = Field(default=None, min_length=1, max_length=64)
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided.")
+        if "super_game_kind" in self.model_fields_set and self.super_game_kind is None:
+            raise ValueError("superGameKind cannot be null.")
         if "name" in self.model_fields_set and self.name is None:
             raise ValueError("name cannot be null.")
         if "status" in self.model_fields_set and self.status is None:
@@ -109,22 +115,35 @@ class GameResponse(ApiModel):
     storage_write_available: bool
     shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
     shape_geometry_readiness: ShapeGeometryReadinessResponse
+    super_game_kind: str
+
+
+class SuperGameKindResponse(ApiModel):
+    """One code-defined super game kind offered for a game (D-535)."""
+
+    code: str
+    label: str
 
 
 class SymbolCreate(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     is_wildcard: bool = False
+    # D-535: null = no super game trigger role; 3/4/5 = cells on a cut board.
+    super_game_trigger_count: int | None = Field(default=None, ge=3, le=5)
 
 
 class SymbolUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     is_wildcard: bool | None = None
+    # Explicit null removes the trigger role; an omitted field keeps it.
+    super_game_trigger_count: int | None = Field(default=None, ge=3, le=5)
+    display_order: int | None = Field(default=None, ge=0, le=2_147_483_647)
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided.")
-        for field_name in ("name", "is_wildcard"):
+        for field_name in ("name", "is_wildcard", "display_order"):
             if field_name in self.model_fields_set and getattr(self, field_name) is None:
                 raise ValueError(f"{_to_camel(field_name)} cannot be null.")
         return self
@@ -140,5 +159,6 @@ class SymbolResponse(ApiModel):
     name_en: str | None
     image_path: str | None
     is_wildcard: bool
+    super_game_trigger_count: int | None
     display_order: int
     status: SymbolStatus

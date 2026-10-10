@@ -45,6 +45,28 @@ COPY_CHECKPOINT_BATCH_SIZE = 25
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+def _is_neural_managed_import(job: Job) -> bool:
+    raw = job.input_payload
+    if raw.get("schema_version") != 7 or not (
+        {"managed_source_job_id", "managed_source_manifest_checksum_sha256"} & set(raw)
+    ):
+        return False
+    from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+    try:
+        NeuralGridSnapshot.from_payload(raw.get("neural_grid_proposal"))
+        UUID(str(raw.get("managed_source_job_id")))
+        checksum = raw.get("managed_source_manifest_checksum_sha256")
+        if not isinstance(checksum, str) or SHA256_PATTERN.fullmatch(checksum) is None:
+            raise ValueError("Missing managed inventory checksum.")
+    except (ValueError, TypeError) as error:
+        raise JobHandlerError(
+            "IMAGE_REPROCESS_SOURCE_INVALID",
+            "A neural managed import requires its complete frozen source descriptor.",
+        ) from error
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class ManagedOriginal:
     checksum_sha256: str
@@ -84,7 +106,7 @@ class ManagedOriginalStore:
         destination = self._safe_path(relative_path)
         if destination.exists():
             return self._load_manifest(destination, relative_path, job)
-        if job.input_payload.get("schema_version") in {4, 6}:
+        if job.input_payload.get("schema_version") in {4, 6} or _is_neural_managed_import(job):
             content = self._managed_reprocess_manifest_bytes(job)
             self._write_immutable(destination, content)
             return self._load_manifest(destination, relative_path, job)
@@ -177,7 +199,7 @@ class ManagedOriginalStore:
                 "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
                 "The source import manifest has different provenance.",
             )
-        if job.input_payload.get("schema_version") == 6:
+        if job.input_payload.get("schema_version") == 6 or _is_neural_managed_import(job):
             expected_checksum = job.input_payload.get("managed_source_manifest_checksum_sha256")
             if (
                 not isinstance(expected_checksum, str)
@@ -201,6 +223,77 @@ class ManagedOriginalStore:
                 "The source import manifest has no managed originals.",
             )
         cloned = dict(value)
+        if "neural_grid_proposal" in job.input_payload:
+            from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+            NeuralGridSnapshot.from_payload(job.input_payload["neural_grid_proposal"])
+            exclusions = job.input_payload.get("source_exclusions", {})
+            if not isinstance(exclusions, Mapping):
+                raise JobHandlerError(
+                    "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+                    "The frozen neural source exclusions are invalid.",
+                )
+            inventory = {item.checksum_sha256: item.source_relative_path for item in parsed}
+            prior_exclusions = value.get("operatorExcludedSources", [])
+            if not isinstance(prior_exclusions, list):
+                raise JobHandlerError(
+                    "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+                    "The managed source exclusion history is invalid.",
+                )
+            excluded_history: dict[str, str] = {}
+            for prior in prior_exclusions:
+                prior_checksum = prior.get("checksumSha256") if isinstance(prior, Mapping) else None
+                prior_path = prior.get("sourceRelativePath") if isinstance(prior, Mapping) else None
+                if (
+                    not isinstance(prior_checksum, str)
+                    or not SHA256_PATTERN.fullmatch(prior_checksum)
+                    or not isinstance(prior_path, str)
+                    or not prior_path
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+                        "A managed source exclusion history entry is invalid.",
+                    )
+                excluded_history[prior_checksum] = prior_path
+            inventory.update(excluded_history)
+            for checksum, exclusion in exclusions.items():
+                decision_checksum = (
+                    exclusion.get("decisionChecksumSha256")
+                    if isinstance(exclusion, Mapping)
+                    else None
+                )
+                if (
+                    not isinstance(checksum, str)
+                    or not SHA256_PATTERN.fullmatch(checksum)
+                    or not isinstance(exclusion, Mapping)
+                    or not isinstance(decision_checksum, str)
+                    or not SHA256_PATTERN.fullmatch(decision_checksum)
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_PAGE_SOURCE_EXCLUSIONS_INVALID",
+                        "A frozen neural source exclusion is invalid.",
+                    )
+                if inventory.get(checksum) != exclusion.get("sourceRelativePath"):
+                    raise JobHandlerError(
+                        "IMAGE_PAGE_SOURCE_EXCLUSIONS_STALE",
+                        "A neural source exclusion differs from its inventory.",
+                    )
+                excluded_history[checksum] = cast(str, exclusion["sourceRelativePath"])
+            included = [
+                entry
+                for entry, original in zip(originals, parsed, strict=True)
+                if original.checksum_sha256 not in exclusions
+            ]
+            if not included:
+                raise JobHandlerError(
+                    "IMAGE_PAGE_SOURCE_EXCLUSION_LAST_SOURCE",
+                    "At least one source must remain in the neural import.",
+                )
+            cloned["originals"] = included
+            cloned["operatorExcludedSources"] = [
+                {"checksumSha256": checksum, "sourceRelativePath": path}
+                for checksum, path in sorted(excluded_history.items())
+            ]
         cloned["jobId"] = str(job.id)
         cloned["reprocessedFromJobId"] = str(source_job_id)
         return json.dumps(

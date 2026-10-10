@@ -384,5 +384,1342 @@
         ]
       }
     }
-  ]
+  ],
+  "wildCountScenario": {
+    "algorithmVersion": "payout-v4-wild-count",
+    "description": "Mumie-like game (D-535, TASK-0932): Mumia is both Wild and a super game trigger symbol. Trigger symbols never pay on paylines; their payout rules are counts of their cells anywhere on the board (matchLength = count). An unknown cell (0) is never counted.",
+    "game": {
+      "id": "payout-wild-count-game",
+      "code": "PAYOUT_WILD_COUNT",
+      "name": "Payout Wild Count Game",
+      "rows": 3,
+      "columns": 5,
+      "spinCost": 10,
+      "signatureCellWidth": 1,
+      "symbols": [
+        {
+          "mobileCode": 1,
+          "code": "10",
+          "name": "10",
+          "isWildcard": false,
+          "displayOrder": 0,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 2,
+          "code": "J",
+          "name": "J",
+          "isWildcard": false,
+          "displayOrder": 1,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 3,
+          "code": "Q",
+          "name": "Q",
+          "isWildcard": false,
+          "displayOrder": 2,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 4,
+          "code": "K",
+          "name": "K",
+          "isWildcard": false,
+          "displayOrder": 3,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 5,
+          "code": "A",
+          "name": "A",
+          "isWildcard": false,
+          "displayOrder": 4,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 6,
+          "code": "MUMIA",
+          "name": "Mumia",
+          "isWildcard": true,
+          "displayOrder": 5,
+          "superGameTriggerCount": 3
+        }
+      ]
+    },
+    "paylines": [
+      {
+        "id": "top",
+        "rowPath": [0, 0, 0, 0, 0]
+      },
+      {
+        "id": "middle",
+        "rowPath": [1, 1, 1, 1, 1]
+      },
+      {
+        "id": "bottom",
+        "rowPath": [2, 2, 2, 2, 2]
+      },
+      {
+        "id": "v",
+        "rowPath": [0, 1, 2, 1, 0]
+      }
+    ],
+    "payoutSymbols": [
+      {
+        "symbolMobileCode": 1,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 2,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 3,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 4,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 5,
+        "minimumMatchLength": 3
+      }
+    ],
+    "payoutRules": [
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 3,
+        "payoutCredits": 5
+      },
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 4,
+        "payoutCredits": 10
+      },
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 5,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 3,
+        "payoutCredits": 6
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 4,
+        "payoutCredits": 12
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 5,
+        "payoutCredits": 24
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 3,
+        "payoutCredits": 8
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 4,
+        "payoutCredits": 16
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 5,
+        "payoutCredits": 32
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 3,
+        "payoutCredits": 10
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 4,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 5,
+        "payoutCredits": 40
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 3,
+        "payoutCredits": 15
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 4,
+        "payoutCredits": 30
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 5,
+        "payoutCredits": 60
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 3,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 4,
+        "payoutCredits": 200
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 5,
+        "payoutCredits": 2000
+      }
+    ],
+    "cases": [
+      {
+        "id": "worked-example-lines-and-count",
+        "manualCalculation": [
+          "top 10,Mumia,10,10,J pays 10 x4 (Mumia as 10) = 10",
+          "middle K,K,Mumia,Q,Q pays K x3 (Mumia as K) = 10",
+          "bottom Mumia,A,A,A,10 pays A x4 (Mumia as A; the line ends at 10) = 30",
+          "Mumia appears 3 times on the board (cells 1, 7, 10): count rule 3 pays 20",
+          "total = 10 + 10 + 30 + 20 = 70"
+        ],
+        "paylineIds": ["top", "middle", "bottom"],
+        "rows": [
+          [1, 6, 1, 1, 2],
+          [4, 4, 6, 3, 3],
+          [6, 5, 5, 5, 1]
+        ],
+        "expected": {
+          "totalPayout": 70,
+          "matches": [
+            {
+              "symbolMobileCode": 1,
+              "paylineId": "top",
+              "startColumn": 0,
+              "matchedLength": 4,
+              "matchedCells": [0, 1, 2, 3],
+              "jokerCells": [1],
+              "payoutCredits": 10,
+              "interpretation": [
+                {
+                  "cellIndex": 1,
+                  "asSymbolMobileCode": 1
+                }
+              ]
+            },
+            {
+              "symbolMobileCode": 4,
+              "paylineId": "middle",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [5, 6, 7],
+              "jokerCells": [7],
+              "payoutCredits": 10,
+              "interpretation": [
+                {
+                  "cellIndex": 7,
+                  "asSymbolMobileCode": 4
+                }
+              ]
+            },
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "bottom",
+              "startColumn": 0,
+              "matchedLength": 4,
+              "matchedCells": [10, 11, 12, 13],
+              "jokerCells": [10],
+              "payoutCredits": 30,
+              "interpretation": [
+                {
+                  "cellIndex": 10,
+                  "asSymbolMobileCode": 5
+                }
+              ]
+            }
+          ],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 3,
+              "matchedCells": [1, 7, 10],
+              "payoutCredits": 20
+            }
+          ]
+        }
+      },
+      {
+        "id": "wild-is-two-different-symbols-on-two-lines",
+        "manualCalculation": [
+          "cell 0 holds Mumia and is the first cell of top and v",
+          "top Mumia,A,A,10 pays A x3 = 15 (Mumia as A)",
+          "v Mumia,K,K,K,J pays K x4 = 20 (the same Mumia as K)",
+          "one Mumia on the board is below the lowest count rule 3; total = 35"
+        ],
+        "paylineIds": ["top", "v"],
+        "rows": [
+          [6, 5, 5, 1, 2],
+          [3, 4, 3, 4, 3],
+          [2, 3, 4, 3, 2]
+        ],
+        "expected": {
+          "totalPayout": 35,
+          "matches": [
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "top",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [0, 1, 2],
+              "jokerCells": [0],
+              "payoutCredits": 15,
+              "interpretation": [
+                {
+                  "cellIndex": 0,
+                  "asSymbolMobileCode": 5
+                }
+              ]
+            },
+            {
+              "symbolMobileCode": 4,
+              "paylineId": "v",
+              "startColumn": 0,
+              "matchedLength": 4,
+              "matchedCells": [0, 6, 12, 8],
+              "jokerCells": [0],
+              "payoutCredits": 20,
+              "interpretation": [
+                {
+                  "cellIndex": 0,
+                  "asSymbolMobileCode": 4
+                }
+              ]
+            }
+          ],
+          "countMatches": []
+        }
+      },
+      {
+        "id": "count-three-pays-twenty",
+        "manualCalculation": [
+          "Mumia at cells 0, 3 and 11, in any position and order",
+          "middle Q,J,10,J,10 has no line win; count 3 pays 20"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 2, 6, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 3, 4]
+        ],
+        "expected": {
+          "totalPayout": 20,
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 3,
+              "matchedCells": [0, 3, 11],
+              "payoutCredits": 20
+            }
+          ]
+        }
+      },
+      {
+        "id": "count-four-pays-two-hundred",
+        "manualCalculation": [
+          "Mumia at cells 0, 3, 11 and 13",
+          "count 4 pays 200; middle has no line win"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 2, 6, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 6, 4]
+        ],
+        "expected": {
+          "totalPayout": 200,
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 4,
+              "matchedCells": [0, 3, 11, 13],
+              "payoutCredits": 200
+            }
+          ]
+        }
+      },
+      {
+        "id": "count-five-pays-two-thousand",
+        "manualCalculation": [
+          "Mumia at cells 0, 2, 3, 11 and 13",
+          "count 5 pays 2000; middle has no line win"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 6, 6, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 6, 4]
+        ],
+        "expected": {
+          "totalPayout": 2000,
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 5,
+              "matchedCells": [0, 2, 3, 11, 13],
+              "payoutCredits": 2000
+            }
+          ]
+        }
+      },
+      {
+        "id": "only-wilds-never-win-as-a-line",
+        "manualCalculation": [
+          "middle is Mumia x5: a prefix made only of Wild cells never wins as a line",
+          "the five Mumia still count on the board: count 5 pays 2000"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [1, 2, 3, 4, 5],
+          [6, 6, 6, 6, 6],
+          [5, 4, 3, 2, 1]
+        ],
+        "expected": {
+          "totalPayout": 2000,
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 5,
+              "matchedCells": [5, 6, 7, 8, 9],
+              "payoutCredits": 2000
+            }
+          ]
+        }
+      },
+      {
+        "id": "unknown-cell-is-never-counted",
+        "manualCalculation": [
+          "cell 3 is unknown (0) and is not counted as Mumia",
+          "Mumia at cells 0, 11 and 13 gives count 3 (a lower bound) and pays 20",
+          "middle has no line win"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 2, 0, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 6, 4]
+        ],
+        "expected": {
+          "totalPayout": 20,
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 6,
+              "count": 3,
+              "matchedCells": [0, 11, 13],
+              "payoutCredits": 20
+            }
+          ]
+        }
+      },
+      {
+        "id": "count-two-below-lowest-rule-pays-nothing",
+        "manualCalculation": [
+          "Mumia at cells 0 and 11 gives count 2",
+          "the lowest count rule is 3, so there is no count payout; total = 0"
+        ],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 2, 1, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 3, 4]
+        ],
+        "expected": {
+          "totalPayout": 0,
+          "matches": [],
+          "countMatches": []
+        }
+      },
+      {
+        "id": "board-without-trigger-symbol-matches-v3",
+        "manualCalculation": [
+          "no Mumia on the board",
+          "top A,A,A,10 pays A x3 = 15, exactly as payout-v3 would; no count match"
+        ],
+        "paylineIds": ["top", "middle", "bottom", "v"],
+        "rows": [
+          [5, 5, 5, 1, 2],
+          [3, 4, 3, 4, 3],
+          [2, 3, 4, 3, 2]
+        ],
+        "expected": {
+          "totalPayout": 15,
+          "matches": [
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "top",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [0, 1, 2],
+              "jokerCells": [],
+              "payoutCredits": 15,
+              "interpretation": []
+            }
+          ],
+          "countMatches": []
+        }
+      },
+      {
+        "id": "trigger-symbol-without-rules-pays-no-count",
+        "manualCalculation": [
+          "the rules version defines no count rule for Mumia",
+          "three Mumia on the board pay nothing and raise no error; Mumia stays Wild on lines"
+        ],
+        "omitPayoutRulesForSymbols": [6],
+        "paylineIds": ["middle"],
+        "rows": [
+          [6, 1, 2, 6, 3],
+          [3, 2, 1, 2, 1],
+          [1, 6, 2, 3, 4]
+        ],
+        "expected": {
+          "totalPayout": 0,
+          "matches": [],
+          "countMatches": []
+        }
+      }
+    ]
+  },
+  "wildSuperSpinsScenario": {
+    "algorithmVersion": "payout-v4-wild-count",
+    "superGameKind": "wild_super_spins",
+    "description": "Mumie-like game in a wild_super_spins series (D-535, D-537, TASK-0936): 5 paylines, K/10/J/Q/A minimum 3, Sarkofag minimum 2, Mumia is Wild and a super game trigger (3). evaluate_series_board(board, superSymbol, rules): k = number of original columns containing the super symbol X; with k >= minimum(X) those columns are filled with X, lines are evaluated on the expanded board with X's own line wins replaced by payout_line(X, k) x paylines, counts on the original board. payoutKind is exact only for a fully known board with a defined super symbol in a fresh generation, otherwise provisional. evaluatedRows is the expanded board (or the original board without expansion).",
+    "game": {
+      "id": "payout-wild-super-spins-game",
+      "code": "PAYOUT_WILD_SUPER_SPINS",
+      "name": "Payout Wild Super Spins Game",
+      "rows": 3,
+      "columns": 5,
+      "spinCost": 100,
+      "signatureCellWidth": 1,
+      "symbols": [
+        {
+          "mobileCode": 1,
+          "code": "10",
+          "name": "10",
+          "isWildcard": false,
+          "displayOrder": 0,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 2,
+          "code": "J",
+          "name": "J",
+          "isWildcard": false,
+          "displayOrder": 1,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 3,
+          "code": "Q",
+          "name": "Q",
+          "isWildcard": false,
+          "displayOrder": 2,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 4,
+          "code": "K",
+          "name": "K",
+          "isWildcard": false,
+          "displayOrder": 3,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 5,
+          "code": "A",
+          "name": "A",
+          "isWildcard": false,
+          "displayOrder": 4,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 6,
+          "code": "SARKOFAG",
+          "name": "Sarkofag",
+          "isWildcard": false,
+          "displayOrder": 5,
+          "superGameTriggerCount": null
+        },
+        {
+          "mobileCode": 7,
+          "code": "MUMIA",
+          "name": "Mumia",
+          "isWildcard": true,
+          "displayOrder": 6,
+          "superGameTriggerCount": 3
+        }
+      ]
+    },
+    "paylines": [
+      {
+        "id": "A",
+        "rowPath": [0, 0, 0, 0, 0]
+      },
+      {
+        "id": "B",
+        "rowPath": [1, 1, 1, 1, 1]
+      },
+      {
+        "id": "C",
+        "rowPath": [2, 2, 2, 2, 2]
+      },
+      {
+        "id": "D",
+        "rowPath": [0, 1, 2, 1, 0]
+      },
+      {
+        "id": "E",
+        "rowPath": [2, 1, 0, 1, 2]
+      }
+    ],
+    "payoutSymbols": [
+      {
+        "symbolMobileCode": 1,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 2,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 3,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 4,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 5,
+        "minimumMatchLength": 3
+      },
+      {
+        "symbolMobileCode": 6,
+        "minimumMatchLength": 2
+      }
+    ],
+    "payoutRules": [
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 3,
+        "payoutCredits": 5
+      },
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 4,
+        "payoutCredits": 10
+      },
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 5,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 3,
+        "payoutCredits": 6
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 4,
+        "payoutCredits": 12
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 5,
+        "payoutCredits": 24
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 3,
+        "payoutCredits": 8
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 4,
+        "payoutCredits": 16
+      },
+      {
+        "symbolMobileCode": 3,
+        "matchLength": 5,
+        "payoutCredits": 32
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 3,
+        "payoutCredits": 10
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 4,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 4,
+        "matchLength": 5,
+        "payoutCredits": 40
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 3,
+        "payoutCredits": 15
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 4,
+        "payoutCredits": 30
+      },
+      {
+        "symbolMobileCode": 5,
+        "matchLength": 5,
+        "payoutCredits": 60
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 2,
+        "payoutCredits": 5
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 3,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 4,
+        "payoutCredits": 50
+      },
+      {
+        "symbolMobileCode": 6,
+        "matchLength": 5,
+        "payoutCredits": 100
+      },
+      {
+        "symbolMobileCode": 7,
+        "matchLength": 3,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 7,
+        "matchLength": 4,
+        "payoutCredits": 200
+      },
+      {
+        "symbolMobileCode": 7,
+        "matchLength": 5,
+        "payoutCredits": 2000
+      }
+    ],
+    "cases": [
+      {
+        "id": "worked-example-k-in-columns-2-4-5",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "super symbol K (minimum 3) appears in columns 2, 4 and 5 (0-based 1, 3, 4): k = 3 >= 3",
+          "columns 2, 4 and 5 are filled with K; columns 1 and 3 keep 10/J/Q and A/10 and win nothing",
+          "expansion = payout_line(K, 3) x 5 paylines = 10 x 5 = 50",
+          "no other line wins, no Mumia: total = 50, fully known board: exact"
+        ],
+        "rows": [
+          [1, 4, 2, 3, 5],
+          [2, 3, 5, 4, 1],
+          [3, 5, 1, 2, 4]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 4, 2, 4, 4],
+            [2, 4, 5, 4, 4],
+            [3, 4, 1, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "k-in-columns-2-4-below-minimum-no-expansion",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K appears in columns 2 and 4 only: k = 2 < 3, the board is not transformed",
+          "lines as in base mode: middle A,A,A,K pays A x3 = 15",
+          "total = 15, exact"
+        ],
+        "rows": [
+          [1, 4, 2, 3, 5],
+          [5, 5, 5, 4, 1],
+          [3, 2, 1, 2, 3]
+        ],
+        "expected": {
+          "totalPayout": 15,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 4, 2, 3, 5],
+            [5, 5, 5, 4, 1],
+            [3, 2, 1, 2, 3]
+          ],
+          "expansion": null,
+          "matches": [
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "B",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [5, 6, 7],
+              "jokerCells": [],
+              "payoutCredits": 15,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "expansion-covers-a-line-win-underneath",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "base mode would pay middle A,A,A,Q = A x3 = 15",
+          "K in columns 2, 4, 5: k = 3, column 2 is filled with K and covers the middle A",
+          "expanded middle line A,K,A,K,K wins nothing: the A win disappears",
+          "total = expansion 10 x 5 = 50, exact"
+        ],
+        "rows": [
+          [1, 4, 2, 4, 3],
+          [5, 5, 5, 3, 4],
+          [3, 2, 1, 2, 1]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 4, 2, 4, 4],
+            [5, 4, 5, 4, 4],
+            [3, 4, 1, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "super-symbol-line-wins-are-replaced-not-summed",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K in columns 1, 2, 3: k = 3; the Mumia (Wild) in column 4 extends K lines on the expanded board",
+          "expanded lines pay K on all 5 lines (10 + 20 + 10 + 20 + 20 = 80); they are replaced, not summed",
+          "expansion = payout_line(K, 3) x 5 = 50 (k counts columns with K, the Wild column does not add one)",
+          "one Mumia: no count payout; total = 50, exact"
+        ],
+        "rows": [
+          [4, 4, 4, 1, 2],
+          [2, 3, 5, 7, 1],
+          [3, 5, 2, 3, 5]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [4, 4, 4, 1, 2],
+            [4, 4, 4, 7, 1],
+            [4, 4, 4, 3, 5]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [0, 1, 2],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "retrigger-board-in-series-pays-counts",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K in columns 2, 4, 5: expansion 10 x 5 = 50; the expanded board has no other line win",
+          "Mumia (Wild + trigger 3) appears 4 times on the original board (cells 0, 7, 10, 13), cell 13 lies in a covered column and still counts",
+          "count rule 4 pays 200; 4 >= 3 is a retrigger (the derivation extends the series)",
+          "total = 50 + 200 = 250, exact"
+        ],
+        "rows": [
+          [7, 4, 1, 4, 2],
+          [1, 3, 7, 3, 4],
+          [7, 5, 3, 7, 1]
+        ],
+        "expected": {
+          "totalPayout": 250,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [7, 4, 1, 4, 4],
+            [1, 4, 7, 4, 4],
+            [7, 4, 3, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 7,
+              "count": 4,
+              "matchedCells": [0, 7, 10, 13],
+              "payoutCredits": 200
+            }
+          ],
+          "retrigger": true
+        }
+      },
+      {
+        "id": "undefined-super-symbol-is-provisional-and-may-grow",
+        "superSymbolMobileCode": null,
+        "manualCalculation": [
+          "no super symbol yet: lines with Wild and counts as in base mode",
+          "middle A,A,A,Q pays 15; total = 15, provisional",
+          "with K defined the same board pays 50 (case expansion-covers-a-line-win-underneath): the result grows"
+        ],
+        "rows": [
+          [1, 4, 2, 4, 3],
+          [5, 5, 5, 3, 4],
+          [3, 2, 1, 2, 1]
+        ],
+        "expected": {
+          "totalPayout": 15,
+          "payoutKind": "provisional",
+          "evaluatedRows": [
+            [1, 4, 2, 4, 3],
+            [5, 5, 5, 3, 4],
+            [3, 2, 1, 2, 1]
+          ],
+          "expansion": null,
+          "matches": [
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "B",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [5, 6, 7],
+              "jokerCells": [],
+              "payoutCredits": 15,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "undefined-super-symbol-is-provisional-and-may-shrink",
+        "superSymbolMobileCode": null,
+        "manualCalculation": [
+          "no super symbol yet: top 10,10,10,J pays 10 x3 = 5, middle A x5 = 60",
+          "total = 65, provisional (not a lower bound)"
+        ],
+        "rows": [
+          [1, 1, 1, 2, 3],
+          [5, 5, 5, 5, 5],
+          [3, 2, 4, 3, 2]
+        ],
+        "expected": {
+          "totalPayout": 65,
+          "payoutKind": "provisional",
+          "evaluatedRows": [
+            [1, 1, 1, 2, 3],
+            [5, 5, 5, 5, 5],
+            [3, 2, 4, 3, 2]
+          ],
+          "expansion": null,
+          "matches": [
+            {
+              "symbolMobileCode": 1,
+              "paylineId": "A",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [0, 1, 2],
+              "jokerCells": [],
+              "payoutCredits": 5,
+              "interpretation": []
+            },
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "B",
+              "startColumn": 0,
+              "matchedLength": 5,
+              "matchedCells": [5, 6, 7, 8, 9],
+              "jokerCells": [],
+              "payoutCredits": 60,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "defined-super-symbol-covers-a-larger-win",
+        "superSymbolMobileCode": 1,
+        "manualCalculation": [
+          "same board with super symbol 10: 10 in columns 1, 2, 3, k = 3",
+          "expanded columns 1-3 cover the middle A x5 (60); every line starts 10,10,10 and its 10 wins are replaced",
+          "expansion = payout_line(10, 3) x 5 = 5 x 5 = 25; total = 25 < 65: defining the symbol shrank the result"
+        ],
+        "rows": [
+          [1, 1, 1, 2, 3],
+          [5, 5, 5, 5, 5],
+          [3, 2, 4, 3, 2]
+        ],
+        "expected": {
+          "totalPayout": 25,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 1, 1, 2, 3],
+            [1, 1, 1, 5, 5],
+            [1, 1, 1, 3, 2]
+          ],
+          "expansion": {
+            "symbolMobileCode": 1,
+            "columns": [0, 1, 2],
+            "columnCount": 3,
+            "linePayoutCredits": 5,
+            "paylineCount": 5,
+            "payoutCredits": 25
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "unknown-cell-outside-super-columns-below-threshold",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K known in columns 2 and 4 (k = 2 = minimum - 1); cell 14 (column 5) is unknown",
+          "no expansion: middle A x3 = 15; any unknown cell: provisional"
+        ],
+        "rows": [
+          [1, 4, 2, 3, 5],
+          [5, 5, 5, 4, 1],
+          [3, 2, 1, 2, 0]
+        ],
+        "expected": {
+          "totalPayout": 15,
+          "payoutKind": "provisional",
+          "evaluatedRows": [
+            [1, 4, 2, 3, 5],
+            [5, 5, 5, 4, 1],
+            [3, 2, 1, 2, 0]
+          ],
+          "expansion": null,
+          "matches": [
+            {
+              "symbolMobileCode": 5,
+              "paylineId": "B",
+              "startColumn": 0,
+              "matchedLength": 3,
+              "matchedCells": [5, 6, 7],
+              "jokerCells": [],
+              "payoutCredits": 15,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "unknown-cell-outside-super-columns-filled-as-super-symbol",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "the unknown cell 14 of the previous case is K: k = 3 crosses the threshold",
+          "column 2 is covered, the middle A x3 disappears; expansion 10 x 5 = 50",
+          "total = 50, exact: filling one unknown cell changed 15 to 50"
+        ],
+        "rows": [
+          [1, 4, 2, 3, 5],
+          [5, 5, 5, 4, 1],
+          [3, 2, 1, 2, 4]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 4, 2, 4, 4],
+            [5, 4, 5, 4, 4],
+            [3, 4, 1, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "two-mumias-and-unknown-cell-in-covered-column",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K in columns 2, 4, 5: expansion 50; cell 13 (column 4, covered) is unknown and becomes K on the expanded board",
+          "Mumia known twice (cells 0, 7): 2 < 3, no count payout, no retrigger",
+          "total = 50, provisional"
+        ],
+        "rows": [
+          [7, 4, 1, 4, 2],
+          [1, 3, 7, 3, 4],
+          [2, 5, 3, 0, 1]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "provisional",
+          "evaluatedRows": [
+            [7, 4, 1, 4, 4],
+            [1, 4, 7, 4, 4],
+            [2, 4, 3, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "two-mumias-unknown-cell-filled-as-mumia",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "the unknown cell 13 of the previous case is Mumia: lines on the expanded board are unchanged (expansion 50)",
+          "Mumia now appears 3 times on the original board: count rule 3 pays 20 and retriggers",
+          "total = 70, exact"
+        ],
+        "rows": [
+          [7, 4, 1, 4, 2],
+          [1, 3, 7, 3, 4],
+          [2, 5, 3, 7, 1]
+        ],
+        "expected": {
+          "totalPayout": 70,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [7, 4, 1, 4, 4],
+            [1, 4, 7, 4, 4],
+            [2, 4, 3, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 7,
+              "count": 3,
+              "matchedCells": [0, 7, 13],
+              "payoutCredits": 20
+            }
+          ],
+          "retrigger": true
+        }
+      },
+      {
+        "id": "stale-series-generation-is-provisional",
+        "superSymbolMobileCode": 4,
+        "generationFresh": false,
+        "manualCalculation": [
+          "the worked example board in a stale series generation (superGameState.fresh = false)",
+          "same payout 50, but provisional"
+        ],
+        "rows": [
+          [1, 4, 2, 3, 5],
+          [2, 3, 5, 4, 1],
+          [3, 5, 1, 2, 4]
+        ],
+        "expected": {
+          "totalPayout": 50,
+          "payoutKind": "provisional",
+          "evaluatedRows": [
+            [1, 4, 2, 4, 4],
+            [2, 4, 5, 4, 4],
+            [3, 4, 1, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [1, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "sarkofag-minimum-2-in-one-column-no-expansion",
+        "superSymbolMobileCode": 6,
+        "manualCalculation": [
+          "Sarkofag (minimum 2) appears in column 3 only: k = 1 < 2",
+          "no line wins; total = 0, exact"
+        ],
+        "rows": [
+          [1, 2, 6, 3, 5],
+          [2, 3, 5, 4, 1],
+          [3, 5, 1, 2, 4]
+        ],
+        "expected": {
+          "totalPayout": 0,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 2, 6, 3, 5],
+            [2, 3, 5, 4, 1],
+            [3, 5, 1, 2, 4]
+          ],
+          "expansion": null,
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "sarkofag-minimum-2-in-two-columns-expands",
+        "superSymbolMobileCode": 6,
+        "manualCalculation": [
+          "Sarkofag in columns 3 and 5: k = 2 >= 2",
+          "expansion = payout_line(Sarkofag, 2) x 5 = 5 x 5 = 25; no other line wins",
+          "total = 25, exact"
+        ],
+        "rows": [
+          [1, 2, 6, 3, 5],
+          [2, 3, 5, 4, 1],
+          [3, 5, 1, 2, 6]
+        ],
+        "expected": {
+          "totalPayout": 25,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [1, 2, 6, 3, 6],
+            [2, 3, 6, 4, 6],
+            [3, 5, 6, 2, 6]
+          ],
+          "expansion": {
+            "symbolMobileCode": 6,
+            "columns": [2, 4],
+            "columnCount": 2,
+            "linePayoutCredits": 5,
+            "paylineCount": 5,
+            "payoutCredits": 25
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false
+        }
+      },
+      {
+        "id": "other-symbol-line-wins-on-the-expanded-board-stay",
+        "superSymbolMobileCode": 4,
+        "manualCalculation": [
+          "K in columns 3, 4, 5: k = 3, expansion 10 x 5 = 50",
+          "top line Sarkofag,Sarkofag,K,K,K still pays Sarkofag x2 = 5 on the expanded board",
+          "total = 50 + 5 = 55, exact"
+        ],
+        "rows": [
+          [6, 6, 4, 1, 2],
+          [1, 2, 3, 4, 3],
+          [2, 3, 1, 5, 4]
+        ],
+        "expected": {
+          "totalPayout": 55,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [6, 6, 4, 4, 4],
+            [1, 2, 4, 4, 4],
+            [2, 3, 4, 4, 4]
+          ],
+          "expansion": {
+            "symbolMobileCode": 4,
+            "columns": [2, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 10,
+            "paylineCount": 5,
+            "payoutCredits": 50
+          },
+          "matches": [
+            {
+              "symbolMobileCode": 6,
+              "paylineId": "A",
+              "startColumn": 0,
+              "matchedLength": 2,
+              "matchedCells": [0, 1],
+              "jokerCells": [],
+              "payoutCredits": 5,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false
+        }
+      }
+    ]
+  }
 }

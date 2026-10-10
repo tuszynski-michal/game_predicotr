@@ -14429,7 +14429,7 @@
   "fullCorpusGenerated": false,
   "gridVersion": "global-lattice-source-aware-bbox-analysis-fallback-grid-v1",
   "homographyVersion": "symbol-lattice-homography-ransac-v2-global-assignment-v1",
-  "manifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "manifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "numpyVersion": "2.4.6",
   "opencvVersion": "4.13.0",
   "ownerReviewRequired": true,
@@ -14437,9 +14437,9 @@
   "processedCount": 36,
   "projectiveFrameProfileVersion": "expanded-detector-projective-quad-v1",
   "schemaVersion": "m5-projective-fixed-padding-failure-diagnostics-v3",
-  "sourceFullReportSha256": "026e12ac32802c1561552b338ddb80df51a00088a7e6c1cd57b2652a756d97a5",
+  "sourceFullReportSha256": "e773d7bbe1534d0d9392626dfc1c1e55b16adf90e7c835e6d59be69bd9c8f5ab",
   "status": "waiting_for_owner_review",
   "technicalPassed": true,
   "trainingAllowed": false,
-  "v7ReportSha256": "0950ac493af010d198cace691f78f3aa454100acaff246845a2fca2c5f8d0a55"
+  "v7ReportSha256": "8e12dd9605bf759c7467fdb880a0bae9faa2315678b0b7d9c8e12db00a12e3dc"
 }

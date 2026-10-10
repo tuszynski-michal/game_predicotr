@@ -77,6 +77,7 @@ import {
   validV12FrameOffsets,
   type V12OffsetDraft,
 } from './page-geometry-v12-offsets';
+import { NeuralSourceBindingPanel } from './neural-source-binding-panel';
 
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
@@ -102,9 +103,10 @@ interface PageGeometryCorrectionPanelProps {
   readonly initialReplacementSource?: BrowserPageGeometryReviewSourceResponse;
   readonly gameId: string;
   readonly geometryEngineVariant?: GeometryEngineVariant;
+  readonly neuralPreflight?: boolean;
   readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onDraftSaved?: () => void;
-  readonly onSubmitSaved: () => Promise<void>;
+  readonly onSubmitSaved: (managedSourceJobId?: string) => Promise<void>;
   readonly onSourceReplaced: (
     ready: BrowserReadySelectionResponse,
     replacementChecksumSha256: string,
@@ -360,6 +362,7 @@ function PageGeometryCorrectionPanelContent({
   initialReplacementSource,
   gameId,
   geometryEngineVariant,
+  neuralPreflight = false,
   onPendingSourceCountChange,
   onDraftSaved,
   onSubmitSaved,
@@ -452,6 +455,9 @@ function PageGeometryCorrectionPanelContent({
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
+  const [managedSourceJobId, setManagedSourceJobId] = useState<
+    string | undefined
+  >(undefined);
   const [partialTrainingPool, setPartialTrainingPool] = useState({
     readyPatterns: 0,
     samples: 0,
@@ -505,6 +511,7 @@ function PageGeometryCorrectionPanelContent({
       const pendingSources = result.data.sources.filter(
         (item) => !item.savedSincePreflight,
       );
+      setManagedSourceJobId(result.data.managedSourceJobId ?? undefined);
       if (
         inspectionSourceChecksumSha256 !== null &&
         !pendingSources.some(
@@ -617,7 +624,7 @@ function PageGeometryCorrectionPanelContent({
     : storedReplacement;
   const draftScope = useMemo<PageGeometryDraftScope | null>(
     () =>
-      source && imageSize
+      source && source.neuralProposal == null && imageSize
         ? {
             gameId,
             uploadId,
@@ -1455,7 +1462,7 @@ function PageGeometryCorrectionPanelContent({
     setError('');
     setFeedback('Tworzę jeden preflight dla całej zapisanej partii…');
     try {
-      await onSubmitSaved();
+      await onSubmitSaved(managedSourceJobId);
     } catch {
       setError('Nie udało się wysłać zapisanych geometrii do weryfikacji.');
     } finally {
@@ -1723,23 +1730,33 @@ function PageGeometryCorrectionPanelContent({
   return (
     <section
       className="pageGeometryCorrection"
-      aria-label="Korekta geometrii strony"
+      aria-label={
+        neuralPreflight
+          ? 'Propozycje sieci zdjęcia'
+          : 'Korekta geometrii strony'
+      }
     >
       <div className="pageGeometryCorrectionHeader">
         <div>
-          <h3>Korekta geometrii strony</h3>
+          <h3>
+            {neuralPreflight
+              ? 'Propozycje sieci zdjęcia'
+              : 'Korekta geometrii strony'}
+          </h3>
           <p>
             Liczniki dotyczą zdjęć źródłowych, nie pojedynczych plansz. Jedno
             zdjęcie zawiera od jednej do dziewięciu plansz zgodnie z zakresem
             zapisanym w nazwie; zostaną one utworzone dopiero w imporcie po
             zakończeniu preflightu geometrii.
           </p>
-          <p>
-            Oddzielna pula niepełnych siatek: {partialTrainingPool.samples}{' '}
-            próbek z {partialTrainingPool.sources} zdjęć; gotowe wzorce:{' '}
-            {partialTrainingPool.readyPatterns}. Wzorzec wymaga co najmniej 3
-            różnych zdjęć.
-          </p>
+          {!neuralPreflight ? (
+            <p>
+              Oddzielna pula niepełnych siatek: {partialTrainingPool.samples}{' '}
+              próbek z {partialTrainingPool.sources} zdjęć; gotowe wzorce:{' '}
+              {partialTrainingPool.readyPatterns}. Wzorzec wymaga co najmniej 3
+              różnych zdjęć.
+            </p>
+          ) : null}
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
           {allowRegisteredSourceInspection ? (
@@ -1761,7 +1778,9 @@ function PageGeometryCorrectionPanelContent({
                 onClick={() => inspectionInputRef.current?.click()}
                 type="button"
               >
-                Wskaż zarejestrowane zdjęcie
+                {neuralPreflight
+                  ? 'Wskaż zdjęcie do podglądu'
+                  : 'Wskaż zarejestrowane zdjęcie'}
               </button>
               {inspectionSourceChecksumSha256 !== null ? (
                 <button
@@ -1812,16 +1831,80 @@ function PageGeometryCorrectionPanelContent({
         </p>
       ) : null}
       {loading ? (
-        <p className="curatedImportStatus">Ładowanie stron do korekty…</p>
+        <p className="curatedImportStatus">
+          {neuralPreflight
+            ? 'Ładowanie propozycji sieci…'
+            : 'Ładowanie stron do korekty…'}
+        </p>
       ) : null}
       {!loading && sources.length === 0 ? (
         <p className="curatedImportStatus">
-          {allowRegisteredSourceInspection
-            ? 'Nie ma stron oczekujących na korektę. Możesz wskazać zarejestrowane zdjęcie powyżej; jego lokalny plik służy tylko do porównania checksumy i nie zostanie przesłany.'
-            : 'Nie ma już stron oczekujących na korektę geometrii.'}
+          {neuralPreflight
+            ? 'Brak propozycji zdjęć do przeglądu.'
+            : allowRegisteredSourceInspection
+              ? 'Nie ma stron oczekujących na korektę. Możesz wskazać zarejestrowane zdjęcie powyżej; jego lokalny plik służy tylko do porównania checksumy i nie zostanie przesłany.'
+              : 'Nie ma już stron oczekujących na korektę geometrii.'}
         </p>
       ) : null}
-      {source !== null ? (
+      {source?.neuralProposal != null ? (
+        loading ? null : (
+          <>
+            <p style={{ overflowWrap: 'anywhere' }}>
+              Zdjęcie {sourceIndex + 1}/{sources.length} ·{' '}
+              {source.sourceRelativePath}
+            </p>
+            <div className="importActionButtons">
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={sourceIndex === 0}
+                style={{ minHeight: 44 }}
+                onClick={() => setSourceIndex((i) => i - 1)}
+              >
+                Poprzednie zdjęcie
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={sourceIndex + 1 >= sources.length}
+                style={{ minHeight: 44 }}
+                onClick={() => setSourceIndex((i) => i + 1)}
+              >
+                Następne zdjęcie
+              </button>
+            </div>
+            <NeuralSourceBindingPanel
+              key={`${source.sourceChecksumSha256}:${source.neuralProposal.proposalChecksumSha256}:${source.existingOverrideRevision ?? 0}:${geometryManifestChecksum}`}
+              api={api}
+              gameId={gameId}
+              uploadId={uploadId}
+              source={source}
+              imageUrl={imageUrl!}
+              preflightJobId={preflightJobId}
+              manifestChecksumSha256={geometryManifestChecksum}
+              onRefresh={refresh}
+              onSaved={() => {
+                setFeedback(
+                  'Zapisano przypisanie plansz. Wyślij zapisane do weryfikacji, aby wznowić analizę źródeł.',
+                );
+                setSavedCount((count) => count + 1);
+                const remaining = sources.filter(
+                  (s) => s.sourceChecksumSha256 !== source.sourceChecksumSha256,
+                );
+                setSources(remaining);
+                onPendingSourceCountChange?.(
+                  remaining.filter(
+                    (s) => s.reviewReason !== 'operator_inspection',
+                  ).length,
+                );
+                setSourceIndex((index) =>
+                  Math.min(index, Math.max(0, remaining.length - 1)),
+                );
+              }}
+            />
+          </>
+        )
+      ) : source !== null ? (
         <div className="pageGeometryCorrectionGrid">
           <div className="pageGeometryControls">
             <p className="curatedImportStatus">

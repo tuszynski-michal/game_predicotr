@@ -1,3 +1,5 @@
+@import '../features/board-search/board-search-share-corrections.css';
+
 :root {
   --background: #07101d;
   --panel: #0e1a2c;
@@ -3091,6 +3093,27 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.symbolImagePickerZoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.symbolImagePickerZoom input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.symbolImagePickerZoom span {
+  min-width: 42px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .symbolImagePickerLoading,
 .symbolImagePickerEmpty {
   display: grid;
@@ -5089,6 +5112,34 @@ div.imageJobInlineError {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.55;
+}
+
+.importComposer .importEngineChoice {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.importComposer .importEngineChoice label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.importComposer .importEngineChoice input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.importEngineChoice p {
+  margin: 0;
 }
 
 .gameRow {
@@ -7394,6 +7445,116 @@ div.imageJobInlineError {
   font-size: 12px;
 }
 
+/* D-484 geometry completeness section (TASK-0806). */
+.geometryScopeControls {
+  grid-template-columns: max-content minmax(170px, 1fr);
+}
+
+.geometryMetrics {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.geometryFilterTabs {
+  flex-wrap: wrap;
+  margin: 12px 20px 0;
+  width: max-content;
+  max-width: calc(100% - 40px);
+}
+
+.geometryImageList {
+  margin-top: 12px;
+}
+
+.geometryImageItem strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.geometryStateBadge {
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.geometryPreview {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.5);
+}
+
+.geometryQuad polygon {
+  stroke: currentColor;
+}
+
+.geometryQuad text {
+  fill: currentColor;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: rgba(5, 12, 22, 0.85);
+  stroke-width: 0.35em;
+}
+
+.geometryTone-ok {
+  color: var(--accent);
+}
+
+.geometryTone-warning {
+  color: var(--warning);
+}
+
+.geometryTone-danger {
+  color: var(--danger);
+}
+
+.geometryTone-muted {
+  color: var(--muted);
+}
+
+.geometryPositionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.importCompactList li.geometryPositionChip {
+  display: grid;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.importCompactList li.geometryPositionChip > span {
+  color: inherit;
+}
+
+.geometryLowQuality {
+  border-top: 1px solid var(--line);
+}
+
+/* D-484 gate (TASK-0807): status, exception and correction of one image. */
+.geometryGateControls {
+  display: grid;
+  gap: 6px;
+}
+
+.geometryLowQualityControls {
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) max-content;
+}
+
 .importComposer label,
 .importReportControls label,
 .importRowFilters label,
@@ -9391,12 +9552,85 @@ div.imageJobInlineError {
   margin-top: 8px;
 }
 
-.operationalReviewGeometryCrops > div {
+.operationalReviewGeometryCrops > div,
+.operationalReviewGeometryCrops > button {
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 5px;
   background-repeat: no-repeat;
   background-color: #07111f;
+}
+
+/* D-488: a previewed cell the operator can label with a symbol. */
+.operationalReviewGeometryCropButton {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.operationalReviewGeometryCropButton[aria-pressed='true'] {
+  outline: 3px solid var(--accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.operationalReviewGeometryCropButton > span,
+.operationalReviewGeometryCropButton > strong {
+  width: 100%;
+  padding: 1px 2px;
+  overflow: hidden;
+  background: rgb(7 17 31 / 78%);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationalReviewGeometryCropButton > span {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.operationalReviewGeometryCropButton > strong {
+  background: rgb(21 128 61 / 88%);
+}
+
+.operationalReviewGeometrySymbolPicker {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.operationalReviewGeometrySymbolPicker > p {
+  margin: 0;
+  font-size: 11px;
+}
+
+.operationalReviewGeometrySymbolPicker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The key that picks the symbol, as in the symbol verification legend. */
+.operationalReviewGeometrySymbolPicker kbd {
+  min-width: 18px;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.operationalReviewGeometrySymbolPicker button[aria-pressed='true'] {
+  border-color: #15803d;
+  background: rgb(21 128 61 / 14%);
 }
 
 .operationalReviewGeometryDialog > .operationalReviewSaveError {
@@ -9633,513 +9867,6 @@ div.imageJobInlineError {
   }
 }
 
-.boardSearchWorkspace {
-  display: grid;
-  gap: 18px;
-}
-
-.boardSearchHeader {
-  margin-bottom: 0;
-}
-
-.boardSearchScope {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 12px;
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel-raised);
-}
-
-.boardSearchScope legend {
-  grid-column: 1 / -1;
-  padding: 0 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.boardSearchScope label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.boardSearchScope > span {
-  align-self: center;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.boardSearchResultLimit {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 8px 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel-raised);
-}
-
-.boardSearchResultLimit label {
-  display: grid;
-  gap: 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.boardSearchResultLimit input {
-  width: 90px;
-}
-
-.boardSearchComposer {
-  display: grid;
-  grid-template-columns: minmax(270px, 0.62fr) minmax(390px, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.boardSearchPalette,
-.boardSearchPattern {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel-raised);
-}
-
-.boardSearchPalette header,
-.boardSearchPattern header {
-  display: grid;
-  gap: 4px;
-}
-
-.boardSearchPalette h2,
-.boardSearchPattern h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 17px;
-}
-
-.boardSearchPalette p,
-.boardSearchPattern p,
-.boardSearchFeedback,
-.boardSearchEmptyPalette {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.boardSearchEntryOrder {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-}
-
-.boardSearchEntryOrder legend {
-  padding: 0 4px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.boardSearchEntryOrder label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.boardSearchEntryOrder small {
-  flex-basis: 100%;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.boardSearchPaletteGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.boardSearchSymbolButton,
-.boardSearchCell {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--panel);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.boardSearchSymbolButton {
-  position: relative;
-  gap: 3px;
-  min-height: 88px;
-  padding: 6px 3px;
-}
-
-.boardSearchSymbolShortcut {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  min-width: 16px;
-  padding: 0 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--panel-raised);
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 16px;
-  text-align: center;
-}
-
-.boardSearchShortcutHint kbd {
-  padding: 0 3px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.boardSearchSymbolButton:hover,
-.boardSearchSymbolButton:focus-visible,
-.boardSearchCell:hover,
-.boardSearchCell:focus-visible {
-  border-color: var(--accent);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(121, 196, 255, 0.16);
-}
-
-.boardSearchSymbolButton > img {
-  width: 38px;
-  height: 38px;
-  border-radius: 7px;
-  object-fit: contain;
-}
-
-.boardSearchSymbolButton > span,
-.boardSearchCell strong {
-  overflow: hidden;
-  max-width: 100%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.boardSearchSymbolButton > span {
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.boardSearchUnknownButton > strong {
-  font-size: 34px;
-  line-height: 1;
-}
-
-.boardSearchCell small {
-  color: var(--muted);
-  font-size: 8px;
-}
-
-.boardSearchGrid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(42px, 56px));
-  gap: 7px;
-  width: fit-content;
-}
-
-.boardSearchCell {
-  gap: 2px;
-  aspect-ratio: 1;
-  padding: 4px 2px;
-}
-
-.boardSearchCell > img {
-  width: min(70%, 38px);
-  aspect-ratio: 1;
-  border-radius: 9px;
-  object-fit: contain;
-}
-
-.boardSearchCell strong {
-  font-size: 9px;
-}
-
-.boardSearchCellSelected {
-  border-color: var(--accent);
-  box-shadow:
-    inset 0 0 0 1px var(--accent),
-    0 0 0 3px rgba(121, 196, 255, 0.16);
-}
-
-.boardSearchActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  justify-content: flex-end;
-}
-
-.boardSearchActions .primaryButton {
-  margin-left: auto;
-}
-
-.boardSearchResults {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel-raised);
-  outline: none;
-}
-
-.boardSearchResults:focus-visible {
-  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.2);
-}
-
-.boardSearchResults > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.boardSearchResults h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 22px;
-}
-
-.boardSearchResultMetrics,
-.boardSearchEvidence {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.boardSearchResultMetrics {
-  min-width: min(100%, 360px);
-}
-
-.boardSearchResultMetrics div,
-.boardSearchEvidence div {
-  display: grid;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: rgba(7, 16, 29, 0.46);
-}
-
-.boardSearchResultMetrics dt,
-.boardSearchEvidence dt {
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.boardSearchResultMetrics dd,
-.boardSearchEvidence dd {
-  margin: 0;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.boardSearchBoardAsset {
-  display: block;
-  width: min(100%, 900px);
-  max-height: min(68vh, 760px);
-  margin-inline: auto;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: #050a12;
-  object-fit: contain;
-}
-
-.boardSearchBoardAssetFrame {
-  position: relative;
-  overflow: hidden;
-  width: min(100%, 900px);
-  max-height: min(68vh, 760px);
-  margin-inline: auto;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: #050a12;
-}
-
-.boardSearchBoardAssetFrame .boardSearchBoardAssetCropped {
-  position: absolute;
-  max-width: none;
-  max-height: none;
-  border: none;
-  border-radius: 0;
-  margin: 0;
-  object-fit: fill;
-}
-
-.boardSearchBoardAssetError {
-  display: grid;
-  min-height: 260px;
-  place-items: center;
-  padding: 20px;
-  border: 1px dashed var(--danger);
-  border-radius: 12px;
-  color: var(--muted);
-  line-height: 1.5;
-  text-align: center;
-}
-
-.boardSearchEvidence {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.boardSearchResultNavigation {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-}
-
-.boardSearchResultNavigation > span {
-  color: var(--muted);
-  font-size: 11px;
-  text-align: center;
-}
-
-@media (max-width: 860px) {
-  .boardSearchComposer {
-    grid-template-columns: 1fr;
-  }
-
-  .boardSearchResults > header {
-    display: grid;
-  }
-}
-
-@media (max-width: 520px) {
-  .boardSearchPaletteGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .boardSearchGrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .boardSearchScope {
-    grid-template-columns: 1fr;
-  }
-
-  .boardSearchScope > span {
-    margin-top: -8px;
-  }
-
-  .boardSearchActions .primaryButton {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .boardSearchResultMetrics,
-  .boardSearchEvidence {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .boardSearchResultNavigation {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .boardSearchResultNavigation > span {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-}
-
-.boardSearchApproximateWin {
-  margin-top: 4px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel-raised);
-}
-
-.boardSearchApproximateWin summary {
-  padding: 14px 18px;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.boardSearchApproximateWin[open] summary {
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
-}
-
-.boardSearchApproximateWinBody {
-  display: grid;
-  gap: 14px;
-  padding: 16px 18px 20px;
-}
-
-.boardSearchApproximateWinRange {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 8px 14px;
-}
-
-.boardSearchApproximateWinRange label {
-  display: grid;
-  gap: 4px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.boardSearchApproximateWinRange input {
-  width: 120px;
-}
-
-.boardSearchApproximateWinRange small {
-  flex-basis: 100%;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.boardSearchApproximateWinSummaryHeader {
-  display: grid;
-  gap: 4px;
-}
-
-.boardSearchApproximateWinSummaryHeader p {
-  margin: 0;
-}
-
 .v7LabelGeometryWorkspace {
   display: grid;
   gap: 16px;
@@ -10209,7 +9936,10 @@ div.imageJobInlineError {
 
 .v7LabelGeometryControls {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(260px, 2fr);
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(
+      260px,
+      2fr
+    );
 }
 
 .v7LabelGeometryControls select,
@@ -10416,4 +10146,325 @@ div.imageJobInlineError {
   .v7LabelGeometryFinalization {
     display: grid;
   }
+}
+
+/* D-471: online share panel of the board search (Admin only). */
+.boardSearchShare {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  max-width: 560px;
+}
+
+.boardSearchSharePanel {
+  display: grid;
+  gap: 12px;
+  width: min(560px, 100%);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+}
+
+/* An open query log needs room for its charts: the share panel leaves the
+   header's action column and spans the whole section (D-478). */
+.boardSearchHeader:has(.boardSearchShareQueryLog) {
+  flex-wrap: wrap;
+}
+
+.boardSearchHeaderActions:has(.boardSearchShareQueryLog) {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.boardSearchShare:has(.boardSearchShareQueryLog) {
+  width: 100%;
+  max-width: none;
+}
+
+.boardSearchShare:has(.boardSearchShareQueryLog) .boardSearchSharePanel {
+  width: 100%;
+}
+
+.boardSearchSharePanel h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.boardSearchShareHint,
+.boardSearchShareEmpty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareCreate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.boardSearchShareCreate label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.boardSearchShareList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boardSearchShareItem {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.boardSearchShareItemFresh {
+  border-color: var(--accent);
+}
+
+.boardSearchShareItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.boardSearchShareItemHeader span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareSecret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+
+.boardSearchShareSecret code {
+  overflow-wrap: anywhere;
+}
+
+.boardSearchShareActions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .boardSearchShareCreate {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* D-472: share-link query log. */
+.boardSearchShareLogToggle {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchShareQueryLog {
+  display: grid;
+  gap: 8px;
+}
+
+.boardSearchShareQueryLog ol {
+  display: grid;
+  gap: 8px;
+  max-height: 80vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.boardSearchShareQuery {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.boardSearchShareQueryHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.boardSearchShareQueryActions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* The pattern takes about a third; the chart gets the rest (D-478). */
+.boardSearchShareQueryBody {
+  display: grid;
+  grid-template-columns: minmax(170px, 32%) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.boardSearchShareQueryChart {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.boardSearchShareQueryChart p,
+.boardSearchShareQueryNoChart {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareQueryChart .boardSearchApproximateWinChart {
+  padding: 6px;
+}
+
+@media (max-width: 720px) {
+  .boardSearchShareQueryBody {
+    grid-template-columns: 1fr;
+  }
+}
+
+.boardSearchShareQueryFailed {
+  color: var(--danger, #ff8a8a);
+}
+
+.boardSearchShareQueryDetails {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareMiniBoard {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.boardSearchShareMiniCell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.boardSearchShareMiniCell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.v7ReviewDiagnostics summary,
+.v7ReviewConfirmation summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.v7ReviewSaveBar {
+  position: sticky;
+  bottom: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  box-shadow: 0 3px 16px #0002;
+}
+
+.v7ReviewSaveBar p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.v7ReviewConfirmation fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.v7ReviewNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.v7ReviewNavigation button {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+
+.v7ReviewNavigation button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.v7ReviewNavigation label {
+  display: grid;
+  gap: 4px;
+}
+
+.v7ReviewConfirmation label:has(input[type='checkbox']),
+.v7ReviewConfirmation label:has(select),
+.v7ReviewConfirmation fieldset > p {
+  grid-column: 1 / -1;
+}
+
+.v7ReviewConfirmation input[type='number'],
+.v7ReviewConfirmation select,
+.v7ReviewNavigation select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+}
+
+@media (max-width: 640px) {
+  .v7ReviewConfirmation fieldset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .v7ReviewSaveBar button {
+    flex: 1 1 100%;
+  }
+}
+
+.catalog-panel select {
+  min-height: 44px;
 }

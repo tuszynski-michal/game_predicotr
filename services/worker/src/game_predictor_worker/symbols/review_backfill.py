@@ -21,8 +21,17 @@ _MAX_RECONCILIATION_PASSES = 3
 
 
 class SymbolCellReviewBackfillHandler:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        statistics_session_factory: sessionmaker[Session] | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        # TASK-0795: ANALYZE needs the schema owner; the runtime session uses
+        # the application role. Without an owner factory (single-role setups,
+        # unit tests) the refresh stays in the finalization transaction.
+        self._statistics_session_factory = statistics_session_factory
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BACKFILL or job.game_id is None:
@@ -123,7 +132,7 @@ class SymbolCellReviewBackfillHandler:
                             session
                         ).finalize_backfill(job.game_id)
                         analyzed_tables = (
-                            refresh_symbol_review_query_statistics(session)
+                            self._refresh_statistics(session)
                             if last_report.status == "ready"
                             else ()
                         )
@@ -155,7 +164,30 @@ class SymbolCellReviewBackfillHandler:
                         review_count=0,
                     )
                     if last_report.status == "ready":
-                        return
+                        while True:
+                            with self._session_factory.begin() as session:
+                                counts_ready = SqlAlchemyImageSymbolReviewRepository(
+                                    session
+                                ).ensure_current_count_projection_next_batch(job.game_id)
+                            if counts_ready:
+                                return
+                            context.checkpoint(
+                                checkpoint_payload={
+                                    "schema_version": 1,
+                                    "workflow": "image_symbol_review_backfill",
+                                    "phase": "counts",
+                                    "processed_board_count": (
+                                        last_report.processed_review_item_count
+                                    ),
+                                    "persisted_cell_count": last_report.cell_count,
+                                },
+                                stage="symbol_cell_review_count_rebuild",
+                                current=current,
+                                total=None,
+                                success_count=success_count,
+                                failure_count=failure_count,
+                                review_count=0,
+                            )
 
             raise JobHandlerError(
                 "SYMBOL_CELL_REVIEW_BACKFILL_FAILED",
@@ -169,6 +201,15 @@ class SymbolCellReviewBackfillHandler:
             SymbolReviewStatisticsRefreshError,
         ) as error:
             raise JobHandlerError(error.code, error.message) from error
+
+    def _refresh_statistics(self, session: Session) -> tuple[str, ...]:
+        if self._statistics_session_factory is None:
+            return refresh_symbol_review_query_statistics(session)
+        # Runs before the finalization commit, so a failed refresh still
+        # rolls back the published `ready` state (the projection rows were
+        # committed by earlier batches and are visible to the owner session).
+        with self._statistics_session_factory.begin() as owner_session:
+            return refresh_symbol_review_query_statistics(owner_session)
 
 
 __all__ = ["SymbolCellReviewBackfillHandler"]

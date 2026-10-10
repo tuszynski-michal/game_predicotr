@@ -234,11 +234,15 @@ def test_managed_preflight_http_never_touches_browser_files(tmp_path, monkeypatc
     service = JobService(repository, artifact_root=root)
     browser = Mock()
     browser.bind_ready_game.side_effect = AssertionError("Released browser staging accessed")
+    canonical = Mock()
+    canonical.canonical_numbers.return_value = set()
     client = TestClient(
         create_app(
             ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
             job_service_dependency=lambda: service,
             browser_image_selection_service_dependency=lambda: browser,
+            # A unit test never reads the local database (TASK-0795).
+            image_sequence_canonical_service_dependency=lambda: canonical,
         )
     )
     selection = source.input_payload["source_selection_id"]
@@ -260,6 +264,7 @@ def test_managed_preflight_http_never_touches_browser_files(tmp_path, monkeypatc
 
 @pytest.mark.parametrize("entrypoint", ["browser", "managed"])
 def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypatch, entrypoint):
+    from types import SimpleNamespace
     from unittest.mock import Mock
 
     from fastapi.testclient import TestClient
@@ -267,16 +272,90 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
     from game_predictor_api.main import create_app
 
     repository, source, descriptor, root = _setup(tmp_path, monkeypatch)
-    source.input_payload["geometry_guard_resolution_manifest"] = {"checksumSha256": "c" * 64}
+    if entrypoint == "browser":
+        # TASK-0882 (v1.7.224): the browser start returns the import that already
+        # exists for the selection before it reaches the lateral guard gate, so the
+        # source must be a schema-valid v5 import payload (the guard manifest key is
+        # not part of that schema).
+        repository.items[source.id] = replace(
+            source,
+            input_payload={
+                **source.input_payload,
+                "source_pipeline_fingerprint": "a" * 64,
+                "start_mode": "reuse_exact",
+                "symbol_model": {
+                    "model_version": "fixture",
+                    "manifest_checksum_sha256": "a" * 64,
+                    "onnx_checksum_sha256": "a" * 64,
+                    "onnx_relative_path": "models/fixture.onnx",
+                    "storage_root": "repository",
+                    "class_codes": ["a"],
+                    "input_size": 64,
+                    "temperature": 1.0,
+                    "inference_fingerprint": "a" * 64,
+                },
+                "grid_profile": {
+                    "profile_version": "fixture",
+                    "profile_checksum_sha256": "a" * 64,
+                    "profile_payload": {},
+                    "inference_fingerprint": "a" * 64,
+                },
+            },
+        )
+    else:
+        source.input_payload["geometry_guard_resolution_manifest"] = {"checksumSha256": "c" * 64}
     count = len(repository.items)
     service = JobService(repository, artifact_root=root)
     browser = Mock()
     browser.bind_ready_game.side_effect = AssertionError("Guard must fail before browser access")
+    if entrypoint == "browser":
+        # The existing-import response still reads the ready staging for its preflight.
+        from game_predictor_api.domain.image_sequence_canonical import (
+            BrowserSequenceManifest,
+            BrowserSequenceSource,
+            ImageSequenceCanonicalService,
+        )
+
+        class _Canonical:
+            def canonical_numbers(self, _game_id):
+                return set()
+
+            def canonical_source_checksums(self, _game_id):
+                return {}
+
+        browser.get_ready.return_value = SimpleNamespace(
+            upload=SimpleNamespace(
+                game_id=None,
+                display_name="seq import",
+                upload_plan_checksum_sha256="e" * 64,
+                skipped_canonical_ranges=(),
+            ),
+            manifest=BrowserSequenceManifest(
+                files=(
+                    BrowserSequenceSource(0, "seq_1-9.jpg", "00000001.jpg", 10, "c" * 64, (1, 9)),
+                ),
+                warnings=(),
+                checksum_sha256="b" * 64,
+            ),
+            completed_at=None,
+            board_import_status=None,
+        )
+        overrides = Mock()
+        overrides.exclusion_snapshot.return_value = {}
+        canonical_dependency = {
+            "image_sequence_canonical_service_dependency": lambda: ImageSequenceCanonicalService(
+                _Canonical()
+            ),
+            "page_geometry_override_service_dependency": lambda: overrides,
+        }
+    else:
+        canonical_dependency = {}
     client = TestClient(
         create_app(
             ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
             job_service_dependency=lambda: service,
             browser_image_selection_service_dependency=lambda: browser,
+            **canonical_dependency,
         )
     )
     variant = contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value
@@ -293,12 +372,64 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
                         "geometryEngineVariant": variant,
                     },
                 )
+                # Current rule (TASK-0882): the existing import is returned unchanged;
+                # nothing is created, so no guard history can be dropped.
+                assert response.status_code == 201, response.text
+                assert response.json()["created"] is False
+                assert response.json()["job"]["id"] == str(source.id)
+                continue
             else:
                 response = client.post(
                     f"/api/v1/admin/image-imports/{source.id}/reprocess",
                     params={"geometryEngineVariant": variant},
                     headers={"X-Admin-Target": f"image-import:{source.id}:reprocess"},
                 )
+            assert response.status_code == 409, response.text
+            assert response.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
+    assert len(repository.items) == count
+    browser.bind_ready_game.assert_not_called()
+
+
+def test_browser_start_of_a_neural_import_still_requires_a_guard_rebind(tmp_path, monkeypatch):
+    """Guard path kept covered after the TASK-0882 early return.
+
+    The early return applies only to an import without a neural proposal; an
+    existing neural import reaches the lateral guard gate, which refuses the
+    start while pinned guard decisions exist (nothing is created or rebound).
+    """
+
+    from unittest.mock import Mock
+
+    from fastapi.testclient import TestClient
+    from game_predictor_api.config import ApiSettings
+    from game_predictor_api.main import create_app
+
+    repository, source, descriptor, root = _setup(tmp_path, monkeypatch)
+    source.input_payload["neural_grid_proposal"] = {"marker": "neural"}
+    source.input_payload["geometry_guard_resolution_manifest"] = {"checksumSha256": "c" * 64}
+    count = len(repository.items)
+    browser = Mock()
+    browser.bind_ready_game.side_effect = AssertionError("Guard must fail before browser access")
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
+            job_service_dependency=lambda: JobService(repository, artifact_root=root),
+            browser_image_selection_service_dependency=lambda: browser,
+        )
+    )
+    variant = contract.GeometryEngineVariant.STRUCTURED_LATTICE_V4_PARTIAL_SIDES.value
+    with client:
+        for _ in range(2):
+            response = client.post(
+                "/api/v1/admin/image-imports/browser-selections/"
+                f"{source.input_payload['source_selection_id']}/start",
+                json={
+                    "gameId": str(source.game_id),
+                    "manifestChecksumSha256": "b" * 64,
+                    "preflightChecksumSha256": "c" * 64,
+                    "geometryEngineVariant": variant,
+                },
+            )
             assert response.status_code == 409, response.text
             assert response.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
     assert len(repository.items) == count

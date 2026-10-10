@@ -16,6 +16,11 @@ _MAX_NAME_LENGTH: Final = 200
 _MAX_IMAGE_PATH_LENGTH: Final = 500
 DEFAULT_EXPECTED_LAYOUT_COUNT: Final = 500_000
 MAX_EXPECTED_LAYOUT_COUNT: Final = 10_000_000
+# Code of the registry entry ``none`` (game_predictor_worker.domain.super_games);
+# kept local so that importing the catalog domain (and the ORM models) never
+# requires the worker package, for example inside Alembic migrations.
+NO_SUPER_GAME: Final = "none"
+SUPER_GAME_TRIGGER_COUNTS: Final = (3, 4, 5)
 
 
 class GameStatus(StrEnum):
@@ -25,10 +30,37 @@ class GameStatus(StrEnum):
 
 
 class GameShapeGeometryConfiguration(StrEnum):
-    """A game-local declaration, never a copy of a shared geometry profile."""
+    """A game-local declaration, never a copy of a shared geometry profile.
+
+    ``grid_profile_*`` values (TASK-0830) additionally name the grid engine
+    profile of the game: a frozen ``neural_grid`` model registered in
+    ``domain.grid_engine_profiles``. A later model of the same game is a new
+    registry version of the same profile, never a new value of this field.
+    """
 
     FRAMED_FULL_PAGE_V2 = "framed_full_page_v2"
     REQUIRES_CLARIFICATION = "requires_clarification"
+    GRID_PROFILE_777_V2 = "grid_profile_777_v2"
+    GRID_PROFILE_MUMIE_V1 = "grid_profile_mumie_v1"
+
+
+# Values that declare the framed full-page format for the shared geometry
+# readiness. The grid engine profiles describe framed full-page games, so they
+# resolve exactly like ``framed_full_page_v2`` (TASK-0830); preflight and the
+# import pipeline do not read this field.
+FRAMED_FULL_PAGE_CONFIGURATIONS: Final = frozenset(
+    {
+        GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+    }
+)
+
+
+def uses_framed_full_page_geometry(configuration: GameShapeGeometryConfiguration) -> bool:
+    """Whether the shared ``framed_full_page_v2`` readiness applies to the value."""
+
+    return configuration in FRAMED_FULL_PAGE_CONFIGURATIONS
 
 
 class ShapeGeometryReadinessStatus(StrEnum):
@@ -75,12 +107,13 @@ class Game:
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
-    storage_version: str = "legacy-public-v1"
-    storage_schema: str = "public"
-    storage_generation: int = 1
+    storage_version: str = "game-data-v2-manifest-v7"
+    storage_schema: str = "game_data_v2"
+    storage_generation: int = 2
     storage_status: str = "active"
     storage_write_available: bool = True
     shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
+    super_game_kind: str = NO_SUPER_GAME
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +149,10 @@ class Symbol:
     status: SymbolStatus
     name_pl: str | None = None
     name_en: str | None = None
+    # D-535: ``None`` = the symbol does not start a super game; 3/4/5 = the
+    # number of its cells on a cut board that starts one. A trigger symbol's
+    # payout rules are paid per count of its cells on the board.
+    super_game_trigger_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,3 +290,44 @@ def validate_image_path(value: str | None) -> str | None:
             details={"field": "imagePath"},
         )
     return value
+
+
+def validate_super_game_kind(value: str) -> str:
+    """Accept only a kind registered in the code registry (D-535)."""
+
+    from game_predictor_worker.domain.super_games import is_known_super_game_kind
+
+    if not isinstance(value, str) or not is_known_super_game_kind(value):
+        raise CatalogError(
+            "INVALID_SUPER_GAME_KIND",
+            "superGameKind must be one of the registered super game kinds.",
+            details={"field": "superGameKind"},
+        )
+    return value
+
+
+def validate_super_game_trigger_count(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or value not in SUPER_GAME_TRIGGER_COUNTS:
+        raise CatalogError(
+            "INVALID_SUPER_GAME_TRIGGER_COUNT",
+            "superGameTriggerCount must be null, 3, 4 or 5.",
+            details={"field": "superGameTriggerCount"},
+        )
+    return value
+
+
+def ensure_super_game_kind_allows_trigger(game: Game, trigger_count: int | None) -> None:
+    """A super game trigger role requires a game with a super game kind."""
+
+    if trigger_count is not None and game.super_game_kind == NO_SUPER_GAME:
+        raise CatalogError(
+            "SUPER_GAME_KIND_REQUIRED",
+            "Select the game's super game kind before marking a symbol as its trigger.",
+            details={
+                "field": "superGameTriggerCount",
+                "gameId": str(game.id),
+                "superGameKind": game.super_game_kind,
+            },
+        )

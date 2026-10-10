@@ -9,6 +9,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.catalog import (
     DEFAULT_EXPECTED_LAYOUT_COUNT,
+    NO_SUPER_GAME,
     CatalogConflictError,
     CatalogNotFoundError,
     Game,
@@ -19,6 +20,8 @@ from game_predictor_api.domain.catalog import (
     Symbol,
     SymbolStatus,
     SymbolUsageSummary,
+    ensure_super_game_kind_allows_trigger,
+    uses_framed_full_page_geometry,
     validate_display_order,
     validate_expected_layout_count,
     validate_image_path,
@@ -27,6 +30,8 @@ from game_predictor_api.domain.catalog import (
     validate_optional_name,
     validate_shape_geometry_configuration,
     validate_stable_code,
+    validate_super_game_kind,
+    validate_super_game_trigger_count,
 )
 
 
@@ -43,6 +48,7 @@ class CatalogRepository(Protocol):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str = NO_SUPER_GAME,
     ) -> Game: ...
 
     def save_game(self, game: Game) -> Game: ...
@@ -64,11 +70,20 @@ class CatalogRepository(Protocol):
         is_wildcard: bool,
         display_order: int,
         status: SymbolStatus,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol: ...
 
     def save_symbol(self, symbol: Symbol) -> Symbol: ...
 
-    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool: ...
+    def symbol_is_used_in_published_rules(self, symbol_id: UUID) -> bool:
+        """Whether a published or archived rules version references the symbol."""
+        ...
+
+    def clear_draft_rule_minimums(self, symbol_id: UUID) -> None:
+        """Set ``minimum_match_length = null`` in every draft rules version of the symbol."""
+        ...
+
+    def game_has_super_game_trigger_symbols(self, game_id: UUID) -> bool: ...
 
     def add_manual_symbol(
         self,
@@ -76,6 +91,7 @@ class CatalogRepository(Protocol):
         game_id: UUID,
         name: str,
         is_wildcard: bool,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol: ...
 
     def symbol_usage_summary(
@@ -97,7 +113,7 @@ class DefaultShapeGeometryReadinessResolver:
     def resolve(
         self, configuration: GameShapeGeometryConfiguration | None
     ) -> ShapeGeometryReadiness:
-        if configuration is GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2:
+        if configuration is not None and uses_framed_full_page_geometry(configuration):
             return ShapeGeometryReadiness(
                 configuration=configuration,
                 status=ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED,
@@ -155,9 +171,7 @@ class CatalogService:
         return game
 
     def shape_geometry_readiness(self, game: Game) -> ShapeGeometryReadiness:
-        return self._shape_geometry_readiness_resolver.resolve(
-            game.shape_geometry_configuration
-        )
+        return self._shape_geometry_readiness_resolver.resolve(game.shape_geometry_configuration)
 
     def create_game(
         self,
@@ -169,6 +183,7 @@ class CatalogService:
         shape_geometry_configuration: GameShapeGeometryConfiguration = (
             GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
         ),
+        super_game_kind: str = NO_SUPER_GAME,
     ) -> Game:
         return self._repository.add_game(
             code=validate_stable_code(code, field_name="code"),
@@ -178,6 +193,7 @@ class CatalogService:
             shape_geometry_configuration=validate_shape_geometry_configuration(
                 shape_geometry_configuration
             ),
+            super_game_kind=validate_super_game_kind(super_game_kind),
         )
 
     def update_game(
@@ -188,8 +204,25 @@ class CatalogService:
         status: GameStatus | None = None,
         expected_layout_count: int | None = None,
         shape_geometry_configuration: GameShapeGeometryConfiguration | None = None,
+        super_game_kind: str | None = None,
     ) -> Game:
         game = self.get_game(game_id)
+        validated_kind = (
+            game.super_game_kind
+            if super_game_kind is None
+            else validate_super_game_kind(super_game_kind)
+        )
+        if (
+            validated_kind == NO_SUPER_GAME
+            and game.super_game_kind != NO_SUPER_GAME
+            and self._repository.game_has_super_game_trigger_symbols(game_id)
+        ):
+            raise CatalogConflictError(
+                "SUPER_GAME_KIND_IN_USE",
+                "Remove the super game trigger role from every symbol before "
+                "setting the super game kind to none.",
+                details={"gameId": str(game_id), "field": "superGameKind"},
+            )
         updated = replace(
             game,
             name=game.name if name is None else validate_name(name),
@@ -204,6 +237,7 @@ class CatalogService:
                 if shape_geometry_configuration is None
                 else validate_shape_geometry_configuration(shape_geometry_configuration)
             ),
+            super_game_kind=validated_kind,
         )
         return self._repository.save_game(updated)
 
@@ -238,8 +272,10 @@ class CatalogService:
         status: SymbolStatus,
         name_pl: str | None = None,
         name_en: str | None = None,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
-        self.get_game(game_id)
+        game = self.get_game(game_id)
+        ensure_super_game_kind_allows_trigger(game, super_game_trigger_count)
         return self._repository.add_symbol(
             game_id=game_id,
             mobile_code=validate_mobile_code(mobile_code),
@@ -251,6 +287,7 @@ class CatalogService:
             is_wildcard=is_wildcard,
             display_order=validate_display_order(display_order),
             status=status,
+            super_game_trigger_count=validate_super_game_trigger_count(super_game_trigger_count),
         )
 
     def create_manual_symbol(
@@ -259,12 +296,15 @@ class CatalogService:
         *,
         name: str,
         is_wildcard: bool,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
-        self.get_game(game_id)
+        game = self.get_game(game_id)
+        ensure_super_game_kind_allows_trigger(game, super_game_trigger_count)
         return self._repository.add_manual_symbol(
             game_id=game_id,
             name=validate_name(name),
             is_wildcard=is_wildcard,
+            super_game_trigger_count=validate_super_game_trigger_count(super_game_trigger_count),
         )
 
     def update_symbol(
@@ -280,18 +320,32 @@ class CatalogService:
         image_path: str | None = None,
         update_image_path: bool = False,
         is_wildcard: bool | None = None,
+        super_game_trigger_count: int | None = None,
+        update_super_game_trigger_count: bool = False,
         display_order: int | None = None,
         status: SymbolStatus | None = None,
     ) -> Symbol:
+        # Order (TASK-0931): the game and symbol exist -> the game's super game
+        # kind -> published rules versions -> field values. A failure saves nothing.
+        game = self.get_game(game_id)
         symbol = self.get_symbol(game_id, symbol_id)
-        if (
-            is_wildcard is not None
-            and is_wildcard != symbol.is_wildcard
-            and self._repository.symbol_is_used_in_rules(symbol_id)
-        ):
+        next_trigger_count = (
+            super_game_trigger_count
+            if update_super_game_trigger_count
+            else symbol.super_game_trigger_count
+        )
+        if update_super_game_trigger_count:
+            ensure_super_game_kind_allows_trigger(game, next_trigger_count)
+        next_is_wildcard = symbol.is_wildcard if is_wildcard is None else is_wildcard
+        role_changed = (
+            next_is_wildcard != symbol.is_wildcard
+            or next_trigger_count != symbol.super_game_trigger_count
+        )
+        if role_changed and self._repository.symbol_is_used_in_published_rules(symbol_id):
             raise CatalogConflictError(
                 "SYMBOL_RULES_IDENTITY_IN_USE",
-                "Wildcard identity cannot change after the symbol is used in a rules version.",
+                "Symbol roles (Wild, super game trigger) cannot change after the symbol "
+                "is used in a published rules version.",
                 details={"symbolId": str(symbol_id)},
             )
         updated = replace(
@@ -310,7 +364,8 @@ class CatalogService:
             image_path=(
                 symbol.image_path if not update_image_path else validate_image_path(image_path)
             ),
-            is_wildcard=(symbol.is_wildcard if is_wildcard is None else is_wildcard),
+            is_wildcard=next_is_wildcard,
+            super_game_trigger_count=validate_super_game_trigger_count(next_trigger_count),
             display_order=(
                 symbol.display_order
                 if display_order is None
@@ -318,7 +373,13 @@ class CatalogService:
             ),
             status=symbol.status if status is None else status,
         )
-        return self._repository.save_symbol(updated)
+        saved = self._repository.save_symbol(updated)
+        if role_changed and (saved.is_wildcard or saved.super_game_trigger_count is not None):
+            # A Wild or trigger symbol has no line minimum (D-535). Draft rules
+            # versions follow the new role in the same transaction; payout rules
+            # stay untouched and publication readiness reports any leftover.
+            self._repository.clear_draft_rule_minimums(symbol_id)
+        return saved
 
     def archive_symbol(self, game_id: UUID, symbol_id: UUID) -> Symbol:
         return self.update_symbol(

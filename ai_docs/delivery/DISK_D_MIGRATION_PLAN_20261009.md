@@ -477,7 +477,9 @@ zmian, `0153`), `npm run db:current`, `npm run api:dev` (health 200),
 
 - Katalogi w `C:\Users\tuszy\Documents` poza repozytorium:
   `game_predictor_vision_data` (12,4 GB, 22 815 plików; domyślny katalog
-  Vision Lab), `mumie`, `new_traning_set`, `game_predictor_traning_set`.
+  Vision Lab), `mumie` (2,1 GB, 7 595 plików), `new_traning_set` (250 MB,
+  994 pliki), `game_predictor_traning_set` (113 MB, 474 pliki); razem
+  ok. 14,9 GB.
   Baza nie odwołuje się do nich (0 jobów). Jeśli mają trafić na D, kopiuje
   je ten sam skrypt (`-Source <katalog> -Destination D:\<katalog>`), a
   domyślny `-LabRoot` skryptu Vision Lab wymaga osobnej małej zmiany.

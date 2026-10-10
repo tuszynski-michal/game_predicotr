@@ -560,6 +560,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directorie
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -Mode Initial
 # po zatrzymaniu usług: kopia i porównanie manifestów SHA-256; każda różnica = kod 1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -Mode Final
+# manifesty SHA-256 źródła bez kopiowania (wykrywanie późniejszych zmian na starym dysku)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -ManifestOnly
 # później: tylko porównanie celu z zapisanym manifestem (nowe pliki celu ignorowane)
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_data_directories_to_d.ps1 -VerifyOnly -Manifest <katalog przebiegu Final>
 ```

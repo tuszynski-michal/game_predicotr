@@ -22,6 +22,9 @@ Modes (exactly one):
              Final. With -Manifest the destination is compared with saved source
              manifests only: missing or different files fail, files that are not
              in the manifest are ignored and the source is never read.
+-ManifestOnly  No copy, no destination: writes SHA-256 manifests of the
+             selected source entries (used to detect later changes of data
+             that is not copied by this run). Read errors exit 1.
 
 Entries: by default all "preserved" entries of the inventory; preserved entries
 that are not in the known list of the plan are copied and reported as "new".
@@ -72,6 +75,7 @@ param(
     [string]$Mode = '',
     [switch]$Inventory,
     [switch]$VerifyOnly,
+    [switch]$ManifestOnly,
     [string[]]$Manifest = @(),
     [string[]]$Directories = @(),
     [string]$LogRoot = 'D:\game_predictor_backup\sync-logs',
@@ -163,7 +167,7 @@ function Protect-Text([string]$text) {
 $script:Deadline = [datetime]::MaxValue
 $script:EntryTimeoutSeconds = if ($TimeoutSeconds -gt 0) { $TimeoutSeconds } else { $TimeoutMinutes * 60 }
 function Assert-Deadline {
-    if ((Get-Date) -gt $script:Deadline) { throw (New-Object System.TimeoutException('entry time limit exceeded')) }
+    if ([datetime]::Now -gt $script:Deadline) { throw (New-Object System.TimeoutException('entry time limit exceeded')) }
 }
 
 function ConvertTo-LongPath([string]$path) {
@@ -177,25 +181,46 @@ function Get-StringSha256([string]$text) {
     return ([System.BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
 }
 
-function Get-FileSha256([string]$path) {
-    # Chunked hashing so the per-entry time limit also stops a large file;
-    # the deadline is also checked before and after, so empty files count.
-    Assert-Deadline
-    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read,
-        ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete), 1048576)
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $buffer = New-Object byte[] 4194304
-        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-            [void]$sha.TransformBlock($buffer, 0, $read, $null, 0)
-            Assert-Deadline
+function Initialize-FastHash {
+    # Hashing about 400 000 files in a PowerShell loop managed only ~75 files/s
+    # (a new 4 MB buffer and SHA object per file). This compiled helper reuses
+    # one buffer, reads sequentially and checks the deadline per 1 MB chunk.
+    # It returns $null when the deadline passes, because an exception thrown
+    # by a .NET method would reach PowerShell wrapped in another type.
+    if ('SyncDataFastHash' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+public static class SyncDataFastHash {
+    private static readonly byte[] Buffer = new byte[1048576];
+    public static string HashFile(string path, DateTime deadline) {
+        if (DateTime.Now > deadline) { return null; }
+        using (SHA256 sha = SHA256.Create())
+        using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.SequentialScan)) {
+            int read;
+            while ((read = stream.Read(Buffer, 0, Buffer.Length)) > 0) {
+                sha.TransformBlock(Buffer, 0, read, null, 0);
+                if (DateTime.Now > deadline) { return null; }
+            }
+            sha.TransformFinalBlock(Buffer, 0, 0);
+            if (DateTime.Now > deadline) { return null; }
+            StringBuilder text = new StringBuilder(64);
+            foreach (byte value in sha.Hash) { text.Append(value.ToString("x2")); }
+            return text.ToString();
         }
-        [void]$sha.TransformFinalBlock($buffer, 0, 0)
-        $bytes = $sha.Hash
-        Assert-Deadline
     }
-    finally { $stream.Dispose(); $sha.Dispose() }
-    return ([System.BitConverter]::ToString($bytes) -replace '-', '').ToLowerInvariant()
+}
+'@
+}
+
+function Get-FileSha256([string]$path) {
+    Initialize-FastHash
+    $hash = [SyncDataFastHash]::HashFile($path, $script:Deadline)
+    if ($null -eq $hash) { throw (New-Object System.TimeoutException('entry time limit exceeded')) }
+    return $hash
 }
 
 function Get-Key([string]$relPath) {
@@ -567,8 +592,8 @@ function Invoke-Robocopy([string]$rel, [string]$logPath) {
 
 # --- validation -------------------------------------------------------------
 
-$modeCount = @($Inventory.IsPresent, $VerifyOnly.IsPresent, [bool]$Mode) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
-if ($modeCount -ne 1) { Fail 'choose exactly one of -Inventory, -VerifyOnly or -Mode Initial|Final.' }
+$modeCount = @($Inventory.IsPresent, $VerifyOnly.IsPresent, $ManifestOnly.IsPresent, [bool]$Mode) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+if ($modeCount -ne 1) { Fail 'choose exactly one of -Inventory, -VerifyOnly, -ManifestOnly or -Mode Initial|Final.' }
 if ($Mirror -and ($Mode -ne 'Final' -or -not $Confirm -or -not $MirrorApprovedList)) {
     Fail '-Mirror needs -Mode Final, -Confirm and -MirrorApprovedList with the extra destination keys approved for deletion.'
 }
@@ -582,8 +607,8 @@ $Destination = [System.IO.Path]::GetFullPath($Destination).TrimEnd('\')
 if ($Source -eq $Destination -or $Destination.StartsWith($Source + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
     Fail 'destination must differ from the source and must not be inside it.'
 }
-$manifestOnly = $VerifyOnly -and $Manifest.Count -gt 0
-if (-not $manifestOnly -and -not (Test-Path -LiteralPath $Source -PathType Container)) { Fail "source not found: $Source" }
+$verifyAgainstManifest = $VerifyOnly -and $Manifest.Count -gt 0
+if (-not $verifyAgainstManifest -and -not (Test-Path -LiteralPath $Source -PathType Container)) { Fail "source not found: $Source" }
 $LogRoot = [System.IO.Path]::GetFullPath($LogRoot).TrimEnd('\')
 foreach ($tree in @($Source, $Destination)) {
     if ($LogRoot.Equals($tree, [System.StringComparison]::OrdinalIgnoreCase) -or
@@ -592,7 +617,7 @@ foreach ($tree in @($Source, $Destination)) {
     }
 }
 
-$modeName = if ($Inventory) { 'Inventory' } elseif ($VerifyOnly) { 'VerifyOnly' } else { $Mode }
+$modeName = if ($Inventory) { 'Inventory' } elseif ($VerifyOnly) { 'VerifyOnly' } elseif ($ManifestOnly) { 'ManifestOnly' } else { $Mode }
 $runDirectory = Join-Path $LogRoot ('{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $modeName)
 New-Item -ItemType Directory -Force -Path $runDirectory | Out-Null
 $summaryPath = Join-Path $runDirectory 'SUMMARY.txt'
@@ -605,7 +630,7 @@ Report ('mode={0} source={1} destination={2} started={3:o}' -f $modeName, $Sourc
 
 # --- VerifyOnly against saved manifests --------------------------------------
 
-if ($manifestOnly) {
+if ($verifyAgainstManifest) {
     $manifestFiles = New-Object System.Collections.Generic.List[string]
     foreach ($item in (Split-List $Manifest)) {
         if (Test-Path -LiteralPath $item -PathType Container) {
@@ -729,6 +754,39 @@ else {
 }
 if ($selected.Count -eq 0) { Fail 'no entries selected.' }
 Report ('entries ({0}): {1}' -f $selected.Count, ($selected -join ', '))
+
+# --- source manifests only (no copy, no destination) ------------------------
+
+if ($ManifestOnly) {
+    # SHA-256 manifests of the selected source entries, used by
+    # inventory_worktrees.ps1 to detect later changes of preserved data that
+    # this run does not copy (the main checkout after the B1 copy).
+    $failed = $false
+    foreach ($rel in $selected) {
+        try {
+            Start-EntryBudget $rel
+            $errors = New-Object System.Collections.Generic.List[string]
+            $listing = Get-EntryFiles $Source $rel -CountExcluded
+            if (-not $listing.Exists) { $errors.Add("source entry not found: $rel") }
+            foreach ($e in $listing.Errors) { $errors.Add("source $e") }
+            $sourceManifest = Build-Manifest $listing.Files $true $errors
+            Stop-EntryBudget $rel
+        }
+        catch [System.TimeoutException] {
+            Report ('TIMEOUT entry={0} after {1} s' -f $rel, $script:EntryTimeoutSeconds)
+            Report 'RESULT: TIMEOUT'
+            exit 2
+        }
+        Write-Manifest (Join-Path $runDirectory ((Get-SafeName $rel) + '.source.tsv')) $rel $Source 'sha256' $sourceManifest
+        $label = if ($errors.Count -eq 0) { 'OK' } else { 'FAIL' }
+        if ($errors.Count -gt 0) { $failed = $true }
+        Report ('{0} manifest entry={1} files={2} bytes={3} errors={4} {5}' -f $label, $rel, $sourceManifest.Count, (Get-TotalBytes $listing.Files), $errors.Count, (Format-Excluded $listing.Excluded))
+        foreach ($e in @($errors | Select-Object -First 10)) { Report "  error $e" }
+    }
+    if ($failed) { Report 'RESULT: FAILED'; exit 1 }
+    Report 'RESULT: OK'
+    exit 0
+}
 
 # --- pre-copy listing and free space -----------------------------------------
 

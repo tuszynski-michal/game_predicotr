@@ -120,11 +120,15 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (todo)
+### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (in_progress)
 
-- Etap A: commit lub patch 27 niecommitowanych zmian z C, push gałęzi bez
-  `origin` (`feat/grid-engine-v3`, `feat/mumie-super-game-plan`,
-  `feat/super-game-series-count`, `task-0860`), `git fetch` na D.
+- Zabezpieczenie gotowe: `scripts/inventory_worktrees.ps1`, kopia 9 worktree'ów
+  C w `D:\game_predictor_backup\repo-20261010` (patche, nieśledzone, dane
+  ignorowane), `all-refs.bundle` (wszystkie 56 referencji C), weryfikacja
+  odtworzenia w klonie D: OK. Klon D ma 22 gałęzie C jako `refs/remotes/c/*`.
+- Czeka na operatora przy B1: push gałęzi (17 lokalnych, integracyjna +3),
+  merge planu do gałęzi integracyjnej i `git pull` na D; tuż przed B1
+  ponowna inwentaryzacja z `-CompareWith`.
 - Task: `ai_docs/tasks/0954-disk-d-repository-handover.md`.
 
 ### TASK-0955 — przeniesienie obrazu dysku Dockera na D (todo)

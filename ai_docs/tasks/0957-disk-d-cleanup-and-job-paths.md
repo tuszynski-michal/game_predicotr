@@ -96,7 +96,7 @@ Podzadania w tej kolejności; 4 i 5 są zablokowane do czasu zamknięcia 1 i 2.
 4. **Kompaktowanie vhdx** według runbooka, sekcja 3 (fstrim,
    `wsl --shutdown`, `diskpart` z nową ścieżką na D); rozmiar przed i po.
 5. **Odcięcie i usunięcie C.** Podgląd: ponowna inwentaryzacja
-   `scripts/inventory_worktrees.ps1` porównana z `INVENTORY.md` z A3 (brak
+   `scripts/inventory_worktrees.ps1 -CompareWith` z `inventory.json` z A3 (brak
    nowych zmian; nowe zmiany → powrót do TASK-0954), ustawienie Docker
    Desktop wskazuje D, podzadania 1 i 2 zamknięte, kontrola zachowanych
    plików względem manifestu `Final` z B1 (`sync_data_directories_to_d.ps1
@@ -193,7 +193,9 @@ jako administrator przy zamkniętym Docker Desktop.
 ```powershell
 # D:\game_predicotr; każda komenda ≤ 120 s
 .\.venv\Scripts\python.exe scripts/preview_job_source_directory_rewrite.py
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/inventory_worktrees.ps1 -OutputRoot D:\game_predictor_backup\repo-recheck -CompareWith D:\game_predictor_backup\repo-YYYYMMDD\INVENTORY.md
+# compares HEADs, working-tree digests, preserved-data digests and refs.txt
+# with the B1-time inventory; exit 3 = something changed on C after B1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/inventory_worktrees.ps1 -OutputRoot D:\game_predictor_backup\repo-recheck -CreateRefs -CompareWith D:\game_predictor_backup\repo-YYYYMMDD\inventory.json
 docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "select datname, pg_size_pretty(pg_database_size(datname)) from pg_database order by 2 desc;"
 ```
 

@@ -6,6 +6,13 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0940 — Atomic management edit and explicit scope deletion (done)
+
+- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
+- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
+
+
 ### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
 
 - Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a

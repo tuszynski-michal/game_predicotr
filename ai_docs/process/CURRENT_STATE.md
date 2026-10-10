@@ -79,12 +79,13 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Pięć rund przeglądu Codex (gpt-6.1-sol, high, tylko odczyt): rundy 1–4
   REVISE, runda 5 PASS; raporty
   `quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round1–5.md`.
-  Zaakceptowany 2026-10-10 (D-540). Etap A wykonany (v1.7.302–304).
-  B1 czeka na sygnał operatora (nowe joby i zmiany równoległych sesji
-  trwają); po sygnale etap A′: nowy zrzut, kopia `Initial`, nowa
-  inwentaryzacja worktree'ów, decyzje o push/merge i wyborze worktree'ów
-  do odtworzenia na D. Kolizja numeracji z `feat/reviewer-geometry-gaps`
-  (v1.7.300–304, D-540) do rozwiązania przy merge.
+  Zaakceptowany 2026-10-10 (D-540). Etap A wykonany (v1.7.302–304),
+  etap A′ i B1 wykonane 2026-10-10 16:20–18:15 (TASK-0955 `done`, baza na
+  D, baza odniesienia `0154`/280/59 tabel/845 jobów/14 sesji). Audyt Codex
+  TASK-0955 (REVISE, 1 P0, 5 P1, 1 P2) rozliczony dokumentacją (v1.7.307);
+  wyjątek P0 (rozmiar `pg_internal.init` w nieprawidłowej bazie testowej)
+  zaakceptowany przez leada. D-540 jest wolny na gałęzi integracyjnej
+  (`feat/reviewer-geometry-gaps` użyła D-541).
 
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 
@@ -133,15 +134,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   merge planu do gałęzi integracyjnej i `git pull` na D; tuż przed B1
   ponowna inwentaryzacja z `-CompareWith`.
 - Task: `ai_docs/tasks/0954-disk-d-repository-handover.md`.
-
-### TASK-0955 — przeniesienie obrazu dysku Dockera na D (todo)
-
-- Etap B1: po zakończeniu joba `d9a49da0` i zatrzymaniu usług przez
-  operatora: ostatni przebieg kopii, Docker Desktop → Disk image location
-  → D (operator w UI), weryfikacja wolumenu, `db:current` = `0153`, raport
-  stanu równy raportowi odniesienia z B1 (po zatrzymaniu zapisów, przed
-  provisioningiem). Jedyny niepodzielny krok planu.
-- Task: `ai_docs/tasks/0955-disk-d-database-cutover.md`.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (todo)
 
@@ -790,6 +782,26 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0955 — przeniesienie obrazu dysku Dockera na D (done)
+
+- B1 wykonany 2026-10-10 16:20–18:15 (D-540). Po etapie A′ (nowy zrzut
+  34,4 GB, kopia `Initial`, inwentaryzacja i bundle, checkout D na
+  v1.7.310): zatrzymane usługi C, kopia `Final` 102 wpisów z równymi
+  SHA-256, raport odniesienia, czyste wyłączenie PostgreSQL, Docker Desktop i
+  WSL zatrzymane, `docker_data.vhdx` (158,4 GB) skopiowany do backupu i do
+  `D:\docker\DockerDesktopWSL` (SHA-256 równe), `CustomWslDistroDir` ustawiony
+  w `settings-store.json` (kopia pliku zachowana), Docker używa dysku z D.
+- PostgreSQL z `D:\game_predicotr`: wolumen obecny, `0154`, raport po
+  przeniesieniu równy odniesieniu (różnica tylko `pg_internal.init` w
+  nieprawidłowej bazie testowej). Stary obraz na C nieużywany, do etapu C.
+- Audyt Codex (gpt-6.1-sol, high): REVISE, 1 P0, 5 P1, 1 P2; poprawki
+  dokumentacyjne (v1.7.307): wyjątek `pg_internal.init` zaakceptowany przez
+  leada, kontrole jobów/dzierżaw/akcji hosta z czasami, pilot V7 zmierzony
+  po fakcie (`0146`, 64/48 tabel), `DATABASE_MAINTENANCE.md` (obraz na D,
+  kolejność: sam PostgreSQL → porównanie → `db:up`), kryteria według bazy
+  A′. Druga runda: audyt Codex niedostępny (limit), do wykonania później.
+- Task: `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`.
+
 ### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
 
 - Etap A (D-540). Nowy `scripts/sync_data_directories_to_d.ps1`
@@ -866,9 +878,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
 - Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0940 — Atomic management edit and explicit scope deletion (done)
-
-- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
-- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
-- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.

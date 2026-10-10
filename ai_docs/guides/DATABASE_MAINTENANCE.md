@@ -1,7 +1,7 @@
 ---
 title: Utrzymanie bazy danych — VACUUM, kompaktacja pipeline, VHDX i migracja dysku
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-10
 ---
 
 # Runbook: utrzymanie bazy danych
@@ -9,9 +9,17 @@ last_updated: 2026-10-02
 Dotyczy lokalnego PostgreSQL 18 w kontenerze Docker Desktop
 `game-predictor-postgres-1` (baza i rola `game_predictor`, wolumen
 `game-predictor_game_predictor_postgres_data`), którego dane leżą w pliku
-`C:\Users\tuszy\AppData\Local\Docker\wsl\disk\docker_data.vhdx`. Źródła:
-D-467 (plan `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`,
-S3), TASK-0756.
+`D:\docker\DockerDesktopWSL\disk\docker_data.vhdx`. Lokalizację ustawia
+Docker Desktop → Settings → Resources → Advanced → „Disk image location”
+(w pliku `%APPDATA%\Docker\settings-store.json` klucz `CustomWslDistroDir`
+= `D:\docker\DockerDesktopWSL`). Do 2026-10-10 obraz leżał w
+`C:\Users\tuszy\AppData\Local\Docker\wsl\disk\docker_data.vhdx`; ten plik
+jest nieużywany i zostaje do etapu C planu przeniesienia (TASK-0957, osobna
+zgoda). Kopie zapasowe leżą w `D:\game_predictor_backup` (sekcje 4 i 5.1).
+Źródła: D-467 (plan
+`ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`, S3),
+TASK-0756, D-540 (plan `ai_docs/delivery/DISK_D_MIGRATION_PLAN_20261009.md`,
+TASK-0955).
 
 ## Zasady bezpieczeństwa
 
@@ -32,8 +40,8 @@ S3), TASK-0756.
   leży `docker_data.vhdx`:
 
 ```powershell
-Get-PSDrive C | Select-Object Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
-Get-Item C:\Users\tuszy\AppData\Local\Docker\wsl\disk\docker_data.vhdx |
+Get-PSDrive D | Select-Object Name, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+Get-Item D:\docker\DockerDesktopWSL\disk\docker_data.vhdx |
   Select-Object FullName, @{n='GB';e={[math]::Round($_.Length/1GB,1)}}
 ```
 
@@ -467,7 +475,7 @@ używaj `diskpart`.
    `artifacts\maintenance\compact-vhdx.txt`):
 
    ```text
-   select vdisk file="C:\Users\tuszy\AppData\Local\Docker\wsl\disk\docker_data.vhdx"
+   select vdisk file="D:\docker\DockerDesktopWSL\disk\docker_data.vhdx"
    attach vdisk readonly
    compact vdisk
    detach vdisk
@@ -501,9 +509,14 @@ Get-FileHash $dump -Algorithm SHA256
 cmd /c "docker exec -i game-predictor-postgres-1 pg_restore --list < `"$dump`"" | Select-Object -First 12
 ```
 
-Ścieżkę `D:\game_predictor_backup` zastąp istniejącym katalogiem.
-`pg_restore --list` potwierdza czytelność spisu archiwum, nie pełne
-odtworzenie.
+Katalog kopii to `D:\game_predictor_backup`. Stan 2026-10-10: zrzuty
+`game_predictor-20261010-0100.dump` i `game_predictor-20261010-1527.dump`
+(34,4 GB; SHA-256 i pełny odczyt `pg_restore --file=/dev/null` w
+`task0952-20261010-1527.log`), role `globals-20261010-*.sql`, kopia obrazu
+dysku sprzed przeniesienia `docker-wsl-20261010\` (SHA-256 w
+`b1-vhdx-copy.log`) i raporty stanu baz `db-state-*.txt`. Kopie usuwa się
+tylko za osobną zgodą operatora. `pg_restore --list` potwierdza czytelność
+spisu archiwum, nie pełne odtworzenie.
 
 ## 5. Migracja danych na inny dysk
 
@@ -513,18 +526,58 @@ Stare lokalizacje usuwaj dopiero po weryfikacji i osobnej zgodzie.
 
 ### 5.1. Dysk Dockera (baza)
 
-Docker Desktop → Settings → Resources → Advanced → **Disk image location** →
-wybierz katalog na docelowym dysku → **Apply & restart**. Docker Desktop
-przenosi `docker_data.vhdx` razem z wolumenem bazy. Po restarcie:
+Wykonane 2026-10-10 (TASK-0955, D-540): obraz przeniesiony z
+`C:\Users\tuszy\AppData\Local\Docker\wsl` do `D:\docker\DockerDesktopWSL`.
+Kolejność, która zadziałała i obowiązuje przy kolejnym przeniesieniu:
 
-```powershell
-docker volume ls
-npm run db:up
-npm run db:current
-```
+1. Zatrzymanie producentów zapisów (tunel, Reviewer, Admin, API), potem
+   workera; kontrola: brak jobów `created`/`processing`, brak żywych
+   dzierżaw (`lease_expires_at > now()`), puste
+   `remote_manual_selection_host_actions`, brak klientów w
+   `pg_stat_activity`.
+2. Raport odniesienia (tylko odczyt) wszystkich baz: rozmiary
+   `pg_database_size`, role, rewizja Alembic, liczby tabel `game_data_v2` i
+   `public`, joby według statusu, sesje zdalnej selekcji, gry, dokładne
+   `count(*)` największych tabel (wzór:
+   `D:\game_predictor_backup\db-state-before-move.txt`).
+3. Czyste zatrzymanie bazy: `docker stop -t 600 game-predictor-postgres-1`
+   (w logu „database system is shut down”), zamknięcie Docker Desktop
+   (Quit albo `docker desktop stop`), `wsl --shutdown`, `wsl --list
+   --verbose` = wszystkie `Stopped`.
+4. Niezależna kopia obrazu: `robocopy <stary katalog>\disk <backup>\disk
+   docker_data.vhdx /J` i `Get-FileHash -Algorithm SHA256` źródła i kopii
+   (2026-10-10: 158 440 882 176 bajtów; kopie na tym samym NVMe 63 s i
+   233 s, każdy hash ok. 145 s; log
+   `D:\game_predictor_backup\b1-vhdx-copy.log`).
+5. Docker Desktop → Settings → Resources → Advanced → **Disk image
+   location** → katalog na docelowym dysku → **Apply & restart** (Docker
+   dopisuje `DockerDesktopWSL` i sam kopiuje obraz). Wariant użyty
+   2026-10-10, bo agent nie obsługuje UI: przy zatrzymanym Docker Desktop
+   kopia `disk\` i `main\` do `D:\docker\DockerDesktopWSL` z równym
+   SHA-256, kopia zapasowa `settings-store.json`, ustawienie
+   `CustomWslDistroDir` na ten katalog, start Docker Desktop.
+6. Start **samej** bazy, bez provisioningu ról:
 
-Wolumen `game-predictor_game_predictor_postgres_data` musi istnieć, Alembic
-musi pokazywać bieżącą rewizję, a raport z sekcji 1 — te same rozmiary.
+   ```powershell
+   docker compose -f infra/docker/compose.yaml up -d --wait postgres
+   docker volume ls
+   npm run db:current
+   ```
+
+7. Raport jak w kroku 2 i porównanie pole po polu z odniesieniem **przed
+   jakimkolwiek zapisem**. Jedyna dopuszczalna różnica to rozmiar pliku
+   `pg_internal.init` (160 944 bajtów na bazę), który PostgreSQL usuwa przy
+   starcie i odbudowuje przy pierwszym połączeniu: połącz się z bazą i
+   zmierz ponownie. Baza oznaczona jako nieprawidłowa (`datconnlimit = -2`,
+   pozostałość przerwanego `DROP DATABASE`) nie przyjmuje połączeń i
+   zostaje mniejsza o tę wartość.
+8. Dopiero po równości: `npm run db:up` (provisioning ról i uprawnień,
+   zapisy `ALTER ROLE`), potem start API, Admina, Reviewera i workera.
+
+Stary obraz zostaje nieużywany do osobnej decyzji (TASK-0957). Procedura
+awaryjna (powrót do starej lokalizacji, podstawienie kopii, odtworzenie ze
+zrzutu) jest w `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`,
+„Technical notes”.
 
 ### 5.2. Artefakty (`GAME_PREDICTOR_ARTIFACT_ROOT`)
 

@@ -260,7 +260,11 @@ potrzebnego dla następnego kroku, błąd weryfikacji kopii (SHA-256 lub
 ## Odbiór całego przepływu
 
 Po B2, z D, przy usługach uruchomionych wyłącznie z D, powtórzony po
-restarcie Windows:
+restarcie Windows. Liczby w punktach 1–2 pochodzą z inwestygacji
+2026-10-09; obowiązuje baza odniesienia po etapie A′ zapisana w TASK-0955:
+`0154_geometry_correction_revert`, 280 tabel `game_data_v2`, 59 `public`,
+845 jobów, 14 sesji zdalnej selekcji (aktualizacja 2026-10-10 po audycie
+TASK-0955, P1-5).
 
 1. `npm run db:current` pokazuje `0153_merge_compact_super_games`.
 2. Równość raportu odniesienia z B1 (lista baz z rozmiarami, liczba tabel

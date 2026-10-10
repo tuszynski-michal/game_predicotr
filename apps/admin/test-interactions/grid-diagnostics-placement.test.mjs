@@ -55,32 +55,12 @@ const report = (gameId) => ({
   positions: [],
   gate: null,
 });
-const page = (gameId) => ({
-  images: [
-    {
-      sourceImageId: `source-${gameId}`,
-      importJobId: `import-${gameId}`,
-      relativePath: `${gameId}-missing.jpg`,
-      imageState: 'incomplete_missing',
-      sourceStatus: 'completed',
-      sequenceRangeStart: 1,
-      sequenceRangeEnd: 9,
-      expectedBoardCount: 9,
-      orientedWidth: null,
-      orientedHeight: null,
-      importErrorCode: null,
-      positions: [],
-      completenessStatus: null,
-    },
-  ],
-  nextCursor: null,
-});
 const button = (name) =>
   [...document.querySelectorAll('button')].find(
     (element) => element.textContent.trim() === name,
   );
 function fixture(overrides = {}) {
-  const calls = { reports: [], images: [], jobs: [], grids: [] };
+  const calls = { reports: [], jobs: [], started: 0 };
   const api = {
     listGames: async () => ({
       data: [
@@ -93,29 +73,27 @@ function fixture(overrides = {}) {
       return { data: [job(request.gameId ?? 'A')] };
     },
     listReadyBrowserImageSelections: async () => ({ data: [] }),
-    listImageGridReviews: async (request) => {
-      calls.grids.push(request);
+    // TASK-0964: a game-wide count is expensive, so the launcher never asks.
+    listImageGridReviews: async () => {
+      assert.fail('the launcher must not count boards per import');
+    },
+    listPendingBoardCellGeometry: async () => {
+      assert.fail('the launcher must not count deferred geometry');
+    },
+    startLocalReviewer: async () => {
+      calls.started += 1;
       return {
         data: {
-          counts: {
-            needsValidation: 0,
-            needsCorrection: 1,
-            approved: 0,
-            correction: 1,
-          },
+          state: 'running',
+          reviewerReady: true,
+          publicOrigin: null,
+          target: 'http://127.0.0.1:3001/',
         },
       };
     },
-    listPendingBoardCellGeometry: async () => ({
-      data: { counts: { pending: 1 } },
-    }),
     getImageGeometryCompleteness: async (request) => {
       calls.reports.push(request);
       return { data: report(request.gameId) };
-    },
-    listIncompleteGeometryImages: async (request) => {
-      calls.images.push(request);
-      return { data: page(request.gameId) };
     },
     getImageGeometryLowQualityBoards: async () => {
       assert.fail('quality scanning must remain an explicit action');
@@ -141,17 +119,24 @@ async function mount(api, gameId = 'A') {
   return { root, render };
 }
 
-test('correction renders diagnostics and keeps its existing queue available', async () => {
+test('correction renders counters and the Reviewer button without a photo list or import selector', async () => {
   const { api, calls } = fixture();
   const { root } = await mount(api);
   try {
-    assert.match(document.body.textContent, /Diagnostyka siatek zdjęć/);
-    assert.match(document.body.textContent, /A-missing.jpg/);
-    assert.match(document.body.textContent, /Plansze do korekty cięcia siatki/);
+    const text = document.body.textContent;
+    assert.match(text, /Diagnostyka siatek zdjęć/);
+    assert.match(
+      text,
+      /1 zdjęć z realnymi brakami · 0 z niepotwierdzoną siatką/,
+    );
+    assert.doesNotMatch(text, /A-missing.jpg/);
+    assert.doesNotMatch(text, /Gotowy import plansz/);
+    assert.doesNotMatch(text, /Stan plansz importu/);
+    assert.equal(document.querySelector('svg'), null);
+    assert.equal(button('Pokaż zdjęcie pod siatkami'), undefined);
     assert.equal(button('Otwórz lokalnie').disabled, false);
-    assert.equal(calls.grids[0].view, 'correction');
+    assert.equal(button('Otwórz braki w Reviewerze').disabled, false);
     assert.deepEqual(calls.reports, [{ gameId: 'A' }]);
-    assert.equal(calls.images[0].completenessStatus, 'geometry_incomplete');
     await act(async () => button('Wybrany import').click());
     assert.deepEqual(calls.reports.at(-1), {
       gameId: 'A',
@@ -162,17 +147,51 @@ test('correction renders diagnostics and keeps its existing queue available', as
   }
 });
 
-test('refresh reloads queue context and diagnostics without dispatching work', async () => {
+test('both buttons start the local Reviewer and open it scoped to the game only', async () => {
+  const { api, calls } = fixture();
+  const opened = [];
+  const originalOpen = dom.window.open;
+  dom.window.open = (url, target) => {
+    opened.push([url, target]);
+    return { close() {}, location: { href: '' }, opener: {} };
+  };
+  const { root } = await mount(api);
+  try {
+    await act(async () => button('Otwórz lokalnie').click());
+    await act(async () => button('Otwórz braki w Reviewerze').click());
+    assert.equal(calls.started, 2);
+    assert.deepEqual(opened, [
+      ['http://127.0.0.1:3001/?mode=local&gameId=A', '_blank'],
+      ['http://127.0.0.1:3001/?mode=local&gameId=A', '_blank'],
+    ]);
+  } finally {
+    dom.window.open = originalOpen;
+    await act(async () => root.unmount());
+  }
+});
+
+test('refresh reloads the game and diagnostics without counting boards', async () => {
   const { api, calls } = fixture();
   const { root } = await mount(api);
   try {
     const reportsBefore = calls.reports.length;
-    const gridsBefore = calls.grids.length;
     await act(async () => button('Odśwież kolejkę').click());
     assert.equal(calls.jobs.length, 2);
-    assert.ok(calls.grids.length > gridsBefore);
     assert.ok(calls.reports.length > reportsBefore);
     assert.equal(button('Otwórz lokalnie').disabled, false);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('a game without any image import shows the prerequisite panel', async () => {
+  const { api } = fixture({ listJobs: async () => ({ data: [] }) });
+  const { root } = await mount(api);
+  try {
+    assert.match(
+      document.body.textContent,
+      /Brak uruchomionego importu plansz dla tej gry/,
+    );
   } finally {
     await act(async () => root.unmount());
   }
@@ -192,14 +211,14 @@ test('report failure exposes retry and then displays the existing grid problems'
     );
     failed = false;
     await act(async () => button('Spróbuj ponownie').click());
-    assert.match(document.body.textContent, /A-missing.jpg/);
+    assert.match(document.body.textContent, /1 zdjęć z realnymi brakami/);
   } finally {
     await act(async () => root.unmount());
   }
 });
 
 test('refresh preserves the game selected in the uncontrolled launcher', async () => {
-  const { api } = fixture({
+  const { api, calls } = fixture({
     listJobs: async () => ({ data: [job('A'), job('B')] }),
   });
   const { root } = await mount(api, null);
@@ -211,11 +230,10 @@ test('refresh preserves the game selected in the uncontrolled launcher', async (
       select.value = 'B';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    assert.match(document.body.textContent, /B-missing.jpg/);
+    assert.deepEqual(calls.reports.at(-1), { gameId: 'B' });
     await act(async () => button('Odśwież kolejkę').click());
     assert.equal(select.value, 'B');
-    assert.match(document.body.textContent, /B-missing.jpg/);
-    assert.doesNotMatch(document.body.textContent, /A-missing.jpg/);
+    assert.deepEqual(calls.reports.at(-1), { gameId: 'B' });
   } finally {
     await act(async () => root.unmount());
   }
@@ -228,7 +246,7 @@ test('fresh mount recovers diagnostics from the API', async () => {
   mounted = await mount(api);
   try {
     assert.equal(calls.reports.length, 2);
-    assert.match(document.body.textContent, /A-missing.jpg/);
+    assert.match(document.body.textContent, /1 zdjęć z realnymi brakami/);
   } finally {
     await act(async () => mounted.root.unmount());
   }
@@ -239,18 +257,29 @@ test('late response from the previous game cannot populate current diagnostics',
   const waiting = new Promise((resolve) => {
     finishA = resolve;
   });
+  const withMissing = (gameId, missing) => {
+    const value = report(gameId);
+    return {
+      ...value,
+      images: {
+        ...value.images,
+        incomplete: missing,
+        incompleteMissing: missing,
+      },
+    };
+  };
   const { api } = fixture({
     getImageGeometryCompleteness: async ({ gameId }) =>
-      gameId === 'A' ? waiting : { data: report(gameId) },
+      gameId === 'A' ? waiting : { data: withMissing(gameId, 7) },
   });
   const { root, render } = await mount(api);
   try {
     assert.match(document.body.textContent, /Ładowanie kompletności siatek/);
     await render('B');
-    assert.match(document.body.textContent, /B-missing.jpg/);
-    await act(async () => finishA({ data: report('A') }));
-    assert.match(document.body.textContent, /B-missing.jpg/);
-    assert.doesNotMatch(document.body.textContent, /A-missing.jpg/);
+    assert.match(document.body.textContent, /7 zdjęć z realnymi brakami/);
+    await act(async () => finishA({ data: withMissing('A', 3) }));
+    assert.match(document.body.textContent, /7 zdjęć z realnymi brakami/);
+    assert.doesNotMatch(document.body.textContent, /3 zdjęć z realnymi/);
   } finally {
     await act(async () => root.unmount());
   }

@@ -105,11 +105,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0964 — odchudzona Diagnostyka siatek i launcher (todo)
-
-- Admin bez selecta importu; Diagnostyka tylko z licznikami i przyciskiem Reviewera; UI wyjątków bramki znika (API zostaje).
-- Task: `ai_docs/tasks/0964-admin-diagnostics-slim-and-launcher.md`.
-
 ### TASK-0965 — decyzja D-541, dokumentacja i odbiór (todo)
 
 - Wpis D-541, aktualizacja dokumentacji i odbiór na żywych danych Mumii i 777.
@@ -747,6 +742,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0964 — odchudzona Diagnostyka siatek i launcher bez wyboru importu (done)
+
+- Commit: `v1.7.304` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Launcher „Korekta cięcia siatki” bez selecta „Gotowy import plansz”, identyfikatora importu i liczenia plansz (`listImageGridReviews`, `listPendingBoardCellGeometry`); „Otwórz lokalnie” jest aktywny po wyborze gry i otwiera Reviewer z samym `gameId` (`importJobId` opcjonalny w `buildPreparedLocalReviewUrl`/`prepareLocalReviewerWindow`). Panel „brak importu” tylko dla gry bez importu obrazów.
+- „Diagnostyka siatek zdjęć” bez listy zdjęć, podglądu SVG, filtrów i paginacji: nagłówek „{N} zdjęć z realnymi brakami · {M} z niepotwierdzoną siatką”, kontrolki zakresu, liczniki, `LowQualityBlock` i przycisk „Otwórz braki w Reviewerze” (callback `onOpenReviewer` z launchera). Usunięty kod: lista, `GeometryImageItem`, `GeometryGateControls`, kolejka/wyjątki i helpery SVG w stanie sekcji.
+- Świadoma utrata: Admin nie ma już UI wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”); endpointy i klient zostają, przywrócenie UI to osobny task (decyzja 6 planu).
+- Testy: Admin `test` 729/729, `test:geometry` 206/206, typecheck PASS, lint PASS, `format:check` PASS. Odbiór na żywych danych w TASK-0965. Task: `ai_docs/tasks/completed/0964-admin-diagnostics-slim-and-launcher.md`.
+
 ### TASK-0963 — zakładka „Braki zdjęć” w lokalnym Reviewerze (done)
 
 - Commit: `v1.7.303` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
@@ -811,10 +814,4 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
 - Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
-- Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0941 — Minimalistyczny panel (done)
-
-- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
-- Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.

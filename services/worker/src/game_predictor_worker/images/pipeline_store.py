@@ -409,7 +409,7 @@ class SqlAlchemyImagePipelineStore:
                 lock_projection_sequences,
             )
 
-            # TASK-0950: the projection may take sequences over and recompute
+            # TASK-0971: the projection may take sequences over and recompute
             # other images' gates; same game lock as the API, after the lease
             # and before the sequence and source locks.
             acquire_sequence_ownership_lock(session, game_id=job.game_id)
@@ -434,7 +434,7 @@ class SqlAlchemyImagePipelineStore:
                         ImageSourceGeometryRevisionModel.source_image_id == source.id,
                         ImageSourceGeometryRevisionModel.geometry_checksum_sha256
                         == geometry_checksum,
-                        # TASK-0945: a reverted revision never stands for a
+                        # TASK-0966: a reverted revision never stands for a
                         # geometry; at most one live row has this checksum.
                         ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
                     )
@@ -474,7 +474,7 @@ class SqlAlchemyImagePipelineStore:
                     ):
                         # Reprocessing of the same photo never touches human work.
                         continue
-                    # D-539 (TASK-0950): a protected owner of another photo is
+                    # D-543 (TASK-0971): a protected owner of another photo is
                     # kept by the shared ownership rule below (canonical first
                     # save wins, or the live owner is kept); the
                     # incoming board is recorded as skipped, not dropped.
@@ -1300,7 +1300,7 @@ def _require_candidate_lease(
     lease_token: UUID,
     checked_at: datetime,
 ) -> None:
-    # TASK-0950 (audit round 4): ``FOR NO KEY UPDATE``. The lease only changes
+    # TASK-0971 (audit round 4): ``FOR NO KEY UPDATE``. The lease only changes
     # non-key columns, and a writer that holds the ownership lock inserts rows
     # whose foreign keys take ``FOR KEY SHARE`` on this job; a full ``FOR UPDATE``
     # would make it wait for this worker while the worker waits for ownership.

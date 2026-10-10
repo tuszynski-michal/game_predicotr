@@ -840,7 +840,7 @@ def invalidate_symbol_cell_reviews_for_geometry(
 ) -> tuple[SymbolCellReview, ...]:
     """Apply new crop identities while preserving only safe logical decisions.
 
-    ``handoff_from_rejected_board`` (D-539, TASK-0950): the logical cells come
+    ``handoff_from_rejected_board`` (D-543, TASK-0971): the logical cells come
     from the rejected board of another image and move to the replacement board
     of the sequence. Geometry revisions are numbered per board, so the new
     board's revision does not have to continue the rejected board's one, and the

@@ -706,7 +706,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             ImageReviewItemModel.id == review_item_id
         )
         if for_update:
-            # TASK-0950 (P0-6): never the job row. A worker holds its job's lease
+            # TASK-0971 (P0-6): never the job row. A worker holds its job's lease
             # row before the ownership lock; a writer that holds the ownership
             # lock must not wait for that job afterwards.
             query = query.with_for_update(
@@ -1173,7 +1173,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             projection.sync_sequence_candidates(game_id, resolution.sequence_number)
         coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
         if resolution.action.value == "rejected" and previous_item_status != "rejected":
-            # TASK-0949: a rejected board leaves symbol verification (its rows
+            # TASK-0970: a rejected board leaves symbol verification (its rows
             # and decision history stay).
             coordinator.release_cells_of_rejected_board(
                 game_id=game_id, review_item_id=review_item_id
@@ -1204,7 +1204,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return updated, _event_from_record(event_record), True
 
     def _require_not_canonical_owner(self, game_id: UUID, review_item_id: UUID) -> None:
-        """A board that owns its sequence cannot be rejected (TASK-0949, D-539).
+        """A board that owns its sequence cannot be rejected (TASK-0970, D-543).
 
         Rejecting the canonical owner would leave the sequence claim pointing
         at a rejected item; taking the canon over is a separate task (0305).
@@ -1416,7 +1416,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 ImageReviewItemModel.id.not_in(excluded_review_item_ids),
             )
             .order_by(ImageReviewItemModel.id)
-            # The job is only joined for the game scope (TASK-0950, P0-6).
+            # The job is only joined for the game scope (TASK-0971, P0-6).
             .with_for_update(of=(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel))
         ).all()
         if rows:
@@ -1765,7 +1765,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
     ) -> None:
         # A direct resolution is an entry point: it takes the exclusive
         # ownership lock first (it may supersede another photo's item). Nested
-        # in a symbol-cell decision it keeps the decision's lock (TASK-0950).
+        # in a symbol-cell decision it keeps the decision's lock (TASK-0971).
         ensure_sequence_ownership_lock(self._session, game_id=game_id)
         acquire_image_review_sequence_locks(
             self._session,

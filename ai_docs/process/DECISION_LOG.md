@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 534 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (177 wierszy); starsze (357 wierszy) są w
+- Indeks obejmuje 537 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (179 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,9 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-541](decisions/DECISION_LOG_2026.md#d-541--lokalny-reviewer-pracuje-w-zakresie-gry-i-pokazuje-realne-braki-geometrii-zdjęć) | Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć | accepted | 2026-10-10 | lokalny Reviewer ma zakładki „Do korekty” i „Braki zdjęć” (realne braki D-484), „Siatka niepotwierdzona” zostaje licznikiem w Adminie, UI wyjątków bramki usunięte z Admina. |
+| [D-539](decisions/DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
+| [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
 | [D-536](decisions/DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |
 | [D-535](decisions/DECISION_LOG_2026.md#d-535--gra-mumie-wild-symbol-uruchamiający-supergrę-i-rodzaj-supergry-wild-super-spins) | Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins” | accepted | 2026-10-08 | dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild” (kolumna symbols.is_wildcard zostaje). |
@@ -216,8 +219,139 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-533..D-537), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-541, D-539, D-538, D-537, D-536), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-541 — Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć
+
+- **Date:** 2026-10-10.
+- **Status:** accepted; kod etapów A i B zaimplementowany (TASK-0961–0964,
+  v1.7.301–v1.7.304), odbiór na żywych danych w TASK-0965.
+- **Decision:** lokalny Reviewer (port 3001, `mode=local`) pracuje w zakresie
+  gry; `importJobId` jest opcjonalny (zdalny Reviewer bez zmian). Ekran ma dwie
+  zakładki: „Do korekty” (dotychczasowa kolejka z D-462: sloty odroczone i
+  plansze ze zgłoszeniem „Zła siatka”) oraz „Braki zdjęć” (realne braki z
+  klasyfikacji D-484: `incomplete_missing`, `incomplete_partial`,
+  `import_failed`, `no_source_geometry`). Pozycję zdjęcia, która ma planszę lub
+  slot, edytuje się istniejącym edytorem narożników (bez nowej ścieżki zapisu
+  geometrii); pozycje bez planszy i slotu oraz błędy importu są informacyjne.
+  „Siatka niepotwierdzona” (`incomplete_uncertain`) NIE jest kolejką i
+  pozostaje licznikiem w „Diagnostyce siatek zdjęć” w Adminie; część D-462
+  „bez walidacji gotowych siatek” obowiązuje bez zmian.
+- **Admin:** launcher „Korekta cięcia siatki” bez wyboru importu; „Diagnostyka
+  siatek zdjęć” pokazuje tylko liczniki i przycisk otwarcia Reviewera. UI
+  wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”) i lista zdjęć zostały
+  usunięte z Admina; endpointy, audyt i dane wyjątków zostają, a Reviewer ich
+  nie przejmuje (mutacje wysokiego wpływu są poza allowlistą origin Reviewera).
+  Przywrócenie UI wyjątków to osobny task, jeśli bramka znów zacznie
+  wstrzymywać plansze.
+- **Rationale:** dane z 2026-10-10: Mumie — 51 541 z 51 749 zdjęć
+  „niepotwierdzonych” (463 816 plansz) przy 4 realnych brakach; 777 — 76 zdjęć
+  `incomplete_partial`. „51 tys. niekompletnych” oznaczało więc automatyczną
+  siatkę bez ręcznego potwierdzenia, nie błąd cięcia. Do tego czarny podgląd i
+  długi scroll listy w Adminie oraz koszt 23–45 s liczników całej gry na
+  każdej planszy kolejki.
+- **Safety/Boundary:** tryb liczników `counts=correction` w `grid-reviews` i
+  filtr `gapsOnly` w liście niekompletnych zdjęć to wyłącznie odczyt, bez DDL i
+  bez zmiany klasyfikacji D-484; `gapsOnly` razem z `imageState` albo
+  `completenessStatus` daje 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`.
+  Budżety czasu: korekta ≤ 3 s, strona braków ≤ 12 s. Zdalny Reviewer bez
+  zmian. „Plansza częściowa” (`partial`) nie ma stanu końcowego także po
+  ręcznym zatwierdzeniu (D-449), więc pozycja ma flagę `humanApproved`, a
+  zakładka domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` są
+  zatwierdzone ręcznie (przełącznik „Pokaż także zatwierdzone ręcznie”).
+- **Supersedes/Amends:** doprecyzowuje D-462 („Correction queue”: lokalny
+  ekran ma dwie zakładki, kolejka korekty bez zmian) i D-484 (miejsce pracy z
+  diagnostyką przechodzi z Admina do Reviewera; Admin zachowuje liczniki); nie
+  zmienia D-488 (korekta cięcia nadal może zatwierdzić symbole wskazane przez
+  operatora).
+- **Out of scope:** walidacja i zatwierdzanie gotowych siatek, kolejka „Siatka
+  niepotwierdzona”, zmiana klasyfikacji D-484, blokada ponownego importu tych
+  samych zdjęć, zdalny Reviewer.
+- **Source:** polecenie operatora z 2026-10-10 i plan
+  `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
+  (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
+  `feat/disk-d-migration-plan`.
+
+## D-539 — Wybór maszyny na widoku punktu
+
+- **Date:** 2026-10-09.
+- **Status:** accepted explicit operator clarification; implementation not started.
+- **Decision:** only selecting a point opens a nested view. The point page
+  retains its machine tiles after selection. Selecting a machine highlights
+  its tile and updates games/stakes below the list on that same page.
+  Selecting a stake also preserves the machine list and displays its workspace
+  in place. One Home/back action returns to points; no machine-level back view.
+- **Saved-pin visibility clarification (2026-10-09):** on the selected
+  machine/game page, every saved stake shows all saved0-6 pin spin/investment/
+  net-win/machine-cash rows without selecting a stake or opening a chart.
+  Save updates the visible summary even with an editor open; draft/reset keeps
+  saved rows until commit. Reload/reopen restores summaries without full-result
+  fetches. This supersedes the selected-stake-only placement, preserving frozen
+  metrics, null/unavailable handling, units and receipt/payout contracts.
+- **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
+  dirty-draft confirmation and one active shared machine/game workspace.
+  A cancelled transition preserves selection, URL and draft together.
+- **Supersedes:** D-538's machine-as-navigation-level UI rule only. Delete,
+  receipts, immutable results, payout semantics and access rules remain.
+- **Boundary:** operator requested a correction plan and Claude Code discussion,
+  not immediate execution of the new full plan. Historical restore and bounded
+  list height are proposed in that plan and are not accepted by this decision.
+- **Source:** latest operator clarification in this conversation;
+  ai_docs/delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md.
+
+## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
+
+- **Status:** accepted; operator authorized the complete TASK-0940–0943 plan
+  and separate worktree on 2026-10-08.
+- **Decision:** hierarchical point → machine → game/stake navigation, Home/back,
+  compact maximum320px tiles, entire clickable surface with sibling edit/delete
+  controls, atomic modal name/game assignments, optional compact shared search
+  and chart. Stakes retain20/10/6/4/2/1.20PLN. Saved query/start/range/pins are
+  restored; new/reset is draft-only until explicit replacement.
+- **Destructive scope:** point, machine and detached machine/game can be hard
+  deleted by local owner or a valid whole-panel recipient. Preview+confirmation
+  and revision binding are required. This supersedes D-533's prohibition of
+  history deletion only for these structural scopes. Their management journal
+  (including correction before/after records) is removed, while actual global
+  symbol corrections, catalog games/boards/rules and independent session audit
+  remain. Operator consciously accepted public-recipient destructive access
+  and loss of this scoped journal.
+- **Receipts:** only a minimal delete receipt persists; no separate deletion
+  history. Old scoped responses are redacted and retries fail closed. Pure
+  delete receipts remain retryable even after parent deletion. Unknown legacy
+  receipt scope is an exceptional counted migration-preview category, not a
+  general backfill shortcut.
+- **Empty assignments clarification (2026-10-09):** preview is required when
+  the final game list removes an existing assignment row, including legacy
+  `attached=false`. A new machine with no games and a machine whose assignments
+  are already empty have no destructive scope and require no preview.
+- **Database protection:** unique additive Alembic migration after0151,
+  restricted SECURITY DEFINER purge, owner+transaction-local maintenance check
+  in SECURITY INVOKER immutable trigger, fixed search_path, explicit grants.
+  App-controlled GUC alone never permits immutable DML; session audit remains
+  protected. Backfill/production migration needs separate operator preview,
+  binary backup and confirmation; no destructive downgrade.
+- **Reuse:** BoardSearchWorkspace/ApproximateWinBalanceChart/approximateWin*
+  remain the single implementation. Optional compact behavior preserves ordinary
+  search and one-game share. Nullable cached pin investment/cash values use
+  frozen result semantics and bounded read-only legacy fallback.
+- **Integration:** panel starts independently of Mumie. Second integrator owns
+  migration merge, shared-file reconciliation, one-head/schema/role checks and
+  regenerated contract. Check TASK-0935/0936 before0942. Reserve0940–0943/D-538
+  and verify commit versions; no automatic merge/push or service lifecycle.
+- **Source:** ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md and two
+  operator-supplied plan audits. Codex execution / manual Claude audit per the
+  plan table, separate task commits; all four tasks authorized sequentially.
+- **Acceptance boundary:** TASK-0943 uses a finite real-browser fixture for
+  390/1440/1920px layout and mock transport. It does not establish live device,
+  ingress, reboot, production-data or backup recovery readiness. These remain
+  separate operator gates; no audit or fixture authorizes production mutation.
+
+**Integration note (TASK-0945, 2026-10-09):** the panel branch originally used D-536.
+Main already used D-536 for super-game series; this entry is the same accepted
+panel decision imported as D-538. Historical audits keep their original labels.
+The integrated head is `0153_merge_compact_super_games`, joining both0152 parents.
 
 ## D-537 — Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja
 
@@ -311,98 +445,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 - **Boundaries:** pole `superGameState` w odpowiedziach wyszukiwania plansz i
   kalkulacji dostarcza TASK-0935; wypłaty serii TASK-0936; `apply_board_repoint`
   nie jest punktem zapisu (zmienia tylko identyfikatory geometrii).
-
-## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
-
-- **Date:** 2026-10-08.
-- **Status:** accepted; plan `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md`
-  (TASK-0929–0939) zaakceptowany przez operatora po czterech przeglądach
-  Codex zakończonych PASS (v1.7.264).
-- **Decision:** dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild”
-  (kolumna `symbols.is_wildcard` zostaje). Symbol dostaje w katalogu gry
-  osobną rolę „Uruchamia supergrę” z progiem 3/4/5 sztuk na pociętej
-  planszy (`super_game_trigger_count`); jego reguły wypłat są wypłatą za
-  liczbę sztuk na planszy, niezależnie od pozycji. Gra ma rodzaj supergry
-  (`super_game_kind`, domyślnie `none`); pierwszy rodzaj `wild_super_spins`:
-  10 darmowych spinów o koszcie 0 na kolejnych pozycjach sekwencji, ≥N
-  symboli uruchamiających w serii przedłuża ją o 10 bez nowego symbolu,
-  super symbol (zwykły symbol wylosowany przez automat, widoczny jako złota
-  ramka) rozwija się na całe kolumny i przykrywa symbole pod sobą, liczy się
-  liczba kolumn (także niesąsiednich) od progu symbolu, wypłata = wypłata
-  liniowa × liczba linii. Mechanika rodzajów jest zaszyta w kodzie w
-  rozszerzalnym rejestrze; operator steruje rolami i rodzajem z Adminu.
-- **Series and data:** serie wyprowadzane deterministycznie z komórek z
-  przypisanym symbolem (także predykcje plansz `pending`), tylko plansze
-  pocięte; sekwencja startuje w trybie bazowym; brakująca plansza w serii
-  jest pusta i zużywa spin. Super symbol definiuje operator ręcznie.
-  Nieaktualność serii wynika z licznika wejścia per gra; wynik planszy serii
-  bez symbolu, w stanie nieaktualnym albo z nieznaną komórką jest
-  prowizoryczny, nie dolnym ograniczeniem. Role w katalogu są niezmienne po
-  publikacji wersji reguł używającej symbolu; testy na drafcie przez wybór
-  wersji reguł w Adminie.
-- **Boundaries:** 777 i 777 v2 bez zmian zachowania (bramka regresji);
-  aplikacja mobilna poza zakresem do odrębnej decyzji; wersjonowanie ról
-  per wersja reguł poza zakresem; trening modelu złotej ramki po pilocie.
-- **Process:** audyt krzyżowy po każdym tasku (TASK-0929 daje skill);
-  operator 2026-10-08 zdecydował, że wszystkie taski wykonuje ta sesja
-  Claude Code przez subagentów według tabeli planu, a audyt Codex jest do
-  czasu dostępności CLI zastępowany niezależnym subagentem Claude z innym
-  modelem niż wykonawca. Etap T (TASK-0938 przed S-B, TASK-0939 równolegle)
-  obniża zużycie tokenów bez obniżania jakości, z pomiarem.
-
-## D-533 — Points/machines panel with durable stake saves and whole-panel links
-
-- **Date:** 2026-10-07.
-- **Status:** accepted explicit whole-plan implementation request, T1–T7 /
-  TASK-0921–0927, MANAGEMENT_PANEL_EXECUTION_PLAN.md.
-- **Decision:** add Panel Administracyjny with points (name/city/street), named
-  machines and editable active-game assignments. Archive/detach preserves saves
-  and audit. Six independent stakes20/10/6/4/2/1.20PLN save query/start/range and
-  zero to six pinned spin positions only on explicit **Zapisz układ**. Confirmed
-  Clear removes only the current choice. Symbol corrections retain immediate
-  game-wide semantics. Recalculate current results on opening and preserve
-  immutable previous numeric/chart/start-symbol/rules versions in history.
-- **Consistency:** PostgreSQL owns data, stable identity independent of name,
-  compact deduplicated result versions, no image blobs. Mutation/audit atomic,
-  operation-bound receipts and revision conflicts; no historical deletion UI.
-- **Access:** local admin and one known recipient. Named link plus separate code
-  gives full module management across assigned active games. Link administration
-  stays local; unrelated Admin/model/import/rules operations excluded. Separate
-  multi-game session/proxy with expiry/revoke/lockout; old one-game links retain
-  scope. Add48/72h options to new panel and old board-search shares, default8h.
-- **Operations:** local first, existing Reviewer ingress, computer availability
-  required. No new Redis/accounts/hosting/synchronization, automatic service
-  lifecycle, production data manipulation, push or deployment. User controls
-  API/Admin and rollout. See requirements/architecture/MANAGEMENT_PANEL.md.
-- **T2 transaction clarification:** mutation/receipt locks use READ COMMITTED;
-  a bounded read-only REPEATABLE READ application-role game session captures
-  coherent rows/rules/start symbols. Numeric snapshots represent that read
-  instant; result/slot/receipt/audit commit together in the primary transaction.
-  This preserves concurrent exact retries without privileged database reads.
-- **T5 authorization clarification:** public requests bind the originating
-  session UUID in a header, or asset URL, in addition to the dedicated cookie.
-  Equal human labels never share actor/receipt identity. Session locks and
-  post-flush authorization checks protect commit; obsolete-tab failures cannot
-  clear a newer browser session. Panel-link creation and automatic shared
-  ingress shutdown share a transaction lock. These implement the accepted
-  access and retry boundary without broadening old one-game capabilities.
-
-## D-534 — Image import resumption uses the hard reserve, not the GC target
-
-- **Date:** 2026-10-07.
-- **Status:** accepted explicit repair instruction, TASK-0928.
-- **Decision:** source ingestion and in-flight image pipeline checks use the
-  configured hard reserve in every job stage, including persisted
-  `waiting_for_storage`; default 5 GiB and equality allowed. The 80 GiB GC
-  target cannot become a separate condition for restarting an import.
-- **Liveness:** retain durable checkpoint/requeue and fenced leases. The
-  polling worker waits its existing positive interval after storage deferral
-  rather than entering an immediate reclaim loop. Restarted code interprets
-  existing storage-wait checkpoints with the same reserve, without changing
-  their job identity or reprocessing settled source checkpoints.
-- **Preserved:** conservative admission estimates, reserve override,
-  warning/automatic-GC/GC-target thresholds, deletion eligibility and all
-  domain/sequence/source protections. No schema or API shape change.
-- **Operations:** the user separately authorizes only the general-worker
-  restart after tests for the existing Mumie import. API/Admin, cleanup,
-  manual state mutation, push and merge are outside this authorization.

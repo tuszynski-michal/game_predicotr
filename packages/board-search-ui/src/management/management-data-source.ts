@@ -28,6 +28,7 @@ export function createManagementDataSource(options: {
   canWrite?: () => boolean;
   canAccess?: () => boolean;
   writeAllowed?: boolean;
+  listSymbols?: ManagementGameClient['listSymbols'];
 }) {
   const { api, machineId, gameId, stake, recovery } = options;
   const controller = new AbortController();
@@ -58,7 +59,10 @@ export function createManagementDataSource(options: {
         options.onConflict();
   };
   const client: BoardSearchDataSource = {
-    listSymbols: (game) => read(() => api.listSymbols(game)),
+    listSymbols: (game) =>
+      read(() =>
+        options.listSymbols ? options.listSymbols(game) : api.listSymbols(game),
+      ),
     symbolImageAssetUrl: (...args) =>
       mayReadAssets() ? api.symbolImageAssetUrl(...args) : inactiveImage,
     boardSearchBoardViewUrl: (...args) =>

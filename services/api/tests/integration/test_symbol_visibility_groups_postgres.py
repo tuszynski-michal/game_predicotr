@@ -86,7 +86,7 @@ def test_all_eight_symbols_unknown_and_outside_partition_real_rows(database: Eng
     # Historical absent pixels with no evaluated visibility are deliberately hidden.
     historical = dict(rows[0], id=uuid4(), source_available=False, source_visibility=None)
     rows.append(historical)
-    # TASK-0949: a cell of a rejected review item leaves symbol verification
+    # TASK-0970: a cell of a rejected review item leaves symbol verification
     # (its row stays as history), so it belongs to no scope.
     rejected_item_id = uuid4()
     rejected_cell = dict(rows[0], id=uuid4(), review_item_id=rejected_item_id)
@@ -98,7 +98,7 @@ def test_all_eight_symbols_unknown_and_outside_partition_real_rows(database: Eng
                 "INCLUDING CONSTRAINTS) ON COMMIT DROP"
             )
         )
-        # The visibility predicate reads the review items' status (TASK-0949);
+        # The visibility predicate reads the review items' status (TASK-0970);
         # the probe stands in for the game-routed ``image_review_items``.
         connection.execute(
             text(

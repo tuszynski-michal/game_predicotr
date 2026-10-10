@@ -197,7 +197,7 @@ test('operational workspace compares square cell crops with one cropped board', 
   );
 });
 
-test('the operational screen offers the guarded board rejection (TASK-0949)', async () => {
+test('the operational screen offers the guarded board rejection (TASK-0970)', async () => {
   const source = await readFile(workspacePath, 'utf8');
 
   // One button with a reason picker and a confirmation, sent through the

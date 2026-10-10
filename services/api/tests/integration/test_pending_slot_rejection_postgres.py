@@ -1,4 +1,4 @@
-"""TASK-0949: rejection of a deferred slot and of a cropped board (PostgreSQL).
+"""TASK-0970: rejection of a deferred slot and of a cropped board (PostgreSQL).
 
 Runs on a dedicated ``*_test`` database only (fixtures of
 ``test_virtual_deferred_resolution_postgres`` and the import writer of
@@ -94,7 +94,7 @@ from test_virtual_deferred_resolution_postgres import (
     pytestmark,  # noqa: F401  (PostgreSQL opt-in)
 )
 
-_ACTOR = "task-0949-operator"
+_ACTOR = "task-0970-operator"
 
 
 def _add_replacement(

@@ -62,11 +62,15 @@ export function BoardGeometryCorrectionWorkspace({
   apiBaseUrl,
   gameId,
   importJobId,
+  keyboardEnabled = true,
 }: {
   readonly api: BoardGeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly importJobId: string;
+  /** Optional: without it the queue spans the whole game (TASK-0962). */
+  readonly importJobId?: string | undefined;
+  /** False while a sibling tab is shown; keeps the editor mounted. */
+  readonly keyboardEnabled?: boolean;
 }) {
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<
@@ -122,7 +126,10 @@ export function BoardGeometryCorrectionWorkspace({
       try {
         result = await api.listImageGridReviews({
           gameId,
-          importJobId,
+          ...(importJobId === undefined ? {} : { importJobId }),
+          // TASK-0961: the queue needs only the correction counter, which
+          // keeps the whole-game scope cheap.
+          counts: 'correction',
           limit: 1,
           view: 'correction',
           ...(afterCursor === undefined ? {} : { afterCursor }),
@@ -164,6 +171,18 @@ export function BoardGeometryCorrectionWorkspace({
   }, [loadPage]);
 
   const item = page?.items[0] ?? null;
+  // TASK-0969 x TASK-0962: corrections are listed per import. Without a chosen
+  // import (game scope) the history follows the import of the board on screen
+  // and keeps the last one after the queue empties, so the last save stays
+  // revertable.
+  const [lastItemImportJobId, setLastItemImportJobId] = useState<
+    string | undefined
+  >(undefined);
+  const itemImportJobId = item?.importJobId;
+  if (itemImportJobId && itemImportJobId !== lastItemImportJobId) {
+    setLastItemImportJobId(itemImportJobId);
+  }
+  const historyImportJobId = importJobId ?? lastItemImportJobId;
   const remaining = page?.counts.correction ?? 0;
   const target = useBoardCorrectionTarget(api, apiBaseUrl, item);
   const targetKeyRef = useRef<string | null>(null);
@@ -211,7 +230,7 @@ export function BoardGeometryCorrectionWorkspace({
     [loadPage],
   );
 
-  // TASK-0949: a rejected slot or board leaves the queue; the history lists
+  // TASK-0970: a rejected slot or board leaves the queue; the history lists
   // the rejection so it can be undone until a replacement owns the sequence.
   const handleRejected = useCallback(async () => {
     setNotice(
@@ -321,8 +340,8 @@ export function BoardGeometryCorrectionWorkspace({
         <div className="deferredGeometryComplete">
           <h3>Brak plansz do korekty</h3>
           <p>
-            Ten import nie ma plansz odrzuconych przez algorytm ani zgłoszonych
-            jako „Zła siatka”.
+            W tym zakresie nie ma plansz odrzuconych przez algorytm ani
+            zgłoszonych jako „Zła siatka”.
           </p>
         </div>
       ) : (
@@ -339,6 +358,7 @@ export function BoardGeometryCorrectionWorkspace({
           </div>
           <BoardGeometryCorrectionEditor
             key={target.key}
+            keyboardEnabled={keyboardEnabled}
             onConflict={handleConflict}
             onSaved={handleSaved}
             symbols={symbols}
@@ -377,13 +397,15 @@ export function BoardGeometryCorrectionWorkspace({
           </footer>
         </>
       )}
-      <GeometryCorrectionHistory
-        api={api}
-        gameId={gameId}
-        importJobId={importJobId}
-        onReverted={handleReverted}
-        refreshToken={historyRefresh}
-      />
+      {historyImportJobId === undefined ? null : (
+        <GeometryCorrectionHistory
+          api={api}
+          gameId={gameId}
+          importJobId={historyImportJobId}
+          onReverted={handleReverted}
+          refreshToken={historyRefresh}
+        />
+      )}
     </section>
   );
 }

@@ -101,6 +101,11 @@ export function managementPublicRoute(
     method === 'POST' &&
     (path === `${API}/points` ||
       match(`/points/${UUID_PATTERN}/machines`) ||
+      match(`/points/${UUID_PATTERN}/(?:delete-preview|delete)`) ||
+      match(
+        `/points/${UUID_PATTERN}/machines/${UUID_PATTERN}/(?:delete-preview|delete)`,
+      ) ||
+      match(`/machines/${UUID_PATTERN}/update-preview`) ||
       match(`${game}/search`) ||
       match(`${game}/stakes/${STAKE}/(?:clear|refresh)`) ||
       match(

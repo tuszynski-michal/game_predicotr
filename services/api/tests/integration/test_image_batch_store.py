@@ -2962,9 +2962,9 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     isolated_image_batch_database: URL,
     same_photo: bool,
 ) -> None:
-    """D-238 among imports of one photo; D-539 keeps the live owner of another photo.
+    """D-238 among imports of one photo; D-543 keeps the live owner of another photo.
 
-    TASK-0950 changed the contract for different photos: a live pending owner
+    TASK-0971 changed the contract for different photos: a live pending owner
     is kept and the later photos are superseded with a sequence alternative.
     """
 
@@ -3079,7 +3079,7 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
                 assert reviews[newer_review.id].status == "superseded"  # type: ignore[union-attr]
                 assert reviews[newest_review.id].status == "pending"  # type: ignore[union-attr]
             else:
-                # D-539: the live owner (the first saved photo) is kept.
+                # D-543: the live owner (the first saved photo) is kept.
                 assert reviews[older_review.id].status == "superseded"  # type: ignore[union-attr]
                 assert reviews[newer_review.id].status == "pending"  # type: ignore[union-attr]
                 assert reviews[newest_review.id].status == "superseded"  # type: ignore[union-attr]

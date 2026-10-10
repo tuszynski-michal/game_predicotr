@@ -1,13 +1,13 @@
 """Use cases: list, preview and revert the last manual grid-geometry correction.
 
-TASK-0945/TASK-0946 (plan D-538). The repository evaluates every rule from
+TASK-0966/TASK-0967 (plan D-542). The repository evaluates every rule from
 facts read from storage (under lock for a revert) with
 ``domain.geometry_correction_reverts.evaluate_revert_eligibility`` and performs
 the revert in the caller's single transaction; this service validates the
 request and delegates. Both kinds are reverted without rendering: a deferred
 slot loses the rows its save created, an existing board gets revision
 ``N + 1`` that reuses the stored render of its previous revision. HTTP
-adapters come with TASK-0947.
+adapters come with TASK-0968.
 """
 
 from __future__ import annotations
@@ -108,7 +108,7 @@ class GeometryCorrectionRevertResult:
     source_image_geometry_status: SourceImageGeometryStatus | None
     snapshot_checksum_sha256: str
     created_at: datetime
-    # Case A (TASK-0946): the revision ``N + 1`` the revert wrote and the
+    # Case A (TASK-0967): the revision ``N + 1`` the revert wrote and the
     # number of cells whose decisions it restored.
     restored_geometry_revision: int | None = None
     restored_cell_decision_count: int = 0
@@ -116,7 +116,7 @@ class GeometryCorrectionRevertResult:
 
 @dataclass(frozen=True, slots=True)
 class RestoredRenderRequest:
-    """The stored cell renders a case-A revert restores (TASK-0946).
+    """The stored cell renders a case-A revert restores (TASK-0967).
 
     ``render_specs`` maps each cell index to the ``renderSpec`` of the
     restored revision's manifest entry.

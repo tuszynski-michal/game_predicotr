@@ -1,10 +1,83 @@
 ---
 title: Management panel operator guide
 status: active
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Panel Administracyjny — operations
+
+## D-538 compact redesign — migration and destructive scope gate
+
+TASK-0940 adds `0152_management_compact_panel` after 0151 in its independent
+worktree. This section is the operator gate, not permission to execute it.
+Before production migration, make and verify a binary backup with the existing
+guide below. Restore it into a separate database and confirm representative
+saved results, receipts and history. Structural deletion has no data downgrade.
+
+Follow this order; the commands later in this guide are not permission to skip
+an earlier gate:
+
+1. Read the actual revision and pending predecessor SQL. Verify a binary backup
+   by restoring it into a separate database before any prerequisite upgrade.
+2. Obtain explicit authorization for prerequisites and stop at0151 if the current schema is earlier; never downgrade an installed0152 series branch.
+3. Run the read-only receipt classifier and inspect the legacy count.
+4. Preview compact-migration SQL; resolve any integrated migration branches.
+5. Verify a current binary backup/restore and obtain explicit backfill approval.
+6. Apply the exact reviewed revision using [Apply schema and application role](#apply-schema-and-application-role),
+   then provision/check roles. Start services manually only after those checks.
+
+The classifier accepts one pre-compact head: `0151_super_game_roles` or
+`0152_super_game_series`. The latter changes game-series data, not receipt scope;
+do not downgrade it. If current is earlier, review prerequisite SQL, verify the
+backup and obtain authorization before reaching0151. Never run `upgrade head`
+from an earlier schema before the receipt preview gate. All commands below are
+operator actions; the prerequisite command applies only when current is earlier.
+
+```powershell
+.venv\Scripts\python.exe -m alembic current
+.venv\Scripts\python.exe -m alembic upgrade 0151_super_game_roles
+if ($LASTEXITCODE -ne 0) { throw 'Prerequisite upgrade failed; keep services stopped.' }
+.venv\Scripts\python.exe -m alembic current
+```
+
+After confirming a single accepted pre-compact revision, and before applying
+`0152_management_compact_panel` or changing receipts, run the read-only receipt classifier:
+
+```powershell
+.venv\Scripts\python.exe scripts/preview_management_receipt_migration.py
+```
+
+It reports journal/context/response-derived receipts and the exceptional
+`legacy_redacted` count. Review that count before separately confirming
+migration/backfill. Unknown receipts become fail-closed markers; they cannot
+be retried as new operations. Migration uses the owner maintenance mode while
+preserving operation UUID, actor, checksum and timestamp.
+
+Only after explicit operator confirmation: apply the branch's single-head
+migration using the existing manual migration/provisioning procedure, then
+run `scripts/provision_database_roles.py --check`. It must verify owner,
+fixed search_path, SECURITY DEFINER purge, SECURITY INVOKER trigger,
+no PUBLIC execute on purge and a distinct application role without memberships.
+Agents do not start/restart API/Admin. TASK-0945 supplies the empty merge
+`0153_merge_compact_super_games` with both0152 parents and a matching guard.
+It preserves both branches; its parents contain real DDL/backfill. Check one head.
+
+The only apply command is in
+[Apply schema and application role](#apply-schema-and-application-role), after
+the SQL and verified-backup sections. Do not substitute `head` before integration
+has produced and reviewed a single successor revision.
+
+The compact machine editor sends the final game list with its name in one
+command. Removing an existing assignment, including a legacy
+`attached=false` row, requires the preview. Do not bypass confirmation.
+
+Point/machine/game-detach confirmation displays preview counts. The ten-minute
+token is actor/body/scope-bound; expiry or intervening writes requires a new
+preview. Both local owner and valid online recipients have this accepted
+destructive capability. It removes scoped management journal/saves, including
+correction audit entries, while actual global corrections and game data remain.
+Only the minimal pure-delete receipt persists and stays retryable.
+Ordinary slot Clear still retains history.
 
 The local PostgreSQL database is authoritative. The local Admin and recipient
 Reviewer use the same panel components. Recipient access covers this module and
@@ -22,8 +95,9 @@ Check other running workers and finish or safely pause their work first.
 An earlier production check recorded `0146_symbol_review_import_filter_index`.
 The final read-only T7 check on 2026-10-08 returned
 `0149_management_stake_saves`; acceptance did not apply that change. Always
-read the actual current revision again before rollout. Current delivery requires
-`0150_management_sessions`. The intervening graph includes the V7 branch
+read the actual current revision again before rollout. The original T1–T7
+delivery requires `0150_management_sessions`; the D-538 compact delivery
+requires `0153_merge_compact_super_games` and both0152 branches. The intervening graph includes the V7 branch
 `0146_v7_operator_sources` joined by `0147_merge_v7_main`; the merge itself is
 empty, but its other ancestry can contain real DDL. Do not assume the entire
 upgrade is limited to the management additions. Review the exact pending SQL
@@ -32,16 +106,18 @@ and prerequisites for the actual database state before applying it.
 ```powershell
 .venv\Scripts\python.exe -m alembic current
 .venv\Scripts\python.exe -m alembic heads
-.venv\Scripts\python.exe -m alembic history -r 0149_management_stake_saves:0150_management_sessions
-.venv\Scripts\python.exe -m alembic upgrade 0149_management_stake_saves:0150_management_sessions --sql > artifacts\management-upgrade-preview.sql
+.venv\Scripts\python.exe -m alembic history -r 0151_super_game_roles:0153_merge_compact_super_games
+.venv\Scripts\python.exe -m alembic upgrade 0151_super_game_roles:0153_merge_compact_super_games --sql > artifacts\management-upgrade-preview.sql
 if ($LASTEXITCODE -ne 0) { throw 'SQL preview failed; do not apply it.' }
 ```
 
 Use the revision actually returned by `current` for the SQL preview if it
-differs. A disconnected offline preview is not proof that live data meets
-every predecessor's constraints. Resolve unexpected branches or prerequisite
+differs; for an installed series branch use `0152_super_game_series:0153_merge_compact_super_games`. An installed compact branch uses `0152_management_compact_panel:0153_merge_compact_super_games` and skips the already-applied receipt backfill. Preview any earlier predecessor range separately before reaching0151.
+A disconnected offline preview is not proof that live data meets every
+predecessor's constraints. Resolve unexpected branches or prerequisite
 failures before proceeding. Management migrations 0148/0149/0150 are additive;
-their downgrade intentionally refuses removal of durable history. Do not use
+0152 backfills receipt scope. Their downgrade does not restore deleted data.
+Do not use
 `db:rollback`, database reset or a manual table drop as rollback.
 
 ## Back up and verify recovery
@@ -76,13 +152,37 @@ restore over the authoritative database merely to test the backup. Recovery
 after incompatible DDL requires restoring that verified backup with matching
 code/configuration; it is a separate explicit operator action.
 
+For a disposable database, use a unique name, create it empty, restore the
+binary archive and compare representative counts and frozen results with the
+source snapshot. Run this only after checking that the chosen name is unused;
+never target `game_predictor`. The following example assumes the default
+container and user, with the dump retained in the container:
+
+```powershell
+$restoreDb = 'game_predictor_restore_check_' + (Get-Date -Format 'yyyyMMddHHmmss')
+docker compose -f infra/docker/compose.yaml exec -T postgres createdb -U game_predictor $restoreDb
+if ($LASTEXITCODE -ne 0) { throw 'Disposable database creation failed.' }
+docker compose -f infra/docker/compose.yaml exec -T postgres pg_restore -U game_predictor -d $restoreDb --exit-on-error "/tmp/$backupName"
+if ($LASTEXITCODE -ne 0) { throw 'Disposable restore failed; do not migrate production.' }
+docker compose -f infra/docker/compose.yaml exec -T postgres psql -U game_predictor -d $restoreDb -c 'SELECT count(*) FROM management_points;'
+docker compose -f infra/docker/compose.yaml exec -T postgres psql -U game_predictor -d $restoreDb -c 'SELECT count(*) FROM management_stake_slots;'
+docker compose -f infra/docker/compose.yaml exec -T postgres psql -U game_predictor -d $restoreDb -c 'SELECT count(*) FROM management_operations;'
+docker compose -f infra/docker/compose.yaml exec -T postgres psql -U game_predictor -d $restoreDb -c 'SELECT count(*) FROM management_journal;'
+```
+
+Compare counts with read-only counts from the source at the backup snapshot.
+Inspect representative frozen result IDs and values separately. This proves
+restore readability for the checked archive, not rollback by Alembic downgrade.
+Keep the disposable database until verification is recorded; remove it only as
+a separate, deliberate cleanup action.
+
 ## Apply schema and application role
 
 After the SQL review, verified backup and maintenance window, run each command
 separately. Stop on the first nonzero exit code.
 
 ```powershell
-.venv\Scripts\python.exe -m alembic upgrade 0150_management_sessions
+.venv\Scripts\python.exe -m alembic upgrade 0153_merge_compact_super_games
 if ($LASTEXITCODE -ne 0) { throw 'Migration failed; keep services stopped.' }
 .venv\Scripts\python.exe scripts/provision_database_roles.py
 if ($LASTEXITCODE -ne 0) { throw 'Application role provisioning failed.' }
@@ -95,8 +195,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Application role check failed.' }
 `GAME_PREDICTOR_OWNER_DATABASE_URL` is the schema owner for the same database.
 Role checking must report compliance; `skipped` means the runtime uses the
 owner and does not demonstrate application-role isolation. The startup schema
-guard requires 0150. A schema readiness error is not resolved by restarting
-the same unmigrated database. No data backfill is required by management itself.
+guard requires exactly `0153_merge_compact_super_games`. A
+schema readiness error is not resolved by restarting the same unmigrated
+database. The 0152 receipt backfill requires its separate read-only classifier
+and operator confirmation above.
 
 ## Start local services and expose the recipient panel
 
@@ -152,15 +254,20 @@ unreachable. Check link usage before any planned tunnel stop.
 ## Daily panel workflow and recovery
 
 - Create/edit a point (name, city, street), then its named machines. Assign only
-  currently active games. Archive/restore points or machines and detach/reattach
-  games; these retain prior saves and history. There is no hard deletion UI.
+  currently active games. Use **Edytuj** or **Usuń** on a tile. Deleting a
+  point, machine or machine/game assignment requires a fresh preview with
+  counts and confirmation. It removes management saves and journal within
+  that scope. Actual global symbol corrections and game-owned data remain.
+  Historical archived entities appear in a collapsed section for deletion.
 - Select a machine and game. Six independent stakes appear in descending order:
   20,10,6,4,2,1.20 PLN. Browsing, ranges and 0–6 pins are drafts. Use
   **Zapisz układ** to persist exactly the selected start/range/pins.
-- Search again keeps the previous save until replacement. Clear requires
-  confirmation and clears only that stake slot. Its journal and frozen results
-  remain. Current symbol corrections write immediately to global game data.
-- Open shows the prior result while current data is checked. Changed data
+- **Nowy układ** resets only the draft; the saved slot remains until confirmed
+  **Zastąp układ** or **Usuń zapisany układ**. The latter clears only that stake
+  slot and retains its ordinary journal. **Zapisz zmiany** updates the same
+  start. Current symbol corrections write immediately to global game data.
+- Selecting a saved stake shows prior quick pin rows while current data is
+  checked. Expanding the saved result loads the full rows. Changed data
   records before/after; stale/error retains prior numbers. Unavailable pinned
   spin positions are explicit. Historical charts, rows, symbols and rules stay
   frozen; the historical board editor explicitly targets current data.
@@ -170,9 +277,10 @@ unreachable. Check link usage before any planned tunnel stop.
   A revision conflict retains the draft; inspect the latest acknowledged state
   before choosing a replacement. Do not share storage across different links.
 
-History defaults to 20 entries per page; full result rows load only after Open
-and paginate 50. Point lists do not preload charts. A selected game loads six
-compact cards and at most two concurrent refreshes. Names are labels; stable
+History defaults to 20 entries per page; full result rows load after expanding
+the saved result/table and paginate 50. Point lists do not preload charts. A
+selected game loads six compact cards and at most two concurrent refreshes.
+The quick pin rows load from summaries. Names are labels; stable
 UUIDs and domain sequence numbers identify the actual records.
 
 ## Availability and remaining live checks
@@ -192,12 +300,14 @@ current public URL. Automated static browser fixtures and disposable database
 process tests do not replace those real-device/live-ingress/reboot checks.
 
 The reproducible browser gate uses an already installed Chrome/Edge, static
-React/CSS and mock API records. It performs touch gestures at 390px, checks
-44px controls and horizontal overflow, and writes stage screenshots/results
-under `artifacts/management-panel-browser/browser`. It starts no application
-service and downloads no browser. The displayed symbol bitmap is a fixture,
-not a production image. Each CDP command has a 15-second bound; the flow has a
-45-second deadline and closes only its own isolated browser profile.
+React/CSS and mock API records. It performs touch gestures at 390px and checks
+390/1440/1920px geometry with 1/4/40 points, up to 40 machines per point and
+200 active game IDs. It checks 44px controls, maximum 320px tiles and horizontal
+overflow, and writes stage screenshots/results under
+`artifacts/management-panel-browser/browser`. It starts no application service
+and downloads no browser. The displayed symbol bitmap is a fixture, not a
+production image. Each CDP command has a 15-second bound; the full run has a
+110-second deadline and closes only its own isolated browser profile.
 
 ```powershell
 npm run reviewer:management:browser

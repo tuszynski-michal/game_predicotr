@@ -1,4 +1,4 @@
-"""PostgreSQL persistence of the geometry correction revert (TASK-0945, plan D-538).
+"""PostgreSQL persistence of the geometry correction revert (TASK-0966, plan D-542).
 
 A correction is one ``geometry_saved`` event with its board geometry revision.
 Case B (``pending_slot``): the save resolved a deferred slot. Its revert, in
@@ -24,7 +24,7 @@ advisory lock -> source image -> deferred slot -> board and review item):
    ``waiting_for_review`` while it has open work, advances the catalog
    revision and the super game input version, and appends the audit row.
 
-Case A (``board_revision``, TASK-0946): the save added revision ``N`` of an
+Case A (``board_revision``, TASK-0967): the save added revision ``N`` of an
 existing board. Its revert, under the save's locks (review sequences ->
 source image -> board -> review item -> cells), refuses with the first
 blocking rule, then appends revision ``N + 1`` with the geometry of the
@@ -44,7 +44,7 @@ the super game input version. Nothing is deleted.
 "Transaction of the correction" is identified structurally: ``T`` is the
 ``created_at`` (server ``now()``) of the render manifest the save wrote for
 its board geometry revision; cells, cell events and the source revision the
-same save wrote carry the same ``now()`` (Z1, verified in TASK-0946). The
+same save wrote carry the same ``now()`` (Z1, verified in TASK-0967). The
 events of one transaction therefore share one timestamp; their order within
 a cell is its cell revision.
 """
@@ -365,7 +365,7 @@ WHERE game_id = :game_id AND (review_item_id = :review_item_id OR recognized_boa
 ORDER BY cell_index, id
 """
 
-# Case A pins (lead decision for D-538, TASK-0946 audit P1-1):
+# Case A pins (lead decision for D-542, TASK-0967 audit P1-1):
 # - training cohorts and the symbol reference library: always;
 # - bulk targets: by identity, when they expect the discarded revision
 #   (``expected_geometry_revision >= N``);
@@ -450,7 +450,7 @@ SELECT
       AND re.review_item_id <> :review_item_id
       AND re.resolved_value ->> 'ownerReviewItemId' = CAST(:review_item_id AS text)
   )
-  -- TASK-0950: the correction took over the sequence of a rejected owner (it
+  -- TASK-0971: the correction took over the sequence of a rejected owner (it
   -- closed a rejected slot, or a rejected item of another image holds the
   -- number); the replaced image's gate counts on this item.
   OR EXISTS (
@@ -679,7 +679,7 @@ def _blocked(reason: RevertBlockingReason) -> ImageReviewConflictError:
 class SqlAlchemyGeometryCorrectionRevertRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
-        # TASK-0949: rejections of slots and boards share the list and the revert.
+        # TASK-0970: rejections of slots and boards share the list and the revert.
         self._rejections = GeometryRejectionRevertOperations(session)
 
     # -- reads -------------------------------------------------------------
@@ -765,7 +765,7 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
         self._session.execute(
             select(func.pg_advisory_xact_lock(_idempotency_lock_key(game_id, idempotency_key)))
         )
-        # TASK-0950 (P0-7): every revert kind (slot correction, board revision,
+        # TASK-0971 (P0-7): every revert kind (slot correction, board revision,
         # slot and board rejection) writes sources, items and the counters
         # state: exclusive ownership before any sequence, source or row lock.
         acquire_sequence_ownership_lock(self._session, game_id=game_id)
@@ -782,7 +782,7 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
             return _result_from_audit(prior, created=False)
         # One key is one command within the game: besides the audit above, the slot
         # rejection events and every resolution event are searched before anything
-        # is written (TASK-0949, P0-7).
+        # is written (TASK-0970, P0-7).
         uses = self._rejections.key_uses(game_id, idempotency_key)
         rejection = self._rejections.find(
             game_id=game_id, import_job_id=import_job_id, entry_id=board_geometry_revision_id
@@ -1097,7 +1097,7 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
         reverted_at: datetime,
         render_verifier: RestoredRenderVerifier | None,
     ) -> GeometryCorrectionRevertResult:
-        """Case A (TASK-0946): append revision ``N + 1`` = revision ``N - 1``.
+        """Case A (TASK-0967): append revision ``N + 1`` = revision ``N - 1``.
 
         Nothing is deleted. The new revision copies the previous revision's
         geometry and reuses its stored render specification, points at the
@@ -1691,7 +1691,7 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
             image_after = predicted_status_after_slot_revert(image_status)
             pinned = bool(self._scalar(_PINNED_SQL, pin_parameters))
         else:
-            # Case A (TASK-0946): the board, its item and its cells existed
+            # Case A (TASK-0967): the board, its item and its cells existed
             # before the correction. Its own transaction writes only the
             # geometry invalidation and the D-488 symbols; any other cell
             # event sharing its ``now()`` is a change this revert cannot undo.
@@ -2054,7 +2054,7 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
     ) -> dict[UUID, ImageSymbolReviewEventModel]:
         """The first event of each cell inside the correction transaction.
 
-        Z1 (verified, TASK-0946): every cell event of one transaction carries
+        Z1 (verified, TASK-0967): every cell event of one transaction carries
         the same ``created_at`` (server ``now()``), so the timestamp selects
         the transaction but cannot order its events; the cell revision does
         (each event of a cell increments it).
@@ -2315,7 +2315,7 @@ def _approval_history(
 
     The earliest correction event names the approval (sample, checksum,
     revision). Its full provenance comes, in this order, from that event
-    (written since TASK-0946), from the cell itself while it still carries
+    (written since TASK-0967), from the cell itself while it still carries
     that approval, or from the newest earlier event that recorded the same
     approval with full provenance. Nothing is combined with the provenance of
     another render (audit P0-2): without such a record it is ``None``.

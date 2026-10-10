@@ -530,7 +530,7 @@ nakładania i padded source support; nie jest to obniżenie progów v1.
 - Zapis rozpoznania ponownie sprawdza bieżącego kanonicznego właściciela
   `game + sequence_number`; wynik człowieka wygrywa, a nowe źródło jest jedynie
   alternatywą. Replay identycznych checkpointów jest idempotentny.
-- Własność nierozwiązanej sekwencji (D-539, zmienia D-238; TASK-0950): nowa
+- Własność nierozwiązanej sekwencji (D-543, zmienia D-238; TASK-0971): nowa
   plansza importu albo ręcznie rozwiązanego slotu przejmuje sekwencję tylko,
   gdy ta nie ma żywego właściciela albo jej właściciel jest odrzucony (pozycja
   `rejected` lub slot `rejected`). Żywa pozycja `pending` innego zdjęcia

@@ -1,6 +1,6 @@
-"""Who owns a known sequence number when a new board arrives (D-539, TASK-0950).
+"""Who owns a known sequence number when a new board arrives (D-543, TASK-0971).
 
-D-539 changes D-238 ("the newest import replaces an unresolved board"). For one
+D-543 changes D-238 ("the newest import replaces an unresolved board"). For one
 game and one known ``sequence_number`` there is at most one active ``pending``
 review item. A new board of an import or of a manual slot resolution:
 
@@ -33,7 +33,7 @@ CANONICAL_OWNER_KEPT_REASON: Final = "canonical_sequence_already_resolved"
 NEWER_SAME_SOURCE_OWNER_KEPT_REASON: Final = "pending_sequence_owned_by_newer_import"
 OLDER_SAME_SOURCE_OWNER_REPLACED_REASON: Final = "pending_sequence_replaced_by_newer_import"
 EXISTING_OWNER_KEPT_REASON: Final = "superseded_existing_owner_kept"
-"""Reason of the superseded new item and of its sequence alternative (D-539)."""
+"""Reason of the superseded new item and of its sequence alternative (D-543)."""
 CANONICAL_ALTERNATIVE_REASON: Final = "superseded_first_save_wins"
 """Reason of the sequence alternative of a source skipped for a canonical owner."""
 SKIPPED_OWNER_REASONS: Final = (EXISTING_OWNER_KEPT_REASON, CANONICAL_ALTERNATIVE_REASON)
@@ -102,7 +102,7 @@ def decide_sequence_claim(
     incoming_source_checksum_sha256: str | None,
     incoming_order: ImportOrder,
 ) -> SequenceClaim:
-    """Decide the owner of one sequence for an incoming board (D-539).
+    """Decide the owner of one sequence for an incoming board (D-543).
 
     ``incumbent`` is the live ``pending`` item of the sequence (at most one by
     the partial unique index); rejected items and rejected slots are not

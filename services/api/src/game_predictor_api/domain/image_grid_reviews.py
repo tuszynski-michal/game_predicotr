@@ -29,6 +29,20 @@ class ImageGridReviewView(StrEnum):
     CORRECTION = "correction"
 
 
+class ImageGridReviewCountsMode(StrEnum):
+    """Which counters a grid review page computes (TASK-0961).
+
+    ``ALL`` keeps the full set (seven aggregate queries over every current
+    board of the game). ``CORRECTION`` computes only ``correction`` — the
+    reported boards plus the deferred slots of the D-462 R4 queue — and
+    reports every other counter as ``0``; the Reviewer polls the correction
+    queue after every board and must not pay for the full set each time.
+    """
+
+    ALL = "all"
+    CORRECTION = "correction"
+
+
 class ImageGridReviewCursorDirection(StrEnum):
     AFTER = "after"
     BEFORE = "before"
@@ -259,6 +273,7 @@ def decode_image_grid_review_cursor(
 __all__ = [
     "ImageGridReview",
     "ImageGridReviewCounts",
+    "ImageGridReviewCountsMode",
     "ImageGridReviewCursorDirection",
     "ImageGridReviewError",
     "ImageGridReviewListFilter",

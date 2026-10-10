@@ -1263,7 +1263,7 @@ odtworzyć predykcję po retencji ciężkich stage payloadów. Rewizja powstaje
 wyłącznie dla nadal oczekującego review itemu; retry identycznego joba korzysta
 z istniejącej rewizji.
 
-#### Cofnięcie korekty cięcia siatki (TASK-0945, migracja `0153`)
+#### Cofnięcie korekty cięcia siatki (TASK-0966, migracja `0154`)
 
 - `image_source_geometry_revisions.status` dopuszcza `reverted`. Rewizja
   cofniętej korekty zostaje (historia, FK zdarzeń), ale nigdy nie jest
@@ -1282,19 +1282,19 @@ z istniejącej rewizji.
   (`cropped`/`blurred`/`other`, `other` wymaga `rejection_note`),
   `rejection_note`, `rejected_at`, `rejected_by`; slot `pending`/`resolved`
   nie ma pól odrzucenia, `superseded` może je zachować jako historię.
-- `image_board_geometry_pending_events` (manifest v7, TASK-0949): niezmienna,
+- `image_board_geometry_pending_events` (manifest v7, TASK-0970): niezmienna,
   trwała tożsamość odrzucenia slotu i jego cofnięcia (`action` `rejected` |
   `rejection_reverted`, `idempotency_key` UNIQUE per gra,
   `command_sha256`, numer odrzucenia slotu `rejection_revision`, powód, opis,
   aktor). Slot zapomina odrzucenie przy cofnięciu (CHECK cyklu życia), zdarzenia
   zostają: powtórzenie polecenia zwraca zapisany wynik, a cofnięcie jest
   przypięte do zdarzenia odrzucenia (starego żądania nie da się zastosować do
-  nowszego odrzucenia). Bez FK do slotu. TASK-0950 (D-539): akcja
+  nowszego odrzucenia). Bez FK do slotu. TASK-0971 (D-543): akcja
   `superseded` z `successor_review_item_id` (bez FK; wymagane tylko dla tej
   akcji, bez powodu i opisu) zapisuje przejęcie sekwencji odrzuconego slotu
   przez pozycję zdjęcia zastępczego; slot przechodzi wtedy w `superseded`
   (`superseded_at`) i zachowuje pola odrzucenia jako historię.
-- Kolejność blokad zapisów własności sekwencji i bramki (TASK-0950,
+- Kolejność blokad zapisów własności sekwencji i bramki (TASK-0971,
   `storage/sequence_ownership_lock.py`): blokada klucza idempotencji albo
   wiersz dzierżawy joba workera (`FOR NO KEY UPDATE`, żeby kontrole kluczy
   obcych `FOR KEY SHARE` wstawień odwołujących się do joba na nią nie czekały;
@@ -1330,7 +1330,7 @@ z istniejącej rewizji.
   wersję wejścia supergry (`geometry_correction_revert`).
   `source_images.processed_at` nie jest przywracane (brak zapisu wartości
   sprzed korekty).
-- Cofnięcie korekty istniejącej planszy (przypadek A, TASK-0946) niczego nie
+- Cofnięcie korekty istniejącej planszy (przypadek A, TASK-0967) niczego nie
   usuwa: dopisuje rewizję `N + 1` z geometrią (`geometry`, `corners`)
   poprzedniej rewizji planszy (`N − 1`; dla `0` — `image_review_items.snapshot`
   importu i wpis slotu rewizji źródła), wskazującą poprzednią rewizję
@@ -1348,7 +1348,7 @@ z istniejącej rewizji.
   zdarzenia, które je zapisało). Zdarzenia `geometry_reverted` planszy
   (`approved_geometry_revision` NOT NULL: przy braku zatwierdzenia zapisuje
   `N + 1`, wiarygodny jest wiersz planszy) i komórek (pełne `previous_*`).
-  Od TASK-0946 zdarzenia `geometry_invalidated` korekty zapisują też
+  Od TASK-0967 zdarzenia `geometry_invalidated` korekty zapisują też
   `previous_approved_asset_mode`, `..._source_geometry_revision_id`,
   `..._render_spec_checksum_sha256` i `..._rendered_pixel_checksum_sha256`.
   Runda poprawek audytu: komórki przywracanej rewizji są renderowane ponownie

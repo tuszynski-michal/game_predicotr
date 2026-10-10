@@ -1,4 +1,4 @@
-"""TASK-0950 (audit round 4): the global lock order of takeovers and their neighbours.
+"""TASK-0971 (audit round 4): the global lock order of takeovers and their neighbours.
 
 Runs on a dedicated ``*_test`` database only. P0-6: a direct resolution must
 not wait for the job row the worker of the same import holds. P0-7: a takeover
@@ -237,7 +237,7 @@ def test_the_main_entry_points_follow_the_global_lock_order(
                 expected_geometry_revision=geometry,
                 expected_crop_sample_id=sample,
                 expected_crop_checksum_sha256=checksum,
-                actor="task-0950-operator",
+                actor="task-0971-operator",
             )
         _resolve_board(factory, old, items[2], action=ImageReviewAction.REJECTED, reason="cropped")
         [rejection] = [

@@ -1,4 +1,4 @@
-"""TASK-0950 (D-539): the worker import writer uses the shared ownership rule.
+"""TASK-0971 (D-543): the worker import writer uses the shared ownership rule.
 
 The PostgreSQL scenarios of the rule run the worker writer itself
 (``services/api/tests/integration/test_replacement_photo_takeover_postgres.py``);

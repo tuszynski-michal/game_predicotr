@@ -1,4 +1,4 @@
-"""Revert of the last manual grid-geometry correction (TASK-0945, plan D-538).
+"""Revert of the last manual grid-geometry correction (TASK-0966, plan D-542).
 
 Pure rules: the kinds of a correction, the fail-closed eligibility of a revert
 evaluated from facts read under lock, the predicted gate status of the image
@@ -13,9 +13,9 @@ A *correction* is one manual geometry save of one board, identified by its
 * ``board_revision`` (case A): the save added revision ``N`` of an existing
   board; its revert appends revision ``N + 1`` with the geometry and render of
   the board's previous revision and restores the cells' decisions from the
-  earliest event of the correction transaction (TASK-0946).
+  earliest event of the correction transaction (TASK-0967).
 
-TASK-0949 adds the ``rejection`` kind to the same list: an operator's rejection
+TASK-0970 adds the ``rejection`` kind to the same list: an operator's rejection
 of a deferred slot or of a cropped board. Its revert restores the slot (or the
 review item) to ``pending`` unless a replacement owns the sequence.
 """
@@ -59,7 +59,7 @@ GEOMETRY_CORRECTION_NOT_FOUND: Final = "GEOMETRY_CORRECTION_NOT_FOUND"
 GEOMETRY_CORRECTION_REVERTED: Final = "GEOMETRY_CORRECTION_REVERTED"
 GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT: Final = "GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT"
 GEOMETRY_REVERT_REQUEST_INVALID: Final = "GEOMETRY_REVERT_REQUEST_INVALID"
-# Case A renders the restored cells (TASK-0946 audit P0-3).
+# Case A renders the restored cells (TASK-0967 audit P0-3).
 GEOMETRY_REVERT_RENDER_FAILED: Final = "GEOMETRY_REVERT_RENDER_FAILED"
 GEOMETRY_REVERT_RENDERER_UNAVAILABLE: Final = "GEOMETRY_REVERT_RENDERER_UNAVAILABLE"
 
@@ -92,7 +92,7 @@ class RevertBlockingReason(StrEnum):
     REOPENED_RESOLUTION = "GEOMETRY_REVERT_REOPENED_RESOLUTION"
     HISTORY_INCOMPLETE = "GEOMETRY_REVERT_HISTORY_INCOMPLETE"
     NOT_SUPPORTED = "GEOMETRY_REVERT_NOT_SUPPORTED"
-    # TASK-0949: another live board owns the rejected sequence (a replacement).
+    # TASK-0970: another live board owns the rejected sequence (a replacement).
     REPLACED = "GEOMETRY_REVERT_REPLACED"
 
 
@@ -168,7 +168,7 @@ class RevertEligibilityFacts:
     pinned: bool
     reopened_resolution: bool
     revert_supported: bool
-    # Case A: the provenance of every restored approval is recorded (TASK-0946).
+    # Case A: the provenance of every restored approval is recorded (TASK-0967).
     history_complete: bool = True
 
 
@@ -227,7 +227,7 @@ def evaluate_revert_eligibility(facts: RevertEligibilityFacts) -> RevertBlocking
     return None
 
 
-# -- rejections (TASK-0949) ---------------------------------------------------
+# -- rejections (TASK-0970) ---------------------------------------------------
 
 BOARD_REJECT_CANONICAL: Final = "BOARD_REJECT_CANONICAL"
 _OTHER_REASON_PREFIX: Final = "other:"
@@ -241,7 +241,7 @@ class RejectionRevertFacts:
     revision of the rejection event) is still rejected; ``position_free`` is
     false when a newer open slot or a board already sits at a rejected slot's
     position (restoring would duplicate it); ``replaced`` means a live review
-    item of another image owns the sequence number (TASK-0950 replaces the
+    item of another image owns the sequence number (TASK-0971 replaces the
     rejected owner this way). ``cas_matches`` is ``None`` when no tokens were
     supplied (list and preview).
     """
@@ -291,7 +291,7 @@ def decode_board_rejection_reason(text: str | None) -> tuple[str | None, str | N
     return None, value or None
 
 
-# -- case A: restoring the cells and the board approval (TASK-0946) ----------
+# -- case A: restoring the cells and the board approval (TASK-0967) ----------
 
 # Cell events a correction transaction writes itself: the geometry write
 # (``geometry_invalidated``) and the operator's D-488 symbols.
@@ -306,7 +306,7 @@ class PreviousCellDecision:
 
     The values are the ``previous_*`` columns of the earliest cell event of
     the correction transaction; ``assignment_source`` is ``None`` for events
-    written before migration ``0153``.
+    written before migration ``0154``.
     """
 
     assigned_symbol_id: UUID | None
@@ -342,7 +342,7 @@ def restored_assignment_source(
     previous_review_state: str,
     previous_quality_issue: str | None,
 ) -> str:
-    """The recorded source, else the plan's rule for events before ``0153``.
+    """The recorded source, else the plan's rule for events before ``0154``.
 
     A previous approval was a human decision; a partially visible cell was
     labelled by the partial-geometry rule; anything else came from the model.

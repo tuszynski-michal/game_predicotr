@@ -49,11 +49,11 @@ istniejących gier, wpisuje wiersze manifestu v6 i przestawia
 Downgrade odmawia, gdy istnieje zdefiniowany super symbol, wpis audytu albo
 niezakończony job wyprowadzania; wiersze wyprowadzone są odtwarzalne.
 
-## Manifest v7 — audyt cofnięć korekt siatki (TASK-0945)
+## Manifest v7 — audyt cofnięć korekt siatki (TASK-0966)
 
-`game_data_v2_manifest_v7.py` (migracja `0153_geometry_correction_revert`)
+`game_data_v2_manifest_v7.py` (migracja `0154_geometry_correction_revert`)
 dodaje do `GAME_TABLES` dokładnie dwie tabele klasy `game`
-(TASK-0949 dopisał drugą przed pierwszym wdrożeniem migracji):
+(TASK-0970 dopisał drugą przed pierwszym wdrożeniem migracji):
 `image_board_geometry_pending_events` (trwała tożsamość odrzuceń slotów) i
 `image_geometry_correction_reverts` (NOT NULL `game_id`, partycja
 `LIST (game_id)`, wymuszone RLS `game_scope_v1`, FK właściciela do `games` i

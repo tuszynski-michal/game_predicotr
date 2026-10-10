@@ -156,7 +156,7 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
     monkeypatch.setattr(
         editor, "acquire_image_sequence_locks", lambda *a, **kw: events.append("sequence")
     )
-    # TASK-0950 (P0-4): the game's sequence-ownership lock precedes every other lock.
+    # TASK-0971 (P0-4): the game's sequence-ownership lock precedes every other lock.
     monkeypatch.setattr(
         editor, "acquire_sequence_ownership_lock", lambda *a, **kw: events.append("ownership")
     )

@@ -48,7 +48,9 @@ export default async function HomePage({
     loopbackLocal &&
     !gridAuditMode &&
     !gridShadowMode &&
-    UUID.test(importJobId);
+    // TASK-0962: the import is optional; a present but malformed one is not
+    // a local scope.
+    (importJobId === '' || UUID.test(importJobId));
   const apiBaseUrl =
     localMode || gridAuditMode || gridShadowMode
       ? resolveLocalAdminApiBaseUrl(process.env.REVIEWER_INTERNAL_API_ORIGIN)
@@ -64,7 +66,14 @@ export default async function HomePage({
         gridShadowMode ? { gameId, resultId, positionIndex } : null
       }
       gridValidationEnabled={localMode}
-      localScope={localMode ? { gameId, importJobId } : null}
+      localScope={
+        localMode
+          ? {
+              gameId,
+              importJobId: importJobId === '' ? undefined : importJobId,
+            }
+          : null
+      }
       sessionId={sessionId}
     />
   );

@@ -68,7 +68,13 @@ class SuperGameSeriesDeriveHandler:
                 "The super game series handler received another job type or no game.",
             )
 
+        # Job progress counters must never decrease, so the final checkpoint
+        # repeats the last reported position window instead of the series count.
+        last_progress = {"current": 0, "total": 0}
+
         def progress(current: int, total: int, series_count: int) -> None:
+            last_progress["current"] = max(last_progress["current"], current)
+            last_progress["total"] = max(last_progress["total"], total)
             context.checkpoint(
                 checkpoint_payload={
                     "schema_version": 1,
@@ -91,8 +97,8 @@ class SuperGameSeriesDeriveHandler:
         context.checkpoint(
             checkpoint_payload=_report_payload(report),
             stage=_STAGE,
-            current=report.series_count,
-            total=report.series_count,
+            current=last_progress["current"],
+            total=last_progress["total"],
             success_count=report.series_count,
             failure_count=0,
             review_count=0,

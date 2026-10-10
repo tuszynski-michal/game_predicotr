@@ -495,7 +495,7 @@ class BoardCellGeometryPendingService:
         rejected_by: str,
         rejected_at: datetime,
     ) -> BoardCellGeometryRejection:
-        """Reject an open deferred slot (TASK-0949); the image keeps waiting.
+        """Reject an open deferred slot (TASK-0970); the image keeps waiting.
 
         The slot leaves the correction queue and its counters, is never cut
         and counts as a missing board for the completeness gate (W8). A retry

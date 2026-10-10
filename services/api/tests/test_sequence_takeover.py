@@ -1,4 +1,4 @@
-"""D-539 (TASK-0950): the pure sequence ownership rule shared by API and worker."""
+"""D-543 (TASK-0971): the pure sequence ownership rule shared by API and worker."""
 
 from __future__ import annotations
 

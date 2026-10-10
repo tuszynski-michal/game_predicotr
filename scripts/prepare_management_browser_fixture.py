@@ -5,10 +5,21 @@ repo = Path.cwd()
 out = repo / "artifacts/management-panel-browser/browser"
 out.mkdir(parents=True, exist_ok=True)
 source = (repo / "apps/reviewer/test-interactions/management-panel.test.mjs").read_text("utf-8")
-for delimiter in ("const sessionId =", "const text =", "function backend(", "test('phone-width"):
+for delimiter in (
+    "const sessionId =",
+    "const stakes =",
+    "const symbol =",
+    "const text =",
+    "function backend(",
+    "test('phone-width",
+):
     if source.count(delimiter) != 1:
         raise RuntimeError(f"Expected exactly one management mock fixture delimiter: {delimiter}")
-data = source[source.index("const sessionId =") : source.index("const text =")]
+data = (
+    source[source.index("const sessionId =") : source.index("const otherSession =")]
+    + source[source.index("const stakes =") : source.index("test('new structural ports")]
+    + source[source.index("const symbol =") : source.index("const text =")]
+)
 backend = source[source.index("function backend(") : source.index("test('phone-width")]
 header = """import React from 'react';
 import {createRoot} from 'react-dom/client';
@@ -19,6 +30,9 @@ import {createManagementPublicAdapter}
 globalThis.React=React;
 const assert={fail(message){throw Error(message)}};
 window.confirm=()=>true;
+window.addEventListener('error', event => {
+  window.fixtureError = String(event.error || event.message);
+});
 """
 flow = (repo / "scripts/management_browser_flow.mjs").read_text("utf-8")
 (out / "fixture.tsx").write_text(header + data + backend + flow, encoding="utf-8")

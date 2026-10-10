@@ -343,7 +343,7 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
         metadata,
         *(Column(name, ImageSymbolReviewCellModel.__table__.c[name].type) for name in columns),
     )
-    # TASK-0949: the cells of a rejected review item are not visible.
+    # TASK-0970: the cells of a rejected review item are not visible.
     items = Table(
         "image_review_items",
         metadata,

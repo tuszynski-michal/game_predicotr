@@ -2985,7 +2985,7 @@ superseded, importFailed}`, gdzie `incomplete = total - complete - superseded`
 `positions[{state, reasonCode | null, count}]` (pozycje według stanu; stan
 `deferred` z kodem powodu odroczenia), `sourceStatuses[{imageState,
 sourceStatus, count}]` (m.in. zdjęcia `processing`), `computedAt` i
-`sequenceOwnership` (tylko z `importJobId`, inaczej `null`; D-539, TASK-0950):
+`sequenceOwnership` (tylko z `importJobId`, inaczej `null`; D-543, TASK-0971):
 `{replacedCount, replacedSequenceNumbers, skippedCount,
 skippedSequenceNumbers}`. „Zastąpione” to sekwencje, których żywym właścicielem
 jest plansza tego importu, a inne zdjęcie miało dla nich odrzuconą pozycję
@@ -3018,6 +3018,32 @@ której plansza została pocięta; dla pozycji bez żywej planszy z rewizji
 bieżącej), `null` gdy rewizja nie ma czworokąta. Pole `previewReviewItemId`
 (TASK-0806) zostało usunięte: podgląd każdego zdjęcia, także bez planszy, daje
 endpoint po `sourceImageId`.
+
+**TASK-0961 (realne braki i flaga zatwierdzenia ręcznego):**
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?gapsOnly=true
+```
+
+Parametr boolowski `gapsOnly` (domyślnie `false`) zawęża listę jednym
+zapytaniem do czterech stanów realnych braków: `incomplete_missing`,
+`incomplete_partial`, `import_failed`, `no_source_geometry` (stała
+`REAL_GAP_IMAGE_STATES` w `domain/image_geometry_completeness.py`). Nie
+obejmuje `incomplete_uncertain` (automatyczna siatka bez potwierdzenia
+człowieka — wyłącznie licznik) ani `superseded`. Połączenie `gapsOnly=true` z
+`imageState` albo `completenessStatus` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT` (bez cichego wyboru jednego z
+filtrów). Strona odpowiedzi ma pole `gapsOnly` (echo filtra). Kursor i
+sortowanie są takie same jak w liście domyślnej; klasyfikacja D-484 nie
+zmienia się.
+
+Każda pozycja (`positions[]`) ma pole `humanApproved: bool` — `true`, gdy
+człowiek zatwierdził bieżącą geometrię planszy na tej pozycji
+(`approved_geometry_revision == geometry_revision`, ten sam fakt
+`geometry_approved`, który czyta klasyfikator), `false` bez żywej planszy.
+Plansza częściowa zakwalifikowana ręcznie (D-449) pozostaje w stanie `partial`;
+flaga pozwala Reviewerowi domyślnie ukryć zdjęcia, których wszystkie pozycje
+`partial` są już zatwierdzone.
 
 `GET .../images/{sourceImageId}/source` zwraca plik zdjęcia źródłowego (`200`
 `image/jpeg|png|webp`, `Cache-Control: private, immutable, max-age=31536000`).
@@ -3293,6 +3319,21 @@ TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
 usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
 allowliście.
 
+**TASK-0961 (tanie liczniki korekty):** `GET .../grid-reviews` przyjmuje
+opcjonalny parametr `counts` o wartościach `all` (domyślna, liczniki i
+zachowanie bez zmian) i `correction`. W trybie `correction` odpowiedź ma
+poprawne `counts.correction` (plansze ze zgłoszeniem „Zła siatka” plus sloty
+odroczone bez żywej planszy — D-462 R4, te same predykaty co lista
+`view=correction`), a pozostałe liczniki (`needsValidation`,
+`needsCorrection`, `approved`, `total`, `fullGrids`,
+`lateralPartialProposals`, `confirmedPartialGrids`, `manualCorrection`) są
+równe `0` i nie oznaczają pustej kolejki; opis parametru i schematu
+`ImageGridReviewCountsResponse` w OpenAPI mówi to wprost. Implementacja:
+osobna metoda repozytorium `grid_review_correction_count` (dwa zliczenia
+zamiast siedmiu agregatów `grid_review_counts`), wybierana w
+`ImageGridReviewService.list`. Reviewer woła `counts=correction` po każdej
+planszy w zakresie całej gry.
+
 **D-488 (TASK-0820):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
 oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują
 opcjonalne `cellSymbols: [{ cellIndex, symbolId }]`. Każde wskazane pole jest
@@ -3552,7 +3593,7 @@ administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
 `gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
 Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
 
-Odrzucenie slotu (`rejectPendingBoardCellGeometry`, TASK-0949, plan D-539)
+Odrzucenie slotu (`rejectPendingBoardCellGeometry`, TASK-0970, plan D-543)
 przyjmuje `{idempotencyKey, reason, note?, expectedGeometryRevision}`, gdzie
 `reason` to `cropped` („Plansza przycięta”), `blurred` („Rozmyta”) albo `other`
 (wymaga `note` 1-1000 znaków; przy pozostałych powodach notatka jest
@@ -3582,7 +3623,7 @@ kanonicznego właściciela sekwencji kończy się `409 BOARD_REJECT_CANONICAL`.
 Powód planszy jest jednym tekstem (1-500 znaków): `cropped`, `blurred` albo
 `other: <opis>`.
 
-Cofanie korekt geometrii importu (TASK-0947, plan D-538) udostępniają trzy
+Cofanie korekt geometrii importu (TASK-0968, plan D-542) udostępniają trzy
 trasy w zakresie gry (`game_storage_scope(gameId)`, D-442):
 
 ```text
@@ -3617,7 +3658,7 @@ Błędy używają standardowej koperty `ErrorResponse` (`code`, `message`,
 `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`, `GEOMETRY_REVERT_RENDER_FAILED` i
 `GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`.
 
-Lista zawiera też odrzucenia (TASK-0949): element `kind = rejection` z
+Lista zawiera też odrzucenia (TASK-0970): element `kind = rejection` z
 `rejectionTarget` (`pending_slot` | `review_item`), `rejectionReason`
 (`cropped` | `blurred` | `other`, `null` dla dawnego tekstu wolnego) i
 `rejectionNote`. W takim elemencie `boardGeometryRevisionId` jest

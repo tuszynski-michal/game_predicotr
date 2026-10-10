@@ -1,4 +1,4 @@
-"""TASK-0946: revert of a correction of an existing board (case A, PostgreSQL).
+"""TASK-0967: revert of a correction of an existing board (case A, PostgreSQL).
 
 Runs on a dedicated ``*_test`` database only (fixtures of
 ``test_virtual_deferred_resolution_postgres`` and the import writer of
@@ -587,7 +587,7 @@ def _insert_prediction_revision(
                     id, game_id, review_item_id, recognized_board_id, source_job_id,
                     model_version, model_checksum_sha256, crop_manifest_checksum_sha256,
                     predictions, created_at)
-                VALUES (:id, :game_id, :item_id, :board_id, :job_id, 'task-0946-model',
+                VALUES (:id, :game_id, :item_id, :board_id, :job_id, 'task-0967-model',
                     :model, :crops, CAST(:predictions AS jsonb),
                     now() - CAST(:age AS interval))"""
             ),
@@ -597,8 +597,8 @@ def _insert_prediction_revision(
                 "item_id": entry.review_item_id,
                 "board_id": entry.recognized_board_id,
                 "job_id": seed.import_job_id,
-                "model": _sha("task-0946-model"),
-                "crops": _sha(f"task-0946-crops:{revision_id}"),
+                "model": _sha("task-0967-model"),
+                "crops": _sha(f"task-0967-crops:{revision_id}"),
                 "predictions": json.dumps({} if predictions is None else predictions),
                 "age": age,
             },
@@ -733,7 +733,7 @@ def test_revert_of_a_second_correction_restores_the_first_revision(
     result = _revert(factory, seed, second, key=uuid4(), verifier=renderer)
     assert result.restored_geometry_revision == 3
     reverted = _world(factory, game_id)
-    # Lead decision (D-538): the approval of revision 1 follows its geometry
+    # Lead decision (D-542): the approval of revision 1 follows its geometry
     # to revision 3 with its original time and actor.
     _assert_restored(
         before,
@@ -872,11 +872,11 @@ def test_an_approval_without_recorded_provenance_is_never_reconstructed(
     database: _Database,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    """P0-2 and the ``assignment_source`` rule for events before 0153/0946.
+    """P0-2 and the ``assignment_source`` rule for events before 0154/0967.
 
     Cell 5 was approved on revision 1; correction 2 left that approval as
     history and a D-488 symbol overwrote the cell's approval columns. Its
-    events are rewritten to the format before TASK-0946 (no approval
+    events are rewritten to the format before TASK-0967 (no approval
     provenance, no ``previous_assignment_source``).
     """
 

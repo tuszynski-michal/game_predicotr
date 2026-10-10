@@ -21,6 +21,7 @@ from game_predictor_api.application.image_review_assets import (
 )
 from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.domain.image_grid_reviews import (
+    ImageGridReviewCountsMode,
     ImageGridReviewError,
     ImageGridReviewSourceAsset,
     ImageGridReviewView,
@@ -176,6 +177,16 @@ def create_image_grid_reviews_router(
             int,
             Query(ge=1, le=MAX_IMAGE_GRID_REVIEW_PAGE_SIZE),
         ] = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
+        counts: Annotated[
+            ImageGridReviewCountsMode,
+            Query(
+                description=(
+                    "Which counters the page computes. `all` (default) returns the full "
+                    "set. `correction` computes only `counts.correction` (reported boards "
+                    "plus deferred slots) and returns every other counter as 0."
+                ),
+            ),
+        ] = ImageGridReviewCountsMode.ALL,
     ) -> ImageGridReviewPageResponse:
         return to_image_grid_review_page_response(
             game_id=game_id,
@@ -189,6 +200,7 @@ def create_image_grid_reviews_router(
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 limit=limit,
+                counts=counts,
             ),
         )
 

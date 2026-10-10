@@ -756,7 +756,7 @@ class _NoArtifacts:
 
 @dataclass(frozen=True)
 class RevertTarget:
-    """One saved correction the revert operations undo (TASK-0945/0946)."""
+    """One saved correction the revert operations undo (TASK-0966/0967)."""
 
     import_job_id: UUID
     revision_id: UUID
@@ -1239,7 +1239,7 @@ REAL_OPERATIONS = (
     ("symbol_role_manual_symbol", "symbol_role"),
     ("expected_layout_count", "expected_layout_count"),
     ("rules_publication", "rules_publication"),
-    # TASK-0945/0946: the revert of a deferred-slot correction (B) and of an
+    # TASK-0966/0967: the revert of a deferred-slot correction (B) and of an
     # existing board's correction (A) share the ``geometry_correction_revert`` source.
     ("geometry_revert_slot", "geometry_correction_revert"),
     ("geometry_revert_board", "geometry_correction_revert"),

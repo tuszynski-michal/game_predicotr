@@ -474,7 +474,7 @@ def test_api_lists_pages_counts_and_scopes_single_item(tmp_path: Path) -> None:
         )
 
     assert page.status_code == 200
-    # TASK-0949: the counters gained ``rejected`` (a contract extension).
+    # TASK-0970: the counters gained ``rejected`` (a contract extension).
     assert page.json()["counts"] == {
         "total": 2,
         "pending": 2,

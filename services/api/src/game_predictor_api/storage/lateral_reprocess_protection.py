@@ -41,7 +41,7 @@ def lock_projection_sequences(
 ) -> None:
     """Every import projection reserves all its sequences before the source row.
 
-    TASK-0950: the global lock order is ownership -> sequences -> sources; the
+    TASK-0971: the global lock order is ownership -> sequences -> sources; the
     import writer used to take a board's sequence lock only after its source
     row (except for the lateral rollout, which reserved them here already).
     """
@@ -107,7 +107,7 @@ def protected_owner_is_another_photo(
     sequence_number: int,
     source_checksum_sha256: str,
 ) -> bool:
-    """D-539 (TASK-0950): the protection comes only from a live owner of another photo.
+    """D-543 (TASK-0971): the protection comes only from a live owner of another photo.
 
     Called after ``has_protected_lateral_owner`` returned true, under the same
     sequence lock. True when no protected row has the incoming photo's checksum

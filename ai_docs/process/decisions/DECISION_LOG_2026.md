@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,137 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-541 — Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć
+
+- **Date:** 2026-10-10.
+- **Status:** accepted; kod etapów A i B zaimplementowany (TASK-0961–0964,
+  v1.7.301–v1.7.304), odbiór na żywych danych w TASK-0965.
+- **Decision:** lokalny Reviewer (port 3001, `mode=local`) pracuje w zakresie
+  gry; `importJobId` jest opcjonalny (zdalny Reviewer bez zmian). Ekran ma dwie
+  zakładki: „Do korekty” (dotychczasowa kolejka z D-462: sloty odroczone i
+  plansze ze zgłoszeniem „Zła siatka”) oraz „Braki zdjęć” (realne braki z
+  klasyfikacji D-484: `incomplete_missing`, `incomplete_partial`,
+  `import_failed`, `no_source_geometry`). Pozycję zdjęcia, która ma planszę lub
+  slot, edytuje się istniejącym edytorem narożników (bez nowej ścieżki zapisu
+  geometrii); pozycje bez planszy i slotu oraz błędy importu są informacyjne.
+  „Siatka niepotwierdzona” (`incomplete_uncertain`) NIE jest kolejką i
+  pozostaje licznikiem w „Diagnostyce siatek zdjęć” w Adminie; część D-462
+  „bez walidacji gotowych siatek” obowiązuje bez zmian.
+- **Admin:** launcher „Korekta cięcia siatki” bez wyboru importu; „Diagnostyka
+  siatek zdjęć” pokazuje tylko liczniki i przycisk otwarcia Reviewera. UI
+  wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”) i lista zdjęć zostały
+  usunięte z Admina; endpointy, audyt i dane wyjątków zostają, a Reviewer ich
+  nie przejmuje (mutacje wysokiego wpływu są poza allowlistą origin Reviewera).
+  Przywrócenie UI wyjątków to osobny task, jeśli bramka znów zacznie
+  wstrzymywać plansze.
+- **Rationale:** dane z 2026-10-10: Mumie — 51 541 z 51 749 zdjęć
+  „niepotwierdzonych” (463 816 plansz) przy 4 realnych brakach; 777 — 76 zdjęć
+  `incomplete_partial`. „51 tys. niekompletnych” oznaczało więc automatyczną
+  siatkę bez ręcznego potwierdzenia, nie błąd cięcia. Do tego czarny podgląd i
+  długi scroll listy w Adminie oraz koszt 23–45 s liczników całej gry na
+  każdej planszy kolejki.
+- **Safety/Boundary:** tryb liczników `counts=correction` w `grid-reviews` i
+  filtr `gapsOnly` w liście niekompletnych zdjęć to wyłącznie odczyt, bez DDL i
+  bez zmiany klasyfikacji D-484; `gapsOnly` razem z `imageState` albo
+  `completenessStatus` daje 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`.
+  Budżety czasu: korekta ≤ 3 s, strona braków ≤ 12 s. Zdalny Reviewer bez
+  zmian. „Plansza częściowa” (`partial`) nie ma stanu końcowego także po
+  ręcznym zatwierdzeniu (D-449), więc pozycja ma flagę `humanApproved`, a
+  zakładka domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` są
+  zatwierdzone ręcznie (przełącznik „Pokaż także zatwierdzone ręcznie”).
+- **Supersedes/Amends:** doprecyzowuje D-462 („Correction queue”: lokalny
+  ekran ma dwie zakładki, kolejka korekty bez zmian) i D-484 (miejsce pracy z
+  diagnostyką przechodzi z Admina do Reviewera; Admin zachowuje liczniki); nie
+  zmienia D-488 (korekta cięcia nadal może zatwierdzić symbole wskazane przez
+  operatora).
+- **Out of scope:** walidacja i zatwierdzanie gotowych siatek, kolejka „Siatka
+  niepotwierdzona”, zmiana klasyfikacji D-484, blokada ponownego importu tych
+  samych zdjęć, zdalny Reviewer.
+- **Source:** polecenie operatora z 2026-10-10 i plan
+  `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
+  (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
+  `feat/disk-d-migration-plan`.
+
+## D-539 — Wybór maszyny na widoku punktu
+
+- **Date:** 2026-10-09.
+- **Status:** accepted explicit operator clarification; implementation not started.
+- **Decision:** only selecting a point opens a nested view. The point page
+  retains its machine tiles after selection. Selecting a machine highlights
+  its tile and updates games/stakes below the list on that same page.
+  Selecting a stake also preserves the machine list and displays its workspace
+  in place. One Home/back action returns to points; no machine-level back view.
+- **Saved-pin visibility clarification (2026-10-09):** on the selected
+  machine/game page, every saved stake shows all saved0-6 pin spin/investment/
+  net-win/machine-cash rows without selecting a stake or opening a chart.
+  Save updates the visible summary even with an editor open; draft/reset keeps
+  saved rows until commit. Reload/reopen restores summaries without full-result
+  fetches. This supersedes the selected-stake-only placement, preserving frozen
+  metrics, null/unavailable handling, units and receipt/payout contracts.
+- **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
+  dirty-draft confirmation and one active shared machine/game workspace.
+  A cancelled transition preserves selection, URL and draft together.
+- **Supersedes:** D-538's machine-as-navigation-level UI rule only. Delete,
+  receipts, immutable results, payout semantics and access rules remain.
+- **Boundary:** operator requested a correction plan and Claude Code discussion,
+  not immediate execution of the new full plan. Historical restore and bounded
+  list height are proposed in that plan and are not accepted by this decision.
+- **Source:** latest operator clarification in this conversation;
+  ai_docs/delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md.
+
+## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
+
+- **Status:** accepted; operator authorized the complete TASK-0940–0943 plan
+  and separate worktree on 2026-10-08.
+- **Decision:** hierarchical point → machine → game/stake navigation, Home/back,
+  compact maximum320px tiles, entire clickable surface with sibling edit/delete
+  controls, atomic modal name/game assignments, optional compact shared search
+  and chart. Stakes retain20/10/6/4/2/1.20PLN. Saved query/start/range/pins are
+  restored; new/reset is draft-only until explicit replacement.
+- **Destructive scope:** point, machine and detached machine/game can be hard
+  deleted by local owner or a valid whole-panel recipient. Preview+confirmation
+  and revision binding are required. This supersedes D-533's prohibition of
+  history deletion only for these structural scopes. Their management journal
+  (including correction before/after records) is removed, while actual global
+  symbol corrections, catalog games/boards/rules and independent session audit
+  remain. Operator consciously accepted public-recipient destructive access
+  and loss of this scoped journal.
+- **Receipts:** only a minimal delete receipt persists; no separate deletion
+  history. Old scoped responses are redacted and retries fail closed. Pure
+  delete receipts remain retryable even after parent deletion. Unknown legacy
+  receipt scope is an exceptional counted migration-preview category, not a
+  general backfill shortcut.
+- **Empty assignments clarification (2026-10-09):** preview is required when
+  the final game list removes an existing assignment row, including legacy
+  `attached=false`. A new machine with no games and a machine whose assignments
+  are already empty have no destructive scope and require no preview.
+- **Database protection:** unique additive Alembic migration after0151,
+  restricted SECURITY DEFINER purge, owner+transaction-local maintenance check
+  in SECURITY INVOKER immutable trigger, fixed search_path, explicit grants.
+  App-controlled GUC alone never permits immutable DML; session audit remains
+  protected. Backfill/production migration needs separate operator preview,
+  binary backup and confirmation; no destructive downgrade.
+- **Reuse:** BoardSearchWorkspace/ApproximateWinBalanceChart/approximateWin*
+  remain the single implementation. Optional compact behavior preserves ordinary
+  search and one-game share. Nullable cached pin investment/cash values use
+  frozen result semantics and bounded read-only legacy fallback.
+- **Integration:** panel starts independently of Mumie. Second integrator owns
+  migration merge, shared-file reconciliation, one-head/schema/role checks and
+  regenerated contract. Check TASK-0935/0936 before0942. Reserve0940–0943/D-538
+  and verify commit versions; no automatic merge/push or service lifecycle.
+- **Source:** ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md and two
+  operator-supplied plan audits. Codex execution / manual Claude audit per the
+  plan table, separate task commits; all four tasks authorized sequentially.
+- **Acceptance boundary:** TASK-0943 uses a finite real-browser fixture for
+  390/1440/1920px layout and mock transport. It does not establish live device,
+  ingress, reboot, production-data or backup recovery readiness. These remain
+  separate operator gates; no audit or fixture authorizes production mutation.
+
+**Integration note (TASK-0945, 2026-10-09):** the panel branch originally used D-536.
+Main already used D-536 for super-game series; this entry is the same accepted
+panel decision imported as D-538. Historical audits keep their original labels.
+The integrated head is `0153_merge_compact_super_games`, joining both0152 parents.
 
 ## D-537 — Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja
 
@@ -146,6 +277,12 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
   obniża zużycie tokenów bez obniżania jakości, z pomiarem.
 
 ## D-533 — Points/machines panel with durable stake saves and whole-panel links
+
+**2026-10-08 clarification:** D-538 supersedes this decision's archive-only UI,
+card Open/Search again/Clear workflow and structural history retention for
+point/machine/detached-game scopes. Ordinary slot Clear and independent session
+audit retain their history. The earlier T1–T7 text below is historical where
+D-538 changes these behaviors.
 
 - **Date:** 2026-10-07.
 - **Status:** accepted explicit whole-plan implementation request, T1–T7 /

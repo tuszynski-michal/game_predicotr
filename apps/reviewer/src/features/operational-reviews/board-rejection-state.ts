@@ -3,7 +3,7 @@ import type {
   OperationalImageReviewResolutionCommand,
 } from '@game-predictor/admin-api-client';
 
-/** Why an operator rejects a cropped board or a deferred slot (W7, D-539). */
+/** Why an operator rejects a cropped board or a deferred slot (W7, D-543). */
 export type BoardRejectionReason = 'blurred' | 'cropped' | 'other';
 
 export const BOARD_REJECTION_REASONS: readonly {

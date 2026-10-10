@@ -348,7 +348,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         rejected_by: str,
         rejected_at: datetime,
     ) -> tuple[ImageBoardGeometryPending, UUID, bool]:
-        """Reject an open deferred slot (TASK-0949, W7/W8); returns ``(slot, event id, created)``.
+        """Reject an open deferred slot (TASK-0970, W7/W8); returns ``(slot, event id, created)``.
 
         Locks in the order of the manual resolution (sequence -> source ->
         slot). The position stays a gap for the gate (D-484): the image is

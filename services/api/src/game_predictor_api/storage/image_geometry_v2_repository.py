@@ -140,7 +140,7 @@ class SqlAlchemyImageSourceGeometryRepository:
             active_board_slots=value.active_board_slots,
         )
 
-        # TASK-0945: a reverted revision never deduplicates a new write; the
+        # TASK-0966: a reverted revision never deduplicates a new write; the
         # same geometry saved after a revert appends a new revision.
         existing = self._session.execute(
             select(ImageSourceGeometryRevisionModel).where(

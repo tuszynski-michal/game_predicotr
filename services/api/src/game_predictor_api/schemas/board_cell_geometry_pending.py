@@ -129,7 +129,7 @@ class BoardCellGeometryManualResolutionResponse(ApiModel):
 
 
 class BoardCellGeometryRejectionCommand(ApiModel):
-    """Reject an open deferred slot (TASK-0949); ``note`` is required for ``other``."""
+    """Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``."""
 
     idempotency_key: UUID
     reason: BoardRejectionReason

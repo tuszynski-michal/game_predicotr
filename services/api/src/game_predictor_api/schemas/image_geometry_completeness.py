@@ -81,7 +81,7 @@ class GeometryGateCountsResponse(ApiModel):
 
 
 class ImportSequenceOwnershipResponse(ApiModel):
-    """Sequence ownership outcome of one import (D-539, TASK-0950).
+    """Sequence ownership outcome of one import (D-543, TASK-0971).
 
     ``replaced``: sequences this import took over from a rejected board of
     another image. ``skipped``: sequences another photo owns (a live pending
@@ -117,6 +117,16 @@ class GeometryCompletenessPositionResponse(ApiModel):
     quad: tuple[GeometryCompletenessPointResponse, ...] | None = Field(
         default=None, min_length=4, max_length=4
     )
+    # A human approved the board's current geometry (TASK-0961); false
+    # without a live board. A `partial` position stays `partial` after a
+    # manual qualification (D-449), so this flag tells it was handled.
+    human_approved: bool = Field(
+        default=False,
+        description=(
+            "True when a human approved the current geometry of the board at this "
+            "position (approvedGeometryRevision == geometryRevision); false without a board."
+        ),
+    )
 
 
 class IncompleteGeometryImageResponse(ApiModel):
@@ -149,6 +159,8 @@ class IncompleteGeometryImagePageResponse(ApiModel):
     import_job_id: UUID | None
     image_state: GeometryImageState | None
     completeness_status: SourceImageGeometryStatus | None
+    # Echo of the `gapsOnly` filter (TASK-0961).
+    gaps_only: bool = False
     images: tuple[IncompleteGeometryImageResponse, ...] = Field(
         max_length=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE
     )
@@ -273,6 +285,7 @@ def to_incomplete_geometry_image_page_response(
         import_job_id=page.import_job_id,
         image_state=page.image_state,
         completeness_status=page.completeness_status,
+        gaps_only=page.gaps_only,
         images=tuple(
             IncompleteGeometryImageResponse(
                 source_image_id=image.source_image_id,
@@ -302,6 +315,7 @@ def to_incomplete_geometry_image_page_response(
                                 for x, y in position.quad
                             )
                         ),
+                        human_approved=position.human_approved,
                     )
                     for position in image.positions
                 ),

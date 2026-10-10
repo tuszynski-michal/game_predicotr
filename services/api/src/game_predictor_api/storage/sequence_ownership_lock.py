@@ -1,6 +1,6 @@
-"""Game-scoped sequence-ownership lock protocol (TASK-0950, audit P0-4/P0-5).
+"""Game-scoped sequence-ownership lock protocol (TASK-0971, audit P0-4/P0-5).
 
-A sequence takeover (D-539) and a resolution that supersedes another photo's
+A sequence takeover (D-543) and a resolution that supersedes another photo's
 item recompute the geometry gate of *other* source images, i.e. they lock a
 second ``source_images`` row after their own. Two such writes with crossed
 images deadlock unless they are serialized. Every write that can lock another
@@ -12,7 +12,7 @@ sequence lock. They take the same lock in ``SHARED`` mode at their very start,
 so an exclusive writer never waits for a sequence lock held by a cell decision
 that then waits for the ownership lock; shared holders never block each other.
 
-Global lock order (TASK-0950, audit rounds 2-4), for every participant:
+Global lock order (TASK-0971, audit rounds 2-4), for every participant:
 
 1. the idempotency-key advisory lock of the request, or the worker's job lease
    row (``jobs FOR NO KEY UPDATE``, so the foreign-key checks of inserts that
@@ -149,7 +149,7 @@ def cell_decision_lock_mode(
 
     A decision that resolves its board can supersede other pending items of
     the board's sequence (first save wins) and recompute their images' gates;
-    only then it needs ``EXCLUSIVE``. Under D-539 a sequence has at most one
+    only then it needs ``EXCLUSIVE``. Under D-543 a sequence has at most one
     pending item, so such an occurrence exists only after a sequence
     correction. Everything else (reopen, resolve without other occurrences) is
     confined to the board's own image and runs ``SHARED``. A race that adds an

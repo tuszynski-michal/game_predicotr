@@ -1,4 +1,4 @@
-"""TASK-0950 (D-539): a replacement photo takes over only rejected or unowned sequences.
+"""TASK-0971 (D-543): a replacement photo takes over only rejected or unowned sequences.
 
 Runs on a dedicated ``*_test`` database only (fixtures of
 ``test_virtual_deferred_resolution_postgres``). Every import goes through the
@@ -426,7 +426,7 @@ def test_a_pending_slot_of_the_old_photo_resolved_later_keeps_the_live_owner(
                         {"x": 560, "y": 350},
                         {"x": 60, "y": 350},
                     ],
-                    "correctedBy": "task-0950-operator",
+                    "correctedBy": "task-0971-operator",
                     "expectedGeometryRevision": 0,
                     "expectedManifestChecksumSha256": old.manifest_checksums[0],
                     "expectedResolutionRevision": 0,
@@ -437,7 +437,7 @@ def test_a_pending_slot_of_the_old_photo_resolved_later_keeps_the_live_owner(
         app.state.database_engine.dispose()
     assert response.status_code == 200, response.text
 
-    # D-539: the newer slot board of the old photo does not replace B.
+    # D-543: the newer slot board of the old photo does not replace B.
     assert _owner_ids(factory, old.game_id, 100) == [owner]
     resolved = _items_of(factory, old)[100]
     assert resolved["status"] == "superseded"
@@ -554,7 +554,7 @@ def test_a_rejected_partial_board_with_outside_cells_is_replaced_by_a_full_photo
             expected_crop_sample_id=None,
             expected_crop_checksum_sha256=None,
             target_symbol_id=cherry,
-            actor="task-0950-operator",
+            actor="task-0971-operator",
         )
     _rebuild_symbol_counts(factory, old)
     _resolve_board(factory, old, items[1], action=ImageReviewAction.REJECTED, reason="cropped")
@@ -602,7 +602,7 @@ def test_an_old_approval_of_other_pixels_keeps_its_provenance_across_boards(
             expected_geometry_revision=approved.geometry_revision,
             expected_crop_sample_id=approved.crop_sample_id,
             expected_crop_checksum_sha256=approved.crop_checksum_sha256,
-            actor="task-0950-operator",
+            actor="task-0971-operator",
         )
     before = _sequence_cells(factory, game_id, 101)[3]
     assert before.review_state == "approved" and before.approved_geometry_revision == 0
@@ -651,7 +651,7 @@ def _resolve_in_thread(
                 expected_geometry_revision=0,
                 expected_resolution_revision=0,
                 corners=_points(),
-                corrected_by="task-0950-operator",
+                corrected_by="task-0971-operator",
                 resolved_at=datetime.now(UTC),
             )
     except BaseException as error:  # noqa: BLE001 - reported by the test
@@ -782,7 +782,7 @@ def test_a_cell_decision_and_a_concurrent_import_of_its_sequence_never_deadlock(
                     expected_geometry_revision=cell.geometry_revision,
                     expected_crop_sample_id=cell.crop_sample_id,
                     expected_crop_checksum_sha256=cell.crop_checksum_sha256,
-                    actor="task-0950-operator",
+                    actor="task-0971-operator",
                 )
         except BaseException as error:  # noqa: BLE001 - reported by the test
             errors.append(error)

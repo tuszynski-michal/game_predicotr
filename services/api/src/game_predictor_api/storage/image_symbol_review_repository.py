@@ -197,7 +197,7 @@ def _logical_cell_visible_clause() -> ColumnElement[bool]:
     """Cells that take part in symbol verification (lists, counts, bulk scopes).
 
     A cell is visible when it has source pixels (or is a fully outside cell)
-    and its review item is not rejected (TASK-0949, W7): a rejected board
+    and its review item is not rejected (TASK-0970, W7): a rejected board
     leaves symbol verification while its rows and decision history stay, so
     reverting the rejection brings it back unchanged.
     """
@@ -1134,7 +1134,7 @@ def _apply_symbol_cell_review_state_filter(
 
 
 def enter_cell_decision(session: Session, *, game_id: UUID, review_item_id: UUID) -> None:
-    """Ownership lock of a symbol-cell decision (TASK-0950, P0-5).
+    """Ownership lock of a symbol-cell decision (TASK-0971, P0-5).
 
     Keeps a lock an enclosing operation already holds; otherwise takes the mode
     the board needs (``SHARED`` unless resolving it may supersede another
@@ -1220,7 +1220,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             )
         review_item_id = next(iter(review_item_ids))
         sequence_number = int(next(iter(sequence_numbers)))
-        # TASK-0950 (P0-5): the decision may reopen or resolve the board, which
+        # TASK-0971 (P0-5): the decision may reopen or resolve the board, which
         # reaches the game's ownership lock; take it before the sequence lock.
         # An enclosing entry point may already hold it (kept as is).
         enter_cell_decision(self._session, game_id=game_id, review_item_id=review_item_id)
@@ -1886,7 +1886,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         a later cell in the same HTTP request still needs to change.
         """
 
-        # One ownership lock for every crop decision of this save (TASK-0950).
+        # One ownership lock for every crop decision of this save (TASK-0971).
         enter_cell_decision(
             self._session, game_id=command.game_id, review_item_id=command.review_item_id
         )
@@ -2223,7 +2223,7 @@ class SymbolCellReviewWriteThroughCoordinator:
         )
 
     def release_cells_of_rejected_board(self, *, game_id: UUID, review_item_id: UUID) -> int:
-        """Take a just-rejected board's cells out of the exact counters (TASK-0949).
+        """Take a just-rejected board's cells out of the exact counters (TASK-0970).
 
         The rows and events stay as decision history; the visible scope
         already excludes rejected items. Call it once, on the transition of
@@ -2569,7 +2569,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             for cell in self._session.scalars(existing_statement.with_for_update())
         }
         # Cells of a rejected previous owner were taken out of the exact counters
-        # when it was rejected, so they are not subtracted again (TASK-0949).
+        # when it was rejected, so they are not subtracted again (TASK-0970).
         rejected_owner_ids = self._rejected_item_ids(
             {cell.review_item_id for cell in existing.values()} - {item.id}
         )
@@ -2742,7 +2742,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                     and cell.crop_checksum_sha256
                     == current_cells_by_index[index].crop_checksum_sha256
                 ),
-                # D-539 (TASK-0950): a replacement board takes the logical cells
+                # D-543 (TASK-0971): a replacement board takes the logical cells
                 # over from the rejected board of another image.
                 handoff_from_rejected_board=all(
                     cell.review_item_id in rejected_owner_ids
@@ -2782,7 +2782,7 @@ class SymbolCellReviewWriteThroughCoordinator:
                         # takes the current asset provenance as well. The rebind
                         # is recognized by crop identity, never by the revision
                         # number: boards of different photos share revision
-                        # numbers (a D-539 handoff 0 -> 0, TASK-0950).
+                        # numbers (a D-543 handoff 0 -> 0, TASK-0971).
                         _approved_asset_projection_from_review_cell(
                             current_cells_by_index[review.cell_index]
                         )
@@ -3133,7 +3133,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             if not qualified and existing_cell.source_available is False:
                 # A complete board renders every cell: a logical position that
                 # had no image (e.g. taken over from a rejected partial board,
-                # D-539, TASK-0950) is available again. Qualified boards set
+                # D-543, TASK-0971) is available again. Qualified boards set
                 # availability from their mask above.
                 existing_cell.source_available = True
                 changed = True
@@ -3435,7 +3435,7 @@ class _CellPreviousState:
     rendered_pixel_checksum_sha256: str | None
     verification_outcome: str | None
     verified_symbol_id_v2: UUID | None
-    # TASK-0945: recorded on every event so a revert can restore it.
+    # TASK-0966: recorded on every event so a revert can restore it.
     assignment_source: str | None = None
 
     @classmethod
@@ -4552,7 +4552,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageSymbolReviewCellModel.game_id == game_id,
-                # TASK-0949: cells of rejected boards are not counted.
+                # TASK-0970: cells of rejected boards are not counted.
                 ~exists().where(
                     ImageReviewItemModel.id == ImageSymbolReviewCellModel.review_item_id,
                     ImageReviewItemModel.status == "rejected",

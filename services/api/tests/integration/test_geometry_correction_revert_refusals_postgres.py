@@ -1,4 +1,4 @@
-"""TASK-0945 audit round 1: refusals, history and concurrency of the revert (PostgreSQL).
+"""TASK-0966 audit round 1: refusals, history and concurrency of the revert (PostgreSQL).
 
 Every refusal is read from real rows by the production repository and must
 leave the game store unchanged. Concurrency tests use two real connections
@@ -308,7 +308,7 @@ def test_a_resolved_review_item_refuses_the_revert(
     finally:
         app.state.database_engine.dispose()
     assert rejected.status_code == 200, rejected.text
-    # TASK-0949: the rejection of the item is listed as well (kind ``rejection``);
+    # TASK-0970: the rejection of the item is listed as well (kind ``rejection``);
     # the correction itself is blocked by the resolved item as before.
     [entry] = [
         value
@@ -324,7 +324,7 @@ def _ownership_game(
 ) -> tuple[sessionmaker[Session], _Seed, _Seed, Path]:
     """Sequence 100 imported by an older job and rejected, then deferred by a newer one.
 
-    D-539 (TASK-0950): a correction of another photo takes the sequence over
+    D-543 (TASK-0971): a correction of another photo takes the sequence over
     only from a rejected owner; a live pending owner would be kept.
     """
 
@@ -413,7 +413,7 @@ def test_a_pinned_board_refuses_the_revert(
                     id, game_id, review_item_id, recognized_board_id, source_job_id,
                     model_version, model_checksum_sha256, crop_manifest_checksum_sha256,
                     predictions, created_at)
-                VALUES (:id, :game_id, :item_id, :board_id, :job_id, 'task-0945-model',
+                VALUES (:id, :game_id, :item_id, :board_id, :job_id, 'task-0966-model',
                     :model, :crops, '{}'::jsonb, now())"""
             ),
             {
@@ -422,8 +422,8 @@ def test_a_pinned_board_refuses_the_revert(
                 "item_id": entry.review_item_id,
                 "board_id": entry.recognized_board_id,
                 "job_id": seed.import_job_id,
-                "model": _sha("task-0945-model"),
-                "crops": _sha("task-0945-crops"),
+                "model": _sha("task-0966-model"),
+                "crops": _sha("task-0966-crops"),
             },
         )
     [entry] = _entries(factory, seed)
@@ -435,7 +435,7 @@ def test_a_board_revision_correction_of_a_withheld_board_is_reverted(
     database: _Database,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    """Case A on a slot board without cells (TASK-0946; was NOT_SUPPORTED in 0945)."""
+    """Case A on a slot board without cells (TASK-0967; was NOT_SUPPORTED in 0966)."""
 
     factory, seed, artifact_root = _seeded(database, tmp_path, "task0945-case-a", 2)
     _resolve(factory, artifact_root, seed, 0, key=uuid4())
@@ -516,7 +516,7 @@ def _pin_in_cohort(factory: sessionmaker[Session], seed: _Seed, board_id: UUID) 
                  pending_item_count, rejected_item_count, incomplete_item_count,
                  artifact_relative_path, created_by)
                 VALUES (:id, :game_id, 1, 1, 'verified-training-cohort-v1', :sha, :key, :sha,
-                        1, 1, 1, 0, 0, 0, 'task-0945/cohort.json', 'task-0945')"""
+                        1, 1, 1, 0, 0, 0, 'task-0966/cohort.json', 'task-0966')"""
             ),
             {"id": cohort_id, "game_id": seed.game_id, "sha": _sha("cohort"), "key": uuid4()},
         )

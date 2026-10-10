@@ -1,4 +1,4 @@
-"""TASK-0945: revert of a deferred-slot grid-geometry correction (PostgreSQL).
+"""TASK-0966: revert of a deferred-slot grid-geometry correction (PostgreSQL).
 
 Runs on a dedicated ``*_test`` database only (fixtures of
 ``test_virtual_deferred_resolution_postgres`` and the import writer of
@@ -66,7 +66,7 @@ from test_virtual_deferred_resolution_postgres import (
     pytestmark,  # noqa: F401  (PostgreSQL opt-in)
 )
 
-_ACTOR = "task-0945-operator"
+_ACTOR = "task-0966-operator"
 # Columns that legitimately move forward (clocks, monotonic counters).
 _VOLATILE = (
     "created_at",
@@ -147,7 +147,7 @@ def _world(factory: sessionmaker[Session], game_id: UUID) -> dict[str, Any]:
 
 
 def _service(session: Session, verifier: Any = None) -> GeometryCorrectionRevertService:
-    # TASK-0946: a board-revision revert renders its restored cells.
+    # TASK-0967: a board-revision revert renders its restored cells.
     return GeometryCorrectionRevertService(
         SqlAlchemyGeometryCorrectionRevertRepository(session), render_verifier=verifier
     )
@@ -509,7 +509,7 @@ def test_a_correction_that_admitted_the_image_is_not_revertable(
         session.rollback()
 
 
-def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
+def test_migration_0154_downgrade_refuses_revert_history_and_round_trips(
     database: _Database,  # noqa: F811
     tmp_path: Path,
 ) -> None:
@@ -526,7 +526,7 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
         ),
         (
             "UPDATE game_data_v2.image_board_geometry_pending SET status = 'rejected', "
-            "rejection_reason = 'cropped', rejected_at = now(), rejected_by = 'task-0945' "
+            "rejection_reason = 'cropped', rejected_at = now(), rejected_by = 'task-0966' "
             "WHERE game_id = :game_id",
             "UPDATE game_data_v2.image_board_geometry_pending SET status = 'pending', "
             "rejection_reason = NULL, rejected_at = NULL, rejected_by = NULL "
@@ -538,7 +538,7 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
         "(game_id, id, import_job_id, pending_geometry_id, rejection_revision, action, "
         "idempotency_key, command_sha256, reason, actor) "
         "VALUES (:game_id, gen_random_uuid(), :job_id, gen_random_uuid(), 1, 'rejected', "
-        "gen_random_uuid(), repeat('a', 64), 'cropped', 'task-0949')",
+        "gen_random_uuid(), repeat('a', 64), 'cropped', 'task-0970')",
         "DELETE FROM game_data_v2.image_board_geometry_pending_events WHERE game_id = :game_id",
     )
     histories = (*histories, event)
@@ -547,7 +547,7 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
         with database.engine.begin() as connection:
             connection.execute(text(apply), parameters)
         with pytest.raises(Exception, match="GEOMETRY_CORRECTION_REVERT_DOWNGRADE_HAS_HISTORY"):
-            command.downgrade(database.config, "0152_super_game_series")
+            command.downgrade(database.config, "0153_merge_compact_super_games")
         with database.engine.begin() as connection:
             connection.execute(text(undo), parameters)
 
@@ -556,14 +556,14 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
         connection.execute(
             text(
                 "UPDATE game_data_v2.image_board_geometry_pending SET status = 'rejected', "
-                "rejection_reason = 'other', rejected_at = now(), rejected_by = 'task-0945' "
+                "rejection_reason = 'other', rejected_at = now(), rejected_by = 'task-0966' "
                 "WHERE game_id = :game_id"
             ),
             {"game_id": game_id},
         )
 
     database.engine.dispose()
-    command.downgrade(database.config, "0152_super_game_series")
+    command.downgrade(database.config, "0153_merge_compact_super_games")
     with database.engine.connect() as connection:
         assert (
             connection.execute(

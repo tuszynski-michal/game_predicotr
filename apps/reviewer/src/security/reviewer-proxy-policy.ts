@@ -133,7 +133,7 @@ export function reviewerProxyTarget(
   ) {
     return path;
   }
-  // D-538 (TASK-0947): list, preview and revert of manual geometry corrections.
+  // D-542 (TASK-0968): list, preview and revert of manual geometry corrections.
   const geometryCorrectionCollectionPattern = new RegExp(
     `^/api/v1/admin/games/${UUID}/image-imports/${UUID}/geometry-corrections$`,
   );

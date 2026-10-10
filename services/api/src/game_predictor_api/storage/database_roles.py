@@ -71,6 +71,7 @@ class ApplicationRoleReport:
     tables_without_dml: tuple[str, ...]
     writable_read_only_tables: tuple[str, ...]
     sequences_without_usage: tuple[str, ...]
+    management_function_errors: tuple[str, ...] = ()
 
     @property
     def compliant(self) -> bool:
@@ -87,6 +88,7 @@ class ApplicationRoleReport:
             and not self.tables_without_dml
             and not self.writable_read_only_tables
             and not self.sequences_without_usage
+            and not self.management_function_errors
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -107,6 +109,7 @@ class ApplicationRoleReport:
             "tablesWithoutDml": list(self.tables_without_dml),
             "writableReadOnlyTables": list(self.writable_read_only_tables),
             "sequencesWithoutUsage": list(self.sequences_without_usage),
+            "managementFunctionErrors": list(self.management_function_errors),
             "compliant": self.compliant,
         }
 
@@ -215,6 +218,11 @@ def provision_application_role(
         # PostgreSQL locking SELECT requires UPDATE on at least one column.
         # CHECK(singleton=TRUE)+PK makes this column an immutable no-op target.
         connection.exec_driver_sql(f"GRANT UPDATE (singleton) ON {_V7_GATE_TABLE} TO {quoted_role}")
+    if _relation_exists(connection, "public.management_mutation_previews"):
+        connection.exec_driver_sql(
+            "GRANT EXECUTE ON FUNCTION public.management_purge_scope(uuid,uuid,uuid[]) "
+            f"TO {quoted_role}"
+        )
     # Objects created later by the owner (Alembic migrations, partitions of a
     # newly provisioned game, a fresh database's game_data_v2 schema) get the
     # same grants without re-running this function.
@@ -364,7 +372,47 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
         tables_without_dml=tables_without_dml,
         writable_read_only_tables=writable_read_only_tables,
         sequences_without_usage=sequences_without_usage,
+        management_function_errors=_management_function_errors(connection, role),
     )
+
+
+def _management_function_errors(connection: Connection, role: str) -> tuple[str, ...]:
+    """Verify the exact privilege boundary introduced by migration0152."""
+    if not _relation_exists(connection, "public.management_mutation_previews"):
+        return ()
+    errors: list[str] = []
+    for signature, definer in (
+        ("public.management_purge_scope(uuid,uuid,uuid[])", True),
+        ("public.management_history_immutable()", False),
+    ):
+        row = (
+            connection.execute(
+                text("""
+            SELECT p.prosecdef, p.proconfig,
+              p.proowner=(SELECT relowner FROM pg_catalog.pg_class
+                WHERE oid='public.management_operations'::regclass) AS correct_owner,
+              has_function_privilege(:role,p.oid,'EXECUTE') AS app_execute,
+              EXISTS (SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner)))
+                WHERE grantee=0 AND privilege_type='EXECUTE') AS public_execute
+            FROM pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(:signature)
+        """),
+                {"role": role, "signature": signature},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            errors.append(f"{signature}:missing")
+            continue
+        if not row["correct_owner"]:
+            errors.append(f"{signature}:owner")
+        if bool(row["prosecdef"]) != definer:
+            errors.append(f"{signature}:security")
+        if row["proconfig"] != ["search_path=pg_catalog, public"]:
+            errors.append(f"{signature}:search_path")
+        if definer and (not row["app_execute"] or row["public_execute"]):
+            errors.append(f"{signature}:execute")
+    return tuple(errors)
 
 
 def _read_only_tables(connection: Connection) -> tuple[str, ...]:

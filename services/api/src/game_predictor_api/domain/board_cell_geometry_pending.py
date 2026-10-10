@@ -23,7 +23,7 @@ class BoardCellGeometryPendingStatus(StrEnum):
     PENDING = "pending"
     RESOLVED = "resolved"
     SUPERSEDED = "superseded"
-    # TASK-0949 (migration 0153): the operator discarded a cropped or blurred
+    # TASK-0970 (migration 0154): the operator discarded a cropped or blurred
     # slot. The position counts as a missing board for the gate (W8).
     REJECTED = "rejected"
 

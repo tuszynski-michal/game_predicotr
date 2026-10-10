@@ -85,7 +85,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "super_game_series_audit_events",
         "super_game_series_generation_rows",
     }
-    # TASK-0945/0949: v7 is v6 plus exactly the geometry correction revert audit
+    # TASK-0966/0970: v7 is v6 plus exactly the geometry correction revert audit
     # and the durable events of deferred-slot rejections.
     assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {
         "image_board_geometry_pending_events",

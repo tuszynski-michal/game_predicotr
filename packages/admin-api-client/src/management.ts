@@ -17,6 +17,11 @@ import {
   createPublicManagementMachine,
   updatePublicManagementMachine,
   updatePublicManagementAssignments,
+  previewPublicManagementPointDeletion,
+  deletePublicManagementPoint,
+  previewPublicManagementMachineDeletion,
+  deletePublicManagementMachine,
+  previewPublicManagementMachineUpdate,
   createManagementSession,
   listManagementSessions,
   revokeManagementSession,
@@ -34,6 +39,9 @@ import type {
   ManagementPointCommand,
   ManagementMachineCommand,
   ManagementAssignmentCommand,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
   ManagementSessionCreate,
 } from './generated/types.gen';
 
@@ -93,6 +101,50 @@ export function createManagementPublicApiClient(options: {
       }),
     getManagementSessionContext: () => getManagementSessionContext({ client }),
     getManagementSnapshot: () => getPublicManagementSnapshot({ client }),
+    previewManagementPointDeletion: (
+      pointId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewPublicManagementPointDeletion({
+        client,
+        body,
+        path: { point_id: pointId },
+      }),
+    deleteManagementPoint: (pointId: string, body: ManagementDeleteCommand) =>
+      deletePublicManagementPoint({
+        client,
+        body,
+        path: { point_id: pointId },
+      }),
+    previewManagementMachineDeletion: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewPublicManagementMachineDeletion({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    deleteManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeleteCommand,
+    ) =>
+      deletePublicManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    previewManagementMachineUpdate: (
+      machineId: string,
+      body: ManagementUpdatePreviewCommand,
+    ) =>
+      previewPublicManagementMachineUpdate({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
     listManagementStakes: (
       machineId: string,
       gameId: string,

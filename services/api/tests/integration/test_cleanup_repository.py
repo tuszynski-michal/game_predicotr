@@ -8,10 +8,14 @@ import pytest
 from _application_role_database import provision_game
 from alembic import command
 from alembic.config import Config
-from game_predictor_api.application.cleanup import CleanupService
+from game_predictor_api.application.cleanup import CleanupService, ManagedCleanupArtifactStore
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
-from game_predictor_api.domain.cleanup import CleanupCommand, cleanup_preview
+from game_predictor_api.domain.cleanup import (
+    BoardSourceCleanupSelection,
+    CleanupCommand,
+    cleanup_preview,
+)
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
@@ -22,10 +26,12 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     CleanupOperationModel,
     DatasetVersionModel,
     GameModel,
+    ImageSourceGeometryRevisionModel,
     JobModel,
     LayoutModel,
     MobileReleaseGameModel,
@@ -33,9 +39,11 @@ from game_predictor_api.storage.models import (
     RulesVersionModel,
     SymbolModel,
 )
-from sqlalchemy import create_engine, func, select
+from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
+from test_image_batch_store import PIPELINE, _add_review_projection_source, _image_job
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -396,5 +404,100 @@ def test_a_queued_super_game_derive_job_blocks_and_the_reset_queues_a_new_one(
             game_session.commit()
         queued = derive_jobs()
         assert len(queued) == 1 and queued[0] != job_id
+    finally:
+        engine.dispose()
+
+
+def test_source_cleanup_batches_preserve_queue_until_last_source(
+    isolated_cleanup_database: URL,
+    tmp_path: Path,
+) -> None:
+    """Two committed cleanups of one import keep the real queue trigger valid."""
+    command.upgrade(_migration_config(isolated_cleanup_database), "head")
+    engine = create_engine(isolated_cleanup_database, pool_pre_ping=True)
+    factory = create_session_factory(engine)
+    cross_game_factory = create_cross_game_owner_session_factory(engine)
+    game_id = provision_game(engine, "source-cleanup-batches")
+    now = datetime.now(UTC)
+    try:
+        with game_storage_scope(game_id), factory() as session:
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game_id, PIPELINE, now))
+            session.commit()
+        store = SqlAlchemyImageBatchStore(factory)
+        for index in range(2):
+            checksum = str(index + 1) * 64
+            name = f"batch-{index}.jpg"
+            (tmp_path / name).write_bytes(b"managed source")
+            execution = store.register_file(
+                job.id,
+                source_checksum_sha256=checksum,
+                pipeline_fingerprint=PIPELINE,
+                source_relative_path=name,
+                order_index=index,
+                registered_at=now,
+            )
+            with game_storage_scope(game_id), factory() as session:
+                _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=execution.file_execution_key,
+                    source_checksum=checksum,
+                    source_name=name,
+                    position_index=0,
+                    sequence_number=1 + index * 9,
+                    status="pending",
+                    created_at=now,
+                )
+                session.commit()
+        with game_storage_scope(game_id), factory() as session:
+            record = session.get(JobModel, job.id)
+            assert record is not None
+            record.status = JobStatus.WAITING_FOR_REVIEW
+            ranges = session.execute(
+                select(
+                    ImageSourceGeometryRevisionModel.sequence_range_start,
+                    ImageSourceGeometryRevisionModel.sequence_range_end,
+                )
+                .where(ImageSourceGeometryRevisionModel.game_id == game_id)
+                .order_by(ImageSourceGeometryRevisionModel.sequence_range_start)
+            ).all()
+            assert len(ranges) == 2
+            session.commit()
+        for index, (start, end) in enumerate(ranges):
+            # A fresh runtime session sees the previous committed batch.
+            with game_storage_scope(game_id), factory() as session:
+                service = CleanupService(
+                    SqlAlchemyCleanupRepository(session, cross_game_factory),
+                    ManagedCleanupArtifactStore(tmp_path),
+                )
+                selection = BoardSourceCleanupSelection(tuple(range(start, end + 1)))
+                preview = service.preview_board_sources(game_id, selection)
+                assert preview.snapshot.blockers == ()
+                service.delete_board_sources(
+                    game_id,
+                    selection,
+                    CleanupCommand(
+                        preview.preview_token, preview.snapshot.confirmation_target, True
+                    ),
+                )
+                session.commit()
+                service.finalize_committed_artifacts()
+            with game_storage_scope(game_id), factory() as session:
+                state = session.execute(
+                    text(
+                        "SELECT total_count,pending_count FROM image_review_queue_states "
+                        "WHERE import_job_id=:job"
+                    ),
+                    {"job": job.id},
+                ).one_or_none()
+                if index == 0:
+                    assert state == (1, 1)
+                else:
+                    assert state is None
+                remaining = session.execute(
+                    text("SELECT count(*) FROM image_review_queue_items WHERE import_job_id=:job"),
+                    {"job": job.id},
+                ).scalar_one()
+                assert remaining == 1 - index
     finally:
         engine.dispose()

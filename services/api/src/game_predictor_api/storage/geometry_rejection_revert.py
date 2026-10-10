@@ -1,4 +1,4 @@
-"""List, preview and revert the rejection of a deferred slot or a board (TASK-0949).
+"""List, preview and revert the rejection of a deferred slot or a board (TASK-0970).
 
 A *rejection* joins the corrections list of the Reviewer (``kind = rejection``):
 
@@ -9,7 +9,7 @@ A *rejection* joins the corrections list of the Reviewer (``kind = rejection``):
 
 Reverting restores the slot (or the item) to ``pending``. It is refused once a
 live review item of another image owns the sequence number (the replacement
-that TASK-0950 lets take the rejected owner's place): the unique pending owner
+that TASK-0971 lets take the rejected owner's place): the unique pending owner
 of a sequence would otherwise be violated. Locks follow the writers: sequences,
 then the source image, then the slot or the item/board rows.
 
@@ -188,7 +188,7 @@ class KeyUses:
 
     The key of a revert is unique within a game across the geometry-correction
     audit, the slot rejection events and the resolution events of review items
-    (TASK-0949, P0-7). The audit table is checked by the caller.
+    (TASK-0970, P0-7). The audit table is checked by the caller.
     """
 
     pending_event: ImageBoardGeometryPendingEventModel | None
@@ -579,7 +579,7 @@ class GeometryRejectionRevertOperations:
         if rejection.sequence_number is not None:
             projection.sync_sequence_candidates(game_id, rejection.sequence_number)
         coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-        # The cells left the exact counters with the rejection (TASK-0949).
+        # The cells left the exact counters with the rejection (TASK-0970).
         coordinator.restore_cells_of_reopened_board(game_id=game_id, review_item_id=item.id)
         coordinator.synchronize_after_board_resolution(
             game_id=game_id, review_item_id=item.id, actor=actor

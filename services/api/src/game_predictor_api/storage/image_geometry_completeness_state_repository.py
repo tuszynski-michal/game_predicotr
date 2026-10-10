@@ -219,7 +219,7 @@ _DEFERRED_MATERIALIZATIONS_KEY: Final = "game_predictor.deferred_gate_materializ
 
 
 def lock_source_images(session: Session, game_id: UUID, source_image_ids: Iterable[UUID]) -> None:
-    """Lock several source rows in one statement, in ascending id order (TASK-0950)."""
+    """Lock several source rows in one statement, in ascending id order (TASK-0971)."""
 
     ids = sorted(set(source_image_ids), key=str)
     if not ids:
@@ -291,7 +291,7 @@ def recompute_source_images(
     now: datetime | None = None,
     exclude_source_image_id: UUID | None = None,
 ) -> tuple[SourceImageGeometryRecompute, ...]:
-    """Recompute several images: all source rows first, then the cuts (TASK-0950).
+    """Recompute several images: all source rows first, then the cuts (TASK-0971).
 
     Every source row is locked in ascending id order before any image is
     recomputed, and the images that became admitted are cut only after all of
@@ -831,7 +831,7 @@ class SqlAlchemyImageGeometryCompletenessStateRepository:
         author = _require_actor(actor)
         if not self._bind(game_id):
             return None
-        # TASK-0950: the cut locks the counters state before cell rows (the
+        # TASK-0971: the cut locks the counters state before cell rows (the
         # write-through order); symbol-cell decisions, the only shared holders,
         # lock cells before the state. Exclusive keeps the two orders apart.
         acquire_sequence_ownership_lock(self._session, game_id=game_id)

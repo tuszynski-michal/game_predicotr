@@ -100,7 +100,7 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
         if document is None or mode is not BoardSearchAssetMode.OPERATIONAL_REVIEW:
             raise _missing()
         if lock and document.review_item_id is not None:
-            # TASK-0950 (P0-5): ownership lock before the sequence lock.
+            # TASK-0971 (P0-5): ownership lock before the sequence lock.
             enter_cell_decision(
                 self._session, game_id=game_id, review_item_id=document.review_item_id
             )

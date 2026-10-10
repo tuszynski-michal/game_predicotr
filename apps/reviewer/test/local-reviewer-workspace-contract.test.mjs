@@ -49,6 +49,51 @@ test('the local reviewer is only the correction screen; remote stays restricted'
   assert.doesNotMatch(proxy, /\/image-reviews\//);
 });
 
+test('the local reviewer has the correction and gaps tabs over one mounted editor (TASK-0962)', () => {
+  assert.match(localWorkspace, /Do korekty/);
+  assert.match(localWorkspace, /Braki zdjęć/);
+  // TASK-0963: the gaps tab is the image-level screen, no placeholder.
+  assert.match(localWorkspace, /GeometryGapsWorkspace/);
+  assert.doesNotMatch(
+    localWorkspace,
+    /Lista braków pojawi się w kolejnym kroku/,
+  );
+  // Both panels stay mounted; the inactive one is only hidden, and only the
+  // editor of the shown tab listens to the symbol keys.
+  assert.match(localWorkspace, /hidden=\{tab !== 'correction'\}/);
+  assert.match(localWorkspace, /hidden=\{tab !== 'gaps'\}/);
+  assert.match(localWorkspace, /keyboardEnabled=\{tab === 'correction'\}/);
+  assert.match(localWorkspace, /keyboardEnabled=\{tab === 'gaps'\}/);
+});
+
+test('the gaps tab never sets gate exceptions and copies no Admin module (TASK-0963)', async () => {
+  const gaps = await readFile(
+    new URL(
+      '../src/features/operational-reviews/geometry-gaps-workspace.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const gapsState = await readFile(
+    new URL(
+      '../src/features/operational-reviews/geometry-gaps-state.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  // Decision 6 of the plan: exceptions are Admin-only mutations.
+  assert.doesNotMatch(
+    gaps,
+    /GeometryException|Dopuść wyjątkiem|Wycofaj wyjątek/,
+  );
+  assert.doesNotMatch(gaps + gapsState, /apps\/admin|features\/imports/);
+  // The editing target is the grid-reviews row, fetched for one image.
+  assert.match(gaps, /sourceImageId,\s*view: 'all'/);
+  assert.match(gaps, /counts: 'correction'/);
+  assert.match(gaps, /BoardGeometryCorrectionEditor/);
+  assert.match(gaps, /URL\.revokeObjectURL/);
+});
+
 test('the grid-audit list is a loopback-only local mode without a proxy route (TASK-0840)', () => {
   // Same loopback gate as the local correction screen; scoped by game only.
   assert.match(

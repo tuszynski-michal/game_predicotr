@@ -16,6 +16,11 @@ import {
   createManagementMachine,
   updateManagementMachine,
   updateManagementAssignments,
+  previewManagementPointDeletion,
+  deleteManagementPoint,
+  previewManagementMachineDeletion,
+  deleteManagementMachine,
+  previewManagementMachineUpdate,
 } from './generated/sdk.gen';
 import type {
   ManagementStake,
@@ -46,9 +51,18 @@ import type {
   ManagementPointCommand,
   ManagementMachineCommand,
   ManagementAssignmentCommand,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
 } from './generated/types.gen';
 export type {
   ManagementSnapshotResponse,
+  ManagementMutationPreviewResponse,
+  ManagementMutationCounts,
+  ManagementDeleteResponse,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
   ManagementPointResponse,
   ManagementMachineResponse,
   ManagementAssignmentResponse,
@@ -436,6 +450,7 @@ import type {
   ImageJobFileRetryRequest,
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
+  ImageGridReviewCountsMode,
   ImageGridReviewView,
   ImageImportEnginePolicyPreviewRequest,
   ImageImportEnginePolicyResponse,
@@ -700,6 +715,7 @@ export type {
   GridAuditQueueCountsResponse,
   GridAuditQueueItemResponse,
   GridAuditQueuePageResponse,
+  ImageGridReviewCountsMode,
   ImageGridReviewState,
   ImageGridReviewView,
   ImageSelectionCreate,
@@ -1044,6 +1060,9 @@ export interface ListImageGridReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  // TASK-0961: `correction` computes only `counts.correction`; the other
+  // counters come back as 0.
+  readonly counts?: ImageGridReviewCountsMode;
 }
 
 export interface GetBoardImportCoverageOptions {
@@ -1070,6 +1089,9 @@ export interface ListIncompleteGeometryImagesOptions {
     SourceImageGeometryStatus,
     'geometry_complete'
   >;
+  // TASK-0961: only the four real-gap states in one request; the server
+  // refuses it together with `imageState` or `completenessStatus` (422).
+  readonly gapsOnly?: boolean;
   readonly afterCursor?: string;
   readonly limit?: number;
 }
@@ -1222,6 +1244,46 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getManagementSnapshot: () => getManagementSnapshot({ client }),
+    previewManagementPointDeletion: (
+      pointId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementPointDeletion({
+        client,
+        body,
+        path: { point_id: pointId },
+      }),
+    deleteManagementPoint: (pointId: string, body: ManagementDeleteCommand) =>
+      deleteManagementPoint({ client, body, path: { point_id: pointId } }),
+    previewManagementMachineDeletion: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementMachineDeletion({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    deleteManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeleteCommand,
+    ) =>
+      deleteManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    previewManagementMachineUpdate: (
+      machineId: string,
+      body: ManagementUpdatePreviewCommand,
+    ) =>
+      previewManagementMachineUpdate({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
     listManagementStakes: (
       machineId: string,
       gameId: string,
@@ -2526,6 +2588,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.completenessStatus === undefined
             ? {}
             : { completenessStatus: options.completenessStatus }),
+          ...(options.gapsOnly === undefined
+            ? {}
+            : { gapsOnly: options.gapsOnly }),
           ...(options.afterCursor === undefined
             ? {}
             : { afterCursor: options.afterCursor }),
@@ -3052,6 +3117,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.counts === undefined ? {} : { counts: options.counts }),
         },
       }),
     listGridAuditProposals: (options: ListGridAuditProposalsOptions) =>

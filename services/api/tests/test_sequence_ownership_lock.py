@@ -1,4 +1,4 @@
-"""TASK-0950 (P0-5): re-entrancy and the no-upgrade rule of the ownership lock."""
+"""TASK-0971 (P0-5): re-entrancy and the no-upgrade rule of the ownership lock."""
 
 from __future__ import annotations
 

@@ -6,6 +6,135 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0961 — tanie liczniki korekty, filtr realnych braków i flaga `humanApproved` (done)
+
+- Commit: `e2aee8fa` (`v1.7.301`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- `GET .../grid-reviews?counts=correction` liczy tylko `counts.correction` (nowa metoda repozytorium `grid_review_correction_count`, pozostałe liczniki `0`); `GET .../incomplete-images?gapsOnly=true` zwraca cztery stany realnych braków (`REAL_GAP_IMAGE_STATES`) jednym zapytaniem, konflikt z `imageState`/`completenessStatus` → 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`; pozycja ma `humanApproved`, strona `gapsOnly`. OpenAPI, klient i wrapper zregenerowane; domyślne zachowanie obu endpointów bez zmian.
+- Pomiar 2026-10-10 (nowy kod, instancja tymczasowa 8011): `counts=correction` 1,08 s / 1,00 s (Mumie 0, 777 255; stary kod 21,8 s / 26,9 s); strona `gapsOnly` 3,9–5,7 s (Mumie 4 zdjęcia, 777 76 `incomplete_partial`, z czego 73 z zatwierdzonymi ręcznie pozycjami). Budżety ≤ 3 s i ≤ 12 s spełnione bez indeksu.
+- Testy: API/serwis 148 passed, PostgreSQL 30 passed (4 nowe), klient 107 passed, ruff PASS, `check:generated` PASS. Task: `ai_docs/tasks/completed/0961-geometry-gaps-api-counts-and-filter.md`.
+
+### TASK-0960 — kolejka po częściowym usuwaniu źródeł (done)
+
+- Commit: `v1.7.298` — `91ecf6a04a017a5723ea9f8336957221766cf043` (lokalnie, bez push).
+- Przyczyna HTTP500: kasowanie image_review_queue_states całego importu przy pozostających review items. Licznik utrzymuje teraz istniejący trigger, który usuwa go dopiero po ostatniej pozycji.
+- Odtworzono siedem liczników z poprawnych projekcji; nowe wersje unieważniają stare kursory. Zachowano 217 accepted reviews.
+- Usunięto 275 zatwierdzonych źródeł (2198 plansz, 32970 komórek) przez pięć potwierdzonych API batches. Nowy odczyt: zero rekordów celu, brak niespójnych liczników, pięć receiptów.
+- Test PostgreSQL dwóch partii w nowych sesjach: 1 passed; domain/API: 10 passed; Ruff PASS. Mypy dwukrotnie timeout, Claude CLI niedostępny — brief i ograniczenia zapisane, brak deklaracji PASS audytu.
+- Manifest i CSV: `ai_docs/quality/MUMIE_SOURCE_REPLACEMENT_20261009.*`. Task: `ai_docs/tasks/completed/0960-board-source-cleanup-queue-state.md`. Bez restartów, migracji, push i nowego importu.
+
+### TASK-0950 — Management pending modal recovery (done)
+
+- Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
+- Admin13/13, Reviewer23/23 (nine new cases), proxy11/11; scoped lint/shared typecheck PASS. One Claude medium static audit PASS, both P2 closed.
+- Operator shared edit/delete complaint remains unconfirmed. Read-only API: active session, one active and two archived points. No public live write, data deletion, service lifecycle or deployment.
+- See [task](../tasks/completed/0950-management-pending-modal-recovery.md) and [audit](../quality/TASK-0950_AUDIT_claude-opus-5-5.md). Commit `v1.7.295` / `25f91c842fbdad8c35e7c2622fe697fe04f65dd1`.
+
+### TASK-0946 — odstępy kafelków panelu (done)
+
+- Spójne16px dla ikon, stawek i archiwalnych kafelków; miejsce na dwa przyciski44px.
+- Browser10/10 PASS; nowa asercja odtwarza błąd4px, sprawdza odstępy i brak kolizji. Prettier i składnia PASS; bez ponownego pełnego builda/audytu.
+- Outcome: `ai_docs/tasks/completed/0946-management-tile-padding.md`; commit v1.7.291 / 1332c91013855f9d519cd0075a94eb8d3d69fe96.
+- Bez zmian danych, uruchamiania usług i push. Kontrola na stronie operatora pozostaje do odbioru.
+
+### TASK-0945 — Integracja kompaktowego panelu z main (done)
+
+- Merge commit: v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a; plan `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`, Outcome `ai_docs/tasks/completed/0945-compact-panel-main-integration.md`.
+- Zachowano D-536/D-537 Mumii i geometrię0944; historyczny D-536 panelu mapuje się na D-538. Oba historyczne TASK-0940 zachowują osobne pliki i oryginalne commity.
+- Jedna głowa0153, oba rodzice0152; frozen i compact piny używają free-spin/provisional kosztów. Digest oraz dawny kontrakt777 bez zmian, nowe metryki sprawdzone osobno.
+- Claude opus5.5/high PASS,0 P0/P1; pięć P2 poprawiono i zweryfikowano w jednej rundzie. API client107/107, TS helpers34/34, scoped interactions17/17, Admin39/39, Reviewer proxy/geometry31/31, Python focused31/31, API supergame35 plus7772/2; final backend20/20 i saved-selection15/15. PG trzy ścieżki merge, dwa krytyczne scenariusze oraz wzmocniona macierz3/3 PASS. Buildy, Chromium10/10, OpenAPI/docs/maps, lint/types PASS.
+- Jeden szerszy moduł PG osiągnął limit120s; nie deklarujemy pełnego PASS. Własną pozostałość testową usunięto, starsze bazy pozostawiono. Zawężone wymagane kontrole PASS.
+- Main fast-forward zweryfikowany,25 niezapisanych ścieżek i v7-output zachowane. Bez push, migracji operatora ani API/Admin lifecycle. Do odbioru na żywo wymagana osobna procedura0153 i backup/preview.
+
+### TASK-0943 — Minimalistyczny panel (done)
+
+- Version: v1.7.276; commit: d7b37368646a5c9b8a039505646a5fc6f4c55518.
+- Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0942 — Minimalistyczny panel (done)
+
+- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
+- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0941 — Minimalistyczny panel (done)
+
+- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
+- Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
+
+- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
+- Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
+  `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
+  the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały
+  wykryty narożnik poza obrazem (0,1–56 px), więc żadnej nie dało się poprawić.
+- `_validated_detected_board_geometry` przyjmuje szkic w granicach ręcznej edycji
+  (`-W..2W`, `-H..2H`, jak `SourceQuad.require_manual_edit_bounds` i D-436);
+  zapis korekty waliduje geometrię niezależnie. Odpowiedź `correction-context`
+  (`boardQuad`, `suggestedCorners`) używa punktu ze znakiem
+  (`ManualSourceGeometryPoint`); OpenAPI i klient zregenerowane, wrapper klienta
+  zachowuje nazwę `OperationalImageReviewGeometryPoint` dla Reviewera.
+- Bez migracji i zmian danych. Działanie na żywo wymaga scalenia do gałęzi
+  integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
+- Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
+  wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.
+
+### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
+
+- Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
+- `CURRENT_STATE.md`: 868 364 B / 13 375 linii → ok. 75 KB; sekcje spoza okna
+  przeniesione bez zmian do `ai_docs/archive/CURRENT_STATE_2026Q4.md` (od
+  2026-10-01) i `CURRENT_STATE_2026Q3.md` (wcześniejsze); dowód: równość
+  multizbiorów bloków z HEAD. Nowa sekcja „Obowiązujące ograniczenia” (25
+  punktów ze wskazaniem źródła).
+- `DECISION_LOG.md`: 787 675 B → ok. 70 KB (nagłówek z regułami, indeks D-359..
+  D-537, pięć najnowszych pełnych wpisów); pełne wpisy w
+  `ai_docs/process/decisions/DECISION_LOG_2026.md` (kotwice bez zmian), starszy
+  indeks w `decisions/DECISION_INDEX_ARCHIVE.md`.
+- `scripts/check_decision_links.py` i `scripts/check_current_state_window.py`
+  w `npm run docs:check` (część `quality`, ok. 2 s); testy
+  `services/worker/tests/test_check_decision_links_script.py`.
+- Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
+  poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
+
+### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
+
+- Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.
+- `wild_super_spins.evaluate_series_board`: `k` kolumn z X na planszy
+  oryginalnej; przekształcenie tylko przy `k ≥ minimum(X)` (kolumny
+  wypełnione X, przykrycie usuwa symbole pod spodem); linie na planszy
+  rozwiniętej, sztuki na oryginalnej, wygrane liniowe X zastąpione
+  `payout_line(X, k) × liczba linii`; `payout_kind`: w serii `provisional`
+  bez super symbolu, przy nieświeżym stanie (wtedy wszystkie plansze gry,
+  także bazowe — decyzja leada wg planu) albo z jakąkolwiek nieznaną komórką;
+  `exact` tylko dla pełnej planszy. Lustro TS `packages/shared-ts/src/super-game.ts`;
+  16 złotych przypadków `wildSuperSpinsScenario` w Pythonie i TS. D-537.
+- Projekcja per pozycja (`domain/sequence_mode_projection.py`) z zapytania
+  znaczników (jeden snapshot): koszt 0 w serii, trigger z kosztem normalnym;
+  §D sumuje koszt per pozycja, wyniki prowizoryczne poza bilansem z osobną
+  sumą i licznikiem; `superSpinRanges`/`superSpinCost` w podsumowaniu (Admin,
+  udostępnienie, panel, zapisane wyniki); wykres, piny i wkład liczone z tych
+  zakresów; modal pokazuje planszę rozwiniętą i wiersz rozwinięcia.
+  Kalkulator, szczegół planszy i panel czytają w jednym snapshocie
+  `REPEATABLE READ` (dla wszystkich gier; 777 bajt w bajt bez zmian —
+  test regresji ze skrótami z v1.7.279).
+- Audyt Codex gpt-6-astra / high: runda 1 REVISE (3 × P0: koszt darmowych
+  spinów w wykresie i pinach, wkład przy starcie w serii, wspólny snapshot),
+  runda 2 PASS, P2 miniatury zaakceptowane (`ai_docs/quality/TASK-0936_AUDIT_gpt-6-astra*.md`).
+  Worker 118, API 305 + PG 13, shared-ts 65, board-search-ui 94 + 62, Admin
+  733 + 188, Reviewer 240 + 40, klient 105, `openapi:check`, typecheck
+  (mypy 851), lint, format, fixture PASS.
+- Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
+  wymaga etykiet operatora).
+
+
+## Archiwum
+
+- Q4 2026 (od 2026-10-01): `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
+- Q3 2026 i starsze tory: `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
+
 Archiwum sekcji przeniesionych z `ai_docs/process/CURRENT_STATE.md` przy
 wprowadzeniu okna kroczącego (TASK-0938, wejściowy HEAD `8629be40`). Zakres: 91 sekcji, które zaczynały się w źródle powyżej sekcji „D-470 / D-471” (wiersz 2455), czyli wpisy datowane 2026-10-01 .. 2026-10-09 (IV kwartał).
 Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z pliku
@@ -13,6 +142,36 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0940 — Atomic management edit and explicit scope deletion (done)
+
+- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
+- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
+
+### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
+
+- Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c.
+- API: wyniki wyszukiwania i wiersze przybliżonej wygranej niosą opcjonalne
+  `superGame` (`trigger` | `in_series`, `spinIndex`, `seriesLength`,
+  `superSymbolCode`, `completeness`, `runVerification`, w Adminie `seriesId`),
+  a każda odpowiedź `superGameState { fresh, inputVersion, generationInputVersion }`;
+  jedno zapytanie SQL (LATERAL po serii pokrywającej pozycję) daje znacznik i
+  świeżość z jednego snapshotu. Trasy publiczne (udostępnienie, panel) bez
+  `seriesId` (osobny model / `response_model_exclude`, strażnik parametrów).
+  Zamrożone wyniki panelu bez znaczników; skróty treści 777 bez zmian.
+- UI (`board-search-ui`): złote wyróżnienie kart i wierszy, etykiety
+  „Supergra: trigger / spin k/len, symbol X / super symbol do zdefiniowania”,
+  dopiski o serii niekompletnej i triggerze z predykcji, baner dla całego
+  wyniku (także pustego) przy `fresh = false`; link „Zdefiniuj super symbol”
+  / „Pokaż serię” tylko gdy źródło danych deklaruje `superGameSeriesHref`
+  (Admin), Reviewer i panel tylko etykieta. Cache wyszukiwania Reviewera
+  pomijany dla odpowiedzi ze znacznikiem lub nieświeżych.
+- Audyt Codex gpt-6-astra / medium: REVISE (P0 baner przy pustym wyniku,
+  P1 brak akapitu w `ADMIN_APP.md`, P2 cache), wszystko naprawione w jednej
+  rundzie (`ai_docs/quality/TASK-0935_AUDIT_gpt-6-astra.md`). API 281 PASS,
+  PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
+  klient 104, typecheck (mypy 850 plików), lint, format PASS.
+- Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
 ### TASK-0934 — sekcja „Supergry” w Adminie (done)
 
 - Commit v1.7.277 / 9a2bbc685e2763553ce31b621c5e3c112e78e671.
@@ -36,7 +195,6 @@ ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
   lint, prettier PASS. Bez uruchomienia na żywym API.
 - Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
   jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
-
 ### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
 
 - Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.

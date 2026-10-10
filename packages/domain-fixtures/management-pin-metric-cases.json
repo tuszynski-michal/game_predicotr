@@ -1,0 +1,173 @@
+[
+  {
+    "name": "zero",
+    "metricSource": "controlled-zero-caller",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [
+      {
+        "spinNumber": 1,
+        "payoutCredits": 50,
+        "cumulativePayoutCredits": 50,
+        "cumulativeBalanceCredits": 30
+      }
+    ],
+    "spin": 0,
+    "net": 0,
+    "required": 0,
+    "cash": 0
+  },
+  {
+    "name": "first-win",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [
+      {
+        "spinNumber": 1,
+        "payoutCredits": 50,
+        "cumulativePayoutCredits": 50,
+        "cumulativeBalanceCredits": 30
+      }
+    ],
+    "spin": 1,
+    "net": 30,
+    "required": 20,
+    "cash": 50
+  },
+  {
+    "name": "after-win-before-next-row",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [
+      {
+        "spinNumber": 1,
+        "payoutCredits": 50,
+        "cumulativePayoutCredits": 50,
+        "cumulativeBalanceCredits": 30
+      }
+    ],
+    "spin": 2,
+    "net": 10,
+    "required": 20,
+    "cash": 30
+  },
+  {
+    "name": "losing-pin",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [],
+    "spin": 7,
+    "net": -140,
+    "required": 140,
+    "cash": 0
+  },
+  {
+    "name": "reinvest-after-partial-payout",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [
+      {
+        "spinNumber": 2,
+        "payoutCredits": 10,
+        "cumulativePayoutCredits": 10,
+        "cumulativeBalanceCredits": -30
+      },
+      {
+        "spinNumber": 3,
+        "payoutCredits": 100,
+        "cumulativePayoutCredits": 110,
+        "cumulativeBalanceCredits": 50
+      }
+    ],
+    "spin": 3,
+    "net": 50,
+    "required": 50,
+    "cash": 100
+  },
+  {
+    "name": "after-last-win",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [
+      {
+        "spinNumber": 2,
+        "payoutCredits": 10,
+        "cumulativePayoutCredits": 10,
+        "cumulativeBalanceCredits": -30
+      },
+      {
+        "spinNumber": 3,
+        "payoutCredits": 100,
+        "cumulativePayoutCredits": 110,
+        "cumulativeBalanceCredits": 50
+      }
+    ],
+    "spin": 8,
+    "net": -50,
+    "required": 50,
+    "cash": 0
+  },
+  {
+    "name": "unavailable",
+    "metricSource": "unavailable-caller",
+    "spinCost": 20,
+    "evaluatedSpinCount": 8,
+    "rows": [],
+    "spin": 9,
+    "net": -180,
+    "required": null,
+    "cash": null
+  },
+  {
+    "name": "free-series-pin",
+    "spinCost": 20,
+    "evaluatedSpinCount": 10,
+    "rows": [],
+    "superSpinRanges": [
+      {
+        "startSpin": 3,
+        "endSpin": 6
+      }
+    ],
+    "superSpinCost": 0,
+    "spin": 6,
+    "net": -40,
+    "required": 40,
+    "cash": 0
+  },
+  {
+    "name": "first-spin-free",
+    "spinCost": 20,
+    "evaluatedSpinCount": 4,
+    "rows": [],
+    "superSpinRanges": [
+      {
+        "startSpin": 1,
+        "endSpin": 4
+      }
+    ],
+    "superSpinCost": 0,
+    "spin": 1,
+    "net": 0,
+    "required": 0,
+    "cash": 0
+  },
+  {
+    "name": "provisional-excluded",
+    "spinCost": 20,
+    "evaluatedSpinCount": 4,
+    "rows": [
+      {
+        "spinNumber": 2,
+        "payoutCredits": 500,
+        "cumulativePayoutCredits": 0,
+        "cumulativeBalanceCredits": -40,
+        "payoutKind": "provisional"
+      }
+    ],
+    "spin": 2,
+    "net": -40,
+    "required": 40,
+    "cash": 0
+  }
+]

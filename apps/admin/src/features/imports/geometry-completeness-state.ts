@@ -1,4 +1,4 @@
-/** Pure state helpers of the D-484 geometry completeness section (TASK-0806, 0808). */
+/** Pure state helpers of the D-484 geometry completeness diagnostics (TASK-0806, 0808, 0964). */
 
 export type GeometryImageStateName =
   | 'complete'
@@ -17,9 +17,6 @@ export type IncompleteImageStateName = Exclude<
   GeometryImageStateName,
   'complete' | 'superseded'
 >;
-
-/** States the list can be filtered by: the incomplete ones and `superseded`. */
-export type ListedImageStateName = IncompleteImageStateName | 'superseded';
 
 const IMAGE_STATE_LABELS: Readonly<Record<GeometryImageStateName, string>> = {
   complete: 'Kompletne',
@@ -42,28 +39,11 @@ const POSITION_STATE_LABELS: Readonly<
   superseded: 'Zastąpiona (numer jest w innym zdjęciu)',
 };
 
-const IMPORT_ERROR_LABELS: Readonly<Record<string, string>> = {
-  IMAGE_STAGE_EXECUTION_FAILED: 'etap przetwarzania zakończył się błędem',
-  IMAGE_STAGE_RESULT_INVALID: 'etap przetwarzania zwrócił nieprawidłowy wynik',
-  IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE:
-    'niepełne wsparcie źródła pól planszy',
-};
-
 const DEFERRED_REASON_LABELS: Readonly<Record<string, string>> = {
   insufficient_centers: 'za mało środków symboli',
   incomplete_lattice: 'niepełna siatka',
   residual_too_high: 'zbyt duży błąd dopasowania',
   source_unavailable: 'źródło niedostępne',
-};
-
-const SOURCE_STATUS_LABELS: Readonly<Record<string, string>> = {
-  discovered: 'wykryte',
-  processing: 'w przetwarzaniu',
-  waiting_for_review: 'czeka na przegląd',
-  accepted: 'zaakceptowane',
-  rejected: 'odrzucone',
-  completed: 'zakończone',
-  failed: 'błąd',
 };
 
 export const INCOMPLETE_IMAGE_STATES: readonly IncompleteImageStateName[] = [
@@ -74,114 +54,14 @@ export const INCOMPLETE_IMAGE_STATES: readonly IncompleteImageStateName[] = [
   'no_source_geometry',
 ];
 
-/** Filter tabs of the list: the incomplete states, then the replaced images. */
-export const LISTED_IMAGE_STATES: readonly ListedImageStateName[] = [
-  ...INCOMPLETE_IMAGE_STATES,
-  'superseded',
-];
-
-// -- D-484 gate (TASK-0807): persisted status of an image -------------------
-
-export type GeometryCompletenessStatusName =
-  'geometry_complete' | 'geometry_incomplete' | 'geometry_exception';
-
-const COMPLETENESS_STATUS_LABELS: Readonly<
-  Record<GeometryCompletenessStatusName, string>
-> = {
-  geometry_complete: 'Dopuszczone do cięcia (komplet siatek)',
-  geometry_incomplete: 'Wstrzymane – czeka na siatki',
-  geometry_exception: 'Dopuszczone wyjątkiem operatora',
-};
-
 const GATE_REASON_LABELS: Readonly<Record<string, string>> = {
   SOURCE_IMAGE_GEOMETRY_INCOMPLETE:
     'zdjęcie nie ma kompletu potwierdzonych siatek; w V3 poprawne pełne siatki mogą być już dostępne w weryfikacji symboli',
 };
 
-const GEOMETRY_EXCEPTION_ERRORS: Readonly<Record<string, string>> = {
-  IMAGE_GEOMETRY_EXCEPTION_NOT_INCOMPLETE:
-    'Wyjątek można ustawić tylko dla zdjęcia wstrzymanego przez bramkę.',
-  IMAGE_GEOMETRY_EXCEPTION_ALREADY_SET:
-    'Zdjęcie ma już wyjątek z innym powodem.',
-  IMAGE_GEOMETRY_EXCEPTION_NOT_SET: 'Zdjęcie nie ma wyjątku do wycofania.',
-  IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT:
-    'Wyjątku nie można wycofać: na komórkach tego zdjęcia są już decyzje człowieka.',
-  IMAGE_GEOMETRY_EXCEPTION_REASON_INVALID: 'Podaj powód wyjątku.',
-};
-
-export const MAX_GEOMETRY_EXCEPTION_REASON_LENGTH = 1000;
-
-/** Queue tabs read the persisted status; the other tabs classify on the fly. */
-export type GeometryQueueFilter = 'queue' | 'exceptions';
-
-export const GEOMETRY_QUEUE_FILTERS: readonly GeometryQueueFilter[] = [
-  'queue',
-  'exceptions',
-];
-
-const QUEUE_FILTER_LABELS: Readonly<Record<GeometryQueueFilter, string>> = {
-  queue: 'Kolejka siatek',
-  exceptions: 'Wyjątki operatora',
-};
-
-export function geometryQueueFilterLabel(filter: GeometryQueueFilter): string {
-  return QUEUE_FILTER_LABELS[filter];
-}
-
-/** Persisted status a queue tab selects. */
-export function geometryQueueFilterStatus(
-  filter: GeometryQueueFilter,
-): Exclude<GeometryCompletenessStatusName, 'geometry_complete'> {
-  return filter === 'queue' ? 'geometry_incomplete' : 'geometry_exception';
-}
-
-export function geometryCompletenessStatusLabel(status: string | null): string {
-  if (status === null) return 'Nieocenione przez bramkę';
-  return (
-    COMPLETENESS_STATUS_LABELS[status as GeometryCompletenessStatusName] ??
-    status
-  );
-}
-
 export function geometryGateReasonLabel(code: string): string {
   const label = GATE_REASON_LABELS[code];
   return label === undefined ? code : `${label} (${code})`;
-}
-
-export function canSetGeometryException(status: string | null): boolean {
-  return status === 'geometry_incomplete';
-}
-
-export function canWithdrawGeometryException(status: string | null): boolean {
-  return status === 'geometry_exception';
-}
-
-export type GeometryExceptionReasonResult =
-  | { readonly ok: true; readonly reason: string }
-  | { readonly ok: false; readonly error: string };
-
-/** The reason is required (D-484: an exception has an author and a reason). */
-export function validateGeometryExceptionReason(
-  value: string,
-): GeometryExceptionReasonResult {
-  const reason = value.trim();
-  if (reason.length === 0) {
-    return { ok: false, error: 'Podaj powód wyjątku.' };
-  }
-  if (reason.length > MAX_GEOMETRY_EXCEPTION_REASON_LENGTH) {
-    return {
-      ok: false,
-      error: `Powód może mieć najwyżej ${MAX_GEOMETRY_EXCEPTION_REASON_LENGTH} znaków.`,
-    };
-  }
-  return { ok: true, reason };
-}
-
-export function geometryExceptionErrorMessage(code: string | null): string {
-  return (
-    (code === null ? undefined : GEOMETRY_EXCEPTION_ERRORS[code]) ??
-    'Nie udało się zmienić wyjątku zdjęcia.'
-  );
 }
 
 export function geometryImageStateLabel(state: string): string {
@@ -196,16 +76,6 @@ export function geometryReasonLabel(reason: string): string {
   return DEFERRED_REASON_LABELS[reason] ?? reason;
 }
 
-export function geometrySourceStatusLabel(status: string): string {
-  return SOURCE_STATUS_LABELS[status] ?? status;
-}
-
-/** Error code of a failed import file with its meaning, when the code is known. */
-export function geometryImportErrorLabel(code: string): string {
-  const label = IMPORT_ERROR_LABELS[code];
-  return label === undefined ? code : `${label} (${code})`;
-}
-
 /** Label of one position state, with the deferral reason when there is one. */
 export function geometryPositionLabel(
   state: string,
@@ -215,19 +85,6 @@ export function geometryPositionLabel(
   return reasonCode === null
     ? label
     : `${label} (${geometryReasonLabel(reasonCode)})`;
-}
-
-export type GeometryPositionTone = 'ok' | 'warning' | 'danger' | 'muted';
-
-/**
- * Tone of a position in the preview: positions without a grid are `danger`;
- * superseded ones are covered by another image, so they are only `muted`.
- */
-export function geometryPositionTone(state: string): GeometryPositionTone {
-  if (state === 'ok') return 'ok';
-  if (state === 'superseded') return 'muted';
-  if (state === 'uncertain' || state === 'partial') return 'warning';
-  return 'danger';
 }
 
 export type GeometrySectionState =
@@ -252,34 +109,31 @@ export function geometrySectionState(
   return 'incomplete';
 }
 
-export interface GeometryQuadPoint {
-  readonly x: number;
-  readonly y: number;
+/** Image counters of a completeness report that the heading reads. */
+export interface GeometryImageCounters {
+  readonly incompleteMissing: number;
+  readonly incompletePartial: number;
+  readonly incompleteUncertain: number;
+  readonly importFailed: number;
+  readonly noSourceGeometry: number;
 }
 
-/** `points` attribute of an SVG polygon, or `null` for anything but four finite points. */
-export function quadSvgPoints(
-  quad: readonly GeometryQuadPoint[] | null | undefined,
-): string | null {
-  if (
-    quad === null ||
-    quad === undefined ||
-    quad.length !== 4 ||
-    !quad.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-  ) {
-    return null;
-  }
-  return quad.map((point) => `${point.x},${point.y}`).join(' ');
-}
-
-/** Centre of a quad, used to place the position number. */
-export function quadCentre(
-  quad: readonly GeometryQuadPoint[],
-): GeometryQuadPoint {
-  const count = Math.max(quad.length, 1);
+/**
+ * Real gaps need a human (missing or partial boards, failed import, no source
+ * geometry); an unconfirmed grid is an automatic grid without manual approval,
+ * not a cutting error.
+ */
+export function geometryGapCounts(images: GeometryImageCounters): {
+  readonly realGaps: number;
+  readonly unconfirmed: number;
+} {
   return {
-    x: quad.reduce((sum, point) => sum + point.x, 0) / count,
-    y: quad.reduce((sum, point) => sum + point.y, 0) / count,
+    realGaps:
+      images.incompleteMissing +
+      images.incompletePartial +
+      images.importFailed +
+      images.noSourceGeometry,
+    unconfirmed: images.incompleteUncertain,
   };
 }
 
@@ -370,7 +224,7 @@ export function geometryScopeImportId(
 }
 
 /**
- * Sequence numbers of the import report (D-539, TASK-0950): the API sends a
+ * Sequence numbers of the import report (D-543, TASK-0971): the API sends a
  * sorted, capped list with the exact count, so a cut list says how many are
  * not shown.
  */

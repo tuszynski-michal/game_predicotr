@@ -63,6 +63,70 @@ after(() => dom.window.close());
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const otherSession = '22222222-2222-4222-8222-222222222222';
 const stakes = [2000, 1000, 600, 400, 200, 120];
+
+test('new structural ports preserve the public identity fence before and after session end', async () => {
+  const server = backend();
+  const calls = [];
+  const adapter = createManagementPublicAdapter({
+    sessionId,
+    fetchImplementation: async (request) => {
+      if (new URL(request.url).pathname.endsWith('/context'))
+        return server.fetch(request);
+      calls.push({
+        path: new URL(request.url).pathname,
+        session: request.headers.get('X-Management-Session'),
+        body: await request.json(),
+      });
+      return new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  await adapter.context();
+  const preview = { expectedRevision: 1 };
+  const deletion = {
+    operationId: 'operation',
+    expectedRevision: 1,
+    previewToken: 'p'.repeat(43),
+    confirmed: true,
+  };
+  const actions = [
+    () => adapter.client.previewManagementPointDeletion('point', preview),
+    () => adapter.client.deleteManagementPoint('point', deletion),
+    () =>
+      adapter.client.previewManagementMachineDeletion(
+        'point',
+        'machine',
+        preview,
+      ),
+    () => adapter.client.deleteManagementMachine('point', 'machine', deletion),
+    () =>
+      adapter.client.previewManagementMachineUpdate('machine', {
+        command: {
+          operationId: 'edit',
+          expectedRevision: 1,
+          name: 'M',
+          gameIds: [],
+        },
+      }),
+  ];
+  for (const action of actions) await action();
+  assert.equal(calls.length, 5);
+  assert(
+    calls.every(
+      (call) =>
+        call.session === sessionId && call.path.includes('/management-public/'),
+    ),
+  );
+  assert.deepEqual(calls[1].body, deletion);
+  adapter.end();
+  for (const action of actions) {
+    const result = await action();
+    assert.equal(result.data, undefined);
+    assert.match(result.error.message, /zakończony/);
+  }
+  assert.equal(calls.length, 5);
+});
 const symbol = {
   code: 'cherry',
   displayOrder: 0,
@@ -171,7 +235,7 @@ const button = (label, within = document) =>
   );
 const card = (stake = 2000) =>
   document.querySelector(
-    `article[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
+    `button[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
   );
 async function settle() {
   await act(async () => new Promise((r) => setTimeout(r, 10)));
@@ -182,6 +246,22 @@ async function until(predicate) {
     await settle();
   }
   assert.fail('Missing rendered state: ' + text().slice(-1000));
+}
+async function expand(label) {
+  const summary = [...document.querySelectorAll('summary')].find(
+    (node) => node.textContent === label,
+  );
+  assert.ok(summary, `Missing disclosure: ${label}`);
+  await act(async () => {
+    summary.parentElement.open = true;
+    summary.parentElement.dispatchEvent(new Event('toggle'));
+  });
+  await settle();
+}
+async function openSavedResult() {
+  if (!button('Zamknij szkic')) await click(card());
+  await click(button('Zamknij szkic'));
+  await expand('Pełny zapisany wynik');
 }
 async function click(node) {
   assert.ok(node);
@@ -314,6 +394,7 @@ function backend({ existing = true, locked = false } = {}) {
     }
     if (path === '/points/point/machines' && body) {
       Object.assign(machine, body);
+      machine.assignments = (body.gameIds ?? []).map(() => assignment);
       point.machines = [machine];
       return json(machine);
     }
@@ -485,15 +566,19 @@ test('phone-width public gate completes point/machine assignment, search, indepe
     'form[aria-label="Edycja maszyny"]',
   );
   await input(machineForm.querySelector('input'), 'Maszyna');
+  await click(machineForm.querySelector('input[type="checkbox"]'));
   await submit(machineForm);
-  await click(document.querySelector('fieldset input'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   assert.equal(
-    document.querySelectorAll('.management-stake-cards article').length,
+    document.querySelectorAll('.management-stake-cards > button').length,
     6,
   );
-  await click(button('Wyszukaj układ', card()));
+  await click(card());
   await until(() => document.querySelector('.boardSearchPaletteGrid button'));
   await click(
     [...document.querySelectorAll('.boardSearchPaletteGrid button')].find((n) =>
@@ -511,11 +596,12 @@ test('phone-width public gate completes point/machine assignment, search, indepe
   await until(() => server.entries.length === 1);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 1000).empty, true);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 2000).empty, false);
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => text().includes('Ostatni zapisany wynik'));
   assert.match(text(), /Odbiorca/);
   assert.doesNotMatch(text(), new RegExp(sessionId));
-  await click(button('Wyczyść', card()));
+  await click(card());
+  await click(button('Usuń zapisany układ'));
   await until(() => server.entries.length === 2);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 2000).empty, true);
   assert.equal(server.entries[1].action, 'stake.clear');
@@ -534,12 +620,16 @@ test('lost committed response survives reload; identical UUID/body retries once 
   });
   let root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
   server.lost = true;
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   const pending = JSON.parse(
     dom.window.sessionStorage.getItem(managementSlotPendingKey(namespace)),
   );
@@ -576,11 +666,15 @@ test('401 termination retains mounted dirty draft, loaded history and exact pend
   });
   const root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => text().includes('Ostatni zapisany wynik'));
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await click(
     document.querySelector('.boardSearchPaletteGrid button[title=\"Wiśnia\"]'),
   );
@@ -591,7 +685,7 @@ test('401 termination retains mounted dirty draft, loaded history and exact pend
   );
   assert.ok(draftCell);
   server.deny = true;
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   await until(() => document.querySelector('.management-draft')?.disabled);
   assert.match(text(), /Dostęp zakończony/);
   assert.ok(
@@ -853,9 +947,13 @@ test('public modal writes current symbol immediately with opaque version, fixed 
   });
   const root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => button('Edytuj bieżącą planszę startową'));
   await click(button('Edytuj bieżącą planszę startową'));
   await until(() => document.querySelector('.boardSearchBoardCellTarget'));
@@ -871,6 +969,7 @@ test('public modal writes current symbol immediately with opaque version, fixed 
   assert.equal(call.body.targetSymbolCode, 'cherry');
   assert.equal(call.body.expectedRevision, 1);
   assert.match(call.path, /stakes\/2000/);
+  await expand('Dziennik');
   await until(() => text().includes('Korekta symbolu'));
   assert.match(text(), /Przed:.*Symbol: nieznany/);
   assert.match(text(), /Po:.*Symbol: cherry/);
@@ -1066,9 +1165,13 @@ test('public correction lost response reload retries original opaque request and
     }),
   );
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => button('Edytuj bieżącą planszę startową'));
   await click(button('Edytuj bieżącą planszę startową'));
   await until(() => document.querySelector('.boardSearchBoardCellTarget'));
@@ -1101,4 +1204,194 @@ test('public correction lost response reload retries original opaque request and
   assert.equal(dom.window.sessionStorage.getItem(key), null);
   assert.match(text(), /Odbiorca/);
   await unmount(root);
+});
+
+for (const entity of ['point', 'machine']) {
+  for (const action of ['edit', 'delete']) {
+    for (const endAccess of [false, true]) {
+      test(`shared ${entity} ${action} failure exposes dialog retry (${endAccess ? 'ended' : 'active'} access)`, async () => {
+        dom.window.sessionStorage.clear();
+        dom.window.history.replaceState(
+          null,
+          '',
+          `/management?share=${sessionId}`,
+        );
+        const server = backend();
+        const baseFetch = server.fetch;
+        const mutations = [];
+        const target =
+          entity === 'point'
+            ? '/points/point'
+            : '/points/point/machines/machine';
+        const json = (value, status = 200) =>
+          new Response(JSON.stringify(value), {
+            status,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        server.fetch = async (request) => {
+          const path = new URL(request.url).pathname.replace(
+            '/management-api/api/v1/management-public',
+            '',
+          );
+          if (path === `${target}/delete-preview`)
+            return json({
+              previewToken: 'p'.repeat(43),
+              expiresAt: '2099-01-01T00:00:00Z',
+              counts: { points: entity === 'point' ? 1 : 0, machines: 1 },
+            });
+          if (path === (action === 'edit' ? target : `${target}/delete`)) {
+            mutations.push({
+              body: await request.clone().json(),
+              session: request.headers.get('X-Management-Session'),
+            });
+            if (mutations.length === 1)
+              return json({ message: 'Nieznany wynik zapisu' }, 502);
+            if (action === 'delete') {
+              if (entity === 'point') server.points = [];
+              else server.points[0].machines = [];
+              return json({
+                deleted: true,
+                operationId: mutations.at(-1).body.operationId,
+              });
+            }
+          }
+          return baseFetch(request);
+        };
+        const adapter = createManagementPublicAdapter({
+          sessionId,
+          fetchImplementation: server.fetch,
+        });
+        let root = await mount(adapter);
+        try {
+          if (entity === 'machine')
+            await click(document.querySelector('.management-tile-choice'));
+          const label = `${action === 'edit' ? 'Edytuj' : 'Usuń'} ${entity === 'point' ? 'punkt Punkt' : 'maszynę Maszyna'}`;
+          await click(document.querySelector(`button[aria-label="${label}"]`));
+          if (action === 'edit') {
+            await input(
+              document.querySelector('.management-modal input'),
+              'Zmieniona nazwa',
+            );
+            await submit(document.querySelector('.management-modal'));
+          } else await click(button('Potwierdź usunięcie'));
+          const dialog = document.querySelector('[role="dialog"]');
+          assert.match(
+            dialog.querySelector('[role="alert"]').textContent,
+            /Nieznany wynik/,
+          );
+          assert.equal(button('Ponów ten sam zapis', dialog).disabled, false);
+          assert.equal(button('Anuluj', dialog).disabled, false);
+          if (action === 'edit')
+            assert.equal(dialog.querySelector('input').disabled, true);
+          const stored = dom.window.sessionStorage.getItem(
+            managementPendingKey(managementStorageNamespace(sessionId)),
+          );
+          assert.ok(stored);
+          if (endAccess) {
+            adapter.end();
+            await until(() => button('Ponów ten sam zapis', dialog).disabled);
+            const commitButton = button(
+              action === 'edit' ? 'Zapisz' : 'Potwierdź usunięcie',
+              dialog,
+            );
+            assert.equal(commitButton.disabled, true);
+            await click(button('Ponów ten sam zapis', dialog));
+            await click(commitButton);
+            assert.equal(mutations.length, 1);
+            assert.equal(
+              dom.window.sessionStorage.getItem(
+                managementPendingKey(managementStorageNamespace(sessionId)),
+              ),
+              stored,
+            );
+            return;
+          }
+          if (entity === 'point' && action === 'edit') {
+            await click(button('Anuluj', dialog));
+            assert.equal(document.querySelector('[role="dialog"]'), null);
+            assert.equal(
+              dom.window.sessionStorage.getItem(
+                managementPendingKey(managementStorageNamespace(sessionId)),
+              ),
+              stored,
+            );
+            await unmount(root);
+            root = await mount(adapter);
+          }
+          await click(button('Ponów ten sam zapis'));
+          assert.equal(mutations.length, 2);
+          assert.deepEqual(mutations[1], mutations[0]);
+          assert.equal(mutations[0].session, sessionId);
+          assert.equal(
+            dom.window.sessionStorage.getItem(
+              managementPendingKey(managementStorageNamespace(sessionId)),
+            ),
+            null,
+          );
+          assert.equal(document.querySelector('[role="dialog"]'), null);
+          if (entity === 'point' && action === 'edit') {
+            await click(button('Punkty'));
+            assert.equal(
+              document.querySelector(
+                'button[aria-label="Edytuj punkt Zmieniona nazwa"]',
+              ).disabled,
+              false,
+            );
+            assert.equal(
+              document.querySelector(
+                'button[aria-label="Usuń punkt Zmieniona nazwa"]',
+              ).disabled,
+              false,
+            );
+          }
+        } finally {
+          await unmount(root);
+        }
+      });
+    }
+  }
+}
+
+test('shared definite edit rejection keeps the error and editable draft inside the modal', async () => {
+  dom.window.sessionStorage.clear();
+  dom.window.history.replaceState(null, '', `/management?share=${sessionId}`);
+  const server = backend();
+  const baseFetch = server.fetch;
+  server.fetch = (request) =>
+    request.method === 'PUT'
+      ? Promise.resolve(
+          new Response(JSON.stringify({ message: 'Nieprawidłowa nazwa' }), {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      : baseFetch(request);
+  const root = await mount(
+    createManagementPublicAdapter({
+      sessionId,
+      fetchImplementation: server.fetch,
+    }),
+  );
+  try {
+    await click(
+      document.querySelector('button[aria-label="Edytuj punkt Punkt"]'),
+    );
+    await submit(document.querySelector('.management-modal'));
+    const dialog = document.querySelector('[role="dialog"]');
+    assert.match(
+      dialog.querySelector('[role="alert"]').textContent,
+      /Nieprawidłowa nazwa/,
+    );
+    assert.equal(dialog.querySelector('input').disabled, false);
+    assert.equal(button('Zapisz', dialog).disabled, false);
+    assert.equal(button('Ponów ten sam zapis', dialog), undefined);
+    assert.equal(
+      dom.window.sessionStorage.getItem(
+        managementPendingKey(managementStorageNamespace(sessionId)),
+      ),
+      null,
+    );
+  } finally {
+    await unmount(root);
+  }
 });

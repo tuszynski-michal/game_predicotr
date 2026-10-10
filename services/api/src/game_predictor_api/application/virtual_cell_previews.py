@@ -614,7 +614,7 @@ def render_spec_cell_rgb(
     """The source-direct pixels of one stored cell render specification.
 
     The single render every preview and the geometry correction revert
-    (TASK-0946) compare with a cell's ``rendered_pixel_checksum_sha256``.
+    (TASK-0967) compare with a cell's ``rendered_pixel_checksum_sha256``.
     """
 
     configuration = _mapping(render_spec.get("configuration"), "configuration")

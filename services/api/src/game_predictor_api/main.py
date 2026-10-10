@@ -1747,7 +1747,7 @@ def create_app(
     ]:
         with session_factory() as session:
             try:
-                # TASK-0947: case A verifies the real pixels of the restored
+                # TASK-0968: case A verifies the real pixels of the restored
                 # render, so the service gets the configured artifact root.
                 yield GeometryCorrectionRevertService(
                     SqlAlchemyGeometryCorrectionRevertRepository(session),
@@ -2433,7 +2433,7 @@ def create_app(
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
             "IMAGE_REVIEW_SUPERSEDED",
-            # TASK-0945: a retry of a reverted correction is refused.
+            # TASK-0966: a retry of a reverted correction is refused.
             "GEOMETRY_CORRECTION_REVERTED",
         }:
             status_code = 409

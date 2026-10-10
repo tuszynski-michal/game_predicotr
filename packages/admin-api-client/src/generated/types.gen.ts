@@ -904,7 +904,7 @@ export type BoardCellGeometryPendingStatus =
 /**
  * BoardCellGeometryRejectionCommand
  *
- * Reject an open deferred slot (TASK-0949); ``note`` is required for ``other``.
+ * Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``.
  */
 export type BoardCellGeometryRejectionCommand = {
   /**
@@ -4270,6 +4270,12 @@ export type GeometryCompletenessPositionCountResponse = {
  */
 export type GeometryCompletenessPositionResponse = {
   /**
+   * Humanapproved
+   *
+   * True when a human approved the current geometry of the board at this position (approvedGeometryRevision == geometryRevision); false without a board.
+   */
+  humanApproved?: boolean;
+  /**
    * Positionindex
    */
   positionIndex: number;
@@ -6844,7 +6850,25 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
 };
 
 /**
+ * ImageGridReviewCountsMode
+ *
+ * Which counters a grid review page computes (TASK-0961).
+ *
+ * ``ALL`` keeps the full set (seven aggregate queries over every current
+ * board of the game). ``CORRECTION`` computes only ``correction`` — the
+ * reported boards plus the deferred slots of the D-462 R4 queue — and
+ * reports every other counter as ``0``; the Reviewer polls the correction
+ * queue after every board and must not pay for the full set each time.
+ */
+export type ImageGridReviewCountsMode = 'all' | 'correction';
+
+/**
  * ImageGridReviewCountsResponse
+ *
+ * Counters of the page.
+ *
+ * With `counts=correction` only `correction` is computed; every other
+ * counter is 0 and must not be read as an empty queue (TASK-0961).
  */
 export type ImageGridReviewCountsResponse = {
   /**
@@ -8883,7 +8907,7 @@ export type ImportLabSymbolCandidateCommand = {
 /**
  * ImportSequenceOwnershipResponse
  *
- * Sequence ownership outcome of one import (D-539, TASK-0950).
+ * Sequence ownership outcome of one import (D-543, TASK-0971).
  *
  * ``replaced``: sequences this import took over from a rejected board of
  * another image. ``skipped``: sequences another photo owns (a live pending
@@ -8918,6 +8942,10 @@ export type IncompleteGeometryImagePageResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Gapsonly
+   */
+  gapsOnly?: boolean;
   imageState: GeometryImageState | null;
   /**
    * Images
@@ -9894,6 +9922,10 @@ export type ManagementAssignmentCommand = {
    * Operationid
    */
   operationId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken?: string | null;
 };
 
 /**
@@ -9983,6 +10015,61 @@ export type ManagementCorrectionCommand = {
    * Targetsymbolcode
    */
   targetSymbolCode?: string | null;
+};
+
+/**
+ * ManagementDeleteCommand
+ */
+export type ManagementDeleteCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * ManagementDeletePreviewCommand
+ */
+export type ManagementDeletePreviewCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * ManagementDeleteResponse
+ */
+export type ManagementDeleteResponse = {
+  counts: ManagementMutationCounts;
+  /**
+   * Deleted
+   */
+  deleted?: true;
+  /**
+   * Machineid
+   */
+  machineId?: string | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Pointid
+   */
+  pointId: string;
 };
 
 /**
@@ -10084,6 +10171,10 @@ export type ManagementMachineCommand = {
    */
   expectedRevision: number;
   /**
+   * Gameids
+   */
+  gameIds?: Array<string> | null;
+  /**
    * Name
    */
   name: string;
@@ -10091,6 +10182,10 @@ export type ManagementMachineCommand = {
    * Operationid
    */
   operationId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken?: string | null;
 };
 
 /**
@@ -10128,6 +10223,51 @@ export type ManagementMachineResponse = {
 };
 
 /**
+ * ManagementMutationCounts
+ */
+export type ManagementMutationCounts = {
+  /**
+   * Assignments
+   */
+  assignments?: number;
+  /**
+   * Journalentries
+   */
+  journalEntries?: number;
+  /**
+   * Machines
+   */
+  machines?: number;
+  /**
+   * Points
+   */
+  points?: number;
+  /**
+   * Searchcontexts
+   */
+  searchContexts?: number;
+  /**
+   * Slots
+   */
+  slots?: number;
+};
+
+/**
+ * ManagementMutationPreviewResponse
+ */
+export type ManagementMutationPreviewResponse = {
+  counts: ManagementMutationCounts;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
  * ManagementPinnedPoint
  */
 export type ManagementPinnedPoint = {
@@ -10139,6 +10279,14 @@ export type ManagementPinnedPoint = {
    * Balancecredits
    */
   balanceCredits: number;
+  /**
+   * Machinecashcredits
+   */
+  machineCashCredits?: number | null;
+  /**
+   * Requiredstakecredits
+   */
+  requiredStakeCredits?: number | null;
   /**
    * Spinnumber
    */
@@ -10594,6 +10742,16 @@ export type ManagementStakeResponse = {
    * Updatedat
    */
   updatedAt?: string | null;
+};
+
+/**
+ * ManagementUpdatePreviewCommand
+ */
+export type ManagementUpdatePreviewCommand = {
+  /**
+   * Command
+   */
+  command: ManagementMachineCommand | ManagementAssignmentCommand;
 };
 
 /**
@@ -20814,6 +20972,10 @@ export type ListImageGridReviewsData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.
+     */
+    counts?: ImageGridReviewCountsMode;
   };
   url: '/api/v1/admin/games/{game_id}/grid-reviews';
 };
@@ -26468,6 +26630,12 @@ export type ListIncompleteGeometryImagesData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Gapsonly
+     *
+     * Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).
+     */
+    gapsOnly?: boolean;
   };
   url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images';
 };
@@ -29627,6 +29795,50 @@ export type ListManagementJournalResponses = {
 export type ListManagementJournalResponse =
   ListManagementJournalResponses[keyof ListManagementJournalResponses];
 
+export type PreviewManagementMachineUpdateData = {
+  body: ManagementUpdatePreviewCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/update-preview';
+};
+
+export type PreviewManagementMachineUpdateErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewManagementMachineUpdateError =
+  PreviewManagementMachineUpdateErrors[keyof PreviewManagementMachineUpdateErrors];
+
+export type PreviewManagementMachineUpdateResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewManagementMachineUpdateResponse =
+  PreviewManagementMachineUpdateResponses[keyof PreviewManagementMachineUpdateResponses];
+
 export type CreateManagementPointData = {
   body: ManagementPointCommand;
   path?: never;
@@ -29709,6 +29921,94 @@ export type UpdateManagementPointResponses = {
 
 export type UpdateManagementPointResponse =
   UpdateManagementPointResponses[keyof UpdateManagementPointResponses];
+
+export type DeleteManagementPointData = {
+  body: ManagementDeleteCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/delete';
+};
+
+export type DeleteManagementPointErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteManagementPointError =
+  DeleteManagementPointErrors[keyof DeleteManagementPointErrors];
+
+export type DeleteManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementDeleteResponse;
+};
+
+export type DeleteManagementPointResponse =
+  DeleteManagementPointResponses[keyof DeleteManagementPointResponses];
+
+export type PreviewManagementPointDeletionData = {
+  body: ManagementDeletePreviewCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/delete-preview';
+};
+
+export type PreviewManagementPointDeletionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewManagementPointDeletionError =
+  PreviewManagementPointDeletionErrors[keyof PreviewManagementPointDeletionErrors];
+
+export type PreviewManagementPointDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewManagementPointDeletionResponse =
+  PreviewManagementPointDeletionResponses[keyof PreviewManagementPointDeletionResponses];
 
 export type CreateManagementMachineData = {
   body: ManagementMachineCommand;
@@ -29801,6 +30101,102 @@ export type UpdateManagementMachineResponses = {
 
 export type UpdateManagementMachineResponse =
   UpdateManagementMachineResponses[keyof UpdateManagementMachineResponses];
+
+export type DeleteManagementMachineData = {
+  body: ManagementDeleteCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete';
+};
+
+export type DeleteManagementMachineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteManagementMachineError =
+  DeleteManagementMachineErrors[keyof DeleteManagementMachineErrors];
+
+export type DeleteManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementDeleteResponse;
+};
+
+export type DeleteManagementMachineResponse =
+  DeleteManagementMachineResponses[keyof DeleteManagementMachineResponses];
+
+export type PreviewManagementMachineDeletionData = {
+  body: ManagementDeletePreviewCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete-preview';
+};
+
+export type PreviewManagementMachineDeletionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewManagementMachineDeletionError =
+  PreviewManagementMachineDeletionErrors[keyof PreviewManagementMachineDeletionErrors];
+
+export type PreviewManagementMachineDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewManagementMachineDeletionResponse =
+  PreviewManagementMachineDeletionResponses[keyof PreviewManagementMachineDeletionResponses];
 
 export type ListManagementSessionsData = {
   body?: never;
@@ -35109,6 +35505,61 @@ export type ListPublicManagementJournalResponses = {
 export type ListPublicManagementJournalResponse =
   ListPublicManagementJournalResponses[keyof ListPublicManagementJournalResponses];
 
+export type PreviewPublicManagementMachineUpdateData = {
+  body: ManagementUpdatePreviewCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/update-preview';
+};
+
+export type PreviewPublicManagementMachineUpdateErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewPublicManagementMachineUpdateError =
+  PreviewPublicManagementMachineUpdateErrors[keyof PreviewPublicManagementMachineUpdateErrors];
+
+export type PreviewPublicManagementMachineUpdateResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewPublicManagementMachineUpdateResponse =
+  PreviewPublicManagementMachineUpdateResponses[keyof PreviewPublicManagementMachineUpdateResponses];
+
 export type CreatePublicManagementPointData = {
   body: ManagementPointCommand;
   headers?: {
@@ -35213,6 +35664,116 @@ export type UpdatePublicManagementPointResponses = {
 
 export type UpdatePublicManagementPointResponse =
   UpdatePublicManagementPointResponses[keyof UpdatePublicManagementPointResponses];
+
+export type DeletePublicManagementPointData = {
+  body: ManagementDeleteCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/delete';
+};
+
+export type DeletePublicManagementPointErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeletePublicManagementPointError =
+  DeletePublicManagementPointErrors[keyof DeletePublicManagementPointErrors];
+
+export type DeletePublicManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementDeleteResponse;
+};
+
+export type DeletePublicManagementPointResponse =
+  DeletePublicManagementPointResponses[keyof DeletePublicManagementPointResponses];
+
+export type PreviewPublicManagementPointDeletionData = {
+  body: ManagementDeletePreviewCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/delete-preview';
+};
+
+export type PreviewPublicManagementPointDeletionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewPublicManagementPointDeletionError =
+  PreviewPublicManagementPointDeletionErrors[keyof PreviewPublicManagementPointDeletionErrors];
+
+export type PreviewPublicManagementPointDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewPublicManagementPointDeletionResponse =
+  PreviewPublicManagementPointDeletionResponses[keyof PreviewPublicManagementPointDeletionResponses];
 
 export type CreatePublicManagementMachineData = {
   body: ManagementMachineCommand;
@@ -35327,6 +35888,124 @@ export type UpdatePublicManagementMachineResponses = {
 
 export type UpdatePublicManagementMachineResponse =
   UpdatePublicManagementMachineResponses[keyof UpdatePublicManagementMachineResponses];
+
+export type DeletePublicManagementMachineData = {
+  body: ManagementDeleteCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete';
+};
+
+export type DeletePublicManagementMachineErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeletePublicManagementMachineError =
+  DeletePublicManagementMachineErrors[keyof DeletePublicManagementMachineErrors];
+
+export type DeletePublicManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementDeleteResponse;
+};
+
+export type DeletePublicManagementMachineResponse =
+  DeletePublicManagementMachineResponses[keyof DeletePublicManagementMachineResponses];
+
+export type PreviewPublicManagementMachineDeletionData = {
+  body: ManagementDeletePreviewCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete-preview';
+};
+
+export type PreviewPublicManagementMachineDeletionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewPublicManagementMachineDeletionError =
+  PreviewPublicManagementMachineDeletionErrors[keyof PreviewPublicManagementMachineDeletionErrors];
+
+export type PreviewPublicManagementMachineDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMutationPreviewResponse;
+};
+
+export type PreviewPublicManagementMachineDeletionResponse =
+  PreviewPublicManagementMachineDeletionResponses[keyof PreviewPublicManagementMachineDeletionResponses];
 
 export type UnlockManagementSessionData = {
   body: ManagementSessionUnlock;

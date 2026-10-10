@@ -114,6 +114,12 @@ class ImageGridReviewItemResponse(ApiModel):
 
 
 class ImageGridReviewCountsResponse(ApiModel):
+    """Counters of the page.
+
+    With `counts=correction` only `correction` is computed; every other
+    counter is 0 and must not be read as an empty queue (TASK-0961).
+    """
+
     needs_validation: int = Field(ge=0)
     needs_correction: int = Field(ge=0)
     approved: int = Field(ge=0)

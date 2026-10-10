@@ -193,7 +193,21 @@ def _canonical(snapshot: dict[str, Any]) -> str:
 def test_777_frozen_payload_and_digest_are_byte_identical() -> None:
     snapshot = build_777_snapshot()
     assert snapshot["digest"] == EXPECTED_CONTENT_SHA256
-    assert _canonical(snapshot) == EXPECTED_CANONICAL_SHA256
+    # TASK-0940 adds two computed pin fields, outside the frozen result payload.
+    # Preserve the original byte-level assertion for every legacy field rather
+    # than recording a new baseline for the old contract.
+    compact_fields = {"requiredStakeCredits", "machineCashCredits"}
+    legacy = {
+        **snapshot,
+        "pins": [
+            {key: value for key, value in pin.items() if key not in compact_fields}
+            for pin in snapshot["pins"]
+        ],
+    }
+    assert _canonical(legacy) == EXPECTED_CANONICAL_SHA256
+    assert (
+        _canonical(snapshot) == "0cb8eaab254e5816d7fdfd5c96105f5a0d73d7e7b59a02c77a582fcd77b279eb"
+    )
 
 
 def test_777_payload_carries_no_super_game_keys_and_every_row_is_base_mode() -> None:

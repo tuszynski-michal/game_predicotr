@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Current State
@@ -23,14 +23,22 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
+
+- **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Zapisane piny każdej stawki mają być widoczne od razu, bez klikania stawki i także przy otwartym edytorze. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
+
+- **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
+
+- **Lokalny Reviewer / D-541:** po „Otwórz lokalnie” pracuje w zakresie gry (bez wyboru importu), z zakładkami „Do korekty” i „Braki zdjęć” (realne braki D-484); „Siatka niepotwierdzona” jest tylko licznikiem w Diagnostyce Admina, nie kolejką. Admin nie ma UI wyjątków bramki (endpointy i audyt zostają). Źródło: `DECISION_LOG.md`, wpis D-541.
+
 Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
 (przeszukanie słów kluczowych: migracja, zgoda, blokada, PID, job, „nie
 uruchamiać”, potem ręczny dobór). Każdy punkt wskazuje sekcję-źródło. Stan z
 daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 (odczyt, bez zmian w systemie).
 
-- **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0152_super_game_series` (strażnik schematu startowego). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
-- **Gałąź `feat/geometry-correction-revert` wymaga migracji `0153_geometry_correction_revert`** (manifest v7). Nie scalać do gałęzi integracyjnej przed wykonaniem migracji przez operatora (stop API/worker/Admin/Reviewer → scalenie → `npm run db:migrate` → start); agenci nie migrują bazy operatora. Źródło: sekcja „TASK-0945 — migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (done)” w tym pliku.
+- **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0154_geometry_correction_revert` (strażnik schematu startowego); jego rodzic `0153_merge_compact_super_games` łączy obie gałęzie0152 (serie supergry i kompaktowy panel). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
+- **Gałąź `feat/geometry-correction-revert` wymaga migracji `0154_geometry_correction_revert`** (manifest v7, rodzic `0153_merge_compact_super_games`; od scalenia v1.7.306 numeracja `0154`, dawniej `0153`). Nie scalać do gałęzi integracyjnej przed wykonaniem migracji przez operatora (stop API/worker/Admin/Reviewer → scalenie → `npm install` → `npm run db:migrate` → `npm run reviewer:build` → start); agenci nie migrują bazy operatora. Źródło: sekcja „TASK-0966 — migracja 0154, status `reverted` i cofnięcie korekty slotu odroczonego (done)” w tym pliku; `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
 - **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
 - **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
@@ -58,48 +66,37 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-Kryterium: plan o statusie `proposed`/`accepted`/`active`/`deferred`, którego
-taski mają aktywne pliki w `ai_docs/tasks/` albo który czeka na decyzję.
-Statusy czytane z nagłówków `ai_docs/delivery/*.md` w dniu przeniesienia
-(2026-10-09); pozostałe plany `accepted` bez aktywnych tasków są zamknięte w
-praktyce (ich taski leżą w `ai_docs/tasks/completed/`).
+### Plan braków geometrii zdjęć w lokalnym Reviewerze (wykonany w kodzie, 2026-10-10; odbiór wizualny po restarcie operatora)
 
-| Plan (`ai_docs/delivery/…`) | Status planu | Pozostałe taski |
-|---|---|---|
-| `GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (proponowane D-538, D-539) | accepted | TASK-0945–0951 (`todo`), gałąź `feat/geometry-correction-revert`, worktree `worktrees/geometry-correction-revert` |
-| `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535) | accepted | TASK-0937 (pilot złotej ramki, etap S-D, `blocked` na etykietach operatora), TASK-0939 (narzędzia oszczędzania tokenów, etap T); TASK-0929–0936, 0938 i 0940 ukończone |
-| `VISION_LAB_EXECUTION_PLAN.md` (D-447) | accepted | TASK-0668 (`in_progress`), TASK-0671 (`blocked`), TASK-0672–0678 (`todo`) |
-| `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md` | active | TASK-0645, 0646, 0647 (`blocked`, D-445/D-447) |
-| `V2_READINESS_REMEDIATION_PLAN.md` | accepted | TASK-0694 (`blocked`), TASK-0695 (`todo`), TASK-0698 (`blocked`, wymaga decyzji) |
-| `LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md` | completed (w nagłówku) | TASK-0687 (`blocked`), TASK-0688–0691 (`todo`): rozbieżność z nagłówkiem do wyjaśnienia |
-| `GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` | accepted | TASK-0802 (`in_progress`) |
-| `MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md` | proposed | brak aktywnych plików; czeka na decyzje operatora (zakres częściowo przejęty przez plany Mumie z 2026-10-04..08) |
-| `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` | proposed | TASK-0910 ukończony; TASK-0911–0918 nie mają plików w `ai_docs/tasks/` |
-| `APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md` | deferred | wymaga nowej decyzji (D-463 nie przyjęta) |
-| `MILESTONE_06_EXECUTION_PLAN.md` | in_progress (nagłówek z 2026-07-29) | brak aktywnych plików; status nagłówka przestarzały |
-| bez planu w `delivery/` | n/a | TASK-0290, 0305, 0472, 0517, 0603, 0611, 0654, 0928 (sekcje w „Aktywne taski”) |
+- `delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`, TASK-0961–0965 na gałęzi `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`.
+- Zakres wybrany przez operatora: realne braki (nie „Siatka niepotwierdzona”), zakres całej gry bez selecta importu, filtry stanów w Reviewerze, Admin tylko z licznikami. Zaakceptowany poleceniem „Realizuj cały plan”; etapy A (0961–0963) i B (0964–0965) wykonywane w jednym przebiegu.
+- Stan: etapy A (TASK-0961–0963) i B (TASK-0964–0965) wykonane w kodzie i zacommitowane (v1.7.301–v1.7.305); decyzja D-541 zapisana (D-540 zajęła gałąź `feat/disk-d-migration-plan`). TASK-0965 wykonany (odbiór danych na żywym API OK; odbiór wizualny ekranów na portach 3000/3001 po restarcie API i `npm run reviewer:build` przez operatora); scalenie i push tylko za zgodą operatora, przy scalaniu renumeracja `vX.Y.N` względem gałęzi dysku D.
 
-Sekcja planu Mumie poniżej jest bez zmian względem poprzedniej wersji tego
-pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
-(ukończono S-0, S-A, S-B i S-C, patrz sekcje `done` na końcu pliku).
+### Plan korekty układu panelu (proposed, 2026-10-09)
+
+- `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
+- D-539 zatwierdza model wyboru maszyny; pełny plan oczekuje akceptacji/uruchomienia.
+- Claude Code opus5.5/medium: pierwszyREVISE, trzyP1 doprecyzowane; końcowy przegląd aktualnej wersji na prośbę operatora PASS bezP0/P1. DwieP2 doprecyzowano (waluta i stare piny). Raport `quality/ADMIN_PANEL_LAYOUT_PLAN_FINAL_REVIEW_CLAUDE_20261009.md`; bez implementacji.
+- Niezweryfikowany patch formularza odłożono; kod pozostaje na poprawce paddingu0946.
+- Odczyt operatora: API snapshot200, dwa archiwalne punkty, baza0153; zapis według operatora działa. Brak produkcyjnych zmian i lifecycle usług.
 
 ### Plan cofania korekty cięcia siatki, odrzucania i zamiennika (accepted, 2026-10-09)
 
 - `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` i taski
-  TASK-0945–0951 (`todo`) na gałęzi `feat/geometry-correction-revert`,
+  TASK-0966–0972 (`todo`) na gałęzi `feat/geometry-correction-revert`,
   worktree `worktrees/geometry-correction-revert`. Decyzje operatora
   W1–W6 z 2026-10-09 wpisane w plan (przywrócenie stanu sprzed korekty,
   tylko ostatnia korekta, lista „Ostatnie korekty” w Reviewerze, migracja
-  `0153`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem)
+  `0154`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem)
   oraz W7–W9 (odrzucanie przyciętej planszy w Reviewerze, zdjęcie czeka na
   zamiennik, zamiennik zwykłym importem przejmuje tylko odrzucone/puste
   sekwencje — zmienia D-238).
-- Etapy: R1 (TASK-0945–0947, backend), R2 (TASK-0948, Reviewer), R3
-  (TASK-0949–0950, odrzucanie i zamiennik), R4 (TASK-0951, D-538/D-539 i
+- Etapy: R1 (TASK-0966–0968, backend), R2 (TASK-0969, Reviewer), R3
+  (TASK-0970–0971, odrzucanie i zamiennik), R4 (TASK-0972, D-542/D-543 i
   odbiór). Operator 2026-10-09 zaakceptował plan i polecił autonomiczną
   realizację wszystkich etapów (stop tylko w sytuacji krytycznej, audyt Codex
   po każdym tasku).
-  Kod wymagający `0153` nie trafia do gałęzi integracyjnej przed migracją
+  Kod wymagający `0154` nie trafia do gałęzi integracyjnej przed migracją
   operatora. Slotu 69004 (gra Mumie) agenci nie cofają; robi to operator w
   Reviewerze po wdrożeniu.
 
@@ -132,9 +129,23 @@ pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
 
 ## Aktywne taski
 
-Sekcje tasków `in_progress`, `blocked` i `todo` (każdy plik w `ai_docs/tasks/`),
-posortowane po numerze. Krótkie wpisy „TASK-… (status)” wskazują plik zadania i
-historię w archiwum; po rozpoczęciu pracy agent zastępuje wpis pełną sekcją.
+### TASK-0947 — czytelny widok punktu (todo)
+
+- D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
+- Doprecyzowanie operatora: wszystkie zapisane piny przy wszystkich zapisanych stawkach od razu. Kod nadal ogranicza podgląd przez selectedStake && !editor; do poprawy w0947, bez zmiany API.
+- Plan korekty gotowy do implementacji po końcowymClaudePASS obejmującym piny; statusproposed/todo, wykonanie jeszcze nie uruchomione.
+- Task: `ai_docs/tasks/0947-management-point-workspace-layout.md`.
+
+### TASK-0948 — formularz i historyczne kafelki (todo)
+
+- Zapis działa według operatora; plan zabezpiecza widoczność błędu i retry w modalu.
+- Przywracanie historycznych danych jest propozycją, nie nowym zaakceptowanym kontraktem.
+- Task: `ai_docs/tasks/0948-management-modal-recovery-and-legacy-access.md`.
+
+### TASK-0949 — wizualny odbiór układu (todo)
+
+- Odrębne fixture Admin/Reviewer, utrzymanie listy maszyn i widoczne podsumowania pinów bez wyboru stawki, po Save/reload.
+- Task: `ai_docs/tasks/0949-management-layout-visual-acceptance.md`.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
@@ -748,148 +759,86 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0951 — D-538, D-539, dokumentacja i odbiór cofania korekt i zamiennika (todo)
+### TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (todo)
 
-- Plik zadania: `ai_docs/tasks/0951-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+- Plik zadania: `ai_docs/tasks/0972-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
 ## Ostatnie 10 ukończonych tasków
 
-### TASK-0950 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
+### TASK-0971 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
 
-- Plik: `ai_docs/tasks/completed/0950-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 (hash dopisuje kolejny commit).
-- Reguła D-539 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
+- Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 (hash dopisuje kolejny commit).
+- Reguła D-543 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
 - Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
 - Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**
 - Testy: pełne `services/api/tests` 2638 passed, `services/worker/tests` 2822 passed; zestawy PG przejęcia, współbieżności, bramki, odrzuceń, cofania, własności i importu zielone.
 
-### TASK-0949 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
+### TASK-0970 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
 
-- Plik: `ai_docs/tasks/completed/0949-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.
+- Plik: `ai_docs/tasks/completed/0970-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.
 - Odrzucenie slotu (`rejectPendingBoardCellGeometry`, powód `cropped`/`blurred`/`other`) i planszy (istniejące rozstrzygnięcie `rejected`, odmowa `BOARD_REJECT_CANONICAL`) z przycisku „Odrzuć planszę” w Reviewerze; bramka bez zmian (zdjęcie czeka, W8); odrzucone pozycje wykluczone z weryfikacji symboli, liczników i operacji zbiorczych (`review_item_id NOT IN` odrzuconych), liczniki zwalniane i przywracane przy każdym wyjściu z `rejected`; cofnięcie odrzucenia z listy „Ostatnie korekty” (`GEOMETRY_REVERT_REPLACED` po przejęciu sekwencji).
-- Migracja `0153` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
-- Naprawiona regresja TASK-0945/0946: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
+- Migracja `0154` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
+- Naprawiona regresja TASK-0966/0967: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
 - Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
 
-### TASK-0948 — sekcja „Ostatnie korekty” w Reviewerze (done)
+### TASK-0969 — sekcja „Ostatnie korekty” w Reviewerze (done)
 
-- Plik: `ai_docs/tasks/completed/0948-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.
+- Plik: `ai_docs/tasks/completed/0969-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.
 - `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
 - Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
-- Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0153`).
+- Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0154`).
 
-### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (done)
+### TASK-0968 — API listy, podglądu i cofnięcia korekt geometrii (done)
 
-- Plik: `ai_docs/tasks/completed/0947-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.
+- Plik: `ai_docs/tasks/completed/0968-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.
 - Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
 - Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
 - Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
 
-### TASK-0946 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
+### TASK-0967 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
 
-- Plik: `ai_docs/tasks/completed/0946-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.
+- Plik: `ai_docs/tasks/completed/0967-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.
 - Przypadek A: rewizja `N + 1` z geometrią i specyfikacją renderu `N − 1`, wskazująca poprzednią rewizję źródła; piksele sprawdzane rzeczywistym renderem (`VirtualRestoredRenderVerifier`, bez renderera `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`); decyzje komórek z najwcześniejszego zdarzenia transakcji korekty (Z1 potwierdzone: wspólne `created_at`); zatwierdzenie tylko przy identycznych pikselach (D-462); `GEOMETRY_REVERT_HISTORY_INCOMPLETE` zamiast rekonstrukcji z mieszanej proweniencji; silnik z proweniencji rewizji.
-- Decyzje leada (do D-538): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
-- TASK-0947 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
+- Decyzje leada (do D-542): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
+- TASK-0968 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
 - Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (5×P0, 1×P1), runda 2 PASS; P2-2 (sprzeczny opis w `DATA_MODEL.md`) poprawione przez leada, P2-1 (test rewizji 0 z zastępczym weryfikatorem, bo fixture importu nie ma renderowalnej specyfikacji) przyjęte jako ryzyko.
 
-### TASK-0945 — migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (done)
+### TASK-0966 — migracja 0154, status `reverted` i cofnięcie korekty slotu odroczonego (done)
 
-- Plik: `ai_docs/tasks/completed/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.
-- Migracja `0153_geometry_correction_revert` (manifest v7, `EXPECTED_ALEMBIC_HEAD = 0153`): status `reverted` rewizji źródła z częściowym UNIQUE checksumy, akcje `geometry_reverted`, `previous_assignment_source` w zdarzeniach komórek, schemat slotu `rejected`, tabela audytu `image_geometry_correction_reverts`. **Nie wykonana na bazie operatora**; kod gałęzi wymaga `0153` — nie scalać do gałęzi integracyjnej przed migracją (stop usług → scalenie → `db:migrate` → start).
-- `GeometryCorrectionRevertService` (`list_recent`, `preview`, `revert`) cofa rozstrzygnięcie slotu w jednej transakcji z migawką; korekty istniejących plansz na liście z `GEOMETRY_REVERT_NOT_SUPPORTED` do TASK-0946; „latest” rewizji źródła pomija `reverted` (API i worker).
-- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (3×P0, 1×P1), runda 2 REVISE (1×P1 kohorta), druga runda poprawek zamknęła P1 i naprawiła błąd kodu blokady; trzeciego audytu nie było (zmiana tylko testu i jednej linii zapytania). Raporty: `ai_docs/quality/TASK-0945_AUDIT_gpt-6-astra*.md`.
+- Plik: `ai_docs/tasks/completed/0966-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.
+- Migracja `0154_geometry_correction_revert` (manifest v7, `EXPECTED_ALEMBIC_HEAD = 0154`): status `reverted` rewizji źródła z częściowym UNIQUE checksumy, akcje `geometry_reverted`, `previous_assignment_source` w zdarzeniach komórek, schemat slotu `rejected`, tabela audytu `image_geometry_correction_reverts`. **Nie wykonana na bazie operatora**; kod gałęzi wymaga `0154` — nie scalać do gałęzi integracyjnej przed migracją (stop usług → scalenie → `db:migrate` → start).
+- `GeometryCorrectionRevertService` (`list_recent`, `preview`, `revert`) cofa rozstrzygnięcie slotu w jednej transakcji z migawką; korekty istniejących plansz na liście z `GEOMETRY_REVERT_NOT_SUPPORTED` do TASK-0967; „latest” rewizji źródła pomija `reverted` (API i worker).
+- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (3×P0, 1×P1), runda 2 REVISE (1×P1 kohorta), druga runda poprawek zamknęła P1 i naprawiła błąd kodu blokady; trzeciego audytu nie było (zmiana tylko testu i jednej linii zapytania). Raporty: `ai_docs/quality/TASK-0966_AUDIT_gpt-6-astra*.md`.
 - Testy: nowe 22 jednostkowe + 16 PG (cofnięcie, odmowy, współbieżność, migracja), regresja bramki/slotów/symboli 43 passed, ruff i mypy czyste.
 
-### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
+### TASK-0965 — decyzja D-541, dokumentacja i odbiór braków geometrii (done)
 
-- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
-- Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
-  `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
-  the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały
-  wykryty narożnik poza obrazem (0,1–56 px), więc żadnej nie dało się poprawić.
-- `_validated_detected_board_geometry` przyjmuje szkic w granicach ręcznej edycji
-  (`-W..2W`, `-H..2H`, jak `SourceQuad.require_manual_edit_bounds` i D-436);
-  zapis korekty waliduje geometrię niezależnie. Odpowiedź `correction-context`
-  (`boardQuad`, `suggestedCorners`) używa punktu ze znakiem
-  (`ManualSourceGeometryPoint`); OpenAPI i klient zregenerowane, wrapper klienta
-  zachowuje nazwę `OperationalImageReviewGeometryPoint` dla Reviewera.
-- Bez migracji i zmian danych. Działanie na żywo wymaga scalenia do gałęzi
-  integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
-- Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
-  wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.
+- Commit: `v1.7.305` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- D-541 zapisana (lokalny Reviewer w zakresie gry, zakładki „Do korekty” i „Braki zdjęć”, „Siatka niepotwierdzona” tylko licznik, UI wyjątków bramki poza Adminem); plan `REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md` wykonany w kodzie (v1.7.301–v1.7.305).
+- Odbiór na żywych danych (API z worktree, GET): Mumie `correction` 0 w 0,14 s, `gapsOnly` 4 zdjęcia (1 `incomplete_missing`, 3 `import_failed`); 777 `correction` 255 w 1,06 s, `gapsOnly` 76 `incomplete_partial` (73 w całości zatwierdzone ręcznie). Buildy produkcyjne Reviewera i Admina OK; Reviewer `test` 253, `test:geometry` 67.
+- Niewykonane: odbiór wizualny w przeglądarce na portach 3000/3001 (wymaga restartu usług przez operatora po scaleniu) oraz zapis siatki testowej. Poprawka z odbioru: wskazówka dla pozycji z planszą bez wpisu w kolejce. Task: `ai_docs/tasks/completed/0965-geometry-gaps-acceptance-and-docs.md`.
 
-### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
+### TASK-0964 — odchudzona Diagnostyka siatek i launcher bez wyboru importu (done)
 
-- Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
-- `CURRENT_STATE.md`: 868 364 B / 13 375 linii → ok. 75 KB; sekcje spoza okna
-  przeniesione bez zmian do `ai_docs/archive/CURRENT_STATE_2026Q4.md` (od
-  2026-10-01) i `CURRENT_STATE_2026Q3.md` (wcześniejsze); dowód: równość
-  multizbiorów bloków z HEAD. Nowa sekcja „Obowiązujące ograniczenia” (25
-  punktów ze wskazaniem źródła).
-- `DECISION_LOG.md`: 787 675 B → ok. 70 KB (nagłówek z regułami, indeks D-359..
-  D-537, pięć najnowszych pełnych wpisów); pełne wpisy w
-  `ai_docs/process/decisions/DECISION_LOG_2026.md` (kotwice bez zmian), starszy
-  indeks w `decisions/DECISION_INDEX_ARCHIVE.md`.
-- `scripts/check_decision_links.py` i `scripts/check_current_state_window.py`
-  w `npm run docs:check` (część `quality`, ok. 2 s); testy
-  `services/worker/tests/test_check_decision_links_script.py`.
-- Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
-  poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
+- Commit: `v1.7.304` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Launcher „Korekta cięcia siatki” bez selecta „Gotowy import plansz”, identyfikatora importu i liczenia plansz (`listImageGridReviews`, `listPendingBoardCellGeometry`); „Otwórz lokalnie” jest aktywny po wyborze gry i otwiera Reviewer z samym `gameId` (`importJobId` opcjonalny w `buildPreparedLocalReviewUrl`/`prepareLocalReviewerWindow`). Panel „brak importu” tylko dla gry bez importu obrazów.
+- „Diagnostyka siatek zdjęć” bez listy zdjęć, podglądu SVG, filtrów i paginacji: nagłówek „{N} zdjęć z realnymi brakami · {M} z niepotwierdzoną siatką”, kontrolki zakresu, liczniki, `LowQualityBlock` i przycisk „Otwórz braki w Reviewerze” (callback `onOpenReviewer` z launchera). Usunięty kod: lista, `GeometryImageItem`, `GeometryGateControls`, kolejka/wyjątki i helpery SVG w stanie sekcji.
+- Świadoma utrata: Admin nie ma już UI wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”); endpointy i klient zostają, przywrócenie UI to osobny task (decyzja 6 planu).
+- Testy: Admin `test` 729/729, `test:geometry` 206/206, typecheck PASS, lint PASS, `format:check` PASS. Odbiór na żywych danych w TASK-0965. Task: `ai_docs/tasks/completed/0964-admin-diagnostics-slim-and-launcher.md`.
 
-### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
+### TASK-0963 — zakładka „Braki zdjęć” w lokalnym Reviewerze (done)
 
-- Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.
-- `wild_super_spins.evaluate_series_board`: `k` kolumn z X na planszy
-  oryginalnej; przekształcenie tylko przy `k ≥ minimum(X)` (kolumny
-  wypełnione X, przykrycie usuwa symbole pod spodem); linie na planszy
-  rozwiniętej, sztuki na oryginalnej, wygrane liniowe X zastąpione
-  `payout_line(X, k) × liczba linii`; `payout_kind`: w serii `provisional`
-  bez super symbolu, przy nieświeżym stanie (wtedy wszystkie plansze gry,
-  także bazowe — decyzja leada wg planu) albo z jakąkolwiek nieznaną komórką;
-  `exact` tylko dla pełnej planszy. Lustro TS `packages/shared-ts/src/super-game.ts`;
-  16 złotych przypadków `wildSuperSpinsScenario` w Pythonie i TS. D-537.
-- Projekcja per pozycja (`domain/sequence_mode_projection.py`) z zapytania
-  znaczników (jeden snapshot): koszt 0 w serii, trigger z kosztem normalnym;
-  §D sumuje koszt per pozycja, wyniki prowizoryczne poza bilansem z osobną
-  sumą i licznikiem; `superSpinRanges`/`superSpinCost` w podsumowaniu (Admin,
-  udostępnienie, panel, zapisane wyniki); wykres, piny i wkład liczone z tych
-  zakresów; modal pokazuje planszę rozwiniętą i wiersz rozwinięcia.
-  Kalkulator, szczegół planszy i panel czytają w jednym snapshocie
-  `REPEATABLE READ` (dla wszystkich gier; 777 bajt w bajt bez zmian —
-  test regresji ze skrótami z v1.7.279).
-- Audyt Codex gpt-6-astra / high: runda 1 REVISE (3 × P0: koszt darmowych
-  spinów w wykresie i pinach, wkład przy starcie w serii, wspólny snapshot),
-  runda 2 PASS, P2 miniatury zaakceptowane (`ai_docs/quality/TASK-0936_AUDIT_gpt-6-astra*.md`).
-  Worker 118, API 305 + PG 13, shared-ts 65, board-search-ui 94 + 62, Admin
-  733 + 188, Reviewer 240 + 40, klient 105, `openapi:check`, typecheck
-  (mypy 851), lint, format, fixture PASS.
-- Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
-  wymaga etykiet operatora).
+- Commit: `v1.7.303` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Zaślepka z TASK-0962 zastąpiona `GeometryGapsWorkspace`: jedno zdjęcie naraz (strony po 25, kursor, dociąganie przy ≤ 3 pozostałych), filtry „Wszystkie braki” (`gapsOnly`) / „Brakuje plansz” / „Plansza częściowa” / „Import nieudany” / „Bez geometrii źródła” z licznikami z `getImageGeometryCompleteness`, przełącznik „Pokaż także zatwierdzone ręcznie” (domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` mają `humanApproved`), zdjęcie ładowane automatycznie (blob URL unieważniany przy zmianie i odmontowaniu) z nakładką SVG siatek i lista pozycji.
+- Cel edycji pozycji to wiersz `listImageGridReviews({sourceImageId, view: 'all', counts: 'correction'})` pobierany leniwie dla otwartego zdjęcia; przycisk „Popraw siatkę tej planszy” montuje istniejący `BoardGeometryCorrectionEditor` (slot → `deferredBoardGeometryTarget`, plansza → `reportedBoardGeometryTarget`), pozycja bez wiersza i stany `import_failed`/`no_source_geometry` dostają wskazówkę bez edytora. Zapis i konflikt rewizji: komunikat, zamknięcie edytora, jedno odświeżenie (bez pętli). Bez wyjątków bramki, bez zatwierdzania gotowych siatek, bez zmian API. Niewiadoma o `reportedBoardGeometryTarget` rozstrzygnięta: obsługuje pozycję bez zgłoszeń i planszę `partial`; jedyna korekta to `saveHint` zależny od zgłoszeń.
+- Testy: Reviewer `test` 253/253 (10 nowych w `geometry-gaps-state.test.mjs` i teście kontraktu), `test:geometry` 61/61 (8 nowych w `geometry-gaps-workspace.test.mjs`), typecheck PASS, lint 0 błędów, `format:check` PASS, mapa kodu zregenerowana. Odbiór na żywych danych (Mumie 4 zdjęcia, 777 76 `incomplete_partial`) w TASK-0965. Task: `ai_docs/tasks/completed/0963-reviewer-image-gaps-tab.md`.
 
-### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
+### TASK-0962 — lokalny Reviewer w zakresie gry, zakładki i tanie liczniki (done)
 
-- Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c.
-- API: wyniki wyszukiwania i wiersze przybliżonej wygranej niosą opcjonalne
-  `superGame` (`trigger` | `in_series`, `spinIndex`, `seriesLength`,
-  `superSymbolCode`, `completeness`, `runVerification`, w Adminie `seriesId`),
-  a każda odpowiedź `superGameState { fresh, inputVersion, generationInputVersion }`;
-  jedno zapytanie SQL (LATERAL po serii pokrywającej pozycję) daje znacznik i
-  świeżość z jednego snapshotu. Trasy publiczne (udostępnienie, panel) bez
-  `seriesId` (osobny model / `response_model_exclude`, strażnik parametrów).
-  Zamrożone wyniki panelu bez znaczników; skróty treści 777 bez zmian.
-- UI (`board-search-ui`): złote wyróżnienie kart i wierszy, etykiety
-  „Supergra: trigger / spin k/len, symbol X / super symbol do zdefiniowania”,
-  dopiski o serii niekompletnej i triggerze z predykcji, baner dla całego
-  wyniku (także pustego) przy `fresh = false`; link „Zdefiniuj super symbol”
-  / „Pokaż serię” tylko gdy źródło danych deklaruje `superGameSeriesHref`
-  (Admin), Reviewer i panel tylko etykieta. Cache wyszukiwania Reviewera
-  pomijany dla odpowiedzi ze znacznikiem lub nieświeżych.
-- Audyt Codex gpt-6-astra / medium: REVISE (P0 baner przy pustym wyniku,
-  P1 brak akapitu w `ADMIN_APP.md`, P2 cache), wszystko naprawione w jednej
-  rundzie (`ai_docs/quality/TASK-0935_AUDIT_gpt-6-astra.md`). API 281 PASS,
-  PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
-  klient 104, typecheck (mypy 850 plików), lint, format PASS.
-- Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
+- Commit: `9e62a36c` (`v1.7.302`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`; `importJobId` jest opcjonalny (brak albo UUID), niepoprawny nie włącza trybu lokalnego. Kolejka woła `listImageGridReviews` z `counts=correction` i bez `importJobId`, gdy go nie podano.
+- `LocalReviewerWorkspace`: zakładki „Do korekty” (domyślna) i „Braki zdjęć” (zaślepka do TASK-0963, nie wydawać bez niego); oba panele zostają zamontowane (stan edytora nie ginie), a edytor w ukrytej zakładce nie reaguje na klawisze symboli (`keyboardEnabled`). Zdalna ścieżka sesji bez zmian.
+- Testy: Reviewer `test` 243/243, `test:geometry` 53/53 (3 nowe), typecheck PASS, lint 0 błędów, `format:check` PASS. Task: `ai_docs/tasks/completed/0962-reviewer-game-scope-and-tabs.md`.
 
 ## Archiwum
 

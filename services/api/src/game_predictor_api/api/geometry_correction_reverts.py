@@ -1,6 +1,6 @@
 """Scoped admin and reviewer API to list, preview and revert geometry corrections.
 
-TASK-0947 (plan D-538). Domain refusals arrive as ``ImageReviewError``
+TASK-0968 (plan D-542). Domain refusals arrive as ``ImageReviewError``
 subclasses carrying the blocking code and a Polish message; the application
 wide handler maps them to 404 (unknown correction), 409 (blocking code, stale
 CAS, idempotency conflict) and 422 (invalid request).

@@ -134,7 +134,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
     def virtual_geometry_replay(
         self, *, context: VirtualGridGeometryContext, idempotency_key: UUID
     ) -> VirtualGridGeometryRevision | None:
-        # TASK-0945: a retried request of a reverted correction must not write
+        # TASK-0966: a retried request of a reverted correction must not write
         # the correction again (its rows are gone or superseded).
         self._raise_if_reverted_correction(context.game_id, idempotency_key)
         if context.review_item_id is None:
@@ -217,7 +217,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         created_at: datetime,
     ) -> VirtualGridGeometrySaveResult:
         context = prepared.context
-        # TASK-0950 (P0-5): the save may reopen the item and recompute gates;
+        # TASK-0971 (P0-5): the save may reopen the item and recompute gates;
         # ownership -> projection state -> sequence -> source -> rows.
         acquire_sequence_ownership_lock(self._session, game_id=context.game_id)
         if prepared.command.geometry_qualification is not None:
@@ -240,7 +240,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             lock=True,
         )
         current = self._context_from_row(row)
-        # TASK-0945: never report a reverted correction as a successful replay.
+        # TASK-0966: never report a reverted correction as a successful replay.
         self._raise_if_reverted_correction(context.game_id, idempotency_key)
         prior = self._session.scalar(
             select(ImageBoardGeometryRevisionModel).where(
@@ -407,7 +407,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             )
         base_context = entries[0].context
         # A resolved slot may take a sequence over and recompute other images'
-        # gates (D-539): the game's ownership lock precedes every other lock.
+        # gates (D-543): the game's ownership lock precedes every other lock.
         acquire_sequence_ownership_lock(self._session, game_id=base_context.game_id)
         if any(entry.command.geometry_qualification is not None for entry in entries):
             self._ensure_projection_state(base_context.game_id)
@@ -713,7 +713,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             sequences = self._legacy_board_sequences(
                 game_id=game_id, source_image_id=source_image_id
             )
-            # TASK-0950: the conversion saves geometry (ownership lock first).
+            # TASK-0971: the conversion saves geometry (ownership lock first).
             acquire_sequence_ownership_lock(self._session, game_id=game_id)
             acquire_image_sequence_locks(self._session, game_id=game_id, sequence_numbers=sequences)
             self._session.execute(
@@ -747,7 +747,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 ImageSourceGeometryRevisionModel.source_image_id == source_image_id,
-                # TASK-0945: a reverted revision is never the current one.
+                # TASK-0966: a reverted revision is never the current one.
                 ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
@@ -1265,7 +1265,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
-                    # TASK-0946: the full approval provenance, so a revert of
+                    # TASK-0967: the full approval provenance, so a revert of
                     # this correction restores the approval history exactly.
                     previous_approved_asset_mode=previous["approved_asset_mode"],
                     approved_asset_mode=cell.approved_asset_mode,
@@ -1301,7 +1301,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         return len(cells), preserved
 
     def _raise_if_reverted_correction(self, game_id: UUID, idempotency_key: UUID) -> None:
-        """Refuse a retry of a correction that was reverted (TASK-0945, 409)."""
+        """Refuse a retry of a correction that was reverted (TASK-0966, 409)."""
 
         reverted = self._session.scalar(
             select(ImageGeometryCorrectionRevertModel.id)
@@ -1828,7 +1828,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
-                    # TASK-0946: the full approval provenance, so a revert of
+                    # TASK-0967: the full approval provenance, so a revert of
                     # this correction restores the approval history exactly.
                     previous_approved_asset_mode=previous["approved_asset_mode"],
                     approved_asset_mode=cell.approved_asset_mode,
@@ -1955,7 +1955,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 ImageSourceGeometryRevisionModel.source_image_id == pending.source_image_id,
-                # TASK-0945: a reverted revision is never the current one.
+                # TASK-0966: a reverted revision is never the current one.
                 ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
@@ -2428,7 +2428,7 @@ def selected_available_cell_count(
     """Available cells of the selected search owners of a few sequences.
 
     The part of ``image_symbol_review_states.cell_count`` a qualified geometry
-    write (and its revert, TASK-0945) changes. At most nine sequence owners,
+    write (and its revert, TASK-0966) changes. At most nine sequence owners,
     not a game-wide multi-million-row count.
     """
 

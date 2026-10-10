@@ -42,6 +42,11 @@ export type ManagementStructureClient = ManagementPorts<
     | 'createManagementMachine'
     | 'updateManagementMachine'
     | 'updateManagementAssignments'
+    | 'previewManagementPointDeletion'
+    | 'deleteManagementPoint'
+    | 'previewManagementMachineDeletion'
+    | 'deleteManagementMachine'
+    | 'previewManagementMachineUpdate'
   >
 >;
 

@@ -78,11 +78,13 @@ def test_management_migration_application_role_concurrency_and_process_restart()
             )
         with Session(db.app_engine) as session, session.begin():
             repo = SqlAlchemyManagementRepository(session)
+            detach = ManagementAssignmentCommand(
+                operation_id=uuid4(), expected_revision=assigned.revision, game_ids=[]
+            )
+            preview = repo.update_preview(machine.id, detach, "local-owner")
             detached = repo.assignments(
                 machine.id,
-                ManagementAssignmentCommand(
-                    operation_id=uuid4(), expected_revision=assigned.revision, game_ids=[]
-                ),
+                detach.model_copy(update={"preview_token": preview.preview_token}),
                 "local-owner",
             )
         with Session(db.app_engine) as session:
@@ -129,7 +131,9 @@ def test_management_migration_application_role_concurrency_and_process_restart()
                 for future in [pool.submit(edit, "A"), pool.submit(edit, "B")]
             ]
         assert sorted(results) == ["MANAGEMENT_REVISION_CONFLICT", "ok"]
-        env = dict(os.environ, MANAGEMENT_TEST_URL=db.app_url.render_as_string(hide_password=False))
+        env = db.subprocess_environment(
+            MANAGEMENT_TEST_URL=db.app_url.render_as_string(hide_password=False)
+        )
         process = subprocess.run(
             [
                 sys.executable,
@@ -144,7 +148,7 @@ with Session(engine) as session:
     points = SqlAlchemyManagementRepository(session).snapshot().points
     assert len(points) == 1 and points[0].revision == 2
     assert len(points[0].machines) == 1
-    assert not points[0].machines[0].assignments[0].attached
+    assert points[0].machines[0].assignments == []
 engine.dispose()
 """,
             ],

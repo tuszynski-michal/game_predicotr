@@ -85,6 +85,7 @@ type ApproximateWinClient = Pick<
   BoardLinesClient;
 
 interface BoardSearchApproximateWinProps {
+  readonly compact?: boolean;
   readonly client: ApproximateWinClient;
   readonly gameId: string;
   /** Replay (D-472): open with this range and optionally one board. */
@@ -128,6 +129,7 @@ type StakeChoice = {
 const CALCULATION_DELAY_MS = 400;
 
 export function BoardSearchApproximateWin({
+  compact = false,
   client: api,
   gameId,
   onReplayNotice,
@@ -459,6 +461,7 @@ export function BoardSearchApproximateWin({
 
         {visibleResult && stakeChosen ? (
           <ApproximateWinResultView
+            compact={compact}
             api={api}
             display={display}
             gameId={gameId}
@@ -522,6 +525,8 @@ export function unitNoun(unit: ApproximateWinAmountUnit): string {
 }
 
 function ApproximateWinResultView({
+  compact = false,
+  tableOnly = false,
   api,
   boardRequest,
   display,
@@ -537,6 +542,8 @@ function ApproximateWinResultView({
   rulesVersions,
   requestedRulesVersionId,
 }: {
+  readonly compact?: boolean;
+  readonly tableOnly?: boolean;
   readonly api: BoardLinesClient;
   readonly boardRequest: {
     readonly id: string;
@@ -565,7 +572,7 @@ function ApproximateWinResultView({
   );
   const linesTriggerRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
-    if (boardRequest === null) return;
+    if (tableOnly || boardRequest === null) return;
     const request = boardRequest;
     const row =
       result.rows.find(
@@ -577,7 +584,7 @@ function ApproximateWinResultView({
     });
     // Handled once per request; the callback identity does not matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardRequest?.id, result]);
+  }, [boardRequest?.id, result, tableOnly]);
   const closeLines = (edited: boolean) => {
     setLinesRow(null);
     if (edited) {
@@ -598,45 +605,98 @@ function ApproximateWinResultView({
     result.rows,
     minimumPayoutCredits,
   );
+  const [chartOpen, setChartOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
 
   return (
     <>
-      <SuperGameStateBanner state={result.superGameState} />
-      <div className="boardSearchApproximateWinSummaryHeader">
-        {result.wrappedAtSequenceEnd ? (
-          <p className="feedbackBanner" role="status">
-            Zakres przechodzi przez koniec sekwencji (
-            {result.sequenceLength.toLocaleString('pl-PL')}) i zawija się do
-            pozycji 1.
+      {!tableOnly ? (
+        <>
+          <SuperGameStateBanner state={result.superGameState} />
+          <div className="boardSearchApproximateWinSummaryHeader">
+            {result.wrappedAtSequenceEnd ? (
+              <p className="feedbackBanner" role="status">
+                Zakres przechodzi przez koniec sekwencji (
+                {result.sequenceLength.toLocaleString('pl-PL')}) i zawija się do
+                pozycji 1.
+              </p>
+            ) : null}
+          </div>
+
+          <p className="importSubsectionHeader">
+            {result.completeness.completeBoardCount.toLocaleString('pl-PL')}{' '}
+            plansz kompletnych,{' '}
+            {result.completeness.partialBoardCount.toLocaleString('pl-PL')}{' '}
+            częściowych,{' '}
+            {result.completeness.missingBoardCount.toLocaleString('pl-PL')}{' '}
+            brakujących
           </p>
-        ) : null}
-      </div>
 
-      <p className="importSubsectionHeader">
-        {result.completeness.completeBoardCount.toLocaleString('pl-PL')} plansz
-        kompletnych,{' '}
-        {result.completeness.partialBoardCount.toLocaleString('pl-PL')}{' '}
-        częściowych,{' '}
-        {result.completeness.missingBoardCount.toLocaleString('pl-PL')}{' '}
-        brakujących
-      </p>
+          <ApproximateWinProvisionalSummary
+            formatAmount={(credits) =>
+              `${whole(credits)}${unitNoun(display.unit)}`
+            }
+            result={result}
+          />
 
-      <ApproximateWinProvisionalSummary
-        formatAmount={(credits) => `${whole(credits)}${unitNoun(display.unit)}`}
-        result={result}
-      />
-
-      {hasIncompleteData ? (
-        <p className="feedbackBanner" role="status">
-          Wynik opiera się wyłącznie na dostępnych i rozpoznanych symbolach.
-          Brakujące lub niepotwierdzone wygrane nie są doliczane, ale koszt
-          każdego spinu pozostaje uwzględniony. To ostrożne oszacowanie według
-          zapisanych danych, a nie statystyczna prognoza ani gwarancja
-          rzeczywistej wygranej.
-        </p>
+          {hasIncompleteData ? (
+            <p className="feedbackBanner" role="status">
+              Wynik opiera się wyłącznie na dostępnych i rozpoznanych symbolach.
+              Brakujące lub niepotwierdzone wygrane nie są doliczane, ale koszt
+              każdego spinu pozostaje uwzględniony. To ostrożne oszacowanie
+              według zapisanych danych, a nie statystyczna prognoza ani
+              gwarancja rzeczywistej wygranej.
+            </p>
+          ) : null}
+        </>
       ) : null}
-
-      {result.rows.length === 0 ? (
+      {compact ? (
+        <>
+          <ApproximateWinPinnedRows
+            result={result}
+            positions={pinnedSpinPositions ?? []}
+          />
+          <details
+            open={chartOpen}
+            onToggle={(event) => setChartOpen(event.currentTarget.open)}
+          >
+            <summary>Wybierz punkty na wykresie</summary>
+            {chartOpen ? (
+              <ApproximateWinBalanceChart
+                compact
+                display={{ ...display, unit: 'pln' }}
+                result={result}
+                pinnedSpinPositions={pinnedSpinPositions}
+                onPinsChange={onPinsChange}
+              />
+            ) : null}
+          </details>
+          <details
+            open={tableOpen}
+            onToggle={(event) => setTableOpen(event.currentTarget.open)}
+          >
+            <summary>Pełna tabela wypłat</summary>
+            {tableOpen ? (
+              <ApproximateWinResultView
+                api={api}
+                boardRequest={boardRequest}
+                display={display}
+                gameId={gameId}
+                onBoardRequestHandled={onBoardRequestHandled}
+                onRecalculate={onRecalculate}
+                result={result}
+                symbols={symbols}
+                pinnedSpinPositions={pinnedSpinPositions}
+                onPinsChange={onPinsChange}
+                fixedStakeGrosze={fixedStakeGrosze}
+                rulesVersions={rulesVersions}
+                requestedRulesVersionId={requestedRulesVersionId}
+                tableOnly
+              />
+            ) : null}
+          </details>
+        </>
+      ) : result.rows.length === 0 ? (
         <>
           <p className="importEmptyState">
             W analizowanym zakresie nie ma rozpoznanej wygranej.
@@ -644,23 +704,27 @@ function ApproximateWinResultView({
               ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
               : ''}
           </p>
-          <ApproximateWinBalanceChart
-            display={display}
-            pinnedSpinPositions={pinnedSpinPositions}
-            onPinsChange={onPinsChange}
-            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
-            result={result}
-          />
+          {!tableOnly ? (
+            <ApproximateWinBalanceChart
+              display={display}
+              pinnedSpinPositions={pinnedSpinPositions}
+              onPinsChange={onPinsChange}
+              key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+              result={result}
+            />
+          ) : null}
         </>
       ) : (
         <>
-          <ApproximateWinBalanceChart
-            display={display}
-            pinnedSpinPositions={pinnedSpinPositions}
-            onPinsChange={onPinsChange}
-            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
-            result={result}
-          />
+          {!tableOnly ? (
+            <ApproximateWinBalanceChart
+              display={display}
+              pinnedSpinPositions={pinnedSpinPositions}
+              onPinsChange={onPinsChange}
+              key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+              result={result}
+            />
+          ) : null}
           <ApproximateWinTableFilter
             formatAmount={(credits) =>
               `${amount(credits)}${unitNoun(display.unit)}`
@@ -934,6 +998,90 @@ function ApproximateWinTableFilter({
         value={value}
       />
     </label>
+  );
+}
+
+export type ApproximateWinPinMetrics = {
+  spinNumber: number;
+  available: boolean;
+  balanceCredits: number;
+  requiredStakeCredits?: number | null;
+  machineCashCredits?: number | null;
+};
+
+/** Values supplied by the frozen metadata or the shared chart helpers. */
+export function ApproximateWinPinRows({
+  points,
+}: {
+  points: readonly ApproximateWinPinMetrics[];
+}) {
+  if (points.length === 0) return <p>Brak przypiętych punktów.</p>;
+  return (
+    <table className="management-pin-rows">
+      <caption>Przypięte punkty · kredyty</caption>
+      <thead>
+        <tr>
+          <th>Spin</th>
+          <th>Wkład</th>
+          <th>Wygrana netto</th>
+          <th>Na maszynie</th>
+        </tr>
+      </thead>
+      <tbody>
+        {points.map((point) => (
+          <tr key={point.spinNumber}>
+            <td>{point.spinNumber}</td>
+            {[
+              point.requiredStakeCredits,
+              point.balanceCredits,
+              point.machineCashCredits,
+            ].map((value, index) => (
+              <td key={index}>
+                {!point.available
+                  ? 'niedostępny'
+                  : value == null
+                    ? '—'
+                    : value.toLocaleString('pl-PL')}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ApproximateWinPinnedRows({
+  result,
+  positions,
+}: {
+  result: ApproximateWinResponse;
+  positions: readonly number[];
+}) {
+  const costs = approximateWinCostSchedule(result);
+  return (
+    <ApproximateWinPinRows
+      points={positions.map((spin) => {
+        const point = approximateWinPointAtSpin(result, spin);
+        return {
+          spinNumber: spin,
+          available: point !== null,
+          balanceCredits: point?.cumulativeBalanceCredits ?? 0,
+          requiredStakeCredits:
+            point === null
+              ? null
+              : spin === 0
+                ? 0
+                : approximateWinStakeToPoint(result.rows, costs, point),
+          machineCashCredits:
+            point === null
+              ? null
+              : spin === 0
+                ? 0
+                : approximateWinMachineCashAtPoint(result.rows, costs, point),
+        };
+      })}
+    />
   );
 }
 

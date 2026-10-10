@@ -12,7 +12,7 @@ import {
 import type { MutationOutcome } from './mutation-outcome.ts';
 
 /**
- * "Odrzuć planszę" (TASK-0949, W7): a button, a reason picker and a
+ * "Odrzuć planszę" (TASK-0970, W7): a button, a reason picker and a
  * confirmation. The dialog owns one idempotency key per opening. A definite
  * answer (applied or refused) closes it and hands the result to the owner;
  * an unknown outcome (lost connection, 5xx, timeout) keeps the dialog, the

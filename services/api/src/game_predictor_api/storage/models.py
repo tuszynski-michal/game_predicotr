@@ -2125,7 +2125,7 @@ class ImageSourceGeometryRevisionModel(Base):
             "revision",
             name="uq_image_source_geometry_revisions_source_revision",
         ),
-        # TASK-0945: a reverted revision keeps its row but frees its checksum,
+        # TASK-0966: a reverted revision keeps its row but frees its checksum,
         # so the same geometry saved again appends a new revision.
         Index(
             "uq_image_source_geometry_revisions_live_checksum",
@@ -3188,7 +3188,7 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    # TASK-0945: the cell's assignment source before this event (NULL before 0153).
+    # TASK-0966: the cell's assignment source before this event (NULL before 0154).
     previous_assignment_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
     previous_verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -3721,7 +3721,7 @@ class ImageBoardGeometryPendingModel(Base):
             "'residual_too_high', 'source_unavailable')",
             name="ck_image_board_geometry_pending_reason",
         ),
-        # TASK-0945 (migration 0153): ``rejected`` schema for W7; a rejected
+        # TASK-0966 (migration 0154): ``rejected`` schema for W7; a rejected
         # slot superseded later by a replacement keeps its rejection history.
         CheckConstraint(
             "(status = 'pending' AND resolved_geometry_revision IS NULL "

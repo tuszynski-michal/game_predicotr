@@ -518,7 +518,7 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
             return
         try:
             with self._session_factory() as session, session.begin():
-                # TASK-0950 (P0-5): a batch may resolve boards; the ownership
+                # TASK-0971 (P0-5): a batch may resolve boards; the ownership
                 # lock precedes the operation, sequence and cell locks.
                 if job.game_id is not None:
                     acquire_sequence_ownership_lock(session, game_id=job.game_id)

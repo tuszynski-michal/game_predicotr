@@ -1,6 +1,6 @@
 """Record the lock acquisitions of each transaction and check the global order.
 
-TASK-0950 (audit round 4): a lightweight test helper. It listens to the SQL an
+TASK-0971 (audit round 4): a lightweight test helper. It listens to the SQL an
 engine sends, classifies every lock (advisory locks by their key, row locks by
 the locked tables) and keeps one list per database transaction. ``violations``
 reports the inversions that produced the audited deadlocks:

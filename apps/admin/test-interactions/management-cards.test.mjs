@@ -215,8 +215,21 @@ const button = (label, within = document) =>
   );
 const card = (stake = 2000) =>
   document.querySelector(
-    `article[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
+    `button[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
   );
+async function expand(label) {
+  const summary = [...document.querySelectorAll('summary')].find(
+    (node) => node.textContent === label,
+  );
+  assert.ok(summary, `Missing disclosure: ${label}`);
+  await act(async () => {
+    summary.parentElement.open = true;
+    summary.parentElement.dispatchEvent(new Event('toggle'));
+  });
+}
+async function openSavedResult() {
+  await expand('Pełny zapisany wynik');
+}
 async function click(node) {
   assert.ok(node);
   await act(async () =>
@@ -242,6 +255,7 @@ async function mount(api, extra = {}) {
         machineId: 'machine',
         gameId: 'game',
         writeAllowed: true,
+        selectedStake: 2000,
         ...extra,
       }),
     ),
@@ -342,15 +356,19 @@ test('six compact cards load selected scope only; last result stays checking and
   });
   const root = await mount(api);
   assert.equal(
-    document.querySelectorAll('.management-stake-cards article').length,
+    document.querySelectorAll('.management-stake-cards > button').length,
     6,
   );
   assert.match(card().textContent, /Sprawdzanie/);
-  assert.match(card().textContent, /Plansza #9/);
-  assert.match(text(), /Spin 12: niedostępny/);
+  assert.match(card().textContent, /Zapisany układ/);
+  assert.equal(document.querySelector('.management-mini-chart'), null);
+  assert.match(
+    document.querySelector('.management-pin-rows').textContent,
+    /12.*niedostępny/s,
+  );
   assert.equal(full.length, 0);
   await act(async () => gate.reject(new Error('Brak aktualnych reguł')));
-  assert.match(card().textContent, /Wynik nieaktualny/);
+  assert.match(card().textContent, /Wynik wymaga sprawdzenia/);
   assert.match(card().textContent, /OLD/);
   assert.match(text(), /Brak aktualnych reguł/);
   await unmount(root);
@@ -374,15 +392,15 @@ test('late refresh cannot revert saved card OR opened result after successful Sa
     },
   });
   const root = await mount(api);
-  await click(button('Otwórz', card()));
-  await click(button('Szukaj ponownie', card()));
+  await openSavedResult();
+  await click(card());
   await until(() =>
     document.querySelector(
       'input[aria-label="Zakres wygranej — liczba kolejnych spinów"]',
     ),
   );
   await range(11);
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   assert.equal(saves[0].expectedRevision, 1);
   assert.equal(saves[0].spinCount, 11);
   assert.ok(versions.includes('v3'));
@@ -392,7 +410,7 @@ test('late refresh cannot revert saved card OR opened result after successful Sa
     }),
   );
   assert.equal(versions.includes('v2'), false);
-  assert.match(card().textContent, /11 spinów/);
+  assert.match(card().textContent, /Zapisany układ/);
   assert.equal(
     document.querySelector(
       'input[aria-label="Zakres wygranej — liczba kolejnych spinów"]',
@@ -414,11 +432,11 @@ test('uncertain Save blocks fresh operation, retries exact UUID/body after remou
     },
   });
   let root = await mount(api);
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   assert.match(text(), /Nieznany wynik ostatniej operacji/);
-  assert.equal(button('Szukaj ponownie', card()).disabled, true);
+  assert.equal(card().disabled, true);
   const stored = JSON.parse(
     dom.window.sessionStorage.getItem(managementSlotPendingKey('local-owner')),
   );
@@ -462,9 +480,9 @@ test('CAS conflict preserves draft and explicit next Save uses refreshed baselin
     },
   });
   const root = await mount(api);
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   assert.equal(calls[0].expectedRevision, 1);
   assert.match(text(), /Twój szkic pozostał zachowany/);
   assert.equal(
@@ -473,7 +491,7 @@ test('CAS conflict preserves draft and explicit next Save uses refreshed baselin
     ).value,
     '11',
   );
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   assert.equal(calls[1].expectedRevision, 7);
   assert.notEqual(calls[1].operationId, calls[0].operationId);
   await unmount(root);
@@ -494,19 +512,24 @@ test('confirmed Clear targets only chosen slot and retries uncertain response wi
     },
   });
   const root = await mount(api);
+  await click(card());
   dom.window.confirm = () => false;
-  await click(button('Wyczyść', card()));
+  await click(button('Usuń zapisany układ'));
   assert.equal(calls.length, 0);
   dom.window.confirm = () => true;
-  await click(button('Wyczyść', card()));
+  await click(button('Usuń zapisany układ'));
   assert.equal(calls[0].s, 2000);
   assert.equal(calls[0].body.confirmed, true);
   ok = true;
   await click(button('Sprawdź ostatni zapis stawki'));
   assert.deepEqual(calls[1], calls[0]);
   assert.match(card().textContent, /Brak zapisanego układu/);
-  assert.match(card(1000).textContent, /Plansza #9/);
-  assert.ok(document.querySelector('[aria-label="Dziennik maszyny"]'));
+  assert.match(card(1000).textContent, /Zapisany układ/);
+  assert.ok(
+    [...document.querySelectorAll('summary')].some(
+      (node) => node.textContent === 'Dziennik',
+    ),
+  );
   await unmount(root);
 });
 
@@ -783,6 +806,8 @@ test('historical result stays frozen while editor uses CURRENT symbols/rules and
   );
   assert.match(text(), /Historyczny wynik/);
   assert.equal(calculations, 0);
+  assert.equal(document.querySelector('table'), null);
+  await expand('Pełna tabela wypłat');
   assert.match(document.querySelector('table').textContent, /200,00 zł/);
   await click(button('Edytuj bieżącą planszę startową'));
   await until(() => document.querySelector('dialog'));
@@ -821,8 +846,8 @@ test('archived/detached saves remain readable; no recalculation or new search', 
   });
   const root = await mount(api, { writeAllowed: false });
   assert.equal(refreshes, 0);
-  assert.equal(button('Szukaj ponownie', card()).disabled, true);
-  await click(button('Otwórz', card()));
+  assert.equal(card().disabled, false);
+  await click(card());
   assert.equal(results, 1);
   assert.match(text(), /tylko do odczytu/);
   assert.equal(button('Edytuj bieżącą planszę startową'), undefined);
@@ -940,8 +965,12 @@ test('point catalog does not load cards; internal machine/game navigation warns 
       n.textContent.includes('PunktMiasto'),
     ),
   );
-  await click(button('Otwórz gry maszyny Maszyna'));
-  await click(button('Szukaj ponownie', card()));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
+  await click(card());
   await range(11);
   let confirms = 0;
   dom.window.confirm = () => {
@@ -982,14 +1011,14 @@ test('acknowledged retry advances own revision while the later edited draft rema
     },
   });
   const root = await mount(api);
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   await range(12);
   lost = false;
   await click(button('Sprawdź ostatni zapis stawki'));
   assert.match(text(), /Niezapisane zmiany/);
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   assert.equal(calls[2].expectedRevision, 2);
   assert.equal(calls[2].spinCount, 12);
   assert.notEqual(calls[2].operationId, calls[0].operationId);
@@ -1001,7 +1030,7 @@ test('capability changes preserve dirty draft and remove current mutation contro
   const api = client();
   const changed = [];
   const root = await mount(api, { onDirtyChange: (d) => changed.push(d) });
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
   await act(async () =>
     root.render(
@@ -1020,7 +1049,7 @@ test('capability changes preserve dirty draft and remove current mutation contro
     ).value,
     '11',
   );
-  assert.equal(button('Zapisz układ'), undefined);
+  assert.equal(button('Zapisz zmiany'), undefined);
   assert.equal(changed.at(-1), true);
   assert.match(text(), /tylko do odczytu/);
   await unmount(root);
@@ -1041,9 +1070,10 @@ test('late refresh after Clear cannot reopen cleared result', async () => {
     }),
   });
   const root = await mount(api);
-  await click(button('Otwórz', card()));
+  await openSavedResult();
+  await click(card());
   dom.window.confirm = () => true;
-  await click(button('Wyczyść', card()));
+  await click(button('Usuń zapisany układ'));
   await act(async () =>
     gate.resolve({
       data: { slot: slot(2000, 2), status: 'current', changed: true },
@@ -1080,12 +1110,12 @@ test('refresh lost-response receipt retries exact body after reload without leav
     },
   });
   let root = await mount(api);
-  assert.match(card().textContent, /Wynik nieaktualny/);
+  assert.match(card().textContent, /Wynik wymaga sprawdzenia/);
   await unmount(root);
   fail = false;
   root = await mount(api);
   assert.deepEqual(calls[1], calls[0]);
-  assert.match(card().textContent, /Wynik nieaktualny/);
+  assert.match(card().textContent, /Wynik wymaga sprawdzenia/);
   assert.doesNotMatch(card().textContent, /Sprawdzanie bieżących/);
   assert.match(text(), /Nowszy zapis pozostaje zachowany/);
   await unmount(root);
@@ -1230,8 +1260,12 @@ test('outer Admin workspace click and popstate both guard dirty management draft
         n.textContent.includes('PunktMiasto'),
       ),
     );
-    await click(button('Otwórz gry maszyny Maszyna'));
-    await click(button('Szukaj ponownie', card()));
+    await click(
+      [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+        node.textContent.includes('Maszyna'),
+      ),
+    );
+    await click(card());
     await range(11);
     let prompts = 0;
     dom.window.confirm = () => {
@@ -1256,5 +1290,383 @@ test('outer Admin workspace click and popstate both guard dirty management draft
   } finally {
     await unmount(root);
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('outer Admin navigation prompts once and retains a dirty structure modal', async () => {
+  dom.window.sessionStorage.clear();
+  dom.window.history.replaceState(null, '', '/?workspace=management');
+  const { CatalogWorkspace } =
+    await import('../src/features/catalog/catalog-workspace.tsx');
+  const point = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Punkt',
+    city: 'Miasto',
+    street: 'Ulica',
+    archived: false,
+    revision: 1,
+    updatedAt: '2026-10-07T00:00:00Z',
+    machines: [],
+  };
+  const api = client({
+    getManagementSnapshot: async () => ({
+      data: { points: [point], activeGames: [] },
+    }),
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response('[]', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(CatalogWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          managementClient: api,
+        }),
+      ),
+    );
+    await click(
+      document.querySelector('button[aria-label="Edytuj punkt Punkt"]'),
+    );
+    const input = document.querySelector('.management-modal input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        dom.window.HTMLInputElement.prototype,
+        'value',
+      ).set.call(input, 'Mój szkic');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    let prompts = 0;
+    dom.window.confirm = () => {
+      prompts++;
+      return false;
+    };
+    await click(button('Zarządzanie grami'));
+    assert.equal(prompts, 1);
+    assert.ok(document.querySelector('.management-modal'));
+    await act(async () => {
+      dom.window.history.pushState(null, '', '/?workspace=games');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    assert.equal(prompts, 2);
+    assert.match(dom.window.location.search, /workspace=management/);
+    assert.equal(input.value, 'Mój szkic');
+  } finally {
+    await unmount(root);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('mpStake URL selects its tile without opening a draft editor', async () => {
+  dom.window.sessionStorage.clear();
+  const pointId = '11111111-1111-4111-8111-111111111111';
+  const machineId = '22222222-2222-4222-8222-222222222222';
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  dom.window.history.replaceState(
+    null,
+    '',
+    `/?workspace=management&mpPoint=${pointId}&mpMachine=${machineId}&mpGame=${gameId}&mpStake=1000`,
+  );
+  const machine = {
+    id: machineId,
+    pointId,
+    name: 'Maszyna',
+    archived: false,
+    revision: 1,
+    updatedAt: '2026-10-07T00:00:00Z',
+    assignments: [
+      { gameId, gameName: 'Gra', gameStatus: 'active', attached: true },
+    ],
+  };
+  const point = {
+    id: pointId,
+    name: 'Punkt',
+    city: 'Miasto',
+    street: 'Ulica',
+    archived: false,
+    revision: 1,
+    updatedAt: machine.updatedAt,
+    machines: [machine],
+  };
+  const api = client({
+    getManagementSnapshot: async () => ({
+      data: {
+        points: [point],
+        activeGames: [{ id: gameId, name: 'Gra' }],
+      },
+    }),
+  });
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(React.createElement(ManagementWorkspace, { client: api })),
+    );
+    await until(() =>
+      document.querySelector('.management-stake-cards > button'),
+    );
+    assert.equal(card(1000).getAttribute('aria-pressed'), 'true');
+    assert.equal(document.querySelector('[aria-label="Szkic układu"]'), null);
+    assert.equal(document.querySelector('.management-modal'), null);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('compact preview reuses one symbol catalog and journal/result remain on demand', async () => {
+  dom.window.sessionStorage.clear();
+  let catalogs = 0,
+    journals = 0,
+    full = 0;
+  const api = client({
+    listSymbols: async () => {
+      catalogs++;
+      return { data: [{ ...symbol, code: 'OLD', imagePath: '/thumbnail' }] };
+    },
+    listManagementJournal: async () => {
+      journals++;
+      return { data: { entries: [], nextCursor: null } };
+    },
+    getManagementResult: async () => {
+      full++;
+      return { data: result() };
+    },
+  });
+  const root = await mount(api);
+  try {
+    await until(() => card().querySelector('img'));
+    assert.equal(catalogs, 1);
+    assert.equal(journals, 0);
+    assert.equal(full, 0);
+    assert.equal(document.querySelector('svg'), null);
+    assert.equal(document.querySelector('button button'), null);
+    assert.equal(card().getAttribute('aria-pressed'), 'true');
+    await click(card());
+    await until(() => document.querySelector('.management-pin-rows'));
+    assert.equal(catalogs, 1);
+    assert.equal(full, 0);
+    assert.equal(document.querySelector('svg'), null);
+    await expand('Dziennik');
+    assert.equal(journals, 1);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('saved result disclosure stays synchronized across editor and close without redundant fetch', async () => {
+  dom.window.sessionStorage.clear();
+  let full = 0;
+  const api = client({
+    getManagementResult: async () => {
+      full++;
+      return { data: result() };
+    },
+  });
+  const root = await mount(api);
+  const disclosure = () =>
+    [...document.querySelectorAll('summary')].find(
+      (node) => node.textContent === 'Pełny zapisany wynik',
+    ).parentElement;
+  try {
+    await until(() => document.querySelector('summary'));
+    assert.equal(disclosure().open, false);
+    await openSavedResult();
+    await until(() => document.querySelector('.management-result'));
+    assert.equal(disclosure().open, true);
+    assert.equal(full, 1);
+    await click(card());
+    await until(() => document.querySelector('.management-draft'));
+    await click(button('Zamknij szkic'));
+    await settle();
+    assert.equal(disclosure().open, true);
+    assert.ok(document.querySelector('.management-result'));
+    assert.equal(full, 1);
+    await expand('Pełny zapisany wynik');
+    assert.equal(full, 1);
+    await act(async () => {
+      disclosure().open = false;
+      disclosure().dispatchEvent(new Event('toggle'));
+    });
+    assert.equal(disclosure().open, false);
+    assert.equal(document.querySelector('.management-result'), null);
+    await settle();
+    assert.equal(full, 1);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('quick pin rows distinguish missing metrics from unavailable pins and show an empty state', async () => {
+  dom.window.sessionStorage.clear();
+  const api = client({
+    listManagementStakes: async () => ({
+      data: {
+        slots: stakes.map((stake) => ({
+          ...slot(stake),
+          pinnedPoints: stake === 2000 ? slot().pinnedPoints : [],
+        })),
+      },
+    }),
+  });
+  const root = await mount(api, { pauseRefresh: true });
+  try {
+    await until(() => document.querySelector('.management-pin-rows'));
+    const rows = [
+      ...document.querySelectorAll('.management-pin-rows tbody tr'),
+    ].map((row) => [...row.cells].map((cell) => cell.textContent));
+    assert.deepEqual(rows, [
+      ['3', '—', '-30', '—'],
+      ['12', 'niedostępny', 'niedostępny', 'niedostępny'],
+    ]);
+    await act(async () =>
+      root.render(
+        React.createElement(ManagementGameWorkspace, {
+          api,
+          machineId: 'machine',
+          gameId: 'game',
+          writeAllowed: true,
+          selectedStake: 1000,
+          pauseRefresh: true,
+        }),
+      ),
+    );
+    assert.equal(document.querySelector('.management-pin-rows'), null);
+    assert.match(text(), /Brak przypiętych punktów/);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('new draft and cancelled or failed replacement preserve old slot until confirmed CAS succeeds', async () => {
+  dom.window.sessionStorage.clear();
+  const saves = [],
+    clears = [];
+  let fail = true;
+  const board = (sequenceNumber) => ({
+    sequenceNumber,
+    assetMode: 'operational_review',
+    boardChecksumSha256: 'a'.repeat(64),
+    score: {
+      score: 100,
+      exactMatchCount: 1,
+      alternativeMatchCount: 0,
+      mismatchCount: 0,
+      unknownCount: 0,
+    },
+    status: 'accepted',
+  });
+  const api = client({
+    searchManagementBoards: async () => ({
+      data: {
+        searchContextId: 'new-context',
+        search: {
+          gameId: 'game',
+          scope: 'all_searchable',
+          queryCellCount: 1,
+          results: [board(1), board(2)],
+        },
+      },
+    }),
+    clearManagementStake: async (...args) => {
+      clears.push(args);
+      return { data: empty(2000) };
+    },
+    saveManagementStake: async (_m, _g, _s, body) => {
+      saves.push(body);
+      if (fail)
+        return {
+          error: { message: 'Odrzucony zapis' },
+          response: { status: 422 },
+        };
+      return {
+        data: {
+          ...slot(2000, 2),
+          startSequenceNumber: body.startSequenceNumber,
+          searchContextId: body.searchContextId,
+          startSymbolCodes: Array(15).fill('NEW'),
+        },
+      };
+    },
+  });
+  const root = await mount(api);
+  try {
+    await click(card());
+    await click(button('Nowy układ'));
+    assert.equal(clears.length, 0);
+    assert.match(card().textContent, /OLD/);
+    assert.equal(button('Zastąp układ').disabled, true);
+    await until(() =>
+      document.querySelector('.boardSearchSymbolButton[title="Wiśnia"]'),
+    );
+    await click(
+      document.querySelector('.boardSearchSymbolButton[title="Wiśnia"]'),
+    );
+    await click(button('Szukaj plansz'));
+    await until(
+      () =>
+        document.querySelectorAll('.boardSearchCompactResults button')
+          .length === 2,
+    );
+    await click(
+      document.querySelectorAll('.boardSearchCompactResults button')[1],
+    );
+    dom.window.confirm = () => false;
+    await click(button('Zastąp układ'));
+    assert.equal(saves.length, 0);
+    assert.match(card().textContent, /OLD/);
+    assert.equal(document.querySelector('[role="alert"]'), null);
+    assert.ok(
+      [...document.querySelectorAll('[role="status"]')].some((node) =>
+        node.textContent.includes('Zastąpienie anulowane.'),
+      ),
+    );
+    assert.match(text(), /Niezapisane zmiany układu/);
+    assert.equal(button('Zastąp układ').disabled, false);
+    dom.window.confirm = () => true;
+    await click(button('Zastąp układ'));
+    assert.equal(saves.length, 1);
+    assert.doesNotMatch(text(), /Zastąpienie anulowane/);
+    assert.equal(saves[0].expectedRevision, 1);
+    assert.equal(saves[0].startSequenceNumber, 2);
+    assert.match(card().textContent, /OLD/);
+    assert.match(text(), /Niezapisane zmiany układu/);
+    fail = false;
+    await click(button('Zastąp układ'));
+    assert.equal(saves.length, 2);
+    assert.match(card().textContent, /NEW/);
+    assert.equal(button('Zapisz zmiany').disabled, true);
+    assert.equal(clears.length, 0);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('failed symbol catalog is retried by explicit editor opening and successful catalog remains cached', async () => {
+  dom.window.sessionStorage.clear();
+  let catalogs = 0;
+  const api = client({
+    listSymbols: async () => {
+      catalogs++;
+      if (catalogs === 1) throw new Error('Temporary catalog failure');
+      return { data: [{ ...symbol, code: 'OLD', imagePath: '/thumbnail' }] };
+    },
+  });
+  const root = await mount(api);
+  try {
+    await settle();
+    assert.equal(catalogs, 1);
+    assert.equal(card().querySelector('img'), null);
+    await click(card());
+    await until(() => card().querySelector('img'));
+    assert.equal(catalogs, 2);
+    await click(button('Zamknij szkic'));
+    await click(card());
+    await until(() => document.querySelector('.boardSearchPaletteGrid'));
+    assert.equal(catalogs, 2);
+  } finally {
+    await unmount(root);
   }
 });

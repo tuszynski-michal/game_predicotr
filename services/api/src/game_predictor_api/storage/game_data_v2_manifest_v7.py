@@ -1,5 +1,5 @@
-"""Frozen v7 ownership: the geometry correction revert audit (TASK-0945) and the
-durable events of deferred-slot rejections (TASK-0949)."""
+"""Frozen v7 ownership: the geometry correction revert audit (TASK-0966) and the
+durable events of deferred-slot rejections (TASK-0970)."""
 
 from game_predictor_api.storage.game_data_v2_manifest_v6 import (
     CATALOG,

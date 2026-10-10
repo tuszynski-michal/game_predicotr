@@ -1,4 +1,4 @@
-"""ORM mapping of the geometry correction revert audit (migration 0153, TASK-0945).
+"""ORM mapping of the geometry correction revert audit (migration 0154, TASK-0966).
 
 The table is game-partitioned in ``game_data_v2`` (manifest v7); the ORM name
 stays unqualified and resolves through the game route's ``search_path``, like
@@ -106,13 +106,13 @@ class ImageGeometryCorrectionRevertModel(Base):
 
 
 class ImageBoardGeometryPendingEventModel(Base):
-    """One rejection of a deferred slot, its revert or its replacement (TASK-0949/0950).
+    """One rejection of a deferred slot, its revert or its replacement (TASK-0970/0971).
 
     Append-only. ``rejection_revision`` numbers the rejections of one slot; the
     revert of a rejection carries the revision of the rejection it undoes, so a
     stale revert is told apart from the revert of the newest rejection. The
     unique idempotency key makes both commands replayable. ``superseded``
-    (TASK-0950) records that a replacement photo took the rejected slot's
+    (TASK-0971) records that a replacement photo took the rejected slot's
     sequence over; it carries the rejection revision it closes and the
     successor review item.
     """
@@ -176,7 +176,7 @@ class ImageBoardGeometryPendingEventModel(Base):
     reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     actor: Mapped[str] = mapped_column(String(200), nullable=False)
-    # TASK-0950: the review item of the replacement photo that took the
+    # TASK-0971: the review item of the replacement photo that took the
     # sequence over (``superseded`` only); no foreign key, like the slot id.
     successor_review_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(

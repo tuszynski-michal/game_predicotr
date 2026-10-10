@@ -1,4 +1,4 @@
-"""Create one auditable pending owner for a game sequence (D-238, D-539)."""
+"""Create one auditable pending owner for a game sequence (D-238, D-543)."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ _ACTOR: Final = "system:pending-sequence-owner"
 _SLOT_SUPERSEDED_ACTION: Final = "superseded"
 
 # Images whose geometry gate may change when the sequence gets a live owner on
-# another image (D-539 cleanup, TASK-0950): an image with a rejected review
+# another image (D-543 cleanup, TASK-0971): an image with a rejected review
 # item or a rejected deferred slot of the sequence, and every not-admitted
 # image whose source revision range covers the sequence (a gap there becomes
 # a ``superseded`` position). Recomputing an unchanged image is a no-op.
@@ -80,7 +80,7 @@ def create_owned_pending_review_item(
     created_at: datetime,
     resolution_revision: int = 0,
 ) -> tuple[ImageReviewItemModel, tuple[UUID, ...]]:
-    """Create a review item under the race-safe sequence ownership rule (D-539).
+    """Create a review item under the race-safe sequence ownership rule (D-543).
 
     Resolved canonical boards always win. A live ``pending`` item of another
     photo keeps the sequence: the incoming item is ``superseded`` and its
@@ -138,7 +138,7 @@ def create_owned_pending_review_item(
     }
     # The candidate source rows are locked now, in ascending id order and before
     # any slot, item or counters row: the global lock order of
-    # ``storage.sequence_ownership_lock`` (TASK-0950, audit round 4).
+    # ``storage.sequence_ownership_lock`` (TASK-0971, audit round 4).
     if gate_candidates:
         lock_source_images(session, game_id, gate_candidates)
     # Rejected deferred slots of other images for this sequence (rows, locked
@@ -330,11 +330,11 @@ def _clean_up_after_takeover(
     gate_candidates: set[UUID],
     changed_at: datetime,
 ) -> None:
-    """Close the rejected owners' slots and recompute the gates (D-539 decision 6).
+    """Close the rejected owners' slots and recompute the gates (D-543 decision 6).
 
     A rejected review item stays ``rejected``: its cells left the exact counters
     when it was rejected and the successor's write-through does not subtract
-    them again (TASK-0949), so nothing is counted twice. Nothing is deleted.
+    them again (TASK-0970), so nothing is counted twice. Nothing is deleted.
     """
 
     assert claim.incoming_owns
@@ -384,7 +384,7 @@ def _clean_up_after_takeover(
         slot.updated_at = changed_at
     session.flush()
     # All candidate source rows are locked in ascending id order before any
-    # of them is recomputed or cut (global lock order, TASK-0950 P0-7).
+    # of them is recomputed or cut (global lock order, TASK-0971 P0-7).
     recompute_source_images(
         session,
         game_id,

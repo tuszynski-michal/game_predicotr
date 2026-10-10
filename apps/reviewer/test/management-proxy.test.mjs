@@ -11,6 +11,50 @@ const MACHINE = '33333333-3333-4333-8333-333333333333';
 const GAME = '44444444-4444-4444-8444-444444444444';
 const API = '/api/v1/management-public';
 const TOKEN = 'b'.repeat(48);
+
+test('scoped deletion preview and confirmation use POST bodies, never query tokens', async () => {
+  for (const path of [
+    `/points/${OTHER}/delete-preview`,
+    `/points/${OTHER}/delete`,
+    `/points/${OTHER}/machines/${MACHINE}/delete-preview`,
+    `/points/${OTHER}/machines/${MACHINE}/delete`,
+    `/machines/${MACHINE}/update-preview`,
+  ]) {
+    assert(managementPublicRoute('POST', API + path));
+    assert.equal(managementPublicRoute('DELETE', API + path), null);
+    const seen = [];
+    const body = {
+      operationId: OTHER,
+      expectedRevision: 1,
+      previewToken: 'p'.repeat(43),
+      confirmed: true,
+    };
+    const response = await proxyManagementRequest(
+      request(path, 'POST', body),
+      options(
+        new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
+        seen,
+      ),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(new URL(seen[0].url).search, '');
+    assert.deepEqual(
+      JSON.parse(new TextDecoder().decode(seen[0].init.body)),
+      body,
+    );
+    assert.equal(
+      new Headers(seen[0].init.headers).get('X-Management-Session'),
+      SESSION,
+    );
+    const denied = await proxyManagementRequest(
+      request(path + '?previewToken=secret', 'POST', body),
+      options(
+        new Response('{}', { headers: { 'Content-Type': 'application/json' } }),
+      ),
+    );
+    assert.equal(denied.status, 403);
+  }
+});
 function request(path, method = 'GET', body) {
   return new Request(`https://panel.example/management-api${API}${path}`, {
     method,

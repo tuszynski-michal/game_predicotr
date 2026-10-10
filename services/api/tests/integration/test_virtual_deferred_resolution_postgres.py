@@ -988,7 +988,7 @@ def test_manual_resolution_continues_the_canonical_crop_revision(
     first = _seed(factory, game_id, artifact_root, label="first-import", slot_count=1)
     first_response = _resolve_via_reviewer_endpoint(database, artifact_root, first)
     assert first_response["geometryRevision"] == 1
-    # D-539 (TASK-0950): another photo takes the sequence over only from a
+    # D-543 (TASK-0971): another photo takes the sequence over only from a
     # rejected owner, so the first board is rejected before the handoff.
     from game_predictor_api.domain.image_reviews import ImageReviewAction
     from test_pending_slot_rejection_postgres import _items, _resolve_board

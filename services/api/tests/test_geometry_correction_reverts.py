@@ -1,4 +1,4 @@
-"""TASK-0945/TASK-0946: pure rules and the service contract of the geometry correction revert."""
+"""TASK-0966/TASK-0967: pure rules and the service contract of the geometry correction revert."""
 
 from __future__ import annotations
 
@@ -216,7 +216,7 @@ def test_entry_exposes_revertable_and_the_reason_message() -> None:
     assert replace(entry, blocking_reason=None).blocking_reason_message is None
 
 
-# -- case A (TASK-0946) --------------------------------------------------------
+# -- case A (TASK-0967) --------------------------------------------------------
 
 SYMBOL = uuid4()
 
@@ -244,7 +244,7 @@ def test_assignment_source_is_the_recorded_one_else_the_plan_rule() -> None:
 
     assert source("board_decision", "approved", None) == "board_decision"
     assert source("model", "pending", "partial_visibility") == "model"
-    # Events written before 0153 carry no source.
+    # Events written before 0154 carry no source.
     assert source(None, "approved", None) == "human"
     assert source(None, "approved", "partial_visibility") == "human"
     assert source(None, "pending", "partial_visibility") == "geometry_partial"
@@ -324,7 +324,7 @@ def test_case_a_transaction_actions_are_the_geometry_write_and_d488_symbols() ->
     } == CORRECTION_TRANSACTION_CELL_ACTIONS
 
 
-# -- TASK-0949: rejections -------------------------------------------------
+# -- TASK-0970: rejections -------------------------------------------------
 
 
 def _rejection_facts(**changes: Any) -> RejectionRevertFacts:

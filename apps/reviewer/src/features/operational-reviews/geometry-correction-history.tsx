@@ -36,7 +36,7 @@ interface PendingRevert {
 }
 
 /**
- * "Ostatnie korekty" (TASK-0948): the latest manual geometry saves of the
+ * "Ostatnie korekty" (TASK-0969): the latest manual geometry saves of the
  * import with a guarded revert. The revert is offered only for rows the API
  * marks `revertable`; the confirmation shows the preview of its effects and
  * sends the CAS tokens of that preview with a fresh idempotency key.
@@ -283,7 +283,7 @@ export function GeometryCorrectionHistory({
         </p>
       ) : null}
       {state === 'ready' && items.length === 0 ? (
-        <p>Ten import nie ma jeszcze zapisanych korekt.</p>
+        <p>Brak zapisanych korekt.</p>
       ) : null}
       {items.length > 0 ? (
         <ul className="geometryCorrectionHistoryList">

@@ -87,7 +87,7 @@ class SqlAlchemyGridShadowRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 SourceImageModel.id == source_image_id,
-                # TASK-0945: a reverted revision is never the current one.
+                # TASK-0966: a reverted revision is never the current one.
                 ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())

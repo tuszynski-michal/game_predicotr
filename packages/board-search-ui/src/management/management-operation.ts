@@ -2,6 +2,7 @@ import type {
   ManagementPointCommand,
   ManagementMachineCommand,
   ManagementAssignmentCommand,
+  ManagementDeleteCommand,
 } from '@game-predictor/admin-api-client';
 import type { ManagementClient } from './management-workspace';
 
@@ -17,6 +18,13 @@ export type ManagementOperation =
       kind: 'assignments';
       machineId: string;
       body: ManagementAssignmentCommand;
+    }
+  | { kind: 'delete-point'; pointId: string; body: ManagementDeleteCommand }
+  | {
+      kind: 'delete-machine';
+      pointId: string;
+      machineId: string;
+      body: ManagementDeleteCommand;
     };
 
 export const managementPendingKey = (namespace = 'local-owner') =>
@@ -39,6 +47,14 @@ export function executeManagementOperation(
           operation.body,
         )
       : client.createManagementMachine(operation.pointId, operation.body);
+  if (operation.kind === 'delete-point')
+    return client.deleteManagementPoint(operation.pointId, operation.body);
+  if (operation.kind === 'delete-machine')
+    return client.deleteManagementMachine(
+      operation.pointId,
+      operation.machineId,
+      operation.body,
+    );
   return client.updateManagementAssignments(
     operation.machineId,
     operation.body,
@@ -69,6 +85,28 @@ export function readManagementOperation(
     typeof body.expectedRevision !== 'number'
   )
     throw new Error('Nieprawidłowa tożsamość operacji.');
+  if (
+    operation.kind === 'delete-point' &&
+    'pointId' in operation &&
+    typeof operation.pointId === 'string' &&
+    'previewToken' in body &&
+    typeof body.previewToken === 'string' &&
+    'confirmed' in body &&
+    body.confirmed === true
+  )
+    return operation as ManagementOperation;
+  if (
+    operation.kind === 'delete-machine' &&
+    'pointId' in operation &&
+    typeof operation.pointId === 'string' &&
+    'machineId' in operation &&
+    typeof operation.machineId === 'string' &&
+    'previewToken' in body &&
+    typeof body.previewToken === 'string' &&
+    'confirmed' in body &&
+    body.confirmed === true
+  )
+    return operation as ManagementOperation;
   if (
     operation.kind === 'point' &&
     'name' in body &&

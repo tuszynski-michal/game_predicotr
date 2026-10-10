@@ -199,6 +199,9 @@ export function CatalogWorkspace({
           '',
           `${window.location.pathname}${search}${window.location.hash}`,
         );
+        window.dispatchEvent(
+          new Event('management:outer-navigation-cancelled'),
+        );
         return;
       }
       setNavigation(next);

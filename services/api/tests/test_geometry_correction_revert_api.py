@@ -1,9 +1,9 @@
-"""TASK-0947: HTTP contract of listing, previewing and reverting geometry corrections.
+"""TASK-0968: HTTP contract of listing, previewing and reverting geometry corrections.
 
 The service is the real ``GeometryCorrectionRevertService`` over an in-memory
 repository, so request validation, CAS pass-through, actor selection, the
 response mapping and the error envelope are exercised end to end without a
-database. Rule evaluation itself is covered by the TASK-0945/0946 suites.
+database. Rule evaluation itself is covered by the TASK-0966/0967 suites.
 """
 
 from __future__ import annotations

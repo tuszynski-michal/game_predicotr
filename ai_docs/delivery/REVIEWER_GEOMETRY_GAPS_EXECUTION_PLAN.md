@@ -1,6 +1,6 @@
 ---
 title: Plan — braki geometrii zdjęć w lokalnym Reviewerze i odchudzona Diagnostyka siatek
-status: accepted
+status: completed
 last_updated: 2026-10-10
 ---
 

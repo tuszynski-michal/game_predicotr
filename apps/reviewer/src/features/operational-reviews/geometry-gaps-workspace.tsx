@@ -24,6 +24,7 @@ import {
 import {
   GEOMETRY_GAP_STATES_WITHOUT_EDITOR,
   GEOMETRY_GAPS_FILTERS,
+  GEOMETRY_GAPS_BOARD_WITHOUT_ROW_HINT,
   GEOMETRY_GAPS_NO_TARGET_HINT,
   GEOMETRY_GAPS_ROWS_LIMIT,
   geometryGapPositionTarget,
@@ -721,7 +722,11 @@ export function GeometryGapsWorkspace({
                           : 'Popraw siatkę tej planszy'}
                       </button>
                     ) : editorAllowed && currentRows !== null ? (
-                      <small>{GEOMETRY_GAPS_NO_TARGET_HINT}</small>
+                      <small>
+                        {position.recognizedBoardId
+                          ? GEOMETRY_GAPS_BOARD_WITHOUT_ROW_HINT
+                          : GEOMETRY_GAPS_NO_TARGET_HINT}
+                      </small>
                     ) : null}
                   </li>
                 );

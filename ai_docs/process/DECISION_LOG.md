@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 536 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (178 wierszy); starsze (357 wierszy) są w
+- Indeks obejmuje 537 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (179 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-541](decisions/DECISION_LOG_2026.md#d-541--lokalny-reviewer-pracuje-w-zakresie-gry-i-pokazuje-realne-braki-geometrii-zdjęć) | Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć | accepted | 2026-10-10 | lokalny Reviewer ma zakładki „Do korekty” i „Braki zdjęć” (realne braki D-484), „Siatka niepotwierdzona” zostaje licznikiem w Adminie, UI wyjątków bramki usunięte z Admina. |
 | [D-539](decisions/DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
 | [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
@@ -218,8 +219,59 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-539, D-538, D-537, D-536, D-535), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-541, D-539, D-538, D-537, D-536), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-541 — Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć
+
+- **Date:** 2026-10-10.
+- **Status:** accepted; kod etapów A i B zaimplementowany (TASK-0961–0964,
+  v1.7.301–v1.7.304), odbiór na żywych danych w TASK-0965.
+- **Decision:** lokalny Reviewer (port 3001, `mode=local`) pracuje w zakresie
+  gry; `importJobId` jest opcjonalny (zdalny Reviewer bez zmian). Ekran ma dwie
+  zakładki: „Do korekty” (dotychczasowa kolejka z D-462: sloty odroczone i
+  plansze ze zgłoszeniem „Zła siatka”) oraz „Braki zdjęć” (realne braki z
+  klasyfikacji D-484: `incomplete_missing`, `incomplete_partial`,
+  `import_failed`, `no_source_geometry`). Pozycję zdjęcia, która ma planszę lub
+  slot, edytuje się istniejącym edytorem narożników (bez nowej ścieżki zapisu
+  geometrii); pozycje bez planszy i slotu oraz błędy importu są informacyjne.
+  „Siatka niepotwierdzona” (`incomplete_uncertain`) NIE jest kolejką i
+  pozostaje licznikiem w „Diagnostyce siatek zdjęć” w Adminie; część D-462
+  „bez walidacji gotowych siatek” obowiązuje bez zmian.
+- **Admin:** launcher „Korekta cięcia siatki” bez wyboru importu; „Diagnostyka
+  siatek zdjęć” pokazuje tylko liczniki i przycisk otwarcia Reviewera. UI
+  wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”) i lista zdjęć zostały
+  usunięte z Admina; endpointy, audyt i dane wyjątków zostają, a Reviewer ich
+  nie przejmuje (mutacje wysokiego wpływu są poza allowlistą origin Reviewera).
+  Przywrócenie UI wyjątków to osobny task, jeśli bramka znów zacznie
+  wstrzymywać plansze.
+- **Rationale:** dane z 2026-10-10: Mumie — 51 541 z 51 749 zdjęć
+  „niepotwierdzonych” (463 816 plansz) przy 4 realnych brakach; 777 — 76 zdjęć
+  `incomplete_partial`. „51 tys. niekompletnych” oznaczało więc automatyczną
+  siatkę bez ręcznego potwierdzenia, nie błąd cięcia. Do tego czarny podgląd i
+  długi scroll listy w Adminie oraz koszt 23–45 s liczników całej gry na
+  każdej planszy kolejki.
+- **Safety/Boundary:** tryb liczników `counts=correction` w `grid-reviews` i
+  filtr `gapsOnly` w liście niekompletnych zdjęć to wyłącznie odczyt, bez DDL i
+  bez zmiany klasyfikacji D-484; `gapsOnly` razem z `imageState` albo
+  `completenessStatus` daje 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`.
+  Budżety czasu: korekta ≤ 3 s, strona braków ≤ 12 s. Zdalny Reviewer bez
+  zmian. „Plansza częściowa” (`partial`) nie ma stanu końcowego także po
+  ręcznym zatwierdzeniu (D-449), więc pozycja ma flagę `humanApproved`, a
+  zakładka domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` są
+  zatwierdzone ręcznie (przełącznik „Pokaż także zatwierdzone ręcznie”).
+- **Supersedes/Amends:** doprecyzowuje D-462 („Correction queue”: lokalny
+  ekran ma dwie zakładki, kolejka korekty bez zmian) i D-484 (miejsce pracy z
+  diagnostyką przechodzi z Admina do Reviewera; Admin zachowuje liczniki); nie
+  zmienia D-488 (korekta cięcia nadal może zatwierdzić symbole wskazane przez
+  operatora).
+- **Out of scope:** walidacja i zatwierdzanie gotowych siatek, kolejka „Siatka
+  niepotwierdzona”, zmiana klasyfikacji D-484, blokada ponownego importu tych
+  samych zdjęć, zdalny Reviewer.
+- **Source:** polecenie operatora z 2026-10-10 i plan
+  `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
+  (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
+  `feat/disk-d-migration-plan`.
 
 ## D-539 — Wybór maszyny na widoku punktu
 
@@ -393,41 +445,3 @@ The integrated head is `0153_merge_compact_super_games`, joining both0152 parent
 - **Boundaries:** pole `superGameState` w odpowiedziach wyszukiwania plansz i
   kalkulacji dostarcza TASK-0935; wypłaty serii TASK-0936; `apply_board_repoint`
   nie jest punktem zapisu (zmienia tylko identyfikatory geometrii).
-
-## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
-
-- **Date:** 2026-10-08.
-- **Status:** accepted; plan `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md`
-  (TASK-0929–0939) zaakceptowany przez operatora po czterech przeglądach
-  Codex zakończonych PASS (v1.7.264).
-- **Decision:** dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild”
-  (kolumna `symbols.is_wildcard` zostaje). Symbol dostaje w katalogu gry
-  osobną rolę „Uruchamia supergrę” z progiem 3/4/5 sztuk na pociętej
-  planszy (`super_game_trigger_count`); jego reguły wypłat są wypłatą za
-  liczbę sztuk na planszy, niezależnie od pozycji. Gra ma rodzaj supergry
-  (`super_game_kind`, domyślnie `none`); pierwszy rodzaj `wild_super_spins`:
-  10 darmowych spinów o koszcie 0 na kolejnych pozycjach sekwencji, ≥N
-  symboli uruchamiających w serii przedłuża ją o 10 bez nowego symbolu,
-  super symbol (zwykły symbol wylosowany przez automat, widoczny jako złota
-  ramka) rozwija się na całe kolumny i przykrywa symbole pod sobą, liczy się
-  liczba kolumn (także niesąsiednich) od progu symbolu, wypłata = wypłata
-  liniowa × liczba linii. Mechanika rodzajów jest zaszyta w kodzie w
-  rozszerzalnym rejestrze; operator steruje rolami i rodzajem z Adminu.
-- **Series and data:** serie wyprowadzane deterministycznie z komórek z
-  przypisanym symbolem (także predykcje plansz `pending`), tylko plansze
-  pocięte; sekwencja startuje w trybie bazowym; brakująca plansza w serii
-  jest pusta i zużywa spin. Super symbol definiuje operator ręcznie.
-  Nieaktualność serii wynika z licznika wejścia per gra; wynik planszy serii
-  bez symbolu, w stanie nieaktualnym albo z nieznaną komórką jest
-  prowizoryczny, nie dolnym ograniczeniem. Role w katalogu są niezmienne po
-  publikacji wersji reguł używającej symbolu; testy na drafcie przez wybór
-  wersji reguł w Adminie.
-- **Boundaries:** 777 i 777 v2 bez zmian zachowania (bramka regresji);
-  aplikacja mobilna poza zakresem do odrębnej decyzji; wersjonowanie ról
-  per wersja reguł poza zakresem; trening modelu złotej ramki po pilocie.
-- **Process:** audyt krzyżowy po każdym tasku (TASK-0929 daje skill);
-  operator 2026-10-08 zdecydował, że wszystkie taski wykonuje ta sesja
-  Claude Code przez subagentów według tabeli planu, a audyt Codex jest do
-  czasu dostępności CLI zastępowany niezależnym subagentem Claude z innym
-  modelem niż wykonawca. Etap T (TASK-0938 przed S-B, TASK-0939 równolegle)
-  obniża zużycie tokenów bez obniżania jakości, z pomiarem.

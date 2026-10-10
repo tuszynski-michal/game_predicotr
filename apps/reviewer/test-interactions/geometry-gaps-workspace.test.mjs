@@ -979,3 +979,31 @@ test('"↻ Odśwież" keeps the open image (from a later page) and the mounted e
   assert.doesNotMatch(document.body.textContent, /Wczytywanie braków/);
   await act(async () => root.unmount());
 });
+
+test('a position with a board but no queue row shows the board-without-row hint', async () => {
+  const image = gapImage('img-8', {
+    positions: [
+      gapPosition({
+        positionIndex: 0,
+        recognizedBoardId: 'b-img-8-0',
+        sequenceNumber: 1000,
+        state: 'uncertain',
+      }),
+    ],
+  });
+  const state = {
+    pages: { first: { images: [image], nextCursor: null } },
+    rows: { 'img-8': [] },
+  };
+  const { api } = fakeApi(state);
+  const root = await render(api);
+
+  const items = positionItems();
+  assert.equal(items[0].querySelector('button'), null);
+  assert.match(
+    items[0].textContent,
+    /Plansza istnieje, ale nie ma wpisu w kolejce do ręcznej korekty/,
+  );
+  assert.doesNotMatch(items[0].textContent, /Brak planszy i slotu/);
+  await act(async () => root.unmount());
+});

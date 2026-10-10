@@ -6,6 +6,12 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0942 — Minimalistyczny panel (done)
+
+- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
+- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
 ### TASK-0941 — Minimalistyczny panel (done)
 
 - Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.

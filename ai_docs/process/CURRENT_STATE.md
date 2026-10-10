@@ -29,6 +29,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
 
+- **Lokalny Reviewer / D-541:** po „Otwórz lokalnie” pracuje w zakresie gry (bez wyboru importu), z zakładkami „Do korekty” i „Braki zdjęć” (realne braki D-484); „Siatka niepotwierdzona” jest tylko licznikiem w Diagnostyce Admina, nie kolejką. Admin nie ma UI wyjątków bramki (endpointy i audyt zostają). Źródło: `DECISION_LOG.md`, wpis D-541.
+
 Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
 (przeszukanie słów kluczowych: migracja, zgoda, blokada, PID, job, „nie
 uruchamiać”, potem ręczny dobór). Każdy punkt wskazuje sekcję-źródło. Stan z
@@ -63,10 +65,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Plan braków geometrii zdjęć w lokalnym Reviewerze (accepted, 2026-10-10)
+### Plan braków geometrii zdjęć w lokalnym Reviewerze (wykonany w kodzie, 2026-10-10; odbiór wizualny po restarcie operatora)
 
 - `delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`, TASK-0961–0965 na gałęzi `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`.
 - Zakres wybrany przez operatora: realne braki (nie „Siatka niepotwierdzona”), zakres całej gry bez selecta importu, filtry stanów w Reviewerze, Admin tylko z licznikami. Zaakceptowany poleceniem „Realizuj cały plan”; etapy A (0961–0963) i B (0964–0965) wykonywane w jednym przebiegu.
+- Stan: etapy A (TASK-0961–0963) i B (TASK-0964–0965) wykonane w kodzie i zacommitowane (v1.7.301–v1.7.305); decyzja D-541 zapisana (D-540 zajęła gałąź `feat/disk-d-migration-plan`). TASK-0965 wykonany (odbiór danych na żywym API OK; odbiór wizualny ekranów na portach 3000/3001 po restarcie API i `npm run reviewer:build` przez operatora); scalenie i push tylko za zgodą operatora, przy scalaniu renumeracja `vX.Y.N` względem gałęzi dysku D.
 
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 
@@ -104,11 +107,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0965 — decyzja D-541, dokumentacja i odbiór (todo)
-
-- Wpis D-541, aktualizacja dokumentacji i odbiór na żywych danych Mumii i 777.
-- Task: `ai_docs/tasks/0965-geometry-gaps-acceptance-and-docs.md`.
 
 ### TASK-0947 — czytelny widok punktu (todo)
 
@@ -742,6 +740,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0965 — decyzja D-541, dokumentacja i odbiór braków geometrii (done)
+
+- Commit: `v1.7.305` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- D-541 zapisana (lokalny Reviewer w zakresie gry, zakładki „Do korekty” i „Braki zdjęć”, „Siatka niepotwierdzona” tylko licznik, UI wyjątków bramki poza Adminem); plan `REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md` wykonany w kodzie (v1.7.301–v1.7.305).
+- Odbiór na żywych danych (API z worktree, GET): Mumie `correction` 0 w 0,14 s, `gapsOnly` 4 zdjęcia (1 `incomplete_missing`, 3 `import_failed`); 777 `correction` 255 w 1,06 s, `gapsOnly` 76 `incomplete_partial` (73 w całości zatwierdzone ręcznie). Buildy produkcyjne Reviewera i Admina OK; Reviewer `test` 253, `test:geometry` 67.
+- Niewykonane: odbiór wizualny w przeglądarce na portach 3000/3001 (wymaga restartu usług przez operatora po scaleniu) oraz zapis siatki testowej. Poprawka z odbioru: wskazówka dla pozycji z planszą bez wpisu w kolejce. Task: `ai_docs/tasks/completed/0965-geometry-gaps-acceptance-and-docs.md`.
+
 ### TASK-0964 — odchudzona Diagnostyka siatek i launcher bez wyboru importu (done)
 
 - Commit: `v1.7.304` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
@@ -808,10 +813,4 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Version: v1.7.276; commit: d7b37368646a5c9b8a039505646a5fc6f4c55518.
 - Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
-- Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0942 — Minimalistyczny panel (done)
-
-- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
-- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.

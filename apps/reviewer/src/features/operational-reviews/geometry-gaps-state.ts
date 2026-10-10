@@ -45,6 +45,10 @@ export const GEOMETRY_GAPS_ROWS_LIMIT = 100;
 export const GEOMETRY_GAPS_NO_TARGET_HINT =
   'Brak planszy i slotu do ręcznej korekty — przetwórz zdjęcie ponownie w Imporcie plansz';
 
+/** A live board exists, but it has no review-queue row to open the editor on. */
+export const GEOMETRY_GAPS_BOARD_WITHOUT_ROW_HINT =
+  'Plansza istnieje, ale nie ma wpisu w kolejce do ręcznej korekty — przetwórz zdjęcie ponownie w Imporcie plansz';
+
 const FILTER_LABELS: Readonly<Record<GeometryGapsFilter, string>> = {
   all: 'Wszystkie braki',
   incomplete_missing: 'Brakuje plansz',

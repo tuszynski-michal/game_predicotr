@@ -98,7 +98,7 @@ czeka na zgodę operatora na scalenie i push, migrację `0154` i odbiór.
   ostatnim imporcie po opróżnieniu kolejki; komunikat pustej listy bez słowa
   „import” (kontrakt TASK-0962). Nowy test interakcji.
 
-### Dokumentacja (v1.7.307)
+### Dokumentacja (v1.7.307 / f7f6d30e509950161c2cc00ddf37ea6cc5ba14aa)
 
 - D-542 i D-543: pełne wpisy na początku `decisions/DECISION_LOG_2026.md`,
   wiersze indeksu i pełne kopie w `DECISION_LOG.md` (okno: D-543, D-542,

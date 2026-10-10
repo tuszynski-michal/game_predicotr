@@ -7,11 +7,12 @@ can select the gate queue by that persisted status.
 
 The unit is the source image. Its expected boards are the
 ``active_board_slots`` of the newest ``image_source_geometry_revisions`` row
-(the *current* revision); the state of each expected position comes from the
-``recognized_boards`` row at that position and the revision that board points
-to (see ``domain.image_geometry_completeness`` for the rules). Counters are
-aggregated in SQL per image; the position-level query, which feeds the pure
-classifier, only runs for one page of at most 100 images.
+that is not ``reverted`` (the *current* revision, TASK-0966); the state of each
+expected position comes from the ``recognized_boards`` row at that position and
+the revision that board points to (see ``domain.image_geometry_completeness``
+for the rules). Counters are aggregated in SQL per image; the position-level
+query, which feeds the pure classifier, only runs for one page of at most 100
+images.
 
 Nothing here writes: every statement is a ``SELECT`` (plus a transaction-local
 ``SET`` of the statement timeout for the low-quality signal).
@@ -23,6 +24,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Final
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -32,6 +34,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_geometry_completeness import (
     INCOMPLETE_IMAGE_STATES,
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    REAL_GAP_IMAGE_STATES,
     SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
     GeometryImageCursor,
     GeometryImageState,
@@ -50,6 +53,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewError,
     ImageReviewNotFoundError,
 )
+from game_predictor_api.domain.sequence_takeover import SKIPPED_OWNER_REASONS
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -111,7 +115,7 @@ WITH images AS (
     r.active_board_slots, r.oriented_width, r.oriented_height
   FROM image_source_geometry_revisions r
   JOIN images i ON i.id = r.source_image_id
-  WHERE r.game_id = :game_id
+  WHERE r.game_id = :game_id AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 ), board_counts AS (
   SELECT b.source_image_id,
@@ -238,6 +242,7 @@ JOIN LATERAL (
   SELECT r.sequence_range_start, r.active_board_slots
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = g.source_image_id
+    AND r.status <> 'reverted'
   ORDER BY r.revision DESC
   LIMIT 1
 ) c ON g.position_index = ANY (c.active_board_slots)
@@ -283,6 +288,7 @@ WITH current_revision AS (
     r.source_image_id, r.sequence_range_start, r.active_board_slots, r.board_geometries
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = ANY (:image_ids)
+    AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 ), pending AS (
   SELECT g.source_image_id, g.position_index, min(g.reason_code) AS reason_code
@@ -327,7 +333,7 @@ WITH batch AS (
   SELECT s.id, s.checksum_sha256, s.import_job_id, s.file_execution_key,
     EXISTS (
       SELECT 1 FROM image_source_geometry_revisions r
-      WHERE r.game_id = :game_id AND r.source_image_id = s.id
+      WHERE r.game_id = :game_id AND r.source_image_id = s.id AND r.status <> 'reverted'
     ) AS has_source_geometry,
     EXISTS (
       SELECT 1 FROM recognized_boards b
@@ -410,6 +416,46 @@ LIMIT :row_limit
 """
 
 
+MAX_IMPORT_SEQUENCE_NUMBERS: Final = 500
+
+# D-543 (TASK-0971): sequences of one import that replaced a rejected owner of
+# another image, and sequences this import skipped because another photo owns
+# them (a live pending board kept, or a canonical owner - first save wins).
+# Every relation is filtered by the constant ``:game_id`` so the plan prunes to
+# the game's partitions (per-game isolation).
+_REPLACED_SEQUENCES_SQL: Final = """
+SELECT DISTINCT ri.sequence_number
+FROM image_review_items ri
+JOIN recognized_boards b ON b.game_id = :game_id AND b.id = ri.recognized_board_id
+WHERE ri.game_id = :game_id AND ri.import_job_id = :import_job_id
+  AND ri.sequence_number IS NOT NULL
+  AND ri.status IN ('pending', 'accepted', 'corrected')
+  AND (
+    EXISTS (
+      SELECT 1
+      FROM image_review_items old
+      JOIN recognized_boards old_board
+        ON old_board.game_id = :game_id AND old_board.id = old.recognized_board_id
+      WHERE old.game_id = :game_id AND old.sequence_number = ri.sequence_number
+        AND old.status = 'rejected' AND old_board.source_image_id <> b.source_image_id)
+    OR EXISTS (
+      SELECT 1
+      FROM image_board_geometry_pending slot
+      WHERE slot.game_id = :game_id AND slot.sequence_number = ri.sequence_number
+        AND slot.rejected_at IS NOT NULL AND slot.status IN ('rejected', 'superseded')
+        AND slot.source_image_id <> b.source_image_id))
+ORDER BY ri.sequence_number
+"""
+
+_SKIPPED_SEQUENCES_SQL: Final = """
+SELECT DISTINCT a.sequence_number
+FROM image_sequence_alternatives a
+WHERE a.game_id = :game_id AND a.import_job_id = :import_job_id
+  AND a.reason = ANY (CAST(:reasons AS text[]))
+ORDER BY a.sequence_number
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class GeometryImageCounts:
     total: int
@@ -461,6 +507,26 @@ class GeometryGateCounts:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportSequenceOwnership:
+    """Sequence ownership outcome of one import (D-543, TASK-0971).
+
+    ``replaced``: sequences whose live owner is a board of this import and
+    that another image had rejected (a rejected review item or a rejected,
+    later superseded, deferred slot) - the import replaced the rejected board.
+    ``skipped``: sequences of this import recorded as alternatives because
+    another photo owns them (a live pending board is kept, D-543, or a
+    canonical owner wins, first save wins). The number lists
+    are sorted and capped at ``MAX_IMPORT_SEQUENCE_NUMBERS``; the counts are
+    exact.
+    """
+
+    replaced_count: int
+    replaced_sequence_numbers: tuple[int, ...]
+    skipped_count: int
+    skipped_sequence_numbers: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryCompletenessReport:
     game_id: UUID
     import_job_id: UUID | None
@@ -470,6 +536,8 @@ class GeometryCompletenessReport:
     source_statuses: tuple[GeometryImageSourceStatusCount, ...]
     computed_at: datetime
     gate: GeometryGateCounts | None = None
+    # Only for the report of one import (``import_job_id`` set).
+    sequence_ownership: ImportSequenceOwnership | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -480,6 +548,11 @@ class GeometryImagePosition:
     reason_code: str | None
     recognized_board_id: UUID | None
     quad: Quad | None
+    # A human approved the board's current geometry (``approved_geometry_revision
+    # == geometry_revision``); ``False`` without a live board (TASK-0961). A
+    # ``partial`` position keeps its state after a manual qualification (D-449),
+    # so this flag is the only sign that it was already handled.
+    human_approved: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +593,8 @@ class IncompleteGeometryImagePage:
     images: tuple[IncompleteGeometryImage, ...]
     next_cursor: GeometryImageCursor | None
     completeness_status: SourceImageGeometryStatus | None = None
+    # The page lists only ``REAL_GAP_IMAGE_STATES`` (TASK-0961).
+    gaps_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -635,6 +710,27 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             source_statuses=tuple(source_statuses),
             computed_at=datetime.now(UTC),
             gate=gate,
+            sequence_ownership=(
+                None if import_job_id is None else self._sequence_ownership(game_id, import_job_id)
+            ),
+        )
+
+    def _sequence_ownership(self, game_id: UUID, import_job_id: UUID) -> ImportSequenceOwnership:
+        params = {"game_id": game_id, "import_job_id": import_job_id}
+        replaced = [
+            int(row[0]) for row in self._session.execute(text(_REPLACED_SEQUENCES_SQL), params)
+        ]
+        skipped = [
+            int(row[0])
+            for row in self._session.execute(
+                text(_SKIPPED_SEQUENCES_SQL), {**params, "reasons": list(SKIPPED_OWNER_REASONS)}
+            )
+        ]
+        return ImportSequenceOwnership(
+            replaced_count=len(replaced),
+            replaced_sequence_numbers=tuple(replaced[:MAX_IMPORT_SEQUENCE_NUMBERS]),
+            skipped_count=len(skipped),
+            skipped_sequence_numbers=tuple(skipped[:MAX_IMPORT_SEQUENCE_NUMBERS]),
         )
 
     def _gate_counts(self, params: dict[str, object], import_filter: str) -> GeometryGateCounts:
@@ -670,6 +766,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         after: GeometryImageCursor | None = None,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
         completeness_status: SourceImageGeometryStatus | None = None,
+        gaps_only: bool = False,
     ) -> IncompleteGeometryImagePage | None:
         if not 1 <= limit <= MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE:
             raise ImageReviewError(
@@ -686,6 +783,8 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 "IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID",
                 "The image queue cannot be filtered by the complete status.",
             )
+        if gaps_only and (image_state is not None or completeness_status is not None):
+            raise geometry_completeness_filter_conflict()
         if not self._bind(game_id, import_job_id):
             return None
         params = self._scope_params(game_id, import_job_id)
@@ -693,15 +792,18 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         import_filter = self._import_filter(import_job_id)
         # The default list is "all incomplete": complete and superseded images
         # are left out unless the superseded state is asked for explicitly.
-        # The gate queue (TASK-0807) selects by the persisted status instead;
-        # the classified state then only narrows it further.
+        # ``gaps_only`` (TASK-0961) narrows it to the real gaps, without the
+        # unconfirmed automatic grids. The gate queue (TASK-0807) selects by
+        # the persisted status instead; the classified state then only narrows
+        # it further. State lists are built from enum values, never from input.
         if completeness_status is not None:
             import_filter += " AND s.geometry_completeness_status = :completeness_status"
             params["completeness_status"] = completeness_status.value
             state_filter = "true"
+        elif gaps_only:
+            state_filter = _state_in_sql(REAL_GAP_IMAGE_STATES)
         elif image_state is None:
-            states = ", ".join(f"'{state.value}'" for state in INCOMPLETE_IMAGE_STATES)
-            state_filter = f"image_state IN ({states})"
+            state_filter = _state_in_sql(INCOMPLETE_IMAGE_STATES)
         else:
             state_filter = "true"
         if image_state is not None:
@@ -764,6 +866,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 else None
             ),
             completeness_status=completeness_status,
+            gaps_only=gaps_only,
         )
 
     def source_image_asset(
@@ -924,9 +1027,24 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                     reason_code=classification.reason_code,
                     recognized_board_id=row[2],
                     quad=extract_position_quad(row[7] if isinstance(row[7], dict) else None),
+                    # The same ``geometry_approved`` fact the classifier read.
+                    human_approved=bool(row[4]),
                 )
             )
         return {image_id: tuple(positions) for image_id, positions in grouped.items()}
+
+
+def _state_in_sql(states: Sequence[GeometryImageState]) -> str:
+    """``image_state IN (...)`` over enum values (never request input)."""
+
+    return "image_state IN (" + ", ".join(f"'{state.value}'" for state in states) + ")"
+
+
+def geometry_completeness_filter_conflict() -> ImageReviewError:
+    return ImageReviewError(
+        "IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT",
+        "gapsOnly cannot be combined with imageState or completenessStatus.",
+    )
 
 
 def classify_source_images(
@@ -991,6 +1109,7 @@ def classify_source_images(
 
 __all__ = [
     "LOW_QUALITY_STATEMENT_TIMEOUT_MS",
+    "MAX_IMPORT_SEQUENCE_NUMBERS",
     "GeometryCompletenessReport",
     "GeometryGateCounts",
     "GeometryImageCounts",
@@ -998,10 +1117,12 @@ __all__ = [
     "GeometryImageSourceStatusCount",
     "GeometryPositionCount",
     "GeometrySourceImageAsset",
+    "ImportSequenceOwnership",
     "IncompleteGeometryImage",
     "IncompleteGeometryImagePage",
     "LowQualityBoard",
     "LowQualityBoardsReport",
     "SqlAlchemyImageGeometryCompletenessRepository",
     "classify_source_images",
+    "geometry_completeness_filter_conflict",
 ]

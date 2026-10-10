@@ -238,11 +238,20 @@ class SuperGameSeriesFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class SuperGameSeriesCounts:
+    """Exact counts of the published series of one game, whatever the filters."""
+
+    total: int
+    undefined: int
+
+
+@dataclass(frozen=True, slots=True)
 class SuperGameSeriesPage:
     items: tuple[SuperGameSeriesRecord, ...]
     next_cursor: str | None
     state: SuperGameState
     super_game_kind: str
+    counts: SuperGameSeriesCounts
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,6 +325,8 @@ class SuperGameSeriesRepository(Protocol):
         after_trigger: int | None,
         limit: int,
     ) -> list[SuperGameSeriesRecord]: ...
+
+    def series_counts(self, game_id: UUID) -> SuperGameSeriesCounts: ...
 
     def get_series(
         self, game_id: UUID, series_id: UUID, *, for_update: bool = False
@@ -391,7 +402,11 @@ class SuperGameSeriesService:
         state = self._repository.state(context)
         if not context.has_super_game:
             return SuperGameSeriesPage(
-                items=(), next_cursor=None, state=state, super_game_kind=context.super_game_kind
+                items=(),
+                next_cursor=None,
+                state=state,
+                super_game_kind=context.super_game_kind,
+                counts=SuperGameSeriesCounts(total=0, undefined=0),
             )
         rows = self._repository.list_series(
             game_id,
@@ -406,6 +421,8 @@ class SuperGameSeriesService:
             next_cursor=next_cursor,
             state=state,
             super_game_kind=context.super_game_kind,
+            # Same snapshot as the page: the counts describe the returned generation.
+            counts=self._repository.series_counts(game_id),
         )
 
     def _visible_series(

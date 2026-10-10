@@ -1141,3 +1141,239 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+
+.geometryCorrectionHistory {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.geometryCorrectionHistoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.geometryCorrectionHistoryHeader h3,
+.geometryCorrectionHistory p {
+  margin: 0;
+}
+
+.geometryCorrectionHistoryList,
+.geometryCorrectionPreview {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geometryCorrectionHistoryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.geometryCorrectionHistoryBlocked {
+  color: var(--muted);
+}
+
+/* TASK-0970: rejection of a cropped board or a deferred slot. */
+.boardRejectionBar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.boardRejectionReasons {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.boardRejectionReasons legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reviewerTabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.reviewerTabs button[aria-selected='true'] {
+  border-color: var(--accent, #f4d35e);
+  font-weight: 700;
+}
+
+.reviewerTabPanel[hidden] {
+  display: none;
+}
+
+/* "Braki zdjęć" tab (TASK-0963): one image with its grids and positions. */
+.geometryGapsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.geometryGapsControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.geometryGapsFilters {
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+}
+
+.geometryGapsFilters button {
+  font-size: 12px;
+}
+
+.geometryGapsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.boardRejectionReasons label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boardRejectionNote {
+  display: grid;
+  gap: 6px;
+  align-items: stretch !important;
+}
+
+.boardRejectionNote textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
+.operationalReviewDialogBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 15, 0.78);
+}
+
+.operationalReviewConfirmDialog {
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.operationalReviewConfirmDialog h2 {
+  margin: 5px 0 9px;
+  font-size: 21px;
+}
+
+.operationalReviewConfirmDialog .buttonRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.geometryGapsImage {
+  display: grid;
+  gap: 14px;
+}
+
+.geometryGapsImageHeader strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.geometryGapsImageHeader p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.geometryGapsPhoto {
+  display: grid;
+  gap: 6px;
+}
+
+.geometryGapsPhoto .geometryPreview {
+  max-width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+}
+
+.geometryGapsPhotoStatus {
+  color: var(--muted);
+}
+
+.geometryGapsHint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.geometryGapsPositions li.geometryPositionChip {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.geometryGapsPositions li.geometryPositionChip small {
+  color: var(--muted);
+}
+
+.geometryGapsPositions li.geometryPositionChip .secondaryButton {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.geometryGapsApproved {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .geometryGapsHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

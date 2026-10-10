@@ -3,10 +3,8 @@ import test from 'node:test';
 
 import {
   DEFAULT_SERIES_FILTERS,
-  UNDEFINED_COUNT_LIMIT,
   activeSeriesCard,
   applySeriesListPage,
-  applySeriesListUndefinedCount,
   applySeriesRefresh,
   applySuperSymbolConflict,
   applySuperSymbolFailure,
@@ -33,6 +31,7 @@ import {
   seriesMatchesFilters,
   selectSuperSymbolCandidate,
   seriesBadges,
+  seriesCountsCaption,
   seriesListQuery,
   seriesNeighbourIndexes,
   seriesPositionCardLabel,
@@ -45,9 +44,7 @@ import {
   superSymbolSaveBlock,
   triggerCellIndexes,
   triggerSymbols,
-  undefinedSeriesCount,
   undefinedSeriesCountLabel,
-  undefinedSeriesCountQuery,
 } from '../src/features/super-games/super-game-series-state.ts';
 
 const FRESH = { fresh: true, generationInputVersion: 7, inputVersion: 7 };
@@ -232,14 +229,11 @@ test('filters map to the API query and "all" is omitted', () => {
       .defined,
     true,
   );
-  assert.deepEqual(undefinedSeriesCountQuery(), {
-    defined: false,
-    limit: UNDEFINED_COUNT_LIMIT,
-  });
 });
 
-function page(ids, nextCursor = null) {
+function page(ids, nextCursor = null, counts = { total: 9, undefined: 7 }) {
   return {
+    counts,
     items: ids.map((id) =>
       series({ id: `series-${id}`, triggerSequenceNumber: id }),
     ),
@@ -260,6 +254,7 @@ test('pages are appended by cursor and late or repeated pages are ignored', () =
   });
   assert.equal(state.status, 'ready');
   assert.equal(state.nextCursor, '200');
+  assert.deepEqual(state.counts, { total: 9, undefined: 7 });
   assert.deepEqual(
     state.items.map((item) => item.triggerSequenceNumber),
     [100, 200],
@@ -269,7 +264,7 @@ test('pages are appended by cursor and late or repeated pages are ignored', () =
   const second = {
     cursor: '200',
     generation: key,
-    response: page([200, 300], null),
+    response: page([200, 300], null, { total: 9, undefined: 6 }),
   };
   const loaded = applySeriesListPage(startLoadingMoreSeries(state), second);
   assert.deepEqual(
@@ -277,6 +272,8 @@ test('pages are appended by cursor and late or repeated pages are ignored', () =
     [100, 200, 300],
   );
   assert.equal(loaded.nextCursor, null);
+  // Every page carries the counts of its own snapshot.
+  assert.deepEqual(loaded.counts, { total: 9, undefined: 6 });
   // A repeated page and a page for another cursor change nothing.
   assert.equal(applySeriesListPage(loaded, second), loaded);
   assert.equal(
@@ -292,7 +289,6 @@ test('changing the filters starts a new list and ignores pages of the old one', 
     generation: createSeriesListState().generation,
     response: page([100], '100'),
   });
-  state = applySeriesListUndefinedCount(state, { count: 4, hasMore: false });
   const oldKey = state.generation;
   assert.equal(changeSeriesFilters(state, state.filters), state);
 
@@ -303,7 +299,7 @@ test('changing the filters starts a new list and ignores pages of the old one', 
   assert.notEqual(next.generation, oldKey);
   assert.equal(next.items.length, 0);
   assert.equal(next.status, 'loading');
-  assert.deepEqual(next.undefinedCount, { count: 4, hasMore: false });
+  assert.deepEqual(next.counts, { total: 9, undefined: 7 });
   assert.equal(
     applySeriesListPage(next, {
       cursor: null,
@@ -323,20 +319,12 @@ test('changing the filters starts a new list and ignores pages of the old one', 
   assert.equal(reloaded.generation, state.generation + 1);
 });
 
-test('the counter of series without a symbol shows a lower bound at the page limit', () => {
+test('the counter shows the exact number of series without a symbol and the total', () => {
   assert.equal(undefinedSeriesCountLabel(null), '—');
-  assert.equal(
-    undefinedSeriesCountLabel(
-      undefinedSeriesCount({ items: [{}, {}], nextCursor: null }),
-    ),
-    '2',
-  );
-  assert.equal(
-    undefinedSeriesCountLabel(
-      undefinedSeriesCount({ items: new Array(200).fill({}), nextCursor: '9' }),
-    ),
-    '200+',
-  );
+  assert.equal(seriesCountsCaption(null), 'serii bez super symbolu');
+  const counts = { total: 2553, undefined: 2549 };
+  assert.equal(undefinedSeriesCountLabel(counts), '2549');
+  assert.equal(seriesCountsCaption(counts), 'z 2553 serii bez super symbolu');
 });
 
 test('a saved series replaces its row in place', () => {

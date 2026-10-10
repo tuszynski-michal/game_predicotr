@@ -157,7 +157,8 @@ use a bounded runner with a maximum 120-second timeout.
   CURRENT_STATE entry. No accepted requirements/architecture/decision was changed.
 - Initial documentation commit: `v1.7.245 / de62ef98ff5131102b417afdd3cd2564d7526ecc`.
 - Documentation follow-up v1.7.246 corrects proposed task numbering to
-  TASK-0911–0918 after concurrent task reservation. Hash recorded after commit.
+  TASK-0911–0918 after concurrent task reservation.
+  Commit: `192c57ea9a94f3a80aa4193e83d1fc2bda468a1a`.
 
 ### Recommended next task
 

@@ -14,6 +14,221 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
+
+- **Date:** 2026-10-10 (decyzje operatora W7–W9 z 2026-10-09; implementacja TASK-0970, TASK-0971).
+- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
+  (v1.7.295–v1.7.296), wymaga migracji `0154_geometry_correction_revert` wykonanej
+  przez operatora. **Zmienia D-238.**
+- **Odrzucenie slotu odroczonego:** operator odrzuca w Reviewerze („Korekta cięcia
+  siatki” → „Odrzuć planszę”) slot `pending` z powodem `cropped` („Plansza
+  przycięta”), `blurred` albo `other` (z wymaganym opisem). Slot dostaje status
+  `rejected` (`rejection_reason`, `rejection_note`, `rejected_at`, `rejected_by`,
+  CHECK cyklu życia) i znika z kolejki korekty; nie jest cięty na symbole.
+- **Trwałe zdarzenia odrzuceń slotów:** każde odrzucenie, jego cofnięcie i
+  zastąpienie przez zamiennik zapisuje append-only wiersz tabeli gry
+  `image_board_geometry_pending_events` (klucz idempotencji, suma kontrolna
+  polecenia, `rejection_revision`, aktor, akcje `rejected` / `rejection_reverted` /
+  `superseded` z `successor_review_item_id`). Slot po cofnięciu zapomina
+  odrzucenie (CHECK), zdarzenia je pamiętają: ten sam klucz i polecenie odtwarza
+  zapisany wynik także po cofnięciu, inny klucz dla odrzuconego slotu daje 409
+  `IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`, a stare żądanie cofnięcia nie
+  cofa nowszego odrzucenia (`GEOMETRY_REVERT_NOT_LATEST`).
+- **Odrzucenie istniejącej planszy:** istniejące rozstrzygnięcie `rejected` z
+  powodem (`cropped` / `blurred` / `other: <opis>`); kanoniczny właściciel
+  sekwencji zawsze dostaje 409 `BOARD_REJECT_CANONICAL` (przejęcie kanonu to
+  TASK-0305). Odrzucona pozycja wypada z weryfikacji symboli, liczników,
+  operacji zbiorczych i wyszukiwarki (predykat widoczności wyklucza komórki
+  pozycji `rejected`; wiersze i zdarzenia zostają jako historia; liczniki są
+  zwalniane przy wejściu w `rejected` i przywracane przy każdym wyjściu).
+- **Bramka bez zmian (W8):** odrzucona pozycja liczy się jak brak planszy (D-484);
+  całe zdjęcie czeka na zamiennik albo wyjątek operatora.
+- **Cofnięcie odrzucenia:** odrzucenia są na liście „Ostatnie korekty” i można je
+  cofnąć (slot wraca do `pending`, pozycja wraca do `pending` zdarzeniem
+  `reopened`), dopóki sekwencja nie ma żywej pozycji innego zdjęcia
+  (`GEOMETRY_REVERT_REPLACED`).
+- **Reguła własności sekwencji (zmienia D-238 „najnowszy import zastępuje
+  nierozwiązaną planszę”):** nowa plansza przejmuje sekwencję, gdy ta nie ma
+  żywego właściciela albo właściciel jest odrzucony (pozycja `rejected` lub slot
+  `rejected`). Gdy właścicielem jest żywa pozycja `pending` innego zdjęcia (inna
+  checksuma źródła), nowa plansza dostaje `superseded` i alternatywę
+  `superseded_existing_owner_kept`. Kanoniczny właściciel wygrywa jak dotąd
+  (first-save-wins z alternatywą). Ta sama checksuma zdjęcia (ponowne
+  przetworzenie) zachowuje porządek D-238. Reguła jest jedną czystą funkcją
+  (`domain/sequence_takeover.py`) stosowaną w jednym miejscu
+  (`storage/pending_sequence_ownership.create_owned_pending_review_item`) przez API
+  i workera.
+- **Ochrona lateralna:** `has_protected_lateral_owner` nadal chroni właściciela.
+  Gdy ochronę dają wyłącznie wiersze innego zdjęcia, a zachowywany właściciel
+  jest pewny (kanoniczny albo wszystkie chronione wiersze `pending`), worker nie
+  pomija pliku, tylko przechodzi przez wspólną regułę (kanon → first-save-wins,
+  żywa pozycja → nowa plansza `superseded` z alternatywą i licznikiem
+  „Pominięte”). Ochrona tego samego zdjęcia — pominięcie jak dotąd.
+- **Sprzątanie po przejęciu (ta sama transakcja):** odrzucony slot starego
+  zdjęcia przechodzi do `superseded` (pola odrzucenia zostają jako historia) ze
+  zdarzeniem `superseded`; bramki zdjęć z odrzuconą pozycją/slotem tej sekwencji
+  i zdjęć `geometry_incomplete`, których rewizja źródła obejmuje numer, są
+  przeliczane, a dopuszczone zdjęcia cięte istniejącą ścieżką (w workerze na
+  końcu transakcji). Przejmowane komórki pociętej, odrzuconej planszy przechodzą
+  do nowej planszy jako sugestie (reguła recropu D-462 bez kontroli ciągłości
+  rewizji); zatwierdzenie przechodzi tylko przy tej samej tożsamości cropa.
+  Raport importu pokazuje „Zastąpione sekwencje” i „Pominięte — sekwencja ma
+  właściciela” (`sequenceOwnership`).
+- **Blokada własności gry i globalna kolejność blokad:** transakcyjna blokada
+  doradcza `(game_id, 'sequence-ownership')` w trybie czytelnik/pisarz
+  (`storage/sequence_ownership_lock.py`): `EXCLUSIVE` bierze każdy zapis, który
+  może przejąć sekwencję albo przeliczyć bramkę innego zdjęcia (projekcja i
+  `resolve_board` workera, zapis siatki zdjęcia i planszy, konwersja legacy,
+  odrzucenie slotu, cofnięcia, bezpośrednie rozstrzygnięcie, operacje zbiorcze,
+  wyjątek geometrii); `SHARED` — decyzje komórek (`EXCLUSIVE`, gdy możliwe jest
+  zastąpienie cudzej pozycji). Brak podnoszenia trybu: `EXCLUSIVE` przy trzymanym
+  `SHARED` → 409 `SEQUENCE_OWNERSHIP_LOCK_UPGRADE`. Kolejność dla wszystkich
+  uczestników: klucz idempotencji albo dzierżawa joba (`FOR NO KEY UPDATE`) →
+  własność → wiersz gry → sekwencje → `source_images` (rosnąco, jednym
+  zapytaniem) → plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
+  `image_symbol_review_states` → komórki. Odstępstwa są opisane w
+  `DATA_MODEL.md` i działają wyłącznie pod `EXCLUSIVE`.
+- **Konsekwencje:** ponowny import innego zdjęcia nie zastępuje już żywej
+  pozycji `pending`; operator musi ją najpierw odrzucić (raport importu to
+  pokazuje). Ryzyka przyjęte w audycie zastępczym TASK-0971 (5 × P2) czekają na
+  ponowny audyt Codex.
+- **Source:** decyzje operatora W7–W9 (2026-10-09) w
+  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
+  TASK-0970 i TASK-0971.
+
+## D-542 — Cofnięcie ostatniej ręcznej korekty cięcia siatki
+
+- **Date:** 2026-10-10 (plan zaakceptowany przez operatora 2026-10-09; implementacja TASK-0966–TASK-0969).
+- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
+  (v1.7.291–v1.7.294), wymaga migracji `0154_geometry_correction_revert`
+  (manifest v7) wykonanej przez operatora. **Zmienia D-462** w zakresie „bez
+  usuwania historii” dla wierszy utworzonych przez cofany zapis.
+- **Jednostka i zakres:** cofnąć można wyłącznie najnowszą ręczną korektę
+  planszy (zdarzenie `geometry_saved` i rewizja geometrii planszy), tylko gdy po
+  niej nic się nie zmieniło (CAS `expectedGeometryRevision`,
+  `expectedResolutionRevision`). Drugie cofnięcie nie jest „redo”. Obsługiwane
+  są oba rodzaje: (B) rozstrzygnięcie slotu odroczonego i (A) korekta istniejącej
+  planszy. Reviewer: „Korekta cięcia siatki” → „Ostatnie korekty” z podglądem
+  skutków i potwierdzeniem; trasy `listGeometryCorrections`,
+  `previewGeometryCorrectionRevert`, `revertGeometryCorrection`.
+- **Warunki (fail-closed, 409 z polskim komunikatem, pierwszy niespełniony
+  wygrywa):** `NOT_LATEST`, `STALE`, `SOURCE_ADVANCED`,
+  `SHARED_SOURCE_REVISION`, `CELLS_CHANGED`, `RESOLVED`, `SEQUENCE_OWNERSHIP`,
+  `IMAGE_ADMITTED`, `PINNED`, `REOPENED_RESOLUTION`, `HISTORY_INCOMPLETE`,
+  `NOT_SUPPORTED` (prefiks `GEOMETRY_REVERT_`), a przy wykonaniu także
+  `RENDERER_UNAVAILABLE` i `RENDER_FAILED`. „Transakcja korekty” jest wyznaczana
+  strukturalnie: wspólne serwerowe `created_at` manifestu, rewizji źródła i
+  zdarzeń komórek (Z1 potwierdzone).
+- **Przypadek B:** jedna transakcja usuwa wiersze utworzone przez cofany zapis
+  (plansza, pozycja, komórki, zdarzenia komórek, rewizja planszy, manifest,
+  zdarzenie geometrii) po zapisaniu ich migawki z checksumą w append-only
+  tabeli gry `image_geometry_correction_reverts` (bez FK do usuniętych
+  wierszy); slot wraca do `pending`, sąsiedzi przepięci zapisem wracają na
+  poprzednią rewizję źródła, bramka i status zdjęcia są przeliczane.
+- **Przypadek A:** nic nie jest usuwane; nowa rewizja planszy `N + 1` ma
+  geometrię i specyfikację renderu `N − 1` i wskazuje poprzednią rewizję
+  źródła. Decyzje komórek wracają z najwcześniejszego zdarzenia transakcji
+  korekty; zatwierdzenie wraca tylko przy identycznych rzeczywistych pikselach
+  (zasada D-462, render przez `VirtualRestoredRenderVerifier`; bez renderera
+  `RENDERER_UNAVAILABLE`). `assignment_source` z nowej kolumny
+  `previous_assignment_source`, a dla starszych zdarzeń reguła: `approved` →
+  `human`, `partial_visibility` → `geometry_partial`, reszta → `model`.
+- **Decyzje leada zapisane w tej decyzji:**
+  - **Zatwierdzenie przechodzi na `N + 1`:** jeżeli przed korektą zatwierdzona
+    była dokładnie przywracana rewizja `N − 1`, `approved_geometry_revision`
+    przechodzi na `N + 1` (ta sama geometria; bramka wymaga zatwierdzenia
+    bieżącej rewizji) z pierwotnym czasem i autorem, odczytanym ze zdarzenia
+    zatwierdzenia albo z migawki wcześniejszego cofnięcia; czas i autor nigdy nie
+    pochodzą z samego cofnięcia.
+  - **Węższy `PINNED` dla A:** kohorty treningowe i biblioteka wzorców blokują
+    zawsze; cele operacji zbiorczych tylko przy `expected_geometry_revision >= N`;
+    rewizje predykcji tylko, gdy wskazują odrzucany render (suma specyfikacji
+    renderu rewizji `>= N`, a bez niej suma pikseli należąca wyłącznie do
+    renderu `>= N`), w ostateczności po czasie. Predykcja importu dotyczy
+    przywracanego renderu i nie blokuje. Przypadek B blokuje każda predykcja.
+  - **`HISTORY_INCOMPLETE` i `RENDERER_UNAVAILABLE`:** brak jednoznacznego
+    dowodu proweniencji zatwierdzenia w jednym zapisie odmawia zamiast
+    rekonstrukcji z mieszanej proweniencji; brak renderera odmawia cofnięcia A.
+  - **Klucze idempotencji cofnięć unikalne w grze:** jedna przestrzeń kluczy dla
+    tabeli audytu cofnięć, zdarzeń slotów i zdarzeń rozstrzygnięcia pozycji;
+    to samo polecenie odtwarza wynik (`created=false`), każde inne użycie klucza
+    → 409 `GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`. Pierwsza blokada transakcji to
+    `pg_advisory_xact_lock` z `(game_id, klucz)`; ponowienie starego zapisu
+    cofniętej korekty → 409 `GEOMETRY_CORRECTION_REVERTED`.
+  - **Reguła własności D-539 → D-543 z ochroną lateralną:** cofnięcie korekty,
+    która przejęła sekwencję odrzuconego właściciela (zamknęła odrzucony slot
+    albo inne zdjęcie ma odrzuconą pozycję tej sekwencji), odmawia
+    `SEQUENCE_OWNERSHIP`; reguła przejęcia i ochrona lateralna są opisane w
+    D-543.
+  - **Globalna kolejność blokad:** wszystkie cofnięcia biorą po kluczu
+    idempotencji blokadę własności gry `EXCLUSIVE` (czytelnik/pisarz, D-543), a
+    potem sekwencje → źródła → wiersze → stan liczników → komórki.
+  - **Zmiana D-462:** zasada „bez usuwania historii” nie obejmuje wierszy
+    utworzonych przez cofany zapis slotu (przypadek B); ich pełna treść zostaje
+    w migawce audytu z checksumą. Przypadek A niczego nie usuwa.
+- **Rewizja źródła `reverted`:** nowy status; „bieżąca” rewizja to najwyższa
+  nie-`reverted` (API, worker, bramka, kolejka); UNIQUE checksumy staje się
+  indeksem częściowym `WHERE status <> 'reverted'`, więc ponowny zapis tej samej
+  geometrii po cofnięciu tworzy nową rewizję. Downgrade migracji odmawia przy
+  jakiejkolwiek historii cofnięć lub odrzuceń.
+- **Poza zakresem:** cofanie wielu slotów jednym zapisem źródła, dowolnej
+  starszej rewizji, „redo”, kanonu i alternatyw sekwencji, wyjątku bramki,
+  geometrii strony; plansze z kwalifikacją geometrii (`NOT_SUPPORTED`).
+- **Source:** decyzje operatora W1–W6 (2026-10-09) w
+  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
+  TASK-0966–TASK-0969; instrukcja `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
+
+## D-541 — Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć
+
+- **Date:** 2026-10-10.
+- **Status:** accepted; kod etapów A i B zaimplementowany (TASK-0961–0964,
+  v1.7.301–v1.7.304), odbiór na żywych danych w TASK-0965.
+- **Decision:** lokalny Reviewer (port 3001, `mode=local`) pracuje w zakresie
+  gry; `importJobId` jest opcjonalny (zdalny Reviewer bez zmian). Ekran ma dwie
+  zakładki: „Do korekty” (dotychczasowa kolejka z D-462: sloty odroczone i
+  plansze ze zgłoszeniem „Zła siatka”) oraz „Braki zdjęć” (realne braki z
+  klasyfikacji D-484: `incomplete_missing`, `incomplete_partial`,
+  `import_failed`, `no_source_geometry`). Pozycję zdjęcia, która ma planszę lub
+  slot, edytuje się istniejącym edytorem narożników (bez nowej ścieżki zapisu
+  geometrii); pozycje bez planszy i slotu oraz błędy importu są informacyjne.
+  „Siatka niepotwierdzona” (`incomplete_uncertain`) NIE jest kolejką i
+  pozostaje licznikiem w „Diagnostyce siatek zdjęć” w Adminie; część D-462
+  „bez walidacji gotowych siatek” obowiązuje bez zmian.
+- **Admin:** launcher „Korekta cięcia siatki” bez wyboru importu; „Diagnostyka
+  siatek zdjęć” pokazuje tylko liczniki i przycisk otwarcia Reviewera. UI
+  wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”) i lista zdjęć zostały
+  usunięte z Admina; endpointy, audyt i dane wyjątków zostają, a Reviewer ich
+  nie przejmuje (mutacje wysokiego wpływu są poza allowlistą origin Reviewera).
+  Przywrócenie UI wyjątków to osobny task, jeśli bramka znów zacznie
+  wstrzymywać plansze.
+- **Rationale:** dane z 2026-10-10: Mumie — 51 541 z 51 749 zdjęć
+  „niepotwierdzonych” (463 816 plansz) przy 4 realnych brakach; 777 — 76 zdjęć
+  `incomplete_partial`. „51 tys. niekompletnych” oznaczało więc automatyczną
+  siatkę bez ręcznego potwierdzenia, nie błąd cięcia. Do tego czarny podgląd i
+  długi scroll listy w Adminie oraz koszt 23–45 s liczników całej gry na
+  każdej planszy kolejki.
+- **Safety/Boundary:** tryb liczników `counts=correction` w `grid-reviews` i
+  filtr `gapsOnly` w liście niekompletnych zdjęć to wyłącznie odczyt, bez DDL i
+  bez zmiany klasyfikacji D-484; `gapsOnly` razem z `imageState` albo
+  `completenessStatus` daje 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`.
+  Budżety czasu: korekta ≤ 3 s, strona braków ≤ 12 s. Zdalny Reviewer bez
+  zmian. „Plansza częściowa” (`partial`) nie ma stanu końcowego także po
+  ręcznym zatwierdzeniu (D-449), więc pozycja ma flagę `humanApproved`, a
+  zakładka domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` są
+  zatwierdzone ręcznie (przełącznik „Pokaż także zatwierdzone ręcznie”).
+- **Supersedes/Amends:** doprecyzowuje D-462 („Correction queue”: lokalny
+  ekran ma dwie zakładki, kolejka korekty bez zmian) i D-484 (miejsce pracy z
+  diagnostyką przechodzi z Admina do Reviewera; Admin zachowuje liczniki); nie
+  zmienia D-488 (korekta cięcia nadal może zatwierdzić symbole wskazane przez
+  operatora).
+- **Out of scope:** walidacja i zatwierdzanie gotowych siatek, kolejka „Siatka
+  niepotwierdzona”, zmiana klasyfikacji D-484, blokada ponownego importu tych
+  samych zdjęć, zdalny Reviewer.
+- **Source:** polecenie operatora z 2026-10-10 i plan
+  `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
+  (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
+  `feat/disk-d-migration-plan`.
+
 ## D-540 — Przeniesienie aplikacji i bazy na dysk D
 
 - **Date:** 2026-10-10.

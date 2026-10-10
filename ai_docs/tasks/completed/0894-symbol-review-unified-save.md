@@ -148,4 +148,5 @@ No known blocker; substantial contract drift requires scope review.
   plan and CURRENT_STATE updated. Acceptance criteria and plan audited
   individually. No known task blocker. No migration, cleanup, real-data
   decision, training, activation, service restart, deployment, push or merge.
-- Completion version: v1.7.237; full commit hash recorded after commit.
+- Completion version: v1.7.237; commit
+  `4dfab94aae706905b95eb25cf94a2ab8374d987e`.

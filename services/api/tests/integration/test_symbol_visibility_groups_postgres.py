@@ -21,7 +21,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _logical_cell_visible_clause,
     _symbol_scope_filter_clause,
 )
-from game_predictor_api.storage.models import ImageSymbolReviewCellModel
+from game_predictor_api.storage.models import ImageReviewItemModel, ImageSymbolReviewCellModel
 from sqlalchemy import Engine, MetaData, Table, select, text
 from sqlalchemy.sql import visitors
 from test_symbol_source_visibility_migration import database  # noqa: F401
@@ -86,6 +86,10 @@ def test_all_eight_symbols_unknown_and_outside_partition_real_rows(database: Eng
     # Historical absent pixels with no evaluated visibility are deliberately hidden.
     historical = dict(rows[0], id=uuid4(), source_available=False, source_visibility=None)
     rows.append(historical)
+    # TASK-0970: a cell of a rejected review item leaves symbol verification
+    # (its row stays as history), so it belongs to no scope.
+    rejected_item_id = uuid4()
+    rejected_cell = dict(rows[0], id=uuid4(), review_item_id=rejected_item_id)
     with database.begin() as connection:
         connection.execute(
             text(
@@ -94,13 +98,34 @@ def test_all_eight_symbols_unknown_and_outside_partition_real_rows(database: Eng
                 "INCLUDING CONSTRAINTS) ON COMMIT DROP"
             )
         )
+        # The visibility predicate reads the review items' status (TASK-0970);
+        # the probe stands in for the game-routed ``image_review_items``.
+        connection.execute(
+            text(
+                "CREATE TEMP TABLE visibility_groups_item_probe "
+                "(id UUID PRIMARY KEY, status VARCHAR(20) NOT NULL) ON COMMIT DROP"
+            )
+        )
         probe = Table("visibility_groups_probe", MetaData(), autoload_with=connection)
-        connection.execute(probe.insert(), rows)
+        item_probe = Table("visibility_groups_item_probe", MetaData(), autoload_with=connection)
+        connection.execute(probe.insert(), [*rows, rejected_cell])
+        connection.execute(
+            item_probe.insert(),
+            [
+                {"id": item_id, "status": "pending"}
+                for item_id in {row["review_item_id"] for row in rows}
+            ]
+            + [{"id": rejected_item_id, "status": "rejected"}],
+        )
         model_table = ImageSymbolReviewCellModel.__table__
+        item_table = ImageReviewItemModel.__table__
 
         def substitute(element):
-            if getattr(element, "table", None) is model_table:
+            table = getattr(element, "table", None)
+            if table is model_table:
                 return probe.c[element.name]
+            if table is item_table or getattr(table, "element", None) is item_table:
+                return item_probe.c[element.name]
             return None
 
         actual = {}

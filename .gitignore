@@ -47,6 +47,7 @@ Thumbs.db
 
 # Local generated artifacts
 artifacts/
+v7-output/
 imports/*
 !imports/README.md
 examples/imgs/*

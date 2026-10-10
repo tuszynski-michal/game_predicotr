@@ -14,6 +14,9 @@ from game_predictor_api.domain.board_render_manifests import (
     build_observation_render_manifest,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
@@ -28,9 +31,11 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     active_review_item_ids,
+    finish_deferred_gate_materializations,
     recompute_source_image_geometry_completeness,
     recompute_source_images_of_review_items,
     repoint_live_boards_to_newest_source_revision,
+    start_deferred_gate_materializations,
 )
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
@@ -40,6 +45,7 @@ from game_predictor_api.storage.image_geometry_v2_repository import (
 from game_predictor_api.storage.image_review_repository import (
     acquire_image_review_sequence_locks,
     acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
@@ -400,10 +406,17 @@ class SqlAlchemyImagePipelineStore:
                     "The image import job has no game projection.",
                 )
             from game_predictor_api.storage.lateral_reprocess_protection import (
-                lock_lateral_sequences,
+                lock_projection_sequences,
             )
 
-            lock_lateral_sequences(
+            # TASK-0971: the projection may take sequences over and recompute
+            # other images' gates; same game lock as the API, after the lease
+            # and before the sequence and source locks.
+            acquire_sequence_ownership_lock(session, game_id=job.game_id)
+            # Images admitted by takeovers are cut after the last source lock of
+            # this transaction (global lock order: sources before the state).
+            start_deferred_gate_materializations(session)
+            lock_projection_sequences(
                 session,
                 job=job,
                 sequence_numbers=(
@@ -421,6 +434,9 @@ class SqlAlchemyImagePipelineStore:
                         ImageSourceGeometryRevisionModel.source_image_id == source.id,
                         ImageSourceGeometryRevisionModel.geometry_checksum_sha256
                         == geometry_checksum,
+                        # TASK-0966: a reverted revision never stands for a
+                        # geometry; at most one live row has this checksum.
+                        ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
                     )
                 )
                 if geometry_checksum is not None
@@ -442,6 +458,7 @@ class SqlAlchemyImagePipelineStore:
                 if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
                     from game_predictor_api.storage.lateral_reprocess_protection import (
                         has_protected_lateral_owner,
+                        protected_owner_is_another_photo,
                     )
 
                     if has_protected_lateral_owner(
@@ -449,8 +466,18 @@ class SqlAlchemyImagePipelineStore:
                         job=job,
                         sequence_number=sequence_number,
                         source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                    ) and not protected_owner_is_another_photo(
+                        session,
+                        job=job,
+                        sequence_number=sequence_number,
+                        source_checksum_sha256=candidate.execution.source_checksum_sha256,
                     ):
+                        # Reprocessing of the same photo never touches human work.
                         continue
+                    # D-543 (TASK-0971): a protected owner of another photo is
+                    # kept by the shared ownership rule below (canonical first
+                    # save wins, or the live owner is kept); the
+                    # incoming board is recorded as skipped, not dropped.
                 canonical = None
                 if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
                     normalized_sequence_number = sequence_number
@@ -713,6 +740,7 @@ class SqlAlchemyImagePipelineStore:
                 exclude_source_image_id=source.id,
                 actor=_PIPELINE_ACTOR,
             )
+            finish_deferred_gate_materializations(session)
             SqlAlchemyBoardSearchProjectionRepository(session).sync_review_items(
                 tuple(synchronized_review_item_ids)
             )
@@ -820,6 +848,7 @@ class SqlAlchemyImagePipelineStore:
                     "IMAGE_REVIEW_GAME_MISSING",
                     "The image review item has no game context.",
                 )
+            acquire_sequence_ownership_lock(session, game_id=game_id)
             acquire_image_review_sequence_locks(
                 session,
                 game_id=game_id,
@@ -1271,7 +1300,11 @@ def _require_candidate_lease(
     lease_token: UUID,
     checked_at: datetime,
 ) -> None:
-    job = session.get(JobModel, job_id, with_for_update=True)
+    # TASK-0971 (audit round 4): ``FOR NO KEY UPDATE``. The lease only changes
+    # non-key columns, and a writer that holds the ownership lock inserts rows
+    # whose foreign keys take ``FOR KEY SHARE`` on this job; a full ``FOR UPDATE``
+    # would make it wait for this worker while the worker waits for ownership.
+    job = session.get(JobModel, job_id, with_for_update={"key_share": True})
     if job is None:
         raise ImagePipelineStoreError(
             "IMAGE_PIPELINE_JOB_NOT_FOUND",

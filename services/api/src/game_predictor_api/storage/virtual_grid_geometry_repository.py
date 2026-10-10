@@ -36,6 +36,10 @@ from game_predictor_api.domain.board_render_manifests import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_correction_reverts import (
+    GEOMETRY_CORRECTION_REVERTED,
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
     GeometryQualificationError,
@@ -72,6 +76,9 @@ from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecKey,
     load_cell_render_specs,
 )
+from game_predictor_api.storage.geometry_correction_revert_models import (
+    ImageGeometryCorrectionRevertModel,
+)
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     recompute_source_image_geometry_completeness,
     repoint_live_boards_to_newest_source_revision,
@@ -87,6 +94,7 @@ from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
     acquire_image_review_sequence_locks,
     acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyGridCorrectionSymbolRepository,
@@ -126,6 +134,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
     def virtual_geometry_replay(
         self, *, context: VirtualGridGeometryContext, idempotency_key: UUID
     ) -> VirtualGridGeometryRevision | None:
+        # TASK-0966: a retried request of a reverted correction must not write
+        # the correction again (its rows are gone or superseded).
+        self._raise_if_reverted_correction(context.game_id, idempotency_key)
         if context.review_item_id is None:
             return None
         prior = self._session.scalar(
@@ -206,6 +217,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
         created_at: datetime,
     ) -> VirtualGridGeometrySaveResult:
         context = prepared.context
+        # TASK-0971 (P0-5): the save may reopen the item and recompute gates;
+        # ownership -> projection state -> sequence -> source -> rows.
+        acquire_sequence_ownership_lock(self._session, game_id=context.game_id)
         if prepared.command.geometry_qualification is not None:
             self._ensure_projection_state(context.game_id)
         if context.review_item_id is None or context.pending_geometry_id is not None:
@@ -226,6 +240,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             lock=True,
         )
         current = self._context_from_row(row)
+        # TASK-0966: never report a reverted correction as a successful replay.
+        self._raise_if_reverted_correction(context.game_id, idempotency_key)
         prior = self._session.scalar(
             select(ImageBoardGeometryRevisionModel).where(
                 ImageBoardGeometryRevisionModel.review_item_id == context.review_item_id,
@@ -390,6 +406,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "Manual source geometry requires at least one board target.",
             )
         base_context = entries[0].context
+        # A resolved slot may take a sequence over and recompute other images'
+        # gates (D-543): the game's ownership lock precedes every other lock.
+        acquire_sequence_ownership_lock(self._session, game_id=base_context.game_id)
         if any(entry.command.geometry_qualification is not None for entry in entries):
             self._ensure_projection_state(base_context.game_id)
         acquire_image_sequence_locks(
@@ -407,6 +426,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
             .where(SourceImageModel.id == base_context.source_image_id)
             .with_for_update()
         )
+        # A revert takes the same locks; checked again after them so a retry
+        # racing the revert cannot recreate the reverted slot.
+        self._raise_if_reverted_correction(base_context.game_id, idempotency_key)
         locked_rows: dict[UUID, tuple[Any, ...]] = {}
         locked_pending: dict[UUID, ImageBoardGeometryPendingModel] = {}
         current_contexts: list[VirtualGridGeometryContext] = []
@@ -691,6 +713,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             sequences = self._legacy_board_sequences(
                 game_id=game_id, source_image_id=source_image_id
             )
+            # TASK-0971: the conversion saves geometry (ownership lock first).
+            acquire_sequence_ownership_lock(self._session, game_id=game_id)
             acquire_image_sequence_locks(self._session, game_id=game_id, sequence_numbers=sequences)
             self._session.execute(
                 select(SourceImageModel.id)
@@ -723,6 +747,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 ImageSourceGeometryRevisionModel.source_image_id == source_image_id,
+                # TASK-0966: a reverted revision is never the current one.
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)
@@ -1226,6 +1252,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     review_state=cell.review_state,
                     previous_quality_issue=previous["quality_issue"],
                     quality_issue=cell.quality_issue,
+                    previous_assignment_source=previous["assignment_source"],
                     previous_verification_outcome=previous["verification_outcome"],
                     verification_outcome=cell.verification_outcome,
                     previous_verified_symbol_id_v2=previous["verified_symbol_id_v2"],
@@ -1238,6 +1265,24 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
+                    # TASK-0967: the full approval provenance, so a revert of
+                    # this correction restores the approval history exactly.
+                    previous_approved_asset_mode=previous["approved_asset_mode"],
+                    approved_asset_mode=cell.approved_asset_mode,
+                    previous_approved_source_geometry_revision_id=previous[
+                        "approved_source_geometry_revision_id"
+                    ],
+                    approved_source_geometry_revision_id=cell.approved_source_geometry_revision_id,
+                    previous_approved_render_spec_checksum_sha256=previous[
+                        "approved_render_spec_checksum_sha256"
+                    ],
+                    approved_render_spec_checksum_sha256=cell.approved_render_spec_checksum_sha256,
+                    previous_approved_rendered_pixel_checksum_sha256=previous[
+                        "approved_rendered_pixel_checksum_sha256"
+                    ],
+                    approved_rendered_pixel_checksum_sha256=(
+                        cell.approved_rendered_pixel_checksum_sha256
+                    ),
                     operation_id=None,
                     actor=actor,
                 )
@@ -1254,6 +1299,23 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 after=tuple(_CountedCellState.from_model(cell) for cell in cells),
             )
         return len(cells), preserved
+
+    def _raise_if_reverted_correction(self, game_id: UUID, idempotency_key: UUID) -> None:
+        """Refuse a retry of a correction that was reverted (TASK-0966, 409)."""
+
+        reverted = self._session.scalar(
+            select(ImageGeometryCorrectionRevertModel.id)
+            .where(
+                ImageGeometryCorrectionRevertModel.game_id == game_id,
+                ImageGeometryCorrectionRevertModel.reverted_idempotency_key == idempotency_key,
+            )
+            .limit(1)
+        )
+        if reverted is not None:
+            raise ImageGridReviewError(
+                GEOMETRY_CORRECTION_REVERTED,
+                "This geometry correction was reverted; save it again with a new request.",
+            )
 
     def _occupied_pending_slots(
         self,
@@ -1381,28 +1443,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         return state, sequences, self._selected_available_count(state.game_id, sequences)
 
     def _selected_available_count(self, game_id: UUID, sequences: tuple[int, ...]) -> int:
-        # At most nine sequence owners, not a game-wide multi-million-row count.
-        cell = ImageSymbolReviewCellModel
-        owner = ImageBoardSearchFastDocumentModel
-        return int(
-            self._session.scalar(
-                select(func.count(cell.id))
-                .join(
-                    owner,
-                    and_(
-                        owner.game_id == cell.game_id,
-                        owner.sequence_number == cell.sequence_number,
-                        owner.review_item_id == cell.review_item_id,
-                    ),
-                )
-                .where(
-                    owner.game_id == game_id,
-                    owner.sequence_number.in_(sequences),
-                    cell.source_available.is_(True),
-                )
-            )
-            or 0
-        )
+        return selected_available_cell_count(self._session, game_id, sequences)
 
     def _reconcile_availability(
         self,
@@ -1774,6 +1815,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     review_state=cell.review_state,
                     previous_quality_issue=previous["quality_issue"],
                     quality_issue=cell.quality_issue,
+                    previous_assignment_source=previous["assignment_source"],
                     previous_verification_outcome=previous["verification_outcome"],
                     verification_outcome=cell.verification_outcome,
                     previous_verified_symbol_id_v2=previous["verified_symbol_id_v2"],
@@ -1786,6 +1828,24 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
+                    # TASK-0967: the full approval provenance, so a revert of
+                    # this correction restores the approval history exactly.
+                    previous_approved_asset_mode=previous["approved_asset_mode"],
+                    approved_asset_mode=cell.approved_asset_mode,
+                    previous_approved_source_geometry_revision_id=previous[
+                        "approved_source_geometry_revision_id"
+                    ],
+                    approved_source_geometry_revision_id=cell.approved_source_geometry_revision_id,
+                    previous_approved_render_spec_checksum_sha256=previous[
+                        "approved_render_spec_checksum_sha256"
+                    ],
+                    approved_render_spec_checksum_sha256=cell.approved_render_spec_checksum_sha256,
+                    previous_approved_rendered_pixel_checksum_sha256=previous[
+                        "approved_rendered_pixel_checksum_sha256"
+                    ],
+                    approved_rendered_pixel_checksum_sha256=(
+                        cell.approved_rendered_pixel_checksum_sha256
+                    ),
                     operation_id=None,
                     actor=actor,
                 )
@@ -1895,6 +1955,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 ImageSourceGeometryRevisionModel.source_image_id == pending.source_image_id,
+                # TASK-0966: a reverted revision is never the current one.
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)
@@ -2360,6 +2422,39 @@ _RETAINED_LEGACY_BOARD_KEYS = (
 )
 
 
+def selected_available_cell_count(
+    session: Session, game_id: UUID, sequences: tuple[int, ...]
+) -> int:
+    """Available cells of the selected search owners of a few sequences.
+
+    The part of ``image_symbol_review_states.cell_count`` a qualified geometry
+    write (and its revert, TASK-0966) changes. At most nine sequence owners,
+    not a game-wide multi-million-row count.
+    """
+
+    cell = ImageSymbolReviewCellModel
+    owner = ImageBoardSearchFastDocumentModel
+    return int(
+        session.scalar(
+            select(func.count(cell.id))
+            .join(
+                owner,
+                and_(
+                    owner.game_id == cell.game_id,
+                    owner.sequence_number == cell.sequence_number,
+                    owner.review_item_id == cell.review_item_id,
+                ),
+            )
+            .where(
+                owner.game_id == game_id,
+                owner.sequence_number.in_(sequences),
+                cell.source_available.is_(True),
+            )
+        )
+        or 0
+    )
+
+
 def _legacy_source_problems(
     source: SourceImageModel,
     job: JobModel | None,
@@ -2619,6 +2714,11 @@ def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:
         "approved_crop_sample_id": cell.approved_crop_sample_id,
         "approved_crop_checksum_sha256": cell.approved_crop_checksum_sha256,
         "approved_geometry_revision": cell.approved_geometry_revision,
+        "approved_asset_mode": cell.approved_asset_mode,
+        "approved_source_geometry_revision_id": cell.approved_source_geometry_revision_id,
+        "approved_render_spec_checksum_sha256": cell.approved_render_spec_checksum_sha256,
+        "approved_rendered_pixel_checksum_sha256": cell.approved_rendered_pixel_checksum_sha256,
+        "assignment_source": cell.assignment_source,
     }
 
 

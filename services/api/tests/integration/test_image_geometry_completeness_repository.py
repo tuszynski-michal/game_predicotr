@@ -29,14 +29,16 @@ from game_predictor_api.domain.image_geometry_completeness import (
     GeometryImageState,
     GeometryPositionState,
     LowQualityThresholds,
+    SourceImageGeometryStatus,
     classify_image,
 )
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
+    ImageReviewError,
     ImageReviewNotFoundError,
 )
 from game_predictor_api.storage import image_geometry_completeness_repository as repository_module
-from game_predictor_api.storage.game_data_v2_manifest_v6 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -1401,6 +1403,199 @@ def test_the_second_game_does_not_change_the_first_games_superseded_result(
     assert other is not None and first is not None
     assert (other.images.total, other.images.superseded, other.images.import_failed) == (1, 0, 0)
     assert (first.images.total, first.images.superseded, first.images.import_failed) == (11, 0, 0)
+
+
+# --------------------------------------------------------------------------------------
+# TASK-0961: the real-gap list (``gaps_only``) and the ``human_approved`` position flag.
+# --------------------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class _GapsWorld:
+    game_id: UUID
+    images: dict[str, UUID]
+
+
+@pytest.fixture(scope="module")
+def gaps(database: Engine) -> _GapsWorld:
+    """Game D: one image per state the real-gap filter must keep or drop."""
+
+    images: dict[str, UUID] = {}
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        game = GameModel(code="geo-d", name="Geometry D", expected_layout_count=100000)
+        session.add(game)
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game.id)
+        build = _Builder(session, game.id)
+        job = _import_job(session, game_id=game.id)
+
+        def add(
+            name: str, *, status: str = "waiting_for_review", failed_code: str | None = None
+        ) -> SourceImageModel:
+            source = build.source(job, name, status=status, failed_code=failed_code)
+            images[name] = source.id
+            return source
+
+        # incomplete_partial, every board human-approved (a qualified partial, D-449).
+        p = add("p_partial_approved.jpg")
+        p_rev = build.revision(p, revision=0, range_start=20000)
+        for position in range(8):
+            build.board(p, p_rev, position, approved=True)
+        build.board(p, p_rev, 8, completeness=PARTIAL, approved=True)
+
+        # incomplete_partial, the partial board not approved; the others approved.
+        q = add("q_partial_unapproved.jpg")
+        q_rev = build.revision(q, revision=0, range_start=21000)
+        for position in range(8):
+            build.board(q, q_rev, position, approved=True)
+        build.board(q, q_rev, 8, completeness=PARTIAL)
+
+        # incomplete_missing: 7 boards, one deferred slot, one plain gap.
+        r = add("r_missing.jpg")
+        r_rev = build.revision(r, revision=0, range_start=22000)
+        for position in range(7):
+            build.board(r, r_rev, position)
+        build.pending(r, 7, 22007, status="pending", reason="residual_too_high")
+
+        # incomplete_uncertain: automatic grids without a human confirmation.
+        s = add("s_uncertain.jpg")
+        s_rev = build.revision(s, revision=0, range_start=23000, status="needs_review")
+        for position in range(9):
+            build.board(s, s_rev, position)
+
+        # import_failed and no_source_geometry.
+        t = add("t_failed.jpg", failed_code=FAILED_STAGE_EXECUTION)
+        build.revision(t, revision=0, range_start=24000)
+        add("u_no_geometry.jpg", status="processing")
+
+        # superseded: every board rejected, every number covered by w.
+        v = add("v_superseded.jpg")
+        v_rev = build.revision(v, revision=0, range_start=25000)
+        for position in range(9):
+            build.board(v, v_rev, position, item_status="superseded", board_status=REJECTED)
+        w = add("w_cover_25000.jpg")
+        w_rev = build.revision(w, revision=0, range_start=25000)
+        for position in range(9):
+            build.board(w, w_rev, position, approved=True)
+
+        game_id = game.id
+
+    return _GapsWorld(game_id=game_id, images=images)
+
+
+def test_gaps_only_lists_the_four_real_gap_states_without_uncertain_or_superseded(
+    database: Engine, gaps: _GapsWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        page = repository.incomplete_images(gaps.game_id, gaps_only=True, limit=100)
+        default = repository.incomplete_images(gaps.game_id, limit=100)
+        report = repository.completeness_report(gaps.game_id)
+
+    assert page is not None and default is not None and report is not None
+    assert page.gaps_only is True and page.next_cursor is None
+    assert [(image.relative_path, image.image_state) for image in page.images] == [
+        ("p_partial_approved.jpg", GeometryImageState.INCOMPLETE_PARTIAL),
+        ("q_partial_unapproved.jpg", GeometryImageState.INCOMPLETE_PARTIAL),
+        ("r_missing.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("t_failed.jpg", GeometryImageState.IMPORT_FAILED),
+        ("u_no_geometry.jpg", GeometryImageState.NO_SOURCE_GEOMETRY),
+    ]
+    # the default list keeps the uncertain image; neither list holds superseded/complete
+    assert default.gaps_only is False
+    assert [image.relative_path for image in default.images] == [
+        "p_partial_approved.jpg",
+        "q_partial_unapproved.jpg",
+        "r_missing.jpg",
+        "s_uncertain.jpg",
+        "t_failed.jpg",
+        "u_no_geometry.jpg",
+    ]
+    counts = report.images
+    assert (counts.total, counts.complete, counts.superseded, counts.incomplete_uncertain) == (
+        8,
+        1,
+        1,
+        1,
+    )
+    assert len(page.images) == (
+        counts.incomplete_missing
+        + counts.incomplete_partial
+        + counts.import_failed
+        + counts.no_source_geometry
+    )
+
+
+def test_gaps_only_pages_with_the_same_cursor_as_the_default_list(
+    database: Engine, gaps: _GapsWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        walked: list[str] = []
+        cursor: GeometryImageCursor | None = None
+        for _ in range(10):
+            page = repository.incomplete_images(gaps.game_id, gaps_only=True, after=cursor, limit=2)
+            assert page is not None and page.gaps_only is True
+            walked.extend(image.relative_path for image in page.images)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+
+    assert walked == [
+        "p_partial_approved.jpg",
+        "q_partial_unapproved.jpg",
+        "r_missing.jpg",
+        "t_failed.jpg",
+        "u_no_geometry.jpg",
+    ]
+
+
+def test_gaps_only_refuses_the_other_filters(database: Engine, gaps: _GapsWorld) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        with pytest.raises(ImageReviewError) as with_state:
+            repository.incomplete_images(
+                gaps.game_id, gaps_only=True, image_state=GeometryImageState.INCOMPLETE_MISSING
+            )
+        with pytest.raises(ImageReviewError) as with_status:
+            repository.incomplete_images(
+                gaps.game_id,
+                gaps_only=True,
+                completeness_status=SourceImageGeometryStatus.GEOMETRY_INCOMPLETE,
+            )
+
+    code = "IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT"
+    assert with_state.value.code == with_status.value.code == code
+
+
+def test_human_approved_follows_the_approved_geometry_revision_of_the_board(
+    database: Engine, gaps: _GapsWorld
+) -> None:
+    with Session(database) as session:
+        page = SqlAlchemyImageGeometryCompletenessRepository(session).incomplete_images(
+            gaps.game_id, gaps_only=True, limit=100
+        )
+
+    assert page is not None
+    by_name = {image.relative_path: image for image in page.images}
+    p = by_name["p_partial_approved.jpg"]
+    q = by_name["q_partial_unapproved.jpg"]
+    r = by_name["r_missing.jpg"]
+    # a qualified partial keeps the partial state (D-449); the flag tells it was handled
+    assert [(x.state, x.human_approved) for x in p.positions] == [
+        (GeometryPositionState.OK, True)
+    ] * 8 + [(GeometryPositionState.PARTIAL, True)]
+    assert [(x.state, x.human_approved) for x in q.positions] == [
+        (GeometryPositionState.OK, True)
+    ] * 8 + [(GeometryPositionState.PARTIAL, False)]
+    # positions without a live board (deferred, missing) are never approved
+    assert [(x.state, x.human_approved) for x in r.positions[7:]] == [
+        (GeometryPositionState.DEFERRED, False),
+        (GeometryPositionState.MISSING, False),
+    ]
+    assert all(x.human_approved is False for x in r.positions[:7])
+    # a position without a source geometry has no positions at all
+    assert by_name["u_no_geometry.jpg"].positions == ()
 
 
 def test_source_image_asset_is_keyed_by_the_source_image_and_bound_to_its_game(

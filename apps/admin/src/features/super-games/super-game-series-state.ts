@@ -8,6 +8,7 @@ import type {
   ListSuperGameSeriesData,
   SuperGameSeriesBoardResponse,
   SuperGameSeriesBoardsResponse,
+  SuperGameSeriesCountsResponse,
   SuperGameSeriesDeriveResponse,
   SuperGameSeriesListResponse,
   SuperGameSeriesResponse,
@@ -16,8 +17,6 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 export const SERIES_PAGE_LIMIT = 50;
-/** Largest page the API serves; used to count series without a symbol. */
-export const UNDEFINED_COUNT_LIMIT = 200;
 /** The state of the published generation is polled while it is stale. */
 export const SERIES_STATE_POLL_INTERVAL_MS = 5000;
 
@@ -92,31 +91,22 @@ export function seriesListQuery(
   return query;
 }
 
-/** The query that counts series without a super symbol, whatever the filters. */
-export function undefinedSeriesCountQuery(): SeriesListQuery {
-  return { defined: false, limit: UNDEFINED_COUNT_LIMIT };
-}
-
-export interface UndefinedSeriesCount {
-  readonly count: number;
-  /** More than the page limit: the count is a lower bound. */
-  readonly hasMore: boolean;
-}
-
-export function undefinedSeriesCount(
-  response: Pick<SuperGameSeriesListResponse, 'items' | 'nextCursor'>,
-): UndefinedSeriesCount {
-  return {
-    count: response.items.length,
-    hasMore: response.nextCursor !== null,
-  };
-}
-
+/**
+ * The counter of series without a super symbol. Every list page carries the
+ * exact counts of all published series of the game, whatever the filters.
+ */
 export function undefinedSeriesCountLabel(
-  count: UndefinedSeriesCount | null,
+  counts: SuperGameSeriesCountsResponse | null,
 ): string {
-  if (count === null) return '—';
-  return count.hasMore ? `${count.count}+` : String(count.count);
+  return counts === null ? '—' : String(counts.undefined);
+}
+
+export function seriesCountsCaption(
+  counts: SuperGameSeriesCountsResponse | null,
+): string {
+  return counts === null
+    ? 'serii bez super symbolu'
+    : `z ${counts.total} serii bez super symbolu`;
 }
 
 export type SeriesListStatus = 'loading' | 'ready' | 'error';
@@ -134,7 +124,7 @@ export interface SeriesListState {
   readonly status: SeriesListStatus;
   readonly error: string | null;
   readonly superGameState: SuperGameStateResponse | null;
-  readonly undefinedCount: UndefinedSeriesCount | null;
+  readonly counts: SuperGameSeriesCountsResponse | null;
 }
 
 export function createSeriesListState(
@@ -142,6 +132,7 @@ export function createSeriesListState(
   generation = 0,
 ): SeriesListState {
   return Object.freeze({
+    counts: null,
     error: null,
     filters,
     filtersKey: seriesFiltersKey(filters),
@@ -150,7 +141,6 @@ export function createSeriesListState(
     nextCursor: null,
     status: 'loading',
     superGameState: null,
-    undefinedCount: null,
   });
 }
 
@@ -162,8 +152,8 @@ export function changeSeriesFilters(
   if (seriesFiltersKey(filters) === state.filtersKey) return state;
   return Object.freeze({
     ...createSeriesListState(filters, state.generation + 1),
+    counts: state.counts,
     superGameState: state.superGameState,
-    undefinedCount: state.undefinedCount,
   });
 }
 
@@ -171,8 +161,8 @@ export function changeSeriesFilters(
 export function reloadSeriesList(state: SeriesListState): SeriesListState {
   return Object.freeze({
     ...createSeriesListState(state.filters, state.generation + 1),
+    counts: state.counts,
     superGameState: state.superGameState,
-    undefinedCount: state.undefinedCount,
   });
 }
 
@@ -212,6 +202,7 @@ export function applySeriesListPage(
     if (state.items.length > 0 && state.status === 'ready') return state;
     return Object.freeze({
       ...state,
+      counts: page.response.counts,
       error: null,
       items: Object.freeze([...page.response.items]),
       nextCursor: page.response.nextCursor,
@@ -223,6 +214,7 @@ export function applySeriesListPage(
   const known = new Set(state.items.map((item) => item.id));
   return Object.freeze({
     ...state,
+    counts: page.response.counts,
     error: null,
     items: Object.freeze([
       ...state.items,
@@ -242,13 +234,6 @@ export function failSeriesList(
 ): SeriesListState {
   if (generation !== state.generation) return state;
   return Object.freeze({ ...state, error: message, status: 'error' });
-}
-
-export function applySeriesListUndefinedCount(
-  state: SeriesListState,
-  count: UndefinedSeriesCount,
-): SeriesListState {
-  return Object.freeze({ ...state, undefinedCount: count });
 }
 
 export function applySeriesListSuperGameState(

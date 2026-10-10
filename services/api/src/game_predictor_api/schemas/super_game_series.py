@@ -75,11 +75,19 @@ class SuperGameSeriesResponse(ApiModel):
         )
 
 
+class SuperGameSeriesCountsResponse(ApiModel):
+    """Exact counts of all published series of the game, independent of filters."""
+
+    total: int = Field(ge=0)
+    undefined: int = Field(ge=0)
+
+
 class SuperGameSeriesListResponse(ApiModel):
     items: list[SuperGameSeriesResponse]
     next_cursor: str | None
     super_game_kind: str
     super_game_state: SuperGameStateResponse
+    counts: SuperGameSeriesCountsResponse
 
     @classmethod
     def from_domain(cls, page: SuperGameSeriesPage) -> SuperGameSeriesListResponse:
@@ -88,6 +96,9 @@ class SuperGameSeriesListResponse(ApiModel):
             next_cursor=page.next_cursor,
             super_game_kind=page.super_game_kind,
             super_game_state=SuperGameStateResponse.from_domain(page.state),
+            counts=SuperGameSeriesCountsResponse(
+                total=page.counts.total, undefined=page.counts.undefined
+            ),
         )
 
 

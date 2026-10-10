@@ -130,7 +130,8 @@ merge. No physical Android-device test for this state-only change.
 
 Admin requirements, Mumie operator guide, D-528 follow-up, accepted plan and
 CURRENT_STATE describe the reset. Pre-existing receipts are excluded from
-the commit. Completion version v1.7.238; hash recorded after commit.
+the commit. Completion version v1.7.238; commit
+`5e44ea88954f68f2ef473ca8dcefc52e2064fc21`.
 
 ### Recommended next task
 

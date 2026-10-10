@@ -3,30 +3,18 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-  GEOMETRY_QUEUE_FILTERS,
   INCOMPLETE_IMAGE_STATES,
-  LISTED_IMAGE_STATES,
-  canSetGeometryException,
-  canWithdrawGeometryException,
   errorCodeOf,
   formatPercent,
-  geometryCompletenessStatusLabel,
-  geometryExceptionErrorMessage,
+  formatSequenceNumbers,
+  geometryGapCounts,
   geometryGateReasonLabel,
   geometryImageStateLabel,
-  geometryImportErrorLabel,
   geometryPositionLabel,
-  geometryPositionTone,
-  geometryQueueFilterLabel,
-  geometryQueueFilterStatus,
   geometryScopeImportId,
   geometrySectionState,
-  geometrySourceStatusLabel,
   lowQualityErrorMessage,
   parseLowQualityThresholds,
-  quadCentre,
-  quadSvgPoints,
-  validateGeometryExceptionReason,
 } from '../src/features/imports/geometry-completeness-state.ts';
 
 const sectionSource = readFileSync(
@@ -90,7 +78,7 @@ test('section state: empty game, all complete and incomplete lists', () => {
 });
 
 test('every image and position state has a Polish label', () => {
-  for (const state of LISTED_IMAGE_STATES) {
+  for (const state of [...INCOMPLETE_IMAGE_STATES, 'superseded']) {
     assert.notEqual(geometryImageStateLabel(state), state);
   }
   assert.equal(geometryImageStateLabel('complete'), 'Kompletne');
@@ -110,10 +98,9 @@ test('every image and position state has a Polish label', () => {
     geometryPositionLabel('deferred', 'new_reason'),
     'Siatka odroczona (new_reason)',
   );
-  assert.equal(geometrySourceStatusLabel('processing'), 'w przetwarzaniu');
 });
 
-test('the default list holds the states that need attention; superseded is a filter of its own', () => {
+test('the incomplete states never include superseded images', () => {
   assert.deepEqual(
     [...INCOMPLETE_IMAGE_STATES],
     [
@@ -125,52 +112,29 @@ test('the default list holds the states that need attention; superseded is a fil
     ],
   );
   assert.ok(!INCOMPLETE_IMAGE_STATES.includes('superseded'));
+});
+
+test('heading counters split real gaps from unconfirmed grids (TASK-0964)', () => {
+  // Mumie: 4 real gaps, 51 541 automatic grids without manual approval.
   assert.deepEqual(
-    [...LISTED_IMAGE_STATES],
-    [...INCOMPLETE_IMAGE_STATES, 'superseded'],
+    geometryGapCounts({
+      importFailed: 0,
+      incompleteMissing: 1,
+      incompletePartial: 1,
+      incompleteUncertain: 51_541,
+      noSourceGeometry: 2,
+    }),
+    { realGaps: 4, unconfirmed: 51_541 },
   );
-});
-
-test('import errors keep their code and gain a Polish meaning when it is known', () => {
-  assert.equal(
-    geometryImportErrorLabel('IMAGE_STAGE_EXECUTION_FAILED'),
-    'etap przetwarzania zakończył się błędem (IMAGE_STAGE_EXECUTION_FAILED)',
-  );
-  assert.match(
-    geometryImportErrorLabel('IMAGE_STAGE_RESULT_INVALID'),
-    /IMAGE_STAGE_RESULT_INVALID/,
-  );
-  assert.match(
-    geometryImportErrorLabel('IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE'),
-    /IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE/,
-  );
-  assert.equal(geometryImportErrorLabel('SOMETHING_NEW'), 'SOMETHING_NEW');
-});
-
-test('positions without a grid are marked danger, uncertain ones warning', () => {
-  assert.equal(geometryPositionTone('ok'), 'ok');
-  assert.equal(geometryPositionTone('superseded'), 'muted');
-  assert.equal(geometryPositionTone('uncertain'), 'warning');
-  assert.equal(geometryPositionTone('partial'), 'warning');
-  assert.equal(geometryPositionTone('missing'), 'danger');
-  assert.equal(geometryPositionTone('deferred'), 'danger');
-});
-
-test('quad helpers accept four finite points only', () => {
-  const quad = [
-    { x: 0, y: 0 },
-    { x: 10, y: 0 },
-    { x: 10, y: 20 },
-    { x: 0, y: 20 },
-  ];
-  assert.equal(quadSvgPoints(quad), '0,0 10,0 10,20 0,20');
-  assert.deepEqual(quadCentre(quad), { x: 5, y: 10 });
-  assert.equal(quadSvgPoints(null), null);
-  assert.equal(quadSvgPoints(undefined), null);
-  assert.equal(quadSvgPoints(quad.slice(0, 3)), null);
-  assert.equal(
-    quadSvgPoints([...quad.slice(0, 3), { x: Number.NaN, y: 1 }]),
-    null,
+  assert.deepEqual(
+    geometryGapCounts({
+      importFailed: 3,
+      incompleteMissing: 0,
+      incompletePartial: 0,
+      incompleteUncertain: 0,
+      noSourceGeometry: 0,
+    }),
+    { realGaps: 3, unconfirmed: 0 },
   );
 });
 
@@ -248,8 +212,25 @@ test('grid diagnostics belong to correction while missing boards stay in import'
   assert.match(sectionSource, /Diagnostyka siatek zdjęć/);
   assert.match(
     sectionSource,
-    /W V3\s+poprawne pełne siatki są cięte automatycznie/,
+    /W V3\s+poprawne\s+pełne\s+siatki\s+są\s+cięte\s+automatycznie/,
   );
+});
+
+test('the section no longer lists photos, previews grids or edits gate exceptions (TASK-0964)', () => {
+  assert.doesNotMatch(sectionSource, /GeometryImageItem/);
+  assert.doesNotMatch(sectionSource, /GeometryGateControls/);
+  assert.doesNotMatch(sectionSource, /listIncompleteGeometryImages/);
+  assert.doesNotMatch(sectionSource, /getImageGeometryCompletenessSourceAsset/);
+  assert.doesNotMatch(sectionSource, /setSourceImageGeometryException/);
+  assert.doesNotMatch(sectionSource, /withdrawSourceImageGeometryException/);
+  assert.doesNotMatch(sectionSource, /Dopuść wyjątkiem/);
+  assert.doesNotMatch(sectionSource, /<svg|<polygon/);
+  assert.doesNotMatch(sectionSource, /reviewer-local-start/);
+  assert.doesNotMatch(sectionSource, /reviewer-local-window/);
+  assert.match(sectionSource, /Otwórz braki w Reviewerze/);
+  assert.match(sectionSource, /onClick=\{onOpenReviewer\}/);
+  assert.match(sectionSource, /realnymi brakami/);
+  assert.match(sectionSource, /z niepotwierdzoną siatką/);
 });
 
 test('whole-image gate copy does not claim that every V3 crop is unavailable', () => {
@@ -261,16 +242,11 @@ test('whole-image gate copy does not claim that every V3 crop is unavailable', (
 
 test('the section uses the generated-client wrappers and runs the quality query only on demand', () => {
   assert.match(sectionSource, /api\.getImageGeometryCompleteness/);
-  assert.match(sectionSource, /api\.listIncompleteGeometryImages/);
   assert.match(sectionSource, /api\.getImageGeometryLowQualityBoards/);
-  // the preview is keyed by the source image, so every image has one (TASK-0808)
-  assert.match(sectionSource, /api\.getImageGeometryCompletenessSourceAsset/);
-  assert.doesNotMatch(sectionSource, /previewReviewItemId/);
-  assert.doesNotMatch(sectionSource, /getOperationalImageReviewSourceAsset/);
   // the quality query is a button handler, never part of loading or polling
   const loadReports = sectionSource.slice(
     sectionSource.indexOf('const loadReports'),
-    sectionSource.indexOf('const loadImages'),
+    sectionSource.indexOf('// Only the counters are polled'),
   );
   assert.doesNotMatch(loadReports, /getImageGeometryLowQualityBoards/);
   assert.match(sectionSource, /onClick=\{\(\) => void run\(\)\}/);
@@ -279,54 +255,11 @@ test('the section uses the generated-client wrappers and runs the quality query 
   assert.match(sectionSource, /loadReports\(\{ silent: true \}\)/);
 });
 
-test('gate queue: persisted statuses, reasons and exception rules have Polish texts (TASK-0807)', () => {
-  assert.deepEqual(GEOMETRY_QUEUE_FILTERS, ['queue', 'exceptions']);
-  assert.equal(geometryQueueFilterStatus('queue'), 'geometry_incomplete');
-  assert.equal(geometryQueueFilterStatus('exceptions'), 'geometry_exception');
-  assert.equal(geometryQueueFilterLabel('queue'), 'Kolejka siatek');
-  for (const status of [
-    'geometry_complete',
-    'geometry_incomplete',
-    'geometry_exception',
-  ]) {
-    assert.notEqual(geometryCompletenessStatusLabel(status), status);
-  }
-  assert.equal(
-    geometryCompletenessStatusLabel(null),
-    'Nieocenione przez bramkę',
-  );
-  assert.match(
-    geometryGateReasonLabel('SOURCE_IMAGE_GEOMETRY_INCOMPLETE'),
-    /w V3 poprawne pełne siatki mogą być już dostępne.*\(SOURCE_IMAGE_GEOMETRY_INCOMPLETE\)$/,
-  );
-  assert.equal(canSetGeometryException('geometry_incomplete'), true);
-  assert.equal(canSetGeometryException('geometry_exception'), false);
-  assert.equal(canSetGeometryException(null), false);
-  assert.equal(canWithdrawGeometryException('geometry_exception'), true);
-  assert.equal(canWithdrawGeometryException('geometry_complete'), false);
-  assert.deepEqual(validateGeometryExceptionReason('  poza kadrem '), {
-    ok: true,
-    reason: 'poza kadrem',
-  });
-  assert.equal(validateGeometryExceptionReason('   ').ok, false);
-  assert.equal(validateGeometryExceptionReason('x'.repeat(1001)).ok, false);
-  assert.match(
-    geometryExceptionErrorMessage(
-      'IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT',
-    ),
-    /decyzje człowieka/,
-  );
-  assert.equal(
-    geometryExceptionErrorMessage(null),
-    'Nie udało się zmienić wyjątku zdjęcia.',
-  );
-});
-
-test('the section reads the gate queue from the database and changes exceptions through the client', () => {
-  assert.match(sectionSource, /useState<StateFilter>\('queue'\)/);
-  assert.match(sectionSource, /completenessStatus:/);
-  assert.match(sectionSource, /api\.setSourceImageGeometryException/);
-  assert.match(sectionSource, /api\.withdrawSourceImageGeometryException/);
-  assert.match(sectionSource, /startLocalReviewerProcess\(api\)/);
-  assert.doesNotMatch(sectionSource, /Widok tylko do\s+odczytu/);
+test('the import report lists replaced and skipped sequences (D-543)', () => {
+  assert.equal(formatSequenceNumbers([], 0), '—');
+  assert.equal(formatSequenceNumbers([100, 101], 2), '#100, #101');
+  assert.equal(formatSequenceNumbers([100, 104], 5), '#100, #104 i jeszcze 3');
+  assert.match(sectionSource, /<dt>Zastąpione sekwencje<\/dt>/);
+  assert.match(sectionSource, /<dt>Pominięte — sekwencja ma właściciela<\/dt>/);
+  assert.match(sectionSource, /importReport\?\.sequenceOwnership \?\? null/);
 });

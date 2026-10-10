@@ -21,6 +21,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.storage.image_geometry_completeness_repository import (
+    MAX_IMPORT_SEQUENCE_NUMBERS,
     GeometryCompletenessReport,
     GeometryGateCounts,
     IncompleteGeometryImagePage,
@@ -79,6 +80,21 @@ class GeometryGateCountsResponse(ApiModel):
     withheld_reason_code: str = Field(min_length=1)
 
 
+class ImportSequenceOwnershipResponse(ApiModel):
+    """Sequence ownership outcome of one import (D-543, TASK-0971).
+
+    ``replaced``: sequences this import took over from a rejected board of
+    another image. ``skipped``: sequences another photo owns (a live pending
+    board is kept, or a canonical owner wins), so this import's source is only
+    an alternative. Counts are exact; the number lists are sorted and capped.
+    """
+
+    replaced_count: int = Field(ge=0)
+    replaced_sequence_numbers: tuple[int, ...] = Field(max_length=MAX_IMPORT_SEQUENCE_NUMBERS)
+    skipped_count: int = Field(ge=0)
+    skipped_sequence_numbers: tuple[int, ...] = Field(max_length=MAX_IMPORT_SEQUENCE_NUMBERS)
+
+
 class ImageGeometryCompletenessResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID | None
@@ -88,6 +104,8 @@ class ImageGeometryCompletenessResponse(ApiModel):
     source_statuses: tuple[GeometryCompletenessSourceStatusCountResponse, ...]
     gate: GeometryGateCountsResponse
     computed_at: datetime
+    # Only in the report of one import (``importJobId`` given), else ``null``.
+    sequence_ownership: ImportSequenceOwnershipResponse | None = None
 
 
 class GeometryCompletenessPositionResponse(ApiModel):
@@ -98,6 +116,16 @@ class GeometryCompletenessPositionResponse(ApiModel):
     recognized_board_id: UUID | None
     quad: tuple[GeometryCompletenessPointResponse, ...] | None = Field(
         default=None, min_length=4, max_length=4
+    )
+    # A human approved the board's current geometry (TASK-0961); false
+    # without a live board. A `partial` position stays `partial` after a
+    # manual qualification (D-449), so this flag tells it was handled.
+    human_approved: bool = Field(
+        default=False,
+        description=(
+            "True when a human approved the current geometry of the board at this "
+            "position (approvedGeometryRevision == geometryRevision); false without a board."
+        ),
     )
 
 
@@ -131,6 +159,8 @@ class IncompleteGeometryImagePageResponse(ApiModel):
     import_job_id: UUID | None
     image_state: GeometryImageState | None
     completeness_status: SourceImageGeometryStatus | None
+    # Echo of the `gapsOnly` filter (TASK-0961).
+    gaps_only: bool = False
     images: tuple[IncompleteGeometryImageResponse, ...] = Field(
         max_length=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE
     )
@@ -234,6 +264,16 @@ def to_geometry_completeness_response(
         ),
         gate=_gate_counts_response(report.gate),
         computed_at=report.computed_at,
+        sequence_ownership=(
+            None
+            if report.sequence_ownership is None
+            else ImportSequenceOwnershipResponse(
+                replaced_count=report.sequence_ownership.replaced_count,
+                replaced_sequence_numbers=report.sequence_ownership.replaced_sequence_numbers,
+                skipped_count=report.sequence_ownership.skipped_count,
+                skipped_sequence_numbers=report.sequence_ownership.skipped_sequence_numbers,
+            )
+        ),
     )
 
 
@@ -245,6 +285,7 @@ def to_incomplete_geometry_image_page_response(
         import_job_id=page.import_job_id,
         image_state=page.image_state,
         completeness_status=page.completeness_status,
+        gaps_only=page.gaps_only,
         images=tuple(
             IncompleteGeometryImageResponse(
                 source_image_id=image.source_image_id,
@@ -274,6 +315,7 @@ def to_incomplete_geometry_image_page_response(
                                 for x, y in position.quad
                             )
                         ),
+                        human_approved=position.human_approved,
                     )
                     for position in image.positions
                 ),
@@ -341,6 +383,7 @@ __all__ = [
     "GeometryGateCountsResponse",
     "GeometryLowQualityBoardResponse",
     "ImageGeometryCompletenessResponse",
+    "ImportSequenceOwnershipResponse",
     "ImageGeometryLowQualityBoardsResponse",
     "IncompleteGeometryImagePageResponse",
     "IncompleteGeometryImageResponse",

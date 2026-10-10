@@ -21,15 +21,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (45 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (85 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (70 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (47 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (109 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/api/` (46 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/application/` (86 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/domain/` (72 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/schemas/` (48 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (114 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (158 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (159 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -42,8 +42,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (325 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (77 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (337 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (84 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -88,7 +88,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (249 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (250 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -111,18 +111,18 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `games/` (3 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+27)
   - `grid-shadow/` (2 plików): GridShadowPanelClient, GridShadowPanel, gridShadowErrorMessage, gridShadowSourceChoices, gridShadowUnknownVisibilityCount, gridShadowMeshLines, gridShadowReviewerUrl, gridShadowRequestId (+2)
   - `image-selection/` (5 plików): ImageSelectionClient, ImageSelectionUploadProgress, ResumableImageSelectionUpload, ImageSelectionOutputSaveResult, isVisibleImageSelectionRun, visibleImageSelectionRuns, orderImageSelectionFiles, uploadPhotoSelectionFolder (+20)
-  - `imports/` (23 plików): VERIFIED_V19_ACTIVATION_VERSION, boardCellProcessingModeLabel, boardCellProcessingJobLabel, jobMatchesBoardCellProcessingMode, GeometryCompletenessClient, GeometryCompletenessSection, GeometryImageStateName, GeometryPositionStateName (+190)
+  - `imports/` (23 plików): VERIFIED_V19_ACTIVATION_VERSION, boardCellProcessingModeLabel, boardCellProcessingJobLabel, jobMatchesBoardCellProcessingMode, GeometryCompletenessClient, GeometryCompletenessSection, GeometryImageStateName, GeometryPositionStateName (+172)
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
   - `model-quality/` (5 plików): GridQualityPanel, LabCandidateRegistryPanel, PendingLabRegistryCommand, readPendingLabRegistryCommand, saveLabRegistryCommand, clearLabRegistryCommand, reconcileLabRegistryFailure, ModelQualityClient (+25)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
-  - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, reviewReadyImports, selectReviewImportId, hasImageImport, hasReviewerWork, gridReviewTotal (+11)
+  - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)
   - `reviews/` (4 plików): ReviewsClient, LoadReviewBatchesResult, loadReviewBatches, LoadReviewItemsResult, loadReviewItems, LoadReviewItemResult, loadReviewItem, loadReviewSymbols (+15)
   - `rules/` (13 plików): PaylinesClient, SavePaylineIntent, SavePaylineResult, savePayline, ArchivePaylineResult, archivePayline, DeletePaylineResult, deletePayline (+73)
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
   - `storage/` (1 plików): StorageWorkspace
-  - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+76)
+  - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+72)
   - `symbol-reviews/` (13 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+95)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
   - `unreadable-board-reviews/` (2 plików): UnreadableBoardReviewClient, loadUnreadableBoardPage, loadUnreadableBoardDetail, loadUnreadableBoardSymbols, saveUnreadableBoard, UnreadableBoardReviewWorkspace
@@ -136,7 +136,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Moduły wejściowe i symbole
 
 - `apps/admin/src/features/super-games/super-game-series-workspace.tsx`: SuperGameSeriesClient, SuperGameSeriesWorkspace
-- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, UNDEFINED_COUNT_LIMIT, SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS (+67)
+- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS, COMPLETENESS_FILTER_OPTIONS (+63)
 
 ### Testy
 
@@ -157,13 +157,13 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Katalogi
 
-- `apps/reviewer/src/features/` (38 ts/tsx) - funkcje (podkatalogi poniżej)
+- `apps/reviewer/src/features/` (45 ts/tsx) - funkcje (podkatalogi poniżej)
   - `access/` (2 plików): LocalReviewerWorkspace, ReviewerAccessGate
   - `board-search-share/` (3 plików): BOARD_SEARCH_SHARE_API_BASE, BOARD_SEARCH_SHARE_GAME_ID, SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_ENTRIES, BoardSearchShareDataSourceOptions, BoardSearchShareDataSource, createBoardSearchShareDataSource, BoardSearchShareGate (+2)
   - `catalog/` (1 plików): apiErrorMessage
   - `management/` (3 plików): MANAGEMENT_SESSION_ID, managementStorageNamespace, managementAccessMessage, ManagementGate, MANAGEMENT_API_BASE, createManagementPublicAdapter, ManagementPublicAdapter
   - `manual-selection/` (12 plików): OperatorLocalOutputManifestV1, OperatorLocalOutputManifestV2, OperatorLocalOutputManifest, OperatorLocalOutputDirectoryState, OperatorLocalOutputResult, resetOperatorLocalOutputDirectory, writeOperatorLocalSelection, removeOperatorLocalSelection (+85)
-  - `operational-reviews/` (17 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+137)
+  - `operational-reviews/` (24 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+192)
 - `apps/reviewer/src/app/` (9 ts/tsx) - trasy i route handlery
 - `apps/reviewer/src/security/` (4 ts/tsx) - proxy i polityka allowlisty
 - `apps/reviewer/src/api/` (1 ts/tsx) - wrapper klienta API
@@ -175,8 +175,8 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (32 plików w katalogu testów, rekurencyjnie)
-- `apps/reviewer/test-interactions/` (8 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (34 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test-interactions/` (11 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -237,7 +237,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (161 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (162 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -271,7 +271,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `train_*` (2): `train_m6_symbol_classifier.py`, `train_symbol_model.py`
 - `v7_*` (2): `v7_pilot_fixture_app.py`, `v7_pilot_runtime_entry.py`
 - `validate_*` (5): `validate_m1_fixture.py`, `validate_m1_snapshot.py`, `validate_m35_benchmark_dataset.py` (+2)
-- `verify_*` (7): `verify_android_apk.ps1`, `verify_m2_acceptance.ps1`, `verify_management_panel_browser.mjs` (+4)
+- `verify_*` (8): `verify_android_apk.ps1`, `verify_artifact_references.py`, `verify_m2_acceptance.ps1` (+5)
 - `vision_*` (5): `vision_lab_assisted_annotation.ps1`, `vision_lab_export.py`, `vision_lab_geometry_export.py` (+2)
 
 Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `diagnose_selected_crop_v11.mjs`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `import_grid_audit_proposals.py`, `inventory_worktrees.ps1`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0153_merge_compact_super_games"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0154_geometry_correction_revert"
 
 
 def test_v7_merge_preserves_both_main_and_v7_migration_histories() -> None:
@@ -42,7 +42,7 @@ def test_v7_merge_preserves_both_main_and_v7_migration_histories() -> None:
 
 def test_compact_merge_preserves_super_game_and_management_branches() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
-    merged = script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD)
+    merged = script.get_revision("0153_merge_compact_super_games")
     assert merged is not None
     assert set(merged.down_revision) == {"0152_super_game_series", "0152_management_compact_panel"}
     for parent in merged.down_revision:
@@ -62,6 +62,7 @@ def test_compact_merge_preserves_super_game_and_management_branches() -> None:
         "0136_drop_cell_render_spec",
         "0146_symbol_review_import_filter_index",
         "0146_v7_operator_sources",
+        "0153_merge_compact_super_games",
         "9999_future",
     ),
 )

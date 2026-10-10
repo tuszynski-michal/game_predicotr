@@ -120,4 +120,5 @@ No API/schema change, real data operation, training, cleanup, service restart,
 deployment, push or merge. Browser mobile check is not a physical Android test.
 No task blocker. Refresh an older Admin tab if its bundle remains stale.
 
-Completion version v1.7.239; full commit hash recorded after commit.
+Completion version v1.7.239; commit
+`713bf4f2b5d264bea6eaf7d749fbb369e922e312`.

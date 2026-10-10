@@ -6,18 +6,99 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0966 — migracja 0154, status `reverted` i cofnięcie korekty slotu odroczonego (done)
+
+- Plik: `ai_docs/tasks/completed/0966-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.
+- Migracja `0154_geometry_correction_revert` (manifest v7, `EXPECTED_ALEMBIC_HEAD = 0154`): status `reverted` rewizji źródła z częściowym UNIQUE checksumy, akcje `geometry_reverted`, `previous_assignment_source` w zdarzeniach komórek, schemat slotu `rejected`, tabela audytu `image_geometry_correction_reverts`. Wykonana na bazie operatora 2026-10-10 po scaleniu (v1.7.308).
+- `GeometryCorrectionRevertService` (`list_recent`, `preview`, `revert`) cofa rozstrzygnięcie slotu w jednej transakcji z migawką; korekty istniejących plansz na liście z `GEOMETRY_REVERT_NOT_SUPPORTED` do TASK-0967; „latest” rewizji źródła pomija `reverted` (API i worker).
+- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (3×P0, 1×P1), runda 2 REVISE (1×P1 kohorta), druga runda poprawek zamknęła P1 i naprawiła błąd kodu blokady; trzeciego audytu nie było (zmiana tylko testu i jednej linii zapytania). Raporty: `ai_docs/quality/TASK-0966_AUDIT_gpt-6-astra*.md`.
+- Testy: nowe 22 jednostkowe + 16 PG (cofnięcie, odmowy, współbieżność, migracja), regresja bramki/slotów/symboli 43 passed, ruff i mypy czyste.
+
+### TASK-0965 — decyzja D-541, dokumentacja i odbiór braków geometrii (done)
+
+- Commit: `v1.7.305` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- D-541 zapisana (lokalny Reviewer w zakresie gry, zakładki „Do korekty” i „Braki zdjęć”, „Siatka niepotwierdzona” tylko licznik, UI wyjątków bramki poza Adminem); plan `REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md` wykonany w kodzie (v1.7.301–v1.7.305).
+- Odbiór na żywych danych (API z worktree, GET): Mumie `correction` 0 w 0,14 s, `gapsOnly` 4 zdjęcia (1 `incomplete_missing`, 3 `import_failed`); 777 `correction` 255 w 1,06 s, `gapsOnly` 76 `incomplete_partial` (73 w całości zatwierdzone ręcznie). Buildy produkcyjne Reviewera i Admina OK; Reviewer `test` 253, `test:geometry` 67.
+- Niewykonane: odbiór wizualny w przeglądarce na portach 3000/3001 (wymaga restartu usług przez operatora po scaleniu) oraz zapis siatki testowej. Poprawka z odbioru: wskazówka dla pozycji z planszą bez wpisu w kolejce. Task: `ai_docs/tasks/completed/0965-geometry-gaps-acceptance-and-docs.md`.
+
+### TASK-0964 — odchudzona Diagnostyka siatek i launcher bez wyboru importu (done)
+
+- Commit: `v1.7.304` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Launcher „Korekta cięcia siatki” bez selecta „Gotowy import plansz”, identyfikatora importu i liczenia plansz (`listImageGridReviews`, `listPendingBoardCellGeometry`); „Otwórz lokalnie” jest aktywny po wyborze gry i otwiera Reviewer z samym `gameId` (`importJobId` opcjonalny w `buildPreparedLocalReviewUrl`/`prepareLocalReviewerWindow`). Panel „brak importu” tylko dla gry bez importu obrazów.
+- „Diagnostyka siatek zdjęć” bez listy zdjęć, podglądu SVG, filtrów i paginacji: nagłówek „{N} zdjęć z realnymi brakami · {M} z niepotwierdzoną siatką”, kontrolki zakresu, liczniki, `LowQualityBlock` i przycisk „Otwórz braki w Reviewerze” (callback `onOpenReviewer` z launchera). Usunięty kod: lista, `GeometryImageItem`, `GeometryGateControls`, kolejka/wyjątki i helpery SVG w stanie sekcji.
+- Świadoma utrata: Admin nie ma już UI wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”); endpointy i klient zostają, przywrócenie UI to osobny task (decyzja 6 planu).
+- Testy: Admin `test` 729/729, `test:geometry` 206/206, typecheck PASS, lint PASS, `format:check` PASS. Odbiór na żywych danych w TASK-0965. Task: `ai_docs/tasks/completed/0964-admin-diagnostics-slim-and-launcher.md`.
+
+### TASK-0963 — zakładka „Braki zdjęć” w lokalnym Reviewerze (done)
+
+- Commit: `v1.7.303` (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- Zaślepka z TASK-0962 zastąpiona `GeometryGapsWorkspace`: jedno zdjęcie naraz (strony po 25, kursor, dociąganie przy ≤ 3 pozostałych), filtry „Wszystkie braki” (`gapsOnly`) / „Brakuje plansz” / „Plansza częściowa” / „Import nieudany” / „Bez geometrii źródła” z licznikami z `getImageGeometryCompleteness`, przełącznik „Pokaż także zatwierdzone ręcznie” (domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` mają `humanApproved`), zdjęcie ładowane automatycznie (blob URL unieważniany przy zmianie i odmontowaniu) z nakładką SVG siatek i lista pozycji.
+- Cel edycji pozycji to wiersz `listImageGridReviews({sourceImageId, view: 'all', counts: 'correction'})` pobierany leniwie dla otwartego zdjęcia; przycisk „Popraw siatkę tej planszy” montuje istniejący `BoardGeometryCorrectionEditor` (slot → `deferredBoardGeometryTarget`, plansza → `reportedBoardGeometryTarget`), pozycja bez wiersza i stany `import_failed`/`no_source_geometry` dostają wskazówkę bez edytora. Zapis i konflikt rewizji: komunikat, zamknięcie edytora, jedno odświeżenie (bez pętli). Bez wyjątków bramki, bez zatwierdzania gotowych siatek, bez zmian API. Niewiadoma o `reportedBoardGeometryTarget` rozstrzygnięta: obsługuje pozycję bez zgłoszeń i planszę `partial`; jedyna korekta to `saveHint` zależny od zgłoszeń.
+- Testy: Reviewer `test` 253/253 (10 nowych w `geometry-gaps-state.test.mjs` i teście kontraktu), `test:geometry` 61/61 (8 nowych w `geometry-gaps-workspace.test.mjs`), typecheck PASS, lint 0 błędów, `format:check` PASS, mapa kodu zregenerowana. Odbiór na żywych danych (Mumie 4 zdjęcia, 777 76 `incomplete_partial`) w TASK-0965. Task: `ai_docs/tasks/completed/0963-reviewer-image-gaps-tab.md`.
+
+### TASK-0962 — lokalny Reviewer w zakresie gry, zakładki i tanie liczniki (done)
+
+- Commit: `9e62a36c` (`v1.7.302`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`; `importJobId` jest opcjonalny (brak albo UUID), niepoprawny nie włącza trybu lokalnego. Kolejka woła `listImageGridReviews` z `counts=correction` i bez `importJobId`, gdy go nie podano.
+- `LocalReviewerWorkspace`: zakładki „Do korekty” (domyślna) i „Braki zdjęć” (zaślepka do TASK-0963, nie wydawać bez niego); oba panele zostają zamontowane (stan edytora nie ginie), a edytor w ukrytej zakładce nie reaguje na klawisze symboli (`keyboardEnabled`). Zdalna ścieżka sesji bez zmian.
+- Testy: Reviewer `test` 243/243, `test:geometry` 53/53 (3 nowe), typecheck PASS, lint 0 błędów, `format:check` PASS. Task: `ai_docs/tasks/completed/0962-reviewer-game-scope-and-tabs.md`.
+
+### TASK-0961 — tanie liczniki korekty, filtr realnych braków i flaga `humanApproved` (done)
+
+- Commit: `e2aee8fa` (`v1.7.301`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- `GET .../grid-reviews?counts=correction` liczy tylko `counts.correction` (nowa metoda repozytorium `grid_review_correction_count`, pozostałe liczniki `0`); `GET .../incomplete-images?gapsOnly=true` zwraca cztery stany realnych braków (`REAL_GAP_IMAGE_STATES`) jednym zapytaniem, konflikt z `imageState`/`completenessStatus` → 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`; pozycja ma `humanApproved`, strona `gapsOnly`. OpenAPI, klient i wrapper zregenerowane; domyślne zachowanie obu endpointów bez zmian.
+- Pomiar 2026-10-10 (nowy kod, instancja tymczasowa 8011): `counts=correction` 1,08 s / 1,00 s (Mumie 0, 777 255; stary kod 21,8 s / 26,9 s); strona `gapsOnly` 3,9–5,7 s (Mumie 4 zdjęcia, 777 76 `incomplete_partial`, z czego 73 z zatwierdzonymi ręcznie pozycjami). Budżety ≤ 3 s i ≤ 12 s spełnione bez indeksu.
+- Testy: API/serwis 148 passed, PostgreSQL 30 passed (4 nowe), klient 107 passed, ruff PASS, `check:generated` PASS. Task: `ai_docs/tasks/completed/0961-geometry-gaps-api-counts-and-filter.md`.
+
+### TASK-0960 — kolejka po częściowym usuwaniu źródeł (done)
+
+- Commit: `v1.7.298` — `91ecf6a04a017a5723ea9f8336957221766cf043` (lokalnie, bez push).
+- Przyczyna HTTP500: kasowanie image_review_queue_states całego importu przy pozostających review items. Licznik utrzymuje teraz istniejący trigger, który usuwa go dopiero po ostatniej pozycji.
+- Odtworzono siedem liczników z poprawnych projekcji; nowe wersje unieważniają stare kursory. Zachowano 217 accepted reviews.
+- Usunięto 275 zatwierdzonych źródeł (2198 plansz, 32970 komórek) przez pięć potwierdzonych API batches. Nowy odczyt: zero rekordów celu, brak niespójnych liczników, pięć receiptów.
+- Test PostgreSQL dwóch partii w nowych sesjach: 1 passed; domain/API: 10 passed; Ruff PASS. Mypy dwukrotnie timeout, Claude CLI niedostępny — brief i ograniczenia zapisane, brak deklaracji PASS audytu.
+- Manifest i CSV: `ai_docs/quality/MUMIE_SOURCE_REPLACEMENT_20261009.*`. Task: `ai_docs/tasks/completed/0960-board-source-cleanup-queue-state.md`. Bez restartów, migracji, push i nowego importu.
+
+### TASK-0950 — Management pending modal recovery (done)
+
+- Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
+- Admin13/13, Reviewer23/23 (nine new cases), proxy11/11; scoped lint/shared typecheck PASS. One Claude medium static audit PASS, both P2 closed.
+- Operator shared edit/delete complaint remains unconfirmed. Read-only API: active session, one active and two archived points. No public live write, data deletion, service lifecycle or deployment.
+- See [task](../tasks/completed/0950-management-pending-modal-recovery.md) and [audit](../quality/TASK-0950_AUDIT_claude-opus-5-5.md). Commit `v1.7.295` / `25f91c842fbdad8c35e7c2622fe697fe04f65dd1`.
+
+### TASK-0946 — odstępy kafelków panelu (done)
+
+- Spójne16px dla ikon, stawek i archiwalnych kafelków; miejsce na dwa przyciski44px.
+- Browser10/10 PASS; nowa asercja odtwarza błąd4px, sprawdza odstępy i brak kolizji. Prettier i składnia PASS; bez ponownego pełnego builda/audytu.
+- Outcome: `ai_docs/tasks/completed/0946-management-tile-padding.md`; commit v1.7.291 / 1332c91013855f9d519cd0075a94eb8d3d69fe96.
+- Bez zmian danych, uruchamiania usług i push. Kontrola na stronie operatora pozostaje do odbioru.
+
+### TASK-0945 — Integracja kompaktowego panelu z main (done)
+
+- Merge commit: v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a; plan `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`, Outcome `ai_docs/tasks/completed/0945-compact-panel-main-integration.md`.
+- Zachowano D-536/D-537 Mumii i geometrię0944; historyczny D-536 panelu mapuje się na D-538. Oba historyczne TASK-0940 zachowują osobne pliki i oryginalne commity.
+- Jedna głowa0153, oba rodzice0152; frozen i compact piny używają free-spin/provisional kosztów. Digest oraz dawny kontrakt777 bez zmian, nowe metryki sprawdzone osobno.
+- Claude opus5.5/high PASS,0 P0/P1; pięć P2 poprawiono i zweryfikowano w jednej rundzie. API client107/107, TS helpers34/34, scoped interactions17/17, Admin39/39, Reviewer proxy/geometry31/31, Python focused31/31, API supergame35 plus7772/2; final backend20/20 i saved-selection15/15. PG trzy ścieżki merge, dwa krytyczne scenariusze oraz wzmocniona macierz3/3 PASS. Buildy, Chromium10/10, OpenAPI/docs/maps, lint/types PASS.
+- Jeden szerszy moduł PG osiągnął limit120s; nie deklarujemy pełnego PASS. Własną pozostałość testową usunięto, starsze bazy pozostawiono. Zawężone wymagane kontrole PASS.
+- Main fast-forward zweryfikowany,25 niezapisanych ścieżek i v7-output zachowane. Bez push, migracji operatora ani API/Admin lifecycle. Do odbioru na żywo wymagana osobna procedura0153 i backup/preview.
+
+### TASK-0943 — Minimalistyczny panel (done)
+
+- Version: v1.7.276; commit: d7b37368646a5c9b8a039505646a5fc6f4c55518.
+- Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0942 — Minimalistyczny panel (done)
+
+- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
+- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
 ### TASK-0941 — Minimalistyczny panel (done)
 
 - Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
 - Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0940 — Atomic management edit and explicit scope deletion (done)
-
-- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
-- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
-- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
-
 
 ### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
 
@@ -37,7 +118,6 @@ last_updated: 2026-10-09
 - Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
   wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.
 
-
 ### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
 
 - Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
@@ -55,7 +135,6 @@ last_updated: 2026-10-09
   `services/worker/tests/test_check_decision_links_script.py`.
 - Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
   poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
-
 
 ### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
 
@@ -99,6 +178,12 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 źródłowego (najnowsze na górze, starsze tory na dole); nowsze sekcje `done`
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
+
+### TASK-0940 — Atomic management edit and explicit scope deletion (done)
+
+- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
+- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
 
 ### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
 

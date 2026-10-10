@@ -186,8 +186,8 @@ is part of this pilot. Preserve the exact frozen start request and retry it.
 ### Changed
 
 The approved deployment is operational on MAIN, preserving both branch
-histories and independent RGB0878. Completion versionv1.7.226 is recorded
-with its full hash after commit; integration sourcev1.7.225 /
+histories and independent RGB0878. Completion commit: `v1.7.226 /4e73b92cd3b135496b42a836edeb1f979e8de46a`.
+Integration sourcev1.7.225 /
 820083aed4b3d2dda048c938bd2f3ed410132d95 and premerge MAINv1.7.222 /
 48b6e0e104e19e915bde30cd89a80d508e81c0b3 remain ancestors.
 

@@ -74,6 +74,17 @@ INCOMPLETE_IMAGE_STATES: Final = (
     GeometryImageState.NO_SOURCE_GEOMETRY,
 )
 
+# Image states with a *real* geometry gap (TASK-0961, plan decision 1): the
+# Reviewer's "image gaps" queue. ``incomplete_uncertain`` is an automatic grid
+# without a human confirmation, not a cutting error, and stays a counter only;
+# ``superseded`` is covered by a newer import.
+REAL_GAP_IMAGE_STATES: Final = (
+    GeometryImageState.INCOMPLETE_MISSING,
+    GeometryImageState.INCOMPLETE_PARTIAL,
+    GeometryImageState.IMPORT_FAILED,
+    GeometryImageState.NO_SOURCE_GEOMETRY,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class GeometryPositionFacts:
@@ -399,6 +410,7 @@ __all__ = [
     "MAX_GEOMETRY_EXCEPTION_REASON_LENGTH",
     "MAX_LOW_QUALITY_BOARDS",
     "MAX_LOW_QUALITY_MIN_CELLS",
+    "REAL_GAP_IMAGE_STATES",
     "SOURCE_IMAGE_GEOMETRY_INCOMPLETE",
     "GeometryImageCursor",
     "GeometryImageState",

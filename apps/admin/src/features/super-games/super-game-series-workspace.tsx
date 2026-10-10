@@ -40,7 +40,6 @@ import {
   type SeriesViewState,
   activeSeriesCard,
   applySeriesListPage,
-  applySeriesListUndefinedCount,
   applySeriesRefresh,
   applySuperSymbolConflict,
   applySuperSymbolFailure,
@@ -65,6 +64,7 @@ import {
   replaceSeriesInList,
   selectSuperSymbolCandidate,
   seriesBadges,
+  seriesCountsCaption,
   seriesListQuery,
   seriesNeighbourIndexes,
   seriesPositionCardLabel,
@@ -77,9 +77,7 @@ import {
   superSymbolSaveBlock,
   triggerCellIndexes,
   triggerSymbols,
-  undefinedSeriesCount,
   undefinedSeriesCountLabel,
-  undefinedSeriesCountQuery,
 } from './super-game-series-state';
 import styles from './super-game-series-workspace.module.css';
 
@@ -356,22 +354,6 @@ export function SuperGameSeriesWorkspace({
       cancelled = true;
     };
   }, [api, filters, gameId, reloadToken]);
-
-  // Counter of series without a super symbol, whatever the list filters.
-  useEffect(() => {
-    let cancelled = false;
-    void api
-      .listSuperGameSeries(gameId, undefinedSeriesCountQuery())
-      .then((result) => {
-        if (cancelled || result.data === undefined) return;
-        const count = undefinedSeriesCount(result.data);
-        setList((state) => applySeriesListUndefinedCount(state, count));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [api, gameId, reloadToken]);
 
   // Any change of the opened series (also through browser history, which
   // does not call openSeries / closeSeries) ends the save in flight: its
@@ -920,8 +902,8 @@ function SeriesList({
     <>
       <div className={styles.toolbar}>
         <div className={styles.counter} data-testid="undefined-series-count">
-          <strong>{undefinedSeriesCountLabel(list.undefinedCount)}</strong>
-          <span>serii bez super symbolu</span>
+          <strong>{undefinedSeriesCountLabel(list.counts)}</strong>
+          <span>{seriesCountsCaption(list.counts)}</span>
         </div>
         <button className="secondaryButton" onClick={onReload} type="button">
           Odśwież listę

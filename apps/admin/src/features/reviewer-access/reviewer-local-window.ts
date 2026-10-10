@@ -14,7 +14,7 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 export function buildPreparedLocalReviewUrl(
   adminPageUrl: string,
-  input: { readonly gameId: string; readonly importJobId: string },
+  input: { readonly gameId: string; readonly importJobId?: string },
 ): string | null {
   let url: URL;
   try {
@@ -31,13 +31,16 @@ export function buildPreparedLocalReviewUrl(
   url.hash = '';
   url.searchParams.set('mode', 'local');
   url.searchParams.set('gameId', input.gameId);
-  url.searchParams.set('importJobId', input.importJobId);
+  // Without an import the Reviewer opens scoped to the whole game.
+  if (input.importJobId !== undefined && input.importJobId !== '') {
+    url.searchParams.set('importJobId', input.importJobId);
+  }
   return url.toString();
 }
 
 export function prepareLocalReviewerWindow(
   adminPageUrl: string,
-  input: { readonly gameId: string; readonly importJobId: string },
+  input: { readonly gameId: string; readonly importJobId?: string },
   openWindow: LocalReviewerWindowOpener,
 ): LocalReviewerWindow | null {
   const reviewUrl = buildPreparedLocalReviewUrl(adminPageUrl, input);

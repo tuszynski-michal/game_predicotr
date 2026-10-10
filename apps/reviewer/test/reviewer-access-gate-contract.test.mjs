@@ -28,3 +28,18 @@ test('loopback local mode opens the selected scope without an access code', asyn
   assert.match(page, /UUID\.test\(gameId\)/);
   assert.match(page, /UUID\.test\(importJobId\)/);
 });
+
+test('the local scope needs only the game; a malformed import is not a local scope (TASK-0962)', async () => {
+  const gate = await readFile(gatePath, 'utf8');
+  const page = await readFile(pagePath, 'utf8');
+
+  assert.match(page, /\(importJobId === '' \|\| UUID\.test\(importJobId\)\)/);
+  assert.match(
+    page,
+    /importJobId: importJobId === '' \? undefined : importJobId/,
+  );
+  assert.match(gate, /readonly importJobId\?: string \| undefined/);
+  // The code-gated remote session keeps its own scope and workspace.
+  assert.match(gate, /unlockReviewerSession\(sessionId/);
+  assert.match(gate, /Dostęp ograniczony kodem, grą i wybranym importem/);
+});

@@ -17,6 +17,9 @@ from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewRepository,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
     ImageGridReviewError,
@@ -267,6 +270,42 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
+        correction = self.grid_review_correction_count(review_filter=review_filter)
+        partial_expression = _confirmed_partial_expression()
+        confirmed_partial_grids = int(
+            self._session.scalar(
+                current_statement.with_only_columns(func.count(ImageReviewItemModel.id)).where(
+                    partial_expression
+                )
+            )
+            or 0
+        )
+        return ImageGridReviewCounts(
+            needs_validation=needs_validation,
+            needs_correction=needs_correction,
+            approved=approved,
+            full_grids=max(
+                0,
+                current_count - confirmed_partial_grids + automatic_frame_proposals,
+            ),
+            lateral_partial_proposals=lateral_partial_proposals,
+            confirmed_partial_grids=confirmed_partial_grids,
+            correction=correction,
+        )
+
+    def grid_review_correction_count(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> int:
+        """Reported boards plus deferred slots of the D-462 R4 queue (TASK-0961).
+
+        Two counting statements over the same predicates as the ``CORRECTION``
+        listing: the reported boards through the partial index on
+        ``quality_issue = 'grid_issue'`` and the few open pending rows without
+        a live board in their slot. Independent of ``review_filter.view``.
+        """
+
         correction_filter = ImageGridReviewListFilter(
             game_id=review_filter.game_id,
             view=ImageGridReviewView.CORRECTION,
@@ -289,27 +328,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
-        partial_expression = _confirmed_partial_expression()
-        confirmed_partial_grids = int(
-            self._session.scalar(
-                current_statement.with_only_columns(func.count(ImageReviewItemModel.id)).where(
-                    partial_expression
-                )
-            )
-            or 0
-        )
-        return ImageGridReviewCounts(
-            needs_validation=needs_validation,
-            needs_correction=needs_correction,
-            approved=approved,
-            full_grids=max(
-                0,
-                current_count - confirmed_partial_grids + automatic_frame_proposals,
-            ),
-            lateral_partial_proposals=lateral_partial_proposals,
-            confirmed_partial_grids=confirmed_partial_grids,
-            correction=reported_boards + deferred_slots,
-        )
+        return reported_boards + deferred_slots
 
     def get_grid_review_source_asset(
         self,
@@ -409,6 +428,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
                 ImageSourceGeometryRevisionModel.game_id == review_filter.game_id,
                 ImageSourceGeometryRevisionModel.source_image_id
                 == ImageBoardGeometryPendingModel.source_image_id,
+                # TASK-0966: a reverted revision is never the current one.
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)

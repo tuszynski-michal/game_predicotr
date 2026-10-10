@@ -49,6 +49,7 @@ from game_predictor_api.storage.game_storage_routing import GameStorageIntent, G
 from game_predictor_api.storage.image_review_repository import acquire_image_review_sequence_locks
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    enter_cell_decision,
 )
 from game_predictor_api.storage.models import (
     BoardSearchShareQueryEventModel,
@@ -99,6 +100,10 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
         if document is None or mode is not BoardSearchAssetMode.OPERATIONAL_REVIEW:
             raise _missing()
         if lock and document.review_item_id is not None:
+            # TASK-0971 (P0-5): ownership lock before the sequence lock.
+            enter_cell_decision(
+                self._session, game_id=game_id, review_item_id=document.review_item_id
+            )
             acquire_image_review_sequence_locks(
                 self._session,
                 game_id=game_id,

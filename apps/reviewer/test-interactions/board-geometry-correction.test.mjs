@@ -40,6 +40,8 @@ URL.revokeObjectURL = () => {};
 const { createRoot } = await import('react-dom/client');
 const { BoardGeometryCorrectionWorkspace } =
   await import('../src/features/operational-reviews/board-geometry-correction-workspace.tsx');
+const { LocalReviewerWorkspace } =
+  await import('../src/features/access/local-reviewer-workspace.tsx');
 after(() => dom.window.close());
 
 const QUAD = [
@@ -106,7 +108,12 @@ function fakeApi(state) {
   const calls = {
     list: [],
     preview: [],
+    corrections: [],
+    previewRevert: [],
+    rejectBoard: [],
+    rejectSlot: [],
     resolve: [],
+    revert: [],
     save: [],
     symbols: [],
   };
@@ -183,6 +190,47 @@ function fakeApi(state) {
         },
       };
     },
+    // TASK-0970: the rejection of a deferred slot and of a reported board.
+    rejectPendingBoardCellGeometry: async (id, scope, command) => {
+      calls.rejectSlot.push({ command, id, scope });
+      const scripted = state.rejectResults?.shift();
+      if (scripted === 'throw') throw new Error('lost response');
+      if (scripted !== undefined) return scripted;
+      state.queue = state.queue.filter((item) => item.pendingGeometryId !== id);
+      return { data: { counts: {}, created: true, item: { id } } };
+    },
+    resolveOperationalImageReviewItem: async (id, scope, command) => {
+      calls.rejectBoard.push({ command, id, scope });
+      const scripted = state.rejectResults?.shift();
+      if (scripted === 'throw') throw new Error('lost response');
+      if (scripted !== undefined) return scripted;
+      state.queue = state.queue.filter((item) => item.reviewItemId !== id);
+      return { data: { created: true, item: { id, status: 'rejected' } } };
+    },
+    listGeometryCorrections: async (options) => {
+      calls.corrections.push(options);
+      return { data: { items: structuredClone(state.corrections ?? []) } };
+    },
+    previewGeometryCorrectionRevert: async (id, scope) => {
+      calls.previewRevert.push({ id, scope });
+      return {
+        data: {
+          expectedGeometryRevision: 3,
+          expectedResolutionRevision: 5,
+          removedCellCount: 15,
+          removesBoard: true,
+          repointedBoardCount: 0,
+          restoredCellDecisionCount: 0,
+          restoredSourceEngineKind: null,
+          restoredSourceStatus: null,
+        },
+      };
+    },
+    revertGeometryCorrection: async (id, scope, body) => {
+      calls.revert.push({ body, id, scope });
+      state.onRevert?.();
+      return { data: { created: true } };
+    },
     listPendingBoardCellGeometry: async () => assert.fail('not used'),
     // D-488: the catalogue and the read-only suggestions of the symbol picker.
     listSymbols: async () => ({ data: state.symbols ?? [] }),
@@ -194,6 +242,49 @@ function fakeApi(state) {
       calls.symbols.push({ command, id, scope });
       return { data: { cells: state.suggestions ?? [] } };
     },
+    // TASK-0963: the "Braki zdjęć" tab of `LocalReviewerWorkspace`; empty
+    // here, its behaviour is covered by geometry-gaps-workspace.test.mjs.
+    getImageGeometryCompleteness: async () => ({
+      data: {
+        computedAt: '2026-10-10T00:00:00Z',
+        expectedBoardCount: 9,
+        gameId: 'g',
+        gate: {
+          geometryException: 0,
+          geometryIncomplete: 0,
+          notEvaluated: 0,
+          withheldBoards: 0,
+          withheldReasonCode: 'SOURCE_IMAGE_GEOMETRY_INCOMPLETE',
+        },
+        images: {
+          complete: 0,
+          importFailed: 0,
+          incomplete: 0,
+          incompleteMissing: 0,
+          incompletePartial: 0,
+          incompleteUncertain: 0,
+          noSourceGeometry: 0,
+          superseded: 0,
+          total: 0,
+        },
+        importJobId: null,
+        positions: [],
+        sourceStatuses: [],
+      },
+    }),
+    listIncompleteGeometryImages: async () => ({
+      data: {
+        completenessStatus: null,
+        gameId: 'g',
+        gapsOnly: true,
+        imageState: null,
+        images: [],
+        importJobId: null,
+        nextCursor: null,
+      },
+    }),
+    getImageGeometryCompletenessSourceAsset: async () =>
+      assert.fail('no image to show'),
   };
   return { api, calls };
 }
@@ -203,15 +294,19 @@ const settle = () =>
     await new Promise((resolve) => setTimeout(resolve, 220));
   });
 
-async function render(api) {
+async function render(
+  api,
+  props = { importJobId: 'j' },
+  component = BoardGeometryCorrectionWorkspace,
+) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
-      React.createElement(BoardGeometryCorrectionWorkspace, {
+      React.createElement(component, {
         api,
         apiBaseUrl: 'http://localhost',
         gameId: 'g',
-        importJobId: 'j',
+        ...props,
       }),
     ),
   );
@@ -243,6 +338,7 @@ test('the 3001 screen corrects one reported board at a time and moves on after s
   assert.deepEqual(calls.list[0], {
     gameId: 'g',
     importJobId: 'j',
+    counts: 'correction',
     limit: 1,
     view: 'correction',
   });
@@ -609,5 +705,338 @@ test('a save without a chosen symbol sends no symbols and stored ones are only h
 
   assert.equal(calls.save.length, 1);
   assert.equal('cellSymbols' in calls.save[0].command, false);
+  await act(async () => root.unmount());
+});
+
+const correctionRow = () => ({
+  actor: 'reviewer-session:1',
+  blockingReasonCode: null,
+  blockingReasonMessage: null,
+  boardGeometryRevisionId: 'rev1',
+  createdAt: '2026-10-09T10:00:00Z',
+  geometryRevision: 3,
+  kind: 'pending_slot',
+  pendingGeometryId: 'p1',
+  positionIndex: 5,
+  recognizedBoardId: 'b1',
+  resolutionRevision: 5,
+  revertable: true,
+  reviewItemId: 'r1',
+  sequenceNumber: 77,
+  sourceImageId: 'src',
+});
+
+test('a saved correction re-fetches the recent corrections list', async () => {
+  const state = { corrections: [correctionRow()], queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  assert.equal(calls.corrections.length, 1);
+  assert.deepEqual(calls.corrections[0], { gameId: 'g', importJobId: 'j' });
+
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.equal(calls.save.length, 1);
+  assert.equal(calls.corrections.length, 2);
+  await act(async () => root.unmount());
+});
+
+test('a revert re-fetches the history and the queue and the restored slot appears', async () => {
+  const state = { corrections: [correctionRow()], queue: [] };
+  state.onRevert = () => {
+    state.queue = [deferredSlot()];
+    state.corrections = [];
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  const queueLoads = calls.list.length;
+
+  await act(async () => button('Cofnij').click());
+  await settle();
+  // The editor shortcuts stay silent while the modal is open.
+  await act(async () => button('Potwierdź cofnięcie').click());
+  await settle();
+
+  assert.equal(calls.previewRevert.length, 1);
+  assert.equal(calls.revert.length, 1);
+  assert.equal(calls.revert[0].id, 'rev1');
+  assert.equal(calls.revert[0].body.expectedGeometryRevision, 3);
+  assert.equal(calls.revert[0].body.expectedResolutionRevision, 5);
+  assert.equal(calls.corrections.length, 2);
+  assert.equal(calls.list.length, queueLoads + 1);
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  assert.doesNotMatch(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+function typeInto(element, value) {
+  const prototype =
+    element instanceof dom.window.HTMLTextAreaElement
+      ? dom.window.HTMLTextAreaElement.prototype
+      : dom.window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
+  element.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+}
+
+const radio = (reason) =>
+  document.querySelector(
+    `input[name="board-rejection-reason"][value="${reason}"]`,
+  );
+const confirmRejection = () => button('Potwierdź odrzucenie');
+
+test('rejecting a deferred slot asks for a reason, sends one request and refreshes the queue and the list', async () => {
+  const state = { corrections: [], queue: [deferredSlot()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  const queueLoads = calls.list.length;
+  const listLoads = calls.corrections.length;
+
+  await act(async () => button('Odrzuć planszę').click());
+  const dialog = document.querySelector('[role="dialog"]');
+  assert.ok(dialog);
+  assert.match(dialog.textContent, /Plansza przycięta/);
+  assert.match(dialog.textContent, /Rozmyta/);
+  assert.match(dialog.textContent, /Inny/);
+  assert.match(dialog.textContent, /czeka na zdjęcie zastępcze/);
+  // No reason yet: nothing can be confirmed.
+  assert.equal(confirmRejection().disabled, true);
+
+  await act(async () => radio('cropped').click());
+  assert.equal(confirmRejection().disabled, false);
+  // A double click still sends exactly one request.
+  await act(async () => {
+    confirmRejection().click();
+    confirmRejection().click();
+  });
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 1);
+  const [request] = calls.rejectSlot;
+  assert.equal(request.id, 'p1');
+  assert.deepEqual(request.scope, { gameId: 'g', importJobId: 'j' });
+  assert.equal(request.command.reason, 'cropped');
+  assert.equal(request.command.note, null);
+  assert.equal(request.command.expectedGeometryRevision, 2);
+  assert.match(request.command.idempotencyKey, /^[0-9a-f-]{36}$/);
+  assert.equal(calls.rejectBoard.length, 0);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(calls.list.length, queueLoads + 1);
+  assert.equal(calls.corrections.length, listLoads + 1);
+  assert.match(document.body.textContent, /Plansza została odrzucona/);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+test('rejecting a reported board uses the resolution route with the reason "Inny" and its note', async () => {
+  const state = { corrections: [], queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  assert.match(
+    document.querySelector('[role="dialog"]').textContent,
+    /zostają w historii/,
+  );
+  await act(async () => radio('other').click());
+  // The reason "Inny" needs a description.
+  assert.equal(confirmRejection().disabled, true);
+  await act(async () =>
+    typeInto(document.querySelector('textarea'), '  Ucięty górny rząd  '),
+  );
+  assert.equal(confirmRejection().disabled, false);
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 0);
+  assert.equal(calls.rejectBoard.length, 1);
+  const [request] = calls.rejectBoard;
+  assert.equal(request.id, 'r1');
+  assert.deepEqual(request.scope, { gameId: 'g', importJobId: 'j' });
+  assert.equal(request.command.action, 'rejected');
+  assert.equal(request.command.rejectionReason, 'other: Ucięty górny rząd');
+  assert.equal(request.command.expectedRevision, 0);
+  assert.equal(request.command.geometryRevision, 2);
+  assert.deepEqual(request.command.cells, []);
+  assert.equal(request.command.sequenceNumber, null);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+test('a lost rejection response keeps the dialog, the key and the draft for an identical retry', async () => {
+  const state = {
+    corrections: [],
+    queue: [deferredSlot()],
+    rejectResults: ['throw'],
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  await act(async () => radio('blurred').click());
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.ok(document.querySelector('[role="dialog"]'));
+  assert.match(document.body.textContent, /Wynik operacji jest nieznany/);
+  // The draft is frozen, so the retry cannot differ from the first request.
+  assert.equal(radio('cropped').matches(':disabled'), true);
+  await act(async () => button('Spróbuj ponownie').click());
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 2);
+  assert.deepEqual(calls.rejectSlot[1], calls.rejectSlot[0]);
+  assert.equal(calls.rejectSlot[0].command.reason, 'blurred');
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  await act(async () => root.unmount());
+});
+
+test('a refusal such as the canonical owner closes the dialog, shows the reason and reloads the queue', async () => {
+  const state = {
+    corrections: [],
+    queue: [reportedBoard()],
+    rejectResults: [
+      {
+        error: {
+          code: 'BOARD_REJECT_CANONICAL',
+          message: 'Ta plansza jest kanonicznym właścicielem swojej sekwencji.',
+        },
+        response: { status: 409 },
+      },
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  const queueLoads = calls.list.length;
+
+  await act(async () => button('Odrzuć planszę').click());
+  await act(async () => radio('cropped').click());
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.equal(calls.rejectBoard.length, 1);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.match(document.body.textContent, /kanonicznym właścicielem/);
+  assert.match(document.body.textContent, /BOARD_REJECT_CANONICAL/);
+  assert.equal(calls.list.length, queueLoads + 1);
+  // The board is still in the queue: nothing was rejected.
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  await act(async () => root.unmount());
+});
+
+test('without an import the queue spans the game and asks only for the correction counter (TASK-0962)', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api, {});
+
+  assert.deepEqual(calls.list[0], {
+    counts: 'correction',
+    gameId: 'g',
+    limit: 1,
+    view: 'correction',
+  });
+  assert.equal('importJobId' in calls.list[0], false);
+  assert.doesNotMatch(document.body.textContent, /import/i);
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  await act(async () => root.unmount());
+});
+
+test('without an import the recent corrections follow the import of the board on screen', async () => {
+  const state = { corrections: [correctionRow()], queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api, {});
+
+  assert.equal(calls.corrections.length, 1);
+  assert.deepEqual(calls.corrections[0], { gameId: 'g', importJobId: 'j' });
+  assert.ok(button('Cofnij'));
+
+  // The saved board leaves the queue; the last import keeps its history.
+  state.queue = [];
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  assert.equal(calls.corrections.length, 2);
+  assert.deepEqual(calls.corrections[1], { gameId: 'g', importJobId: 'j' });
+  assert.match(document.body.textContent, /Ostatnie korekty/);
+  await act(async () => root.unmount());
+});
+
+test('Escape closes the rejection dialog without sending anything', async () => {
+  const state = { corrections: [], queue: [deferredSlot()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  const dialog = document.querySelector('.operationalReviewConfirmDialog');
+  await act(async () =>
+    dialog.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
+    ),
+  );
+
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(calls.rejectSlot.length + calls.rejectBoard.length, 0);
+  await act(async () => root.unmount());
+});
+
+test('the local Reviewer tabs keep the editor of "Do korekty" mounted (TASK-0962)', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api, {}, LocalReviewerWorkspace);
+
+  const tab = (name) =>
+    [...document.querySelectorAll('[role="tab"]')].find(
+      (candidate) => candidate.textContent === name,
+    );
+  const panel = (id) => document.getElementById(id);
+  assert.equal(tab('Do korekty').getAttribute('aria-selected'), 'true');
+  assert.equal(panel('reviewer-tab-correction').hidden, false);
+  assert.equal(panel('reviewer-tab-gaps').hidden, true);
+  assert.match(document.body.textContent, /Numer planszy1234/);
+
+  const canvas = document.querySelector('canvas');
+  const listCalls = calls.list.length;
+  const previewCalls = calls.preview.length;
+  await act(async () => tab('Braki zdjęć').click());
+  assert.equal(panel('reviewer-tab-correction').hidden, true);
+  assert.equal(panel('reviewer-tab-gaps').hidden, false);
+  // TASK-0963: the tab is the image-level gaps screen, empty for this game.
+  assert.match(panel('reviewer-tab-gaps').textContent, /Braki zdjęć/);
+  assert.match(
+    panel('reviewer-tab-gaps').textContent,
+    /Brak zdjęć w tym stanie/,
+  );
+
+  await act(async () => tab('Do korekty').click());
+  await settle();
+  assert.equal(panel('reviewer-tab-correction').hidden, false);
+  // The same DOM node: the editor was neither unmounted nor reloaded.
+  assert.equal(document.querySelector('canvas'), canvas);
+  assert.equal(calls.list.length, listCalls);
+  assert.equal(calls.preview.length, previewCalls);
+  assert.match(document.body.textContent, /Numer planszy1234/);
+  await act(async () => root.unmount());
+});
+
+test('symbol keys are inert while the "Braki zdjęć" tab is shown (TASK-0962)', async () => {
+  const state = {
+    queue: [deferredSlot()],
+    suggestions: [{ cellIndex: 0, origin: 'predicted', symbolId: 'sym-seven' }],
+    symbols: SYMBOLS,
+  };
+  const { api } = fakeApi(state);
+  const root = await render(api, {}, LocalReviewerWorkspace);
+  const tab = (name) =>
+    [...document.querySelectorAll('[role="tab"]')].find(
+      (candidate) => candidate.textContent === name,
+    );
+
+  await act(async () => cropButton('Crop 1 — podpowiedź: Siódemka').click());
+  await act(async () => tab('Braki zdjęć').click());
+  await pressKey('2');
+  await act(async () => tab('Do korekty').click());
+  assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
+  await pressKey('2');
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Star'));
   await act(async () => root.unmount());
 });

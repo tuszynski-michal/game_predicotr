@@ -135,4 +135,5 @@ DoD: all applicable acceptance criteria are satisfied; unrelated baseline
 quality failures remain explicitly outside this commit. No implementation
 plan applies to this standalone bug fix. A separate follow-up may reconcile
 the documented/tested default timeout with runtime policy after an explicit
-policy decision. Completion v1.7.248; the full hash is recorded after commit.
+policy decision. Completion v1.7.248;
+68ce73a800c21c197a2cf67376792515f1c13085.

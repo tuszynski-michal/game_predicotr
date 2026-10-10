@@ -13,11 +13,13 @@ from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryCorrectionContext,
     BoardCellGeometryManualResolution,
     BoardCellGeometryPendingPage,
+    BoardCellGeometryRejection,
 )
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryJobCounts,
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -39,6 +41,7 @@ class BoardCellGeometryJobCountsResponse(ApiModel):
     pending: int = Field(ge=0)
     resolved: int = Field(ge=0)
     superseded: int = Field(ge=0)
+    rejected: int = Field(default=0, ge=0)
 
 
 class BoardCellGeometryPendingResponse(ApiModel):
@@ -64,6 +67,10 @@ class BoardCellGeometryPendingResponse(ApiModel):
     updated_at: datetime
     resolved_at: datetime | None
     superseded_at: datetime | None
+    rejection_reason: BoardRejectionReason | None = None
+    rejection_note: str | None = None
+    rejected_at: datetime | None = None
+    rejected_by: str | None = None
 
 
 class BoardCellGeometryPendingPageResponse(ApiModel):
@@ -121,6 +128,23 @@ class BoardCellGeometryManualResolutionResponse(ApiModel):
     created: bool
 
 
+class BoardCellGeometryRejectionCommand(ApiModel):
+    """Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``."""
+
+    idempotency_key: UUID
+    reason: BoardRejectionReason
+    note: str | None = Field(default=None, max_length=1000)
+    expected_geometry_revision: int = Field(ge=0)
+
+
+class BoardCellGeometryRejectionResponse(ApiModel):
+    item: BoardCellGeometryPendingResponse
+    counts: BoardCellGeometryJobCountsResponse
+    created: bool
+    # Id of the durable rejection: the "Ostatnie korekty" entry to revert.
+    rejection_id: UUID
+
+
 def to_pending_response(value: ImageBoardGeometryPending) -> BoardCellGeometryPendingResponse:
     return BoardCellGeometryPendingResponse(
         id=value.id,
@@ -145,6 +169,10 @@ def to_pending_response(value: ImageBoardGeometryPending) -> BoardCellGeometryPe
         updated_at=value.updated_at,
         resolved_at=value.resolved_at,
         superseded_at=value.superseded_at,
+        rejection_reason=value.rejection_reason,
+        rejection_note=value.rejection_note,
+        rejected_at=value.rejected_at,
+        rejected_by=value.rejected_by,
     )
 
 
@@ -154,6 +182,7 @@ def to_counts_response(value: BoardCellGeometryJobCounts) -> BoardCellGeometryJo
         pending=value.pending,
         resolved=value.resolved,
         superseded=value.superseded,
+        rejected=value.rejected,
     )
 
 
@@ -195,6 +224,15 @@ def to_manual_resolution_response(
         review_item_id=value.review_item_id,
         geometry_revision=value.geometry_revision,
         created=value.created,
+    )
+
+
+def to_rejection_response(value: BoardCellGeometryRejection) -> BoardCellGeometryRejectionResponse:
+    return BoardCellGeometryRejectionResponse(
+        item=to_pending_response(value.pending),
+        counts=to_counts_response(value.counts),
+        created=value.created,
+        rejection_id=value.rejection_id,
     )
 
 
@@ -240,8 +278,11 @@ __all__ = [
     "BoardCellGeometryManualResolutionResponse",
     "BoardCellGeometryPendingPageResponse",
     "BoardCellGeometryPendingResponse",
+    "BoardCellGeometryRejectionCommand",
+    "BoardCellGeometryRejectionResponse",
     "to_pending_page_response",
     "to_pending_response",
     "to_correction_context_response",
     "to_manual_resolution_response",
+    "to_rejection_response",
 ]

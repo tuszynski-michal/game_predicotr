@@ -81,7 +81,7 @@ No blocking product question. The operator's unsaved browser choice is not avail
 
 ## Outcome
 
-Implemented and deployed in MAIN on v1.1-vision-lab-hybrid-geometry. Completion version v1.7.227; full commit hash recorded after commit.
+Implemented and deployed in MAIN on v1.1-vision-lab-hybrid-geometry. Completion commit: `v1.7.227 /c5549084291aef97068a63da5a8573f4d737152c`.
 
 - Reproduced the actual cell-4 error with a real renderer and isolated PostgreSQL before applying the fix. The initial projection fix exposed the additional rebuilding-state gate; both causes are covered by the final regression.
 - Scoped domain/visibility/virtual geometry checks: 143 passed. Real PostgreSQL HTTP regression: passed, including 15 current cells, one selected human approval, sibling/source fencing, fresh-app idempotent replay, outside-cell rollback and visible partial-cell success. Only the fixture's uniquely named disposable *_test database was created and removed.

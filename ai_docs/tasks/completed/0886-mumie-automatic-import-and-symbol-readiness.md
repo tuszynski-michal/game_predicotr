@@ -147,5 +147,5 @@ scoped P0–P2. Quality report:
 ai_docs/quality/MUMIE_AUTOMATIC_IMPORT_RECOVERY_20261006.md.
 Operator guide describes existing crops,bulk corrections and500→2000-photo
 uploads without retraining after each upload. MAIN remains
-v1.1-vision-lab-hybrid-geometry. Completion version: v1.7.228; hash recorded
-after the scoped commit.
+v1.1-vision-lab-hybrid-geometry. Completion commit:
+v1.7.228 / 55669e93030a522194e4fdd1a4a02cab6b040351.

@@ -150,7 +150,7 @@ operator confirmation under AGENTS.md and DATABASE_MAINTENANCE.md.
   Disk metadata and backup file size inspected without a new full copy.
 - Evidence: artifacts/app-v3-review-20261006/ and deployment run_step logs
   named0887. Screenshot mumie-v3-import.png shows the completed picker.
-- Commit: v1.7.229; full hash recorded after commit.
+- Commit: v1.7.229 / 5130cbc80c676560a6ec6c5f77828c48074ff462.
 
 ### Not completed
 

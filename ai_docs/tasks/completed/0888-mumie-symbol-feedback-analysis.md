@@ -118,7 +118,7 @@ checks; a stored old qualification is not proof of a newly composed dataset.
   and validation84 distinguished from AI origins and control roles.
 - Focused Git documentation checks PASS. No application tests/build run:
   there is no application-code or behaviour change in this task.
-- Commit: v1.7.230; full hash recorded after commit.
+- Commit: v1.7.230 / 5470c8b704ac98583b8823efe15e2066b42dd5fa.
 
 ### Not completed
 

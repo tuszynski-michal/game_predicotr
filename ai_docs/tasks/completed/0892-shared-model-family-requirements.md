@@ -140,6 +140,9 @@ task is not that plan and does not authorize those data operations.
   by the documented target, including incompatible families and pinned jobs.
 - `git diff --check`: PASS. Staged check, file list and statistics are inspected
   before the separate versioned commit.
+- Staged whitespace check, six-file scope and post-commit statistics: PASS.
+  Only TASK-0892's CURRENT_STATE section was staged; earlier completion receipts
+  and unrelated folders were preserved.
 - No code tests, lint/typecheck or build; no application code changed.
 
 ### Not completed
@@ -160,4 +163,4 @@ task is not that plan and does not authorize those data operations.
 
 ### Commit
 
-- v1.7.234; full hash recorded after commit.
+- v1.7.234; 802d1223576323e90887d1954235428b13d7920a.

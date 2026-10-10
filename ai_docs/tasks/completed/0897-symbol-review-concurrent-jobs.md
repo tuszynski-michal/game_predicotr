@@ -144,4 +144,4 @@ revision conflict and require fresh preview; they must not be silently accepted.
 
 ### Commit
 
-- Completion version v1.7.240; full hash is recorded after commit.
+- Completion v1.7.240; 0a38e082079898831b32e3274db6bb3929867f76.

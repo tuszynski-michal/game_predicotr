@@ -122,4 +122,4 @@ restart, the user starts them in their terminal; agent does not. No blockers.
   Full main backend integration remains separate; the pilot must already run.
 - Evidence: artifacts/v7-main-panel-entry-20261007/main-entry.jpg and
   verification.json. DoD/plan checked point by point; no open P0–P2 in own review.
-- Completion version: v1.7.249; actual hash recorded after commit.
+- Completion version: v1.7.249; 34e35a2f72d72e87357a6c7625c8a3f41d914df1.

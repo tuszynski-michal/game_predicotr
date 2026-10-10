@@ -149,4 +149,4 @@ orphan's import into another game. Main app refresh remains explicit.
 
 ### Completion
 
-- Version v1.7.231; full commit hash recorded after commit.
+- Version v1.7.231; commit 5b6a0733c4d5e232a112728fd908eb1115c1eca2.

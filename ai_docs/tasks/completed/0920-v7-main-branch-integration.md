@@ -84,7 +84,7 @@ No blocking product questions; user authorized the code transfer.
 
 ## Outcome
 
-Completion: v1.7.250; full commit hash is recorded after committing.
+Completion: v1.7.250; 88d5019c7e436e5bd2895220d8fe0187f9ea177a.
 
 Installed all 131 verified product/test files from the three-way candidate,
 preserving current main edits and prior metadata. The five textual conflicts

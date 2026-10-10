@@ -136,7 +136,7 @@ perform no all-source request; the shared editor preserves legacy defaults.
   unavailable PowerShell7 and launched nothing; built-in Windows PowerShell
   started the controlled API once. No duplicate service.
 - Acceptance criteria and plan compared point by point; all scoped items pass.
-- Completion version v1.7.233; commit hash recorded after commit.
+- Completion version v1.7.233; commit c527ced5187b0024a5faff61505433283bafa090.
 
 ### Not completed
 

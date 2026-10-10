@@ -174,4 +174,4 @@ All five acceptance criteria and Definition of Done checked; no task blocker.
 Authorized controlled API/Admin deployment, then verify the panel in the main
 application. No automatic deployment was performed under AGENTS.md.
 
-Completion version: v1.7.241. Commit: pending.
+Completion version: v1.7.241. Commit: 3cabf8f2a7d64c92f2d8a642cba93c1afe2d64fe.

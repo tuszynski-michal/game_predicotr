@@ -123,4 +123,4 @@ replay uses normal API validation and records only the authorized staging job.
 - Evidence: `artifacts/mumie-import-409-20261007/`. No model activation,
   cleanup, production schema migration, push or merge. DoD and every task
   criterion checked against the isolated tests and durable live job.
-- Completion v1.7.244; full commit hash recorded after commit.
+- Completion v1.7.244; 36431247233421a1d012a732a73485a85c86f561.

@@ -149,6 +149,13 @@ Repository implementation is verified; live rollout remains pending the
 existing V7 migration blocker. Keep this task `in_progress` until the same
 existing import demonstrably advances after the authorized general restart.
 
+Implementation commit: **v1.7.251** —
+`9b88e244f3758d32ced6dfac7dba0d784c3861cf`, main branch
+`v1.1-vision-lab-hybrid-geometry`. Inspected staged diff/check/stat and
+post-commit show/status. Eleven scoped files; prior metadata receipts and
+concurrent management changes were excluded. This hash receipt is recorded
+after the implementation commit; it is not a live-rollout completion claim.
+
 Changes:
 
 - Worker constructor and CLI fallback use the shared five-GiB hard-reserve

@@ -159,4 +159,4 @@ Keep that limitation visible. No blocking questions.
 
 ### Commit
 
-- Planned v1.7.232; commit hash recorded after the separate task commit.
+- v1.7.232 — 88b2ac08ef3066d95ba94dbfe4ae57e3f278cbd9.

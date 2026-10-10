@@ -82,4 +82,4 @@ the user can now start API manually and obtain its actual error output.
 
 DoD: every applicable criterion is satisfied by the saved policy and observed
 process cleanup. No accepted implementation plan applies to this operational
-instruction change. Completion v1.7.247; full commit hash recorded after commit.
+instruction change. Completion v1.7.247; 5e47e95f3ff6c8ee50ed971f24ea01f84a7f3c11.

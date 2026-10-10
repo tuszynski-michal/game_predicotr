@@ -2,7 +2,7 @@
 
 ## Status
 
-`blocked` — czeka na zgodę operatora na scalenie, migrację 0154 i odbiór 69004.
+`blocked` — scalenie (v1.7.308, fast-forward, push) i migracja `0154` wykonane 2026-10-10 na polecenie operatora; czeka na odbiór operatora (cofnięcie świeżej korekty i jeden import zastępczy).
 
 Uwaga 2026-10-10: slot 69004 z planu już nie istnieje (patrz `Outcome`); odbiór
 cofnięcia wykonuje się na nowej korekcie wskazanej przez operatora.
@@ -200,3 +200,11 @@ Z katalogu worktree, `PYTHONPATH` worktree, `..\..\.venv\Scripts\python.exe`:
 3. Odbiór cofnięcia na nowej korekcie (69004 nie istnieje) i jednego
    przejęcia sekwencji przez zdjęcie zastępcze; wyniki zapytań z sekcji 9
    instrukcji wpisać tutaj, potem status `done`.
+
+### Wdrożenie (2026-10-10, lead na polecenie operatora)
+
+- Zatrzymano API (8000), worker `general`, Admin (3000) i Reviewer (3001); zadanie `image_symbol_review_backfill` (wznawialne paczkami) wznowiło się po starcie.
+- Scalenie fast-forward `feat/geometry-correction-revert` → `v1.1-vision-lab-hybrid-geometry` (9d011460..5621ed34) i push.
+- `npm install`, `npm run db:migrate` (0153_merge_compact_super_games → 0154_geometry_correction_revert, role przeprovisionowane), `npm run reviewer:build`.
+- Start usług w zakładkach Terminala (`npm run api:dev`, `npm run worker:poll -- --cpu-thread-budget 7`, `npm run admin:dev`, `npm run reviewer:start`); `/api/v1/health` 200, `/api/v1/admin/games` 200, Admin 200, Reviewer 200.
+- Gałąź `feat/geometry-correction-revert` (lokalnie i na origin) oraz worktree usunięte.

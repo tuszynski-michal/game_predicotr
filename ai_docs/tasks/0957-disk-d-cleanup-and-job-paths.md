@@ -1,7 +1,7 @@
 ---
 title: TASK-0957 — Sprzątanie po przeniesieniu i rozliczenie zależności od C
 status: todo
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # TASK-0957 — Sprzątanie po przeniesieniu i rozliczenie zależności od C
@@ -204,6 +204,82 @@ docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -
 - Decyzja operatora: przepisanie ścieżek (zalecane) czy archiwum na D.
 - Usunięcie C jest nieodwracalne; manifest `Final` z B1 i kopie na D są
   jedynym odniesieniem.
+
+## Preview for the operator's consent (2026-10-10, read-only)
+
+Prepared by Claude Code (`claude-opus-5-5`) after TASK-0956; nothing was
+deleted, rewritten, dropped or compacted. This is input for the separate
+consents of the subtasks below, not a consent. Measured 22:15–22:25 local
+time (sizes in bytes, GB = 10^9 bytes).
+
+### What becomes removable on C (after subtasks 1, 2 and the gate of 5)
+
+| Item | Size | Files | State |
+|---|---|---|---|
+| `C:\Users\tuszy\AppData\Local\Docker\wsl\disk\docker_data.vhdx` | 158 440 882 176 (158.4 GB) | 1 | not in use since 17:58 (Docker uses `D:\docker\DockerDesktopWSL`); SHA-256 equal to the D copy and the backup at B1 |
+| `C:\Users\tuszy\Documents\game_predicotr` (whole checkout incl. `.git`, `worktrees\disk-migration`) | 103 091 163 946 (103.1 GB) | 846 806 | no service runs from it; main checkout clean at `f7048452` before the merge |
+| total | about 261.5 GB | | C has 40.1 GB free now, about 300 GB after both |
+
+Largest parts of the checkout: `artifacts` 54.1 GB (409 652 files),
+`imports` 32.0 GB (118 530), `node_modules` 3.7 GB, `.venv-vision-lab`
+3.3 GB, `apps` 2.9 GB (build output and workspace `node_modules`),
+`.pnpm-store` 2.6 GB, `.venv` 1.9 GB, `.tooling` 1.2 GB, `.mypy_cache`
+0.25 GB, `services` 0.24 GB, `worktrees` 0.21 GB, `work` 0.19 GB,
+`.runtime` 0.19 GB, `.git` 0.10 GB, `.tmp` 0.04 GB. The preserved data
+(`artifacts`, `imports`, `.tooling`, `.runtime`, `.tmp`, `work`, loose files)
+has SHA-256 equal copies on D from the B1 `Final` run; `.tooling\node\node_modules`
+was added to D in TASK-0956.
+
+### What must be kept (or decided separately first)
+
+- `C:\Users\tuszy\AppData\Local\Docker\wsl\main\ext4.vhdx` (100 663 296
+  bytes): the Docker Desktop system distribution `docker-desktop` is still
+  registered there (`HKCU\…\Lxss` BasePath) and in use. Remove only after
+  Docker Desktop re-registers it on D (not needed for data).
+- Folders outside the repository that were not copied to D (operator
+  decision still open): `C:\Users\tuszy\Documents\game_predictor_vision_data`
+  13.3 GB (22 815 files, default Vision Lab `-LabRoot`), `…\mumie` 2.2 GB
+  (7 595), `…\new_traning_set` 0.26 GB (994), `…\game_predictor_traning_set`
+  0.12 GB (474); together about 15.9 GB.
+- Reproducible environments that exist only on C and would have to be
+  recreated on D when needed: `.venv-vision-lab` (3.3 GB, Vision Lab
+  tools) and `.pnpm-store`.
+- Backups on D stay until a separate decision: `D:\game_predictor_backup`
+  228.5 GB (vhdx copy 158.5 GB, two dumps 33.8 and 34.4 GB, repository
+  backups 1.1 GB, sync logs and manifests 0.7 GB).
+
+### Blockers before deleting C (from the plan, decision 8)
+
+- Subtask 1: 181 jobs have `input_payload.source_directory` under the C
+  checkout: 67 retryable (`waiting_for_review` 54, `failed` 8,
+  `cancelled` 5, 0 `created`) and 114 `completed`; every one of the 181
+  directories also exists under `D:\game_predicotr\imports\…`
+  (`verify_artifact_references.py`, TASK-0956). The 53 browser-selection
+  retention manifests under `data/originals/manifests/` contain the same C
+  source directories (53 entries).
+- Subtask 2: 14 remote manual-selection sessions with `host_base_path`
+  under C (4 active, 3 of them past `expires_at`; 10 revoked), all with
+  0 batches, files, transfers, host actions and operations.
+- Subtask 5 gate: `inventory_worktrees.ps1 -CompareWith` against the A′
+  inventory (`D:\game_predictor_backup\repo-20261010-a2\inventory.json`),
+  `.runtime` against the B1 manifest (exclusion list: the seven
+  process-state files in TASK-0956 plus `worker-lanes.json` and
+  `remote-reviewer.json`, logs), and the run of
+  `verify_artifact_references.py --forbid-prefix C:\Users\tuszy\Documents\game_predicotr`
+  after renaming the C checkout. Seven local-only, unmerged C branches
+  (TASK-0954 Outcome) exist on D only as `refs/remotes/c/*` and in
+  `all-refs.bundle`; decide whether to push them or keep them only there.
+
+### Subtask 3 input (test databases, inside the D disk image)
+
+22 databases besides `game_predictor`, `postgres`, `template0/1`, together
+47 664 379 562 bytes (47.7 GB): `mumie_0884_restore_20261006_155101_test`
+46 970 946 063; `game_predictor_v7_pilot` 197 138 111 (separate decision);
+20 test databases 15.6–44.8 MB each (about 0.5 GB), three of them invalid
+(`datconnlimit = -2`: `game_predictor_t5management_af019d99177e_test`,
+`game_predictor_task0760_e7d125df587d_test`,
+`game_predictor_task0760_4fc4ef7df4ad_test`). Dropping them frees space only
+inside the vhdx; the file shrinks only after subtask 4 (compaction).
 
 ## Outcome
 

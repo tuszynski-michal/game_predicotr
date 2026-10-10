@@ -147,6 +147,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Etap C, osobne zgody: podgląd i przepisanie `source_directory` w
   `jobs.input_payload`, usunięcie baz testowych (44 GB + 15 małych),
   kompaktowanie vhdx, usunięcie katalogu i starego vhdx na C.
+- Podgląd 2026-10-10 (tylko odczyt, sekcja „Preview” w tasku): do usunięcia
+  po bramkach stary `docker_data.vhdx` na C 158,4 GB i checkout C 103,1 GB;
+  zostają `wsl\main\ext4.vhdx` (zarejestrowana dystrybucja
+  `docker-desktop`), foldery spoza repozytorium (15,9 GB) i backup na D
+  (228,5 GB). Status `todo`, każda operacja wymaga osobnej zgody.
 - Task: `ai_docs/tasks/0957-disk-d-cleanup-and-job-paths.md`.
 
 ### TASK-0947 — czytelny widok punktu (todo)

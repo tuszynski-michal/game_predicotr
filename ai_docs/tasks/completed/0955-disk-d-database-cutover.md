@@ -408,6 +408,11 @@ run later ("audyt Codex niedostępny (limit), do wykonania później").
   acceptance criteria above and the plan's acceptance section (A′
   baseline).
 
+### Commits
+
+- v1.7.307 `4b96372c938a61f82c97a6398d13e0d63f787fb2` (close the task and
+  resolve the Codex audit).
+
 ### Recommended next task
 
 - TASK-0956

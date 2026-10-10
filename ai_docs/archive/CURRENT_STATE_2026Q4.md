@@ -6,6 +6,12 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0941 — Minimalistyczny panel (done)
+
+- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
+- Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
 ### TASK-0940 — Atomic management edit and explicit scope deletion (done)
 
 - Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.

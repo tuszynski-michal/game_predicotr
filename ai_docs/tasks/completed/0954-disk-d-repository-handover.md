@@ -1,6 +1,6 @@
 ---
 title: TASK-0954 — Zabezpieczenie repozytorium przed porzuceniem C
-status: in_progress
+status: done
 last_updated: 2026-10-10
 ---
 
@@ -8,8 +8,9 @@ last_updated: 2026-10-10
 
 ## Status
 
-`in_progress` (securing done; push, merge and D checkout wait for the
-operator at the B1 boundary)
+`done` (closed 2026-10-10 evening: securing done in stage A/A′; the
+integration branch is on `origin`, the plan branch is merged into it and
+`D:\game_predicotr` follows it)
 
 ## Goal
 
@@ -114,21 +115,22 @@ patche nie weryfikują się na D.
 
 ## Acceptance criteria
 
-- [ ] `INVENTORY.md` obejmuje wszystkie wpisy `git worktree list`, również
+- [x] `INVENTORY.md` obejmuje wszystkie wpisy `git worktree list`, również
       detached i `.claude/worktrees`.
-- [ ] Każdy worktree z niezerowym `status --porcelain` ma patche
+- [x] Każdy worktree z niezerowym `status --porcelain` ma patche
       (`--binary`) lub kopię nieśledzonych; odtworzenie na D (staged z
       `--index`, potem unstaged) daje `status --porcelain` równy
       inwentarzowi.
-- [ ] Każdy katalog ignorowany każdego worktree'a jest w `INVENTORY.md`
+- [x] Każdy katalog ignorowany każdego worktree'a jest w `INVENTORY.md`
       jako odtwarzalny albo zachowywany; zachowywane mają kopię na D z
       równym manifestem SHA-256.
-- [ ] `all-refs.bundle` weryfikuje się na D (`git bundle verify`), zawiera
+- [x] `all-refs.bundle` weryfikuje się na D (`git bundle verify`), zawiera
       wszystkie gałęzie i tagi z C.
-- [ ] Cztery gałęzie: `git rev-list --count origin/<b>..<b>` = 0; na D
+- [x] Cztery gałęzie (zamknięte inaczej: scalone do gałęzi integracyjnej
+      na `origin` i usunięte, patrz `Outcome`): `git rev-list --count origin/<b>..<b>` = 0; na D
       `git branch -r` pokazuje je z tymi samymi hashami.
-- [ ] D na commicie zawierającym plan i skrypty (hash w `Outcome`).
-- [ ] Hash ewentualnego commita zapisów `Outcome` w `Outcome` tego taska i
+- [x] D na commicie zawierającym plan i skrypty (hash w `Outcome`).
+- [x] Hash ewentualnego commita zapisów `Outcome` w `Outcome` tego taska i
       w `CURRENT_STATE.md`.
 
 ## Technical notes
@@ -380,14 +382,53 @@ TASK-0957 gate repeats the inventory with `-CompareWith`.
   created by this task, was removed with `robocopy /MIR` from an empty
   folder; D free space back to 1 720.7 GB).
 
+### Closure (2026-10-10, about 22:30)
+
+Closed by Claude Code (`claude-opus-5-5`) on the lead's instruction. The
+operator decided the pushes and the merge by ordering the plan finished
+("close this topic to the end"); the merge of the plan branch includes the
+push (D-540, plan decision 7).
+
+- Stage A′ refresh before B1 (TASK-0955 Outcome): new inventory, bundle and
+  `-VerifyClone` in `D:\game_predictor_backup\repo-20261010-a2`
+  (`RESULT: OK`, 16 branches of C fetched to D as `refs/remotes/c/*`,
+  0 mismatches).
+- The four branches named in Scope no longer exist on C: they were merged
+  into `v1.1-vision-lab-hybrid-geometry` and deleted today together with
+  their worktrees. Their last commits are ancestors of
+  `origin/v1.1-vision-lab-hybrid-geometry` (checked on D):
+  `feat/grid-engine-v3` `820083ae`, `feat/mumie-super-game-plan`
+  `ba75b02e`, `feat/super-game-series-count` `dda32dd0`, `task-0860`
+  `fbef9096`; the same holds for `feat/geometry-correction-revert`
+  `a7f9fe27` and `feat/reviewer-geometry-gaps` `9e62a36c`.
+- Integration branch: `origin` had `3fb9a0a5` (v1.7.310); the local branch
+  carried one more commit, `f7048452` (v1.7.311, the operator checkout's
+  former uncommitted Outcome hashes, now committed, so the main checkout is
+  clean). Both are pushed with the merge of this plan branch; the merge
+  commit and the push are recorded in TASK-0956 and `CURRENT_STATE.md`.
+- C worktrees now: only the main checkout and `worktrees\disk-migration`
+  (`git worktree list`); every other worktree was removed after its merge.
+- Local-only C branches that are not merged into the integration branch
+  (`claude/kalibracja-etykiet-v7-85fdaa`, `codex/import-report-performance`,
+  `codex/manual-selection-queue`, `codex/symbol-split-pilot`,
+  `feat/symbol-reference-library`, `feat/symbol-review-bulk-stale-targets`;
+  `feat/v7-t0603-v2-calibration` is 15 commits ahead of its `origin`
+  branch) have identical hashes in `D:\game_predicotr` as
+  `refs/remotes/c/<branch>` and are in `all-refs.bundle`. They were not
+  pushed (outward action not requested); TASK-0957 re-checks them with
+  `-CompareWith` before C is removed.
+- D checkout: fast-forwarded to the integration branch after the merge
+  (hash in TASK-0956); it then contains this plan,
+  `scripts/sync_data_directories_to_d.ps1`, `scripts/inventory_worktrees.ps1`
+  and the `data:sync:d` npm entry.
+- Commit of this closure: v1.7.308 (hash recorded in TASK-0956 and
+  `CURRENT_STATE.md`). Codex audit of the closure: audyt Codex niedostępny
+  (limit), do wykonania później.
+
 ### Not completed
 
-- Push of local-only branches and of the integration branch to `origin`,
-  merge of `feat/disk-d-migration-plan` into the integration branch and
-  `git pull` on D: operator decision at the B1 boundary (merge includes
-  push). Until then D has every commit through `refs/remotes/c/*`.
-- Commit of the main checkout's uncommitted changes: they belong to other
-  sessions; secured as patches.
+- None in this task's scope. Removing C branches, worktrees and the C
+  checkout is TASK-0957 (separate consent).
 
 ### Documentation updates
 
@@ -395,6 +436,5 @@ TASK-0957 gate repeats the inventory with `-CompareWith`.
 
 ### Recommended next task
 
-- TASK-0955 after the job queue drains, the two parallel sessions publish
-  their work and the operator decides the pushes; re-run this inventory
-  with `-CompareWith` right before B1.
+- TASK-0956 (done in the same series), then TASK-0957 after at least one
+  working day on D.

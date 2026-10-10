@@ -124,17 +124,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (in_progress)
-
-- Zabezpieczenie gotowe: `scripts/inventory_worktrees.ps1`, kopia 9 worktree'ów
-  C w `D:\game_predictor_backup\repo-20261010` (patche, nieśledzone, dane
-  ignorowane), `all-refs.bundle` (wszystkie 56 referencji C), weryfikacja
-  odtworzenia w klonie D: OK. Klon D ma 22 gałęzie C jako `refs/remotes/c/*`.
-- Czeka na operatora przy B1: push gałęzi (17 lokalnych, integracyjna +3),
-  merge planu do gałęzi integracyjnej i `git pull` na D; tuż przed B1
-  ponowna inwentaryzacja z `-CompareWith`.
-- Task: `ai_docs/tasks/0954-disk-d-repository-handover.md`.
-
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (todo)
 
 - Etap B2: `windows:environment:setup` z D, czyszczenie stanu `.runtime`
@@ -782,6 +771,21 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (done)
+
+- Etap A/A′ (D-540): `scripts/inventory_worktrees.ps1`, kopie worktree'ów,
+  `all-refs.bundle` i `-VerifyClone` w `D:\game_predictor_backup\repo-20261010`
+  i `repo-20261010-a2` (`RESULT: OK`); gałęzie C na D jako
+  `refs/remotes/c/*` (0 rozbieżności).
+- Zamknięty 2026-10-10 wieczorem: operator zlecił dokończenie planu, więc
+  push i merge są rozstrzygnięte. Cztery gałęzie ze Scope scalone do
+  gałęzi integracyjnej i usunięte razem z worktree'ami; na C zostały tylko
+  główny checkout i `worktrees\disk-migration`. Niescalone gałęzie tylko
+  lokalne (7) mają równe hashe na D i w bundle; rozlicza je TASK-0957.
+- Wersja v1.7.308 (hash w kolejnym zapisie). Audyt Codex niedostępny
+  (limit), do wykonania później.
+- Task: `ai_docs/tasks/completed/0954-disk-d-repository-handover.md`.
+
 ### TASK-0955 — przeniesienie obrazu dysku Dockera na D (done)
 
 - B1 wykonany 2026-10-10 16:20–18:15 (D-540). Po etapie A′ (nowy zrzut
@@ -800,6 +804,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   po fakcie (`0146`, 64/48 tabel), `DATABASE_MAINTENANCE.md` (obraz na D,
   kolejność: sam PostgreSQL → porównanie → `db:up`), kryteria według bazy
   A′. Druga runda: audyt Codex niedostępny (limit), do wykonania później.
+- Version v1.7.307; commit 4b96372c938a61f82c97a6398d13e0d63f787fb2.
 - Task: `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`.
 
 ### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
@@ -871,10 +876,4 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
 - Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
-- Final browser10/10 and host production builds PASS; no operator-data/service action.
-
-### TASK-0941 — Minimalistyczny panel (done)
-
-- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
-- Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.

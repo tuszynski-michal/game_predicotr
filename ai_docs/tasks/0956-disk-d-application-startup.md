@@ -56,6 +56,18 @@ manifestów z B1.
 
 ## Scope
 
+0. Aktualizacja 2026-10-10 (sekcja „Aktualizacja 2026-10-10 po etapie A”
+   planu): odtworzenie na D tylko worktree'ów wskazanych przez operatora
+   (`git worktree add` z `refs/remotes/c/<gałąź>`, patch staged z
+   `--index`, patch unstaged, kopia `untracked\` i `ignored\` z backupu,
+   kontrola statusu i skrótu treści jak `-VerifyClone`); odbiór obejmuje
+   każdą komendę dziennej procedury uruchomioną z `D:\game_predicotr`
+   (`db:up`, `db:migrate`, `db:current`, `api:dev`, `admin:dev`,
+   `reviewer:dev` albo `reviewer:build` + `reviewer:start`,
+   `workers:start`/`workers:status`, `worker:poll`, `reviewer:remote:start`,
+   `windows:environment:check`) oraz po restarcie Windows `db:up`,
+   `api:dev`, `workers:start`; operator decyduje o kopii pamięci Claude Code
+   do katalogu projektu D i o katalogach spoza repozytorium.
 1. Z D: `npm run windows:environment:setup`, potem w nowym terminalu
    `npm run windows:environment:check`; zmienne HKCU wskazują
    `D:\game_predicotr\.tooling\…`. Po odbiorze (krok 8) usunąć z `Path`

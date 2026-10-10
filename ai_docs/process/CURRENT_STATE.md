@@ -79,9 +79,12 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Pięć rund przeglądu Codex (gpt-6.1-sol, high, tylko odczyt): rundy 1–4
   REVISE, runda 5 PASS; raporty
   `quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round1–5.md`.
-  Zaakceptowany 2026-10-10 (D-540): etap A w toku; B1 po opróżnieniu
-  kolejki jobów i zakończeniu pracy dwóch równoległych sesji; usługi i
-  Docker Desktop przełącza operator.
+  Zaakceptowany 2026-10-10 (D-540). Etap A wykonany (v1.7.302–304).
+  B1 czeka na sygnał operatora (nowe joby i zmiany równoległych sesji
+  trwają); po sygnale etap A′: nowy zrzut, kopia `Initial`, nowa
+  inwentaryzacja worktree'ów, decyzje o push/merge i wyborze worktree'ów
+  do odtworzenia na D. Kolizja numeracji z `feat/reviewer-geometry-gaps`
+  (v1.7.300–304, D-540) do rozwiązania przy merge.
 
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 

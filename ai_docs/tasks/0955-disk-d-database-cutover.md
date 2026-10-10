@@ -32,6 +32,11 @@ których nie wolno przerywać.
   (sprawdzić `git -C D:\game_predicotr log -1` i obecność skryptu).
 - Fakt do sprawdzenia tuż przed startem: job `d9a49da0` w stanie końcowym
   (`completed`/`waiting_for_review`/`failed`).
+- Aktualizacja 2026-10-10: start wyłącznie po sygnale operatora, że
+  skończyły się wszystkie joby i zmiany równoległych sesji, oraz po etapie
+  A′ planu (nowy zrzut bazy, przyrostowa kopia `Initial`, nowa
+  inwentaryzacja worktree'ów z `-CreateRefs` i bundle, decyzje o push i
+  merge). Sam pusty stan kolejki nie wystarcza.
 - Operator przy komputerze: zatrzymuje usługi w swoich terminalach,
   zamyka Docker Desktop i obsługuje jego ustawienia. Agent nie zatrzymuje
   cudzych procesów ani nie steruje UI Docker Desktop.

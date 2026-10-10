@@ -381,6 +381,127 @@ Desktop pozostają czynnościami operatora. Wykonawca: sesja Claude Code na
 `claude-opus-5-5` (zmiana modelu przez operatora); odstępstwa od tabeli
 modeli odnotowuje `Outcome` każdego taska.
 
+## Aktualizacja 2026-10-10 po etapie A
+
+### Stan
+
+- Etap A wykonany: TASK-0952 `done` (v1.7.302), TASK-0953 `done`
+  (v1.7.303), TASK-0954 `in_progress` (v1.7.304; zabezpieczenie gotowe,
+  push i merge czekają na operatora). Pełny `-VerifyOnly` 102 wpisów
+  (06:12–07:40): SHA-256 C i D równe. Kolejka jobów była pusta od 01:14,
+  ale o ok. 09:00 pojawiły się nowe joby importu (181 jobów z
+  `source_directory`, wcześniej 173), a równoległe sesje nadal wdrażają
+  zmiany.
+- **Decyzja operatora (2026-10-10):** B1 nie startuje, dopóki operator nie
+  da znać, że skończyły się wszystkie joby i zmiany. Po tym sygnale dane
+  na D trzeba najpierw odświeżyć (etap A′ poniżej), dopiero potem B1.
+  Monitoring cyklicznym zadaniem został wyłączony; sygnał daje operator.
+
+### Etap A′ — odświeżenie po sygnale operatora (bez przestoju)
+
+Kolejność, wszystko wznawialne:
+
+1. Kontrola: `public.jobs` bez `created`/`processing`; obie równoległe sesje
+   bezczynne; `git log` gałęzi integracyjnej i `origin`.
+2. Nowy zrzut bazy (powtórzenie TASK-0952 do nowych plików; stare zostają do
+   etapu C): zrzut z etapu A jest nieaktualny po nowych importach.
+3. `sync_data_directories_to_d.ps1 -Mode Initial` (dokopiowanie nowych
+   plików). Inwentarz pokaże nowe wpisy jako `new` do przeglądu.
+4. `inventory_worktrees.ps1 -OutputRoot D:\game_predictor_backup\repo-<data>
+   -CreateRefs`, bundle `--all`, `-VerifyClone D:\game_predicotr`, pobranie
+   `refs/remotes/c/*` na D.
+5. Decyzje operatora (niżej) i ich wykonanie (push, merge, `git pull` na D).
+6. Dopiero teraz B1 (TASK-0955) z kopią `Final`, raportem odniesienia i
+   kopią vhdx.
+
+Nowe wpisy przeglądu z ostatniego przebiegu `Initial` (puste katalogi
+tymczasowe): `.codex-tmp`, `.pytest-task0900`, `.test-artifacts`.
+
+### Worktree'y: tylko wybrane wracają na D
+
+Wszystkie worktree'y są zabezpieczone w `D:\game_predictor_backup\repo-…`
+(patche, pliki nieśledzone, dane ignorowane, bundle), więc na D odtwarza się
+tylko te, które operator wskaże. Pozostałe zostają wyłącznie w kopii (nic
+nie ginie) i są usuwane z C dopiero w etapie C.
+
+| Worktree (ścieżka na C) | Gałąź | Ostatni commit | Zmiany | `origin` | W integracyjnej | Propozycja |
+|---|---|---|---|---|---|---|
+| główny checkout | `v1.1-vision-lab-hybrid-geometry` | 2026-10-09 v1.7.299 | 25 zmienionych (3 tylko EOL), 5 nieśledzonych (`v7-output/`) | +3 commity | tak | staje się `D:\game_predicotr` |
+| `…\scratchpad\wt0858` (katalog tymczasowy sesji) | detached `db99654f` | 2026-10-05 v1.7.198 | 3 nieśledzone | brak | tak | usunąć |
+| `.claude\worktrees\agent-ad9ceefe41647c77c` | `task-0860` | 2026-10-05 v1.7.197 | 10 treściowych + 15 tylko EOL | brak | tak | nie odtwarzać (patch zostaje) |
+| `worktrees\disk-migration` | `feat/disk-d-migration-plan` | 2026-10-10 v1.7.304 | 0 | brak | nie | potrzebny do końca migracji, potem merge i usunięcie |
+| `worktrees\geometry-correction-revert` | `feat/geometry-correction-revert` | 2026-10-09 v1.7.295 | 52 | aktualna | nie | do decyzji operatora |
+| `worktrees\grid-engine-v3` | `feat/grid-engine-v3` | 2026-10-06 v1.7.225 | 36 | brak | tak | nie odtwarzać (patch zostaje) |
+| `worktrees\mumie-super-game` | `feat/mumie-super-game-plan` | 2026-10-09 v1.7.290 | 0 | brak | tak | usunąć |
+| `worktrees\reviewer-geometry-gaps` | `feat/reviewer-geometry-gaps` | 2026-10-10 v1.7.304 | 9 | brak | nie | odtworzyć (aktywna sesja) |
+| `worktrees\super-game-series-count` | `feat/super-game-series-count` | 2026-10-09 v1.7.297 | 0 | brak | nie | gałąź zachować (push), worktree niepotrzebny |
+
+Odtworzenie wybranego worktree'a na D (TASK-0956): `git -C D:\game_predicotr
+worktree add <ścieżka> <gałąź z refs/remotes/c/…>` (gałąź lokalna tworzona z
+`c/<gałąź>`), `git apply --index staged.patch`, `git apply unstaged.patch`,
+kopia `untracked\` i `ignored\` z backupu, `npm install` i `.venv` tylko jeśli
+worktree ich potrzebuje. Zgodność sprawdza ten sam mechanizm co
+`-VerifyClone` (status i skrót treści).
+
+### Uruchamianie aplikacji z D tymi samymi komendami
+
+Ustalone 2026-10-10 (odczyt):
+
+- `.venv` na D ma pakiety w trybie edytowalnym wskazujące D
+  (`D:\game_predicotr\services\api\src\…`, `…\worker\src\…`).
+- `npm run db:up` z D używa tego samego projektu compose (`name:
+  game-predictor`, identyczny hash), więc podłącza się do istniejącego
+  kontenera i wolumenu; po B1 wolumen leży w obrazie dysku na D.
+- Konfiguracja API i workera nie ma pliku `.env` ani zmiennych
+  `GAME_PREDICTOR_*ROOT`; korzenie danych są względne wobec katalogu
+  uruchomienia, więc z D wskazują dane na D.
+- W kodzie nie ma ścieżek do C poza dwoma miejscami, które nie wpływają na
+  uruchamianie: tekst testu `apps/admin/test/v7-selection-form.test.mjs`
+  (przykładowa ścieżka) i domyślny `-LabRoot` w
+  `scripts/vision_lab_assisted_annotation.ps1`
+  (`C:\Users\tuszy\Documents\game_predictor_vision_data`).
+- Wymagania przed pierwszym startem z D (TASK-0956): `npm run
+  windows:environment:setup` (zmienne `.tooling`), wyczyszczenie stanu
+  procesów w `.runtime`, `npm run reviewer:build` (produkcyjny Reviewer).
+
+Odbiór TASK-0956 obejmuje uruchomienie z `D:\game_predicotr` każdej
+komendy z dziennej procedury: `npm run db:up`, `npm run db:migrate` (bez
+zmian, `0153`), `npm run db:current`, `npm run api:dev` (health 200),
+`npm run admin:dev`, `npm run reviewer:dev` lub `reviewer:build` +
+`reviewer:start`, `npm run workers:start` i `npm run workers:status`,
+`npm run worker:poll`, `npm run reviewer:remote:start`,
+`npm run windows:environment:check`, oraz po restarcie Windows ponownie
+`db:up`, `api:dev`, `workers:start`.
+
+### Poza repozytorium (do decyzji operatora)
+
+- Katalogi w `C:\Users\tuszy\Documents` poza repozytorium:
+  `game_predictor_vision_data` (12,4 GB, 22 815 plików; domyślny katalog
+  Vision Lab), `mumie`, `new_traning_set`, `game_predictor_traning_set`.
+  Baza nie odwołuje się do nich (0 jobów). Jeśli mają trafić na D, kopiuje
+  je ten sam skrypt (`-Source <katalog> -Destination D:\<katalog>`), a
+  domyślny `-LabRoot` skryptu Vision Lab wymaga osobnej małej zmiany.
+- Pamięć Claude Code jest przypisana do ścieżki projektu
+  (`~\.claude\projects\C--Users-tuszy-Documents-game-predicotr\`); sesje
+  otwarte w `D:\game_predicotr` zaczną z pustą pamięcią, dopóki operator nie
+  skopiuje jej do katalogu projektu D.
+
+### Kolizje numeracji z równoległą sesją
+
+Gałąź `feat/reviewer-geometry-gaps` używa również v1.7.300–304 oraz
+rezerwuje D-540 (TASK-0961–0965). Przy merge do gałęzi integracyjnej
+gałąź scalana jako druga przenumerowuje swoje wersje i decyzję w commicie
+merge (zasada z poprzednich kolizji).
+
+### Decyzje operatora potrzebne w A′
+
+1. Push na `origin` 17 gałęzi lokalnych i gałęzi integracyjnej (+3) czy
+   pozostanie przy bundle na D.
+2. Merge `feat/disk-d-migration-plan` do gałęzi integracyjnej (merge =
+   push).
+3. Lista worktree'ów do odtworzenia na D (tabela wyżej).
+4. Czy przenosić katalogi spoza repozytorium.
+
 ## Przypisanie modeli do zadań
 
 Dostępność potwierdzona w tym środowisku 2026-10-09: Claude —

@@ -1,17 +1,30 @@
 ---
 title: Cofnięcie ostatniej korekty cięcia siatki, odrzucanie przyciętych plansz i zdjęcie zastępcze (plan wykonawczy)
-status: accepted
-last_updated: 2026-10-09 (zaakceptowany przez operatora)
+status: implemented, awaiting operator migration and acceptance
+last_updated: 2026-10-10 (zaimplementowany; czeka na scalenie, migrację 0154 i odbiór operatora)
 ---
 
 # Cofnięcie ostatniej korekty cięcia siatki
+
+> **Stan 2026-10-10:** zaimplementowany (TASK-0966–TASK-0971, v1.7.291–v1.7.296),
+> decyzje zapisane jako D-542 (cofanie) i D-543 (odrzucanie i zamiennik,
+> zmienia D-238). Przy scaleniu gałęzi integracyjnej (v1.7.306) numeracja
+> została zmieniona z powodu kolizji z innymi torami: TASK-0945–0951 →
+> TASK-0966–0972, D-538/D-539 → D-542/D-543, migracja `0153` →
+> `0154_geometry_correction_revert` (rodzic `0153_merge_compact_super_games`).
+> Czeka na zgodę operatora na scalenie i push, migrację `0154` i odbiór
+> (TASK-0972, `blocked`); instrukcja:
+> [GEOMETRY_CORRECTION_REVERT_OPERATOR.md](../guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
+> Slot 69004 z przykładu poniżej już nie istnieje (zdjęcie usunięte w wymianie
+> 275 zdjęć Mumii 2026-10-09 i zaimportowane ponownie 2026-10-10); odbiór
+> cofnięcia wykonuje się na nowej korekcie.
 
 Plan zaakceptowany przez operatora 2026-10-09 z poleceniem autonomicznej
 realizacji wszystkich etapów (zatrzymanie tylko w sytuacji krytycznej;
 audyt Codex po każdym tasku). Przygotowany 2026-10-09 na prośbę operatora („cofnij ostatnie
 zatwierdzenie z korekty cięcia siatki”). Analiza bez zmian w aplikacji i
 danych. Uzupełniony tego samego dnia o odrzucanie przyciętych plansz i
-zdjęcie zastępcze (W7–W9). Proponowane decyzje: D-542 (cofanie) i D-543
+zdjęcie zastępcze (W7–W9). Decyzje: D-542 (cofanie) i D-543
 (odrzucanie i zamiennik, zmienia D-238), zapisywane w TASK-0972.
 
 ## Wymagania operatora (2026-10-09, rozstrzygnięte)

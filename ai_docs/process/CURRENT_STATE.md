@@ -39,6 +39,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0154_geometry_correction_revert` (strażnik schematu startowego); jego rodzic `0153_merge_compact_super_games` łączy obie gałęzie0152 (serie supergry i kompaktowy panel). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
 - **Gałąź `feat/geometry-correction-revert` wymaga migracji `0154_geometry_correction_revert`** (manifest v7, rodzic `0153_merge_compact_super_games`; od scalenia v1.7.306 numeracja `0154`, dawniej `0153`). Nie scalać do gałęzi integracyjnej przed wykonaniem migracji przez operatora (stop API/worker/Admin/Reviewer → scalenie → `npm install` → `npm run db:migrate` → `npm run reviewer:build` → start); agenci nie migrują bazy operatora. Źródło: sekcja „TASK-0966 — migracja 0154, status `reverted` i cofnięcie korekty slotu odroczonego (done)” w tym pliku; `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
+- **Plan cofania korekt (D-542/D-543): odbiór i dług audytowy.** Slot 69004 z planu nie istnieje (wymiana zdjęć Mumii); odbiór cofnięcia na nowej korekcie. TASK-0971 czeka na ponowny audyt Codex (5 × P2 przyjęte). Źródło: sekcja „TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (blocked)” w tym pliku.
 - **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
 - **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
@@ -80,25 +81,22 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Niezweryfikowany patch formularza odłożono; kod pozostaje na poprawce paddingu0946.
 - Odczyt operatora: API snapshot200, dwa archiwalne punkty, baza0153; zapis według operatora działa. Brak produkcyjnych zmian i lifecycle usług.
 
-### Plan cofania korekty cięcia siatki, odrzucania i zamiennika (accepted, 2026-10-09)
+### Plan cofania korekty cięcia siatki, odrzucania i zamiennika (implemented, awaiting operator migration and acceptance)
 
-- `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` i taski
-  TASK-0966–0972 (`todo`) na gałęzi `feat/geometry-correction-revert`,
-  worktree `worktrees/geometry-correction-revert`. Decyzje operatora
-  W1–W6 z 2026-10-09 wpisane w plan (przywrócenie stanu sprzed korekty,
-  tylko ostatnia korekta, lista „Ostatnie korekty” w Reviewerze, migracja
-  `0154`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem)
-  oraz W7–W9 (odrzucanie przyciętej planszy w Reviewerze, zdjęcie czeka na
-  zamiennik, zamiennik zwykłym importem przejmuje tylko odrzucone/puste
-  sekwencje — zmienia D-238).
-- Etapy: R1 (TASK-0966–0968, backend), R2 (TASK-0969, Reviewer), R3
-  (TASK-0970–0971, odrzucanie i zamiennik), R4 (TASK-0972, D-542/D-543 i
-  odbiór). Operator 2026-10-09 zaakceptował plan i polecił autonomiczną
-  realizację wszystkich etapów (stop tylko w sytuacji krytycznej, audyt Codex
-  po każdym tasku).
-  Kod wymagający `0154` nie trafia do gałęzi integracyjnej przed migracją
-  operatora. Slotu 69004 (gra Mumie) agenci nie cofają; robi to operator w
-  Reviewerze po wdrożeniu.
+- `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, gałąź
+  `feat/geometry-correction-revert`, worktree
+  `worktrees/geometry-correction-revert`; decyzje D-542 (cofanie, zmienia
+  D-462 dla wierszy cofanego zapisu slotu) i D-543 (odrzucanie i zamiennik,
+  zmienia D-238). TASK-0966–0971 ukończone (v1.7.291–v1.7.296), TASK-0972
+  `blocked` (odbiór operatora).
+- Przy scaleniu gałęzi integracyjnej (v1.7.306) przenumerowano kolizje:
+  TASK-0945–0951 → TASK-0966–0972, D-538/D-539 → D-542/D-543, migracja
+  `0153_geometry_correction_revert` → `0154_geometry_correction_revert`
+  (rodzic `0153_merge_compact_super_games`). Historyczne komunikaty commitów
+  v1.7.288–v1.7.296 zachowują stare numery.
+- Kod wymagający `0154` nie trafia do gałęzi integracyjnej przed migracją
+  operatora; instrukcja `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
+  Agenci nie cofają korekt na bazie operatora.
 
 ### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
 
@@ -759,15 +757,21 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (todo)
+### TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (blocked)
 
-- Plik zadania: `ai_docs/tasks/0972-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+- Plik zadania: `ai_docs/tasks/0972-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R4).
+- Status `blocked`: czeka na zgodę operatora na scalenie, migrację 0154 i odbiór 69004.
+- Wykonane: scalenie gałęzi integracyjnej z przenumerowaniem (v1.7.306 / 853052a1e1fcc4024dc468547224058ec7c4132f), wpisy D-542 i D-543, dokumenty, instrukcja operatora (commit dokumentacyjny v1.7.307, hash w `Outcome` po commicie). Lokalny Reviewer w zakresie gry pokazuje „Ostatnie korekty” importu planszy na ekranie (zmiana wymuszona scaleniem z TASK-0962).
+- Pomiar N1 (odczyt, 2026-10-10): import `092ff7a4-…` nie ma już żadnej korekty ani slotu; slot 69004 (`378a273f-…`) zniknął z wymianą 275 zdjęć Mumii (2026-10-09), sekwencje 69004–69012 wróciły w imporcie `344ce332-…` jako 9 plansz `pending`. Cofnięcia 69004 nie da się wykonać; odbiór na nowej korekcie. W całej grze 44 korekty (import `f3ff4258-…`, 2026-10-06), szacunkowo 0 cofalnych (39 `SOURCE_ADVANCED`, 5 `CELLS_CHANGED`).
+- **Dług audytowy:** TASK-0971 (dawny 0950) wymaga ponownego audytu Codex po czwartej rundzie poprawek i audycie zastępczym Claude; 5 przyjętych ryzyk P2 (nieczytelny błąd ponownej akceptacji odrzuconej planszy po przejęciu; `pipeline_store.py:353` bez blokady własności i `_recompute_liveness_changes` blokujące źródło po stanie liczników; możliwe trójstronne zakleszczenie przez inne `FOR UPDATE` wierszy joba; rejestr blokad ignoruje savepointy; skan kandydatów bramki bez indeksu). Dodatkowe rundy bez ponownego audytu: TASK-0966 (runda 2), TASK-0968 (test dopisany przez leada), TASK-0970 (runda 4). Zmiana „Ostatnie korekty” w zakresie gry bez audytu drugiej rodziny.
+- Znane czerwone testy cyklu migracji, identyczne na czubku integracji `9d011460`: `test_postgres_baseline.py::test_upgrade_downgrade_upgrade_cycle_on_postgres` i `test_super_game_series_postgres.py::test_migration_downgrade_refuses_decisions_and_round_trips` (downgrade przez nieodwracalne `0152_management_compact_panel`); do osobnej poprawki toru panelu.
+- Pozostałość do usunięcia przez operatora: baza testowa `game_predictor_task0760_e7d125df587d_test` (DROP audytora przekroczył czas).
 
 ## Ostatnie 10 ukończonych tasków
 
 ### TASK-0971 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
 
-- Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 / 530c1d1728be460b5be72e138ee5dab59cdbba3b.
 - Reguła D-543 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
 - Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
 - Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**

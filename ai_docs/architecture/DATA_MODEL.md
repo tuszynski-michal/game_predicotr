@@ -1263,7 +1263,7 @@ odtworzyć predykcję po retencji ciężkich stage payloadów. Rewizja powstaje
 wyłącznie dla nadal oczekującego review itemu; retry identycznego joba korzysta
 z istniejącej rewizji.
 
-#### Cofnięcie korekty cięcia siatki (TASK-0966, migracja `0154`)
+#### Cofnięcie korekty cięcia siatki (TASK-0966, D-542, D-543, migracja `0154`)
 
 - `image_source_geometry_revisions.status` dopuszcza `reverted`. Rewizja
   cofniętej korekty zostaje (historia, FK zdarzeń), ale nigdy nie jest

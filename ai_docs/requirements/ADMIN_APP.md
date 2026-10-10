@@ -799,7 +799,7 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
-Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0969): lista ostatnich
+Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0969, D-542): lista ostatnich
 zapisów korekty importu (godzina lokalna, sekwencja, pozycja, rodzaj `slot` /
 `plansza`, autor). `Cofnij` jest dostępne tylko dla korekt oznaczonych przez
 API jako `revertable`; pozostałe pokazują komunikat blokady. `Cofnij` otwiera
@@ -807,8 +807,13 @@ potwierdzenie z podglądem skutków, a `Potwierdź cofnięcie` wysyła jedno
 żądanie z nowym kluczem idempotencji i tokenami CAS z podglądu. Po sukcesie
 odświeżają się kolejka i lista; błąd 409 pokazuje komunikat i odświeża listę.
 Lista odświeża się też po każdym zapisie korekty.
+Lista dotyczy jednego importu: w sesji z wybranym importem — tego importu, a
+w lokalnym Reviewerze w zakresie gry (TASK-0962, D-541) — importu planszy
+widocznej w kolejce; po opróżnieniu kolejki zostaje ostatni import, więc
+ostatni zapis nadal można cofnąć. Bez planszy na ekranie i bez wybranego
+importu sekcja się nie pokazuje.
 
-Odrzucanie przyciętych plansz (TASK-0970, W7/W8): w „Korekta cięcia siatki”
+Odrzucanie przyciętych plansz (TASK-0970, D-543, W7/W8): w „Korekta cięcia siatki”
 nad edytorem oraz na ekranie operacyjnym pozycji jest przycisk
 `Odrzuć planszę`. Otwiera okno z wyborem powodu („Plansza przycięta”,
 „Rozmyta”, „Inny” z obowiązkowym opisem), skutkami (zdjęcie zostaje

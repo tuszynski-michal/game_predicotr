@@ -9,12 +9,15 @@ and write under test runs as the application role through RLS.
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 import threading
 import time
 import tracemalloc
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -23,6 +26,10 @@ from _application_role_database import ApplicationRoleDatabase, application_role
 from _virtual_board_fixtures import save_manual_virtual_geometry
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import CleanupService
+from game_predictor_api.application.geometry_correction_reverts import (
+    GeometryCorrectionRevertService,
+    VirtualRestoredRenderVerifier,
+)
 from game_predictor_api.application.super_game_series import (
     DerivationStart,
     PublicationOutcome,
@@ -33,8 +40,10 @@ from game_predictor_api.application.super_game_series import (
     SuperGameSeriesRecord,
     SuperGameSeriesService,
 )
+from game_predictor_api.domain.board_render_manifests import sha256_canonical_json
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.cleanup import BoardSourceCleanupSelection, CleanupCommand
+from game_predictor_api.domain.geometry_correction_reverts import GeometryCorrectionKind
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.super_game_series import (
@@ -54,6 +63,12 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.geometry_correction_revert_repository import (
+    SqlAlchemyGeometryCorrectionRevertRepository,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SqlAlchemyImageGeometryCompletenessStateRepository,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyGridCorrectionSymbolRepository,
     SqlAlchemyImageSymbolReviewRepository,
@@ -652,7 +667,7 @@ def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
                 connection.execute(
                     text("SELECT manifest_version FROM public.game_storage_locations")
                 ).scalar_one()
-                == "game-data-v2-manifest-v6"
+                == "game-data-v2-manifest-v7"
             )
             for table in (
                 "super_game_series",
@@ -751,6 +766,44 @@ class _NoArtifacts:
         return None
 
 
+@dataclass(frozen=True)
+class RevertTarget:
+    """One saved correction the revert operations undo (TASK-0966/0967)."""
+
+    import_job_id: UUID
+    revision_id: UUID
+    kind: GeometryCorrectionKind
+    geometry_revision: int
+    resolution_revision: int
+
+
+@dataclass(frozen=True)
+class RevertWorld:
+    artifact_root: Path
+    slot: RevertTarget
+    board: RevertTarget
+    # Recorded pixels of the imported board's render specs (see below).
+    imported_pixels: dict[str, str]
+
+
+class _RecordedPixels:
+    """Renders of the import fixture by their recorded pixels.
+
+    The worker writer of the gate fixture stores synthetic render specs (no
+    source quad) that no renderer can draw, so the revert of the imported
+    revision gets the pixels recorded in its manifest.
+    """
+
+    def __init__(self, pixels: dict[str, str]) -> None:
+        self._pixels = pixels
+
+    def rendered_pixel_checksums(self, request: Any) -> dict[int, str]:
+        return {
+            index: self._pixels[sha256_canonical_json(dict(spec))]
+            for index, spec in request.render_specs.items()
+        }
+
+
 @dataclass
 class RealBoard:
     database: ApplicationRoleDatabase
@@ -761,6 +814,7 @@ class RealBoard:
     test_symbol: UUID
     other_symbol: UUID
     factory: sessionmaker[Session]
+    revert: RevertWorld | None = None
 
 
 @pytest.fixture(scope="module")
@@ -825,16 +879,161 @@ def real_board() -> Iterable[RealBoard]:
                 pass
             backfill.finalize_backfill(game_id)
             session.commit()
-        yield RealBoard(
-            database=database,
-            game_id=game_id,
-            job_id=job.id,
-            review_item_id=review_item_id,
-            board_id=board_id,
-            test_symbol=symbols["test"],
-            other_symbol=symbols["other"],
-            factory=factory,
+        artifact_root = Path(tempfile.mkdtemp(prefix="super-game-reverts-"))
+        try:
+            yield RealBoard(
+                database=database,
+                game_id=game_id,
+                job_id=job.id,
+                review_item_id=review_item_id,
+                board_id=board_id,
+                test_symbol=symbols["test"],
+                other_symbol=symbols["other"],
+                factory=factory,
+                revert=_seed_revert_world(database, factory, game_id, artifact_root),
+            )
+        finally:
+            shutil.rmtree(artifact_root, ignore_errors=True)
+
+
+def _seed_revert_world(
+    database: ApplicationRoleDatabase,
+    app_factory: sessionmaker[Session],
+    game_id: UUID,
+    artifact_root: Path,
+) -> RevertWorld:
+    """Two saved corrections of the game, through the production save paths.
+
+    A deferred slot of a second image resolved by a manual correction (revert
+    case B) and a board of a third image corrected once (revert case A). Both
+    are set up before the measured operations, so only the revert is counted.
+    """
+
+    from test_geometry_correction_revert_board_postgres import (  # type: ignore[import-not-found]
+        _FIRST_CORNERS,
+        _correct,
+        _item,
+    )
+    from test_image_geometry_completeness_gate import _import  # type: ignore[import-not-found]
+    from test_virtual_deferred_resolution_postgres import (  # type: ignore[import-not-found]
+        _factory,
+        _pending_service,
+        _points,
+        _seed,
+    )
+
+    owner_factory = _factory(database.owner_engine)
+    with game_storage_scope(game_id), app_factory() as session:
+        catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+        for index, code in enumerate(("CYTRYNA", "WISNIA")):
+            catalog.create_symbol(
+                game_id,
+                mobile_code=41 + index,
+                code=code,
+                name=code,
+                image_path=None,
+                is_wildcard=False,
+                display_order=41 + index,
+                status=SymbolStatus.ACTIVE,
+            )
+        session.commit()
+
+    # Case B: slot 1 imported, slot 0 deferred and then resolved by a correction.
+    slot_seed = _seed(
+        owner_factory, game_id, artifact_root, label="sg-slot", slot_count=3, sequence_base=700
+    )
+    _import(owner_factory, slot_seed, "sg-slot", [1])
+    with game_storage_scope(game_id), owner_factory.begin() as session:
+        SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            game_id, slot_seed.source_image_id, reason="super-game-test", actor="super-game-test"
         )
+    with game_storage_scope(game_id), owner_factory.begin() as session:
+        _pending_service(session, artifact_root).resolve_manual(
+            slot_seed.pending_ids[0],
+            game_id=game_id,
+            import_job_id=slot_seed.import_job_id,
+            expected_manifest_checksum_sha256=slot_seed.manifest_checksums[0],
+            idempotency_key=uuid4(),
+            expected_geometry_revision=0,
+            expected_resolution_revision=0,
+            corners=_points(),
+            corrected_by="super-game-test",
+            resolved_at=datetime.now(UTC),
+        )
+
+    # Case A: a fully imported board corrected once.
+    board_seed = _seed(
+        owner_factory, game_id, artifact_root, label="sg-board", slot_count=1, sequence_base=800
+    )
+    _import(owner_factory, board_seed, "sg-board", [0])
+    _correct(
+        owner_factory,
+        artifact_root,
+        board_seed,
+        _item(owner_factory, board_seed, 0),
+        _FIRST_CORNERS,
+        key=uuid4(),
+    )
+
+    def target(job_id: UUID, kind: GeometryCorrectionKind) -> RevertTarget:
+        with game_storage_scope(game_id), owner_factory() as session:
+            entries = GeometryCorrectionRevertService(
+                SqlAlchemyGeometryCorrectionRevertRepository(session)
+            ).list_recent(game_id=game_id, import_job_id=job_id)
+            session.rollback()
+        [entry] = [value for value in entries if value.kind is kind]
+        assert entry.revertable, entry.blocking_reason
+        return RevertTarget(
+            import_job_id=job_id,
+            revision_id=entry.board_geometry_revision_id,
+            kind=kind,
+            geometry_revision=entry.geometry_revision,
+            resolution_revision=entry.resolution_revision,
+        )
+
+    with game_storage_scope(game_id), owner_factory() as session:
+        imported = session.execute(
+            text(
+                "SELECT m.cells FROM board_render_manifests m "
+                "JOIN image_review_items ri ON ri.game_id = m.game_id "
+                "AND ri.recognized_board_id = m.recognized_board_id "
+                "WHERE m.game_id = :g AND ri.id = :i AND m.geometry_revision = 0"
+            ),
+            {"g": game_id, "i": _item(owner_factory, board_seed, 0)},
+        ).scalar_one()
+        session.rollback()
+    return RevertWorld(
+        artifact_root=artifact_root,
+        slot=target(slot_seed.import_job_id, GeometryCorrectionKind.PENDING_SLOT),
+        board=target(board_seed.import_job_id, GeometryCorrectionKind.BOARD_REVISION),
+        imported_pixels={
+            str(entry["renderSpecChecksumSha256"]): str(entry["renderedPixelChecksumSha256"])
+            for entry in imported["cells"]
+        },
+    )
+
+
+def _revert_correction(board: RealBoard, session: Session, target: RevertTarget) -> None:
+    """The production revert of one saved correction (case B or case A)."""
+
+    assert board.revert is not None
+    GeometryCorrectionRevertService(
+        SqlAlchemyGeometryCorrectionRevertRepository(session),
+        render_verifier=(
+            _RecordedPixels(board.revert.imported_pixels)
+            if target.kind is GeometryCorrectionKind.BOARD_REVISION
+            else VirtualRestoredRenderVerifier(board.revert.artifact_root)
+        ),
+    ).revert(
+        game_id=board.game_id,
+        import_job_id=target.import_job_id,
+        board_geometry_revision_id=target.revision_id,
+        idempotency_key=uuid4(),
+        expected_geometry_revision=target.geometry_revision,
+        expected_resolution_revision=target.resolution_revision,
+        actor="super-game-test",
+        reverted_at=datetime.now(UTC),
+    )
 
 
 def _prediction_refresh(board: RealBoard, session: Session, code: str) -> None:
@@ -974,20 +1173,31 @@ def _operation(name: str, board: RealBoard, session: Session, attempt: int) -> N
         rules.save_rules_version(
             replace(draft, status=RulesVersionStatus.PUBLISHED, published_at=datetime.now(UTC))
         )
+    elif name == "geometry_revert_slot":
+        assert board.revert is not None
+        _revert_correction(board, session, board.revert.slot)
+    elif name == "geometry_revert_board":
+        assert board.revert is not None
+        _revert_correction(board, session, board.revert.board)
     elif name == "board_source_cleanup":
         _drain_derive_jobs(board)
         service = _cleanup_service(board, session)
-        # A whole image-source range is removed together (cleanup rule).
-        start, end = session.execute(
+        # Whole image-source ranges are removed together (cleanup rule): every image
+        # of the game (the board under test and the two correction images).
+        ranges = session.execute(
             select(
                 ImageSourceGeometryRevisionModel.sequence_range_start,
                 ImageSourceGeometryRevisionModel.sequence_range_end,
             )
             .where(ImageSourceGeometryRevisionModel.game_id == board.game_id)
-            .limit(1)
-        ).one()
+            .distinct()
+        ).all()
         selection = BoardSourceCleanupSelection(
-            sequence_numbers=tuple(range(int(start), int(end) + 1))
+            sequence_numbers=tuple(
+                sorted(
+                    {number for start, end in ranges for number in range(int(start), int(end) + 1)}
+                )
+            )
         )
         preview = service.preview_board_sources(board.game_id, selection)
         service.delete_board_sources(
@@ -1041,6 +1251,10 @@ REAL_OPERATIONS = (
     ("symbol_role_manual_symbol", "symbol_role"),
     ("expected_layout_count", "expected_layout_count"),
     ("rules_publication", "rules_publication"),
+    # TASK-0966/0967: the revert of a deferred-slot correction (B) and of an
+    # existing board's correction (A) share the ``geometry_correction_revert`` source.
+    ("geometry_revert_slot", "geometry_correction_revert"),
+    ("geometry_revert_board", "geometry_correction_revert"),
     ("board_source_cleanup", "board_source_cleanup"),
     ("game_layout_reset", "game_layout_reset"),
 )

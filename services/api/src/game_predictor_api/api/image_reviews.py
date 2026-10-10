@@ -202,6 +202,19 @@ def create_image_reviews_router(
         ] = None,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 25,
+        gaps_only: Annotated[
+            bool,
+            Query(
+                alias="gapsOnly",
+                description=(
+                    "Only images with a real geometry gap: `incomplete_missing`, "
+                    "`incomplete_partial`, `import_failed`, `no_source_geometry` (no "
+                    "`incomplete_uncertain`, no `superseded`). Cannot be combined with "
+                    "`imageState` or `completenessStatus` (422 "
+                    "`IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`)."
+                ),
+            ),
+        ] = False,
     ) -> IncompleteGeometryImagePageResponse:
         return to_incomplete_geometry_image_page_response(
             service.incomplete_geometry_images(
@@ -213,6 +226,7 @@ def create_image_reviews_router(
                 ),
                 limit=limit,
                 completeness_status=completeness_status,
+                gaps_only=gaps_only,
             )
         )
 

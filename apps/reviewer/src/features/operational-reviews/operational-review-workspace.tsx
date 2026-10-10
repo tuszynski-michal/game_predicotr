@@ -27,6 +27,8 @@ import {
   type LoadOperationalReviewPageOptions,
   type OperationalReviewsClient,
 } from '@/features/operational-reviews/operational-review-actions';
+import { rejectReviewItem } from '@/features/operational-reviews/board-rejection-actions';
+import { RejectBoardControl } from '@/features/operational-reviews/reject-board-control';
 import { OperationalReviewGeometryEditor } from '@/features/operational-reviews/operational-review-geometry-editor';
 import {
   buildOperationalReviewResolutionCommand,
@@ -1078,8 +1080,10 @@ function OperationalReviewBoard({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      const openDialog =
-        document.querySelector<HTMLDialogElement>('dialog[open]');
+      // Native dialogs and the modal `div`s of the rejection and revert flows.
+      const openDialog = document.querySelector<HTMLElement>(
+        'dialog[open], [aria-modal="true"]',
+      );
       const action = operationalReviewKeyboardAction({
         hasPrevious,
         key: event.key,
@@ -1147,6 +1151,42 @@ function OperationalReviewBoard({
               item={item}
               onSaved={onGeometrySaved}
             />
+            {item.status === 'rejected' ||
+            item.status === 'superseded' ? null : (
+              <RejectBoardControl<OperationalImageReviewResolutionResponse>
+                consequences={[
+                  'Plansza wypadnie z weryfikacji symboli i z wyszukiwarki; weryfikacje już zapisane na niej zostają w historii.',
+                  'Zdjęcie zostaje niekompletne i czeka na zdjęcie zastępcze albo wyjątek operatora; pozostałe plansze tego zdjęcia nie są cięte na symbole.',
+                  'Kanonicznego właściciela sekwencji nie można odrzucić.',
+                  'Odrzucenie można cofnąć w „Korekta cięcia siatki” → „Ostatnie korekty”, dopóki sekwencji nie przejmie inna plansza.',
+                ]}
+                disabled={isSaving}
+                key={`${item.id}:${item.resolutionRevision}`}
+                onDone={onResolved}
+                onRefused={(message, code) => {
+                  setSaveError(message);
+                  if (
+                    code === 'IMAGE_REVIEW_REVISION_CONFLICT' ||
+                    code === 'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT'
+                  ) {
+                    onReload();
+                  }
+                }}
+                subject={`układ ${displaySequence === null ? 'bez numeru' : `#${displaySequence}`}`}
+                submit={(request) =>
+                  rejectReviewItem(
+                    api,
+                    { gameId: item.gameId, importJobId },
+                    {
+                      geometryRevision: item.geometryRevision,
+                      resolutionRevision: item.resolutionRevision,
+                      reviewItemId: item.id,
+                    },
+                    request,
+                  )
+                }
+              />
+            )}
             <button
               aria-label="Poprzednia plansza"
               className="operationalReviewArrow"

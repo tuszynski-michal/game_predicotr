@@ -99,6 +99,11 @@ domyślnym kontekstem implementacyjnym.
 - [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
   — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
 
+- [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
+  — implemented, awaiting operator migration and acceptance; etapy R1–R4,
+  TASK-0966–0972 (dawniej TASK-0945–0951), D-542/D-543, migracja `0154`;
+  [instrukcja operatora](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
+
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
 - [Milestone 01 execution plan](delivery/MILESTONE_01_EXECUTION_PLAN.md)
@@ -187,6 +192,9 @@ domyślnym kontekstem implementacyjnym.
 - [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
   zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
   kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.
+- [Cofanie korekt cięcia siatki i zdjęcie zastępcze](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md)
+  — stop usług, scalenie, migracja `0154`, cofnięcie i odrzucenie w Reviewerze,
+  import zastępczy i zapytania odbioru (D-542, D-543).
 - [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
   — preflight, odrębne approval, apply i postflight migracji `0125`.
 - [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —

@@ -898,6 +898,12 @@
             "title": "Pending",
             "type": "integer"
           },
+          "rejected": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rejected",
+            "type": "integer"
+          },
           "resolved": {
             "minimum": 0.0,
             "title": "Resolved",
@@ -1325,6 +1331,50 @@
             ],
             "title": "Recognizedboardid"
           },
+          "rejectedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectedat"
+          },
+          "rejectedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectedby"
+          },
+          "rejectionNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionnote"
+          },
+          "rejectionReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardRejectionReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "resolvedAt": {
             "anyOf": [
               {
@@ -1431,10 +1481,77 @@
         "enum": [
           "pending",
           "resolved",
-          "superseded"
+          "superseded",
+          "rejected"
         ],
         "title": "BoardCellGeometryPendingStatus",
         "type": "string"
+      },
+      "BoardCellGeometryRejectionCommand": {
+        "additionalProperties": false,
+        "description": "Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``.",
+        "properties": {
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/BoardRejectionReason"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "reason",
+          "expectedGeometryRevision"
+        ],
+        "title": "BoardCellGeometryRejectionCommand",
+        "type": "object"
+      },
+      "BoardCellGeometryRejectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/BoardCellGeometryJobCountsResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/BoardCellGeometryPendingResponse"
+          },
+          "rejectionId": {
+            "format": "uuid",
+            "title": "Rejectionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "counts",
+          "created",
+          "rejectionId"
+        ],
+        "title": "BoardCellGeometryRejectionResponse",
+        "type": "object"
       },
       "BoardCellProcessingJobSnapshotPayload": {
         "additionalProperties": false,
@@ -1948,6 +2065,16 @@
           "added"
         ],
         "title": "BoardImportCoverageView",
+        "type": "string"
+      },
+      "BoardRejectionReason": {
+        "description": "Why an operator rejects a cropped board or a deferred slot (W7).",
+        "enum": [
+          "cropped",
+          "blurred",
+          "other"
+        ],
+        "title": "BoardRejectionReason",
         "type": "string"
       },
       "BoardSearchAssetMode": {
@@ -7601,6 +7728,12 @@
       "GeometryCompletenessPositionResponse": {
         "additionalProperties": false,
         "properties": {
+          "humanApproved": {
+            "default": false,
+            "description": "True when a human approved the current geometry of the board at this position (approvedGeometryRevision == geometryRevision); false without a board.",
+            "title": "Humanapproved",
+            "type": "boolean"
+          },
           "positionIndex": {
             "maximum": 8.0,
             "minimum": 0.0,
@@ -7688,6 +7821,469 @@
           "count"
         ],
         "title": "GeometryCompletenessSourceStatusCountResponse",
+        "type": "object"
+      },
+      "GeometryCorrectionKind": {
+        "enum": [
+          "pending_slot",
+          "board_revision",
+          "rejection"
+        ],
+        "title": "GeometryCorrectionKind",
+        "type": "string"
+      },
+      "GeometryCorrectionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryCorrectionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GeometryCorrectionListResponse",
+        "type": "object"
+      },
+      "GeometryCorrectionResponse": {
+        "additionalProperties": false,
+        "description": "One manual geometry save of an import with its revert eligibility.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "blockingReasonCode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevertBlockingReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blockingReasonMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blockingreasonmessage"
+          },
+          "boardGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Boardgeometryrevisionid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GeometryCorrectionKind"
+          },
+          "pendingGeometryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendinggeometryid"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "recognizedBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
+          },
+          "rejectionNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionnote"
+          },
+          "rejectionReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionreason"
+          },
+          "rejectionTarget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RejectionTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolutionRevision": {
+            "minimum": 0.0,
+            "title": "Resolutionrevision",
+            "type": "integer"
+          },
+          "revertable": {
+            "title": "Revertable",
+            "type": "boolean"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "boardGeometryRevisionId",
+          "kind",
+          "recognizedBoardId",
+          "reviewItemId",
+          "pendingGeometryId",
+          "sourceImageId",
+          "sequenceNumber",
+          "positionIndex",
+          "createdAt",
+          "actor",
+          "geometryRevision",
+          "resolutionRevision",
+          "revertable",
+          "blockingReasonCode",
+          "blockingReasonMessage"
+        ],
+        "title": "GeometryCorrectionResponse",
+        "type": "object"
+      },
+      "GeometryCorrectionRevertCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedGeometryRevision",
+          "expectedResolutionRevision"
+        ],
+        "title": "GeometryCorrectionRevertCommand",
+        "type": "object"
+      },
+      "GeometryCorrectionRevertPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "correction": {
+            "$ref": "#/components/schemas/GeometryCorrectionResponse"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "removedCellCount": {
+            "minimum": 0.0,
+            "title": "Removedcellcount",
+            "type": "integer"
+          },
+          "removesBoard": {
+            "title": "Removesboard",
+            "type": "boolean"
+          },
+          "repointedBoardCount": {
+            "minimum": 0.0,
+            "title": "Repointedboardcount",
+            "type": "integer"
+          },
+          "restoredCellDecisionCount": {
+            "minimum": 0.0,
+            "title": "Restoredcelldecisioncount",
+            "type": "integer"
+          },
+          "restoredSourceEngineKind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredsourceenginekind"
+          },
+          "restoredSourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredsourcegeometryrevisionid"
+          },
+          "restoredSourceStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredsourcestatus"
+          },
+          "revertedSourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revertedsourcegeometryrevisionid"
+          }
+        },
+        "required": [
+          "correction",
+          "removesBoard",
+          "removedCellCount",
+          "repointedBoardCount",
+          "restoredCellDecisionCount",
+          "revertedSourceGeometryRevisionId",
+          "restoredSourceGeometryRevisionId",
+          "restoredSourceEngineKind",
+          "restoredSourceStatus",
+          "expectedGeometryRevision",
+          "expectedResolutionRevision"
+        ],
+        "title": "GeometryCorrectionRevertPreviewResponse",
+        "type": "object"
+      },
+      "GeometryCorrectionRevertResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Boardgeometryrevisionid",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GeometryCorrectionKind"
+          },
+          "pendingGeometryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendinggeometryid"
+          },
+          "recognizedBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
+          },
+          "removedCellCount": {
+            "minimum": 0.0,
+            "title": "Removedcellcount",
+            "type": "integer"
+          },
+          "repointedBoardIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Repointedboardids",
+            "type": "array"
+          },
+          "restoredCellDecisionCount": {
+            "minimum": 0.0,
+            "title": "Restoredcelldecisioncount",
+            "type": "integer"
+          },
+          "restoredGeometryRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredgeometryrevision"
+          },
+          "restoredSourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredsourcegeometryrevisionid"
+          },
+          "revertId": {
+            "format": "uuid",
+            "title": "Revertid",
+            "type": "string"
+          },
+          "revertedSourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revertedsourcegeometryrevisionid"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "snapshotChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshotchecksumsha256",
+            "type": "string"
+          },
+          "sourceImageGeometryStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceImageGeometryStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "revertId",
+          "created",
+          "kind",
+          "boardGeometryRevisionId",
+          "pendingGeometryId",
+          "recognizedBoardId",
+          "reviewItemId",
+          "revertedSourceGeometryRevisionId",
+          "restoredSourceGeometryRevisionId",
+          "repointedBoardIds",
+          "removedCellCount",
+          "sourceImageGeometryStatus",
+          "snapshotChecksumSha256",
+          "createdAt",
+          "restoredCellDecisionCount"
+        ],
+        "title": "GeometryCorrectionRevertResponse",
         "type": "object"
       },
       "GeometryEngineVariant": {
@@ -10082,6 +10678,16 @@
             "title": "Positions",
             "type": "array"
           },
+          "sequenceOwnership": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportSequenceOwnershipResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceStatuses": {
             "items": {
               "$ref": "#/components/schemas/GeometryCompletenessSourceStatusCountResponse"
@@ -11580,8 +12186,18 @@
         "title": "ImageGeometrySystemicGuardPolicyJobPayload",
         "type": "object"
       },
+      "ImageGridReviewCountsMode": {
+        "description": "Which counters a grid review page computes (TASK-0961).\n\n``ALL`` keeps the full set (seven aggregate queries over every current\nboard of the game). ``CORRECTION`` computes only ``correction`` — the\nreported boards plus the deferred slots of the D-462 R4 queue — and\nreports every other counter as ``0``; the Reviewer polls the correction\nqueue after every board and must not pay for the full set each time.",
+        "enum": [
+          "all",
+          "correction"
+        ],
+        "title": "ImageGridReviewCountsMode",
+        "type": "string"
+      },
       "ImageGridReviewCountsResponse": {
         "additionalProperties": false,
+        "description": "Counters of the page.\n\nWith `counts=correction` only `correction` is computed; every other\ncounter is 0 and must not be read as an empty queue (TASK-0961).",
         "properties": {
           "approved": {
             "minimum": 0.0,
@@ -15196,6 +15812,46 @@
         "title": "ImportLabSymbolCandidateCommand",
         "type": "object"
       },
+      "ImportSequenceOwnershipResponse": {
+        "additionalProperties": false,
+        "description": "Sequence ownership outcome of one import (D-543, TASK-0971).\n\n``replaced``: sequences this import took over from a rejected board of\nanother image. ``skipped``: sequences another photo owns (a live pending\nboard is kept, or a canonical owner wins), so this import's source is only\nan alternative. Counts are exact; the number lists are sorted and capped.",
+        "properties": {
+          "replacedCount": {
+            "minimum": 0.0,
+            "title": "Replacedcount",
+            "type": "integer"
+          },
+          "replacedSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "title": "Replacedsequencenumbers",
+            "type": "array"
+          },
+          "skippedCount": {
+            "minimum": 0.0,
+            "title": "Skippedcount",
+            "type": "integer"
+          },
+          "skippedSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "title": "Skippedsequencenumbers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "replacedCount",
+          "replacedSequenceNumbers",
+          "skippedCount",
+          "skippedSequenceNumbers"
+        ],
+        "title": "ImportSequenceOwnershipResponse",
+        "type": "object"
+      },
       "IncompleteGeometryImagePageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -15213,6 +15869,11 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "gapsOnly": {
+            "default": false,
+            "title": "Gapsonly",
+            "type": "boolean"
           },
           "imageState": {
             "anyOf": [
@@ -21942,6 +22603,15 @@
         "title": "PinnedManagedImageReprocessJobPayload",
         "type": "object"
       },
+      "RejectionTarget": {
+        "description": "What a ``rejection`` entry rejected.",
+        "enum": [
+          "pending_slot",
+          "review_item"
+        ],
+        "title": "RejectionTarget",
+        "type": "string"
+      },
       "RemoteManualSelectionBaseCapabilityResponse": {
         "additionalProperties": false,
         "properties": {
@@ -23911,6 +24581,26 @@
         ],
         "title": "ResolvedBrowserImageImportJobPayload",
         "type": "object"
+      },
+      "RevertBlockingReason": {
+        "description": "Why a correction cannot be reverted; the first failing rule wins.",
+        "enum": [
+          "GEOMETRY_REVERT_NOT_LATEST",
+          "GEOMETRY_REVERT_STALE",
+          "GEOMETRY_REVERT_SOURCE_ADVANCED",
+          "GEOMETRY_REVERT_SHARED_SOURCE_REVISION",
+          "GEOMETRY_REVERT_CELLS_CHANGED",
+          "GEOMETRY_REVERT_RESOLVED",
+          "GEOMETRY_REVERT_SEQUENCE_OWNERSHIP",
+          "GEOMETRY_REVERT_IMAGE_ADMITTED",
+          "GEOMETRY_REVERT_PINNED",
+          "GEOMETRY_REVERT_REOPENED_RESOLUTION",
+          "GEOMETRY_REVERT_HISTORY_INCOMPLETE",
+          "GEOMETRY_REVERT_NOT_SUPPORTED",
+          "GEOMETRY_REVERT_REPLACED"
+        ],
+        "title": "RevertBlockingReason",
+        "type": "string"
       },
       "ReviewAlternative": {
         "additionalProperties": false,
@@ -37037,6 +37727,17 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.",
+            "in": "query",
+            "name": "counts",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImageGridReviewCountsMode",
+              "default": "all",
+              "description": "Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0."
+            }
           }
         ],
         "responses": {
@@ -38381,6 +39082,114 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/rejection": {
+      "post": {
+        "operationId": "rejectPendingBoardCellGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pending_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pending Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardCellGeometryRejectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardCellGeometryRejectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry item not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reject a deferred board slot (cropped, blurred or other)",
+        "tags": [
+          "board-cell-geometry"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source": {
       "get": {
         "operationId": "getPendingBoardCellGeometrySource",
@@ -38459,6 +39268,292 @@
         "summary": "Read checksum-bound source for manual correction",
         "tags": [
           "board-cell-geometry"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections": {
+      "get": {
+        "operationId": "listGeometryCorrections",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryCorrectionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Geometry correction not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revert blocked or state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "List the latest manual geometry corrections of an import",
+        "tags": [
+          "geometry-corrections"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert": {
+      "post": {
+        "operationId": "revertGeometryCorrection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "board_geometry_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Board Geometry Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeometryCorrectionRevertCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryCorrectionRevertResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Geometry correction not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revert blocked or state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Revert one manual geometry correction atomically",
+        "tags": [
+          "geometry-corrections"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert-preview": {
+      "get": {
+        "operationId": "previewGeometryCorrectionRevert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "board_geometry_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Board Geometry Revision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryCorrectionRevertPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Geometry correction not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revert blocked or state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "Preview the effects of reverting one geometry correction without writing",
+        "tags": [
+          "geometry-corrections"
         ]
       }
     },
@@ -47610,6 +48705,18 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).",
+            "in": "query",
+            "name": "gapsOnly",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).",
+              "title": "Gapsonly",
+              "type": "boolean"
             }
           }
         ],

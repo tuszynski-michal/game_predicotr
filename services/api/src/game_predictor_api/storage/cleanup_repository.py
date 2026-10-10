@@ -891,10 +891,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         self._delete(
             "DELETE FROM source_images WHERE id IN :source_ids", source_ids=scope.source_ids
         )
-        self._delete(
-            "DELETE FROM image_review_queue_states WHERE import_job_id IN :import_job_ids",
-            import_job_ids=scope.import_job_ids,
-        )
+        # The review-item delete trigger maintains each import's queue counts
+        # and removes the state only after its last item. A partial source
+        # cleanup must keep the state for the next batch and surviving items.
         self._delete(
             "DELETE FROM image_symbol_review_states WHERE game_id = :game_id",
             game_id=scope.game_id,

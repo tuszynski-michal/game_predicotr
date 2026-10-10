@@ -3741,6 +3741,37 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
   });
 });
 
+test('the import geometry report returns the sequence ownership outcome (D-543)', async () => {
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const importJobId = '44444444-4444-4444-8444-444444444444';
+  const sequenceOwnership = {
+    replacedCount: 1,
+    replacedSequenceNumbers: [100],
+    skippedCount: 2,
+    skippedSequenceNumbers: [101, 102],
+  };
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ gameId, importJobId, sequenceOwnership });
+    },
+  });
+
+  const result = await client.getImageGeometryCompleteness({
+    gameId,
+    importJobId,
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('importJobId'),
+    importJobId,
+  );
+  assert.deepEqual(result.data?.sequenceOwnership, sequenceOwnership);
+});
+
 test('geometry completeness wrappers pass gameId as path and filters as query params (D-484)', async () => {
   const requests = [];
   const gameId = '33333333-3333-4333-8333-333333333333';
@@ -3768,6 +3799,11 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     gameId,
     imageState: 'superseded',
   });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    gapsOnly: true,
+    limit: 25,
+  });
   await client.getImageGeometryLowQualityBoards({ gameId });
   await client.getImageGeometryLowQualityBoards({
     gameId,
@@ -3777,10 +3813,18 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     limit: 20,
   });
 
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 8);
   const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
-  const [report, reportImport, list, listFull, listSuperseded, low, lowFull] =
-    requests.map((request) => new URL(request.url));
+  const [
+    report,
+    reportImport,
+    list,
+    listFull,
+    listSuperseded,
+    listGaps,
+    low,
+    lowFull,
+  ] = requests.map((request) => new URL(request.url));
   assert.equal(report.pathname, base);
   assert.equal(report.search, '');
   assert.equal(reportImport.pathname, base);
@@ -3797,6 +3841,12 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
   });
   assert.deepEqual(Object.fromEntries(listSuperseded.searchParams.entries()), {
     imageState: 'superseded',
+  });
+  // TASK-0961: the real-gap queue in one request, without `imageState`.
+  assert.equal(listGaps.pathname, `${base}/incomplete-images`);
+  assert.deepEqual(Object.fromEntries(listGaps.searchParams.entries()), {
+    gapsOnly: 'true',
+    limit: '25',
   });
   assert.equal(low.pathname, `${base}/low-quality-boards`);
   assert.equal(low.search, '');
@@ -4004,12 +4054,28 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
     limit: 1,
     view: 'correction',
   });
+  await client.listImageGridReviews({
+    gameId,
+    limit: 1,
+    view: 'correction',
+    counts: 'correction',
+  });
 
   const url = new URL(requests[0].url);
   assert.equal(url.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
   assert.equal(url.searchParams.get('view'), 'correction');
   assert.equal(url.searchParams.get('importJobId'), importJobId);
   assert.equal(url.searchParams.get('limit'), '1');
+  // The default request never sends `counts` (server default `all`).
+  assert.equal(url.searchParams.has('counts'), false);
+  // TASK-0961: the cheap counters mode in the game-wide scope.
+  const cheap = new URL(requests[1].url);
+  assert.equal(cheap.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
+  assert.deepEqual(Object.fromEntries(cheap.searchParams.entries()), {
+    view: 'correction',
+    limit: '1',
+    counts: 'correction',
+  });
 });
 
 test('grid-audit proposal wrappers read the queue and one proposal (TASK-0840)', async () => {
@@ -4337,4 +4403,96 @@ test('board search and approximate win return the super game markers and state u
   assert.deepEqual(search.data.superGameState, superGameState);
   assert.deepEqual(range.data.rows[0].superGame, marker);
   assert.deepEqual(range.data.superGameState, superGameState);
+});
+
+test('generated client lists, previews and reverts geometry corrections', async () => {
+  const requests = [];
+  const revisionId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] });
+    },
+  });
+
+  await client.listGeometryCorrections(context);
+  await client.listGeometryCorrections({ ...context, limit: 5 });
+  await client.previewGeometryCorrectionRevert(revisionId, context);
+  const command = {
+    expectedGeometryRevision: 2,
+    expectedResolutionRevision: 4,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  };
+  await client.revertGeometryCorrection(revisionId, context, command);
+
+  const base = `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/geometry-corrections`;
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', base],
+      ['GET', base],
+      ['GET', `${base}/${revisionId}/revert-preview`],
+      ['POST', `${base}/${revisionId}/revert`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.has('limit'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '5');
+  assert.deepEqual(await requests[3].clone().json(), command);
+});
+
+test('generated client rejects a deferred slot and a board with their reasons', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const itemId = '55555555-5555-4555-8555-555555555555';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  const slotCommand = {
+    expectedGeometryRevision: 0,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    note: 'Ucięty górny rząd',
+    reason: 'other',
+  };
+  await client.rejectPendingBoardCellGeometry(pendingId, context, slotCommand);
+  // The board is rejected through the existing resolution route (D-543).
+  const boardCommand = {
+    action: 'rejected',
+    cells: [],
+    expectedRevision: 3,
+    geometryRevision: 1,
+    idempotencyKey: '66666666-6666-4666-8666-666666666666',
+    rejectionReason: 'cropped',
+    resolvedBy: 'reviewer',
+    sequenceNumber: null,
+  };
+  await client.resolveOperationalImageReviewItem(itemId, context, boardCommand);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/board-cell-geometry-pending/${pendingId}/rejection`,
+      ],
+      ['POST', `/api/v1/admin/image-review-items/${itemId}/resolution`],
+    ],
+  );
+  assert.deepEqual(await requests[0].clone().json(), slotCommand);
+  const resolutionBody = await requests[1].clone().json();
+  assert.equal(resolutionBody.action, 'rejected');
+  assert.equal(resolutionBody.rejectionReason, 'cropped');
 });

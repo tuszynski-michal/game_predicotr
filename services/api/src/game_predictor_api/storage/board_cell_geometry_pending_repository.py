@@ -8,12 +8,13 @@ defers, lists, resolves automatically and reads the correction context
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.board_cell_geometry_pending import (
@@ -25,12 +26,22 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
     BoardCellProcessingManifestV1,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
+    rejection_command_sha256,
 )
-from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.domain.jobs import JobConflictError, JobNotFoundError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.geometry_correction_revert_models import (
+    ImageBoardGeometryPendingEventModel,
+)
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     recompute_source_image_geometry_completeness,
+)
+from game_predictor_api.storage.image_review_repository import (
+    acquire_image_sequence_locks,
+    acquire_sequence_ownership_lock,
 )
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
@@ -42,6 +53,15 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+
+
+def _rejection_lock_key(game_id: UUID, idempotency_key: UUID) -> int:
+    """Transaction advisory lock key of one slot-rejection request (signed 64-bit)."""
+
+    digest = hashlib.sha256(
+        f"pending-slot-rejection:{game_id}:{idempotency_key}".encode("ascii")
+    ).digest()
+    return int.from_bytes(digest[:8], "big", signed=True)
 
 
 class SqlAlchemyBoardCellGeometryPendingRepository:
@@ -227,6 +247,12 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                         else_=0,
                     )
                 ),
+                func.sum(
+                    case(
+                        (ImageBoardGeometryPendingModel.status == "rejected", 1),
+                        else_=0,
+                    )
+                ),
             ).where(
                 ImageBoardGeometryPendingModel.game_id == game_id,
                 ImageBoardGeometryPendingModel.import_job_id == import_job_id,
@@ -308,6 +334,157 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             self._session, row.game_id, row.source_image_id
         )
         return _to_domain(row)
+
+    def reject(
+        self,
+        *,
+        pending_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        reason: BoardRejectionReason,
+        note: str | None,
+        rejected_by: str,
+        rejected_at: datetime,
+    ) -> tuple[ImageBoardGeometryPending, UUID, bool]:
+        """Reject an open deferred slot (TASK-0970, W7/W8); returns ``(slot, event id, created)``.
+
+        Locks in the order of the manual resolution (sequence -> source ->
+        slot). The position stays a gap for the gate (D-484): the image is
+        recomputed in this transaction and remains incomplete, so no other
+        board of it gets cells. The command is identified durably by its
+        idempotency key (``image_board_geometry_pending_events``): the same key
+        with the same command replays the stored rejection without touching
+        the slot, even after the rejection was reverted; the same key with
+        another command conflicts; a rejected slot refuses any other key.
+        """
+
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.WRITE)
+        command_sha256 = rejection_command_sha256(
+            pending_id=pending_id,
+            reason=reason,
+            note=note,
+            expected_geometry_revision=expected_geometry_revision,
+        )
+        # Requests with one key run one after another: a retry that arrives
+        # while the first one commits waits and then reads the stored result.
+        self._session.execute(
+            select(func.pg_advisory_xact_lock(_rejection_lock_key(game_id, idempotency_key)))
+        )
+        known = self._session.scalar(
+            select(ImageBoardGeometryPendingModel).where(
+                ImageBoardGeometryPendingModel.id == pending_id,
+                ImageBoardGeometryPendingModel.game_id == game_id,
+                ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+            )
+        )
+        if known is None:
+            raise JobNotFoundError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_FOUND",
+                "The deferred board-cell geometry item does not exist in this import.",
+            )
+        prior = self._session.scalar(
+            select(ImageBoardGeometryPendingEventModel).where(
+                ImageBoardGeometryPendingEventModel.game_id == game_id,
+                ImageBoardGeometryPendingEventModel.idempotency_key == idempotency_key,
+            )
+        )
+        if prior is not None:
+            if (
+                prior.action != "rejected"
+                or prior.pending_geometry_id != pending_id
+                or prior.command_sha256 != command_sha256
+            ):
+                raise JobConflictError(
+                    "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key already represents another command.",
+                )
+            return _to_domain(known), prior.id, False
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
+        acquire_image_sequence_locks(
+            self._session, game_id=game_id, sequence_numbers={known.sequence_number}
+        )
+        self._session.execute(
+            select(SourceImageModel.id)
+            .where(SourceImageModel.id == known.source_image_id)
+            .with_for_update()
+        )
+        row = self._session.scalar(
+            select(ImageBoardGeometryPendingModel)
+            .where(ImageBoardGeometryPendingModel.id == pending_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        assert row is not None
+        if row.status == BoardCellGeometryPendingStatus.REJECTED.value:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED",
+                "The deferred geometry item is already rejected.",
+            )
+        if row.status != BoardCellGeometryPendingStatus.PENDING.value:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE",
+                "Only an open deferred slot can be rejected; revert its correction first.",
+            )
+        if row.expected_geometry_revision != expected_geometry_revision:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT",
+                "The deferred geometry item changed after it was loaded.",
+            )
+        occupied = self._session.scalar(
+            select(RecognizedBoardModel.id)
+            .where(
+                RecognizedBoardModel.source_image_id == row.source_image_id,
+                RecognizedBoardModel.position_index == row.position_index,
+            )
+            .with_for_update()
+        )
+        if occupied is not None:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE",
+                "A board already exists at this position; reject that board instead.",
+            )
+        revision = (
+            self._session.scalar(
+                select(func.max(ImageBoardGeometryPendingEventModel.rejection_revision)).where(
+                    ImageBoardGeometryPendingEventModel.game_id == game_id,
+                    ImageBoardGeometryPendingEventModel.pending_geometry_id == pending_id,
+                )
+            )
+            or 0
+        ) + 1
+        event = ImageBoardGeometryPendingEventModel(
+            id=uuid4(),
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_id,
+            rejection_revision=revision,
+            action="rejected",
+            idempotency_key=idempotency_key,
+            command_sha256=command_sha256,
+            reason=reason.value,
+            note=note,
+            actor=rejected_by,
+            created_at=rejected_at,
+        )
+        self._session.add(event)
+        row.status = BoardCellGeometryPendingStatus.REJECTED.value
+        row.rejection_reason = reason.value
+        row.rejection_note = note
+        row.rejected_at = rejected_at
+        row.rejected_by = rejected_by
+        row.updated_at = rejected_at
+        self._session.flush()
+        recompute_source_image_geometry_completeness(
+            self._session,
+            game_id,
+            row.source_image_id,
+            actor=rejected_by,
+            now=rejected_at,
+        )
+        settle_source_status_after_slot_rejection(self._session, game_id, row.source_image_id)
+        return _to_domain(row), event.id, True
 
     def correction_context(
         self,
@@ -428,6 +605,12 @@ def _to_domain(row: ImageBoardGeometryPendingModel) -> ImageBoardGeometryPending
         updated_at=row.updated_at,
         resolved_at=row.resolved_at,
         superseded_at=row.superseded_at,
+        rejection_reason=(
+            None if row.rejection_reason is None else BoardRejectionReason(row.rejection_reason)
+        ),
+        rejection_note=row.rejection_note,
+        rejected_at=row.rejected_at,
+        rejected_by=row.rejected_by,
     )
 
 
@@ -537,4 +720,53 @@ def _validated_detected_board_geometry(
     return dict(value)
 
 
-__all__ = ["SqlAlchemyBoardCellGeometryPendingRepository"]
+_OPEN_WORK_SQL = text(
+    """
+SELECT EXISTS (
+  SELECT 1 FROM image_board_geometry_pending p
+  WHERE p.game_id = :game_id AND p.source_image_id = :source_image_id AND p.status = 'pending'
+) OR EXISTS (
+  SELECT 1 FROM recognized_boards b
+  JOIN image_review_items ri ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
+  WHERE b.game_id = :game_id AND b.source_image_id = :source_image_id AND ri.status = 'pending'
+)
+"""
+)
+_ACCEPTED_BOARD_SQL = text(
+    """
+SELECT EXISTS (
+  SELECT 1 FROM recognized_boards b
+  JOIN image_review_items ri ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
+  WHERE b.game_id = :game_id AND b.source_image_id = :source_image_id
+    AND ri.status IN ('accepted', 'corrected')
+)
+"""
+)
+
+
+def settle_source_status_after_slot_rejection(
+    session: Session, game_id: UUID, source_image_id: UUID
+) -> None:
+    """Source image status once a deferred slot stopped being open work.
+
+    The status follows ``_refresh_source_states`` of the board decisions: an
+    image with no open slot or pending board is ``accepted`` when it keeps an
+    accepted board, else ``rejected``. A status other than ``waiting_for_review``
+    (the image is still being processed) is left alone.
+    """
+
+    parameters = {"game_id": game_id, "source_image_id": source_image_id}
+    source = session.get(SourceImageModel, source_image_id, populate_existing=True)
+    if source is None or source.status != "waiting_for_review":
+        return
+    if session.execute(_OPEN_WORK_SQL, parameters).scalar():
+        return
+    has_accepted = session.execute(_ACCEPTED_BOARD_SQL, parameters).scalar()
+    source.status = "accepted" if has_accepted else "rejected"
+    session.flush()
+
+
+__all__ = [
+    "SqlAlchemyBoardCellGeometryPendingRepository",
+    "settle_source_status_after_slot_rejection",
+]

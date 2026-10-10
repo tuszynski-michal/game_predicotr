@@ -19,7 +19,7 @@ from uuid import UUID
 
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.database import create_owner_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v6 import DELETE_TABLES, SCHEMA, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v7 import DELETE_TABLES, SCHEMA, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,

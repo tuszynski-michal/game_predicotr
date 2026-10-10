@@ -16,6 +16,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
@@ -23,12 +24,16 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage import game_data_v2_manifest_v5, game_partition_lifecycle
+from game_predictor_api.storage import (
+    game_data_v2_manifest_v5,
+    game_data_v2_manifest_v6,
+    game_partition_lifecycle,
+)
 from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v6 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -112,7 +117,8 @@ def application_role_database(
     TASK-0940: migrations 0148-0150 refuse a downgrade, so a test that needs the
     schema below the head builds it at that revision here instead of
     downgrading from head. Revisions before the series branch provision historical
-    manifest v5 (0142 or later); descendants of that branch use current v6.
+    manifest v5 (0142 or later), descendants of that branch below
+    0154_geometry_correction_revert manifest v6, and later revisions current v7.
     """
 
     suffix = uuid4().hex[:12]
@@ -143,12 +149,17 @@ def application_role_database(
         command.upgrade(config, revision)
         script = ScriptDirectory.from_config(config)
         ancestors = {entry.revision for entry in script.iterate_revisions(revision, "base")}
+        historical: ModuleType | None = None
         if "0152_super_game_series" not in ancestors:
+            historical = game_data_v2_manifest_v5
+        elif "0154_geometry_correction_revert" not in ancestors:
+            historical = game_data_v2_manifest_v6
+        if historical is not None:
             with patch.multiple(
                 game_partition_lifecycle,
-                CREATE_TABLES=game_data_v2_manifest_v5.CREATE_TABLES,
-                DELETE_TABLES=game_data_v2_manifest_v5.DELETE_TABLES,
-                VERSION=game_data_v2_manifest_v5.VERSION,
+                CREATE_TABLES=historical.CREATE_TABLES,
+                DELETE_TABLES=historical.DELETE_TABLES,
+                VERSION=historical.VERSION,
             ):
                 games = {code: provision_game(owner_engine, code) for code in game_codes}
         else:

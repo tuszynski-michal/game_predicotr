@@ -89,6 +89,24 @@ SUPER_GAME_INPUT_WRITE_POINTS: Final[tuple[SuperGameInputWritePoint, ...]] = (
         covers="deletion of boards, cells and prediction revisions (prediction delete)",
     ),
     SuperGameInputWritePoint(
+        source="geometry_correction_revert",
+        module="storage.geometry_correction_revert_repository",
+        qualname="SqlAlchemyGeometryCorrectionRevertRepository._revert_pending_slot",
+        covers=(
+            "revert of a deferred-slot correction (TASK-0966): deletion of the board, "
+            "its cells and their events"
+        ),
+    ),
+    SuperGameInputWritePoint(
+        source="geometry_correction_revert",
+        module="storage.geometry_correction_revert_repository",
+        qualname="SqlAlchemyGeometryCorrectionRevertRepository._revert_board_revision",
+        covers=(
+            "revert of an existing board's correction (TASK-0967): restored cell "
+            "symbols and decisions"
+        ),
+    ),
+    SuperGameInputWritePoint(
         source="game_layout_reset",
         module="storage.cleanup_repository",
         qualname="SqlAlchemyCleanupRepository.reset_game",

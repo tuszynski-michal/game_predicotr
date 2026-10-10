@@ -775,3 +775,47 @@ def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     assert parameters["after_line_number"]["schema"]["minimum"] == 0
     assert parameters["limit"]["schema"]["maximum"] == 100
     assert parameters["status"]["schema"]["$ref"].endswith("LayoutImportRowStatus")
+
+
+def test_geometry_correction_revert_openapi_exposes_three_scoped_operations() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    root = "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections"
+    item = f"{root}/{{board_geometry_revision_id}}"
+
+    assert set(schema["paths"][root]) == {"get"}
+    assert set(schema["paths"][f"{item}/revert-preview"]) == {"get"}
+    assert set(schema["paths"][f"{item}/revert"]) == {"post"}
+    assert schema["paths"][root]["get"]["operationId"] == "listGeometryCorrections"
+    assert schema["paths"][f"{item}/revert-preview"]["get"]["operationId"] == (
+        "previewGeometryCorrectionRevert"
+    )
+    assert schema["paths"][f"{item}/revert"]["post"]["operationId"] == "revertGeometryCorrection"
+    limit = next(
+        parameter
+        for parameter in schema["paths"][root]["get"]["parameters"]
+        if parameter["name"] == "limit"
+    )
+    assert limit["schema"]["default"] == 20
+    assert limit["schema"]["maximum"] == 50
+    command = schema["components"]["schemas"]["GeometryCorrectionRevertCommand"]
+    assert set(command["required"]) == {
+        "idempotencyKey",
+        "expectedGeometryRevision",
+        "expectedResolutionRevision",
+    }
+    entry = schema["components"]["schemas"]["GeometryCorrectionResponse"]
+    assert {
+        "boardGeometryRevisionId",
+        "kind",
+        "sequenceNumber",
+        "positionIndex",
+        "createdAt",
+        "actor",
+        "geometryRevision",
+        "resolutionRevision",
+        "revertable",
+        "blockingReasonCode",
+        "blockingReasonMessage",
+    } <= set(entry["required"])
+    for status in ("404", "409", "422"):
+        assert status in schema["paths"][f"{item}/revert"]["post"]["responses"]

@@ -8,6 +8,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
+    ImageGridReviewCountsMode,
     ImageGridReviewCursorDirection,
     ImageGridReviewError,
     ImageGridReviewListFilter,
@@ -48,6 +49,14 @@ class ImageGridReviewRepository(Protocol):
         review_filter: ImageGridReviewListFilter,
     ) -> ImageGridReviewCounts: ...
 
+    def grid_review_correction_count(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> int:
+        """Only the D-462 R4 correction queue size (TASK-0961); cheap by design."""
+        ...
+
     def get_grid_review_source_asset(
         self,
         *,
@@ -70,6 +79,7 @@ class ImageGridReviewService:
         after_cursor: str | None,
         before_cursor: str | None,
         limit: int = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
+        counts: ImageGridReviewCountsMode = ImageGridReviewCountsMode.ALL,
     ) -> ImageGridReviewPage:
         if not 1 <= limit <= MAX_IMAGE_GRID_REVIEW_PAGE_SIZE:
             raise ImageGridReviewError(
@@ -115,7 +125,7 @@ class ImageGridReviewService:
         items = page_slice.items
         return ImageGridReviewPage(
             items=items,
-            counts=self._repository.grid_review_counts(review_filter=review_filter),
+            counts=self._counts(review_filter=review_filter, mode=counts),
             previous_cursor=(
                 encode_image_grid_review_cursor(
                     review_filter=review_filter,
@@ -135,6 +145,26 @@ class ImageGridReviewService:
                 else None
             ),
         )
+
+    def _counts(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+        mode: ImageGridReviewCountsMode,
+    ) -> ImageGridReviewCounts:
+        if mode is ImageGridReviewCountsMode.CORRECTION:
+            # TASK-0961: only the correction queue is counted; every other
+            # counter is reported as 0, as the OpenAPI description says.
+            return ImageGridReviewCounts(
+                needs_validation=0,
+                needs_correction=0,
+                approved=0,
+                full_grids=0,
+                correction=self._repository.grid_review_correction_count(
+                    review_filter=review_filter
+                ),
+            )
+        return self._repository.grid_review_counts(review_filter=review_filter)
 
     def source_asset(
         self,

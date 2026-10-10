@@ -67,6 +67,10 @@ from game_predictor_api.application.cleanup import (
 )
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.geometry_correction_reverts import (
+    GeometryCorrectionRevertService,
+    VirtualRestoredRenderVerifier,
+)
 from game_predictor_api.application.grid_audit_proposals import (
     FileGridAuditProposalStore,
     GridAuditProposalService,
@@ -351,6 +355,9 @@ from game_predictor_api.storage.game_storage_routing import (
     game_id_from_request,
     game_storage_scope,
 )
+from game_predictor_api.storage.geometry_correction_revert_repository import (
+    SqlAlchemyGeometryCorrectionRevertRepository,
+)
 from game_predictor_api.storage.global_geometry_library_repository import (
     SqlAlchemyGlobalGeometryLibraryRepository,
 )
@@ -622,6 +629,7 @@ def create_app(
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
     image_import_geometry_guard_service_dependency: Callable[..., object] | None = None,
     board_cell_geometry_pending_service_dependency: Callable[..., object] | None = None,
+    geometry_correction_revert_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_host_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_access_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
@@ -682,6 +690,7 @@ def create_app(
             page_geometry_override_service_dependency,
             image_import_geometry_guard_service_dependency,
             board_cell_geometry_pending_service_dependency,
+            geometry_correction_revert_service_dependency,
             remote_manual_selection_host_service_dependency,
             remote_manual_selection_access_service_dependency,
             remote_manual_selection_control_service_dependency,
@@ -1733,6 +1742,27 @@ def create_app(
         or default_board_cell_geometry_pending_service_dependency
     )
 
+    def default_geometry_correction_revert_service_dependency() -> Iterator[
+        GeometryCorrectionRevertService
+    ]:
+        with session_factory() as session:
+            try:
+                # TASK-0968: case A verifies the real pixels of the restored
+                # render, so the service gets the configured artifact root.
+                yield GeometryCorrectionRevertService(
+                    SqlAlchemyGeometryCorrectionRevertRepository(session),
+                    render_verifier=VirtualRestoredRenderVerifier(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_geometry_correction_revert_dependency = (
+        geometry_correction_revert_service_dependency
+        or default_geometry_correction_revert_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -2183,6 +2213,9 @@ def create_app(
             resolved_remote_manual_selection_transfer_dependency,
             resolved_remote_manual_selection_recovery_dependency,
             resolved_settings.artifact_root,
+            geometry_correction_revert_service_dependency=(
+                resolved_geometry_correction_revert_dependency
+            ),
             board_search_board_detail_service_dependency=(
                 resolved_board_search_board_detail_dependency
             ),
@@ -2400,6 +2433,8 @@ def create_app(
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
             "IMAGE_REVIEW_SUPERSEDED",
+            # TASK-0966: a retry of a reverted correction is refused.
+            "GEOMETRY_CORRECTION_REVERTED",
         }:
             status_code = 409
         return JSONResponse(

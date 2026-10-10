@@ -54,7 +54,7 @@ def test_existing_compact_branch_upgrades_to_combined_head(revision):
                     ),
                     {"game": db.games["merge"]},
                 ).scalar_one()
-                == "game-data-v2-manifest-v6"
+                == "game-data-v2-manifest-v7"
             )
             protected = set(
                 connection.execute(

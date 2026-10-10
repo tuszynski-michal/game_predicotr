@@ -33,10 +33,13 @@ from game_predictor_api.schemas.board_cell_geometry_pending import (
     BoardCellGeometryManualResolutionResponse,
     BoardCellGeometryPendingPageResponse,
     BoardCellGeometryPendingResponse,
+    BoardCellGeometryRejectionCommand,
+    BoardCellGeometryRejectionResponse,
     to_correction_context_response,
     to_manual_resolution_response,
     to_pending_page_response,
     to_pending_response,
+    to_rejection_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.geometry_qualification import (
@@ -339,6 +342,45 @@ def create_board_cell_geometry_pending_router(
                     else payload.geometry_qualification.to_domain()
                 ),
                 cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),
+            )
+        )
+
+    @router.post(
+        "/{pending_id}/rejection",
+        response_model=BoardCellGeometryRejectionResponse,
+        operation_id="rejectPendingBoardCellGeometry",
+        summary="Reject a deferred board slot (cropped, blurred or other)",
+        responses=ERROR_RESPONSES,
+    )
+    def reject_pending_board_cell_geometry(
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_id: UUID,
+        payload: BoardCellGeometryRejectionCommand,
+        service: Annotated[BoardCellGeometryPendingService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
+    ) -> BoardCellGeometryRejectionResponse:
+        reviewer_actor = authorize(
+            reviewer_session,
+            reviewer_access_service,
+            game_id,
+            import_job_id,
+        )
+        return to_rejection_response(
+            service.reject(
+                pending_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+                idempotency_key=payload.idempotency_key,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                reason=payload.reason,
+                note=payload.note,
+                rejected_by=reviewer_actor or "local-admin",
+                rejected_at=datetime.now(UTC),
             )
         )
 

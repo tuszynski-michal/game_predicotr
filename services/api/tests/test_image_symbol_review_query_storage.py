@@ -18,6 +18,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
+    ImageReviewItemModel,
     ImageSymbolReviewCellModel,
     RecognizedBoardModel,
 )
@@ -323,9 +324,11 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
 ) -> None:
     game_id, symbol_id = UUID(int=1), UUID(int=2)
     metadata = MetaData()
+    rejected_item, live_item = UUID(int=900), UUID(int=901)
     columns = (
         "id",
         "game_id",
+        "review_item_id",
         "assigned_symbol_id",
         "review_state",
         "prediction_confidence",
@@ -339,6 +342,12 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
         "image_symbol_review_cells",
         metadata,
         *(Column(name, ImageSymbolReviewCellModel.__table__.c[name].type) for name in columns),
+    )
+    # TASK-0970: the cells of a rejected review item are not visible.
+    items = Table(
+        "image_review_items",
+        metadata,
+        *(Column(name, ImageReviewItemModel.__table__.c[name].type) for name in ("id", "status")),
     )
     rows: list[dict[str, object]] = []
     samples: list[dict[str, object]] = [
@@ -360,6 +369,8 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
             {"quality_issue": "blurry", "prediction_confidence": 0.2},
             {"quality_issue": "unreadable", "prediction_confidence": 0.1},
             {"source_visibility": "partial", "prediction_confidence": 0.4},
+            {"review_item_id": rejected_item, "prediction_confidence": 0.7},
+            {"review_item_id": live_item, "prediction_confidence": 0.7},
         ]
     )
     for index, sample in enumerate(samples):
@@ -367,6 +378,7 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
             {
                 "id": UUID(int=100 + index),
                 "game_id": game_id,
+                "review_item_id": live_item,
                 "assigned_symbol_id": symbol_id,
                 "review_state": "pending",
                 "source_available": True,
@@ -382,6 +394,7 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
         confidence = cast(float | None, row["prediction_confidence"])
         if (
             row["game_id"] != game_id
+            or row["review_item_id"] == rejected_item
             or row["assigned_symbol_id"] != symbol_id
             or row["review_state"] != "pending"
             or (not row["source_available"] and row["source_visibility"] != "outside")
@@ -401,6 +414,13 @@ def test_confidence_seek_preserves_rows_counts_and_cursor_order(
     try:
         metadata.create_all(engine)
         with engine.begin() as connection:
+            connection.execute(
+                items.insert(),
+                [
+                    {"id": rejected_item, "status": "rejected"},
+                    {"id": live_item, "status": "pending"},
+                ],
+            )
             connection.execute(table.insert(), rows)
         with Session(engine) as session:
             repository = SqlAlchemySymbolCellReviewQueryRepository(session)

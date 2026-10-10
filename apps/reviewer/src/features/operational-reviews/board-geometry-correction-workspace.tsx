@@ -18,24 +18,37 @@ import {
   BoardGeometryCorrectionEditor,
   type CorrectionSymbol,
 } from './deferred-board-cell-geometry-editor';
+import {
+  GeometryCorrectionHistory,
+  type GeometryCorrectionHistoryClient,
+} from './geometry-correction-history';
+import {
+  type BoardRejectionClient,
+  rejectDeferredSlot,
+  rejectReviewItem,
+} from './board-rejection-actions.ts';
+import type { BoardRejectionRequest } from './board-rejection-state.ts';
+import { RejectBoardControl } from './reject-board-control';
 import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
-export type BoardGeometryCorrectionClient = Pick<
-  AdminApiClient,
-  | 'createImageGridReviewGeometryRevision'
-  | 'getImageGridReviewCorrectionSymbols'
-  | 'getPendingBoardCellGeometryCorrectionContext'
-  | 'imageGridReviewSourceAssetUrl'
-  | 'listImageGridReviews'
-  | 'listPendingBoardCellGeometry'
-  | 'listSymbols'
-  | 'previewImageGridReviewGeometry'
-  | 'previewPendingBoardCellGeometryCorrection'
-  | 'previewPendingBoardCellGeometrySymbols'
-  | 'resolvePendingBoardCellGeometryManually'
->;
+export type BoardGeometryCorrectionClient = GeometryCorrectionHistoryClient &
+  BoardRejectionClient &
+  Pick<
+    AdminApiClient,
+    | 'createImageGridReviewGeometryRevision'
+    | 'getImageGridReviewCorrectionSymbols'
+    | 'getPendingBoardCellGeometryCorrectionContext'
+    | 'imageGridReviewSourceAssetUrl'
+    | 'listImageGridReviews'
+    | 'listPendingBoardCellGeometry'
+    | 'listSymbols'
+    | 'previewImageGridReviewGeometry'
+    | 'previewPendingBoardCellGeometryCorrection'
+    | 'previewPendingBoardCellGeometrySymbols'
+    | 'resolvePendingBoardCellGeometryManually'
+  >;
 
 /**
  * The single manual grid-correction screen (D-462, TASK-0726): one board and
@@ -49,11 +62,15 @@ export function BoardGeometryCorrectionWorkspace({
   apiBaseUrl,
   gameId,
   importJobId,
+  keyboardEnabled = true,
 }: {
   readonly api: BoardGeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly importJobId: string;
+  /** Optional: without it the queue spans the whole game (TASK-0962). */
+  readonly importJobId?: string | undefined;
+  /** False while a sibling tab is shown; keeps the editor mounted. */
+  readonly keyboardEnabled?: boolean;
 }) {
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<
@@ -65,6 +82,7 @@ export function BoardGeometryCorrectionWorkspace({
   const [symbols, setSymbols] = useState<readonly CorrectionSymbol[]>([]);
   const mounted = useRef(true);
   const requestId = useRef(0);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -108,7 +126,10 @@ export function BoardGeometryCorrectionWorkspace({
       try {
         result = await api.listImageGridReviews({
           gameId,
-          importJobId,
+          ...(importJobId === undefined ? {} : { importJobId }),
+          // TASK-0961: the queue needs only the correction counter, which
+          // keeps the whole-game scope cheap.
+          counts: 'correction',
           limit: 1,
           view: 'correction',
           ...(afterCursor === undefined ? {} : { afterCursor }),
@@ -150,6 +171,18 @@ export function BoardGeometryCorrectionWorkspace({
   }, [loadPage]);
 
   const item = page?.items[0] ?? null;
+  // TASK-0969 x TASK-0962: corrections are listed per import. Without a chosen
+  // import (game scope) the history follows the import of the board on screen
+  // and keeps the last one after the queue empties, so the last save stays
+  // revertable.
+  const [lastItemImportJobId, setLastItemImportJobId] = useState<
+    string | undefined
+  >(undefined);
+  const itemImportJobId = item?.importJobId;
+  if (itemImportJobId && itemImportJobId !== lastItemImportJobId) {
+    setLastItemImportJobId(itemImportJobId);
+  }
+  const historyImportJobId = importJobId ?? lastItemImportJobId;
   const remaining = page?.counts.correction ?? 0;
   const target = useBoardCorrectionTarget(api, apiBaseUrl, item);
   const targetKeyRef = useRef<string | null>(null);
@@ -191,10 +224,66 @@ export function BoardGeometryCorrectionWorkspace({
             : 'Siatka zapisana. Pola ze zmienionym wycinkiem wróciły do Weryfikacji symboli.',
       );
       // The saved board leaves the queue; the next one is the new first entry.
+      setHistoryRefresh((value) => value + 1);
       await loadPage(undefined, { preserveNotice: true, resetHistory: true });
     },
     [loadPage],
   );
+
+  // TASK-0970: a rejected slot or board leaves the queue; the history lists
+  // the rejection so it can be undone until a replacement owns the sequence.
+  const handleRejected = useCallback(async () => {
+    setNotice(
+      'Plansza została odrzucona. Zdjęcie czeka na zdjęcie zastępcze albo wyjątek operatora.',
+    );
+    setHistoryRefresh((value) => value + 1);
+    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+  }, [loadPage]);
+
+  const handleRejectionRefused = useCallback(
+    async (message: string) => {
+      setNotice(message);
+      setHistoryRefresh((value) => value + 1);
+      await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+    },
+    [loadPage],
+  );
+
+  const submitRejection = useCallback(
+    (request: BoardRejectionRequest) => {
+      if (item === null) throw new Error('No board to reject.');
+      const scope = { gameId: item.gameId, importJobId: item.importJobId };
+      if (item.slotKind === 'deferred_geometry' && item.pendingGeometryId) {
+        return rejectDeferredSlot(
+          api,
+          scope,
+          {
+            expectedGeometryRevision: item.geometryRevision,
+            pendingGeometryId: item.pendingGeometryId,
+          },
+          request,
+        );
+      }
+      if (item.reviewItemId === null) {
+        throw new Error('The board has no review item.');
+      }
+      return rejectReviewItem(
+        api,
+        scope,
+        {
+          geometryRevision: item.geometryRevision,
+          resolutionRevision: item.resolutionRevision,
+          reviewItemId: item.reviewItemId,
+        },
+        request,
+      );
+    },
+    [api, item],
+  );
+
+  const handleReverted = useCallback(async () => {
+    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+  }, [loadPage]);
 
   const handleConflict = useCallback(
     async (message: string) => {
@@ -251,14 +340,25 @@ export function BoardGeometryCorrectionWorkspace({
         <div className="deferredGeometryComplete">
           <h3>Brak plansz do korekty</h3>
           <p>
-            Ten import nie ma plansz odrzuconych przez algorytm ani zgłoszonych
-            jako „Zła siatka”.
+            W tym zakresie nie ma plansz odrzuconych przez algorytm ani
+            zgłoszonych jako „Zła siatka”.
           </p>
         </div>
       ) : (
         <>
+          <div className="boardRejectionBar">
+            <RejectBoardControl<unknown>
+              consequences={rejectionConsequences(item)}
+              key={target.key}
+              onDone={handleRejected}
+              onRefused={handleRejectionRefused}
+              subject={`sekwencja ${item.sequenceNumber}, pozycja ${item.positionIndex}`}
+              submit={submitRejection}
+            />
+          </div>
           <BoardGeometryCorrectionEditor
             key={target.key}
+            keyboardEnabled={keyboardEnabled}
             onConflict={handleConflict}
             onSaved={handleSaved}
             symbols={symbols}
@@ -297,8 +397,37 @@ export function BoardGeometryCorrectionWorkspace({
           </footer>
         </>
       )}
+      {historyImportJobId === undefined ? null : (
+        <GeometryCorrectionHistory
+          api={api}
+          gameId={gameId}
+          importJobId={historyImportJobId}
+          onReverted={handleReverted}
+          refreshToken={historyRefresh}
+        />
+      )}
     </section>
   );
+}
+
+/** What the confirmation says the rejection does (plan: W7, W8, risks). */
+function rejectionConsequences(
+  item: ImageGridReviewItemResponse,
+): readonly string[] {
+  const common = [
+    'Zdjęcie zostaje niekompletne i czeka na zdjęcie zastępcze albo wyjątek operatora; pozostałe plansze tego zdjęcia nie są cięte na symbole.',
+    'Odrzucenie można cofnąć w sekcji „Ostatnie korekty”, dopóki sekwencji nie przejmie inna plansza.',
+  ];
+  return item.slotKind === 'deferred_geometry'
+    ? [
+        'Slot zniknie z kolejki korekty cięcia siatki i nie powstanie z niego plansza.',
+        ...common,
+      ]
+    : [
+        'Plansza wypadnie z kolejki korekty, z weryfikacji symboli i z wyszukiwarki. Weryfikacje symboli już zapisane na niej zostają w historii.',
+        'Kanonicznego właściciela sekwencji nie można odrzucić.',
+        ...common,
+      ];
 }
 
 function useBoardCorrectionTarget(

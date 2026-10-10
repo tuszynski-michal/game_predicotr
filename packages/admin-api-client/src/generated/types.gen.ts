@@ -562,6 +562,10 @@ export type BoardCellGeometryJobCountsResponse = {
    */
   pending: number;
   /**
+   * Rejected
+   */
+  rejected?: number;
+  /**
    * Resolved
    */
   resolved: number;
@@ -840,6 +844,19 @@ export type BoardCellGeometryPendingResponse = {
    */
   recognizedBoardId: string | null;
   /**
+   * Rejectedat
+   */
+  rejectedAt?: string | null;
+  /**
+   * Rejectedby
+   */
+  rejectedBy?: string | null;
+  /**
+   * Rejectionnote
+   */
+  rejectionNote?: string | null;
+  rejectionReason?: BoardRejectionReason | null;
+  /**
    * Resolvedat
    */
   resolvedAt: string | null;
@@ -882,7 +899,44 @@ export type BoardCellGeometryPendingResponse = {
  * BoardCellGeometryPendingStatus
  */
 export type BoardCellGeometryPendingStatus =
-  'pending' | 'resolved' | 'superseded';
+  'pending' | 'resolved' | 'superseded' | 'rejected';
+
+/**
+ * BoardCellGeometryRejectionCommand
+ *
+ * Reject an open deferred slot (TASK-0970); ``note`` is required for ``other``.
+ */
+export type BoardCellGeometryRejectionCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Note
+   */
+  note?: string | null;
+  reason: BoardRejectionReason;
+};
+
+/**
+ * BoardCellGeometryRejectionResponse
+ */
+export type BoardCellGeometryRejectionResponse = {
+  counts: BoardCellGeometryJobCountsResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Rejectionid
+   */
+  rejectionId: string;
+};
 
 /**
  * BoardCellProcessingJobSnapshotPayload
@@ -1165,6 +1219,13 @@ export type BoardImportCoverageSegmentResponse = {
  * Which side of D-437 coverage a page request lists.
  */
 export type BoardImportCoverageView = 'missing' | 'added';
+
+/**
+ * BoardRejectionReason
+ *
+ * Why an operator rejects a cropped board or a deferred slot (W7).
+ */
+export type BoardRejectionReason = 'cropped' | 'blurred' | 'other';
 
 /**
  * BoardSearchAssetMode
@@ -4209,6 +4270,12 @@ export type GeometryCompletenessPositionCountResponse = {
  */
 export type GeometryCompletenessPositionResponse = {
   /**
+   * Humanapproved
+   *
+   * True when a human approved the current geometry of the board at this position (approvedGeometryRevision == geometryRevision); false without a board.
+   */
+  humanApproved?: boolean;
+  /**
    * Positionindex
    */
   positionIndex: number;
@@ -4251,6 +4318,222 @@ export type GeometryCompletenessSourceStatusCountResponse = {
    * Sourcestatus
    */
   sourceStatus: string;
+};
+
+/**
+ * GeometryCorrectionKind
+ */
+export type GeometryCorrectionKind =
+  'pending_slot' | 'board_revision' | 'rejection';
+
+/**
+ * GeometryCorrectionListResponse
+ */
+export type GeometryCorrectionListResponse = {
+  /**
+   * Items
+   */
+  items: Array<GeometryCorrectionResponse>;
+};
+
+/**
+ * GeometryCorrectionResponse
+ *
+ * One manual geometry save of an import with its revert eligibility.
+ */
+export type GeometryCorrectionResponse = {
+  /**
+   * Actor
+   */
+  actor: string;
+  blockingReasonCode: RevertBlockingReason | null;
+  /**
+   * Blockingreasonmessage
+   */
+  blockingReasonMessage: string | null;
+  /**
+   * Boardgeometryrevisionid
+   */
+  boardGeometryRevisionId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  kind: GeometryCorrectionKind;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string | null;
+  /**
+   * Rejectionnote
+   */
+  rejectionNote?: string | null;
+  /**
+   * Rejectionreason
+   */
+  rejectionReason?: string | null;
+  rejectionTarget?: RejectionTarget | null;
+  /**
+   * Resolutionrevision
+   */
+  resolutionRevision: number;
+  /**
+   * Revertable
+   */
+  revertable: boolean;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * GeometryCorrectionRevertCommand
+ */
+export type GeometryCorrectionRevertCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GeometryCorrectionRevertPreviewResponse
+ */
+export type GeometryCorrectionRevertPreviewResponse = {
+  correction: GeometryCorrectionResponse;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Removedcellcount
+   */
+  removedCellCount: number;
+  /**
+   * Removesboard
+   */
+  removesBoard: boolean;
+  /**
+   * Repointedboardcount
+   */
+  repointedBoardCount: number;
+  /**
+   * Restoredcelldecisioncount
+   */
+  restoredCellDecisionCount: number;
+  /**
+   * Restoredsourceenginekind
+   */
+  restoredSourceEngineKind: string | null;
+  /**
+   * Restoredsourcegeometryrevisionid
+   */
+  restoredSourceGeometryRevisionId: string | null;
+  /**
+   * Restoredsourcestatus
+   */
+  restoredSourceStatus: string | null;
+  /**
+   * Revertedsourcegeometryrevisionid
+   */
+  revertedSourceGeometryRevisionId: string | null;
+};
+
+/**
+ * GeometryCorrectionRevertResponse
+ */
+export type GeometryCorrectionRevertResponse = {
+  /**
+   * Boardgeometryrevisionid
+   */
+  boardGeometryRevisionId: string;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  kind: GeometryCorrectionKind;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string | null;
+  /**
+   * Removedcellcount
+   */
+  removedCellCount: number;
+  /**
+   * Repointedboardids
+   */
+  repointedBoardIds: Array<string>;
+  /**
+   * Restoredcelldecisioncount
+   */
+  restoredCellDecisionCount: number;
+  /**
+   * Restoredgeometryrevision
+   */
+  restoredGeometryRevision?: number | null;
+  /**
+   * Restoredsourcegeometryrevisionid
+   */
+  restoredSourceGeometryRevisionId: string | null;
+  /**
+   * Revertid
+   */
+  revertId: string;
+  /**
+   * Revertedsourcegeometryrevisionid
+   */
+  revertedSourceGeometryRevisionId: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Snapshotchecksumsha256
+   */
+  snapshotChecksumSha256: string;
+  sourceImageGeometryStatus: SourceImageGeometryStatus | null;
 };
 
 /**
@@ -5741,6 +6024,7 @@ export type ImageGeometryCompletenessResponse = {
    * Positions
    */
   positions: Array<GeometryCompletenessPositionCountResponse>;
+  sequenceOwnership?: ImportSequenceOwnershipResponse | null;
   /**
    * Sourcestatuses
    */
@@ -6566,7 +6850,25 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
 };
 
 /**
+ * ImageGridReviewCountsMode
+ *
+ * Which counters a grid review page computes (TASK-0961).
+ *
+ * ``ALL`` keeps the full set (seven aggregate queries over every current
+ * board of the game). ``CORRECTION`` computes only ``correction`` — the
+ * reported boards plus the deferred slots of the D-462 R4 queue — and
+ * reports every other counter as ``0``; the Reviewer polls the correction
+ * queue after every board and must not pay for the full set each time.
+ */
+export type ImageGridReviewCountsMode = 'all' | 'correction';
+
+/**
  * ImageGridReviewCountsResponse
+ *
+ * Counters of the page.
+ *
+ * With `counts=correction` only `correction` is computed; every other
+ * counter is 0 and must not be read as an empty queue (TASK-0961).
  */
 export type ImageGridReviewCountsResponse = {
   /**
@@ -8603,6 +8905,35 @@ export type ImportLabSymbolCandidateCommand = {
 };
 
 /**
+ * ImportSequenceOwnershipResponse
+ *
+ * Sequence ownership outcome of one import (D-543, TASK-0971).
+ *
+ * ``replaced``: sequences this import took over from a rejected board of
+ * another image. ``skipped``: sequences another photo owns (a live pending
+ * board is kept, or a canonical owner wins), so this import's source is only
+ * an alternative. Counts are exact; the number lists are sorted and capped.
+ */
+export type ImportSequenceOwnershipResponse = {
+  /**
+   * Replacedcount
+   */
+  replacedCount: number;
+  /**
+   * Replacedsequencenumbers
+   */
+  replacedSequenceNumbers: Array<number>;
+  /**
+   * Skippedcount
+   */
+  skippedCount: number;
+  /**
+   * Skippedsequencenumbers
+   */
+  skippedSequenceNumbers: Array<number>;
+};
+
+/**
  * IncompleteGeometryImagePageResponse
  */
 export type IncompleteGeometryImagePageResponse = {
@@ -8611,6 +8942,10 @@ export type IncompleteGeometryImagePageResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Gapsonly
+   */
+  gapsOnly?: boolean;
   imageState: GeometryImageState | null;
   /**
    * Images
@@ -12357,6 +12692,13 @@ export type PinnedManagedImageReprocessJobPayload = {
 };
 
 /**
+ * RejectionTarget
+ *
+ * What a ``rejection`` entry rejected.
+ */
+export type RejectionTarget = 'pending_slot' | 'review_item';
+
+/**
  * RemoteManualSelectionBaseCapabilityResponse
  */
 export type RemoteManualSelectionBaseCapabilityResponse = {
@@ -13463,6 +13805,26 @@ export type ResolvedBrowserImageImportJobPayload = {
   startMode: 'reuse_exact' | 'rerun_current_models';
   symbolModel: SymbolModelJobSnapshotPayload;
 };
+
+/**
+ * RevertBlockingReason
+ *
+ * Why a correction cannot be reverted; the first failing rule wins.
+ */
+export type RevertBlockingReason =
+  | 'GEOMETRY_REVERT_NOT_LATEST'
+  | 'GEOMETRY_REVERT_STALE'
+  | 'GEOMETRY_REVERT_SOURCE_ADVANCED'
+  | 'GEOMETRY_REVERT_SHARED_SOURCE_REVISION'
+  | 'GEOMETRY_REVERT_CELLS_CHANGED'
+  | 'GEOMETRY_REVERT_RESOLVED'
+  | 'GEOMETRY_REVERT_SEQUENCE_OWNERSHIP'
+  | 'GEOMETRY_REVERT_IMAGE_ADMITTED'
+  | 'GEOMETRY_REVERT_PINNED'
+  | 'GEOMETRY_REVERT_REOPENED_RESOLUTION'
+  | 'GEOMETRY_REVERT_HISTORY_INCOMPLETE'
+  | 'GEOMETRY_REVERT_NOT_SUPPORTED'
+  | 'GEOMETRY_REVERT_REPLACED';
 
 /**
  * ReviewAlternative
@@ -20627,6 +20989,10 @@ export type ListImageGridReviewsData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.
+     */
+    counts?: ImageGridReviewCountsMode;
   };
   url: '/api/v1/admin/games/{game_id}/grid-reviews';
 };
@@ -21330,6 +21696,58 @@ export type ResolvePendingBoardCellGeometryManuallyResponses = {
 export type ResolvePendingBoardCellGeometryManuallyResponse =
   ResolvePendingBoardCellGeometryManuallyResponses[keyof ResolvePendingBoardCellGeometryManuallyResponses];
 
+export type RejectPendingBoardCellGeometryData = {
+  body: BoardCellGeometryRejectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/rejection';
+};
+
+export type RejectPendingBoardCellGeometryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectPendingBoardCellGeometryError =
+  RejectPendingBoardCellGeometryErrors[keyof RejectPendingBoardCellGeometryErrors];
+
+export type RejectPendingBoardCellGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryRejectionResponse;
+};
+
+export type RejectPendingBoardCellGeometryResponse =
+  RejectPendingBoardCellGeometryResponses[keyof RejectPendingBoardCellGeometryResponses];
+
 export type GetPendingBoardCellGeometrySourceData = {
   body?: never;
   path: {
@@ -21374,6 +21792,155 @@ export type GetPendingBoardCellGeometrySourceResponses = {
    */
   200: unknown;
 };
+
+export type ListGeometryCorrectionsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections';
+};
+
+export type ListGeometryCorrectionsErrors = {
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListGeometryCorrectionsError =
+  ListGeometryCorrectionsErrors[keyof ListGeometryCorrectionsErrors];
+
+export type ListGeometryCorrectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionListResponse;
+};
+
+export type ListGeometryCorrectionsResponse =
+  ListGeometryCorrectionsResponses[keyof ListGeometryCorrectionsResponses];
+
+export type RevertGeometryCorrectionData = {
+  body: GeometryCorrectionRevertCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Board Geometry Revision Id
+     */
+    board_geometry_revision_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert';
+};
+
+export type RevertGeometryCorrectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RevertGeometryCorrectionError =
+  RevertGeometryCorrectionErrors[keyof RevertGeometryCorrectionErrors];
+
+export type RevertGeometryCorrectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionRevertResponse;
+};
+
+export type RevertGeometryCorrectionResponse =
+  RevertGeometryCorrectionResponses[keyof RevertGeometryCorrectionResponses];
+
+export type PreviewGeometryCorrectionRevertData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Board Geometry Revision Id
+     */
+    board_geometry_revision_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert-preview';
+};
+
+export type PreviewGeometryCorrectionRevertErrors = {
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewGeometryCorrectionRevertError =
+  PreviewGeometryCorrectionRevertErrors[keyof PreviewGeometryCorrectionRevertErrors];
+
+export type PreviewGeometryCorrectionRevertResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionRevertPreviewResponse;
+};
+
+export type PreviewGeometryCorrectionRevertResponse =
+  PreviewGeometryCorrectionRevertResponses[keyof PreviewGeometryCorrectionRevertResponses];
 
 export type OpenLocalReviewerWorkData = {
   body: ReviewerWorkOpenCommand;
@@ -26080,6 +26647,12 @@ export type ListIncompleteGeometryImagesData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Gapsonly
+     *
+     * Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).
+     */
+    gapsOnly?: boolean;
   };
   url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images';
 };

@@ -19,6 +19,7 @@ from sqlalchemy import (
     case,
     column,
     delete,
+    exists,
     false,
     func,
     or_,
@@ -193,8 +194,23 @@ class _CountedCellState:
 
 
 def _logical_cell_visible_clause() -> ColumnElement[bool]:
+    """Cells that take part in symbol verification (lists, counts, bulk scopes).
+
+    A cell is visible when it has source pixels (or is a fully outside cell)
+    and its review item is not rejected (TASK-0970, W7): a rejected board
+    leaves symbol verification while its rows and decision history stay, so
+    reverting the rejection brings it back unchanged.
+    """
+
     cell = ImageSymbolReviewCellModel
-    return or_(cell.source_available.is_(True), cell.source_visibility == "outside")
+    owner = aliased(ImageReviewItemModel)
+    # An uncorrelated ``NOT IN`` over the (small) set of rejected items: hashed once
+    # per statement, and no extra EXISTS next to the prediction-revision filters.
+    # ``review_item_id`` is NOT NULL, so the NULL rule of ``NOT IN`` never applies.
+    return and_(
+        or_(cell.source_available.is_(True), cell.source_visibility == "outside"),
+        cell.review_item_id.not_in(select(owner.id).where(owner.status == "rejected")),
+    )
 
 
 def _count_scope_keys(cell: _CountedCellState | None) -> tuple[str, ...]:
@@ -1117,6 +1133,29 @@ def _apply_symbol_cell_review_state_filter(
     ).where(cell.review_state == SymbolCellReviewState.APPROVED.value)
 
 
+def enter_cell_decision(session: Session, *, game_id: UUID, review_item_id: UUID) -> None:
+    """Ownership lock of a symbol-cell decision (TASK-0971, P0-5).
+
+    Keeps a lock an enclosing operation already holds; otherwise takes the mode
+    the board needs (``SHARED`` unless resolving it may supersede another
+    photo's pending item), before any sequence or row lock.
+    """
+
+    from game_predictor_api.storage.sequence_ownership_lock import (
+        acquire_sequence_ownership_lock,
+        cell_decision_lock_mode,
+        held_sequence_ownership_lock,
+    )
+
+    if held_sequence_ownership_lock(session, game_id=game_id) is not None:
+        return
+    acquire_sequence_ownership_lock(
+        session,
+        game_id=game_id,
+        mode=cell_decision_lock_mode(session, game_id=game_id, review_item_id=review_item_id),
+    )
+
+
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):
     """Apply checksum-bound crop decisions and reconcile one parent board once."""
 
@@ -1181,6 +1220,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             )
         review_item_id = next(iter(review_item_ids))
         sequence_number = int(next(iter(sequence_numbers)))
+        # TASK-0971 (P0-5): the decision may reopen or resolve the board, which
+        # reaches the game's ownership lock; take it before the sequence lock.
+        # An enclosing entry point may already hold it (kept as is).
+        enter_cell_decision(self._session, game_id=game_id, review_item_id=review_item_id)
         self._acquire_board_locks(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -1843,6 +1886,10 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         a later cell in the same HTTP request still needs to change.
         """
 
+        # One ownership lock for every crop decision of this save (TASK-0971).
+        enter_cell_decision(
+            self._session, game_id=command.game_id, review_item_id=command.review_item_id
+        )
         detail = self.get_board(
             game_id=command.game_id,
             review_item_id=command.review_item_id,
@@ -2175,6 +2222,66 @@ class SymbolCellReviewWriteThroughCoordinator:
             actor=actor,
         )
 
+    def release_cells_of_rejected_board(self, *, game_id: UUID, review_item_id: UUID) -> int:
+        """Take a just-rejected board's cells out of the exact counters (TASK-0970).
+
+        The rows and events stay as decision history; the visible scope
+        already excludes rejected items. Call it once, on the transition of
+        the item into ``rejected``.
+        """
+
+        cells = self._cells_of_item(game_id, review_item_id)
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return len(cells)
+        _apply_count_deltas(state, before=tuple(_CountedCellState.from_model(c) for c in cells))
+        self._touch_catalog_revision(state)
+        return len(cells)
+
+    def restore_cells_of_reopened_board(self, *, game_id: UUID, review_item_id: UUID) -> int:
+        """Put the cells of a board whose rejection was undone back into the counters.
+
+        Call it once, on the transition out of ``rejected`` and before the
+        regular write-through synchronization of the reactivated item.
+        """
+
+        cells = self._cells_of_item(game_id, review_item_id)
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return len(cells)
+        _apply_count_deltas(state, after=tuple(_CountedCellState.from_model(c) for c in cells))
+        self._touch_catalog_revision(state)
+        return len(cells)
+
+    def _cells_of_item(
+        self, game_id: UUID, review_item_id: UUID
+    ) -> tuple[ImageSymbolReviewCellModel, ...]:
+        # Both callers run inside the resolution/revert transaction, which has
+        # already bound the game store.
+        return tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .with_for_update()
+            )
+        )
+
+    def _rejected_item_ids(self, review_item_ids: set[UUID]) -> set[UUID]:
+        if not review_item_ids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(ImageReviewItemModel.id).where(
+                    ImageReviewItemModel.id.in_(review_item_ids),
+                    ImageReviewItemModel.status == "rejected",
+                )
+            )
+        )
+
     def synchronize_after_projection_change(self, *, game_id: UUID) -> bool:
         """Advance the filter snapshot after a canonical owner changes."""
 
@@ -2461,7 +2568,16 @@ class SymbolCellReviewWriteThroughCoordinator:
             cell.cell_index: cell
             for cell in self._session.scalars(existing_statement.with_for_update())
         }
-        count_before = tuple(_CountedCellState.from_model(cell) for cell in existing.values())
+        # Cells of a rejected previous owner were taken out of the exact counters
+        # when it was rejected, so they are not subtracted again (TASK-0970).
+        rejected_owner_ids = self._rejected_item_ids(
+            {cell.review_item_id for cell in existing.values()} - {item.id}
+        )
+        count_before = tuple(
+            _CountedCellState.from_model(cell)
+            for cell in existing.values()
+            if cell.review_item_id not in rejected_owner_ids
+        )
         # Logical V2 cells can move from a previous owner of this sequence;
         # that owner's search evidence must be refreshed as well (D-462 R8).
         previous_owner_ids = {cell.review_item_id for cell in existing.values()} - {item.id}
@@ -2626,6 +2742,13 @@ class SymbolCellReviewWriteThroughCoordinator:
                     and cell.crop_checksum_sha256
                     == current_cells_by_index[index].crop_checksum_sha256
                 ),
+                # D-543 (TASK-0971): a replacement board takes the logical cells
+                # over from the rejected board of another image.
+                handoff_from_rejected_board=all(
+                    cell.review_item_id in rejected_owner_ids
+                    and cell.recognized_board_id != board.id
+                    for cell in existing.values()
+                ),
             )
             recropped_targets = {
                 review.cell_index: _CellProjection(
@@ -2656,12 +2779,17 @@ class SymbolCellReviewWriteThroughCoordinator:
                     ),
                     **_projection_approved_asset_kwargs(
                         # An approval rebound to unchanged pixels (D-462 R6)
-                        # takes the current asset provenance as well.
+                        # takes the current asset provenance as well. The rebind
+                        # is recognized by crop identity, never by the revision
+                        # number: boards of different photos share revision
+                        # numbers (a D-543 handoff 0 -> 0, TASK-0971).
                         _approved_asset_projection_from_review_cell(
                             current_cells_by_index[review.cell_index]
                         )
                         if review.approved_crop is not None
-                        and review.approved_crop.geometry_revision == board.geometry_revision
+                        and _approval_matches_current_crop(
+                            review.approved_crop, current_cells_by_index[review.cell_index]
+                        )
                         else _approved_asset_projection_from_model(existing[review.cell_index])
                         if review.approved_crop is not None
                         else _empty_approved_asset_projection()
@@ -3002,6 +3130,13 @@ class SymbolCellReviewWriteThroughCoordinator:
             if existing_cell.source_visibility != visibility:
                 existing_cell.source_visibility = visibility
                 changed = True
+            if not qualified and existing_cell.source_available is False:
+                # A complete board renders every cell: a logical position that
+                # had no image (e.g. taken over from a rejected partial board,
+                # D-543, TASK-0971) is available again. Qualified boards set
+                # availability from their mask above.
+                existing_cell.source_available = True
+                changed = True
             if not _cell_matches_projection(
                 existing_cell,
                 review_cell=review_cell,
@@ -3300,6 +3435,8 @@ class _CellPreviousState:
     rendered_pixel_checksum_sha256: str | None
     verification_outcome: str | None
     verified_symbol_id_v2: UUID | None
+    # TASK-0966: recorded on every event so a revert can restore it.
+    assignment_source: str | None = None
 
     @classmethod
     def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CellPreviousState:
@@ -3341,6 +3478,7 @@ class _CellPreviousState:
                 if previous_v2 is None
                 else previous_v2.verified_symbol_id
             ),
+            assignment_source=cell.assignment_source,
         )
 
 
@@ -3417,6 +3555,17 @@ def _empty_approved_asset_provenance() -> dict[str, object]:
         "approved_render_spec_checksum_sha256": None,
         "approved_rendered_pixel_checksum_sha256": None,
     }
+
+
+def _approval_matches_current_crop(
+    approved: SymbolCellApprovedCropIdentity, current: ImageReviewCell
+) -> bool:
+    """The approval was rebound to the current crop (same sample and pixels)."""
+
+    return (
+        approved.crop_sample_id == current.crop_sample_id
+        and approved.crop_checksum_sha256 == current.crop_checksum_sha256
+    )
 
 
 def _approved_asset_projection_from_review_cell(
@@ -3973,6 +4122,7 @@ def _append_symbol_cell_event(
             review_state=cell.review_state,
             previous_quality_issue=previous.quality_issue,
             quality_issue=cell.quality_issue,
+            previous_assignment_source=previous.assignment_source,
             previous_verification_outcome=previous.verification_outcome,
             verification_outcome=cell.verification_outcome,
             previous_verified_symbol_id_v2=previous.verified_symbol_id_v2,
@@ -4400,7 +4550,14 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ImageSymbolReviewCellModel.quality_issue,
                 ImageSymbolReviewCellModel.source_visibility,
             )
-            .where(ImageSymbolReviewCellModel.game_id == game_id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                # TASK-0970: cells of rejected boards are not counted.
+                ~exists().where(
+                    ImageReviewItemModel.id == ImageSymbolReviewCellModel.review_item_id,
+                    ImageReviewItemModel.status == "rejected",
+                ),
+            )
             .order_by(ImageSymbolReviewCellModel.id)
             .limit(batch_size)
         )

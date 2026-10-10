@@ -1263,6 +1263,106 @@ odtworzyć predykcję po retencji ciężkich stage payloadów. Rewizja powstaje
 wyłącznie dla nadal oczekującego review itemu; retry identycznego joba korzysta
 z istniejącej rewizji.
 
+#### Cofnięcie korekty cięcia siatki (TASK-0966, D-542, D-543, migracja `0154`)
+
+- `image_source_geometry_revisions.status` dopuszcza `reverted`. Rewizja
+  cofniętej korekty zostaje (historia, FK zdarzeń), ale nigdy nie jest
+  „bieżąca”: każde zapytanie „latest” wybiera najwyższą `revision` o statusie
+  różnym od `reverted`; numeracja `max + 1` nadal liczy wszystkie wiersze.
+  Pełne UNIQUE `(game_id, source_image_id, geometry_checksum_sha256)` zastąpił
+  indeks częściowy `v2_uq_source_geometry_revisions_live_checksum`
+  (`WHERE status <> 'reverted'`); deduplikacja po checksumie (API i worker)
+  pomija `reverted`, więc ponowny zapis tej samej geometrii tworzy nową
+  rewizję.
+- Akcje `geometry_reverted` w `image_board_geometry_review_events` i
+  `image_symbol_review_events`; nowa kolumna
+  `image_symbol_review_events.previous_assignment_source` (słownik
+  `assignment_source` komórki), zapisywana przez każde nowe zdarzenie komórki.
+- `image_board_geometry_pending`: status `rejected` z `rejection_reason`
+  (`cropped`/`blurred`/`other`, `other` wymaga `rejection_note`),
+  `rejection_note`, `rejected_at`, `rejected_by`; slot `pending`/`resolved`
+  nie ma pól odrzucenia, `superseded` może je zachować jako historię.
+- `image_board_geometry_pending_events` (manifest v7, TASK-0970): niezmienna,
+  trwała tożsamość odrzucenia slotu i jego cofnięcia (`action` `rejected` |
+  `rejection_reverted`, `idempotency_key` UNIQUE per gra,
+  `command_sha256`, numer odrzucenia slotu `rejection_revision`, powód, opis,
+  aktor). Slot zapomina odrzucenie przy cofnięciu (CHECK cyklu życia), zdarzenia
+  zostają: powtórzenie polecenia zwraca zapisany wynik, a cofnięcie jest
+  przypięte do zdarzenia odrzucenia (starego żądania nie da się zastosować do
+  nowszego odrzucenia). Bez FK do slotu. TASK-0971 (D-543): akcja
+  `superseded` z `successor_review_item_id` (bez FK; wymagane tylko dla tej
+  akcji, bez powodu i opisu) zapisuje przejęcie sekwencji odrzuconego slotu
+  przez pozycję zdjęcia zastępczego; slot przechodzi wtedy w `superseded`
+  (`superseded_at`) i zachowuje pola odrzucenia jako historię.
+- Kolejność blokad zapisów własności sekwencji i bramki (TASK-0971,
+  `storage/sequence_ownership_lock.py`): blokada klucza idempotencji albo
+  wiersz dzierżawy joba workera (`FOR NO KEY UPDATE`, żeby kontrole kluczy
+  obcych `FOR KEY SHARE` wstawień odwołujących się do joba na nią nie czekały;
+  jedyna blokada wiersza `jobs`; po blokadzie własności zapytania używają
+  `FOR UPDATE OF` bez `jobs`) → blokada własności
+  gry `(game_id, 'sequence-ownership')` (`SHARED` wyłącznie dla decyzji
+  komórek, `EXCLUSIVE` dla przejęć, rozstrzygnięć, odrzuceń, cofnięć, zapisów
+  siatki, wyjątków geometrii, projekcji workera i operacji zbiorczych) → wiersz
+  gry (strażnik projekcji) → blokady sekwencji (rosnąco) → wiersze
+  `source_images` (kilka naraz rosnąco, przed przeliczeniem i cięciem) →
+  plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
+  `image_symbol_review_states` → komórki (write-through). Decyzja komórki
+  blokuje komórki swojej planszy przed stanem liczników; obie kolejności nie
+  działają równolegle, bo `SHARED` i `EXCLUSIVE` się wykluczają.
+  Blokada jest re-entrant w transakcji, `SHARED` nigdy nie przechodzi w
+  `EXCLUSIVE` (`409 SEQUENCE_OWNERSHIP_LOCK_UPGRADE`).
+- `image_geometry_correction_reverts` (manifest v7): jeden wiersz append-only
+  na cofnięcie z `kind` (`pending_slot`/`board_revision`), identyfikatorami
+  slotu, planszy, pozycji i rewizji (bez FK do usuniętych wierszy), cofaną i
+  przywróconą rewizją źródła, `reverted_idempotency_key` (klucz cofniętego
+  zapisu — strażnik powtórzeń `GEOMETRY_CORRECTION_REVERTED`),
+  `idempotency_key` (UNIQUE per gra), JSONB `snapshot` usuniętych wierszy w
+  kolejności usuwania (`to_jsonb`, UUID i daty jako tekst) z
+  `snapshot_checksum_sha256` kanonicznego JSON, `actor`, `created_at`.
+  UNIQUE `(game_id, reverted_board_geometry_revision_id)` blokuje drugie
+  cofnięcie tej samej korekty.
+- Cofnięcie slotu (przypadek B) w jednej transakcji usuwa zdarzenia komórek,
+  komórki, zdarzenie i rewizję geometrii planszy, pozycję przeglądu (wyzwalacz
+  i CASCADE: wpis kolejki, kandydat i dokument wyszukiwarki) oraz planszę
+  (CASCADE: manifest renderu), przywraca slot do `pending`, oznacza rewizję
+  źródła `reverted`, przepina sąsiadów `geometry_revision = 0` z powrotem na
+  poprzednią rewizję i przelicza liczniki, wyszukiwarkę, bramkę zdjęcia oraz
+  wersję wejścia supergry (`geometry_correction_revert`).
+  `source_images.processed_at` nie jest przywracane (brak zapisu wartości
+  sprzed korekty).
+- Cofnięcie korekty istniejącej planszy (przypadek A, TASK-0967) niczego nie
+  usuwa: dopisuje rewizję `N + 1` z geometrią (`geometry`, `corners`)
+  poprzedniej rewizji planszy (`N − 1`; dla `0` — `image_review_items.snapshot`
+  importu i wpis slotu rewizji źródła), wskazującą poprzednią rewizję
+  źródła planszy. Specyfikacje komórek renderu są kopiowane z manifestu
+  rewizji `N − 1`, a checksumy pikseli w nowym wierszu `board_render_manifests`
+  dla `N + 1` pochodzą z ponownego renderowania tych specyfikacji obecnym
+  rendererem (`VirtualRestoredRenderVerifier`); bez renderera cofnięcie
+  odmawia (`GEOMETRY_REVERT_RENDERER_UNAVAILABLE`). Komórki dostają render z tego manifestu i decyzje z
+  `previous_*` najwcześniejszego zdarzenia transakcji korekty (wspólne
+  `created_at` = `now()` transakcji; kolejność w komórce = `cell_revision`);
+  zatwierdzenie wraca tylko przy identycznych pikselach (D-462), inaczej jako
+  podpowiedź `pending`. `approved_geometry_revision` planszy wraca z
+  `previous_approved_geometry_revision` zdarzenia korekty, a zatwierdzenie
+  dokładnie przywracanej rewizji przechodzi na `N + 1` (czas i aktor ze
+  zdarzenia, które je zapisało). Zdarzenia `geometry_reverted` planszy
+  (`approved_geometry_revision` NOT NULL: przy braku zatwierdzenia zapisuje
+  `N + 1`, wiarygodny jest wiersz planszy) i komórek (pełne `previous_*`).
+  Od TASK-0967 zdarzenia `geometry_invalidated` korekty zapisują też
+  `previous_approved_asset_mode`, `..._source_geometry_revision_id`,
+  `..._render_spec_checksum_sha256` i `..._rendered_pixel_checksum_sha256`.
+  Runda poprawek audytu: komórki przywracanej rewizji są renderowane ponownie
+  (render podglądu); manifest `N + 1` zapisuje dzisiejsze sumy pikseli, a
+  D-462 porównuje je z zatwierdzeniem. Pochodzenie zatwierdzenia bez pełnego
+  zapisu w zdarzeniach (ani w komórce) → odmowa
+  `GEOMETRY_REVERT_HISTORY_INCOMPLETE`; silnik oraz czas i aktor
+  zatwierdzenia rewizji zapisanej przez wcześniejsze cofnięcie pochodzą z
+  migawki `board.after` jego wiersza audytu. `PINNED` (A): kohorty i
+  biblioteka wzorców zawsze; cele operacji zbiorczych, gdy
+  `expected_geometry_revision >= N`; rewizje predykcji, gdy
+  `virtualCell.renderSpecChecksumSha256` (albo suma pikseli spoza renderów
+  `< N`) wskazuje render `N`, a bez tożsamości — gdy powstały po korekcie.
+
 ### image_pipeline_stage_results
 
 | Pole | Typ | Uwagi |

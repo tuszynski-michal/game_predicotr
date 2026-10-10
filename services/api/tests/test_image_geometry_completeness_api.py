@@ -116,6 +116,7 @@ class _CompletenessRepository:
         after: GeometryImageCursor | None = None,
         limit: int = 100,
         completeness_status: SourceImageGeometryStatus | None = None,
+        gaps_only: bool = False,
     ) -> IncompleteGeometryImagePage | None:
         self.calls.append(
             (
@@ -127,6 +128,7 @@ class _CompletenessRepository:
                     "after": after,
                     "limit": limit,
                     "completenessStatus": completeness_status,
+                    "gapsOnly": gaps_only,
                 },
             )
         )
@@ -159,6 +161,7 @@ class _CompletenessRepository:
                             reason_code=None,
                             recognized_board_id=BOARD_ID,
                             quad=quad,
+                            human_approved=True,
                         ),
                         GeometryImagePosition(
                             position_index=1,
@@ -175,6 +178,7 @@ class _CompletenessRepository:
             ),
             next_cursor=GeometryImageCursor("folder/seq_1-9.jpg", IMAGE_ID),
             completeness_status=completeness_status,
+            gaps_only=gaps_only,
         )
 
     def source_image_asset(
@@ -412,6 +416,7 @@ def test_list_returns_images_with_positions_quads_and_the_import_error_code() ->
     body = response.json()
     assert body["imageState"] is None
     assert body["completenessStatus"] is None
+    assert body["gapsOnly"] is False
     assert body["nextCursor"] is not None
     [image] = body["images"]
     assert image == {
@@ -440,6 +445,7 @@ def test_list_returns_images_with_positions_quads_and_the_import_error_code() ->
                     {"x": 110.0, "y": 90.0},
                     {"x": 10.0, "y": 90.0},
                 ],
+                "humanApproved": True,
             },
             {
                 "positionIndex": 1,
@@ -448,6 +454,7 @@ def test_list_returns_images_with_positions_quads_and_the_import_error_code() ->
                 "reasonCode": "incomplete_lattice",
                 "recognizedBoardId": None,
                 "quad": None,
+                "humanApproved": False,
             },
         ],
         "completenessStatus": "geometry_incomplete",
@@ -484,8 +491,43 @@ def test_list_passes_filters_cursor_and_limit_to_the_repository() -> None:
             "after": GeometryImageCursor("a/b.jpg", IMAGE_ID),
             "limit": 10,
             "completenessStatus": None,
+            "gapsOnly": False,
         },
     )
+
+
+def test_list_gaps_only_passes_the_flag_and_echoes_it() -> None:
+    """TASK-0961: one request for the four real-gap states."""
+
+    repository = _CompletenessRepository()
+    response = _client(repository).get(
+        _url(repository.game_id, "/incomplete-images"), params={"gapsOnly": "true", "limit": 5}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["gapsOnly"] is True
+    assert response.json()["imageState"] is None
+    assert repository.calls[-1][1]["gapsOnly"] is True
+    assert repository.calls[-1][1]["imageState"] is None
+    assert repository.calls[-1][1]["limit"] == 5
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"gapsOnly": "true", "imageState": "incomplete_missing"},
+        {"gapsOnly": "true", "completenessStatus": "geometry_incomplete"},
+    ],
+)
+def test_list_gaps_only_conflicts_with_the_other_filters(params: dict[str, str]) -> None:
+    repository = _CompletenessRepository()
+    response = _client(repository).get(
+        _url(repository.game_id, "/incomplete-images"), params=params
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT"
+    assert repository.calls == []
 
 
 @pytest.mark.parametrize("status", ["geometry_incomplete", "geometry_exception"])

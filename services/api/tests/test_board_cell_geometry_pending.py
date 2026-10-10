@@ -34,11 +34,12 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
     BoardCellProcessingManifestV1,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
-from game_predictor_api.domain.jobs import JobError
+from game_predictor_api.domain.jobs import JobConflictError, JobError, JobNotFoundError
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
 from game_predictor_api.main import create_app
 
@@ -57,6 +58,7 @@ class MemoryPendingRepository(BoardCellGeometryPendingRepository):
         self.values: list[ImageBoardGeometryPending] = []
         self.human_revision_changed: set[UUID] = set()
         self.contexts: dict[UUID, BoardCellGeometryCorrectionContext] = {}
+        self.events: dict[UUID, tuple[UUID, tuple[object, ...]]] = {}
 
     def defer(
         self,
@@ -164,7 +166,52 @@ class MemoryPendingRepository(BoardCellGeometryPendingRepository):
             superseded=sum(
                 value.status is BoardCellGeometryPendingStatus.SUPERSEDED for value in values
             ),
+            rejected=sum(
+                value.status is BoardCellGeometryPendingStatus.REJECTED for value in values
+            ),
         )
+
+    def reject(
+        self,
+        *,
+        pending_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        reason: BoardRejectionReason,
+        note: str | None,
+        rejected_by: str,
+        rejected_at: datetime,
+    ) -> tuple[ImageBoardGeometryPending, UUID, bool]:
+        value = self.get(pending_id)
+        if value is None or value.game_id != game_id or value.import_job_id != import_job_id:
+            raise JobNotFoundError("IMAGE_BOARD_CELL_PENDING_NOT_FOUND", "missing")
+        command = (pending_id, reason, note, expected_geometry_revision)
+        stored = self.events.get(idempotency_key)
+        if stored is not None:
+            if stored[1] != command:
+                raise JobConflictError("IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT", "key")
+            return value, stored[0], False
+        if value.status is BoardCellGeometryPendingStatus.REJECTED:
+            raise JobConflictError("IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED", "rejected")
+        if value.status is not BoardCellGeometryPendingStatus.PENDING:
+            raise JobConflictError("IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE", "not open")
+        if value.expected_geometry_revision != expected_geometry_revision:
+            raise JobConflictError("IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT", "stale")
+        updated = replace(
+            value,
+            status=BoardCellGeometryPendingStatus.REJECTED,
+            rejection_reason=reason,
+            rejection_note=note,
+            rejected_at=rejected_at,
+            rejected_by=rejected_by,
+            updated_at=rejected_at,
+        )
+        self.values[self.values.index(value)] = updated
+        event_id = uuid4()
+        self.events[idempotency_key] = (event_id, command)
+        return updated, event_id, True
 
     def resolve(
         self,
@@ -427,11 +474,13 @@ def test_api_lists_pages_counts_and_scopes_single_item(tmp_path: Path) -> None:
         )
 
     assert page.status_code == 200
+    # TASK-0970: the counters gained ``rejected`` (a contract extension).
     assert page.json()["counts"] == {
         "total": 2,
         "pending": 2,
         "resolved": 0,
         "superseded": 0,
+        "rejected": 0,
     }
     assert len(page.json()["items"]) == 1
     assert page.json()["nextCursor"] is not None
@@ -914,3 +963,161 @@ def test_detected_quad_past_the_image_edge_seeds_manual_correction() -> None:
         with pytest.raises(JobConflictError) as error:
             _validated_detected_board_geometry(beyond, source_width=1520, source_height=904)
         assert error.value.code == "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID"
+
+
+def _rejection_body(**changes: object) -> dict[str, object]:
+    return {
+        "idempotencyKey": str(uuid4()),
+        "reason": "cropped",
+        "expectedGeometryRevision": 0,
+        **changes,
+    }
+
+
+def test_rejection_closes_the_slot_with_its_reason_and_replays_idempotently() -> None:
+    repository = MemoryPendingRepository()
+    service = BoardCellGeometryPendingService(repository, MemoryManifestStore())
+    slot, _ = service.defer(
+        manifest=_manifest(), reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE
+    )
+    arguments = {
+        "game_id": slot.game_id,
+        "import_job_id": slot.import_job_id,
+        "idempotency_key": uuid4(),
+        "expected_geometry_revision": 0,
+        "rejected_by": "  reviewer-session:1  ",
+        "rejected_at": datetime.now(UTC),
+    }
+
+    first = service.reject(
+        slot.id, reason=BoardRejectionReason.BLURRED, note="ignored note", **arguments
+    )
+    replay = service.reject(slot.id, reason=BoardRejectionReason.BLURRED, note=None, **arguments)
+
+    assert first.created is True and replay.created is False
+    assert replay.rejection_id == first.rejection_id
+    assert first.pending.status is BoardCellGeometryPendingStatus.REJECTED
+    assert first.pending.rejection_reason is BoardRejectionReason.BLURRED
+    # A note on a reason other than ``other`` is dropped, so the retry matches.
+    assert first.pending.rejection_note is None
+    assert first.pending.rejected_by == "reviewer-session:1"
+    assert first.counts.rejected == 1 and first.counts.pending == 0
+    # The same key with another command conflicts; another key on a rejected
+    # slot is refused as "already rejected".
+    with pytest.raises(JobConflictError) as other_reason:
+        service.reject(slot.id, reason=BoardRejectionReason.CROPPED, note=None, **arguments)
+    assert other_reason.value.code == "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT"
+    with pytest.raises(JobConflictError) as other_key:
+        service.reject(
+            slot.id,
+            reason=BoardRejectionReason.BLURRED,
+            note=None,
+            **{**arguments, "idempotency_key": uuid4()},
+        )
+    assert other_key.value.code == "IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED"
+
+
+@pytest.mark.parametrize(
+    ("reason", "note", "actor"),
+    (
+        (BoardRejectionReason.OTHER, None, "operator"),
+        (BoardRejectionReason.OTHER, "   ", "operator"),
+        (BoardRejectionReason.OTHER, "x" * 1001, "operator"),
+        (BoardRejectionReason.CROPPED, "x" * 1001, "operator"),
+        (BoardRejectionReason.CROPPED, None, "   "),
+    ),
+)
+def test_rejection_requires_a_note_for_other_and_a_bounded_actor(
+    reason: BoardRejectionReason, note: str | None, actor: str
+) -> None:
+    repository = MemoryPendingRepository()
+    service = BoardCellGeometryPendingService(repository, MemoryManifestStore())
+    slot, _ = service.defer(
+        manifest=_manifest(), reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE
+    )
+
+    with pytest.raises(JobError) as invalid:
+        service.reject(
+            slot.id,
+            game_id=slot.game_id,
+            import_job_id=slot.import_job_id,
+            idempotency_key=uuid4(),
+            expected_geometry_revision=0,
+            reason=reason,
+            note=note,
+            rejected_by=actor,
+            rejected_at=datetime.now(UTC),
+        )
+
+    assert invalid.value.code == "IMAGE_BOARD_CELL_PENDING_REJECTION_INVALID"
+    assert repository.get(slot.id).status is BoardCellGeometryPendingStatus.PENDING  # type: ignore[union-attr]
+
+
+def test_rejection_route_returns_the_slot_counters_and_maps_errors(tmp_path: Path) -> None:
+    game_id, import_job_id = uuid4(), uuid4()
+    repository = MemoryPendingRepository()
+    service = BoardCellGeometryPendingService(repository, MemoryManifestStore())
+    slot, _ = service.defer(
+        manifest=_manifest(game_id=game_id, import_job_id=import_job_id),
+        reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE,
+    )
+    app = create_app(
+        ApiSettings.from_environment(
+            {
+                "GAME_PREDICTOR_DATABASE_URL": (
+                    "postgresql+psycopg://unused:unused@localhost:5432/unused"
+                ),
+                "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path),
+            }
+        ),
+        board_cell_geometry_pending_service_dependency=lambda: service,
+    )
+    base = (
+        f"/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending"
+    )
+    body = _rejection_body(reason="other", note="Ucięty górny rząd")
+
+    with TestClient(app) as client:
+        first = client.post(f"{base}/{slot.id}/rejection", json=body)
+        replay = client.post(f"{base}/{slot.id}/rejection", json=body)
+        conflicting = client.post(
+            f"{base}/{slot.id}/rejection", json=_rejection_body(reason="blurred")
+        )
+        no_note = client.post(f"{base}/{slot.id}/rejection", json=_rejection_body(reason="other"))
+        bad_reason = client.post(
+            f"{base}/{slot.id}/rejection", json=_rejection_body(reason="unreadable")
+        )
+        stale = client.post(
+            f"{base}/{slot.id}/rejection", json=_rejection_body(expectedGeometryRevision=-1)
+        )
+        missing = client.post(f"{base}/{uuid4()}/rejection", json=body)
+        listed = client.get(base, params={"status": "rejected"})
+
+    assert first.status_code == 200, first.text
+    payload = first.json()
+    assert payload["created"] is True
+    assert payload["rejectionId"]
+    assert payload["item"]["status"] == "rejected"
+    assert payload["item"]["rejectionReason"] == "other"
+    assert payload["item"]["rejectionNote"] == "Ucięty górny rząd"
+    assert payload["item"]["rejectedBy"] == "local-admin"
+    assert payload["counts"] == {
+        "total": 1,
+        "pending": 0,
+        "resolved": 0,
+        "superseded": 0,
+        "rejected": 1,
+    }
+    assert replay.status_code == 200 and replay.json()["created"] is False
+    assert replay.json()["rejectionId"] == payload["rejectionId"]
+    assert conflicting.status_code == 409
+    assert conflicting.json()["code"] == "IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED"
+    # The slot is already rejected, so a missing note on a replay with another
+    # command is a conflict; a fresh invalid command would be a 4xx as well.
+    assert no_note.status_code in {409, 422}
+    assert bad_reason.status_code == 422
+    assert stale.status_code == 422
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "IMAGE_BOARD_CELL_PENDING_NOT_FOUND"
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()["items"]] == [str(slot.id)]

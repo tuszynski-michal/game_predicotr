@@ -3,12 +3,8 @@ import test from 'node:test';
 
 import {
   hasImageImport,
-  hasReviewerWork,
   readyBoardImportStaging,
-  reviewJobLabel,
   reviewableGames,
-  reviewReadyImports,
-  selectReviewImportId,
 } from '../src/features/reviewer-access/reviewer-access-state.ts';
 
 const gameId = 'game-1';
@@ -50,36 +46,6 @@ function imageJob(overrides = {}) {
   };
 }
 
-test('selects the newest unresolved image import and hides completed history', () => {
-  const older = imageJob({
-    createdAt: '2026-08-01T08:00:00Z',
-    id: 'job-older',
-    status: 'completed',
-  });
-  const newest = imageJob();
-  const processing = imageJob({
-    createdAt: '2026-08-01T11:00:00Z',
-    id: 'job-processing',
-    status: 'processing',
-  });
-  const otherGame = imageJob({ gameId: 'game-2', id: 'job-other' });
-
-  assert.deepEqual(
-    reviewReadyImports([processing, older, otherGame, newest], gameId).map(
-      (job) => job.id,
-    ),
-    ['job-ready'],
-  );
-  assert.equal(selectReviewImportId([older, newest], gameId, ''), newest.id);
-  assert.equal(
-    selectReviewImportId([older, newest], gameId, older.id),
-    newest.id,
-  );
-  assert.match(reviewJobLabel(older), /19810 - 45162 · gotowy$/);
-  assert.match(reviewJobLabel(newest), /19810 - 45162 · do zatw\.$/);
-  assert.doesNotMatch(reviewJobLabel(newest), /job-ready/);
-});
-
 test('distinguishes an unfinished image import from no image import', () => {
   const processing = imageJob({ status: 'processing' });
   const fileImport = imageJob({
@@ -96,29 +62,10 @@ test('distinguishes an unfinished image import from no image import', () => {
 
   assert.equal(hasImageImport([processing], gameId), true);
   assert.equal(hasImageImport([fileImport], gameId), false);
-  assert.equal(reviewReadyImports([processing], gameId).length, 0);
+  assert.equal(hasImageImport([processing], 'game-2'), false);
 });
 
-test('opens the local correction screen only for a non-empty correction queue', () => {
-  const grid = {
-    approved: 0,
-    correction: 0,
-    needsCorrection: 0,
-    needsValidation: 0,
-  };
-  const deferred = { pending: 0, resolved: 0, superseded: 0, total: 0 };
-
-  assert.equal(hasReviewerWork(grid, deferred), false);
-  // D-462: boards waiting for the removed validation are no work anymore.
-  assert.equal(
-    hasReviewerWork({ ...grid, needsValidation: 5 }, deferred),
-    false,
-  );
-  assert.equal(hasReviewerWork({ ...grid, correction: 1 }, deferred), true);
-  assert.equal(hasReviewerWork(null, { ...deferred, pending: 1 }), false);
-});
-
-test('keeps ready staging outside the review dropdown but scopes it to the game', () => {
+test('scopes ready staging to the game', () => {
   const staging = {
     createdAt: '2026-08-01T10:00:00Z',
     displayName: '19810 - 45162',
@@ -144,5 +91,4 @@ test('keeps ready staging outside the review dropdown but scopes it to the game'
     ).map((item) => item.uploadId),
     ['staging-newest', 'older'],
   );
-  assert.equal(reviewReadyImports([], gameId).length, 0);
 });

@@ -81,6 +81,11 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import (
+    acquire_sequence_ownership_lock,
+    ensure_sequence_ownership_lock,
+    require_exclusive_sequence_ownership,
+)
 
 ReviewRow = tuple[
     ImageReviewItemModel,
@@ -701,7 +706,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             ImageReviewItemModel.id == review_item_id
         )
         if for_update:
-            query = query.with_for_update()
+            # TASK-0971 (P0-6): never the job row. A worker holds its job's lease
+            # row before the ownership lock; a writer that holds the ownership
+            # lock must not wait for that job afterwards.
+            query = query.with_for_update(
+                of=(
+                    ImageReviewItemModel,
+                    RecognizedBoardModel,
+                    SourceImageModel,
+                    ImageReviewQueueItemModel,
+                )
+            )
         row = self._session.execute(query).tuples().one_or_none()
         if row is None:
             return None
@@ -946,6 +961,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     "reviewItemId": str(review_item_id),
                 },
             )
+        if resolution.action.value == "rejected":
+            self._require_not_canonical_owner(game_id, review_item_id)
         active_codes = self.active_symbol_codes(game_id)
         revalidated = validate_image_review_resolution(
             item=locked,
@@ -989,6 +1006,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         revision = item_record.resolution_revision + 1
         affected_source_ids = {source.id}
+        previous_item_status = item_record.status
         if resolution.action.value == "rejected":
             event_record = self._append_resolution_event(
                 item=item_record,
@@ -1154,6 +1172,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         ):
             projection.sync_sequence_candidates(game_id, resolution.sequence_number)
         coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        if resolution.action.value == "rejected" and previous_item_status != "rejected":
+            # TASK-0970: a rejected board leaves symbol verification (its rows
+            # and decision history stay).
+            coordinator.release_cells_of_rejected_board(
+                game_id=game_id, review_item_id=review_item_id
+            )
+        elif previous_item_status == "rejected" and item_record.status != "rejected":
+            # A direct re-resolution (accepted, corrected or superseded) of a
+            # rejected board brings its cells back, counted exactly once, before
+            # the regular write-through treats them as counted.
+            coordinator.restore_cells_of_reopened_board(
+                game_id=game_id, review_item_id=review_item_id
+            )
         coordinator.synchronize_after_board_resolution(
             game_id=game_id,
             review_item_id=review_item_id,
@@ -1171,6 +1202,29 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The resolved review projection cannot be reloaded.",
             )
         return updated, _event_from_record(event_record), True
+
+    def _require_not_canonical_owner(self, game_id: UUID, review_item_id: UUID) -> None:
+        """A board that owns its sequence cannot be rejected (TASK-0970, D-543).
+
+        Rejecting the canonical owner would leave the sequence claim pointing
+        at a rejected item; taking the canon over is a separate task (0305).
+        """
+
+        owned = self._session.scalar(
+            select(ImageSequenceCanonicalModel.sequence_number)
+            .where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.review_item_id == review_item_id,
+            )
+            .limit(1)
+        )
+        if owned is not None:
+            raise ImageReviewConflictError(
+                "BOARD_REJECT_CANONICAL",
+                "Ta plansza jest kanonicznym właścicielem swojej sekwencji i nie można jej "
+                "odrzucić. Najpierw cofnij jej rozstrzygnięcie.",
+                details={"sequenceNumber": int(owned), "reviewItemId": str(review_item_id)},
+            )
 
     def _acquire_sequence_lock(self, game_id: UUID, sequence_number: int) -> None:
         self._session.execute(
@@ -1362,8 +1416,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 ImageReviewItemModel.id.not_in(excluded_review_item_ids),
             )
             .order_by(ImageReviewItemModel.id)
-            .with_for_update()
+            # The job is only joined for the game scope (TASK-0971, P0-6).
+            .with_for_update(of=(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel))
         ).all()
+        if rows:
+            # Superseding another photo's item recomputes that image's gate,
+            # i.e. locks a second source row: exclusive ownership only.
+            require_exclusive_sequence_ownership(self._session, game_id=game_id)
         source_ids: set[UUID] = set()
         for item, board, source in rows:
             revision = item.resolution_revision + 1
@@ -1704,6 +1763,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         review_item_id: UUID,
         requested_sequence_number: int | None,
     ) -> None:
+        # A direct resolution is an entry point: it takes the exclusive
+        # ownership lock first (it may supersede another photo's item). Nested
+        # in a symbol-cell decision it keeps the decision's lock (TASK-0971).
+        ensure_sequence_ownership_lock(self._session, game_id=game_id)
         acquire_image_review_sequence_locks(
             self._session,
             game_id=game_id,
@@ -2701,5 +2764,6 @@ def _superseded_resolved_value(
 
 __all__ = [
     "SqlAlchemyOperationalImageReviewRepository",
+    "acquire_sequence_ownership_lock",
     "materialize_current_image_review_cells",
 ]

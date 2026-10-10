@@ -27,7 +27,8 @@ Every statement filters by ``game_id`` and runs after ``GameStorageRouter.bind``
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -71,6 +72,9 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewCellModel,
     RecognizedBoardModel,
     SourceImageModel,
+)
+from game_predictor_api.storage.sequence_ownership_lock import (
+    acquire_sequence_ownership_lock,
 )
 
 GEOMETRY_COMPLETENESS_ACTOR: Final = "system:geometry-completeness"
@@ -211,6 +215,112 @@ def recompute_source_image_geometry_completeness(
     return result
 
 
+_DEFERRED_MATERIALIZATIONS_KEY: Final = "game_predictor.deferred_gate_materializations"
+
+
+def lock_source_images(session: Session, game_id: UUID, source_image_ids: Iterable[UUID]) -> None:
+    """Lock several source rows in one statement, in ascending id order (TASK-0971)."""
+
+    ids = sorted(set(source_image_ids), key=str)
+    if not ids:
+        return
+    GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+    _execute(
+        session,
+        "SELECT id FROM source_images WHERE game_id = :game_id AND id = ANY (:ids) "
+        "ORDER BY id FOR UPDATE",
+        {"game_id": game_id, "ids": ids},
+    ).all()
+
+
+def start_deferred_gate_materializations(session: Session) -> None:
+    """Begin collecting admitted images for ``finish_deferred_gate_materializations``."""
+
+    session.info[_DEFERRED_MATERIALIZATIONS_KEY] = {}
+
+
+def finish_deferred_gate_materializations(session: Session) -> int:
+    """Stop collecting and cut the collected images (after the last source lock)."""
+
+    bucket = session.info.pop(_DEFERRED_MATERIALIZATIONS_KEY, None) or {}
+    return materialize_deferred_source_images(session, bucket)
+
+
+@contextmanager
+def deferred_gate_materializations(session: Session) -> Iterator[dict[tuple[UUID, UUID], str]]:
+    """Collect the images admitted by multi-image recomputes; the caller cuts them.
+
+    A writer that locks more source rows later in its transaction (the import
+    writer, one board after another) cuts the admitted images only after its
+    last source lock, so the counters state is never locked before a source
+    row (global lock order, ``storage.sequence_ownership_lock``).
+    """
+
+    info = session.info
+    previous = info.get(_DEFERRED_MATERIALIZATIONS_KEY)
+    bucket: dict[tuple[UUID, UUID], str] = {}
+    info[_DEFERRED_MATERIALIZATIONS_KEY] = bucket
+    try:
+        yield bucket
+    finally:
+        if previous is None:
+            info.pop(_DEFERRED_MATERIALIZATIONS_KEY, None)
+        else:
+            info[_DEFERRED_MATERIALIZATIONS_KEY] = previous
+
+
+def materialize_deferred_source_images(
+    session: Session, bucket: Mapping[tuple[UUID, UUID], str]
+) -> int:
+    """Cut the deferred admitted images (ascending id) after the last source lock."""
+
+    count = 0
+    for game_id, source_image_id in sorted(bucket, key=lambda key: (str(key[0]), str(key[1]))):
+        count += materialize_admitted_source_image(
+            session, game_id, source_image_id, actor=bucket[(game_id, source_image_id)]
+        )
+    return count
+
+
+def recompute_source_images(
+    session: Session,
+    game_id: UUID,
+    source_image_ids: Iterable[UUID],
+    *,
+    actor: str = GEOMETRY_COMPLETENESS_ACTOR,
+    now: datetime | None = None,
+    exclude_source_image_id: UUID | None = None,
+) -> tuple[SourceImageGeometryRecompute, ...]:
+    """Recompute several images: all source rows first, then the cuts (TASK-0971).
+
+    Every source row is locked in ascending id order before any image is
+    recomputed, and the images that became admitted are cut only after all of
+    them (the cut locks the counters state). Inside
+    ``deferred_gate_materializations`` the cuts are left to the caller.
+    """
+
+    ids = sorted(set(source_image_ids) - {exclude_source_image_id}, key=str)
+    if not ids:
+        return ()
+    lock_source_images(session, game_id, ids)
+    results = tuple(
+        recompute_source_image_geometry_completeness(
+            session, game_id, image_id, actor=actor, now=now, materialize=False
+        )
+        for image_id in ids
+    )
+    admitted = [result.source_image_id for result in results if result.became_admitted]
+    info = getattr(session, "info", None)
+    bucket = info.get(_DEFERRED_MATERIALIZATIONS_KEY) if isinstance(info, dict) else None
+    if bucket is not None:
+        for image_id in admitted:
+            bucket[(game_id, image_id)] = actor
+    else:
+        for image_id in admitted:
+            materialize_admitted_source_image(session, game_id, image_id, actor=actor)
+    return results
+
+
 def recompute_source_images_of_boards(
     session: Session,
     game_id: UUID,
@@ -237,10 +347,7 @@ def recompute_source_images_of_boards(
         },
         key=str,
     )
-    return tuple(
-        recompute_source_image_geometry_completeness(session, game_id, image_id, actor=actor)
-        for image_id in image_ids
-    )
+    return recompute_source_images(session, game_id, image_ids, actor=actor)
 
 
 def recompute_source_images_of_review_items(
@@ -273,10 +380,7 @@ def recompute_source_images_of_review_items(
         - ({exclude_source_image_id} if exclude_source_image_id is not None else set()),
         key=str,
     )
-    return tuple(
-        recompute_source_image_geometry_completeness(session, game_id, image_id, actor=actor)
-        for image_id in image_ids
-    )
+    return recompute_source_images(session, game_id, image_ids, actor=actor)
 
 
 def active_review_item_ids(
@@ -474,6 +578,7 @@ WITH newest AS (
     r.normalized_pixel_checksum_sha256
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = ANY (:image_ids)
+    AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 )
 SELECT b.id, b.source_image_id, b.position_index, b.geometry_revision, b.geometry_checksum_sha256,
@@ -726,6 +831,10 @@ class SqlAlchemyImageGeometryCompletenessStateRepository:
         author = _require_actor(actor)
         if not self._bind(game_id):
             return None
+        # TASK-0971: the cut locks the counters state before cell rows (the
+        # write-through order); symbol-cell decisions, the only shared holders,
+        # lock cells before the state. Exclusive keeps the two orders apart.
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
         decided_at = now or datetime.now(UTC)
         current = recompute_source_image_geometry_completeness(
             self._session, game_id, source_image_id, actor=author, now=decided_at
@@ -1123,7 +1232,13 @@ __all__ = [
     "SqlAlchemyImageGeometryCompletenessStateRepository",
     "active_review_item_ids",
     "apply_board_repoint",
+    "deferred_gate_materializations",
+    "finish_deferred_gate_materializations",
+    "start_deferred_gate_materializations",
+    "lock_source_images",
     "materialize_admitted_source_image",
+    "materialize_deferred_source_images",
+    "recompute_source_images",
     "plan_board_repoint",
     "recompute_source_image_geometry_completeness",
     "recompute_source_images_of_boards",

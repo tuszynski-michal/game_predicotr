@@ -718,7 +718,7 @@ def _load_images(session: Session, game_id: UUID, import_job_id: UUID) -> dict[s
            FROM game_data_v2.image_source_geometry_revisions r
            JOIN game_data_v2.source_images s ON s.game_id = r.game_id AND s.id = r.source_image_id
              AND s.import_job_id = :import_job_id
-           WHERE r.game_id = :game_id
+           WHERE r.game_id = :game_id AND r.status <> 'reverted'
            ORDER BY r.source_image_id, r.revision DESC""",
         params,
     ):

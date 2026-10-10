@@ -1,10 +1,8 @@
 'use client';
 
 import type {
-  BoardCellGeometryJobCountsResponse,
   BrowserReadySelectionResponse,
   GameResponse,
-  ImageGridReviewPageResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -21,14 +19,9 @@ import {
 } from '@/features/grid-shadow/grid-shadow-panel';
 import {
   hasImageImport,
-  hasReviewerWork,
-  gridReviewTotal,
   isImageImport,
   readyBoardImportStaging,
   reviewableGames,
-  reviewJobLabel,
-  reviewReadyImports,
-  selectReviewImportId,
 } from '@/features/reviewer-access/reviewer-access-state';
 import {
   buildPreparedLocalReviewUrl,
@@ -43,8 +36,6 @@ type GridReviewLauncherClient = Pick<
   | 'listGames'
   | 'listJobs'
   | 'listReadyBrowserImageSelections'
-  | 'listImageGridReviews'
-  | 'listPendingBoardCellGeometry'
   | 'startLocalReviewer'
 >;
 
@@ -73,16 +64,9 @@ export function ReviewerAccessLauncher({
   const [uncontrolledGameId, setGameId] = useState('');
   const gameId = controlledGameId ?? uncontrolledGameId;
   const gameIdRef = useRef(gameId);
-  const [jobId, setJobId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [reviewContextLoading, setReviewContextLoading] = useState(false);
-  const [gridReviewCounts, setGridReviewCounts] = useState<
-    ImageGridReviewPageResponse['counts'] | null
-  >(null);
-  const [deferredGeometryCounts, setDeferredGeometryCounts] =
-    useState<BoardCellGeometryJobCountsResponse | null>(null);
   const [localReviewUrl, setLocalReviewUrl] = useState<string | null>(null);
   const [openingLocal, setOpeningLocal] = useState(false);
   const openingLocalRef = useRef(false);
@@ -144,9 +128,6 @@ export function ReviewerAccessLauncher({
             ? gameIdRef.current
             : firstGameId);
         if (controlledGameId === undefined) setGameId(selectedGameId);
-        setJobId((current) =>
-          selectReviewImportId(imageJobs, selectedGameId, current),
-        );
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -161,86 +142,19 @@ export function ReviewerAccessLauncher({
     };
   }, [api, controlledGameId, refreshToken]);
 
-  const availableJobs = reviewReadyImports(jobs, gameId);
   const availableStaging = readyBoardImportStaging(readyStaging, gameId);
   const gameHasImageImport = hasImageImport(jobs, gameId);
-  const selectedJob = availableJobs.find((job) => job.id === jobId) ?? null;
 
-  useEffect(() => {
-    let active = true;
-    async function loadReviewContext() {
-      setGridReviewCounts(null);
-      setDeferredGeometryCounts(null);
-      if (gameId === '' || jobId === '') {
-        setReviewContextLoading(false);
-        return;
-      }
-      setReviewContextLoading(true);
-      setError('');
-      try {
-        const [gridResult, deferredResult] = await Promise.all([
-          api.listImageGridReviews({
-            gameId,
-            importJobId: jobId,
-            limit: 1,
-            view: 'correction',
-          }),
-          api.listPendingBoardCellGeometry({
-            gameId,
-            importJobId: jobId,
-            limit: 1,
-            status: 'pending',
-          }),
-        ]);
-        if (!active) return;
-        if (
-          gridResult.error !== undefined ||
-          gridResult.data === undefined ||
-          deferredResult.error !== undefined ||
-          deferredResult.data === undefined
-        ) {
-          setError(
-            apiErrorMessage(
-              gridResult.error ?? deferredResult.error,
-              'Nie udało się sprawdzić plansz wybranego importu.',
-            ),
-          );
-          return;
-        }
-        setGridReviewCounts(gridResult.data.counts);
-        setDeferredGeometryCounts(deferredResult.data.counts);
-      } catch {
-        if (active) {
-          setError('Połączenie z lokalnym Admin API zostało przerwane.');
-        }
-      } finally {
-        if (active) setReviewContextLoading(false);
-      }
-    }
-    void loadReviewContext();
-    return () => {
-      active = false;
-    };
-  }, [api, gameId, jobId, refreshToken]);
-
-  function canOpenWork() {
-    return (
-      gameId !== '' &&
-      jobId !== '' &&
-      !loading &&
-      !reviewContextLoading &&
-      !openingLocal &&
-      hasReviewerWork(gridReviewCounts, deferredGeometryCounts)
-    );
-  }
+  // The Reviewer opens scoped to the whole game; no per-import counts are
+  // loaded here (a game-wide count would be expensive).
+  const canOpenWork = gameId !== '' && !loading && !openingLocal;
 
   async function launchLocalReviewer() {
-    if (!canOpenWork() || openingLocalRef.current) return;
+    if (!canOpenWork || openingLocalRef.current) return;
     setError('');
     setLocalReviewUrl(null);
     const reviewUrl = buildPreparedLocalReviewUrl(window.location.href, {
       gameId,
-      importJobId: jobId,
     });
     if (reviewUrl === null) {
       setLocalReviewUrl(null);
@@ -251,7 +165,7 @@ export function ReviewerAccessLauncher({
     }
     const reviewerWindow = prepareLocalReviewerWindow(
       window.location.href,
-      { gameId, importJobId: jobId },
+      { gameId },
       (url, target) => window.open(url, target),
     );
     openingLocalRef.current = true;
@@ -292,8 +206,8 @@ export function ReviewerAccessLauncher({
           <h1>Korekta cięcia siatki</h1>
           <p className="lead">
             Otwórz lokalny Reviewer, aby poprawić siatkę plansz odrzuconych
-            przez algorytm albo zgłoszonych jako „Zła siatka”. Jedna plansza
-            naraz; zapis nie zatwierdza symboli.
+            przez algorytm, zgłoszonych jako „Zła siatka” oraz zdjęć z brakami.
+            Jedna plansza naraz; zapis nie zatwierdza symboli.
           </p>
         </div>
       </header>
@@ -306,11 +220,7 @@ export function ReviewerAccessLauncher({
               <select
                 disabled={loading || openingLocal}
                 onChange={(event) => {
-                  const nextGameId = event.target.value;
-                  setGameId(nextGameId);
-                  setJobId(selectReviewImportId(jobs, nextGameId, ''));
-                  setGridReviewCounts(null);
-                  setDeferredGeometryCounts(null);
+                  setGameId(event.target.value);
                   setLocalReviewUrl(null);
                 }}
                 value={gameId}
@@ -323,40 +233,9 @@ export function ReviewerAccessLauncher({
               </select>
             </label>
           ) : null}
-          {availableJobs.length > 0 ? (
-            <label className="reviewerImportChoice">
-              Gotowy import plansz
-              <select
-                className="reviewerImportSelect"
-                disabled={loading || reviewContextLoading || openingLocal}
-                onChange={(event) => {
-                  setJobId(event.target.value);
-                  setGridReviewCounts(null);
-                  setDeferredGeometryCounts(null);
-                  setLocalReviewUrl(null);
-                }}
-                title={
-                  selectedJob === null ? undefined : reviewJobLabel(selectedJob)
-                }
-                value={jobId}
-              >
-                {availableJobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {reviewJobLabel(job)}
-                  </option>
-                ))}
-              </select>
-              {selectedJob !== null ? (
-                <span className="reviewerSelectedImportId">
-                  ID: <code>{selectedJob.id}</code>
-                </span>
-              ) : null}
-            </label>
-          ) : null}
-
           <button
             className="secondaryButton"
-            disabled={loading || reviewContextLoading || openingLocal}
+            disabled={loading || openingLocal}
             onClick={() => setRefreshToken((current) => current + 1)}
             type="button"
           >
@@ -364,7 +243,7 @@ export function ReviewerAccessLauncher({
           </button>
           <button
             className="secondaryButton"
-            disabled={!canOpenWork()}
+            disabled={!canOpenWork}
             onClick={() => void launchLocalReviewer()}
             type="button"
           >
@@ -372,22 +251,18 @@ export function ReviewerAccessLauncher({
           </button>
         </div>
 
-        {!loading && availableJobs.length === 0 ? (
+        {!loading && !gameHasImageImport ? (
           <div className="reviewerPrerequisite" role="status">
             <div>
               <strong>
                 {availableStaging.length > 0
                   ? 'Gotowy staging plansz czeka na uruchomienie importu'
-                  : gameHasImageImport
-                    ? 'Import nie jest jeszcze gotowy do zatwierdzania'
-                    : 'Brak uruchomionego importu plansz dla tej gry'}
+                  : 'Brak uruchomionego importu plansz dla tej gry'}
               </strong>
               <p>
                 {availableStaging.length > 0
                   ? `Staging „${availableStaging[0].displayName}” zawiera ${availableStaging[0].uploadedFileCount.toLocaleString('pl-PL')} plików, ale nie jest jeszcze jobem importu plansz. Wróć do Importu plansz, pokaż raport, przygotuj geometrię stron i jawnie rozpocznij import. Dopiero utworzony job z kolejką plansz pojawi się tutaj.`
-                  : gameHasImageImport
-                    ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
-                    : 'Wczytaj zdjęcia, przygotuj import plansz i zakończ jego przetwarzanie, aby otworzyć Reviewer.'}
+                  : 'Wczytaj zdjęcia, przygotuj import plansz i zakończ jego przetwarzanie, aby otworzyć Reviewer.'}
               </p>
             </div>
             {onOpenImports ? (
@@ -400,50 +275,6 @@ export function ReviewerAccessLauncher({
               </button>
             ) : null}
           </div>
-        ) : null}
-
-        {reviewContextLoading ? (
-          <p className="mutedText">Sprawdzam plansze wybranego importu…</p>
-        ) : gridReviewCounts !== null &&
-          gridReviewTotal(gridReviewCounts) === 0 &&
-          deferredGeometryCounts?.pending === 0 ? (
-          <div className="reviewerPrerequisite" role="status">
-            <div>
-              <strong>Wybrany import nie zawiera plansz</strong>
-              <p>Doładuj zdjęcia lub wybierz inny gotowy import.</p>
-            </div>
-          </div>
-        ) : gridReviewCounts && deferredGeometryCounts ? (
-          <>
-            <dl
-              className="reviewerReadinessSummary"
-              aria-label="Stan plansz importu"
-            >
-              <div>
-                <dt>Geometria plansz ze stron 3×3</dt>
-                <dd>
-                  {gridReviewTotal(gridReviewCounts).toLocaleString('pl-PL')}
-                </dd>
-              </div>
-              <div>
-                <dt>Plansze do korekty cięcia siatki</dt>
-                <dd>
-                  {(gridReviewCounts.correction ?? 0).toLocaleString('pl-PL')}
-                </dd>
-              </div>
-              <div>
-                <dt>Geometrie odroczone przez algorytm</dt>
-                <dd>
-                  {deferredGeometryCounts.pending.toLocaleString('pl-PL')}
-                </dd>
-              </div>
-            </dl>
-            {(gridReviewCounts.correction ?? 0) === 0 ? (
-              <p className="mutedText" role="status">
-                Brak plansz do korekty cięcia siatki w tym imporcie.
-              </p>
-            ) : null}
-          </>
         ) : null}
 
         {error ? (
@@ -475,6 +306,8 @@ export function ReviewerAccessLauncher({
               id: job.id,
               label: `${'sourceDisplayName' in job.inputPayload ? (job.inputPayload.sourceDisplayName ?? 'Import obrazów') : 'Import obrazów'} · ${job.id.slice(0, 8)}`,
             }))}
+          onOpenReviewer={() => void launchLocalReviewer()}
+          openReviewerDisabled={!canOpenWork}
           refreshToken={refreshToken}
         />
       ) : null}

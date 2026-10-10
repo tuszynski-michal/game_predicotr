@@ -19,6 +19,9 @@ from game_predictor_api.api.catalog import (
 )
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
+from game_predictor_api.api.geometry_correction_reverts import (
+    create_geometry_correction_reverts_router,
+)
 from game_predictor_api.api.grid_audit_proposals import create_grid_audit_proposals_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
 from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
@@ -118,6 +121,7 @@ def create_api_router(
     remote_manual_selection_recovery_service_dependency: Callable[..., object],
     artifact_root: Path,
     *,
+    geometry_correction_revert_service_dependency: Callable[..., object],
     board_search_board_detail_service_dependency: Callable[..., object],
     board_search_board_view_service_dependency: Callable[..., object],
     board_search_share_access_service_dependency: Callable[..., object],
@@ -286,6 +290,12 @@ def create_api_router(
             board_cell_geometry_pending_service_dependency,
             reviewer_access_service_dependency,
             artifact_root,
+        )
+    )
+    router.include_router(
+        create_geometry_correction_reverts_router(
+            geometry_correction_revert_service_dependency,
+            reviewer_access_service_dependency,
         )
     )
     router.include_router(

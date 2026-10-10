@@ -799,6 +799,36 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
+Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0969, D-542): lista ostatnich
+zapisów korekty importu (godzina lokalna, sekwencja, pozycja, rodzaj `slot` /
+`plansza`, autor). `Cofnij` jest dostępne tylko dla korekt oznaczonych przez
+API jako `revertable`; pozostałe pokazują komunikat blokady. `Cofnij` otwiera
+potwierdzenie z podglądem skutków, a `Potwierdź cofnięcie` wysyła jedno
+żądanie z nowym kluczem idempotencji i tokenami CAS z podglądu. Po sukcesie
+odświeżają się kolejka i lista; błąd 409 pokazuje komunikat i odświeża listę.
+Lista odświeża się też po każdym zapisie korekty.
+Lista dotyczy jednego importu: w sesji z wybranym importem — tego importu, a
+w lokalnym Reviewerze w zakresie gry (TASK-0962, D-541) — importu planszy
+widocznej w kolejce; po opróżnieniu kolejki zostaje ostatni import, więc
+ostatni zapis nadal można cofnąć. Bez planszy na ekranie i bez wybranego
+importu sekcja się nie pokazuje.
+
+Odrzucanie przyciętych plansz (TASK-0970, D-543, W7/W8): w „Korekta cięcia siatki”
+nad edytorem oraz na ekranie operacyjnym pozycji jest przycisk
+`Odrzuć planszę`. Otwiera okno z wyborem powodu („Plansza przycięta”,
+„Rozmyta”, „Inny” z obowiązkowym opisem), skutkami (zdjęcie zostaje
+niekompletne i czeka na zdjęcie zastępcze albo wyjątek operatora, pozostałe
+plansze nie są cięte; weryfikacje symboli już zapisane na planszy zostają w
+historii, ale plansza wypada z wyszukiwarki; kanonicznego właściciela
+sekwencji nie można odrzucić) i potwierdzeniem `Potwierdź odrzucenie`. Slot
+odroczony jest odrzucany trasą slotu, istniejąca plansza trasą rozstrzygnięcia
+pozycji. Okno trzyma jeden klucz idempotencji na otwarcie; po utraconej
+odpowiedzi zamraża wybór i pozwala powtórzyć to samo żądanie. Odpowiedź 4xx
+z kodem (np. `BOARD_REJECT_CANONICAL`) zamyka okno, pokazuje komunikat i
+odświeża kolejkę. Odrzucenie trafia na listę „Ostatnie korekty” (rodzaj
+`odrzucony slot` / `odrzucona plansza` z powodem) i można je cofnąć, dopóki
+sekwencji nie przejmie inna plansza (`GEOMETRY_REVERT_REPLACED`).
+
 Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
 planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
 z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych
@@ -1314,15 +1344,21 @@ zakładce Joby.
 Jednostką geometrii jest zdjęcie źródłowe (D-484). Diagnostyka znajduje się
 w „Korekcie cięcia siatki”, pod uruchomieniem Reviewera. Nie jest częścią
 „Importu plansz”; raport brakujących numerów plansz zostaje w imporcie.
-Pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i listuje
-zdjęcia niekompletne. Od TASK-0807 jest kolejką siatek bramki D-484:
-zakładka domyślna „Kolejka siatek” pokazuje zdjęcia ze stanem zapisanym w
-bazie `geometry_incomplete` (`completenessStatus`), a „Wyjątki operatora” —
-zdjęcia `geometry_exception`. Siatki poprawia się w istniejącej korekcie siatek
-(Reviewer, przycisk „Popraw siatki w Reviewerze” otwiera lokalnego Reviewera
-dla importu zdjęcia). Korzysta z `GET .../geometry-completeness/{gameId}`,
-`.../incomplete-images`, `.../low-quality-boards` oraz
-`POST`/`DELETE .../images/{sourceImageId}/exception`.
+Pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie. Od TASK-0964
+(plan `REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`) sekcja jest tylko miejscem
+„ile i co”: nagłówek „{N} zdjęć z realnymi brakami · {M} z niepotwierdzoną
+siatką” (N = brakuje plansz + częściowe + import nieudany + bez geometrii
+źródła; M = siatka niepotwierdzona, czyli automatyczna siatka bez ręcznego
+zatwierdzenia, nie błąd cięcia; nagłówek zawsze dotyczy całej gry, także przy
+wybranym imporcie), liczniki, podsumowania stanów i pozycji oraz
+blok „Plansze z niską jakością symboli”. Nie ma w niej listy zdjęć, podglądu
+SVG, filtrów stanu ani paginacji: te elementy działają w zakładce „Braki
+zdjęć” lokalnego Reviewera, który otwiera przycisk „Otwórz braki w Reviewerze”
+(zakres całej gry, URL bez `importJobId`). Launcher „Korekty cięcia siatki” nie
+ma selecta „Gotowy import plansz” i nie liczy plansz. Sekcja korzysta z
+`GET .../geometry-completeness/{gameId}` i `.../low-quality-boards`; UI wyjątków
+bramki (`POST`/`DELETE .../images/{sourceImageId}/exception`) został z Admina
+usunięty, endpointy i klient zostają.
 
 Opis wyjaśnia, że w V3 (D-523) poprawne pełne siatki są cięte automatycznie
 niezależnie od innych slotów zdjęcia. Niekompletność całego zdjęcia nie
@@ -1374,22 +1410,20 @@ Zachowanie:
   odroczenia; pozycje i zdjęcia `superseded` nie są brakami, więc mają własną
   linię („Zastąpione nowszym importem, więc nie są brakami”) i nie wchodzą do
   liczby niekompletnych ani do listy domyślnej,
-- filtr stanu zdjęcia (`Wszystkie`, pięć stanów wymagających uwagi i
-  „Zastąpione nowszym importem”, żeby zdjęcia zastąpione dało się obejrzeć) i
-  lista po 25 zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po
-  `(relativePath, sourceImageId)`,
-- każde zdjęcie pokazuje ścieżkę, status zdjęcia, zakres numerów, oczekiwaną
-  liczbę plansz, kod błędu pliku importu (`importErrorCode`, gdy plik się nie
-  powiódł) oraz SVG o wymiarach zdjęcia (`exif-normalized-rgb-pixels-v1`)
-  z naniesionymi siatkami plansz: kolor zielony `ok`, żółty `uncertain` i
+- dla wybranego importu (D-543, TASK-0971) liczniki „Zastąpione sekwencje”
+  (sekwencje przejęte od odrzuconej planszy innego zdjęcia) i „Pominięte —
+  sekwencja ma właściciela” (żywa pozycja innego zdjęcia albo właściciel
+  kanoniczny) z listami numerów `#N` (najwyżej 500, reszta jako „i jeszcze N”);
+  linia pominiętych przypomina, że zastąpienie wymaga najpierw odrzucenia
+  tamtej planszy,
+- lista zdjęć (po 25, kursor keyset po `(relativePath, sourceImageId)`), filtr
+  stanu, podgląd SVG z siatkami (kolor zielony `ok`, żółty `uncertain` i
   `partial`, czerwony linią przerywaną pozycje bez poprawnej siatki, szary
-  pozycje `superseded`; pozycje bez czworokąta są dodatkowo opisane tekstem „bez
-  siatki”. Czworokąt pochodzi z rewizji, z której plansza została pocięta (a dla
-  pozycji bez żywej planszy z rewizji bieżącej); nic nie jest zgadywane,
-- przycisk „Pokaż zdjęcie pod siatkami” jest dostępny dla każdego zdjęcia gry,
-  także bez żadnej planszy czy rewizji geometrii: pobiera plik endpointem
-  `getImageGeometryCompletenessSourceAsset` kluczowanym `sourceImageId`
-  (zdjęcie bez wymiarów lub siatek pokazuje się jako zwykły obraz),
+  `superseded`) i pobieranie zdjęcia endpointem
+  `getImageGeometryCompletenessSourceAsset` kluczowanym `sourceImageId` nie
+  należą już do Admina (TASK-0964); żyją w zakładce „Braki zdjęć” Reviewera
+  (TASK-0963). Czworokąt pochodzi z rewizji, z której plansza została pocięta (a
+  dla pozycji bez żywej planszy z rewizji bieżącej); nic nie jest zgadywane,
 - „Plansze z niską jakością symboli” to osobne, jawnie uruchamiane zapytanie
   (przycisk; nigdy przy ładowaniu ani w odświeżaniu): plansze, na których co
   najmniej `minCells` (domyślnie 5) widocznych pól bez decyzji człowieka
@@ -1406,14 +1440,13 @@ Bramka (TASK-0807):
   operatora”, „Plansze wstrzymane przed cięciem” z powodem
   `SOURCE_IMAGE_GEOMETRY_INCOMPLETE` i „Nieocenione przez bramkę” (zdjęcia
   sprzed backfillu, które działają jak przed wdrożeniem bramki),
-- każde zdjęcie listy pokazuje stan bramki z bazy, powód wstrzymania i — dla
-  wyjątku — powód, autora i czas; zakładki stanów wyliczanych w locie
-  („Wszystkie niekompletne” i stany zdjęcia) zostają do diagnozy,
-- „Dopuść wyjątkiem…” (tylko dla zdjęcia `geometry_incomplete`) wymaga powodu
-  (1–1000 znaków) i jest operacją wysokiego wpływu; po zapisie plansze `ok` i
-  częściowe z zatwierdzoną kwalifikacją są cięte od razu. „Wycofaj wyjątek”
-  (po potwierdzeniu) przywraca kolejkę bez usuwania komórek; po decyzji
-  człowieka na komórkach zdjęcia API odmawia z czytelnym komunikatem,
+- od TASK-0964 Admin nie pokazuje stanu bramki per zdjęcie ani akcji
+  „Dopuść wyjątkiem…” / „Wycofaj wyjątek” (decyzja 6 planu); kontrakt API
+  wyjątków zostaje bez zmian: ustawienie wymaga powodu (1–1000 znaków) i jest
+  operacją wysokiego wpływu, po zapisie plansze `ok` i częściowe z zatwierdzoną
+  kwalifikacją są cięte od razu, wycofanie przywraca kolejkę bez usuwania
+  komórek, a po decyzji człowieka na komórkach zdjęcia API odmawia z czytelnym
+  komunikatem. Przywrócenie UI jest osobnym taskiem,
 - filtr działa w zapisie, nie w UI: plansze wstrzymane nie mają komórek
   weryfikacji ani dowodów symboli w wyszukiwarce, a lista tylko je pokazuje.
 
@@ -1423,9 +1456,9 @@ Operacyjne review dużego importu używa `image_review_items`, a nie ograniczone
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
-- pokazywać w dropdownie `Gotowy import plansz` wyłącznie importy mające
-  nierozwiązane pozycje (`waiting_for_review`); zakończone importy pozostają
-  audytowalne w `Jobach`, ale nie zaśmiecają operacyjnego wyboru,
+- nie mieć dropdownu `Gotowy import plansz` (usunięty w TASK-0964): lokalny
+  Reviewer otwiera się w zakresie całej gry; importy pozostają audytowalne w
+  `Jobach`,
 - dla nakładających się importów pozostawić w review wyłącznie najnowszą
   oczekującą planszę danego numeru; zatwierdzona albo poprawiona plansza
   kanoniczna jest chroniona i nie wraca do review po kolejnym imporcie,

@@ -79,7 +79,7 @@ SELECT s.id, s.import_job_id, s.relative_path, s.checksum_sha256, s.status,
   COALESCE(s.oriented_height, s.height) AS height,
   (SELECT r.active_board_slots
      FROM image_source_geometry_revisions r
-     WHERE r.game_id = :game_id AND r.source_image_id = s.id
+     WHERE r.game_id = :game_id AND r.source_image_id = s.id AND r.status <> 'reverted'
      ORDER BY r.revision DESC LIMIT 1) AS active_board_slots
 FROM source_images s
 WHERE s.game_id = :game_id AND s.id = ANY (:ids)

@@ -23,6 +23,65 @@ class BoardCellGeometryPendingStatus(StrEnum):
     PENDING = "pending"
     RESOLVED = "resolved"
     SUPERSEDED = "superseded"
+    # TASK-0970 (migration 0154): the operator discarded a cropped or blurred
+    # slot. The position counts as a missing board for the gate (W8).
+    REJECTED = "rejected"
+
+
+class BoardRejectionReason(StrEnum):
+    """Why an operator rejects a cropped board or a deferred slot (W7)."""
+
+    CROPPED = "cropped"
+    BLURRED = "blurred"
+    OTHER = "other"
+
+
+MAX_BOARD_REJECTION_NOTE_LENGTH = 1000
+
+
+def normalized_rejection_note(reason: BoardRejectionReason, note: str | None) -> str | None:
+    """The stored note: required (1-1000 characters) for ``other``, else none.
+
+    Mirrors ``ck_image_board_geometry_pending_rejection``; a note on another
+    reason is dropped so a retry with a stray note replays the same command.
+    """
+
+    text = None if note is None else note.strip()
+    if reason is BoardRejectionReason.OTHER:
+        if not text or len(text) > MAX_BOARD_REJECTION_NOTE_LENGTH:
+            raise JobError(
+                "IMAGE_BOARD_CELL_PENDING_REJECTION_INVALID",
+                "Reason 'other' requires a note of 1-"
+                f"{MAX_BOARD_REJECTION_NOTE_LENGTH} characters.",
+            )
+        return text
+    if text is not None and len(text) > MAX_BOARD_REJECTION_NOTE_LENGTH:
+        raise JobError(
+            "IMAGE_BOARD_CELL_PENDING_REJECTION_INVALID",
+            f"The note cannot exceed {MAX_BOARD_REJECTION_NOTE_LENGTH} characters.",
+        )
+    return None
+
+
+def rejection_command_sha256(
+    *,
+    pending_id: UUID,
+    reason: BoardRejectionReason,
+    note: str | None,
+    expected_geometry_revision: int,
+) -> str:
+    """Identity of one slot-rejection command (what an idempotency key binds to)."""
+
+    payload = {
+        "action": "rejected",
+        "expectedGeometryRevision": expected_geometry_revision,
+        "note": note,
+        "pendingId": str(pending_id),
+        "reason": reason.value,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 class BoardCellGeometryPendingReason(StrEnum):
@@ -154,6 +213,10 @@ class ImageBoardGeometryPending:
     updated_at: datetime
     resolved_at: datetime | None
     superseded_at: datetime | None
+    rejection_reason: BoardRejectionReason | None = None
+    rejection_note: str | None = None
+    rejected_at: datetime | None = None
+    rejected_by: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,11 +225,12 @@ class BoardCellGeometryJobCounts:
     pending: int
     resolved: int
     superseded: int
+    rejected: int = 0
 
     def __post_init__(self) -> None:
-        if min(self.total, self.pending, self.resolved, self.superseded) < 0:
+        if min(self.total, self.pending, self.resolved, self.superseded, self.rejected) < 0:
             raise ValueError("Board-cell geometry counters cannot be negative.")
-        if self.total != self.pending + self.resolved + self.superseded:
+        if self.total != self.pending + self.resolved + self.superseded + self.rejected:
             raise ValueError("Board-cell geometry counters must add up to total.")
 
 
@@ -196,6 +260,10 @@ __all__ = [
     "BoardCellGeometryPendingReason",
     "BoardCellGeometryPendingStatus",
     "BoardCellProcessingManifestV1",
+    "BoardRejectionReason",
     "ImageBoardGeometryPending",
+    "MAX_BOARD_REJECTION_NOTE_LENGTH",
     "board_cell_processing_artifact_relative_path",
+    "normalized_rejection_note",
+    "rejection_command_sha256",
 ]

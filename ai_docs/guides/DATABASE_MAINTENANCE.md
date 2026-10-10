@@ -32,7 +32,8 @@ TASK-0955).
 - Przed `VACUUM FULL`, kompaktowaniem VHDX i migracją dysku wykonaj kopię
   (sekcja 4) i sprawdź jej czytelność.
 - Polecenia uruchamiaj z katalogu repozytorium
-  `C:\Users\tuszy\Documents\game_predicotr` w PowerShell. Pliki SQL zapisuj
+  `D:\game_predicotr` w PowerShell (od 2026-10-10; wcześniej
+  `C:\Users\tuszy\Documents\game_predicotr`). Pliki SQL zapisuj
   wyłącznie znakami ASCII: PowerShell 5.1 przekazuje potok do `docker exec`
   w kodowaniu ASCII.
 - `df` wewnątrz kontenera pokazuje rozmiar wirtualnego dysku (ok. 1 TB), nie
@@ -485,7 +486,7 @@ używaj `diskpart`.
 4. W PowerShell uruchomionym jako administrator:
 
    ```powershell
-   diskpart /s C:\Users\tuszy\Documents\game_predicotr\artifacts\maintenance\compact-vhdx.txt
+   diskpart /s D:\game_predicotr\artifacts\maintenance\compact-vhdx.txt
    ```
 
 5. Uruchom Docker Desktop, potem `npm run db:up` i `npm run db:current`.
@@ -627,7 +628,19 @@ dysk nie wolno już synchronizować starego katalogu do aktywnego.
 
 ### 5.3. Repozytorium
 
-Po przeniesieniu katalogu repozytorium:
+Wykonane 2026-10-10 (TASK-0954, TASK-0956): `D:\game_predicotr` to osobny
+klon (`git clone`, `npm install`, `.venv` z `pip install -e ".[dev]"`),
+zachowywane dane ignorowane skopiował `scripts/sync_data_directories_to_d.ps1`
+(manifest `Final` z B1 w `D:\game_predictor_backup\sync-logs\20261010-163332-Final`
+i `20261010-175735-Final`), zmienne użytkownika przepisał `npm run
+windows:environment:setup` uruchomiony z D. Kompletność odwołań bazy do plików
+sprawdza (tylko odczyt):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_artifact_references.py --output <raport.json>
+```
+
+Po przeniesieniu samego katalogu repozytorium (zamiast klonu):
 
 ```powershell
 git worktree repair

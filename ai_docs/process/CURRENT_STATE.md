@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Current State
@@ -39,7 +39,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
 - **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
-- **Cykl życia usług.** API, Admin (i Reviewer) uruchamia, zatrzymuje i restartuje wyłącznie użytkownik, w swoich terminalach; wcześniejsza zgoda na restart nie obowiązuje w kolejnych zadaniach (`AGENTS.md`, sekcja „Kontrola lokalnych usług API i Admin”). Stan z 2026-10-04: API 8000 (z `--reload` z głównego checkoutu), Admin 3000, Reviewer 3001 i worker `general`. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Wdrożenie silnika siatek V3 — migracja 0140 i kolejka audytu działają (2026-10-04)”.
+- **Cykl życia usług.** API, Admin (i Reviewer) uruchamia, zatrzymuje i restartuje wyłącznie użytkownik, w swoich terminalach; wcześniejsza zgoda na restart nie obowiązuje w kolejnych zadaniach (`AGENTS.md`, sekcja „Kontrola lokalnych usług API i Admin”). Stan z 2026-10-10: usługi działają z `D:\game_predicotr` (D-540, TASK-0956): API 8000 (`api:dev` z `--reload` z checkoutu D, więc scalenie do gałęzi integracyjnej i `git merge --ff-only` na D przeładowuje API), Admin 3000 (`admin:dev`), Reviewer 3001 (`reviewer:start`, build na D) i worker `general` (`workers:start`); baza w obrazie dysku Docker Desktop `D:\docker\DockerDesktopWSL`. Sesje agentów pracują od teraz w `D:\game_predicotr` (worktree'y zakładane w klonie D); katalog `C:\Users\tuszy\Documents\game_predicotr` jest nieużywany do etapu C (TASK-0957), nie uruchamiać z niego usług ani nie synchronizować go do D. Źródło: sekcja „TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)” w tym pliku.
 - **Migracje bazy deweloperskiej/operatora wymagają osobnej zgody** i skoordynowanego przejścia (stop usług → scalenie → `db:migrate` → start); migracja zweryfikowana na bazach `*_test` nie jest zgodą. Nie scalać do gałęzi integracyjnej kodu wymagającego nowej migracji przed jej wykonaniem: API 8000 z `--reload` w głównym checkoucie przestaje wtedy startować. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
 - **Udostępnianie online (D-470/D-471):** migracja `0130` i sesje udostępniania wymagały zgody operatora przed odbiorem etapu B; kody dostępu przechowywane z PBKDF2, blokada po 5 błędach, limit 5 aktywnych sesji, flaga `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)”.
 - **Masowe odświeżenie nieaktualnych odczytów wyszukiwarki** (TASK-0773, D-474: ok. 88 260 plansz gry 7 sprzed późniejszej rewizji geometrii) jest osobnym zadaniem i wymaga zgody; okno planszy tylko pokazuje linie i odświeża jedną planszę. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)”.
@@ -124,12 +124,22 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (todo)
+### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
-- Etap B2: `windows:environment:setup` z D, czyszczenie stanu `.runtime`
-  z C, `reviewer:build`, start usług przez operatora, odbiór (zdjęcia
-  plansz, kropy ze statusami, nowy tunel i sesja udostępnienia),
-  aktualizacja przewodników.
+- Etap B2 wykonany 2026-10-10 wieczorem: usługi z D (API 8000, Admin 3000,
+  Reviewer 3001, worker `general`), `db:current` = `0154`, health 200,
+  `workers:status` z D, 0 procesów z C; niezmienniki względem raportu B1
+  spełnione (845 jobów, 280/59 tabel, 14 sesji).
+- Nowy `scripts/verify_artifact_references.py` (tylko odczyt, bramka
+  `--forbid-prefix`) z testem: 258 212 ścieżek, 0 brakujących, 21 782
+  manifestów; zależne od C: 181 katalogów jobów, 14 sesji, 53 wpisy
+  manifestów, 0 plików. Bindingi zdalnej selekcji (14) bez danych i akcji.
+- Naprawione: `.tooling\node\node_modules` (npm) brakowało na D (skrypt
+  kopii wykluczał `node_modules` także w `.tooling`); skrypt poprawiony,
+  katalog skopiowany z równymi SHA-256.
+- Lista kontrolna operatora (powód `blocked`): restart Windows i skrócony
+  odbiór, telefon i nowy tunel, usunięcie wpisów C z `Path` użytkownika,
+  ponowny start backfillu weryfikacji symboli Mumii (anulowany przed B1).
 - Task: `ai_docs/tasks/0956-disk-d-application-startup.md`.
 
 ### TASK-0957 — sprzątanie po przeniesieniu i ścieżki C w jobach (todo)
@@ -782,7 +792,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   gałęzi integracyjnej i usunięte razem z worktree'ami; na C zostały tylko
   główny checkout i `worktrees\disk-migration`. Niescalone gałęzie tylko
   lokalne (7) mają równe hashe na D i w bundle; rozlicza je TASK-0957.
-- Wersja v1.7.308 (hash w kolejnym zapisie). Audyt Codex niedostępny
+- Version v1.7.308; commit 41aa80584cd8564d6b6d4955a3bf95e3fd053935. Audyt Codex niedostępny
   (limit), do wykonania później.
 - Task: `ai_docs/tasks/completed/0954-disk-d-repository-handover.md`.
 

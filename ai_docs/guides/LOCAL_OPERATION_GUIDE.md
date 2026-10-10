@@ -1,10 +1,18 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-10-07
+last_updated: 2026-10-10
 ---
 
 # Lokalne uruchamianie i instalacja
+
+Od 2026-10-10 aplikacja działa z katalogu `D:\game_predicotr` (plan
+`delivery/DISK_D_MIGRATION_PLAN_20261009.md`, D-540): API, Admin, Reviewer i
+workery uruchamia się z D, baza leży w obrazie dysku Docker Desktop w
+`D:\docker\DockerDesktopWSL`. Stary katalog `C:\Users\tuszy\Documents\game_predicotr`
+jest nieużywany i zostaje do etapu C planu (TASK-0957, osobna zgoda); nie
+uruchamiaj z niego usług ani nie synchronizuj go do D. Ścieżki C w
+starszych sekcjach tego przewodnika są historyczne.
 
 ## Ręczna kontrola API i Admin
 
@@ -691,7 +699,7 @@ Instrukcja jest przeznaczona dla właściciela projektu i zakłada Windows
 PowerShell oraz repozytorium:
 
 ```text
-C:\Users\user\Documents\game_predicotr
+D:\game_predicotr
 ```
 
 Aplikacja mobilna działa całkowicie offline. Panel Admin, Admin API,
@@ -707,7 +715,7 @@ zatrzymaj API przed kopiowaniem spójnej kopii operatorskiej.
 ## Najkrótsza procedura na kolejny dzień pracy
 
 1. Uruchom Docker Desktop.
-2. Otwórz PowerShell w katalogu repozytorium.
+2. Otwórz PowerShell w katalogu repozytorium `D:\game_predicotr`.
 3. Uruchom bazę i migracje:
 
 ```powershell
@@ -776,6 +784,22 @@ npm run windows:environment:check
 
 Aktualna konfiguracja referencyjna to Node `24.14.0`, npm `11.18.0`, JDK
 `17.0.20`, Android Platform/Build Tools 36 oraz ADB `1.0.41`.
+
+Stan z 2026-10-10 (TASK-0956): zmienne użytkownika wskazują
+`D:\game_predicotr\.tooling` (Node `v24.21.0`, npm `11.19.0` z `.tooling`).
+Systemowy `Path` ma `C:\Program Files\nodejs\` przed wpisami użytkownika, a
+w `%APPDATA%\npm` jest zainstalowany globalnie npm `12.0.2`, więc w nowym
+terminalu `npm --version` pokazuje 12. Wtedy `npm run
+windows:environment:check` kończy się błędem „npm 12.0.2 does not satisfy the
+repository range >=11 <12” (wewnętrzne wywołanie npm z `.tooling` dziedziczy
+prefiks zewnętrznego npm; tak samo z katalogu C). Kontrola bez tego efektu:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure_windows_user_environment.ps1 -CheckOnly
+```
+
+Katalog `.tooling\node\node_modules` (npm i corepack izolowanego Node) jest
+częścią toolchainu i musi istnieć; `npm install` go nie odtwarza.
 
 Jeżeli zależności repozytorium albo `.venv` nie istnieją, wykonaj bootstrap:
 
@@ -959,7 +983,7 @@ procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
 zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
 
 ```powershell
-cd C:\Users\user\Documents\game_predicotr
+cd D:\game_predicotr
 npm run workers:stop
 npm run db:up
 npm run db:migrate
@@ -990,7 +1014,7 @@ npm run api:dev
 W drugim PowerShell uruchom Admin:
 
 ```powershell
-cd C:\Users\user\Documents\game_predicotr
+cd D:\game_predicotr
 npm run admin:dev
 ```
 

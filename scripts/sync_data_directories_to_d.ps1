@@ -37,7 +37,10 @@ point at the source repository; TASK-0954 secures their data.
 
 Inside every directory entry the directory names node_modules, .next,
 __pycache__, .pytest_cache and *pytest-run* (unreadable pytest temp roots
-left by earlier runs, access denied) are excluded; inside .runtime also pytest-*,
+left by earlier runs, access denied) are excluded, except node_modules inside
+.tooling: the isolated Node.js keeps npm and corepack in .tooling/node/
+node_modules, which npm install cannot recreate (TASK-0956: without it npm
+from .tooling fails); inside .runtime also pytest-*,
 task0* and t928* (temporary test output) and *.log files (reproducible logs).
 The manifests and robocopy use the same exclusions, so a verification never
 reports them; every report line states how many files each rule skipped.
@@ -285,6 +288,10 @@ function Get-SelectionExclusion([string]$rel) {
 
 function Get-EntryExcludeDirs([string]$rel) {
     $result = @($script:GlobalExcludeDirs)
+    # The isolated Node.js under .tooling ships npm in node_modules; keep it.
+    if ($rel -ieq '.tooling' -or $rel -like '.tooling/*') {
+        $result = @($result | Where-Object { $_ -ne 'node_modules' })
+    }
     if ($rel -ieq '.runtime') { $result += $script:RuntimeExcludeDirs }
     return , $result
 }

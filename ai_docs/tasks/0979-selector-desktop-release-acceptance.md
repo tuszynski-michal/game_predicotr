@@ -130,8 +130,23 @@ Wersja0.1.0,149393535 bajtów, SHA-256
 app.asar `f060d083ea9abea651d493dfdc8208ab2ef70d5d1b3263f635bfe3def3942964`.
 Source commit `0121ce8f1bd3604977e1c60872da43a4110326d7`, dirty=true,
 applicationSourceDirty=true: build nastąpił przed commitem skryptów0979.
-Nie obiecujemy identycznych bajtów ZIP kolejnego buildu. Paczka końcowa po0978
-będzie miała osobne metadane i sumę; nie mylić jej z tym dowodem.
+Nie obiecujemy identycznych bajtów ZIP kolejnego buildu. Nie mylić tego
+historycznego dowodu z końcową paczką poniżej.
+
+Końcowa paczka wszystkich pięciu tasków:
+`apps/selector-desktop/out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip`.
+Wersja0.1.0,149397136 bajtów, SHA-256
+`2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`.
+app.asar SHA-256
+`e2c60792e7affd24f473da939996f1ef2a511cd9c7d384fbdcef63b0526d1bab`.
+Source commit `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17` (v1.7.322),
+dirty=true wyłącznie od dokumentacji, applicationSourceDirty=false.
+BuiltAt2026-10-11T22:43:28.319Z, releasedAt2026-10-11T22:43:54.088Z.
+Sąsiadujące .sha256/.release.json i ZIP zachowano bajtowo; sumy kopii zgodne
+z artefaktami make. Release oraz pełny/source-relink/legacy smoke EXE
+rozpakowanego z tego samego ZIP-a PASS, każdy krok z limitem do120 s.
+Wersja0.1.0 pozostaje pierwszym nieprzekazanym pilotem. Nie jest podpisana.
+
 
 ### Verification results
 
@@ -152,6 +167,11 @@ nie był pełnym PASS i nie jest dowodem odbioru. Finalne dwa smoke PASS.
 Mapy zregenerowane; docs:check PASS (542 decyzje/odnośniki,44 aktywne taski,
 10 done), code-map:check PASS, ruff check/format generatora PASS.
 Poprzednich50 testów projektu ani rdzenia/Reviewera nie powtarzano bez zmian.
+
+Końcowy build po commicie0978: release, smoke:release,
+smoke:release:shortcuts oraz smoke-legacy na EXE z tego samego ZIP-a PASS.
+Legacy smoke sprawdził preview/anulowanie, token, import i nowy proces;
+oryginały nietknięte. Scoped status kodu/skryptów/locków pozostał pusty.
 
 ### Not completed
 

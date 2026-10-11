@@ -12,6 +12,20 @@ nie zastępują uruchomienia paczki otrzymanej przez odbiorcę.
 
 ## Paczka
 
+Końcowa paczka wszystkich pięciu tasków:
+`apps/selector-desktop/out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip`.
+Wersja0.1.0,149397136 bajtów, SHA-256
+`2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`.
+app.asar SHA-256
+`e2c60792e7affd24f473da939996f1ef2a511cd9c7d384fbdcef63b0526d1bab`.
+Source commit `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17` (v1.7.322),
+dirty=true wyłącznie od dokumentacji, applicationSourceDirty=false.
+BuiltAt2026-10-11T22:43:28.319Z, releasedAt2026-10-11T22:43:54.088Z.
+Sąsiadujące .sha256/.release.json i ZIP zachowano bajtowo; sumy kopii zgodne
+z artefaktami make. Release oraz pełny/source-relink/legacy smoke EXE
+rozpakowanego z tego samego ZIP-a PASS, każdy krok z limitem do120 s.
+Wersja0.1.0 pozostaje pierwszym nieprzekazanym pilotem. Nie jest podpisana.
+
 Historyczna sprawdzona paczka0979 (przed migracją0978):
 `apps/selector-desktop/out/releases/task-0979/Selektor zdjec-win32-x64-0.1.0.zip`.
 Wersja0.1.0,149393535 bajtów, SHA-256
@@ -19,7 +33,7 @@ Wersja0.1.0,149393535 bajtów, SHA-256
 Source commit `0121ce8f1bd3604977e1c60872da43a4110326d7`, dirty=true i
 applicationSourceDirty=true (skrypty0979 przed commitem).
 Sąsiadujące .sha256/.release.json zachowano bez zmiany. To nie jest paczka
-fundamentu0975. Końcowy ZIP po0978 będzie wskazany osobno; każda przebudowa
+fundamentu0975. Końcowy ZIP po0978 wskazano powyżej; każda przebudowa
 ma własną sumę. Odbiorca sprawdza konkretną przekazaną paczkę.
 
 ## Kontrole agentowe
@@ -29,7 +43,7 @@ ma własną sumę. Odbiorca sprawdza konkretną przekazaną paczkę.
 | Granice odczytu, sandbox, lokalny JPEG, blokada internetu/okien | PASS0975 | Outcome0975, testy7/7 i packaged smoke |
 | Trwałość, awarie, idempotencja, checksumy, nowy proces | PASS0976 | Outcome0976,50 unikalnych testów |
 | Pełny interfejs, skróty, numeracja, wznowienie | PASS0977 | Outcome0977, test:ui3/3, pełny i krótki smoke rzeczywistego EXE |
-| ZIP0979, SHA-256, uruchomienie rozpakowanej kopii | PASS0979 | release2/2, make, smoke:release i zachowane metadane |
+| ZIP0979 i finalny ZIP po0978, SHA-256, rozpakowana kopia | PASS | release2/2 wcześniej; finalny release i trzy smoke tego samego ZIP-a; metadane powyżej |
 | Backup/restore oraz relokacja kopii programu | PASS0979 częściowy | smoke:release; symulacja aktualizacji tą samą wersją, bez fizycznego reboot/innej wersji |
 | Przejęcie starej sesji bez zmian oryginału | PASS0978 | Kontrakt25 i recovery29, packed EXE preview/import/nowy proces; Outcome0978 |
 

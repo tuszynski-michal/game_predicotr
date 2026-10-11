@@ -186,16 +186,17 @@ osobnego rozszerzenia. Szczegóły: [task 0978](../tasks/completed/0978-selector
 ## Dokumentacja, audyt planu i odbiór
 
 Plan, taski, requirements/architecture, README, TRACEABILITY i CURRENT_STATE
-opisują **zaakceptowany zamiar**, nie wdrożoną funkcję. D-545 zapisuje
-zaakceptowaną architekturę. Każdy task ma osobny commit i Outcome; lead
+opisują plan i zweryfikowaną implementację na osobnej gałęzi. Nie oznaczają
+wdrożenia do głównej aplikacji ani zaliczonego fizycznego pilotażu. D-545
+zapisuje zaakceptowaną architekturę. Każdy task ma osobny commit i Outcome; lead
 dopisuje wersję i pełny hash w kolejnym commicie zgodnie z AGENTS.md.
 
 Operator przekazał [audyt Codex](../quality/OFFLINE_PHOTO_SELECTOR_PLAN_REVIEW_CODEX_20261011.md) z werdyktem REVISE. Uwagi uwzględniono:
 konkretny manifest, semantyka Reviewera, brak refaktoru web UI, jawna
 trwałość/security, początkowo odroczona migracja, osobny odbiór. Skorygowano twierdzenia
 o zawsze dziewięciu planszach, dowodzie zmiany wyłącznie mtime i pewnej
-blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Fundament0975, trwałość0976 i interfejs0977 przeszły testy implementacyjne
-zapisane w Outcome; wydanie, migracja i fizyczny odbiór pozostają w realizacji.
+blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Wszystkie pięć części implementacyjnych przeszło testy zapisane w Outcome;
+końcowy audyt i fizyczny odbiór0979 pozostają do wykonania przez operatora.
 
 | Wymaganie | Task | Dowód odbioru |
 |---|---|---|

@@ -138,7 +138,7 @@ Native controller/IPC używa opaque tokena preview oraz oddzielnego SourceRegist
 Renderer pokazuje podgląd, anulowanie i jawne potwierdzenie nowych lokalizacji.
 Przy recovery także już istniejący imported JPEG wymaga ponownego SHA źródła.
 
-Commit implementacji v1.7.322 zostanie zapisany pełnym hashem po commicie.
+Commit implementacji: v1.7.322 / `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17`.
 
 ### Verification results
 
@@ -156,7 +156,9 @@ zamiast tokena, import, identyczne oryginały i kontynuacja w nowym procesie.
 Screenshot podglądu sprawdzono wizualnie. EPERM realpath oraz cache Electron
 w sandbox rozwiązano eskalowanym wykonaniem, bez zmiany kontraktu testów.
 Rdzenia/Reviewera nie zmieniano; wcześniejsze110/110 i264/264 nie są nowym
-wynikiem0978. Finalny ZIP z committed runtime zostanie osobno przebudowany.
+wynikiem0978. Finalny ZIP z commita v1.7.322 przebudowano i sprawdzono trzema smoke;
+legacy EXE z tego samego ZIP-a również PASS. SHA i provenance zapisano
+w rejestrze odbioru0979; applicationSourceDirty=false.
 Mapę zregenerowano. docs:check PASS (542 decyzje/odnośniki/wiersze indeksu,
 43 aktywne taski,10 done); code-map:check PASS. Ruff check i format generatora PASS.
 

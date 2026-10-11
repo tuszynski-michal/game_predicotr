@@ -70,6 +70,9 @@ Windows11 x64. The recipient extracts the entire ZIP and runs
 selected JPEGs locally. It does not need the host, internet, developer Node.js,
 Python, Docker or the main application's services. There is no upload or link
 sharing. Keep active projects and outputs outside synchronized/network folders.
+Compatible operator-local v1/v2 sessions can be previewed and adopted into new
+project/output folders after source and JPEG checksum verification; originals
+remain unchanged. Missing evidence or incompatible histories block adoption.
 
 Developer packaging from this repository uses the pinned npm11 dependencies:
 
@@ -86,7 +89,8 @@ block stops acceptance.
 
 See the [operator guide](ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md),
 [execution plan](ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md) and
-[acceptance record](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) for
+[acceptance record](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) and
+[implementation handoff](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md) for
 verified commands, project recovery, updates and remaining acceptance evidence.
 
 ## Local administration foundation

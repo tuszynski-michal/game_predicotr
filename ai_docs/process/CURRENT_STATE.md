@@ -175,8 +175,8 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 - Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
-- Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Po0978 osobny finalny build.
-- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji do innej wersji i końcowego audytu. Agent sprawdził relokację tej samej wersji; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
+- Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Historyczny build sprzed0978. Finalny ZIP0.1.0 zachowano w out/releases/pilot-0.1.0-abe8e645,149397136 bajtów, SHA `2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`; sourceCommitabe8e645, dirty=true od docs/applicationSourceDirty=false. Release i trzy smoke rozpakowanej kopii PASS.
+- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji do innej wersji. Końcowy audyt operatora oczekuje osobno. Agent sprawdził relokację tej samej wersji; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -855,11 +855,11 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0978 — Przejęcie starej sesji (done)
 
-- Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322: pełny hash po commicie.
+- Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322 / `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17`.
 - Read-only dowody v1/v2, preview/opaque token, nowe puste katalogi, seed historii i wieloplikowy journal v2; recovery zwykłego journal v1 zachowane. Oryginalne source/output nietknięte.
 -107 unikalnych testów PASS: legacy25+recovery29+projekt43+foundation7+UI3; lint/typecheck/format/build/package i legacy smoke EXE PASS. Realne przerwania procesów, retry, checksumy, anulowanie i nowy proces. Mapy zregenerowane.
 - Fail-closed brak dowodów/MIME/mtime mismatch, niejednoznaczny lub sprzeczny terminalny v1 i duplikaty accepted source path. Zachowane generacje decyzji, nowy licznik max/0.
-- Audyt operatora po pięciu taskach; finalny ZIP z commita jeszcze do przebudowy. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.
+- Audyt operatora po pięciu taskach; finalny ZIP z commita v1.7.322 sprawdzony pełnym/source-relink/legacy smoke, stabilna kopia w out/releases/pilot-0.1.0-abe8e645. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.
 
 ### TASK-0977 — Interfejs pełnej selekcji (done)
 

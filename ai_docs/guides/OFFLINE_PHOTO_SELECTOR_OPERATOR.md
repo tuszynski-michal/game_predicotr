@@ -6,9 +6,10 @@ last_updated: 2026-10-11
 
 # Lokalny selektor Windows — instrukcja operatora
 
-Gotowe są fundament0975, trwałość0976 i interfejs0977, sprawdzone lokalnie.
-Pełny ZIP0979 przeszedł lokalny test po rozpakowaniu; fizyczny odbiór pozostaje
-pending. Wcześniejszy ZIP fundamentu nie zawiera pełnej selekcji.
+Gotowe są wszystkie pięć części implementacyjnych, w tym przejęcie0978.
+Finalny ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Fizyczny
+odbiór i końcowy audyt pozostają pending. Wcześniejsze ZIP-y nie zawierają
+całego zakresu; użyć paczki pilot-0.1.0-abe8e645 z rejestru odbioru.
 
 ## Budowanie i kontrola programu
 

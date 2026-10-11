@@ -24,12 +24,35 @@ Nie wykonano push, merge, migracji ani restartu usług operatora.
 |0976 trwałość|v1.7.319 /be20ad8e3835cc6aed0078a7b137ea161ea2497b|done|
 |0977 interfejs|v1.7.320 /0121ce8f1bd3604977e1c60872da43a4110326d7|done|
 |0979 wydanie|v1.7.321 /60449f54d6b4cd08c041b86c294cc498b11efba4|kod i paczka gotowe, fizyczny odbiór blocked|
-|0978 stara sesja|v1.7.322, pełny hash po commicie|done|
+|0978 stara sesja|v1.7.322 /abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17|done|
 
 Przygotowanie dokumentacji: v1.7.317 /e91b365cd02bf50ff914b1c4cda0b732432f8f3a.
 Każdy task ma osobny commit. Pełne wyniki i ograniczenia są w jego Outcome oraz
-CURRENT_STATE. Finalna paczka po0978 zostanie wskazana w rejestrze odbioru.
+CURRENT_STATE. Finalna paczka po0978 jest wskazana w rejestrze odbioru.
 Historyczny ZIP0979 zachowano w out/releases/task-0979; nie mylić obu buildów.
+
+## Finalna paczka i wyniki
+
+Końcowa paczka wszystkich pięciu tasków:
+`apps/selector-desktop/out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip`.
+Wersja0.1.0,149397136 bajtów, SHA-256
+`2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`.
+app.asar SHA-256
+`e2c60792e7affd24f473da939996f1ef2a511cd9c7d384fbdcef63b0526d1bab`.
+Source commit `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17` (v1.7.322),
+dirty=true wyłącznie od dokumentacji, applicationSourceDirty=false.
+BuiltAt2026-10-11T22:43:28.319Z, releasedAt2026-10-11T22:43:54.088Z.
+Sąsiadujące .sha256/.release.json i ZIP zachowano bajtowo; sumy kopii zgodne
+z artefaktami make. Release oraz pełny/source-relink/legacy smoke EXE
+rozpakowanego z tego samego ZIP-a PASS, każdy krok z limitem do120 s.
+Wersja0.1.0 pozostaje pierwszym nieprzekazanym pilotem. Nie jest podpisana.
+
+Testy0978:107 unikalnych PASS (legacy25, recovery29, projekt43, foundation7,
+UI3); lint/typecheck/format/build/package również PASS. Wcześniej rdzeń110/110
+i Reviewer264/264 PASS; nie udajemy ich ponownego wykonania bez zmian tych modułów.
+Docs:check i code-map:check PASS. Pełne grupy, komendy i ograniczenia zapisano
+w Outcome tasków. Końcowy smoke sprawdził nowy proces, backup/relink,
+relokację tej samej wersji programu oraz legacy preview/anulowanie/import.
 
 ## Punkty do sprawdzenia w końcowym audycie
 

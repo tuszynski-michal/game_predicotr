@@ -1,6 +1,6 @@
 ---
 title: Pilotaż i odbiór wydania
-status: todo
+status: blocked
 last_updated: 2026-10-11
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-11
 
 ## Status
 
-`todo`
+`blocked`
 
 ## Goal
 
@@ -61,12 +61,12 @@ Podpis/certyfikat, sklep, auto-update, integracja Proton Drive, push/merge i aut
 
 ## Acceptance criteria
 
-- [ ] ZIP i suma kontrolna są gotowe, instrukcja pozwala rozpakować cały folder i uruchomić program.
+- [x] ZIP i suma kontrolna są gotowe, instrukcja pozwala rozpakować cały folder i uruchomić program.
 - [ ] Czysty Windows 11 x64 bez Node/Python i bez hosta pozwala zakończyć nową partię.
 - [ ] Rzeczywisty reboot i aktualizacja zachowują projekt; source relink nie resetuje decyzji.
 - [ ] Wyłącznie gotowy folder wybrane jest przekazywany ręcznie, projekt nie jest synchronizowany.
-- [ ] Blokada Windows wstrzymuje odbiór; dokumentacja nie zaleca wyłączenia ochrony.
-- [ ] Outcome nie twierdzi PASS dla drugiego komputera bez dowodu operatora.
+- [x] Blokada Windows wstrzymuje odbiór; dokumentacja nie zaleca wyłączenia ochrony.
+- [x] Outcome nie twierdzi PASS dla drugiego komputera bez dowodu operatora.
 
 ## Technical notes
 
@@ -113,20 +113,62 @@ Drugi komputer i reboot są zależnością operatora. Nie kończ taska jako done
 
 ### Changed
 
-Przygotowano specyfikację taska i zaakceptowany plan. Implementacja nie została rozpoczęta.
+Część implementacyjna jest gotowa: polecenie release tworzy świeży Forge ZIP,
+odrzuca stary/pusty artefakt, zapisuje streaming SHA-256, sibling .sha256 i
+.release.json. Metadane zawierają wersję, bajty, sourceCommit, dirty,
+applicationSourceDirty, czas oraz SHA-256 app.asar; dane buildu są też w paczce.
+Smoke weryfikuje sumy i uruchamia EXE z rozpakowanego ZIP-a. Instrukcja i rejestr
+odbioru oddzielają kontrole agentowe od odbioru operatora.
+
+Commit przygotowania wydania: v1.7.321; pełny hash po commicie.
+Task pozostaje blocked wyłącznie na fizycznym odbiorze.
+
+Sprawdzona historyczna paczka0979 (bez migracji0978) zachowana w
+`apps/selector-desktop/out/releases/task-0979/Selektor zdjec-win32-x64-0.1.0.zip`.
+Wersja0.1.0,149393535 bajtów, SHA-256
+`0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`;
+app.asar `f060d083ea9abea651d493dfdc8208ab2ef70d5d1b3263f635bfe3def3942964`.
+Source commit `0121ce8f1bd3604977e1c60872da43a4110326d7`, dirty=true,
+applicationSourceDirty=true: build nastąpił przed commitem skryptów0979.
+Nie obiecujemy identycznych bajtów ZIP kolejnego buildu. Paczka końcowa po0978
+będzie miała osobne metadane i sumę; nie mylić jej z tym dowodem.
 
 ### Verification results
 
-Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośniki/wpisy/wiersze indeksu), check_current_state_window.py PASS (47 aktywnych tasków, 10 done). Testów implementacji nie uruchamiano.
+Testy release2/2 PASS: SHA, stary/pusty ZIP, provenance i granice cleanup.
+Lint/typecheck/format PASS. Release make PASS w około35 s (wewnętrzny limit110 s,
+zewnętrzny120 s). Pełny smoke:release PASS (limit120 s) z ZIP: nowa partia offline,
+skróty, nowy proces, odtworzenie decyzji/widoku, backup/restore, jawny relink
+wyniku oraz przeniesienie folderu programu. Osobny smoke:release:shortcuts PASS
+(outer120 s, test60 s): przeniesione źródło, reopen/recovery, natywny relink,
+ten sam projectId, zaakceptowany JPEG i zakres10. SHA zachowanej kopii zgodne.
+
+Pierwszy przebieg smoke timeoutował przy dynamicznym import w kontekście
+main; naprawiono harness odczytem wbudowanego fs, bez zmiany runtimeUI.
+Przed retry sprawdzono brak własnego EXE/orphanów i uprzątnięto własne fixture
+po walidacji ścieżki. Pomocniczy test zamknięcia przed firstWindow również
+nie był pełnym PASS i nie jest dowodem odbioru. Finalne dwa smoke PASS.
+
+Mapy zregenerowane; docs:check PASS (542 decyzje/odnośniki,44 aktywne taski,
+10 done), code-map:check PASS, ruff check/format generatora PASS.
+Poprzednich50 testów projektu ani rdzenia/Reviewera nie powtarzano bez zmian.
 
 ### Not completed
 
-Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
+Operator musi przedstawić dowody: rzeczywisty drugi komputer Windows11 x64
+bez Node/Python, faktyczny kanał otrzymania ZIP-a, wynik ochrony Windows,
+selekcja offline, restart Windows i aktualizacja do innej wersji programu.
+Agent sprawdził relokację kopii tej samej wersji, nie fizyczną aktualizację.
+Nie wykonano rzeczywistego przekazania wyników ani końcowego audytu operatora.
+Wydanie jest bez podpisu; blokada ochrony wstrzymuje odbiór. Nie wyłączano jej.
 
 ### Documentation updates
 
-Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
+Root README, ai_docs README, guide, TRACEABILITY, mapy, raport odbioru i
+CURRENT_STATE opisują kod i gotową paczkę, a nie zaliczony fizyczny pilotaż.
+Task pozostaje aktywny w ai_docs/tasks ze statusem blocked.
 
 ### Recommended next task
 
-TASK-0978 po przygotowaniu paczki; fizyczny odbiór wydania i końcowy audyt operatora pozostają do potwierdzenia.
+TASK-0978 jest uruchomiony: brak fizycznego odbioru0979 nie blokuje jego kodu.
+Po pięciu częściach implementacyjnych audyt i fizyczny odbiór wykonuje operator.

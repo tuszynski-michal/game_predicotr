@@ -171,11 +171,12 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0979 — Pilotaż i odbiór wydania (todo)
+### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
-- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; plan selektora Windows, D-545.
-- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
-- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
+- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321; hash po commicie.
+- Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
+- Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Po0978 osobny finalny build.
+- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji do innej wersji i końcowego audytu. Agent sprawdził relokację tej samej wersji; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
 
 ### TASK-0978 — Przejęcie starej sesji (todo)
 
@@ -860,7 +861,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0977 — Interfejs pełnej selekcji (done)
 
-- Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320; hash po commicie.
+- Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.
 - Nowy/Otwórz/Kontynuuj, typed native controller, opaque imageId, Enter/F+1, Tab bez zmiany zdjęcia, zakresy/undo/restart, zoom/scroll/fullscreen i bounded cache7.
 - Cache widoku atomowo w userData; relink także zdrowego projektu dla kopii output. UI pokazuje wyłącznie trwałe decyzje, blokuje repeat/doubleclick/błędnyJPEG/recovery.
 - test:ui3/3, realEXE pełny i krótki smoke, lint/typecheck/format/build/package PASS; nowe procesy, oba kierunki, missingoutput, kopia i terminalrange. Oryginalny output nietknięty. Mapy zregenerowane.

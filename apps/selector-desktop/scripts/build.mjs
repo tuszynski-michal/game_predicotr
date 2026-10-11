@@ -1,5 +1,8 @@
 import { build } from 'esbuild';
-import { mkdir, copyFile } from 'node:fs/promises';
+import { mkdir, copyFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { gitBuildInfo } from './release-support.mjs';
+const buildInfo = gitBuildInfo(path.resolve('../..'));
 await mkdir('dist/renderer', { recursive: true });
 await Promise.all([
   build({
@@ -31,3 +34,8 @@ await Promise.all([
   }),
 ]);
 await copyFile('src/renderer/index.html', 'dist/renderer/index.html');
+await writeFile(
+  'dist/build-info.json',
+  `${JSON.stringify(buildInfo, null, 2)}\n`,
+  'utf8',
+);

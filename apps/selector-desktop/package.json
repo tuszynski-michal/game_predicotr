@@ -18,6 +18,10 @@
     "start": "npm run build && electron .",
     "smoke:shortcuts": "node scripts/smoke-shortcuts.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
+    "smoke:release": "node scripts/smoke-release.mjs",
+    "smoke:release:shortcuts": "node scripts/smoke-release.mjs --shortcuts",
+    "release": "node scripts/release.mjs",
+    "test:release": "node --test test/release.test.mjs",
     "package": "npm run build && electron-forge package --platform win32 --arch x64",
     "make": "npm run build && electron-forge make --platform win32 --arch x64"
   },

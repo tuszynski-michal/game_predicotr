@@ -69,6 +69,12 @@ Zmiana oryginalnej sesji, odczyt cudzego IndexedDB, core-items manifest, import 
 
 buildRemoteSourceManifestV1 zawiera sizeBytes i lastModifiedMs. Sam historyczny output przechowuje checksum, nie kompletny porównywalny source inventory. Jeśli nie można dowieść zgodności, nie rekonstruuj utraconych informacji z aktualnego folderu jako faktów historycznych. Rozszerzenie migracji skopiowanego źródła ze zmienionymi mtime wymaga oddzielnego planu dowodów.
 
+Dodatkowa zgodność: Reviewer używa File.type w źródłowym fingerprint,
+a desktop image/jpeg. Nietypowy historyczny MIME może więc blokować przejęcie
+pomimo tych samych nazw plików. Nie zmieniać fingerprint ani metadanych,
+aby wymusić migrację. Brak sourceManifestChecksumSha256/fileCount lub
+niejednoznaczna konfiguracja historycznego v1 nie dowodzą zgodności.
+
 ## Expected files
 
 - Nowe, proponowane: apps/selector-desktop/src/legacy-adoption/ i test/legacy*.test.mjs.

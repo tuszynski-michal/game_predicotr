@@ -62,6 +62,33 @@ npm run android:verify:offline
 npm run android:device:accept
 ```
 
+## Portable Windows photo selector
+
+`apps/selector-desktop` provides a separate Electron/React application for
+Windows11 x64. The recipient extracts the entire ZIP and runs
+`Selektor-zdjec.exe`. It uses local JPEGs and stores the project, progress and
+selected JPEGs locally. It does not need the host, internet, developer Node.js,
+Python, Docker or the main application's services. There is no upload or link
+sharing. Keep active projects and outputs outside synchronized/network folders.
+
+Developer packaging from this repository uses the pinned npm11 dependencies:
+
+```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
+```
+
+Workspace installation also installs the desktop build tooling; packaging
+obtains the Electron runtime. Do not globally allow dependency install scripts
+or configure a custom Electron mirror. The first pilot is unsigned. Physical
+acceptance on the actual recipient's computer is pending; a Windows security
+block stops acceptance.
+
+See the [operator guide](ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md),
+[execution plan](ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md) and
+[acceptance record](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) for
+verified commands, project recovery, updates and remaining acceptance evidence.
+
 ## Local administration foundation
 
 M2 provides a local-only FastAPI service, Next.js panel and PostgreSQL 18

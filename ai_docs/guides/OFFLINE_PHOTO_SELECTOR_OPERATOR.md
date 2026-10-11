@@ -1,18 +1,19 @@
 ---
-title: Lokalny selektor Windows — projekt instrukcji operatora
-status: proposed
+title: Lokalny selektor Windows — instrukcja operatora
+status: accepted
 last_updated: 2026-10-11
 ---
 
-# Lokalny selektor Windows — instrukcja projektowana
+# Lokalny selektor Windows — instrukcja operatora
 
 Gotowe są fundament0975, trwałość0976 i interfejs0977, sprawdzone lokalnie.
-Finalna paczka0979 i fizyczny odbiór pozostają do przygotowania; wcześniejszy
-ZIP fundamentu nie zawiera pełnej selekcji.
+Pełny ZIP0979 przeszedł lokalny test po rozpakowaniu; fizyczny odbiór pozostaje
+pending. Wcześniejszy ZIP fundamentu nie zawiera pełnej selekcji.
 
 ## Budowanie i kontrola programu
 
-Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node:
+Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node.
+Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów projektu:
 
 ```powershell
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:foundation --workspace @game-predictor/selector-desktop
@@ -20,7 +21,8 @@ node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:project --wo
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:ui --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
-node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run selector:make
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:packaged --workspace @game-predictor/selector-desktop
 ```
 
@@ -31,15 +33,27 @@ Root dopuszcza tylko dodatkowy skrypt `esbuild@0.25.12`; istniejące ostrzeżeni
 innych wersji esbuild/sharp nie są automatycznie dopuszczane. Bez custom mirror.
 
 ZIP znajduje się w `apps/selector-desktop/out/make/zip/win32/x64/`.
+Polecenie release tworzy świeży ZIP oraz sąsiadujące pliki `.sha256` i
+`.release.json`: wersja, bajty, SHA-256, commit/stan dirty oraz suma app.asar.
+Osadzone dane buildu pozwalają sprawdzić pochodzenie rozpakowanego programu.
+Powtarzalny workflow nie oznacza identycznych bajtów ZIP przy każdym buildzie;
+każdą paczkę identyfikuje jej własna suma. Artefakty są ignorowane przez Git.
+Smoke release sprawdza sumy i uruchamia EXE po rozpakowaniu do własnego katalogu.
+Przeniesienie tej samej wersji programu jest symulacją aktualizacji, nie
+fizycznym odbiorem instalacji innej wersji.
 Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Uruchomienie i nowa partia
 
-Poniższy przepływ przeszedł testy0977. Finalna paczka i dowody testów
-zostaną wskazane w raporcie odbioru0979; stary ZIP fundamentu go nie realizuje.
+Poniższy przepływ przeszedł testy0977. Paczka i dowody testów są w
+[raporcie odbioru](../quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); stary ZIP
+fundamentu go nie realizuje.
 
 1. Odbiorca otrzymuje ZIP, wersję, SHA-256 i tę instrukcję. Porównuje sumę
-   otrzymanego pliku z sumą przekazaną przez operatora.
+   otrzymanego pliku z sumą przekazaną przez operatora. W PowerShell można użyć
+   `Get-FileHash -Algorithm SHA256 -LiteralPath "C:\Paczki\Selektor.zip"`,
+   podając rzeczywistą lokalizację otrzymanego ZIP-a. Wynik ma być identyczny
+   z plikiem `.sha256` przekazanym dla tej paczki.
 2. Rozpakowuje cały folder do osobnego lokalnego katalogu programu.
    Nie uruchamia EXE bezpośrednio z ZIP i nie kopiuje samego EXE bez zasobów.
 3. Uruchamia `Selektor-zdjec.exe` na Windows11 x64. Internet, host, Node.js

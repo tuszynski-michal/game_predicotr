@@ -140,7 +140,7 @@ Atomowy cache widoku userData jest rozliczany przy zamknięciu/zmianie projektu.
 Relink jest dostępny także w zdrowym projekcie dla jawnego podłączenia kopii
 wyniku; oryginalne bindingi nie są zmieniane automatycznie.
 
-Commit implementacji: v1.7.320; pełny hash po commicie.
+Commit implementacji: v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.
 
 ### Verification results
 

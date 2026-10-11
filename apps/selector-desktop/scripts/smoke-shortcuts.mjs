@@ -1,7 +1,8 @@
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
+import { removeOwnedTemp } from './release-support.mjs';
 await mkdir('.tmp', { recursive: true });
 const root = await mkdtemp(path.resolve('.tmp/shortcut-smoke-'));
 const source = path.join(root, 'source');
@@ -15,15 +16,16 @@ const jpeg = Buffer.from(
 await writeFile(path.join(source, 'photo1.jpg'), jpeg);
 await writeFile(path.join(source, 'photo2.jpg'), 'invalid JPEG');
 let application;
+const executablePath = path.resolve(
+  process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe',
+);
 try {
   application = await electron.launch({
-    executablePath: path.resolve(
-      process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe',
-    ),
+    executablePath,
     args: [`--user-data-dir=${userData}`],
     timeout: 20000,
   });
-  const page = await application.firstWindow();
+  let page = await application.firstWindow();
   page.setDefaultTimeout(20000);
   await application.evaluate(({ dialog }, directory) => {
     dialog.showOpenDialog = async () => ({
@@ -101,7 +103,50 @@ try {
   console.log(
     'PASS: descending F advances one despite step20, shortened range19–20, malformed JPEG blocks accept, repeat accept blocked, opaque IPC rejects paths.',
   );
+  await page.getByRole('button', { name: 'Zamknij projekt' }).click();
+  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await application.close();
+  application = null;
+  const movedSource = path.join(root, 'moved-source');
+  await rename(source, movedSource);
+  application = await electron.launch({
+    executablePath,
+    args: [`--user-data-dir=${userData}`],
+    timeout: 20000,
+  });
+  page = await application.firstWindow();
+  page.setDefaultTimeout(20000);
+  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await page.getByRole('button', { name: 'Wznów po naprawie' }).waitFor();
+  assert.equal(
+    (await page.evaluate(() => window.selector.snapshot())).value.acceptedCount,
+    1,
+  );
+  await application.evaluate(({ dialog }, directory) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [directory],
+    });
+    dialog.showMessageBox = async () => ({
+      response: 1,
+      checkboxChecked: false,
+    });
+  }, movedSource);
+  await page
+    .getByRole('button', { name: 'Wskaż ponownie źródło', exact: true })
+    .click();
+  await page
+    .getByText('To zdjęcie jest już wybrane.', { exact: false })
+    .waitFor();
+  const restored = await page.evaluate(() => window.selector.snapshot());
+  assert.equal(restored.value.issue, null);
+  assert.equal(restored.value.projectId, state.projectId);
+  assert.equal(restored.value.acceptedCount, 1);
+  assert.equal(restored.value.nextRangeStart, 10);
+  console.log(
+    'PASS: moved source recovered by explicit native relink after process restart; decisions and numbering preserved.',
+  );
 } finally {
   await application?.close();
-  await rm(root, { recursive: true, force: true });
+  await removeOwnedTemp(root, path.resolve('.tmp'));
 }

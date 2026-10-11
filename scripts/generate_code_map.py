@@ -105,6 +105,7 @@ AREAS: tuple[Area, ...] = (
             ),
             Unit("apps/selector-desktop/src/renderer", "interfejs React dołączony do ZIP"),
             Unit("apps/selector-desktop/src/contracts.ts", "typowany most IPC"),
+            Unit("apps/selector-desktop/scripts", "build, pakowanie i smoke paczki"),
         ),
         entry_points=(
             "apps/selector-desktop/src/main.ts",

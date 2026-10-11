@@ -4,13 +4,13 @@ import {
   mkdir,
   mkdtemp,
   writeFile,
-  rm,
   rename,
   cp,
   readFile,
 } from 'node:fs/promises';
 import path from 'node:path';
-const executablePath = path.resolve(
+import { removeOwnedTemp } from './release-support.mjs';
+let executablePath = path.resolve(
   process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe',
 );
 await mkdir('.tmp', { recursive: true });
@@ -21,6 +21,12 @@ await mkdir(source);
 await mkdir(userData);
 let application;
 let page;
+const provenancePath = process.argv
+  .find((value) => value.startsWith('--release-metadata='))
+  ?.slice('--release-metadata='.length);
+const provenance = provenancePath
+  ? JSON.parse(await readFile(provenancePath, 'utf8'))
+  : null;
 async function launch() {
   application = await electron.launch({
     executablePath,
@@ -31,6 +37,21 @@ async function launch() {
     await application.evaluate(({ app }) => app.getPath('userData')),
     userData,
   );
+  if (provenance) {
+    const built = await application.evaluate(({ app }) => {
+      const fs = process.getBuiltinModule('fs');
+      return {
+        version: app.getVersion(),
+        info: JSON.parse(
+          fs.readFileSync(`${app.getAppPath()}/dist/build-info.json`, 'utf8'),
+        ),
+      };
+    });
+    assert.equal(built.version, provenance.applicationVersion);
+    assert.equal(built.info.sourceCommit, provenance.sourceCommit);
+    assert.equal(built.info.dirty, provenance.dirty);
+    assert.equal(built.info.builtAt, provenance.builtAt);
+  }
   page = await application.firstWindow({ timeout: 20000 });
   page.setDefaultTimeout(20000);
   await application.evaluate(({ dialog }, directory) => {
@@ -191,6 +212,28 @@ try {
   await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
   await application.close();
   application = null;
+  if (process.argv.includes('--relocate-program')) {
+    const originalProgram = path.dirname(executablePath);
+    const relocatedProgram = path.join(
+      path.dirname(originalProgram),
+      'program-updated-location',
+    );
+    // Only the release harness opts in and creates this program folder under .tmp.
+    const ownedTemp = path.resolve('.tmp');
+    const relative = path.relative(ownedTemp, originalProgram);
+    assert.ok(
+      relative && !relative.startsWith('..') && !path.isAbsolute(relative),
+    );
+    await cp(originalProgram, relocatedProgram, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+    });
+    executablePath = path.join(relocatedProgram, path.basename(executablePath));
+    console.log(
+      'PASS: launching copied same-version program from changed location.',
+    );
+  }
   await launch();
   await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
   await imageReady();
@@ -328,5 +371,5 @@ try {
   );
 } finally {
   await application?.close();
-  await rm(fixture, { recursive: true, force: true });
+  await removeOwnedTemp(fixture, path.resolve('.tmp'));
 }

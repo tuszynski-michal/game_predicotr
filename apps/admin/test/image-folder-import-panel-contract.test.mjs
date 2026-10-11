@@ -123,6 +123,10 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /Ulepszaniu modelu symboli/);
   assert.match(panelSource, /aktywuj model tej gry/);
   assert.match(panelSource, /Rozpocznij pierwszy import bez modelu/);
+  // D-544: the neural start label names the engine, never one game.
+  assert.match(panelSource, /'Rozpocznij pierwszy import V3 bez modelu'/);
+  assert.match(panelSource, /'Rozpocznij import V3'/);
+  assert.doesNotMatch(panelSource, /import Mumii/);
   assert.match(panelSource, /Każda pozycja oznacza jedno zdjęcie/);
   assert.match(panelSource, /Importuj rozpoznane strony/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);

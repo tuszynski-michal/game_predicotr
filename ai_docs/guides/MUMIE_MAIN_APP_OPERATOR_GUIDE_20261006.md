@@ -1,7 +1,7 @@
 ---
 title: Mumie — upload, korekta i wspólne uczenie
 status: live_pilot
-last_updated: 2026-10-07
+last_updated: 2026-10-11
 ---
 
 # Mumie w głównej aplikacji
@@ -33,7 +33,8 @@ Port3102 pozostaje laboratorium. Model Mumii jest aktywny.
    jeszcze komórek symboli w grze.
 5. Poczekaj na ukończenie; **Odśwież preflight geometrii** odczytuje zapisany
    stan. Jeśli zadanie się nie powiedzie, użyj **Ponów preflight**.
-   Po gotowym manifeście kliknij **Rozpocznij import Mumii**.
+   Po gotowym manifeście kliknij **Rozpocznij import V3** (przed pierwszym
+   modelem symboli: **Rozpocznij pierwszy import V3 bez modelu**).
    **Podgląd propozycji sieci i numeracji zdjęć** nie jest listą obowiązkowych
    poprawek. Licznik obejmuje propozycje bez ręcznej akceptacji, także poprawne
    pełne siatki. Nie musisz otwierać ani zatwierdzać każdej z nich.

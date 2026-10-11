@@ -122,6 +122,8 @@ npm run typecheck --workspace @game-predictor/admin
 
 - Codex `gpt-6.1-sol` (na prośbę operatora, jedna runda): [TASK-0974_AUDIT_gpt-6.1-sol.md](../../quality/TASK-0974_AUDIT_gpt-6.1-sol.md), `Werdykt: REVISE`, P0 brak, P2 brak.
 - P1-1 (brak testów miejsc wywołania kontroli profilu) naprawione: `test_repeated_preflight_reuses_a_frozen_snapshot_only_for_the_same_profile` (oba profile) i `test_import_start_rejects_a_preflight_frozen_for_another_profile` (bez joba importu). Kontrola mutacyjna: wyłączenie obu kontroli w `jobs.py` daje 2 failed. Zachowanie produkcyjne bez zmian, więc bez drugiej rundy.
+- Commit v1.7.314 (`4344510b`), scalony fast-forward do `v1.1-vision-lab-hybrid-geometry` i wypchnięty. Na gałęzi integracyjnej: 126 testów neural API/worker, Admin 731 + 16, OpenAPI, klient i docs aktualne; działające API serwuje nowy kontrakt, Admin pokazuje „V3 — sieć neuronowa (777 v2)” dla `777a2`.
+- Audyt E2E gotowości importu nowej 777 (na prośbę operatora, do 3 rund): runda 1 [TASK-0974_E2E_AUDIT_gpt-6.1-sol_round1.md](../../quality/TASK-0974_E2E_AUDIT_gpt-6.1-sol_round1.md), `Werdykt: PASS`, P0/P1 brak. P2-1 (przycisk „Rozpocznij import Mumii” także dla 777 v2) naprawione w v1.7.315: „Rozpocznij import V3” albo „Rozpocznij pierwszy import V3 bez modelu”; przewodnik Mumii zaktualizowany. Warunek bootstrapu sprawdzony: globalny bootstrap ma klasy `cherries`, `grapes`…, a `777a2` ma `WISNIA`, `WINOGRON`…, więc pierwszy import idzie w cold start (`?`).
 
 ### Not completed
 

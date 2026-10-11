@@ -213,7 +213,7 @@ async function mount(prior = null, processing = false, options = {}) {
 test('existing Import button is enabled for a completed 99-review neural report and sends pinned manifest only on explicit click', async () => {
   const { root, calls, reportCalls } = await mount();
   try {
-    const start = button('Rozpocznij import Mumii');
+    const start = button('Rozpocznij pierwszy import V3 bez modelu');
     assert.ok(start);
     assert.equal(start.disabled, false);
     assert.equal(calls.length, 0);
@@ -317,7 +317,10 @@ test('restored all-review neural report shows proposals and actual analysis with
         text,
         /Ręczna korekta zdjęć geometrii|odroczone zdjęcia|zarejestrowane zdjęcia 0|Pokrycie geometrii źródeł|Oddzielna pula niepełnych siatek|Wzorzec wymaga/,
       );
-      assert.equal(button('Rozpocznij import Mumii').disabled, false);
+      assert.equal(
+        button('Rozpocznij pierwszy import V3 bez modelu').disabled,
+        false,
+      );
       assert.deepEqual(calls, []);
       assert.deepEqual(preflightCalls, []);
     } finally {
@@ -365,7 +368,9 @@ test('a successful Mumie import reports V3 rather than the undefined classical f
     startResult: { data: { created: true, job } },
   });
   try {
-    await act(async () => button('Rozpocznij import Mumii').click());
+    await act(async () =>
+      button('Rozpocznij pierwszy import V3 bez modelu').click(),
+    );
     assert.equal(calls.length, 1);
     assert.match(
       document.body.textContent,
@@ -538,7 +543,10 @@ test('after restart pending-only neural history keeps source correction/report a
   const { root, calls } = await mount(JSON.parse(JSON.stringify(previous)));
   try {
     assert.ok(button('Odśwież raport'));
-    assert.equal(button('Rozpocznij import Mumii').disabled, false);
+    assert.equal(
+      button('Rozpocznij pierwszy import V3 bez modelu').disabled,
+      false,
+    );
     assert.match(document.body.textContent, /Źródła oczekujące na przypisanie/);
     assert.equal(calls.length, 0);
   } finally {
@@ -550,7 +558,10 @@ test('polling a processing frozen neural preflight unlocks Import when its 99-re
   const { root, calls } = await mount(null, true);
   try {
     await act(async () => {});
-    assert.equal(button('Rozpocznij import Mumii').disabled, false);
+    assert.equal(
+      button('Rozpocznij pierwszy import V3 bez modelu').disabled,
+      false,
+    );
     assert.equal(calls.length, 0);
   } finally {
     await act(async () => root.unmount());

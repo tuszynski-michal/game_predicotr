@@ -2116,7 +2116,9 @@ export function ImageFolderImportPanel({
               : preflight === null
                 ? 'Przygotuj raport, aby rozpocząć import'
                 : isNeuralGeometryPreflight(activeBrowserGeometryPreflightJob)
-                  ? 'Rozpocznij import Mumii'
+                  ? preflight.unclassifiedColdStartAllowed
+                    ? 'Rozpocznij pierwszy import V3 bez modelu'
+                    : 'Rozpocznij import V3'
                   : geometryPreflightJob !== null &&
                       geometryPreflightJob.progress.review > 0
                     ? 'Importuj rozpoznane strony'

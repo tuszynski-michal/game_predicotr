@@ -231,7 +231,7 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 
 - **Date:** 2026-10-11.
 - **Status:** accepted by explicit operator instruction to implement the revised
-  plan; implementation has not started, auditor availability is an entry gate.
+  plan; implementation is authorized, with operator audit after all five tasks.
 - **Decision:** standalone Electron/React/TypeScript workspace
   `apps/selector-desktop`, Windows 11 x64 ZIP built with Electron Forge.
   The recipient keeps source images, project state and output on their device;
@@ -250,14 +250,16 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   heartbeat alone never authorizes takeover. Missing folders require relink,
   never an automatic reset. Only ready output is manually shared.
 - **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
-  TASK-0978 legacy adoption is deferred and requires a separate instruction.
+  The later instruction to implement five tasks also authorizes TASK-0978
+  legacy adoption after the implementation portion of TASK-0979.
   Initial pilot is unsigned; real Windows blocking stops acceptance without
   advising the recipient to disable protection. No upload, generated links,
   cloud integration, repair or training trace.
 - **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
   tests, packaging and audits, without a reliable package-percentage estimate.
-  The operator will supply Claude Code CLI; the required auditor/model must be
-  confirmed before implementation. Physical recipient-machine acceptance is
+  The later operator instruction defers review until all five tasks are
+  implemented, explicitly replacing per-task review and the CLI entry gate.
+  Physical recipient-machine acceptance is
   recorded separately and cannot be replaced by the agent's local smoke test.
 - **Source:** operator instructions and answers in this conversation of
   2026-10-11; `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`.

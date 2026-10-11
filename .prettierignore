@@ -3,6 +3,8 @@
 .g39/
 .tmp/
 ai_docs/
+apps/selector-desktop/dist/
+apps/selector-desktop/out/
 apps/mobile/android/
 apps/mobile/assets/
 coverage/

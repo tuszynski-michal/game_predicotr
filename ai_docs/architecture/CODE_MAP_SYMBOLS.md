@@ -919,6 +919,13 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - security/remote-selection-proxy.ts: REMOTE_SELECTION_PUBLIC_COOKIE, REMOTE_SELECTION_PUBLIC_COOKIE_PATH, REMOTE_SELECTION_PROXY_INTENT, REMOTE_SELECTION_MAX_CONTROL_BYTES, REMOTE_SELECTION_MAX_BINARY_BYTES, isRemoteManualSelectionEnabled, proxyRemoteSelectionRequest
 - security/reviewer-proxy-policy.ts: remoteSelectionProxyTarget, reviewerProxyTarget
 
+## apps/selector-desktop/src
+
+- contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- native/diagnostic-log.ts: DiagnosticLog
+- native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
+- native/source-registry.ts: MAX_SOURCE_IMAGES, SourceRegistry
+
 ## apps/mobile/src
 
 - app/_layout.tsx: RootLayout

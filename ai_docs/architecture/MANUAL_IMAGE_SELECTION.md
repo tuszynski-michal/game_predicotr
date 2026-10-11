@@ -9,7 +9,7 @@ last_updated: 2026-09-15
 ## Lokalny selektor Windows — D-545, zaakceptowana architektura
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
-nie jest jeszcze zaimplementowany. Korzysta z manual-image-selection-core,
+ma zaimplementowany fundament 0975; dalsze taski są w realizacji. Korzysta z manual-image-selection-core,
 ma własny renderer i natywne adaptery; nie wydziela komponentów Admina ani
 Reviewera. Brak nowych endpointów, OpenAPI i tabel PostgreSQL.
 
@@ -33,7 +33,7 @@ nazwą manual-image-selection-output-v1.json. Jest projekcją, a nie drugim
 przechowuje ścieżkę względną; brak folderu wymaga relink bez resetu.
 Zdjęcia są kopiowane bajtowo/strumieniowo i checksummowane.
 
-Przy migracji odroczonej (0978) sama różna checksuma source manifestu
+Przy migracji starych sesji (0978) sama różna checksuma source manifestu
 nie dowodzi zmiany wyłącznie mtime: stary output nie ma pełnego source
 inventory. Brak wystarczających dowodów blokuje przejęcie.
 Pełny zakres, taski, błędy i odbiór: [plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md).

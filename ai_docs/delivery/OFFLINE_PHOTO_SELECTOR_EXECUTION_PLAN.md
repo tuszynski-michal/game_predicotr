@@ -36,18 +36,19 @@ Oddzielnie zatwierdził przewidywany koszt 3–6 godzin pracy z testami,
 pakowaniem i audytami, bez wiarygodnego szacunku procentu pakietu.
 
 - Pierwsze wydanie obejmuje **0975 → 0976 → 0977 → 0979**.
-- TASK-0978 jest odroczony i wymaga osobnego uruchomienia; obecne partie
-  odbiorca kończy w Reviewerze.
+- Operator uruchomił również TASK-0978 poleceniem wykonania pięciu zadań.
+  Kolejność implementacji: 0975 → 0976 → 0977 → 0979 → 0978.
 - Pierwsze przekazanie to pilotaż bez podpisu na konkretnym komputerze.
 - Dane i wyniki zostają u odbiorcy; upload, linki oraz integracja Proton Drive
   nie należą do tego zakresu.
 - Zgoda nie obejmuje push, merge, uruchamiania usług głównej aplikacji,
   instalacji/logowania CLI audytora ani odbioru na cudzym komputerze.
 
-Operator zadeklarował udostępnienie CLI Claude Code. Do czasu potwierdzenia
-działającego CLI, autoryzacji i modelu z tabeli wykonanie TASK-0975 jest
-zablokowane. Przygotowanie dokumentacji jest dozwolone. Nie zastępujemy
-audytora modelem Codex. Odbiór drugiego komputera jest oddzielną bramką 0979.
+Operator następnie polecił rozpoczęcie wszystkich pięciu tasków i odroczył
+audyt do końca całej implementacji. Jest to jawny wyjątek od audytu przed
+każdym commitem i potwierdzenia CLI przed startem. Agent nie uruchamia audytów
+ani nie zastępuje audytora. Operator wykonuje końcowy przegląd. Odbiór drugiego
+komputera pozostaje osobną bramką 0979; nie zatrzymuje implementacji 0978.
 
 ## Decyzje architektoniczne
 
@@ -133,9 +134,9 @@ audytora modelem Codex. Odbiór drugiego komputera jest oddzielną bramką 0979.
 
 Samodzielne okno, lokalny JPEG, Forge ZIP, typed IPC, własny protokół zdjęć,
 hardening, logi, polityka instalacji oraz obszar generatora mapy kodu.
-Wejście: dostępny przypisany audytor. Odbiór pakietu na drugim komputerze
+Wejście: zaakceptowany plan i zgoda operatora; audyt na końcu zakresu. Odbiór pakietu na drugim komputerze
 jest końcową bramką 0979; 0975 sprawdza paczkę lokalnie i zapisuje ten limit.
-Szczegóły: [task 0975](../tasks/0975-selector-desktop-foundation.md).
+Szczegóły: [task 0975](../tasks/completed/0975-selector-desktop-foundation.md).
 
 ## TASK-0976 — Projekt, manifest i odzyskiwanie
 
@@ -156,9 +157,9 @@ backup, odbiór rzeczywistej drogi dystrybucji na komputerze odbiorcy.
 Nie raportować pilotażu jako zaliczonego bez dowodów operatora.
 Szczegóły: [task 0979](../tasks/0979-selector-desktop-release-acceptance.md).
 
-## TASK-0978 — Odroczone przejęcie starej sesji
+## TASK-0978 — Przejęcie starej sesji
 
-Po 0979, tylko na osobne polecenie. Operator-local v1/v2, checksummy źródła
+Po części implementacyjnej 0979; polecenie pięciu tasków uruchomiło 0978. Operator-local v1/v2, checksummy źródła
 i wybranych plików, preview i nowy projekt bez modyfikacji oryginału.
 Brak dowodów lub różna tożsamość źródła blokują migrację. Stary output nie
 zawiera pełnej listy metadanych źródła: nie wolno na podstawie samej innej
@@ -174,10 +175,9 @@ dopisuje wersję i pełny hash w kolejnym commicie zgodnie z AGENTS.md.
 
 Operator przekazał [audyt Codex](../quality/OFFLINE_PHOTO_SELECTOR_PLAN_REVIEW_CODEX_20261011.md) z werdyktem REVISE. Uwagi uwzględniono:
 konkretny manifest, semantyka Reviewera, brak refaktoru web UI, jawna
-trwałość/security, odroczona migracja, osobny odbiór. Skorygowano twierdzenia
+trwałość/security, początkowo odroczona migracja, osobny odbiór. Skorygowano twierdzenia
 o zawsze dziewięciu planszach, dowodzie zmiany wyłącznie mtime i pewnej
-blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje audytów Claude
-implementacji. Nie przeprowadzono jeszcze żadnych testów nowej aplikacji.
+blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Nie przeprowadzono jeszcze żadnych testów nowej aplikacji.
 
 | Wymaganie | Task | Dowód odbioru |
 |---|---|---|
@@ -187,7 +187,7 @@ implementacji. Nie przeprowadzono jeszcze żadnych testów nowej aplikacji.
 | Lokalne wyniki | 0976, 0979 | JPEG i manifest, brak uploadu |
 | Granice dostępu | 0975, 0976 | Traversal, reparse i obce dane |
 | Aktualizacja bez utraty pracy | 0979 | Aktualizacja, reboot i resume |
-| Stare sesje, odroczone | 0978 | Manifesty zgodne i konfliktowe |
+| Stare sesje | 0978 | Manifesty zgodne i konfliktowe |
 
 Komendy istniejące: test/typecheck rdzenia, test/lint/typecheck Reviewera,
 `npm run docs:check`, `npm run code-map:check`. Nowy workspace publikuje
@@ -197,21 +197,22 @@ uprzedniej informacji o czasie. Bez benchmarków, sztucznych wielkich korpusów,
 restartu usług i operacji na zdjęciach użytkownika bez osobnego zlecenia.
 
 Po wykonaniu taska porównać wszystkie kryteria, uruchomić właściwe testy,
-uzyskać audyt, commit i aktualizację dokumentacji. Fizyczny drugi komputer,
+zapisać osobny commit i aktualizację dokumentacji. Audyt całego zakresu
+wykona operator po pięciu taskach. Fizyczny drugi komputer,
 restart Windows i realna dystrybucja są bramkami operatora, których agent
 nie zastępuje testem w swoim środowisku. Otwarte P0/P1 zatrzymują zakres.
 
 ## Przypisanie modeli do zadań
 
-Wykonawcy są dostępni. Audytor Claude wymaga potwierdzenia dostępności CLI,
-autoryzacji i dokładnego modelu przed startem realizacji. TASK-0976 ma
-audyt high ze względu na trwałość danych odbiorcy. Brak modelu/reasoning
-wstrzymuje task; nie wolno wybrać niejawnego zamiennika.
+Wykonawcy są dostępni. Audyt operatora odbywa się po całym zakresie; nie
+jest bramką startu ani osobnego commita. Model Claude w tabeli jest zaleceniem
+do tego przeglądu, nie zleceniem agentowi. TASK-0976 wymaga szczególnej oceny
+trwałości. Niedostępnego modelu wykonawcy nie zastępujemy niejawnie.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-0975 | gpt-6.1-sol | medium | Integracja, pakowanie, granice dostępu. | Warunkowo claude-sonnet-5-5 / medium |
-| TASK-0976 | gpt-6.1-sol | high | Trwałość, recovery, idempotencja. | Warunkowo claude-sonnet-5-5 / high |
-| TASK-0977 | gpt-6.1-sol | medium | Interfejs i semantyka selekcji. | Warunkowo claude-sonnet-5-5 / medium |
-| TASK-0979 | gpt-6.1-sol | medium | Wydanie i odbiór użytkowy. | Warunkowo claude-sonnet-5-5 / medium |
-| TASK-0978 | gpt-6.1-sol | high | Walidacja historycznych danych. | Warunkowo claude-sonnet-5-5 / medium |
+| TASK-0975 | gpt-6.1-sol | medium | Integracja, pakowanie, granice dostępu. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
+| TASK-0976 | gpt-6.1-sol | high | Trwałość, recovery, idempotencja. | Operator na końcu; zalecany claude-sonnet-5-5 / high |
+| TASK-0977 | gpt-6.1-sol | medium | Interfejs i semantyka selekcji. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
+| TASK-0979 | gpt-6.1-sol | medium | Wydanie i odbiór użytkowy. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
+| TASK-0978 | gpt-6.1-sol | high | Walidacja historycznych danych. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |

@@ -12,9 +12,14 @@
     "npm": ">=11 <12"
   },
   "allowScripts": {
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "esbuild@0.25.12": true
   },
   "scripts": {
+    "selector:build": "npm run build --workspace @game-predictor/selector-desktop",
+    "selector:package": "npm run package --workspace @game-predictor/selector-desktop",
+    "selector:make": "npm run make --workspace @game-predictor/selector-desktop",
+    "selector:start": "npm run start --workspace @game-predictor/selector-desktop",
     "android": "npm run android --workspace @game-predictor/mobile",
     "android:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android_debug.ps1",
     "android:build:offline": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android_debug.ps1 -Variant Release",

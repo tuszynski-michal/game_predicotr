@@ -8,8 +8,8 @@ last_updated: 2026-09-15
 
 ## Lokalny selektor Windows — D-545, zaakceptowany zakres
 
-Oddzielny selektor dla Windows 11 x64 jest zaakceptowany, ale nie jest jeszcze
-zaimplementowany. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
+Fundament oddzielnego selektora Windows 11 x64 jest zaimplementowany przez 0975.
+Trwałe projekty i pełny interfejs selekcji są jeszcze w realizacji. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
 opisuje TASK-0975/0976/0977/0979. Odbiorca rozpakowuje ZIP i pracuje offline,
 bez hosta, tunelu, instalacji narzędzi deweloperskich i sesji sieciowej.
 Źródła, postęp oraz wyniki pozostają na jego urządzeniu; Proton Drive
@@ -30,7 +30,8 @@ obcy/zmieniony wynik blokuje nadpisanie. Skala założona: do 15 000 JPEG/projek
 
 Pilotaż jest bez podpisu, z odbiorem na konkretnym komputerze użytkownika.
 Blokada Windows wstrzymuje odbiór; wyłączenie ochrony nie jest instrukcją.
-TASK-0978 migracji starych sesji jest odroczony i wymaga osobnego polecenia.
+TASK-0978 migracji starych sesji został uruchomiony późniejszym poleceniem
+wykonania pięciu zadań; następuje po części implementacyjnej 0979.
 
 
 ## Cel

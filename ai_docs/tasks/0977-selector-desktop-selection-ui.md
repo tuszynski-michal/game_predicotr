@@ -23,15 +23,15 @@ fragment zaakceptowanego planu.
 
 ## Dependencies / entry conditions
 
-TASK-0976 zakończony i zacommitowany. Dostępny claude-sonnet-5-5 / medium. Przed kodowaniem porównać obecne zachowanie RemoteManualSelectionWorkspace z planem.
+TASK-0976 zakończony i zacommitowany. Końcowy audyt operatora po całym zakresie. Przed kodowaniem porównać obecne zachowanie RemoteManualSelectionWorkspace z planem.
 
 ## Recommended execution
 
-`gpt-6.1-sol / medium`. Niezależny statyczny audyt
-`claude-sonnet-5-5 / medium`, warunkowo po potwierdzeniu CLI i modelu.
+`gpt-6.1-sol / medium`. Operator wykona końcowy audyt całego zakresu; zalecany model
+`claude-sonnet-5-5 / medium`. CLI audytora nie jest bramką implementacji.
 Konfiguracja odpowiada tabeli planu. Eskaluj, gdy zmiana wymaga innego modelu
 własności danych, nowych reguł domeny lub niezgodnego formatu. Nie zmieniaj
-modelu/reasoning niejawnie. Jeden audyt i jedna runda poprawek według AGENTS.md.
+modelu/reasoning niejawnie. Wyjątek operatora: bez audytu przed każdym commitem; końcowy przegląd po pięciu taskach.
 
 ## Relevant docs
 
@@ -125,7 +125,7 @@ Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośnik
 
 ### Not completed
 
-Wszystkie kryteria implementacyjne i wymagany audyt.
+Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
 
 ### Documentation updates
 
@@ -133,4 +133,4 @@ Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
 
 ### Recommended next task
 
-TASK-0979, bez uruchamiania odroczonego 0978.
+TASK-0979, następnie uruchomiony przez operatora TASK-0978.

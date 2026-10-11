@@ -23,15 +23,15 @@ fragment zaakceptowanego planu.
 
 ## Dependencies / entry conditions
 
-TASK-0977 zakończony. TASK-0978 nie jest zależnością. Dostępny claude-sonnet-5-5 / medium. Operator udostępnia drugi komputer i dowody rzeczywistego odbioru.
+TASK-0977 zakończony. TASK-0978 nie jest zależnością. Końcowy audyt operatora po całym zakresie. Operator udostępnia drugi komputer i dowody rzeczywistego odbioru.
 
 ## Recommended execution
 
-`gpt-6.1-sol / medium`. Niezależny statyczny audyt
-`claude-sonnet-5-5 / medium`, warunkowo po potwierdzeniu CLI i modelu.
+`gpt-6.1-sol / medium`. Operator wykona końcowy audyt całego zakresu; zalecany model
+`claude-sonnet-5-5 / medium`. CLI audytora nie jest bramką implementacji.
 Konfiguracja odpowiada tabeli planu. Eskaluj, gdy zmiana wymaga innego modelu
 własności danych, nowych reguł domeny lub niezgodnego formatu. Nie zmieniaj
-modelu/reasoning niejawnie. Jeden audyt i jedna runda poprawek według AGENTS.md.
+modelu/reasoning niejawnie. Wyjątek operatora: bez audytu przed każdym commitem; końcowy przegląd po pięciu taskach.
 
 ## Relevant docs
 
@@ -122,7 +122,7 @@ Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośnik
 
 ### Not completed
 
-Wszystkie kryteria implementacyjne i wymagany audyt.
+Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
 
 ### Documentation updates
 
@@ -130,4 +130,4 @@ Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
 
 ### Recommended next task
 
-Zatrzymać pierwsze wydanie; 0978 tylko na osobne polecenie.
+TASK-0978 po przygotowaniu paczki; fizyczny odbiór wydania i końcowy audyt operatora pozostają do potwierdzenia.

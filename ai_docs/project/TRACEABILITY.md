@@ -9,7 +9,7 @@ last_updated: 2026-08-12
 | Obszar | Dokument źródła prawdy | Milestone |
 |---|---|---|
 | Lokalny selektor Windows, dane u odbiorcy, trwałe projekty i ZIP | `requirements/MANUAL_IMAGE_SELECTION.md`, `architecture/MANUAL_IMAGE_SELECTION.md`, D-545, `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md` | TASK-0975, TASK-0976, TASK-0977, TASK-0979 |
-| Przejęcie sesji operator-local, odroczone | `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545 | TASK-0978 (osobne uruchomienie) |
+| Przejęcie sesji operator-local, uruchomione po 0979 | `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545 | TASK-0978 |
 | Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
 | Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
 | Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |

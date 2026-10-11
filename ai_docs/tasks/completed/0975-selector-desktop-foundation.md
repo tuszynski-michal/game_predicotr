@@ -1,6 +1,6 @@
 ---
 title: Fundament aplikacji Windows i pakowanie
-status: blocked
+status: done
 last_updated: 2026-10-11
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-11
 
 ## Status
 
-`blocked`
+`done`
 
 ## Goal
 
@@ -23,15 +23,15 @@ fragment zaakceptowanego planu.
 
 ## Dependencies / entry conditions
 
-Zaakceptowany plan, zgoda kosztowa 2026-10-11 oraz działające CLI Claude Code z potwierdzonym modelem claude-sonnet-5-5 / medium. Dokumentacja jest przygotowana; model audytora nie został jeszcze potwierdzony. Bazą jest bb883b5902cb0934b9732d1bc24361d01085051d (v1.7.316).
+Zaakceptowany plan, zgoda kosztowa 2026-10-11 i późniejsze jawne polecenie implementacji pięciu tasków bez oczekiwania na CLI. Audyt wykona operator na końcu zakresu. Bazą jest bb883b5902cb0934b9732d1bc24361d01085051d (v1.7.316).
 
 ## Recommended execution
 
-`gpt-6.1-sol / medium`. Niezależny statyczny audyt
-`claude-sonnet-5-5 / medium`, warunkowo po potwierdzeniu CLI i modelu.
+`gpt-6.1-sol / medium`. Operator wykona końcowy audyt całego zakresu; zalecany model
+`claude-sonnet-5-5 / medium`. CLI audytora nie jest bramką implementacji.
 Konfiguracja odpowiada tabeli planu. Eskaluj, gdy zmiana wymaga innego modelu
 własności danych, nowych reguł domeny lub niezgodnego formatu. Nie zmieniaj
-modelu/reasoning niejawnie. Jeden audyt i jedna runda poprawek według AGENTS.md.
+modelu/reasoning niejawnie. Wyjątek operatora: bez audytu przed każdym commitem; końcowy przegląd po pięciu taskach.
 
 ## Relevant docs
 
@@ -63,11 +63,11 @@ Trwałe projekty, UI pełnej selekcji, legacy adoption, instalator, podpis kodu,
 
 ## Acceptance criteria
 
-- [ ] Paczka działa offline i pokazuje lokalny JPEG; brak runtime zależnego od hosta.
-- [ ] Anulowanie pickera zachowuje prawidłowy stan, odczyt spoza korzenia i reparse point są odmawiane.
-- [ ] Renderer nie otrzymuje ogólnego filesystem API; nie można otworzyć zewnętrznej strony/okna.
-- [ ] Testy, lint, typecheck i pakowanie nowego workspace'u przechodzą; mapa go obejmuje.
-- [ ] Ograniczenie lokalnego smoke testu jest zapisane; rzeczywisty drugi komputer sprawdza TASK-0979.
+- [x] Paczka działa offline i pokazuje lokalny JPEG; brak runtime zależnego od hosta.
+- [x] Anulowanie pickera zachowuje prawidłowy stan, odczyt spoza korzenia i reparse point są odmawiane.
+- [x] Renderer nie otrzymuje ogólnego filesystem API; nie można otworzyć zewnętrznej strony/okna.
+- [x] Testy, lint, typecheck i pakowanie nowego workspace'u przechodzą; mapa go obejmuje.
+- [x] Ograniczenie lokalnego smoke testu jest zapisane; rzeczywisty drugi komputer sprawdza TASK-0979.
 
 ## Technical notes
 
@@ -110,26 +110,35 @@ Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:chec
 
 ## Risks / open questions
 
-Brak CLI/modelu audytora blokuje start implementacji. Pakowanie może wymagać pobrania zależności; odbiór źródła i autora paczki na urządzeniu odbiorcy należy do 0979.
+Audyt przed startem/commitem został odroczony przez operatora do końca zakresu. Pakowanie może wymagać pobrania zależności; odbiór źródła i autora paczki na urządzeniu odbiorcy należy do 0979.
 
 ## Outcome
 
 ### Changed
 
-Przygotowano specyfikację taska i zaakceptowany plan. Implementacja nie została rozpoczęta.
+- Workspace Electron/React/TypeScript, statyczny renderer, Forge ZIP Windows x64, typed IPC i strumieniowanie JPEG przez własny protokół.
+- Walidacja nadawcy i argumentów, identyfikatory indeksu, sandbox/CSP oraz blokada sieci, nawigacji, nowych okien i uprawnień.
+- Naturalny indeks do 15 000 JPEG; dodatkowa defensywna granica 100 000 wpisów katalogowych. Kontrola symlink/junction i atrybutu Windows ReparsePoint. Rotowane logi.
+- Root workspace quality, przypięte zależności/lockfile, wyłącznie allowScripts esbuild@0.25.12, mapa kodu i ignorowanie wygenerowanych plików w formatowaniu.
+- Przygotowanie dokumentacji: v1.7.317, commit `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`; nie był to commit implementacji.
 
 ### Verification results
 
-Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośniki/wpisy/wiersze indeksu), check_current_state_window.py PASS (47 aktywnych tasków, 10 done). Testów implementacji nie uruchamiano.
+- Native tests 7/7 PASS; lint, typecheck, build, package, make, scoped format, docs:check i code-map:check PASS. Komendy ograniczone do 45–120 sekund.
+- Packaged EXE smoke PASS: poprawny JPEG 1×1 z lokalnego źródła, blokada fetch i nowych okien, anulowanie pickera zachowuje podgląd; kontrolowany proces zamknięty.
+- Rdzeń: 110/110 PASS oraz typecheck PASS. Reviewer: 264/264 PASS poza piaskownicą. Pierwszy bieg Reviewera miał pięć błędów 502 od blokady połączeń do lokalnych fixture'ów; bez zmian kodu po powtórzeniu wszystkie przeszły.
+- Testy realpath/junction i packaged smoke wymagały eskalacji ograniczeń piaskownicy. Instalacja npm11.19.0 zgodna z engine; ostrzeżenia istniejących niezatwierdzonych postinstall esbuild@0.28.1 i sharp@0.34.5 pozostawiono poza zakresem.
+- ZIP fundamentu: `apps/selector-desktop/out/make/zip/win32/x64/Selektor zdjec-win32-x64-0.1.0.zip`, 149372115 bajtów, SHA-256 `93581085b6fd0b26cd2386bd8f9e57c2770967d64d7ac0052eb9b308a4489570`. To paczka podglądu, nie pełnego selektora.
 
 ### Not completed
 
-Wszystkie kryteria implementacyjne i wymagany audyt.
+- Trwałe projekty i pełna selekcja należą do 0976/0977; odbiór drugiego komputera, restart Windows i realna dystrybucja do 0979.
+- Audyt operatora odłożony na koniec pięciu tasków jego wyraźnym poleceniem. Nie wykonywano zastępczego audytu ani zmian API/Admin/Reviewer.
 
 ### Documentation updates
 
-Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
+Plan, taski, D-545 i CURRENT_STATE zachowują jawny wyjątek audytu oraz uruchomienie 0978. TECH_STACK, wymagania/architektura i guide rozróżniają gotowy fundament od planowanych dalszych funkcji.
 
 ### Recommended next task
 
-Po zapewnieniu audytora wykonać TASK-0975, potem 0976.
+TASK-0976, następnie 0977/0979/0978; końcowy audyt operatora.

@@ -89,7 +89,7 @@ domyślnym kontekstem implementacyjnym.
 
 - [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
   — accepted, pierwsze wydanie TASK-0975/0976/0977/0979; nowe partie i dane
-  u odbiorcy, TASK-0978 odroczony. Implementacja czeka na CLI audytora Claude.
+  u odbiorcy; TASK-0978 również uruchomiony po części implementacyjnej 0979. Implementacja uruchomiona; audyt operatora na końcu.
   [Instrukcja projektowana](guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md).
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)

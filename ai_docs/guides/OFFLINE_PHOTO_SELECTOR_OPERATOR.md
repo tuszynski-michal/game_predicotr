@@ -6,9 +6,30 @@ last_updated: 2026-10-11
 
 # Lokalny selektor Windows — instrukcja projektowana
 
-Program nie jest jeszcze zaimplementowany i paczka nie jest dostępna.
-Ten dokument opisuje zaakceptowany sposób pracy, nie potwierdzone działanie.
-Komendy build/release i rzeczywiste dowody zostaną uzupełnione w 0975/0979.
+Gotowy jest fundament 0975: wybór lokalnego źródła, podgląd JPEG i diagnostyka.
+Paczka tego taska nie realizuje jeszcze trwałej selekcji. Dalsze sekcje
+opisują docelowy workflow; wyniki 0976/0977/0979/0978 uzupełnią tę instrukcję.
+
+## Budowanie i kontrola fundamentu
+
+Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node:
+
+```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 60 npm run test --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run selector:make
+node apps/selector-desktop/scripts/run-bounded.mjs 60 npm run smoke:packaged --workspace @game-predictor/selector-desktop
+```
+
+Wrapper uruchamia npm przez jego plik JS obok Node.js, bez zależności od
+semantyki shima `.cmd`. Wymagane npm11 zgodne z root `engines`. Instalacja
+workspace'ów pobiera też narzędzia desktopu, a pakowanie runtime Electrona.
+Root dopuszcza tylko dodatkowy skrypt `esbuild@0.25.12`; istniejące ostrzeżenia
+innych wersji esbuild/sharp nie są automatycznie dopuszczane. Bez custom mirror.
+
+ZIP znajduje się w `apps/selector-desktop/out/make/zip/win32/x64/`.
+Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Projektowane uruchomienie
 

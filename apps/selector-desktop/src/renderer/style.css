@@ -1,0 +1,50 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #edf0f6;
+  background: #14171c;
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+}
+main {
+  padding: 24px;
+}
+h1 {
+  margin: 0;
+}
+header p {
+  color: #aab4c5;
+}
+nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0;
+}
+button {
+  padding: 12px 18px;
+  border: 1px solid #576780;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+[role='alert'] {
+  color: #ffb4a7;
+}
+.preview {
+  height: calc(100vh - 260px);
+  overflow: auto;
+  background: #090b0e;
+  border-radius: 8px;
+}
+.preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+}

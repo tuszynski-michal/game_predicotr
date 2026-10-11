@@ -80,6 +80,35 @@ class Area:
 
 AREAS: tuple[Area, ...] = (
     Area(
+        key="selector-desktop",
+        title="Selektor Windows (apps/selector-desktop, Electron offline)",
+        summary=(
+            "Statyczny renderer React, typowane IPC i natywne adaptery lokalnego "
+            "filesystem; bez usług API."
+        ),
+        units=(
+            Unit(
+                "apps/selector-desktop/src/native",
+                "lokalne pliki, bezpieczeństwo ścieżek i logi",
+            ),
+            Unit(
+                "apps/selector-desktop/src/renderer", "interfejs React dołączony do ZIP"
+            ),
+            Unit("apps/selector-desktop/src/contracts.ts", "typowany most IPC"),
+        ),
+        entry_points=(
+            "apps/selector-desktop/src/main.ts",
+            "apps/selector-desktop/src/preload.ts",
+            "apps/selector-desktop/src/contracts.ts",
+        ),
+        tests=("apps/selector-desktop/test",),
+        commands=(
+            "`npm run selector:build`",
+            "`npm run selector:make`",
+            "`npm run test --workspace @game-predictor/selector-desktop`",
+        ),
+    ),
+    Area(
         key="api",
         title="API (services/api, FastAPI Admin API)",
         summary=(
@@ -553,6 +582,7 @@ SYMBOL_ROOTS: tuple[str, ...] = (
     WORKER_SRC,
     "apps/admin/src",
     "apps/reviewer/src",
+    "apps/selector-desktop/src",
     "apps/mobile/src",
     "packages/board-search-ui/src",
     "packages/shared-ts/src",

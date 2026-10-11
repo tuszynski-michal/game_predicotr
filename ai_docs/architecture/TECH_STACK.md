@@ -6,6 +6,27 @@ last_updated: 2026-07-31
 
 # Stos technologiczny
 
+## Lokalny selektor zdjęć Windows — D-545
+
+Zaakceptowany osobny workspace `apps/selector-desktop` używa Electron,
+React i TypeScript strict. Electron Forge pakuje program Windows 11 x64 do
+ZIP. Renderer jest dołączony lokalnie; proces natywny udostępnia wyłącznie
+typowane polecenia i protokół zdjęć spod zarejestrowanego źródła. Nie powstaje
+serwer HTTP ani zależność runtime od usług głównej aplikacji.
+
+Wersje pakietów są przypięte w manifeście workspace'u i root lockfile.
+Instalacja wszystkich workspace'ów obejmuje również narzędzia Electrona;
+zwiększa pobieranie i zajętość dysku środowiska deweloperskiego. Pobranie
+runtime jest potrzebne do zbudowania paczki. Odbiorca uruchamia gotowy ZIP
+offline, bez instalacji Node.js, Pythona lub zależności repozytorium.
+Nie wolno globalnie wyłączać kontroli skryptów instalacyjnych ani ustawiać
+niestandardowego `ELECTRON_MIRROR`. Dokładne polecenia i ograniczenia opisuje
+[instrukcja operatora](../guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md).
+
+Trwały projekt i manifest wynikowy pozostają na dysku odbiorcy. Zakres oraz
+aktualny stan implementacji określa
+[plan selektora](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md).
+
 ## Kryteria wyboru
 
 - wygodny dla React Developera i czytelny dla agentów AI,

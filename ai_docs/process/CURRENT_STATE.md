@@ -25,8 +25,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
-  odroczony. Start implementacji czeka na CLI Claude Code i przypisany model,
-  które operator udostępni. Pilotaż bez podpisu i odbiór drugiego komputera
+  również uruchomiony późniejszym poleceniem wykonania pięciu tasków. Operator polecił start pięciu tasków i audyt dopiero na końcu;
+  CLI audytora nie blokuje startu ani commitów. Pilotaż bez podpisu i odbiór drugiego komputera
   nie mogą zostać uznane za wykonane na podstawie lokalnego smoke testu.
 
 - **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
@@ -78,10 +78,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 ### Lokalny selektor zdjęć Windows (accepted, execution authorized, 2026-10-11)
 
 - Plan: `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545.
-- Pierwsze wydanie: 0975→0976→0977→0979; migracja 0978 odroczona.
+- Pierwsze wydanie: 0975→0976→0977→0979; migracja 0978 również uruchomiona późniejszym poleceniem operatora.
 - Gałąź `codex/offline-photo-selector`, worktree `D:\game_predicotr\worktrees\offline-photo-selector`.
-- Koszt zaakceptowany. Implementacja czeka na potwierdzenie działającego
-  audytora Claude; zapis planu/tasków i kontrola dokumentacji są przygotowaniem.
+- Koszt zaakceptowany. Implementacja uruchomiona; operator wykona końcowy
+  audyt po pięciu taskach. Jawny wyjątek od gate CLI/per-task review.
 - Bez API/DDL, usług głównej aplikacji, push/merge i cloud transferu.
 
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
@@ -171,12 +171,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0975 — Fundament aplikacji Windows i pakowanie (blocked)
-
-- Plik: `ai_docs/tasks/0975-selector-desktop-foundation.md`; plan selektora Windows, D-545.
-- Dokumentacja przygotowana. Start implementacji czeka na działające CLI Claude Code z przypisanym modelem; operator zadeklarował jego udostępnienie.
-- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
-
 ### TASK-0976 — Projekt, manifest i odzyskiwanie (todo)
 
 - Plik: `ai_docs/tasks/0976-selector-desktop-durability.md`; plan selektora Windows, D-545.
@@ -195,10 +189,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
 - Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
 
-### TASK-0978 — Odroczone przejęcie starej sesji (todo, deferred)
+### TASK-0978 — Przejęcie starej sesji (todo)
 
 - Plik: `ai_docs/tasks/0978-selector-desktop-legacy-adoption.md`; plan selektora Windows, D-545.
-- Po 0979, wyłącznie na osobne polecenie. Poza pierwszym wydaniem.
+- Po części implementacyjnej 0979; uruchomiony poleceniem pięciu tasków.
 - Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
@@ -876,6 +870,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0975 — Fundament aplikacji Windows i pakowanie (done)
+
+- Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545.
+- Electron/React/TS, Forge ZIP, typed IPC, protokół JPEG, sandbox/CSP, blokada sieci i zewnętrznych okien; kontrola ReparsePoint i rotowane logi.
+- Testy: desktop7/7, packaged EXE smoke, lint/typecheck/build/package/make/format/docs/mapy PASS; rdzeń110/110 + typy, Reviewer264/264 PASS poza sandbox.
+- Foundation ZIP149372115 bajtów; nie jest paczką pełnej selekcji. Do 0976/0977 pozostają trwałe projekty/UI. Dodatkowy limit źródła:100000 wpisów katalogowych,15000 JPEG.
+- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot/dystrybucja pozostaje 0979. Przygotowanie dokumentacji: v1.7.317 / `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`.
+
 ### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
 
 - Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
@@ -974,12 +976,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Naprawiona regresja TASK-0966/0967: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
 - Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
 
-### TASK-0969 — sekcja „Ostatnie korekty” w Reviewerze (done)
-
-- Plik: `ai_docs/tasks/completed/0969-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.
-- `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
-- Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
-- Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0154`).
 
 ## Archiwum
 

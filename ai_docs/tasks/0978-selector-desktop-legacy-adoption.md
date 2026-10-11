@@ -1,10 +1,10 @@
 ---
-title: Odroczone przejęcie starej sesji
+title: Przejęcie starej sesji
 status: todo
 last_updated: 2026-10-11
 ---
 
-# TASK-0978 — Odroczone przejęcie starej sesji
+# TASK-0978 — Przejęcie starej sesji
 
 ## Status
 
@@ -23,15 +23,15 @@ fragment zaakceptowanego planu.
 
 ## Dependencies / entry conditions
 
-ODROCZONE. TASK-0979 zakończony i osobne polecenie operatora. Dostępny claude-sonnet-5-5 / medium. Nie należy do zatwierdzonego pierwszego wydania.
+TASK-0979 — część implementacyjna wydania gotowa. Operator uruchomił 0978 poleceniem wykonania pięciu tasków. Końcowy audyt operatora po całym zakresie. Został dołączony do bieżącego zlecenia; brak fizycznego odbioru 0979 nie zatrzymuje implementacji 0978.
 
 ## Recommended execution
 
-`gpt-6.1-sol / high`. Niezależny statyczny audyt
-`claude-sonnet-5-5 / medium`, warunkowo po potwierdzeniu CLI i modelu.
+`gpt-6.1-sol / high`. Operator wykona końcowy audyt całego zakresu; zalecany model
+`claude-sonnet-5-5 / medium`. CLI audytora nie jest bramką implementacji.
 Konfiguracja odpowiada tabeli planu. Eskaluj, gdy zmiana wymaga innego modelu
 własności danych, nowych reguł domeny lub niezgodnego formatu. Nie zmieniaj
-modelu/reasoning niejawnie. Jeden audyt i jedna runda poprawek według AGENTS.md.
+modelu/reasoning niejawnie. Wyjątek operatora: bez audytu przed każdym commitem; końcowy przegląd po pięciu taskach.
 
 ## Relevant docs
 
@@ -104,7 +104,7 @@ Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:chec
 
 ## Risks / open questions
 
-Nie ma zgody na wykonanie tego taska w bieżącym zleceniu. Historyczny manifest może nie zawierać wystarczających dowodów.
+Wykonanie uruchomiło późniejsze polecenie operatora dotyczące pięciu tasków. Historyczny manifest może nie zawierać wystarczających dowodów.
 
 ## Outcome
 
@@ -118,7 +118,7 @@ Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośnik
 
 ### Not completed
 
-Wszystkie kryteria implementacyjne i wymagany audyt.
+Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
 
 ### Documentation updates
 

@@ -160,7 +160,7 @@ procesu. Szczegóły: [task 0976](../tasks/completed/0976-selector-desktop-durab
 
 Po 0976: własny UI nowych projektów, skróty, zakresy, nawigacja, undo,
 restart, wznowienie, logs/output folder. Bez refaktoru webowych konsumentów.
-Szczegóły: [task 0977](../tasks/0977-selector-desktop-selection-ui.md).
+Szczegóły: [task 0977](../tasks/completed/0977-selector-desktop-selection-ui.md).
 
 ## TASK-0979 — Pilotaż i odbiór wydania
 
@@ -189,7 +189,8 @@ Operator przekazał [audyt Codex](../quality/OFFLINE_PHOTO_SELECTOR_PLAN_REVIEW_
 konkretny manifest, semantyka Reviewera, brak refaktoru web UI, jawna
 trwałość/security, początkowo odroczona migracja, osobny odbiór. Skorygowano twierdzenia
 o zawsze dziewięciu planszach, dowodzie zmiany wyłącznie mtime i pewnej
-blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Nie przeprowadzono jeszcze żadnych testów nowej aplikacji.
+blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Fundament0975, trwałość0976 i interfejs0977 przeszły testy implementacyjne
+zapisane w Outcome; wydanie, migracja i fizyczny odbiór pozostają w realizacji.
 
 | Wymaganie | Task | Dowód odbioru |
 |---|---|---|

@@ -101,7 +101,7 @@ AREAS: tuple[Area, ...] = (
             ),
             Unit(
                 "apps/selector-desktop/src/native",
-                "lokalne pliki, bezpieczeństwo ścieżek i logi",
+                "lokalne pliki, koordynator projektu, cache widoku i logi",
             ),
             Unit("apps/selector-desktop/src/renderer", "interfejs React dołączony do ZIP"),
             Unit("apps/selector-desktop/src/contracts.ts", "typowany most IPC"),
@@ -110,12 +110,18 @@ AREAS: tuple[Area, ...] = (
             "apps/selector-desktop/src/main.ts",
             "apps/selector-desktop/src/preload.ts",
             "apps/selector-desktop/src/contracts.ts",
+            "apps/selector-desktop/src/native/project-controller.ts",
+            "apps/selector-desktop/src/project/project-store.ts",
+            "apps/selector-desktop/src/renderer/App.tsx",
         ),
         tests=("apps/selector-desktop/test",),
         commands=(
             "`npm run selector:build`",
             "`npm run selector:make`",
-            "`npm run test --workspace @game-predictor/selector-desktop`",
+            "`npm run test:foundation --workspace @game-predictor/selector-desktop`",
+            "`npm run test:project --workspace @game-predictor/selector-desktop`",
+            "`npm run test:ui --workspace @game-predictor/selector-desktop`",
+            "`npm run smoke:packaged --workspace @game-predictor/selector-desktop`",
         ),
     ),
     Area(

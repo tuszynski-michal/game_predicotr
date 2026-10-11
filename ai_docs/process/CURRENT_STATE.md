@@ -171,14 +171,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0977 — Interfejs pełnej selekcji (todo)
-
-- Założenie widoku: krok/zoom/scroll w atomowym cache userData według projectId;
-  decyzje/kursor/numeracja pozostają w projekcie. Brak cache'u nie resetuje pracy.
-- Plik: `ai_docs/tasks/0977-selector-desktop-selection-ui.md`; plan selektora Windows, D-545.
-- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
-- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
-
 ### TASK-0979 — Pilotaż i odbiór wydania (todo)
 
 - Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; plan selektora Windows, D-545.
@@ -866,9 +858,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0977 — Interfejs pełnej selekcji (done)
+
+- Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320; hash po commicie.
+- Nowy/Otwórz/Kontynuuj, typed native controller, opaque imageId, Enter/F+1, Tab bez zmiany zdjęcia, zakresy/undo/restart, zoom/scroll/fullscreen i bounded cache7.
+- Cache widoku atomowo w userData; relink także zdrowego projektu dla kopii output. UI pokazuje wyłącznie trwałe decyzje, blokuje repeat/doubleclick/błędnyJPEG/recovery.
+- test:ui3/3, realEXE pełny i krótki smoke, lint/typecheck/format/build/package PASS; nowe procesy, oba kierunki, missingoutput, kopia i terminalrange. Oryginalny output nietknięty. Mapy zregenerowane.
+- Audyt operatora po pięciu taskach. ZIP i rzeczywisty drugi komputer/reboot pozostają0979; bez testów Androida/usług/benchmarków.
+
 ### TASK-0976 — Projekt, manifest i odzyskiwanie (done)
 
-- Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319; hash po commicie.
+- Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319 / `be20ad8e3835cc6aed0078a7b137ea161ea2497b`.
 - Stan/journal/backup, receipts, streaming JPEG i operator-local v2; lock projektu oraz przejściowa lease wyniku, relink bez resetu, fail-closed ochrona obcych danych.
 - 50 unikalnych testów PASS (pełne48/48 oraz grupy4/4 i2/2); realne awarie procesów, utrata odpowiedzi, ENOSPC/rename, checksumy, dwa projekty/jeden output i brakujące źródło. Lint/typecheck/build/format PASS.
 - Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot pozostaje0979. Awaria procesu objęta recovery; zanik zasilania/fsync katalogu i dowolna synchronizacja nie mają gwarancji. Pozostawione tempy nie są automatycznie kasowane.
@@ -962,14 +962,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - API 10/10, PostgreSQL 3/3, Admin 733/733, typecheck, lint, mypy, `openapi:check` PASS. Bez migracji, zmian danych, usług i push.
 - Outcome: `ai_docs/tasks/completed/0951-super-game-series-exact-counts.md`.
 - Scalone do gałęzi integracyjnej 2026-10-10 (merge v1.7.310).
-
-### TASK-0971 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
-
-- Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 / 530c1d1728be460b5be72e138ee5dab59cdbba3b.
-- Reguła D-543 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
-- Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
-- Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**
-- Testy: pełne `services/api/tests` 2638 passed, `services/worker/tests` 2822 passed; zestawy PG przejęcia, współbieżności, bramki, odrzuceń, cofania, własności i importu zielone.
 
 ## Archiwum
 

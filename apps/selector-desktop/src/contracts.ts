@@ -2,6 +2,19 @@ export const APP_URL = 'selector://app/index.html';
 export const CHANNELS = {
   pickSource: 'selector:pick-source',
   openLogs: 'selector:open-logs',
+  create: 'selector:create',
+  open: 'selector:open',
+  recent: 'selector:recent',
+  continue: 'selector:continue',
+  snapshot: 'selector:snapshot',
+  execute: 'selector:execute',
+  resume: 'selector:resume',
+  relink: 'selector:relink',
+  restartPreview: 'selector:restart-preview',
+  saveView: 'selector:save-view',
+  close: 'selector:close',
+  openOutput: 'selector:open-output',
+  fullscreen: 'selector:fullscreen',
 } as const;
 export interface SourceImage {
   id: string;
@@ -22,6 +35,80 @@ export type NativeResult<T> =
 export interface SelectorBridge {
   pickSource(): Promise<NativeResult<SourceIndex | null>>;
   openLogs(): Promise<NativeResult<void>>;
+  create(
+    options: CreateProjectRequest,
+  ): Promise<NativeResult<DesktopWorkspace | null>>;
+  open(): Promise<NativeResult<DesktopWorkspace | null>>;
+  recent(): Promise<NativeResult<RecentProjectSummary[]>>;
+  continue(projectId: string): Promise<NativeResult<DesktopWorkspace>>;
+  snapshot(): Promise<NativeResult<DesktopWorkspace | null>>;
+  execute(request: ExecuteRequest): Promise<NativeResult<DesktopWorkspace>>;
+  resume(): Promise<NativeResult<DesktopWorkspace>>;
+  relink(
+    kind: 'source' | 'output',
+  ): Promise<NativeResult<DesktopWorkspace | null>>;
+  restartPreview(): Promise<NativeResult<RestartSummary>>;
+  saveView(
+    projectId: string,
+    view: ViewPreferences,
+  ): Promise<NativeResult<void>>;
+  close(): Promise<NativeResult<void>>;
+  openOutput(): Promise<NativeResult<void>>;
+  fullscreen(): Promise<NativeResult<boolean>>;
+}
+export interface ViewPreferences {
+  navigationStep: number;
+  zoom: number;
+  scrollX: number;
+  scrollY: number;
+}
+export interface CreateProjectRequest {
+  firstLayout: number;
+  direction: 'ascending' | 'descending';
+  sequenceUpperBound: number | null;
+  customLocations: boolean;
+  localStorageConfirmed: boolean;
+}
+export type DesktopCommand =
+  | { kind: 'accept' | 'navigate'; imageId: string }
+  | { kind: 'skip' | 'undo' }
+  | { kind: 'range'; start: number }
+  | { kind: 'restart'; expectedRevision: number; previewChecksum: string };
+export interface ExecuteRequest {
+  projectId: string;
+  operationId: string;
+  command: DesktopCommand;
+}
+export interface RestartSummary {
+  revision: number;
+  checksum: string;
+  acceptedFiles: number;
+  decisions: number;
+}
+export interface RecentProjectSummary {
+  projectId: string;
+  name: string;
+  openedAt: string;
+}
+export interface DesktopWorkspace {
+  projectId: string;
+  revision: number;
+  source: SourceIndex | null;
+  sourceName: string;
+  projectName: string;
+  outputName: string;
+  currentImageId: string | null;
+  firstLayout: number;
+  direction: 'ascending' | 'descending';
+  sequenceUpperBound: number | null;
+  nextRangeStart: number;
+  selectionComplete: boolean;
+  acceptedCount: number;
+  skippedCount: number;
+  acceptedImageIds: string[];
+  decisionCount: number;
+  issue: { code: string; message: string } | null;
+  view: ViewPreferences;
 }
 export class SelectorError extends Error {
   readonly code: string;

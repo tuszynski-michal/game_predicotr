@@ -6,6 +6,14 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0971 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
+
+- Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 / 530c1d1728be460b5be72e138ee5dab59cdbba3b.
+- Reguła D-543 (zmienia D-238) w jednym miejscu (`domain/sequence_takeover.py`, `storage/pending_sequence_ownership.py`, używane przez API i worker): nowa plansza przejmuje sekwencję bez żywego właściciela albo z odrzuconym właścicielem; żywa pozycja `pending` innego zdjęcia zostaje, nowa plansza `superseded` z alternatywą `superseded_existing_owner_kept` (także przy ochronie lateralnej innego zdjęcia); kanon i ta sama checksuma bez zmian. Po przejęciu odrzucony slot starego zdjęcia `superseded`, bramki kandydatów przeliczone (cięcie dopuszczonych na końcu transakcji); raport importu w Adminie z „Zastąpione” i „Pominięte” sekwencje.
+- Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
+- Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**
+- Testy: pełne `services/api/tests` 2638 passed, `services/worker/tests` 2822 passed; zestawy PG przejęcia, współbieżności, bramki, odrzuceń, cofania, własności i importu zielone.
+
 ### TASK-0970 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
 
 - Plik: `ai_docs/tasks/completed/0970-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.

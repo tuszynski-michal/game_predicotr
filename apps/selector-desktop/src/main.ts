@@ -22,6 +22,12 @@ import {
 } from './contracts.ts';
 import { SourceRegistry } from './native/source-registry.ts';
 import { DiagnosticLog } from './native/diagnostic-log.ts';
+import { ProjectController } from './native/project-controller.ts';
+
+// Standard Chromium/Electron switch also isolates native project/view caches.
+// It is a process-launch option, never a renderer filesystem capability.
+const userDataOverride = app.commandLine.getSwitchValue('user-data-dir');
+if (userDataOverride) app.setPath('userData', path.resolve(userDataOverride));
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -41,6 +47,7 @@ protocol.registerSchemesAsPrivileged([
 const registry = new SourceRegistry();
 let window: BrowserWindow | null = null;
 let log: DiagnosticLog;
+let controller: ProjectController;
 const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src selector-photo:; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 
@@ -69,6 +76,23 @@ async function createWindow() {
   window.on('closed', () => {
     window = null;
   });
+  let closing = false;
+  window.on('close', (event) => {
+    if (closing) return;
+    event.preventDefault();
+    void controller
+      .close()
+      .then(() => {
+        closing = true;
+        window?.close();
+      })
+      .catch(() =>
+        dialog.showErrorBox(
+          'Selektor zdjęć',
+          'Nie udało się rozliczyć zapisu. Spróbuj zamknąć ponownie.',
+        ),
+      );
+  });
   await window.loadURL(APP_URL);
 }
 
@@ -83,6 +107,33 @@ else {
     .then(async () => {
       log = new DiagnosticLog(path.join(app.getPath('userData'), 'logs'));
       await log.write('application-start');
+      controller = new ProjectController(app.getPath('userData'), registry, {
+        directory: async (title, defaultPath) => {
+          const result = await dialog.showOpenDialog(window!, {
+            title,
+            defaultPath,
+            properties: ['openDirectory', 'createDirectory', 'dontAddToRecent'],
+          });
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+        confirm: async (message) =>
+          (
+            await dialog.showMessageBox(window!, {
+              type: 'question',
+              message,
+              buttons: ['Anuluj', 'Potwierdź'],
+              defaultId: 0,
+              cancelId: 0,
+            })
+          ).response === 1,
+        openFolder: async (directory) => {
+          if (await shell.openPath(directory))
+            throw new SelectorError(
+              'OPEN_FOLDER_FAILED',
+              'Nie udało się otworzyć katalogu.',
+            );
+        },
+      });
       Menu.setApplicationMenu(null);
       session.defaultSession.setPermissionRequestHandler(
         (_contents, _permission, callback) => callback(false),
@@ -142,7 +193,11 @@ else {
           return new Response(null, { status: 403 });
         }
       });
-      const handle = <T>(channel: string, run: () => Promise<T>) =>
+      const handle = <T>(
+        channel: string,
+        run: (...args: unknown[]) => Promise<T> | T,
+        count = 0,
+      ) =>
         ipcMain.handle(
           channel,
           async (event, ...args: unknown[]): Promise<NativeResult<T>> => {
@@ -152,8 +207,13 @@ else {
                 event.senderFrame === event.sender.mainFrame,
                 event.sender === window?.webContents,
               );
-              validateNoArguments(args);
-              return { ok: true, value: await run() };
+              if (count === 0) validateNoArguments(args);
+              else if (args.length !== count)
+                throw new SelectorError(
+                  'INVALID_ARGUMENT',
+                  'Nieprawidłowa liczba argumentów.',
+                );
+              return { ok: true, value: await run(...args) };
             } catch (error) {
               const code =
                 error instanceof SelectorError ? error.code : 'IO_ERROR';
@@ -188,6 +248,26 @@ else {
             'OPEN_LOGS_FAILED',
             'Nie udało się otworzyć katalogu logów.',
           );
+      });
+      handle(CHANNELS.create, (options) => controller.create(options), 1);
+      handle(CHANNELS.open, () => controller.open());
+      handle(CHANNELS.recent, () => controller.recent());
+      handle(CHANNELS.continue, (projectId) => controller.open(projectId), 1);
+      handle(CHANNELS.snapshot, () => controller.snapshot());
+      handle(CHANNELS.execute, (request) => controller.execute(request), 1);
+      handle(CHANNELS.resume, () => controller.resume());
+      handle(CHANNELS.relink, (kind) => controller.relink(kind), 1);
+      handle(CHANNELS.restartPreview, () => controller.previewRestart());
+      handle(
+        CHANNELS.saveView,
+        (projectId, view) => controller.saveView(projectId, view),
+        2,
+      );
+      handle(CHANNELS.close, () => controller.close());
+      handle(CHANNELS.openOutput, () => controller.openOutput());
+      handle(CHANNELS.fullscreen, () => {
+        window!.setFullScreen(!window!.isFullScreen());
+        return window!.isFullScreen();
       });
       await createWindow();
     })

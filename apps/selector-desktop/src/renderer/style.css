@@ -48,3 +48,97 @@ button:disabled {
   max-height: 100%;
   margin: auto;
 }
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+nav {
+  flex-wrap: wrap;
+}
+form {
+  max-width: 850px;
+  border: 1px solid #435067;
+  border-radius: 12px;
+  padding: 20px;
+}
+label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 14px 8px 0;
+}
+input,
+select {
+  padding: 8px;
+  font: inherit;
+  border: 1px solid #596a83;
+  border-radius: 6px;
+}
+.check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.check input {
+  width: 20px;
+  height: 20px;
+}
+.recent {
+  display: block;
+  margin: 12px 0;
+}
+.project-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  padding: 12px;
+  background: #202733;
+  border-radius: 8px;
+}
+.toolbar {
+  gap: 10px;
+}
+.toolbar button {
+  padding: 9px 12px;
+}
+.toolbar label {
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+}
+.preview {
+  height: min(60vh, calc(100vh - 320px));
+  min-height: 220px;
+  position: relative;
+}
+.preview img {
+  margin: 0;
+}
+.issue,
+.restart {
+  padding: 18px;
+  background: #412823;
+  border: 1px solid #d88f75;
+  border-radius: 8px;
+}
+.restart {
+  position: fixed;
+  z-index: 5;
+  top: 25%;
+  left: 20%;
+  width: 60%;
+  box-shadow: 0 0 0 100vmax #0009;
+}
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.save-state {
+  color: #b5c4da;
+  margin: 6px 0;
+}

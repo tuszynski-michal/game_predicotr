@@ -9,10 +9,14 @@
   "main": "dist/main.cjs",
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "test:foundation": "node --experimental-strip-types --test test/foundation.test.mjs",
+    "test:project": "node --experimental-strip-types --test test/project.test.mjs",
+    "test:ui": "node --experimental-strip-types --test test/renderer-contracts.test.mjs",
     "lint": "eslint src test scripts",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
+    "smoke:shortcuts": "node scripts/smoke-shortcuts.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "package": "npm run build && electron-forge package --platform win32 --arch x64",
     "make": "npm run build && electron-forge make --platform win32 --arch x64"

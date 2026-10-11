@@ -1,15 +1,16 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-09-15
+last_updated: 2026-10-11
 ---
 
 # Lokalna ręczna selekcja zdjęć
 
 ## Lokalny selektor Windows — D-545, zaakceptowany zakres
 
-Fundament oddzielnego selektora Windows 11 x64 jest zaimplementowany przez 0975.
-Trwałe projekty i pełny interfejs selekcji są jeszcze w realizacji. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
+Fundament i trwałe projekty oddzielnego selektora Windows 11 x64 są
+zaimplementowane przez0975/0976; pełny interfejs0977 również przeszedł testy.
+Paczka i fizyczny odbiór pozostają w realizacji. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
 opisuje TASK-0975/0976/0977/0979. Odbiorca rozpakowuje ZIP i pracuje offline,
 bez hosta, tunelu, instalacji narzędzi deweloperskich i sesji sieciowej.
 Źródła, postęp oraz wyniki pozostają na jego urządzeniu; Proton Drive

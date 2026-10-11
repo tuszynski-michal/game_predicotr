@@ -134,7 +134,7 @@ nieznanych właścicieli. Recovery przejmuje wyłącznie potwierdzony martwy pro
 tego komputera. Obce pliki, checksumy i konflikt identyfikatora operacji blokują
 zapis. Cache ostatnich projektów nie jest źródłem prawdy.
 
-Commit implementacji: wersja v1.7.319; pełny hash zostanie dopisany po commicie.
+Commit implementacji: v1.7.319 / `be20ad8e3835cc6aed0078a7b137ea161ea2497b`.
 
 ### Verification results
 

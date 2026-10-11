@@ -1,6 +1,6 @@
 ---
 title: Interfejs pełnej selekcji
-status: todo
+status: done
 last_updated: 2026-10-11
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-11
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -63,12 +63,12 @@ Legacy adoption, OCR, trace uczenia, repair, upload, wspólny pakiet UI i zmiany
 
 ## Acceptance criteria
 
-- [ ] Skróty i numeracja mają semantykę Reviewera; akceptacja nie wyprzedza trwałego zapisu.
-- [ ] Tryb rosnący/malejący nawigują po tej samej naturalnej liście; końcowa granica jest respektowana.
-- [ ] Powtórzony klik/klawisz nie zapisuje tej samej decyzji dwa razy.
-- [ ] Restart/reopen odtwarzają JPEG, zakres, kierunek, skok i widok; recovery blokuje mutacje.
-- [ ] Undo/restart nigdy nie usuwają obcego/zmienionego JPEG-a ani źródła.
-- [ ] Bounded preview zwalnia stare zasoby, a stan loading/error/empty jest widoczny.
+- [x] Skróty i numeracja mają semantykę Reviewera; akceptacja nie wyprzedza trwałego zapisu.
+- [x] Tryb rosnący/malejący nawigują po tej samej naturalnej liście; końcowa granica jest respektowana.
+- [x] Powtórzony klik/klawisz nie zapisuje tej samej decyzji dwa razy.
+- [x] Restart/reopen odtwarzają JPEG, zakres, kierunek, skok i widok; recovery blokuje mutacje.
+- [x] Undo/restart nigdy nie usuwają obcego/zmienionego JPEG-a ani źródła.
+- [x] Bounded preview zwalnia stare zasoby, a stan loading/error/empty jest widoczny.
 
 ## Technical notes
 
@@ -129,20 +129,50 @@ Istnieją różnice skrótów Admina i Reviewera; punktem odniesienia jest Revie
 
 ### Changed
 
-Przygotowano specyfikację taska i zaakceptowany plan. Implementacja nie została rozpoczęta.
+Zaimplementowano nowy projekt/otwarcie/kontynuację, własny workspace React i
+natywny koordynator. Enter/F przesuwa źródło o jeden, Tab pomija zakres bez
+zmiany zdjęcia. Numeracja, krótka końcówka, skoki, undo oraz restart korzystają
+z rdzenia i trwałego writera. Powtórzenia, podwójny submit, błędny JPEG i
+recovery blokują nowe decyzje. UI odczytuje świeży snapshot po zatwierdzeniu.
+IPC przenosi opaque imageId, nigdy dowolny imagePath. Zoom, fullscreen,
+przewijanie obu osi i cache do7 obrazów mają odrębny stan prezentacji.
+Atomowy cache widoku userData jest rozliczany przy zamknięciu/zmianie projektu.
+Relink jest dostępny także w zdrowym projekcie dla jawnego podłączenia kopii
+wyniku; oryginalne bindingi nie są zmieniane automatycznie.
+
+Commit implementacji: v1.7.320; pełny hash po commicie.
 
 ### Verification results
 
-Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośniki/wpisy/wiersze indeksu), check_current_state_window.py PASS (47 aktywnych tasków, 10 done). Testów implementacji nie uruchamiano.
+Z workspace aplikacji: `node scripts/run-bounded.mjs 30 npm run test:ui` PASS3/3;
+`node scripts/run-bounded.mjs 60 node scripts/smoke-shortcuts.mjs` PASS;
+`node scripts/run-bounded.mjs 120 npm run smoke:packaged` PASS. Lint, typecheck,
+Prettier, diff --check, build i package PASS. Realny EXE na własnych fixture
+sprawdzono z izolowanym userData: Enter/F/Tab, obu kierunkach, krok20,
+inputguard, repeat/double-click, undo, zoom/scroll/fullscreen, cache7,
+nowy proces/kontynuacja, missingoutput/relink, kopia projektu ze starymi
+bindingami i jawny relink kopii output, terminalrange oraz confirmedrestart
+wyłącznie kopii. Oryginalny output nie zmienił się. Screenshoty konfiguracji
+oraz workspace sprawdzono wizualnie. Pierwsze oczekiwanie testu malejącego
+odczytywało snapshot przed końcem operacji; poprawiono synchronizację testu
+na wyrenderowany stan, bez zmiany logiki projektu.
+
+Nie powtarzano50 testów0976 ani rdzenia/Reviewera: ich moduły pozostały bez
+zmian. Mapy zregenerowano; docs:check PASS (542 decyzje/odnośniki,44 aktywne taski,
+10 done), code-map:check PASS i ruff check/format generatora PASS.
 
 ### Not completed
 
-Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
+Końcowy audyt operatora po pięciu taskach, ZIP wydania i fizyczny odbiór0979.
+Nie testowano Androida: ten produkt jest aplikacją Windows11 x64.
+Nie wykonywano usług API/Admin, benchmarków, uploadu ani operacji danych operatora.
 
 ### Documentation updates
 
-Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
+Uaktualniono wymagania, architekturę, plan, instrukcję, mapy i CURRENT_STATE.
+Task przeniesiono do completed. Instrukcja opisuje rzeczywiste etykiety UI;
+odbiór drugiego komputera pozostaje osobną bramką.
 
 ### Recommended next task
 
-TASK-0979, następnie uruchomiony przez operatora TASK-0978.
+TASK-0979 — paczka i instrukcja odbioru; następnie0978 zgodnie z poleceniem pięciu tasków.

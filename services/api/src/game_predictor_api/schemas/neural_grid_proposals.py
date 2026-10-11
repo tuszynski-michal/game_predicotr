@@ -29,7 +29,7 @@ class NeuralGridModelReportPayload(ApiModel):
 
 class NeuralGridModelManifestPayload(ApiModel):
     schema_version: Literal["grid-engine-model-manifest-v1"]
-    profile: Literal["grid_profile_mumie_v1"]
+    profile: Literal["grid_profile_777_v2", "grid_profile_mumie_v1"]
     version: str
     model_kind: Literal["neural_grid"]
     model_version: str

@@ -1917,7 +1917,7 @@ class JobService:
         ):
             raise JobConflictError(
                 "NEURAL_GRID_PILOT_VARIANT_CONFLICT",
-                "The Mumie neural pilot cannot silently replace an explicit classical variant.",
+                "The neural grid import cannot silently replace an explicit classical variant.",
             )
         managed_input: dict[str, object] = {}
         if managed_source_job_id is not None:
@@ -2159,6 +2159,8 @@ class JobService:
                     except (ValueError, TypeError, KeyError, OSError):
                         continue
                 snapshot = NeuralGridSnapshot.from_payload(payload.get("neural_grid_proposal"))
+                if not self._neural_profile_matches_game(game_id=game_id, snapshot=snapshot):
+                    continue
                 ManagedGridEngineModelStore(self._artifact_root).require(snapshot.version)
                 return snapshot.to_payload()
         if current_bindings:
@@ -2217,8 +2219,20 @@ class JobService:
                 "NEURAL_GRID_PREFLIGHT_INVALID", "The frozen preflight provenance differs."
             )
         snapshot = NeuralGridSnapshot.from_payload(payload.get("neural_grid_proposal"))
+        if not self._neural_profile_matches_game(game_id=game_id, snapshot=snapshot):
+            raise JobConflictError(
+                "NEURAL_GRID_PREFLIGHT_INVALID",
+                "The frozen preflight belongs to another grid engine profile.",
+            )
         ManagedGridEngineModelStore(self._artifact_root).require(snapshot.version)
         return snapshot.to_payload()
+
+    def _neural_profile_matches_game(self, *, game_id: UUID, snapshot: NeuralGridSnapshot) -> bool:
+        """A frozen proposal is reused only by a game that still has its profile (D-544)."""
+        resolve = getattr(self._grid_profile_snapshot_resolver, "neural_grid_profile", None)
+        if not callable(resolve):
+            return True
+        return bool(resolve(game_id=game_id) == snapshot.profile.value)
 
     def _select_page_geometry_base_manifest(
         self,

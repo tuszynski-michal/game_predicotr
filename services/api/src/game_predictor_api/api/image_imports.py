@@ -470,7 +470,7 @@ def create_image_imports_router(
             if variant not in {None, GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1}:
                 raise JobConflictError(
                     "NEURAL_GRID_CLASSICAL_VARIANT_INCOMPATIBLE",
-                    "The Mumie neural pilot requires its frozen neural proposal engine.",
+                    "The neural grid import requires its frozen neural proposal engine.",
                 )
             return None
         return variant

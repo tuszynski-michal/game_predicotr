@@ -6,6 +6,13 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0968 — API listy, podglądu i cofnięcia korekt geometrii (done)
+
+- Plik: `ai_docs/tasks/completed/0968-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.
+- Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
+- Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
+- Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
+
 ### TASK-0967 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
 
 - Plik: `ai_docs/tasks/completed/0967-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.

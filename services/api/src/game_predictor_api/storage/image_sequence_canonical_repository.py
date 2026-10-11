@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
-from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
+from game_predictor_api.domain.grid_engine_profiles import neural_import_profile
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalRepository,
 )
@@ -61,10 +61,7 @@ class SqlAlchemyImageSequenceCanonicalRepository(ImageSequenceCanonicalRepositor
         game = self._session.get(GameModel, game_id)
         if game is None:
             return False
-        return (
-            game.shape_geometry_configuration
-            == GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1.value
-        )
+        return neural_import_profile(game.shape_geometry_configuration) is not None
 
 
 __all__ = ["SqlAlchemyImageSequenceCanonicalRepository"]

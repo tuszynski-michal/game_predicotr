@@ -1,10 +1,21 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-07
+last_updated: 2026-10-11
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Profil 777 v2 importuje przez V3 — D-544 (TASK-0974)
+
+Każda gra z profilem silnika siatek importuje folder ścieżką V3 (sieć
+neuronowa) z modelem własnego profilu: `grid_profile_777_v2` używa modelu 777
+z laboratorium (run `43933ac8…`, preset A, eksport `2cd19738367121e6-round3`),
+`grid_profile_mumie_v1` modelu doszkolonego na Mumiach. Pierwsza taka gra 777
+to `777a2` („777 a2”). V1.1 zostaje wyłącznie dla gier bez profilu silnika
+siatek, czyli starej gry 777 (kod `7`). Zamrożony preflight jednego profilu nie
+obsługuje gry z innym profilem. Identyfikator polityki
+`page-geometry-preflight-v13-neural-mumie-pilot` zachowuje historyczną nazwę.
 
 ## Bieżący wybór w panelu — TASK-0887
 

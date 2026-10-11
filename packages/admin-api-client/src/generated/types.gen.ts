@@ -11215,7 +11215,7 @@ export type NeuralGridModelManifestPayload = {
   /**
    * Profile
    */
-  profile: 'grid_profile_mumie_v1';
+  profile: 'grid_profile_777_v2' | 'grid_profile_mumie_v1';
   /**
    * Report
    */

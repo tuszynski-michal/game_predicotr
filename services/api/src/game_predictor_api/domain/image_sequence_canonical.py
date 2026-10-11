@@ -132,7 +132,7 @@ class ImageSequenceCanonicalService:
         if confirmed_ranges is not None and not neural_pilot:
             raise JobConflictError(
                 "IMAGE_SEQUENCE_CONFIRMED_RANGE_UNSUPPORTED",
-                "Confirmed source ranges require the neural Mumie pilot.",
+                "Confirmed source ranges require the neural grid import.",
             )
         if manifest is not None:
             source_file_count = len(manifest.files)

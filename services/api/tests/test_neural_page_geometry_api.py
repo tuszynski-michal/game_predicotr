@@ -562,6 +562,7 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     repository.add_job(job)
     grid = SimpleNamespace(
         uses_neural_grid_pilot=lambda **_: True,
+        neural_grid_profile=lambda **_: "grid_profile_mumie_v1",
         resolve=lambda **_: _baseline_grid_profile_snapshot(),
     )
     monkeypatch.setattr(
@@ -697,3 +698,159 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert fresh_run.json()["created"] is True
     assert fresh_run.json()["job"]["id"] != started.json()["job"]["id"]
     assert len([job for job in repository.items.values() if job.job_type is JobType.IMPORT]) == 2
+
+
+def test_frozen_neural_snapshot_is_reused_only_for_the_games_current_profile() -> None:
+    # D-544: a preflight frozen for one grid engine profile never serves another one.
+    from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
+    from game_predictor_api.domain.grid_engine_profiles import grid_engine_profile_for
+    from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+    def snapshot(configuration: GameShapeGeometryConfiguration) -> NeuralGridSnapshot:
+        profile = grid_engine_profile_for(configuration)
+        assert profile is not None
+        return NeuralGridSnapshot.for_game(500000, profile.current)
+
+    game_id = uuid4()
+    jobs = JobService(
+        MemoryJobRepository(game_id),
+        grid_profile_snapshot_resolver=SimpleNamespace(
+            neural_grid_profile=lambda **_: "grid_profile_777_v2"
+        ),
+    )
+    assert jobs._neural_profile_matches_game(
+        game_id=game_id, snapshot=snapshot(GameShapeGeometryConfiguration.GRID_PROFILE_777_V2)
+    )
+    assert not jobs._neural_profile_matches_game(
+        game_id=game_id, snapshot=snapshot(GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1)
+    )
+
+
+def _frozen_mumie_preflight(tmp_path):
+    """A completed, checksum-bound neural preflight frozen for the Mumie model."""
+    value = proposal(4)
+    game_id, selection_id = UUID(value["gameId"]), UUID(value["sourceSelectionId"])
+    source_sha = value["sourceChecksumSha256"]
+    content = {
+        "schemaVersion": 5,
+        "version": "page-geometry-preflight-v13-neural-mumie-pilot",
+        "gameId": str(game_id),
+        "sourceSelectionId": str(selection_id),
+        "sourceManifestChecksumSha256": "b" * 64,
+        "neuralGridProposal": value["engineSnapshot"],
+        "pageRegistrationProfile": {},
+        "sourceCount": 1,
+        "registeredSourceCount": 0,
+        "reviewRequiredSourceCount": 1,
+        "skippedHumanResolvedSourceCount": 0,
+        "entries": {
+            source_sha: {
+                "sourceRelativePath": "seq_101-105.jpg",
+                "imageWidth": 500,
+                "imageHeight": 300,
+                "status": "slot_binding_required",
+                "reasonCode": "count_mismatch",
+                "neuralProposal": value,
+                "neuralProposalBinding": None,
+            }
+        },
+    }
+    raw = json.dumps(content).encode()
+    checksum = hashlib.sha256(raw).hexdigest()
+    relative = "data/page-geometry-manifests/frozen-mumie.json"
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes(raw)
+    job = _completed_preflight(
+        game_id,
+        selection_id=selection_id,
+        source_manifest_sha256="b" * 64,
+        geometry_checksum=checksum,
+        geometry_relative_path=relative,
+    )
+    job = replace(
+        job,
+        input_payload={
+            **job.input_payload,
+            "preflight_policy_version": content["version"],
+            "neural_grid_proposal": value["engineSnapshot"],
+        },
+        checkpoint_payload={**job.checkpoint_payload, "review_required_source_count": 1},
+    )
+    repository = MemoryJobRepository(game_id)
+    repository.add_job(job)
+    descriptor = {
+        "preflightJobId": str(job.id),
+        "checksumSha256": checksum,
+        "relativePath": relative,
+    }
+    return game_id, selection_id, job, repository, descriptor, value["engineSnapshot"]
+
+
+def _neural_jobs(tmp_path, monkeypatch, repository, profile: str) -> JobService:
+    from game_predictor_api.application.jobs import _baseline_grid_profile_snapshot
+    from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
+    from game_predictor_api.domain.grid_engine_profiles import grid_engine_profile_for
+    from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+    current = grid_engine_profile_for(GameShapeGeometryConfiguration(profile))
+    assert current is not None
+    fresh = NeuralGridSnapshot.for_game(500000, current.current).to_payload()
+    monkeypatch.setattr(
+        "game_predictor_api.application.jobs.ManagedGridEngineModelStore.require",
+        lambda *_: None,
+    )
+    grid = SimpleNamespace(
+        uses_neural_grid_pilot=lambda **_: True,
+        neural_grid_profile=lambda **_: profile,
+        resolve_neural_grid_proposal=lambda **_: fresh,
+        resolve=lambda **_: _baseline_grid_profile_snapshot(),
+    )
+    return JobService(repository, artifact_root=tmp_path, grid_profile_snapshot_resolver=grid)
+
+
+@pytest.mark.parametrize("profile", ["grid_profile_mumie_v1", "grid_profile_777_v2"])
+def test_repeated_preflight_reuses_a_frozen_snapshot_only_for_the_same_profile(
+    tmp_path, monkeypatch, profile
+):
+    # D-544: a game switched to 777 v2 gets its own model, never the frozen Mumie one.
+    game_id, selection_id, job, repository, _, frozen = _frozen_mumie_preflight(tmp_path)
+    jobs = _neural_jobs(tmp_path, monkeypatch, repository, profile)
+    snapshot = jobs._neural_preflight_snapshot(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_manifest_sha256="b" * 64,
+        candidates=[job],
+        overrides={},
+    )
+    assert snapshot is not None
+    if profile == "grid_profile_mumie_v1":
+        assert snapshot == frozen
+    else:
+        assert snapshot["model"]["profile"] == "grid_profile_777_v2"
+        assert snapshot["model"]["runId"] == "43933ac8d7d443c8b9079630a83de2e6"
+
+
+def test_import_start_rejects_a_preflight_frozen_for_another_profile(tmp_path, monkeypatch):
+    game_id, selection_id, _, repository, descriptor, frozen = _frozen_mumie_preflight(tmp_path)
+    same = _neural_jobs(tmp_path, monkeypatch, repository, "grid_profile_mumie_v1")
+    assert (
+        same._neural_import_snapshot(
+            game_id=game_id,
+            selection_id=selection_id,
+            source_manifest_sha256="b" * 64,
+            descriptor=descriptor,
+        )
+        == frozen
+    )
+    switched = _neural_jobs(tmp_path, monkeypatch, repository, "grid_profile_777_v2")
+    with pytest.raises(JobConflictError) as rejected:
+        switched._neural_import_snapshot(
+            game_id=game_id,
+            selection_id=selection_id,
+            source_manifest_sha256="b" * 64,
+            descriptor=descriptor,
+        )
+    assert rejected.value.code == "NEURAL_GRID_PREFLIGHT_INVALID"
+    assert "another grid engine profile" in str(rejected.value)
+    assert not [item for item in repository.items.values() if item.job_type is JobType.IMPORT]

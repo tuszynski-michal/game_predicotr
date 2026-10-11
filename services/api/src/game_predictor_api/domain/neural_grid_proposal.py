@@ -1,4 +1,8 @@
-"""Immutable Mumie proposals and explicit source-to-sequence associations.
+"""Immutable neural proposals and explicit source-to-sequence associations.
+
+The folder pilot started with Mumie (D-521); every registered grid engine
+profile now uses it with its own frozen model (D-544). The preflight policy
+identifier keeps its historical name because completed jobs pin it.
 
 Inference never qualifies geometry or invents a missing position. This contract
 is shared by staging, source correction and the deferred production importer.
@@ -19,7 +23,7 @@ from .catalog import GameShapeGeometryConfiguration
 from .grid_engine_profiles import (
     GridEngineModelVersion,
     grid_engine_manifest,
-    grid_engine_profile_for,
+    neural_import_profile,
 )
 from .image_geometry_v2 import (
     AttestedSequenceRange,
@@ -94,8 +98,13 @@ class NeuralGridSnapshot:
 
     def __post_init__(self) -> None:
         _integer(self.expected_layout_count)
-        if self.version.profile is not GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1:
-            raise _invalid("The neural folder pilot is scoped to the registered Mumie profile.")
+        profile = neural_import_profile(self.version.profile.value)
+        if profile is None or self.version not in profile.versions:
+            raise _invalid("The neural folder import requires a registered grid engine profile.")
+
+    @property
+    def profile(self) -> GameShapeGeometryConfiguration:
+        return self.version.profile
 
     @classmethod
     def for_game(
@@ -109,9 +118,11 @@ class NeuralGridSnapshot:
         if raw["contractVersion"] != NEURAL_GRID_SNAPSHOT_VERSION:
             raise _invalid("The neural snapshot version is unsupported.")
         model = raw["model"]
-        profile = grid_engine_profile_for(GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1)
+        profile = neural_import_profile(
+            model.get("profile") if isinstance(model, Mapping) else None
+        )
         if profile is None:
-            raise _invalid("The registered Mumie profile is unavailable.")
+            raise _invalid("The neural snapshot names no registered grid engine profile.")
         for version in profile.versions:
             if model == grid_engine_manifest(version):
                 return cls(_integer(raw["expectedLayoutCount"]), version)

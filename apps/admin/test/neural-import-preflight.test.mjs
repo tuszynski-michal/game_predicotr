@@ -10,6 +10,7 @@ import {
 } from '../src/features/imports/image-folder-import-state.ts';
 import {
   canResumeNeuralImport,
+  neuralImportSnapshot,
   readySelectionHasNeuralImport,
 } from '../src/features/imports/neural-import-preflight-state.ts';
 
@@ -229,4 +230,27 @@ test('managed restart and a changed frozen descriptor permit a new neural run, n
     ),
     false,
   );
+});
+
+test('neural snapshot is accepted for each grid engine profile and nothing else (D-544)', () => {
+  const withProfile = (profile) => ({
+    ...geometry,
+    inputPayload: {
+      ...geometry.inputPayload,
+      neuralGridProposal: {
+        ...snapshot,
+        model: { ...snapshot.model, profile },
+      },
+    },
+  });
+  assert.equal(
+    neuralImportSnapshot(withProfile('grid_profile_777_v2'))?.model.profile,
+    'grid_profile_777_v2',
+  );
+  assert.equal(
+    neuralImportSnapshot(withProfile('grid_profile_mumie_v1'))?.model.profile,
+    'grid_profile_mumie_v1',
+  );
+  for (const profile of ['framed_full_page_v2', 'requires_clarification', null])
+    assert.equal(neuralImportSnapshot(withProfile(profile)), null);
 });

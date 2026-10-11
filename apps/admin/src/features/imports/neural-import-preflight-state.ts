@@ -5,6 +5,12 @@ import type {
   NeuralGridSnapshotPayload,
 } from '@game-predictor/admin-api-client';
 
+// D-544: each grid engine profile pins its own frozen neural model.
+const NEURAL_IMPORT_PROFILES: ReadonlySet<string> = new Set([
+  'grid_profile_777_v2',
+  'grid_profile_mumie_v1',
+]);
+
 export function neuralImportSnapshot(
   job: JobResponse | null | undefined,
 ): NeuralGridSnapshotPayload | null {
@@ -13,7 +19,7 @@ export function neuralImportSnapshot(
   return snapshot?.contractVersion === 'neural-grid-proposal-snapshot-v1' &&
     Number.isSafeInteger(snapshot.expectedLayoutCount) &&
     snapshot.expectedLayoutCount > 0 &&
-    snapshot.model?.profile === 'grid_profile_mumie_v1' &&
+    NEURAL_IMPORT_PROFILES.has(snapshot.model?.profile) &&
     snapshot.model.modelKind === 'neural_grid' &&
     snapshot.model.schemaVersion === 'grid-engine-model-manifest-v1'
     ? snapshot

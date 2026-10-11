@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
@@ -170,10 +171,40 @@ def test_overlapping_exact_count_and_invalid_detection_do_not_auto_bind() -> Non
     assert associate_expected_slots(value) is None
 
 
-def test_neural_profile_cannot_replace_legacy777() -> None:
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+    ],
+)
+def test_each_grid_profile_pins_its_own_model_and_round_trips(
+    configuration: GameShapeGeometryConfiguration,
+) -> None:
+    # D-544: 777 v2 imports through the same neural path as Mumie, with its model.
+    version = grid_engine_profile_for(configuration).current
+    payload = NeuralGridSnapshot.for_game(500000, version).to_payload()
+    assert payload["model"]["profile"] == configuration.value  # type: ignore[index]
+    restored = NeuralGridSnapshot.from_payload(payload)
+    assert restored.version is version
+    assert restored.profile is configuration
+
+
+def test_snapshot_rejects_unregistered_profile_version_and_model_drift() -> None:
     version = grid_engine_profile_for(GameShapeGeometryConfiguration.GRID_PROFILE_777_V2).current
+    payload = NeuralGridSnapshot.for_game(500000, version).to_payload()
+    foreign = deepcopy(payload)
+    foreign["model"]["profile"] = "framed_full_page_v2"  # type: ignore[index]
+    with pytest.raises(NeuralGridProposalError) as unregistered:
+        NeuralGridSnapshot.from_payload(foreign)
+    assert unregistered.value.code == "NEURAL_GRID_PROPOSAL_INVALID"
+    crossed = deepcopy(payload)
+    crossed["model"]["profile"] = "grid_profile_mumie_v1"  # type: ignore[index]
+    with pytest.raises(NeuralGridProposalError) as drift:
+        NeuralGridSnapshot.from_payload(crossed)
+    assert drift.value.code == "NEURAL_GRID_MODEL_SNAPSHOT_DRIFT"
     with pytest.raises(NeuralGridProposalError):
-        NeuralGridSnapshot.for_game(500000, version)
+        NeuralGridSnapshot.for_game(500000, replace(version, version="v-unregistered"))
 
 
 def test_rotated_source_uses_board_axes_and_ignores_detection_list_order() -> None:

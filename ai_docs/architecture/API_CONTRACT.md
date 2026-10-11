@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-09
+last_updated: 2026-10-11
 ---
 
 # Kontrakty API i danych mobilnych
@@ -80,12 +80,17 @@ jest zgodą na import ani automatycznym uruchomieniem preflightu.
 
 ## Warianty geometrii nowych stagingów — TASK-0562/0563/0579
 
-Wyjątek pilota Mumii: profil `grid_profile_mumie_v1` wybiera istniejącą
-trasę neural; API normalizuje brak wariantu lub klasyczne V1.1 do `null`.
+Wyjątek profili silnika siatek: `grid_profile_mumie_v1` (pilot D-521) i od
+D-544 także `grid_profile_777_v2` wybierają istniejącą trasę neural z modelem
+własnego profilu; API normalizuje brak wariantu lub klasyczne V1.1 do `null`.
+`NeuralGridModelManifestPayload.profile` przyjmuje oba profile, a preflight
+zamrożony dla innego profilu niż bieżący profil gry nie jest ponownie użyty
+(start importu zwraca `NEURAL_GRID_PREFLIGHT_INVALID`).
 Admin od TASK-0887 pokazuje V3 na podstawie istniejącego pola
 `GameResponse.shapeGeometryConfiguration` i pomija `geometryEngineVariant`.
-Nie dodano endpointu, enumu ani pola odpowiedzi. Inne gry zachowują V1.1;
-ukrycie pozostałych wyborów UI nie usuwa obsługi historycznych payloadów.
+Nie dodano endpointu ani pola odpowiedzi. Gry bez profilu silnika siatek
+zachowują V1.1; ukrycie pozostałych wyborów UI nie usuwa obsługi historycznych
+payloadów.
 
 Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego
 przeglądarkowego stagingu oznacza techniczne

@@ -32,6 +32,10 @@ import {
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import {
+  isGridEngineProfileConfiguration,
+  shapeGeometryConfigurationLabel,
+} from '@/features/games/game-catalog-state';
 import { jobProgressLabel } from '@/features/jobs/job-state';
 
 import {
@@ -281,7 +285,14 @@ export function ImageFolderImportPanel({
     } | null>(null);
   const [pageRegistrationVariant, setPageRegistrationVariant] =
     useState<PageRegistrationVariant>('standard_v0_10');
-  const usesNeuralGrid = shapeGeometryConfiguration === 'grid_profile_mumie_v1';
+  // D-544: every grid engine profile (777 v2, Mumie) imports through V3 with
+  // its own frozen model; V1.1 stays for games without a profile (old 777).
+  const usesNeuralGrid = isGridEngineProfileConfiguration(
+    shapeGeometryConfiguration,
+  );
+  const neuralEngineLabel = `V3 — sieć neuronowa (${shapeGeometryConfigurationLabel(
+    shapeGeometryConfiguration,
+  )})`;
   // Before the first geometry job, the game profile identifies this report's
   // configured engine. Existing pinned classical reports retain their labels.
   const configuredNeuralReport =
@@ -1387,7 +1398,7 @@ export function ImageFolderImportPanel({
                 readOnly
                 type="radio"
               />
-              V3 — sieć neuronowa (Mumie)
+              {neuralEngineLabel}
             </label>
             <p className="mutedText">
               Pełne siatki są cięte automatycznie na symbole. Braki i błędne
@@ -1414,8 +1425,9 @@ export function ImageFolderImportPanel({
         )}
         <p className="mutedText">
           Pozostałe silniki są wycofane z wyboru nowych importów i przeznaczone
-          do usunięcia. V1.1 pozostaje dostępny dla starszych gier, w tym 777.
-          Historia importów jest zachowana.
+          do usunięcia. V1.1 pozostaje tylko dla starszych gier bez profilu
+          silnika siatek (stara 777); gry z profilem 777 v2 lub Mumie importują
+          przez V3. Historia importów jest zachowana.
         </p>
         {!usesNeuralGrid &&
         geometryEngineVariant !== SELECTIVE_BOARD_VARIANT ? (
@@ -1787,7 +1799,7 @@ export function ImageFolderImportPanel({
                         {isNeuralGeometryPreflight(
                           activeBrowserGeometryPreflightJob,
                         ) || configuredNeuralReport
-                          ? 'V3 — sieć neuronowa (Mumie)'
+                          ? neuralEngineLabel
                           : preflight.geometryEngineVariant ===
                               SELECTIVE_BOARD_VARIANT
                             ? 'v1.1 — korekta plansz'

@@ -276,6 +276,19 @@ def grid_engine_profile_for(
     return None
 
 
+def neural_import_profile(configuration: str | None) -> GridEngineProfile | None:
+    """The grid engine profile that imports this game's folders (D-544).
+
+    Every registered profile uses the neural proposal path with its own frozen
+    model; the pilot started with Mumie (D-521). Other games stay classical.
+    """
+
+    for profile in GRID_ENGINE_PROFILES:
+        if profile.configuration.value == configuration:
+            return profile
+    return None
+
+
 def grid_engine_manifest(version: GridEngineModelVersion) -> dict[str, object]:
     """The exact manifest stored next to the files; a pure function of the registry."""
 
@@ -323,4 +336,5 @@ __all__ = [
     "GridEngineReportResult",
     "grid_engine_manifest",
     "grid_engine_profile_for",
+    "neural_import_profile",
 ]

@@ -406,6 +406,32 @@ test('fresh Mumie mounts show selected V3, hide classical choices and do not sta
   }
 });
 
+test('777 v2 profile mounts select V3 with its own label and hide V1.1', async () => {
+  const { root, calls, reportCalls, preflightCalls } = await mount(
+    null,
+    false,
+    { openReport: false, profile: 'grid_profile_777_v2' },
+  );
+  try {
+    const radios = [
+      ...document.querySelectorAll('input[name="geometry-engine-variant"]'),
+    ];
+    assert.equal(radios.length, 1);
+    assert.equal(radios[0].checked, true);
+    assert.match(
+      radios[0].closest('label').textContent,
+      /V3 — sieć neuronowa \(777 v2\)/,
+    );
+    assert.equal(button('Przetwórz w v1.1'), undefined);
+    assert.equal(document.querySelector('select'), null);
+    assert.equal(reportCalls.length, 0);
+    assert.equal(preflightCalls.length, 0);
+    assert.equal(calls.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('Mumie explicit geometry preparation omits the classical variant', async () => {
   const { root, calls, preflightCalls } = await mount(null, false, {
     noGeometry: true,

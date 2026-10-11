@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-11
 ---
 
 # Current State
@@ -22,6 +22,8 @@ ograniczenia”. Lead dopisuje hashe commitów jak dotychczas. Spójność okna
 sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`).
 
 ## Obowiązujące ograniczenia
+
+- **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) ma importować przez V3 z modelem 777 z laboratorium. Do scalenia gałęzi `feat/v3-777-profile` i restartu Admina oraz workera `general` przez operatora panel pokazuje V1.1; nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii.
 
 - **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
 
@@ -829,6 +831,12 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
+
+- Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
+- API: `neural_import_profile`, resolver snapshotu i `uses_neural_grid_pilot` według profilu gry, `NeuralGridSnapshot.from_payload` według profilu z payloadu, `NeuralGridModelManifestPayload.profile` z oboma profilami (OpenAPI i klient zregenerowane), preflight innego profilu nie jest ponownie użyty. Worker bez zmian (model z zamrożonego snapshotu). Admin: V3 z etykietą profilu.
+- Testy: API 85 + resolver 3 + worker/kanoniczne/katalog 38, Admin 731 + interakcje 16; dymny przebieg modelu 777 v2 na 12 złotych zdjęciach 777: 108/108 plansz z dopasowaną siatką. Wdrożenie: scalenie do gałęzi integracyjnej (API przeładuje się samo), restart Admina i workera przez operatora.
+
 ### TASK-0973 — ponowienie kroku partycji przy lock timeout (done)
 
 - Plik: `ai_docs/tasks/completed/0973-game-partition-lock-retry.md`. Przyczyna 500 przy dodawaniu gry na bazie V2: `CREATE TABLE … PARTITION OF game_data_v2.board_render_manifests` czekał na `ACCESS EXCLUSIVE` dłużej niż `lock_timeout = 2s`, bo sesja aplikacji trzymała `AccessShareLock` ponad 22 s (wolny `count` po `image_symbol_review_cells`).
@@ -927,13 +935,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
 - Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
 - Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0154`).
-
-### TASK-0968 — API listy, podglądu i cofnięcia korekt geometrii (done)
-
-- Plik: `ai_docs/tasks/completed/0968-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.
-- Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
-- Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
-- Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
 
 ## Archiwum
 

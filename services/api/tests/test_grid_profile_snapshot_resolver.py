@@ -148,3 +148,48 @@ def test_active_v2_profile_without_current_end_to_end_gate_is_blocked_for_new_jo
         assert error.code == "GRID_PROFILE_END_TO_END_REVALIDATION_REQUIRED"
     else:
         raise AssertionError("The historical v2 gate must not be reused by a new job.")
+
+
+def test_each_grid_profile_resolves_its_own_neural_model_and_others_stay_classical() -> None:
+    # D-544: 777 v2 uses the neural import with its lab model; Mumie keeps its own.
+    from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
+    from game_predictor_api.domain.grid_engine_profiles import grid_engine_profile_for
+    from game_predictor_api.storage.image_sequence_canonical_repository import (
+        SqlAlchemyImageSequenceCanonicalRepository,
+    )
+
+    for configuration in (
+        GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+    ):
+        game = SimpleNamespace(
+            shape_geometry_configuration=configuration.value, expected_layout_count=500000
+        )
+        session = Mock()
+        session.get.return_value = game
+        resolver = SqlAlchemyGridProfileSnapshotResolver(session, artifact_root=Mock())
+        with patch(
+            "game_predictor_api.storage.grid_profile_snapshot_resolver.ManagedGridEngineModelStore"
+        ) as store:
+            payload = resolver.resolve_neural_grid_proposal(game_id=uuid4())
+        expected = grid_engine_profile_for(configuration)
+        assert expected is not None
+        store.return_value.require.assert_called_once_with(expected.current)
+        assert payload is not None
+        assert payload["model"]["profile"] == configuration.value  # type: ignore[index]
+        assert payload["model"]["runId"] == expected.current.run_id  # type: ignore[index]
+        assert resolver.uses_neural_grid_pilot(game_id=uuid4()) is True
+        assert resolver.neural_grid_profile(game_id=uuid4()) == configuration.value
+        assert SqlAlchemyImageSequenceCanonicalRepository(session).uses_neural_grid_pilot(uuid4())
+
+    for classical in ("framed_full_page_v2", "requires_clarification", None):
+        session = Mock()
+        session.get.return_value = SimpleNamespace(
+            shape_geometry_configuration=classical, expected_layout_count=500000
+        )
+        resolver = SqlAlchemyGridProfileSnapshotResolver(session, artifact_root=Mock())
+        assert resolver.resolve_neural_grid_proposal(game_id=uuid4()) is None
+        assert resolver.uses_neural_grid_pilot(game_id=uuid4()) is False
+        assert not SqlAlchemyImageSequenceCanonicalRepository(session).uses_neural_grid_pilot(
+            uuid4()
+        )

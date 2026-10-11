@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-09
+last_updated: 2026-10-11
 ---
 
 # Wymagania modułu administracyjnego
@@ -1813,9 +1813,11 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 9. Publikuje niezmienną wersję datasetu i reguł.
 ## Bezpieczne ustawienie silnika importu plansz
 
-**Aktualna prezentacja TASK-0887:** dla profilu `grid_profile_mumie_v1`
-panel pokazuje **V3 — sieć neuronowa (Mumie)**, zgodnie z rzeczywistą ścieżką
-neural. W pozostałych grach zachowuje V1.1, także dla istniejących siódemek.
+**Aktualna prezentacja TASK-0887, rozszerzona przez D-544 (TASK-0974):** dla
+profili silnika siatek panel pokazuje **V3 — sieć neuronowa (Mumie)** albo
+**V3 — sieć neuronowa (777 v2)**, zgodnie z rzeczywistą ścieżką neural i
+modelem profilu gry. Gry bez profilu silnika siatek, w tym stara 777 (kod
+`7`), zachowują V1.1.
 V1.0/V1.2 i jawne wymuszenie V1.0 z oryginałów są ukryte w nowych wyborach,
 z informacją o wycofaniu do późniejszego usunięcia. Odczyt historycznych
 raportów, przypięte wersje i zwykłe ponowienie pozostają. Nie usunięto

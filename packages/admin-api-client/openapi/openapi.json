@@ -20000,7 +20000,10 @@
             "type": "string"
           },
           "profile": {
-            "const": "grid_profile_mumie_v1",
+            "enum": [
+              "grid_profile_777_v2",
+              "grid_profile_mumie_v1"
+            ],
             "title": "Profile",
             "type": "string"
           },

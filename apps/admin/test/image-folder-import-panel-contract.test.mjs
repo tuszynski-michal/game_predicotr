@@ -339,14 +339,18 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
   );
 });
 
-test('shows the Mumie neural profile and keeps the classical default without deprecated radio choices', () => {
+test('shows V3 for every grid engine profile and keeps the classical default without deprecated radio choices', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
   assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
   assert.match(
     panelSource,
-    /shapeGeometryConfiguration === 'grid_profile_mumie_v1'/,
+    /usesNeuralGrid = isGridEngineProfileConfiguration\(\s*shapeGeometryConfiguration,?\s*\)/,
   );
-  assert.match(panelSource, /V3 — sieć neuronowa \(Mumie\)/);
+  assert.match(
+    panelSource,
+    /V3 — sieć neuronowa \(\$\{shapeGeometryConfigurationLabel\(/,
+  );
+  assert.doesNotMatch(panelSource, /'grid_profile_mumie_v1'/);
   assert.doesNotMatch(
     panelSource,
     /setGeometryEngineVariant\(LATERAL_PARTIAL_VARIANT\)/,

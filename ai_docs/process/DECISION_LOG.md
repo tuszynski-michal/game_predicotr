@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-11
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 540 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (182 wiersze); starsze (357 wierszy) są w
+- Indeks obejmuje 541 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (183 wiersze); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-544](decisions/DECISION_LOG_2026.md#d-544--nowe-gry-777-importują-przez-v3-z-profilem-grid_profile_777_v2) | Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2` | accepted | 2026-10-11 | każdy profil silnika siatek importuje przez ścieżkę neural z własnym modelem (777 v2 z laboratorium), V1.1 zostaje tylko dla starej 777 (rozszerza D-521). |
 | [D-543](decisions/DECISION_LOG_2026.md#d-543--odrzucanie-przyciętych-plansz-po-imporcie-i-przejęcie-sekwencji-przez-zdjęcie-zastępcze) | Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze | accepted | 2026-10-10 | odrzucony slot lub plansza czeka na zamiennik; nowe zdjęcie przejmuje tylko sekwencje odrzucone albo bez właściciela, żywa pozycja `pending` innego zdjęcia zostaje (zmienia D-238). |
 | [D-542](decisions/DECISION_LOG_2026.md#d-542--cofnięcie-ostatniej-ręcznej-korekty-cięcia-siatki) | Cofnięcie ostatniej ręcznej korekty cięcia siatki | accepted | 2026-10-10 | tylko najnowsza korekta planszy, fail-closed, migawka audytu przy usuwaniu wierszy slotu (zmienia D-462), migracja `0154`. |
 | [D-541](decisions/DECISION_LOG_2026.md#d-541--lokalny-reviewer-pracuje-w-zakresie-gry-i-pokazuje-realne-braki-geometrii-zdjęć) | Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć | accepted | 2026-10-10 | lokalny Reviewer ma zakładki „Do korekty” i „Braki zdjęć” (realne braki D-484), „Siatka niepotwierdzona” zostaje licznikiem w Adminie, UI wyjątków bramki usunięte z Admina. |
@@ -222,8 +223,38 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-543, D-542, D-541, D-540, D-539), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-544, D-543, D-542, D-541, D-540), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
+
+- **Date:** 2026-10-11.
+- **Status:** accepted explicit operator decision; implemented by TASK-0974.
+- **Decision:** every registered grid engine profile imports image folders
+  through the existing neural proposal path (the D-521 pilot route,
+  `neural-auto-crop-v1` of D-523) with the frozen model of its own profile.
+  `grid_profile_777_v2` uses the lab-trained 777 model (run `43933ac8…`,
+  preset A, export `2cd19738367121e6-round3`, snapshot `286f2e37…`);
+  `grid_profile_mumie_v1` keeps the Mumie fine-tune. The first 777 game on this
+  route is `777a2` ("777 a2"). V1.1 stays only for games without a grid engine
+  profile, i.e. the historical 777 (code `7`).
+- **Operator rationale:** "V1.1 zostaje tylko i wyłącznie ze względu na starą
+  grę 777"; the V3 engine draws grids without the classical engine's errors and
+  the 777 model already exists from the vision lab, so no training is needed.
+- **Consistency:** a preflight frozen for one profile never serves a game whose
+  current profile differs (reuse skips it, import start returns
+  `NEURAL_GRID_PREFLIGHT_INVALID`). The persisted policy identifier
+  `page-geometry-preflight-v13-neural-mumie-pilot` keeps its historical name
+  because completed Mumie jobs pin it. No migration: the `games` CHECK from
+  `0140` already allows both profiles.
+- **Boundary:** does not change the historical 777 game, its V1.1 imports, the
+  grid shadow path, the symbol model registry or the D-527 shared model
+  families. Switching a game to another game's profile is not a substitute for
+  wiring its own profile.
+- **Changes:** D-521 scope of the neural folder route (Mumie only) for the
+  geometry engine; the D-521 symbol-model pilot scope is unchanged.
+- **Source:** operator instructions in the conversation of 2026-10-11;
+  ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md.
 
 ## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
 
@@ -469,30 +500,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   setting stay operator actions.
 - **Source:** ai_docs/delivery/DISK_D_MIGRATION_PLAN_20261009.md (Codex
   gpt-6.1-sol review, five rounds, final PASS); TASK-0952–0957.
-
-## D-539 — Wybór maszyny na widoku punktu
-
-- **Date:** 2026-10-09.
-- **Status:** accepted explicit operator clarification; implementation not started.
-- **Decision:** only selecting a point opens a nested view. The point page
-  retains its machine tiles after selection. Selecting a machine highlights
-  its tile and updates games/stakes below the list on that same page.
-  Selecting a stake also preserves the machine list and displays its workspace
-  in place. One Home/back action returns to points; no machine-level back view.
-- **Saved-pin visibility clarification (2026-10-09):** on the selected
-  machine/game page, every saved stake shows all saved0-6 pin spin/investment/
-  net-win/machine-cash rows without selecting a stake or opening a chart.
-  Save updates the visible summary even with an editor open; draft/reset keeps
-  saved rows until commit. Reload/reopen restores summaries without full-result
-  fetches. This supersedes the selected-stake-only placement, preserving frozen
-  metrics, null/unavailable handling, units and receipt/payout contracts.
-- **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
-  dirty-draft confirmation and one active shared machine/game workspace.
-  A cancelled transition preserves selection, URL and draft together.
-- **Supersedes:** D-538's machine-as-navigation-level UI rule only. Delete,
-  receipts, immutable results, payout semantics and access rules remain.
-- **Boundary:** operator requested a correction plan and Claude Code discussion,
-  not immediate execution of the new full plan. Historical restore and bounded
-  list height are proposed in that plan and are not accepted by this decision.
-- **Source:** latest operator clarification in this conversation;
-  ai_docs/delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md.

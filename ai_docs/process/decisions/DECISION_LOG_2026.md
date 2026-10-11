@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-11
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,36 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
+
+- **Date:** 2026-10-11.
+- **Status:** accepted explicit operator decision; implemented by TASK-0974.
+- **Decision:** every registered grid engine profile imports image folders
+  through the existing neural proposal path (the D-521 pilot route,
+  `neural-auto-crop-v1` of D-523) with the frozen model of its own profile.
+  `grid_profile_777_v2` uses the lab-trained 777 model (run `43933ac8…`,
+  preset A, export `2cd19738367121e6-round3`, snapshot `286f2e37…`);
+  `grid_profile_mumie_v1` keeps the Mumie fine-tune. The first 777 game on this
+  route is `777a2` ("777 a2"). V1.1 stays only for games without a grid engine
+  profile, i.e. the historical 777 (code `7`).
+- **Operator rationale:** "V1.1 zostaje tylko i wyłącznie ze względu na starą
+  grę 777"; the V3 engine draws grids without the classical engine's errors and
+  the 777 model already exists from the vision lab, so no training is needed.
+- **Consistency:** a preflight frozen for one profile never serves a game whose
+  current profile differs (reuse skips it, import start returns
+  `NEURAL_GRID_PREFLIGHT_INVALID`). The persisted policy identifier
+  `page-geometry-preflight-v13-neural-mumie-pilot` keeps its historical name
+  because completed Mumie jobs pin it. No migration: the `games` CHECK from
+  `0140` already allows both profiles.
+- **Boundary:** does not change the historical 777 game, its V1.1 imports, the
+  grid shadow path, the symbol model registry or the D-527 shared model
+  families. Switching a game to another game's profile is not a substitute for
+  wiring its own profile.
+- **Changes:** D-521 scope of the neural folder route (Mumie only) for the
+  geometry engine; the D-521 symbol-model pilot scope is unchanged.
+- **Source:** operator instructions in the conversation of 2026-10-11;
+  ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md.
 
 ## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
 

@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) ma importować przez V3 z modelem 777 z laboratorium. Do scalenia gałęzi `feat/v3-777-profile` i restartu Admina oraz workera `general` przez operatora panel pokazuje V1.1; nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii.
+- **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
 
 - **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
 
@@ -835,7 +835,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
 - API: `neural_import_profile`, resolver snapshotu i `uses_neural_grid_pilot` według profilu gry, `NeuralGridSnapshot.from_payload` według profilu z payloadu, `NeuralGridModelManifestPayload.profile` z oboma profilami (OpenAPI i klient zregenerowane), preflight innego profilu nie jest ponownie użyty. Worker bez zmian (model z zamrożonego snapshotu). Admin: V3 z etykietą profilu.
-- Testy: API 85 + resolver 3 + worker/kanoniczne/katalog 38, Admin 731 + interakcje 16; dymny przebieg modelu 777 v2 na 12 złotych zdjęciach 777: 108/108 plansz z dopasowaną siatką. Wdrożenie: scalenie do gałęzi integracyjnej (API przeładuje się samo), restart Admina i workera przez operatora.
+- Testy: API 85 + resolver 3 + worker/kanoniczne/katalog 38, Admin 731 + interakcje 16; dymny przebieg modelu 777 v2 na 12 złotych zdjęciach 777: 108/108 plansz z dopasowaną siatką. Commity v1.7.314 (`4344510b`) i v1.7.315 (`55af1b63`, etykieta startu V3 po audycie E2E), scalone i wypchnięte; audyty Codex: zadanie REVISE→P1 naprawione, E2E rundy 1–2 PASS. Pozostaje restart workera `general` przez operatora.
 
 ### TASK-0973 — ponowienie kroku partycji przy lock timeout (done)
 

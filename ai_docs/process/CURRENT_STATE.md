@@ -23,6 +23,12 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
+  koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
+  odroczony. Start implementacji czeka na CLI Claude Code i przypisany model,
+  które operator udostępni. Pilotaż bez podpisu i odbiór drugiego komputera
+  nie mogą zostać uznane za wykonane na podstawie lokalnego smoke testu.
+
 - **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
 
 - **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
@@ -68,6 +74,15 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
 
 ## Plany z niezakończonymi taskami
+
+### Lokalny selektor zdjęć Windows (accepted, execution authorized, 2026-10-11)
+
+- Plan: `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545.
+- Pierwsze wydanie: 0975→0976→0977→0979; migracja 0978 odroczona.
+- Gałąź `codex/offline-photo-selector`, worktree `D:\game_predicotr\worktrees\offline-photo-selector`.
+- Koszt zaakceptowany. Implementacja czeka na potwierdzenie działającego
+  audytora Claude; zapis planu/tasków i kontrola dokumentacji są przygotowaniem.
+- Bez API/DDL, usług głównej aplikacji, push/merge i cloud transferu.
 
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
@@ -155,6 +170,36 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0975 — Fundament aplikacji Windows i pakowanie (blocked)
+
+- Plik: `ai_docs/tasks/0975-selector-desktop-foundation.md`; plan selektora Windows, D-545.
+- Dokumentacja przygotowana. Start implementacji czeka na działające CLI Claude Code z przypisanym modelem; operator zadeklarował jego udostępnienie.
+- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
+
+### TASK-0976 — Projekt, manifest i odzyskiwanie (todo)
+
+- Plik: `ai_docs/tasks/0976-selector-desktop-durability.md`; plan selektora Windows, D-545.
+- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
+- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
+
+### TASK-0977 — Interfejs pełnej selekcji (todo)
+
+- Plik: `ai_docs/tasks/0977-selector-desktop-selection-ui.md`; plan selektora Windows, D-545.
+- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
+- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
+
+### TASK-0979 — Pilotaż i odbiór wydania (todo)
+
+- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; plan selektora Windows, D-545.
+- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
+- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
+
+### TASK-0978 — Odroczone przejęcie starej sesji (todo, deferred)
+
+- Plik: `ai_docs/tasks/0978-selector-desktop-legacy-adoption.md`; plan selektora Windows, D-545.
+- Po 0979, wyłącznie na osobne polecenie. Poza pierwszym wydaniem.
+- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 

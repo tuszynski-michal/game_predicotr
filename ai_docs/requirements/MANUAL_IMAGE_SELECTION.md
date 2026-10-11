@@ -6,6 +6,33 @@ last_updated: 2026-09-15
 
 # Lokalna ręczna selekcja zdjęć
 
+## Lokalny selektor Windows — D-545, zaakceptowany zakres
+
+Oddzielny selektor dla Windows 11 x64 jest zaakceptowany, ale nie jest jeszcze
+zaimplementowany. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
+opisuje TASK-0975/0976/0977/0979. Odbiorca rozpakowuje ZIP i pracuje offline,
+bez hosta, tunelu, instalacji narzędzi deweloperskich i sesji sieciowej.
+Źródła, postęp oraz wyniki pozostają na jego urządzeniu; Proton Drive
+obsługuje samodzielnie poza aplikacją.
+
+Pierwsze wydanie dotyczy nowych partii. UI ma Nowy projekt/Otwórz/Kontynuuj,
+semantykę Reviewera (zapis szeregowy i licznik po trwałym commicie), naturalny
+porządek niezależny od numeracji, skoki 1–10/15/20, zoom 100–3000%, fullscreen,
+obie osie scrolla, undo i jawny preview restartu. rangeForStart zachowuje
+standardowe dziewięć plansz i krótszą końcówkę sesji; nie dopuszcza dowolnych
+przedziałów 1–9. Źródłowe JPEG-i nie są zmieniane ani automatycznie przesyłane.
+
+Domyślne katalogi obok źródła to `<źródło> selekcja` (projekt) i
+`<źródło> wybrane` (JPEG-i seq_* i manifest operator-local v2). Projekt jest
+na lokalnym dysku poza synchronizacją/udziałem sieciowym. Brak folderu
+uruchamia ponowne wskazanie, nigdy reset. Potwierdzony wybór przetrwa restart;
+obcy/zmieniony wynik blokuje nadpisanie. Skala założona: do 15 000 JPEG/projekt.
+
+Pilotaż jest bez podpisu, z odbiorem na konkretnym komputerze użytkownika.
+Blokada Windows wstrzymuje odbiór; wyłączenie ochrony nie jest instrukcją.
+TASK-0978 migracji starych sesji jest odroczony i wymaga osobnego polecenia.
+
+
 ## Cel
 
 Zakładka `Ręczna selekcja` jest awaryjnym, deterministycznym narzędziem do

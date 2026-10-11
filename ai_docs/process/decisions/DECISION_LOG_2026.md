@@ -14,6 +14,41 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
+
+- **Date:** 2026-10-11.
+- **Status:** accepted by explicit operator instruction to implement the revised
+  plan; implementation has not started, auditor availability is an entry gate.
+- **Decision:** standalone Electron/React/TypeScript workspace
+  `apps/selector-desktop`, Windows 11 x64 ZIP built with Electron Forge.
+  The recipient keeps source images, project state and output on their device;
+  Proton Drive delivery is manual and outside the application.
+- **Domain and boundary:** reuse the manual-image-selection core, own desktop UI,
+  no refactor of Admin/Reviewer and no production API/OpenAPI/database changes.
+  Preserve the Reviewer's serialized commits, natural source traversal and
+  rangeForStart semantics (nine boards or the terminal shortened range).
+- **Output:** original JPEG bytes named `seq_<start>-<end>.jpg`, operator-local
+  schema v2 under `manual-image-selection-output-v1.json`; not the different
+  core-items format. The project is authoritative; output is a projection.
+  Project and output folders are separate and proposed beside the source.
+- **Durability:** local disk project outside sync/network shares; versioned
+  state, backup, synchronized temporary replacement, operation journal,
+  idempotency and recovery before writes. Exclusive project lock; stale
+  heartbeat alone never authorizes takeover. Missing folders require relink,
+  never an automatic reset. Only ready output is manually shared.
+- **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
+  TASK-0978 legacy adoption is deferred and requires a separate instruction.
+  Initial pilot is unsigned; real Windows blocking stops acceptance without
+  advising the recipient to disable protection. No upload, generated links,
+  cloud integration, repair or training trace.
+- **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
+  tests, packaging and audits, without a reliable package-percentage estimate.
+  The operator will supply Claude Code CLI; the required auditor/model must be
+  confirmed before implementation. Physical recipient-machine acceptance is
+  recorded separately and cannot be replaced by the agent's local smoke test.
+- **Source:** operator instructions and answers in this conversation of
+  2026-10-11; `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`.
+
 ## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
 
 - **Date:** 2026-10-11.

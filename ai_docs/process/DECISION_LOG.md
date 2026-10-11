@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2, nowe partie; 0978 odroczony, audyt Claude i odbiór urządzenia wymagane. |
 | [D-544](decisions/DECISION_LOG_2026.md#d-544--nowe-gry-777-importują-przez-v3-z-profilem-grid_profile_777_v2) | Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2` | accepted | 2026-10-11 | każdy profil silnika siatek importuje przez ścieżkę neural z własnym modelem (777 v2 z laboratorium), V1.1 zostaje tylko dla starej 777 (rozszerza D-521). |
 | [D-543](decisions/DECISION_LOG_2026.md#d-543--odrzucanie-przyciętych-plansz-po-imporcie-i-przejęcie-sekwencji-przez-zdjęcie-zastępcze) | Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze | accepted | 2026-10-10 | odrzucony slot lub plansza czeka na zamiennik; nowe zdjęcie przejmuje tylko sekwencje odrzucone albo bez właściciela, żywa pozycja `pending` innego zdjęcia zostaje (zmienia D-238). |
 | [D-542](decisions/DECISION_LOG_2026.md#d-542--cofnięcie-ostatniej-ręcznej-korekty-cięcia-siatki) | Cofnięcie ostatniej ręcznej korekty cięcia siatki | accepted | 2026-10-10 | tylko najnowsza korekta planszy, fail-closed, migawka audytu przy usuwaniu wierszy slotu (zmienia D-462), migracja `0154`. |
@@ -223,8 +224,43 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-544, D-543, D-542, D-541, D-540), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-545, D-544, D-543, D-542, D-541), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
+
+- **Date:** 2026-10-11.
+- **Status:** accepted by explicit operator instruction to implement the revised
+  plan; implementation has not started, auditor availability is an entry gate.
+- **Decision:** standalone Electron/React/TypeScript workspace
+  `apps/selector-desktop`, Windows 11 x64 ZIP built with Electron Forge.
+  The recipient keeps source images, project state and output on their device;
+  Proton Drive delivery is manual and outside the application.
+- **Domain and boundary:** reuse the manual-image-selection core, own desktop UI,
+  no refactor of Admin/Reviewer and no production API/OpenAPI/database changes.
+  Preserve the Reviewer's serialized commits, natural source traversal and
+  rangeForStart semantics (nine boards or the terminal shortened range).
+- **Output:** original JPEG bytes named `seq_<start>-<end>.jpg`, operator-local
+  schema v2 under `manual-image-selection-output-v1.json`; not the different
+  core-items format. The project is authoritative; output is a projection.
+  Project and output folders are separate and proposed beside the source.
+- **Durability:** local disk project outside sync/network shares; versioned
+  state, backup, synchronized temporary replacement, operation journal,
+  idempotency and recovery before writes. Exclusive project lock; stale
+  heartbeat alone never authorizes takeover. Missing folders require relink,
+  never an automatic reset. Only ready output is manually shared.
+- **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
+  TASK-0978 legacy adoption is deferred and requires a separate instruction.
+  Initial pilot is unsigned; real Windows blocking stops acceptance without
+  advising the recipient to disable protection. No upload, generated links,
+  cloud integration, repair or training trace.
+- **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
+  tests, packaging and audits, without a reliable package-percentage estimate.
+  The operator will supply Claude Code CLI; the required auditor/model must be
+  confirmed before implementation. Physical recipient-machine acceptance is
+  recorded separately and cannot be replaced by the agent's local smoke test.
+- **Source:** operator instructions and answers in this conversation of
+  2026-10-11; `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`.
 
 ## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
 
@@ -470,33 +506,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
   (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
   `feat/disk-d-migration-plan`.
-
-## D-540 — Przeniesienie aplikacji i bazy na dysk D
-
-- **Date:** 2026-10-10.
-- **Status:** accepted by the operator ("przenieś tą aplikację, jak skończą
-  się wszystkie procesy job"); stage A runs now, stage B1 waits for an empty
-  job queue and for the operator.
-- **Decision:** the application is run from `D:\game_predicotr`; the C
-  checkout is abandoned after acceptance. PostgreSQL moves with the Docker
-  Desktop WSL disk image (Settings → Resources → Advanced → Disk image
-  location), not through `pg_dump`/`pg_restore` and not through a bind mount.
-  The compose project name `game-predictor` makes `docker compose` from D
-  reuse the same container and volume.
-- **Safeguards:** a `pg_dump -Fc` with `--globals-only` roles and a full
-  `pg_restore --file=/dev/null` read before the cutover; an independent
-  SHA-256-verified copy of `docker_data.vhdx` on D after Docker Desktop and
-  WSL are shut down; ignored data directories copied by
-  `scripts/sync_data_directories_to_d.ps1` (Initial/Final modes, SHA-256
-  manifests); every C worktree secured by bundle, binary patches and copies.
-- **Cutover boundary:** stop producers, drain the `general` queue, stop the
-  worker, re-check jobs and leases, write the reference report, compare it
-  with the post-move report before any provisioning or service start.
-- **Boundaries:** no application code or schema changes. Absolute C paths in
-  `jobs.input_payload.source_directory` (173 jobs) and
-  `remote_manual_selection_sessions.host_base_path` (13 sessions) are settled
-  before deleting C; deleting C, test databases and the old disk image each
-  need separate operator consent. Service lifecycle and the Docker Desktop
-  setting stay operator actions.
-- **Source:** ai_docs/delivery/DISK_D_MIGRATION_PLAN_20261009.md (Codex
-  gpt-6.1-sol review, five rounds, final PASS); TASK-0952–0957.

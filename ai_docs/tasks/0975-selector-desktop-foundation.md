@@ -1,0 +1,135 @@
+---
+title: Fundament aplikacji Windows i pakowanie
+status: blocked
+last_updated: 2026-10-11
+---
+
+# TASK-0975 — Fundament aplikacji Windows i pakowanie
+
+## Status
+
+`blocked`
+
+## Goal
+
+Uruchomić samodzielną paczkę Windows i wyświetlić lokalny JPEG bez hosta, internetu ani narzędzi deweloperskich.
+
+## Context
+
+Obecny operator-local Reviewer zależy od dostępu do strony przez host i tunel.
+Nowy selektor działa lokalnie; zdjęcia i wyniki pozostają u odbiorcy. Proton
+Drive jest obsługiwany poza aplikacją. Task realizuje wyłącznie odpowiedni
+fragment zaakceptowanego planu.
+
+## Dependencies / entry conditions
+
+Zaakceptowany plan, zgoda kosztowa 2026-10-11 oraz działające CLI Claude Code z potwierdzonym modelem claude-sonnet-5-5 / medium. Dokumentacja jest przygotowana; model audytora nie został jeszcze potwierdzony. Bazą jest bb883b5902cb0934b9732d1bc24361d01085051d (v1.7.316).
+
+## Recommended execution
+
+`gpt-6.1-sol / medium`. Niezależny statyczny audyt
+`claude-sonnet-5-5 / medium`, warunkowo po potwierdzeniu CLI i modelu.
+Konfiguracja odpowiada tabeli planu. Eskaluj, gdy zmiana wymaga innego modelu
+własności danych, nowych reguł domeny lub niezgodnego formatu. Nie zmieniaj
+modelu/reasoning niejawnie. Jeden audyt i jedna runda poprawek według AGENTS.md.
+
+## Relevant docs
+
+- AGENTS.md
+- ai_docs/process/CURRENT_STATE.md
+- ai_docs/process/DECISION_LOG.md — D-545
+- ai_docs/process/PLAN_STANDARD.md
+- ai_docs/process/DEFINITION_OF_DONE.md
+- ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md — TASK-0975
+- ai_docs/requirements/MANUAL_IMAGE_SELECTION.md — Lokalny selektor Windows
+- ai_docs/architecture/MANUAL_IMAGE_SELECTION.md — Lokalny selektor Windows
+- ai_docs/architecture/REMOTE_MANUAL_IMAGE_SELECTION.md — obowiązująca sekcja operator-local
+- ai_docs/architecture/CODE_MAP.md
+- ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md
+
+## Scope
+
+- Nowy workspace apps/selector-desktop: Electron, React, TypeScript, Forge ZIP Windows x64.
+- Typowane IPC z walidacją nadawcy i argumentów; renderer używa identyfikatorów źródła, a nie ścieżek.
+- Własny protokół zdjęć: strumieniowanie spod wybranego korzenia, bez base64.
+- Sandbox, contextIsolation, nodeIntegration=false, CSP, blokada nowych okien/nawigacji.
+- Rotowany log diagnostyczny i otwieranie katalogu logów; brak treści JPEG w logach.
+- Przypięte zależności, polityka wymaganych skryptów instalacyjnych, bez custom ELECTRON_MIRROR.
+- Nowy obszar AREAS w generatorze mapy kodu i kontrola objęcia workspace'u root quality.
+
+## Out of scope
+
+Trwałe projekty, UI pełnej selekcji, legacy adoption, instalator, podpis kodu, serwery/API oraz zmiany Admina i Reviewera.
+
+## Acceptance criteria
+
+- [ ] Paczka działa offline i pokazuje lokalny JPEG; brak runtime zależnego od hosta.
+- [ ] Anulowanie pickera zachowuje prawidłowy stan, odczyt spoza korzenia i reparse point są odmawiane.
+- [ ] Renderer nie otrzymuje ogólnego filesystem API; nie można otworzyć zewnętrznej strony/okna.
+- [ ] Testy, lint, typecheck i pakowanie nowego workspace'u przechodzą; mapa go obejmuje.
+- [ ] Ograniczenie lokalnego smoke testu jest zapisane; rzeczywisty drugi komputer sprawdza TASK-0979.
+
+## Technical notes
+
+Nie uruchamiaj usług głównego repo. Nowy renderer jest statycznie dołączony do paczki. Zablokuj wyjście poza korzeń zarówno leksykalnie, jak i na rzeczywistym filesystem. Publiczne IPC przyjmuje dane z walidowanych typów i sprawdza origin/frame. Politykę postinstall sprawdź w obecnej wersji npm, nie zakładaj samego znaczenia klucza allowScripts.
+
+## Expected files
+
+- Nowe, proponowane: apps/selector-desktop/package.json, forge.config.ts, src/main.ts, src/preload.ts, src/contracts.ts, src/renderer/ oraz test/.
+- Istniejące: package.json i package-lock.json — workspaces, skrypty instalacyjne i dependencies.
+- Istniejący: scripts/generate_code_map.py — AREAS; generowane CODE_MAP.md i CODE_MAP_SYMBOLS.md.
+- Dokumentacja: architecture/TECH_STACK.md i nowa guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md.
+
+## Test cases
+
+- Picker success/cancel/read failure; JPEG z właściwego i niewłaściwego korzenia.
+- Traversal, dowolna ścieżka przekazana zamiast ID, nieprawidłowy nadawca IPC, symlink/junction.
+- Spakowany UI offline, brak zewnętrznych requestów i nowych okien.
+- Nowy proces instalacji/builda korzysta z przypiętych zależności bez sesyjnych obejść.
+
+## Verification
+
+Z katalogu worktree selektora. Każda skończona komenda ma timeout do 120 s;
+znany dłuższy build tylko po uprzedniej informacji i osobnym limicie.
+
+```powershell
+npm run test --workspace @game-predictor/manual-image-selection-core
+npm run typecheck --workspace @game-predictor/manual-image-selection-core
+npm run test --workspace @game-predictor/reviewer
+npm run docs:check
+npm run code-map:check
+```
+
+Powyższe skrypty istnieją w repo. W nowym worktree wymagają dostępnych
+zależności oraz interpreterów; przygotowanie środowiska nie uprawnia do
+restartu usług ani migracji. TASK-0975 ma dodać test/lint/typecheck/build/
+package/make aplikacji desktopowej, a następnie zapisać sprawdzone komendy
+i wyniki w Outcome. Te skrypty są teraz proponowane, nie wykonane.
+Testy Reviewera sprawdzają zgodność kontraktu; nie zastępują odbioru Electrona.
+Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:check.
+
+## Risks / open questions
+
+Brak CLI/modelu audytora blokuje start implementacji. Pakowanie może wymagać pobrania zależności; odbiór źródła i autora paczki na urządzeniu odbiorcy należy do 0979.
+
+## Outcome
+
+### Changed
+
+Przygotowano specyfikację taska i zaakceptowany plan. Implementacja nie została rozpoczęta.
+
+### Verification results
+
+Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośniki/wpisy/wiersze indeksu), check_current_state_window.py PASS (47 aktywnych tasków, 10 done). Testów implementacji nie uruchamiano.
+
+### Not completed
+
+Wszystkie kryteria implementacyjne i wymagany audyt.
+
+### Documentation updates
+
+Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
+
+### Recommended next task
+
+Po zapewnieniu audytora wykonać TASK-0975, potem 0976.

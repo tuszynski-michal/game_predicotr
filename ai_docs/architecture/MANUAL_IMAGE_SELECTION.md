@@ -6,6 +6,38 @@ last_updated: 2026-09-15
 
 # Architektura lokalnej ręcznej selekcji
 
+## Lokalny selektor Windows — D-545, zaakceptowana architektura
+
+Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
+nie jest jeszcze zaimplementowany. Korzysta z manual-image-selection-core,
+ma własny renderer i natywne adaptery; nie wydziela komponentów Admina ani
+Reviewera. Brak nowych endpointów, OpenAPI i tabel PostgreSQL.
+
+Typowane IPC waliduje nadawcę/argumenty i używa identyfikatorów indeksu,
+nie dowolnych ścieżek. Własny protokół strumieniuje lokalne JPEG-i;
+contextIsolation/sandbox, brak nodeIntegration, CSP i blokada nawigacji
+zewnętrznej chronią granicę renderera. Adapter odrzuca traversal i reparse
+pointy przy odczycie/zapisie. Indeks metadanych ma granicę 15 000 JPEG,
+preview ±3, bez Blobów całej kolekcji i miniaturek.
+
+Wersjonowany projekt na dysku jest źródłem prawdy. Stan temp/sync/replace
+z backupem, journal faz prepare/JPEG/decision i idempotentny writer są
+rozliczane przez recovery przed mutacjami. Plik blokady projektu powstaje
+atomowo; heartbeat timeout nie pozwala samodzielnie przejąć własności.
+Nieznany host/proces blokuje zapis; same requestSingleInstanceLock i folder
+synchronizowany nie dają locka między komputerami. Projekt nie jest w chmurze.
+
+Manifest wynikowy zachowuje OperatorLocalOutputManifestV2 Reviewera pod
+nazwą manual-image-selection-output-v1.json. Jest projekcją, a nie drugim
+źródłem prawdy ani odmiennym rdzeniowym wariantem items. Stan kursora
+przechowuje ścieżkę względną; brak folderu wymaga relink bez resetu.
+Zdjęcia są kopiowane bajtowo/strumieniowo i checksummowane.
+
+Przy migracji odroczonej (0978) sama różna checksuma source manifestu
+nie dowodzi zmiany wyłącznie mtime: stary output nie ma pełnego source
+inventory. Brak wystarczających dowodów blokuje przejęcie.
+Pełny zakres, taski, błędy i odbiór: [plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md).
+
 Workspace React działa wyłącznie w przeglądarce Admina. Wspólny lokalny
 koordynator `showDirectoryPicker` serializuje tylko aktywne natywne dialogi
 wszystkich workflowów Admina i zawsze wywołuje metodę z `window` jako receiver.

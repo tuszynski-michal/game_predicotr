@@ -12,6 +12,7 @@ from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
+from game_predictor_api.storage import catalog_repository
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import (
     GameStorageSession,
@@ -383,6 +384,65 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
             )
             == 1
         )
+
+
+def test_catalog_create_retries_while_a_long_reader_holds_the_parent_lock(
+    lifecycle_database: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A long read transaction on the partitioned parent blocks the ACCESS
+    # EXCLUSIVE lock that CREATE TABLE ... PARTITION OF needs (observed live:
+    # LockNotAvailable after the 2 s lock timeout). The create must retry and
+    # finish once the reader ends, resuming from its checkpoint.
+    blocker = lifecycle_database.connect()
+    blocker_transaction = blocker.begin()
+    blocker.execute(text("LOCK TABLE game_data_v2.board_render_manifests IN ACCESS SHARE MODE"))
+    sleeps: list[float] = []
+
+    def release_reader_on_first_backoff(seconds: float) -> None:
+        sleeps.append(seconds)
+        if len(sleeps) == 1:
+            blocker_transaction.rollback()
+            blocker.close()
+
+    monkeypatch.setattr(catalog_repository.time, "sleep", release_reader_on_first_backoff)
+    factory = sessionmaker(
+        bind=lifecycle_database,
+        class_=GameStorageSession,
+        expire_on_commit=False,
+    )
+    try:
+        with factory() as session:
+            repository = SqlAlchemyCatalogRepository(
+                session,
+                partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
+            )
+            game = CatalogService(repository).create_game(
+                code="blocked-reader-game",
+                name="Blocked reader game",
+                status=GameStatus.DRAFT,
+                expected_layout_count=500_000,
+            )
+    finally:
+        if blocker_transaction.is_active:
+            blocker_transaction.rollback()
+        blocker.close()
+
+    assert sleeps, "the first attempt should have hit the lock timeout"
+    assert game.storage_status == "active"
+    assert game.storage_write_available is True
+    with lifecycle_database.connect() as connection:
+        partition_count = connection.scalar(
+            text(
+                """SELECT count(*) FROM pg_inherits i
+                JOIN pg_class child ON child.oid=i.inhrelid
+                JOIN pg_namespace n ON n.oid=child.relnamespace
+                WHERE n.nspname='game_data_v2' AND child.relkind='r'
+                  AND child.relname LIKE :prefix"""
+            ),
+            {"prefix": f"gpv2_{game.id.hex[:12]}_%"},
+        )
+    assert partition_count == len(CREATE_TABLES)
 
 
 def test_missing_registry_fails_closed_without_public_fallback(

@@ -829,6 +829,12 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0973 — ponowienie kroku partycji przy lock timeout (done)
+
+- Plik: `ai_docs/tasks/completed/0973-game-partition-lock-retry.md`. Przyczyna 500 przy dodawaniu gry na bazie V2: `CREATE TABLE … PARTITION OF game_data_v2.board_render_manifests` czekał na `ACCESS EXCLUSIVE` dłużej niż `lock_timeout = 2s`, bo sesja aplikacji trzymała `AccessShareLock` ponad 22 s (wolny `count` po `image_symbol_review_cells`).
+- `_run_partition_step_in` ponawia krok do 6 razy (rollback kroku, backoff 0,5–4 s, wznowienie od checkpointu); po wyczerpaniu `409 GAME_PARTITION_LOCK_BUSY`. Błędy inne niż SQLSTATE `55P03` i dryf checkpointu nie są ponawiane.
+- Testy: jednostkowe 9 + katalog 12, integracja PostgreSQL 2 (blokada `ACCESS SHARE` zwalniana przy pierwszym backoffie). Version v1.7.313. Wymaga restartu API przez operatora. Otwarte: przyspieszenie `_current_selected_cell_count`.
+
 ### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (done)
 
 - Etap A/A′ (D-540): `scripts/inventory_worktrees.ps1`, kopie worktree'ów,
@@ -928,14 +934,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
 - Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
 - Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
-
-### TASK-0967 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
-
-- Plik: `ai_docs/tasks/completed/0967-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.
-- Przypadek A: rewizja `N + 1` z geometrią i specyfikacją renderu `N − 1`, wskazująca poprzednią rewizję źródła; piksele sprawdzane rzeczywistym renderem (`VirtualRestoredRenderVerifier`, bez renderera `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`); decyzje komórek z najwcześniejszego zdarzenia transakcji korekty (Z1 potwierdzone: wspólne `created_at`); zatwierdzenie tylko przy identycznych pikselach (D-462); `GEOMETRY_REVERT_HISTORY_INCOMPLETE` zamiast rekonstrukcji z mieszanej proweniencji; silnik z proweniencji rewizji.
-- Decyzje leada (do D-542): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
-- TASK-0968 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
-- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (5×P0, 1×P1), runda 2 PASS; P2-2 (sprzeczny opis w `DATA_MODEL.md`) poprawione przez leada, P2-1 (test rewizji 0 z zastępczym weryfikatorem, bo fixture importu nie ma renderowalnej specyfikacji) przyjęte jako ryzyko.
 
 ## Archiwum
 

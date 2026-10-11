@@ -6,6 +6,14 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0967 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
+
+- Plik: `ai_docs/tasks/completed/0967-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.
+- Przypadek A: rewizja `N + 1` z geometrią i specyfikacją renderu `N − 1`, wskazująca poprzednią rewizję źródła; piksele sprawdzane rzeczywistym renderem (`VirtualRestoredRenderVerifier`, bez renderera `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`); decyzje komórek z najwcześniejszego zdarzenia transakcji korekty (Z1 potwierdzone: wspólne `created_at`); zatwierdzenie tylko przy identycznych pikselach (D-462); `GEOMETRY_REVERT_HISTORY_INCOMPLETE` zamiast rekonstrukcji z mieszanej proweniencji; silnik z proweniencji rewizji.
+- Decyzje leada (do D-542): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
+- TASK-0968 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
+- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (5×P0, 1×P1), runda 2 PASS; P2-2 (sprzeczny opis w `DATA_MODEL.md`) poprawione przez leada, P2-1 (test rewizji 0 z zastępczym weryfikatorem, bo fixture importu nie ma renderowalnej specyfikacji) przyjęte jako ryzyko.
+
 ### TASK-0966 — migracja 0154, status `reverted` i cofnięcie korekty slotu odroczonego (done)
 
 - Plik: `ai_docs/tasks/completed/0966-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.

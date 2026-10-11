@@ -29,6 +29,15 @@ from game_predictor_api.storage.game_data_v2_manifest_v7 import (
 _IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]*$")
 _DDL_LOCK_TIMEOUT = "2s"
 _DDL_STATEMENT_TIMEOUT = "30s"
+# PostgreSQL SQLSTATE 55P03 (lock_not_available), raised when `lock_timeout` expires.
+_LOCK_NOT_AVAILABLE_SQLSTATE = "55P03"
+# A partition step needs ACCESS EXCLUSIVE on the partitioned parent, so any
+# transaction that has touched the parent for longer than the lock timeout
+# makes it fail. The step is one rolled-back transaction, so callers retry it
+# with a short lock timeout instead of one long wait that would stall readers.
+LOCK_RETRY_ATTEMPTS = 6
+LOCK_RETRY_BASE_DELAY_SECONDS = 0.5
+LOCK_RETRY_MAX_DELAY_SECONDS = 4.0
 
 
 class GamePartitionLifecycleKind(StrEnum):
@@ -66,6 +75,25 @@ class _LifecycleControlPlane:
 
     def connection(self) -> Connection:
         return self._session.connection()
+
+
+def is_lock_not_available(error: BaseException) -> bool:
+    """Return whether a driver error is a lock timeout (SQLSTATE 55P03)."""
+
+    original = getattr(error, "orig", error)
+    sqlstate = getattr(original, "sqlstate", None) or getattr(
+        getattr(original, "diag", None), "sqlstate", None
+    )
+    return sqlstate == _LOCK_NOT_AVAILABLE_SQLSTATE
+
+
+def lock_retry_delay_seconds(attempt: int) -> float:
+    """Exponential backoff for the 1-based failed attempt number."""
+
+    return min(
+        LOCK_RETRY_MAX_DELAY_SECONDS,
+        LOCK_RETRY_BASE_DELAY_SECONDS * float(2 ** max(attempt - 1, 0)),
+    )
 
 
 def partition_name(game_id: UUID, table_name: str) -> str:

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.catalog import CatalogRepository
@@ -29,10 +30,13 @@ from game_predictor_api.domain.image_import_engine_policy import (
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
+    LOCK_RETRY_ATTEMPTS,
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
     GamePartitionLifecycleReceipt,
     GamePartitionLifecycleRepository,
+    is_lock_not_available,
+    lock_retry_delay_seconds,
 )
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageLocation,
@@ -576,16 +580,42 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
     )
 
 
-def _run_partition_step_in(session: Session, operation_id: UUID) -> GamePartitionLifecycleReceipt:
-    try:
-        receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
-    except GamePartitionLifecycleError:
-        # Domain drift is deliberately persisted as `blocked`; the outer
-        # request rollback must not erase that diagnostic.
+def _run_partition_step_in(
+    session: Session,
+    operation_id: UUID,
+    *,
+    sleep: Callable[[float], None] | None = None,
+) -> GamePartitionLifecycleReceipt:
+    for attempt in range(1, LOCK_RETRY_ATTEMPTS + 1):
+        try:
+            receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
+        except GamePartitionLifecycleError:
+            # Domain drift is deliberately persisted as `blocked`; the outer
+            # request rollback must not erase that diagnostic.
+            session.commit()
+            raise
+        except OperationalError as error:
+            if not is_lock_not_available(error):
+                raise
+            # The step is one transaction: the rollback discards the partial
+            # DDL and leaves the persisted checkpoint at this table, so a retry
+            # (here or from a repeated request) resumes exactly there.
+            session.rollback()
+            if attempt == LOCK_RETRY_ATTEMPTS:
+                raise GamePartitionLifecycleError(
+                    "GAME_PARTITION_LOCK_BUSY",
+                    "Game storage is busy with a long-running query. "
+                    "Retry in a moment; provisioning resumes from its checkpoint.",
+                    details={
+                        "operationId": str(operation_id),
+                        "attempts": LOCK_RETRY_ATTEMPTS,
+                    },
+                ) from error
+            (sleep or time.sleep)(lock_retry_delay_seconds(attempt))
+            continue
         session.commit()
-        raise
-    session.commit()
-    return receipt
+        return receipt
+    raise AssertionError("unreachable: the final attempt returns or raises")
 
 
 def _next_symbol_code(name: str, existing_codes: tuple[str, ...]) -> str:

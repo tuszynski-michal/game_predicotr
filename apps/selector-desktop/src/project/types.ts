@@ -64,6 +64,26 @@ export interface ProjectCreateOptions {
   /** Native dialog requires this explicit confirmation, alongside path checks. */
   localStorageConfirmed: boolean;
 }
+export type ProjectAdoptionSeed = Pick<
+  ProjectState,
+  | 'firstLayout'
+  | 'direction'
+  | 'sequenceUpperBound'
+  | 'currentRelativePath'
+  | 'nextRangeStart'
+  | 'selectionComplete'
+  | 'selectionGeneration'
+  | 'decisions'
+  | 'inventory'
+  | 'sourceManifestChecksumSha256'
+  | 'sourceDirectoryName'
+>;
+export interface JournalCopy {
+  imagePath: string;
+  outputName: string;
+  checksumSha256: string;
+  sizeBytes: number;
+}
 export interface RestartPreview {
   revision: number;
   checksum: string;
@@ -71,17 +91,14 @@ export interface RestartPreview {
   decisions: number;
 }
 export interface ProjectJournal {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   projectId: string;
   phase: 'prepared' | 'jpeg_written' | 'committed';
   before: ProjectState | null;
   after: ProjectState;
   operationId: string;
-  copy: {
-    imagePath: string;
-    outputName: string;
-    checksumSha256: string;
-    sizeBytes: number;
-  } | null;
+  copy: JournalCopy | null;
+  /** Version 2 is an initial adoption transaction, never a replay of accepts. */
+  importCopies?: JournalCopy[];
   removals: { outputName: string; checksumSha256: string }[];
 }

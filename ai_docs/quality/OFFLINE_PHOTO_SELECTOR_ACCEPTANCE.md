@@ -31,7 +31,7 @@ ma własną sumę. Odbiorca sprawdza konkretną przekazaną paczkę.
 | Pełny interfejs, skróty, numeracja, wznowienie | PASS0977 | Outcome0977, test:ui3/3, pełny i krótki smoke rzeczywistego EXE |
 | ZIP0979, SHA-256, uruchomienie rozpakowanej kopii | PASS0979 | release2/2, make, smoke:release i zachowane metadane |
 | Backup/restore oraz relokacja kopii programu | PASS0979 częściowy | smoke:release; symulacja aktualizacji tą samą wersją, bez fizycznego reboot/innej wersji |
-| Przejęcie starej sesji bez zmian oryginału | PENDING | TASK-0978 |
+| Przejęcie starej sesji bez zmian oryginału | PASS0978 | Kontrakt25 i recovery29, packed EXE preview/import/nowy proces; Outcome0978 |
 
 Test przeniesionego źródła i natywnego relink w nowym procesie również PASS0979.
 Oryginalne dane pozostają nienaruszone. Pierwszy timeout harnessu naprawiono;

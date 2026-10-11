@@ -250,6 +250,8 @@ else {
           );
       });
       handle(CHANNELS.create, (options) => controller.create(options), 1);
+      handle(CHANNELS.legacyPreview, () => controller.legacyPreview());
+      handle(CHANNELS.legacyAdopt, (token) => controller.legacyAdopt(token), 1);
       handle(CHANNELS.open, () => controller.open());
       handle(CHANNELS.recent, () => controller.recent());
       handle(CHANNELS.continue, (projectId) => controller.open(projectId), 1);

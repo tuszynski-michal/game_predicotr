@@ -89,10 +89,11 @@ domyślnym kontekstem implementacyjnym.
 
 - [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
   — accepted, pierwsze wydanie TASK-0975/0976/0977/0979; nowe partie i dane
-  u odbiorcy; TASK-0978 również uruchomiony po części implementacyjnej 0979. Implementacja uruchomiona; audyt operatora na końcu.
+  u odbiorcy; TASK-0978 również uruchomiony po części implementacyjnej 0979. Pięć części implementacyjnych gotowych; audyt operatora na końcu.
   [Instrukcja operatora](guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md) i
   [rejestr odbioru](quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); fundament,
-  trwałość i interfejs przeszły testy lokalne. Fizyczny pilotaż jest pending.
+  trwałość, interfejs i zgodne przejęcie przeszły testy lokalne. Fizyczny pilotaż jest pending.
+  [Przekazanie do audytu](quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md).
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
   — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).

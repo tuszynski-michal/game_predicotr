@@ -120,7 +120,7 @@ applicationSourceDirty, czas oraz SHA-256 app.asar; dane buildu są też w paczc
 Smoke weryfikuje sumy i uruchamia EXE z rozpakowanego ZIP-a. Instrukcja i rejestr
 odbioru oddzielają kontrole agentowe od odbioru operatora.
 
-Commit przygotowania wydania: v1.7.321; pełny hash po commicie.
+Commit przygotowania wydania: v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 Task pozostaje blocked wyłącznie na fizycznym odbiorze.
 
 Sprawdzona historyczna paczka0979 (bez migracji0978) zachowana w

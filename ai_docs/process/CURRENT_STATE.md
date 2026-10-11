@@ -173,16 +173,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
-- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321; hash po commicie.
+- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 - Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
 - Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Po0978 osobny finalny build.
 - Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji do innej wersji i końcowego audytu. Agent sprawdził relokację tej samej wersji; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
-
-### TASK-0978 — Przejęcie starej sesji (todo)
-
-- Plik: `ai_docs/tasks/0978-selector-desktop-legacy-adoption.md`; plan selektora Windows, D-545.
-- Po części implementacyjnej 0979; uruchomiony poleceniem pięciu tasków.
-- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -859,6 +853,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0978 — Przejęcie starej sesji (done)
+
+- Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322: pełny hash po commicie.
+- Read-only dowody v1/v2, preview/opaque token, nowe puste katalogi, seed historii i wieloplikowy journal v2; recovery zwykłego journal v1 zachowane. Oryginalne source/output nietknięte.
+-107 unikalnych testów PASS: legacy25+recovery29+projekt43+foundation7+UI3; lint/typecheck/format/build/package i legacy smoke EXE PASS. Realne przerwania procesów, retry, checksumy, anulowanie i nowy proces. Mapy zregenerowane.
+- Fail-closed brak dowodów/MIME/mtime mismatch, niejednoznaczny lub sprzeczny terminalny v1 i duplikaty accepted source path. Zachowane generacje decyzji, nowy licznik max/0.
+- Audyt operatora po pięciu taskach; finalny ZIP z commita jeszcze do przebudowy. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.
+
 ### TASK-0977 — Interfejs pełnej selekcji (done)
 
 - Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.
@@ -956,13 +958,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   sonnet-5-5 (zmiana modelu przez operatora).
 - Task: `ai_docs/tasks/completed/0952-disk-d-database-backup.md`.
 
-### TASK-0951 — dokładny licznik serii supergry (done)
-
-- `listSuperGameSeries` zwraca `counts { total, undefined }`: dokładne liczby wszystkich serii gry i serii bez super symbolu, niezależne od filtrów i strony, z tego samego snapshotu. Admin pokazuje „<undefined> z <total> serii bez super symbolu” zamiast `200+`; osobne zapytanie licznika usunięte.
-- Odczyt API Mumii 2026-10-09 (generacja nieświeża): 2553 serie, 4 z super symbolem, 2549 do zdefiniowania.
-- API 10/10, PostgreSQL 3/3, Admin 733/733, typecheck, lint, mypy, `openapi:check` PASS. Bez migracji, zmian danych, usług i push.
-- Outcome: `ai_docs/tasks/completed/0951-super-game-series-exact-counts.md`.
-- Scalone do gałęzi integracyjnej 2026-10-10 (merge v1.7.310).
 
 ## Archiwum
 

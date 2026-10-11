@@ -1,6 +1,6 @@
 ---
 title: Przejęcie starej sesji
-status: todo
+status: done
 last_updated: 2026-10-11
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-11
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -60,10 +60,10 @@ Zmiana oryginalnej sesji, odczyt cudzego IndexedDB, core-items manifest, import 
 
 ## Acceptance criteria
 
-- [ ] Zgodny komplet source/output odtwarza ten sam postęp; oryginał jest nietknięty.
-- [ ] Nieznany format, brak checksum/dowodów, zmieniona lista i różne JPEG checksums blokują.
-- [ ] Manifest core-items nie jest traktowany jako operator_local.
-- [ ] Nie można uznać dowolnej różnicy checksummy za zmianę wyłącznie dat plików.
+- [x] Zgodny komplet source/output odtwarza ten sam postęp; oryginał jest nietknięty.
+- [x] Nieznany format, brak checksum/dowodów, zmieniona lista i różne JPEG checksums blokują.
+- [x] Manifest core-items nie jest traktowany jako operator_local.
+- [x] Nie można uznać dowolnej różnicy checksummy za zmianę wyłącznie dat plików.
 
 ## Technical notes
 
@@ -74,6 +74,20 @@ a desktop image/jpeg. Nietypowy historyczny MIME może więc blokować przejęci
 pomimo tych samych nazw plików. Nie zmieniać fingerprint ani metadanych,
 aby wymusić migrację. Brak sourceManifestChecksumSha256/fileCount lub
 niejednoznaczna konfiguracja historycznego v1 nie dowodzą zgodności.
+
+Jawne ograniczenie zgodności: v1 wymaga zapisanych firstLayout/direction.
+Historyczny końcowy v1 w kierunku malejącym (zakres1–9, bez semantyki
+selectionComplete v2) może mieć sprzeczny stan kontynuacji. Taki manifest
+jest odrzucany, zamiast zmieniać ukrycie postęp lub regułę zakończenia.
+Wynika to z zachowania semantyki i fail-closed przejęcia zgodnej sesji.
+Historię z powtórną akceptacją tej samej source path również odrzucamy:
+parser starego formatu ją toleruje, ale GUI Reviewera i bieżący desktop
+nie pozwalają tworzyć takich decyzji. Nie rozszerzamy domeny ukrytym wyjątkiem.
+
+Jawne założenie formatu: brak historycznego pola bieżącej generacji partii
+nie pozwala odtworzyć go jako osobnego faktu. Zachowujemy selectionGeneration
+każdej decyzji; nowy lokalny licznik to ich maksimum lub0 przy pustej historii.
+Nie wpływa to na numerację, kursor ani pliki oryginału.
 
 ## Expected files
 
@@ -115,20 +129,55 @@ Wykonanie uruchomiło późniejsze polecenie operatora dotyczące pięciu taskó
 
 ### Changed
 
-Przygotowano specyfikację taska i zaakceptowany plan. Implementacja nie została rozpoczęta.
+Zaimplementowano read-only preview operator-local v1/v2, weryfikację fingerprint,
+ordinal/path i dokładnego zestawu wyników oraz SHA źródłowych/wynikowych JPEG-ów.
+Nowy projekt i wynik są puste i niezależne od oryginału. Seed zachowuje historię,
+kursor, numerację i generacje decyzji bez powtarzania accept. Journal schema v2
+z importCopies umożliwia wieloplikowy recovery; zwykły journal v1 pozostaje zgodny.
+Native controller/IPC używa opaque tokena preview oraz oddzielnego SourceRegistry.
+Renderer pokazuje podgląd, anulowanie i jawne potwierdzenie nowych lokalizacji.
+Przy recovery także już istniejący imported JPEG wymaga ponownego SHA źródła.
+
+Commit implementacji v1.7.322 zostanie zapisany pełnym hashem po commicie.
 
 ### Verification results
 
-Kontrole przygotowanej dokumentacji: check_decision_links.py PASS (542 odnośniki/wpisy/wiersze indeksu), check_current_state_window.py PASS (47 aktywnych tasków, 10 done). Testów implementacji nie uruchamiano.
+Wszystkie skończone kroki ograniczono run-bounded.mjs do120 s. Łącznie107
+unikalnych testów PASS: kontrakt legacy25, recovery29, zwykły projekt43,
+foundation7, UI3. test:legacy początkowo24/24 (21,725 s), dodatkowe dwa testy
+new roots/historical browser2/2 (8,512 s; jeden nowy unikalny przypadek).
+Legacy recovery17/17 (80,082 s), fault/rechecks12/12 (31,657 s) i wersje/realne
+nowe procesy4/4 (44,427 s). Grupy zwykłego projektu17/17,12/12,14/14, następnie
+wąskie replay/process-death2/2. Nie sumujemy powtórzeń jako nowych przypadków.
+
+Lint, typecheck, Prettier, git diff --check oraz package z buildem PASS.
+smoke:legacy rzeczywistego EXE PASS: preview/anulowanie, odmowa dowolnej ścieżki
+zamiast tokena, import, identyczne oryginały i kontynuacja w nowym procesie.
+Screenshot podglądu sprawdzono wizualnie. EPERM realpath oraz cache Electron
+w sandbox rozwiązano eskalowanym wykonaniem, bez zmiany kontraktu testów.
+Rdzenia/Reviewera nie zmieniano; wcześniejsze110/110 i264/264 nie są nowym
+wynikiem0978. Finalny ZIP z committed runtime zostanie osobno przebudowany.
+Mapę zregenerowano. docs:check PASS (542 decyzje/odnośniki/wiersze indeksu,
+43 aktywne taski,10 done); code-map:check PASS. Ruff check i format generatora PASS.
 
 ### Not completed
 
-Kryteria implementacyjne pozostają do wykonania. Audyt operatora jest odłożony do końca pięciu tasków.
+Końcowy audyt operatora i fizyczny odbiór0979. Nie wykonano benchmarków,
+operacji na zdjęciach operatora, uploadu, usług API/Admin ani migracji.
+Brak dowodów, różnica MIME/mtime/fingerprint, niejednoznaczny v1, niezgodny
+końcowy malejący v1 oraz powtórzona akceptacja tej samej source path blokują
+import. Oryginał pozostaje dostępny w dotychczasowym narzędziu. Nie rozszerzono
+zakresu o dowody dla zmienionych metadanych. Awaria procesu ma testy recovery;
+nie obiecujemy gwarancji po awarii dysku lub zasilania.
 
 ### Documentation updates
 
-Task, plan, D-545 i wpisy źródeł prawdy opisują zaakceptowany zamiar.
+Wymagania, architektura, plan, instrukcja, TRACEABILITY, README, mapy,
+CURRENT_STATE i zestawienie przekazania opisują implementację oraz ograniczenia.
+Task przeniesiono do completed. Generacja nowej partii to maksimum generacji
+zachowanych decyzji lub0, ponieważ stary manifest nie ma osobnego pola.
 
 ### Recommended next task
 
-Po osobnym odbiorze zatrzymać zakres.
+Końcowy audyt operatora całych pięciu tasków i fizyczny odbiór0979. Brak push,
+merge lub dalszej implementacji bez nowego zlecenia.

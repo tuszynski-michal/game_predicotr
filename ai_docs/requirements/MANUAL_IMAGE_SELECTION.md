@@ -10,13 +10,16 @@ last_updated: 2026-10-11
 
 Fundament i trwałe projekty oddzielnego selektora Windows 11 x64 są
 zaimplementowane przez0975/0976; pełny interfejs0977 również przeszedł testy.
-Paczka i fizyczny odbiór pozostają w realizacji. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
-opisuje TASK-0975/0976/0977/0979. Odbiorca rozpakowuje ZIP i pracuje offline,
+Paczka0979 przeszła testy lokalne; fizyczny odbiór pozostaje otwarty. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
+opisuje TASK-0975/0976/0977/0979/0978. Odbiorca rozpakowuje ZIP i pracuje offline,
 bez hosta, tunelu, instalacji narzędzi deweloperskich i sesji sieciowej.
 Źródła, postęp oraz wyniki pozostają na jego urządzeniu; Proton Drive
 obsługuje samodzielnie poza aplikacją.
 
-Pierwsze wydanie dotyczy nowych partii. UI ma Nowy projekt/Otwórz/Kontynuuj,
+Pilotaż obejmuje nowe partie oraz przejęcie dowodowo zgodnego manifestu
+operator-local v1/v2 do nowego projektu i wyniku. Nie zmienia starej sesji;
+brak dowodów, niezgodne pliki lub nieobsługiwana historia blokują import.
+UI ma Nowy projekt/Otwórz/Kontynuuj,
 semantykę Reviewera (zapis szeregowy i licznik po trwałym commicie), naturalny
 porządek niezależny od numeracji, skoki 1–10/15/20, zoom 100–3000%, fullscreen,
 obie osie scrolla, undo i jawny preview restartu. rangeForStart zachowuje

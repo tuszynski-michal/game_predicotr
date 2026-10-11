@@ -921,9 +921,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 ## apps/selector-desktop/src
 
-- contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ViewPreferences, CreateProjectRequest, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: powershellJson, assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
+- legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/diagnostic-log.ts: DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
@@ -931,10 +932,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - native/source-registry.ts: MAX_SOURCE_IMAGES, SourceRegistry
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
-- project/project-store.ts: ProjectStoreOptions, ProjectIssue, ProjectStore
+- project/project-store.ts: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
 - project/recent-projects.ts: RecentProject, RecentProjects
 - project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateJournal
-- project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, RestartPreview, ProjectJournal
+- project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal
 - renderer/App.tsx: App
 - renderer/image-viewer.tsx: ImageViewer
 

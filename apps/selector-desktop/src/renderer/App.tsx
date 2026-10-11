@@ -12,6 +12,7 @@ import type {
   RecentProjectSummary,
   RestartSummary,
   ViewPreferences,
+  LegacyPreviewSummary,
 } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -25,6 +26,7 @@ export function App() {
   latest.current = workspace;
   const [recent, setRecent] = useState<RecentProjectSummary[]>([]);
   const [newProject, setNewProject] = useState(false);
+  const [legacy, setLegacy] = useState<LegacyPreviewSummary | null>(null);
   const [first, setFirst] = useState('1');
   const [last, setLast] = useState('');
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
@@ -75,6 +77,7 @@ export function App() {
     setNewProject(false);
     setRangeEditor(false);
     setRestart(null);
+    setLegacy(null);
   }
   function changeView(view: ViewPreferences) {
     const current = latest.current;
@@ -151,7 +154,15 @@ export function App() {
         void window.selector.fullscreen();
         return;
       }
-      if (!workspace || blocked || rangeEditor || restart || newProject) return;
+      if (
+        !workspace ||
+        blocked ||
+        rangeEditor ||
+        restart ||
+        newProject ||
+        legacy
+      )
+        return;
       const action = resolveManualSelectionShortcut({
         key: event.key,
         ctrlKey: event.ctrlKey,
@@ -210,9 +221,72 @@ export function App() {
       </header>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
+      {legacy && (
+        <section className="legacy-preview">
+          <h2>Podgląd sesji Reviewera</h2>
+          <p>
+            Źródło: {legacy.sourceName} · Stary wynik: {legacy.oldOutputName}
+          </p>
+          <p>
+            Zdjęcia: {legacy.fileCount} · Wybrane: {legacy.acceptedCount} ·
+            Pominięte zakresy: {legacy.skippedCount}
+          </p>
+          <p>
+            Pierwsza plansza: {legacy.firstLayout} · Ostatnia plansza:{' '}
+            {legacy.sequenceUpperBound ?? 'bez granicy'} · Kierunek:{' '}
+            {legacy.direction === 'ascending' ? 'rosnący' : 'malejący'}
+          </p>
+          <p>
+            Aktualne zdjęcie: {legacy.currentPhoto} ·{' '}
+            {legacy.selectionComplete
+              ? 'Selekcja zakończona'
+              : `Następny zakres od: ${legacy.nextRangeStart}`}
+          </p>
+          {legacy.legacyCursor && (
+            <p>
+              Pozycja zdjęcia została odtworzona według historycznych zasad
+              Reviewera.
+            </p>
+          )}
+          <p>
+            Sprawdzono źródło i sumy kontrolne JPEG-ów. Powstanie osobny projekt
+            i nowy wynik. Oryginały pozostaną bez zmian.
+          </p>
+          <nav>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () =>
+                  install(
+                    unwrap(
+                      await window.selector.legacyAdopt(legacy.previewToken),
+                    ),
+                  ),
+                )
+              }
+            >
+              Utwórz nowy projekt z tej sesji
+            </button>
+            <button disabled={busy} onClick={() => setLegacy(null)}>
+              Anuluj przejęcie
+            </button>
+          </nav>
+        </section>
+      )}
       {!workspace ? (
         <section className="start">
           <nav>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  setNewProject(false);
+                  setLegacy(unwrap(await window.selector.legacyPreview()));
+                })
+              }
+            >
+              Przejmij sesję Reviewera
+            </button>
             <button disabled={busy} onClick={() => setNewProject(true)}>
               Nowy projekt
             </button>

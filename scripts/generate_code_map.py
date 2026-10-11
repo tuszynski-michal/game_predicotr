@@ -100,6 +100,10 @@ AREAS: tuple[Area, ...] = (
                 "projekcja manifestu operator-local",
             ),
             Unit(
+                "apps/selector-desktop/src/legacy-adoption",
+                "dowodowe preview i przejęcie sesji Reviewera",
+            ),
+            Unit(
                 "apps/selector-desktop/src/native",
                 "lokalne pliki, koordynator projektu, cache widoku i logi",
             ),

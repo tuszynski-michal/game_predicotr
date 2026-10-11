@@ -24,6 +24,7 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 - `apps/selector-desktop/src/project/` (5 ts/tsx) - wersjonowany projekt, dziennik, blokada i ostatnie projekty
 - `apps/selector-desktop/src/filesystem/` (2 ts/tsx) - bezpieczny lokalny zapis i ograniczenia katalogów
 - `apps/selector-desktop/src/manifest/` (1 ts/tsx) - projekcja manifestu operator-local
+- `apps/selector-desktop/src/legacy-adoption/` (1 ts/tsx) - dowodowe preview i przejęcie sesji Reviewera
 - `apps/selector-desktop/src/native/` (5 ts/tsx) - lokalne pliki, koordynator projektu, cache widoku i logi
 - `apps/selector-desktop/src/renderer/` (4 ts/tsx) - interfejs React dołączony do ZIP
 - `apps/selector-desktop/src/contracts.ts` - typowany most IPC
@@ -33,14 +34,14 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 
 - `apps/selector-desktop/src/main.ts`
 - `apps/selector-desktop/src/preload.ts`
-- `apps/selector-desktop/src/contracts.ts`: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ViewPreferences, CreateProjectRequest (+9)
+- `apps/selector-desktop/src/contracts.ts`: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences (+10)
 - `apps/selector-desktop/src/native/project-controller.ts`: NativeDialogs, validateCreate, ProjectController
-- `apps/selector-desktop/src/project/project-store.ts`: ProjectStoreOptions, ProjectIssue, ProjectStore
+- `apps/selector-desktop/src/project/project-store.ts`: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
 - `apps/selector-desktop/src/renderer/App.tsx`: App
 
 ### Testy
 
-- `apps/selector-desktop/test/` (5 plików w katalogu testów, rekurencyjnie)
+- `apps/selector-desktop/test/` (9 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

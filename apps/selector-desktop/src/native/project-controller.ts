@@ -5,6 +5,11 @@ import { RecentProjects } from '../project/recent-projects.ts';
 import type { ProjectCommand } from '../project/types.ts';
 import { SourceRegistry } from './source-registry.ts';
 import {
+  inspectLegacy,
+  sameLegacyProof,
+  type LegacyProof,
+} from '../legacy-adoption/legacy-preview.ts';
+import {
   DEFAULT_VIEW,
   validateId,
   validateView,
@@ -16,6 +21,7 @@ import {
   type SourceIndex,
   type DesktopWorkspace,
   type ViewPreferences,
+  type LegacyPreviewSummary,
 } from '../contracts.ts';
 export interface NativeDialogs {
   directory(title: string, defaultPath?: string): Promise<string | null>;
@@ -68,6 +74,11 @@ export class ProjectController {
   private dialogs: NativeDialogs;
   private recentCache: RecentProjects;
   private views: ViewPreferencesStore;
+  private legacyProof: {
+    token: string;
+    proof: LegacyProof;
+    result: DesktopWorkspace | null;
+  } | null = null;
   constructor(
     userData: string,
     registry: SourceRegistry,
@@ -171,6 +182,108 @@ export class ProjectController {
   }
   close(): Promise<void> {
     return this.serial(() => this.closeInternal());
+  }
+  legacyPreview(): Promise<LegacyPreviewSummary | null> {
+    return this.serial(async () => {
+      this.legacyProof = null;
+      const source = await this.dialogs.directory(
+        'Wybierz źródło starej sesji Reviewera',
+      );
+      if (!source) return null;
+      const output = await this.dialogs.directory(
+        'Wybierz stary wynik sesji Reviewera',
+      );
+      if (!output) return null;
+      const proof = await inspectLegacy(source, output);
+      const token = randomUUID();
+      this.legacyProof = { token, proof, result: null };
+      const s = proof.seed;
+      return {
+        previewToken: token,
+        schemaVersion: proof.schemaVersion,
+        sourceName: s.sourceDirectoryName,
+        oldOutputName: path.basename(proof.oldOutputRoot),
+        fileCount: s.inventory.length,
+        firstLayout: s.firstLayout,
+        direction: s.direction,
+        sequenceUpperBound: s.sequenceUpperBound,
+        nextRangeStart: s.nextRangeStart,
+        selectionComplete: s.selectionComplete,
+        currentPhoto:
+          s.inventory.findIndex(
+            (i) => i.relativePath === s.currentRelativePath,
+          ) + 1,
+        acceptedCount: s.decisions.filter((d) => d.action === 'accepted')
+          .length,
+        skippedCount: s.decisions.filter((d) => d.action === 'skipped').length,
+        legacyCursor: proof.legacyCursor,
+      };
+    });
+  }
+  legacyAdopt(token: unknown): Promise<DesktopWorkspace | null> {
+    return this.serial(async () => {
+      validateId(token);
+      const preview = this.legacyProof;
+      if (!preview || preview.token !== token)
+        throw new SelectorError(
+          'LEGACY_PREVIEW_EXPIRED',
+          'Wykonaj ponownie podgląd starej sesji.',
+        );
+      if (preview.result) {
+        if (this.store?.snapshot().projectId !== preview.result.projectId)
+          throw new SelectorError(
+            'LEGACY_PREVIEW_EXPIRED',
+            'Projekt został zmieniony. Otwórz zapisany projekt.',
+          );
+        return this.snapshot();
+      }
+      const projectRoot = await this.dialogs.directory(
+        'Wybierz nowy pusty katalog projektu',
+      );
+      if (!projectRoot) return null;
+      const outputRoot = await this.dialogs.directory(
+        'Wybierz nowy pusty katalog wynikowy',
+      );
+      if (!outputRoot) return null;
+      if (
+        !(await this.dialogs.confirm(
+          `Przejęcie sesji: ${preview.proof.seed.sourceDirectoryName}\nNowy projekt: ${projectRoot}\nNowy wynik: ${outputRoot}\n\nProjekt i nowy wynik są na lokalnym dysku poza synchronizacją. Stary wynik i źródło pozostaną bez zmian. Utworzyć nowy projekt?`,
+        ))
+      )
+        return null;
+      const proof = await inspectLegacy(
+        preview.proof.sourceRoot,
+        preview.proof.oldOutputRoot,
+      );
+      if (!sameLegacyProof(preview.proof, proof))
+        throw new SelectorError(
+          'LEGACY_CHANGED',
+          'Sesja zmieniła się od podglądu. Wykonaj podgląd ponownie.',
+        );
+      const store = await ProjectStore.createFromSelection(
+        {
+          sourceRoot: proof.sourceRoot,
+          projectRoot,
+          outputRoot,
+          firstLayout: proof.seed.firstLayout,
+          direction: proof.seed.direction,
+          sequenceUpperBound: proof.seed.sequenceUpperBound,
+          localStorageConfirmed: true,
+        },
+        {},
+        proof.seed,
+        proof.oldOutputRoot,
+      );
+      try {
+        await this.closeInternal();
+        const result = await this.replaceStore(store);
+        preview.result = result;
+        return result;
+      } catch (error) {
+        await store.close();
+        throw error;
+      }
+    });
   }
   create(value: unknown): Promise<DesktopWorkspace | null> {
     return this.serial(async () => {

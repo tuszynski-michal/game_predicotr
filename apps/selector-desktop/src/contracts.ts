@@ -15,6 +15,8 @@ export const CHANNELS = {
   close: 'selector:close',
   openOutput: 'selector:open-output',
   fullscreen: 'selector:fullscreen',
+  legacyPreview: 'selector:legacy-preview',
+  legacyAdopt: 'selector:legacy-adopt',
 } as const;
 export interface SourceImage {
   id: string;
@@ -33,6 +35,10 @@ export type NativeResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string } };
 export interface SelectorBridge {
+  legacyPreview(): Promise<NativeResult<LegacyPreviewSummary | null>>;
+  legacyAdopt(
+    previewToken: string,
+  ): Promise<NativeResult<DesktopWorkspace | null>>;
   pickSource(): Promise<NativeResult<SourceIndex | null>>;
   openLogs(): Promise<NativeResult<void>>;
   create(
@@ -55,6 +61,22 @@ export interface SelectorBridge {
   close(): Promise<NativeResult<void>>;
   openOutput(): Promise<NativeResult<void>>;
   fullscreen(): Promise<NativeResult<boolean>>;
+}
+export interface LegacyPreviewSummary {
+  previewToken: string;
+  schemaVersion: 1 | 2;
+  sourceName: string;
+  oldOutputName: string;
+  fileCount: number;
+  firstLayout: number;
+  direction: 'ascending' | 'descending';
+  sequenceUpperBound: number | null;
+  nextRangeStart: number;
+  selectionComplete: boolean;
+  currentPhoto: number;
+  acceptedCount: number;
+  skippedCount: number;
+  legacyCursor: boolean;
 }
 export interface ViewPreferences {
   navigationStep: number;

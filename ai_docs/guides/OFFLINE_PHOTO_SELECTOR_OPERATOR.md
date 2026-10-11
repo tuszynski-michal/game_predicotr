@@ -19,6 +19,8 @@ Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów proje
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:foundation --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:project --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:ui --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:legacy --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:legacy-recovery --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
@@ -104,7 +106,8 @@ jako sposobu naprawy brakującego katalogu.
 Folder projektu musi być na lokalnym dysku poza Proton Drive i inną
 synchronizacją oraz udziałami sieciowymi. Gotowy wynik można ręcznie
 przesłać przez Proton Drive. Program nie generuje linków i nic nie uploaduje.
-W pierwszym wydaniu zaczyna się nowe partie; bieżące kończy się w Reviewerze.
+Nowe partie zaczyna się lokalnie. Zgodną starą sesję można przejąć z jej
+manifestu i folderów, według procedury poniżej; niezgodną kończy się w Reviewerze.
 
 Przy `Zapis zatrzymany` zapisać kod błędu. Brak źródła lub wyniku wymaga
 `Wskaż ponownie źródło` albo `Wskaż ponownie wynik`, bez resetu. Wskazać zgodny
@@ -113,6 +116,28 @@ przeniesiony katalog, nie pusty zamiennik. Po naprawie miejsca/uprawnień użyć
 program nie zgaduje, że zmieniły się tylko daty plików.
 Nie nadpisywać ręcznie plików seq_* w aktywnym projekcie. Obcy lub zmieniony
 plik blokuje zapis/cofnięcie. Restart wymaga preview i świadomego potwierdzenia.
+
+## Przejęcie sesji Reviewera
+
+Przepływ0978 przeszedł testy kontraktu, recovery oraz rzeczywistego EXE.
+`Przejmij sesję Reviewera` rozpoczyna lokalny odczyt źródła i starego wyniku z
+manifestem `manual-image-selection-output-v1.json`. Nie odczytuje IndexedDB
+przeglądarki, nie łączy się z hostem i nie zmienia starego wyniku.
+
+Po walidacji pokazuje podgląd postępu. `Utwórz nowy projekt z tej sesji`
+pozwala wskazać dwa nowe, puste lokalne foldery: projekt i wynik. Natywne
+potwierdzenie pokazuje lokalizacje. Import kopiuje zweryfikowane JPEG-i,
+przenosi decyzje i pozycję oraz zapisuje manifest v2 w nowym wyniku.
+Anulowanie podglądu nie resetuje ani nie modyfikuje starej sesji.
+
+Przejęcie jest dostępne tylko z dowodowo zgodnego v1/v2. Brak fingerprint
+źródła, fileCount lub jednoznacznej konfiguracji, zmieniona lista/metadane,
+niezgodne checksumy JPEG i obce pliki blokują import. Historyczny nietypowy
+MIME może dawać inny fingerprint; program go nie przerabia ani nie zgaduje
+zmiany samych dat. V1 z końcową malejącą stroną i sprzeczną semantyką
+zakończenia oraz historia wielokrotnie akceptująca tę samą source path są
+nieobsługiwane. Nie poprawiać manifestu ręcznie, aby wymusić import.
+Taką sesję zachować i kontynuować dotychczasowym narzędziem.
 
 ## Trwałość projektu
 

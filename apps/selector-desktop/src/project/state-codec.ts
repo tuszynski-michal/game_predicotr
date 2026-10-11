@@ -200,7 +200,7 @@ function validateStateStructure(state: ProjectState): void {
 export function validateJournal(journal: ProjectJournal): void {
   if (
     !journal ||
-    journal.schemaVersion !== 1 ||
+    (journal.schemaVersion !== 1 && journal.schemaVersion !== 2) ||
     !['prepared', 'jpeg_written', 'committed'].includes(journal.phase) ||
     !Array.isArray(journal.removals)
   )
@@ -210,6 +210,44 @@ export function validateJournal(journal: ProjectJournal): void {
     );
   validateState(journal.after);
   if (journal.before !== null) validateState(journal.before);
+  if (journal.schemaVersion === 2) {
+    const copies = journal.importCopies;
+    const decisions = journal.after.decisions.filter(
+      (d) => d.action === 'accepted',
+    );
+    const byOutput = new Map(decisions.map((d) => [d.outputName, d]));
+    if (
+      journal.before !== null ||
+      journal.after.revision !== 0 ||
+      Object.keys(journal.after.receipts).length !== 0 ||
+      journal.copy !== null ||
+      journal.removals.length ||
+      !Array.isArray(copies) ||
+      copies.some((c) => !c || typeof c !== 'object' || Array.isArray(c)) ||
+      copies.length !== decisions.length ||
+      new Set(copies.map((c) => c.outputName)).size !== copies.length ||
+      copies.some(
+        (c) =>
+          !Number.isSafeInteger(c.sizeBytes) ||
+          c.sizeBytes < 0 ||
+          !(() => {
+            const d = byOutput.get(c.outputName);
+            return (
+              d &&
+              d.imagePath === c.imagePath &&
+              d.imageChecksumSha256 === c.checksumSha256 &&
+              journal.after.inventory[d.sourceIndex].sizeBytes === c.sizeBytes
+            );
+          })(),
+      )
+    )
+      throw new SelectorError(
+        'JOURNAL_CORRUPT',
+        'Import nie odpowiada pełnej historii projektu.',
+      );
+  } else if (journal.importCopies !== undefined) {
+    throw new SelectorError('JOURNAL_CORRUPT', 'Nieznany format importu.');
+  }
   if (
     journal.projectId !== journal.after.projectId ||
     (journal.before !== null &&

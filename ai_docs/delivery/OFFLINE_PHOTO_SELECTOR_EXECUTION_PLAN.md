@@ -35,7 +35,8 @@ Operator zaakceptował plan i polecił jego implementację 2026-10-11.
 Oddzielnie zatwierdził przewidywany koszt 3–6 godzin pracy z testami,
 pakowaniem i audytami, bez wiarygodnego szacunku procentu pakietu.
 
-- Pierwsze wydanie obejmuje **0975 → 0976 → 0977 → 0979**.
+- Pierwotne pierwsze wydanie obejmowało **0975 → 0976 → 0977 → 0979**.
+  Końcowy zakres pilotażu obejmuje także zgodne przejęcie starej sesji0978.
 - Operator uruchomił również TASK-0978 poleceniem wykonania pięciu zadań.
   Kolejność implementacji: 0975 → 0976 → 0977 → 0979 → 0978.
 - Pierwsze przekazanie to pilotaż bez podpisu na konkretnym komputerze.
@@ -173,10 +174,14 @@ Szczegóły: [task 0979](../tasks/0979-selector-desktop-release-acceptance.md).
 
 Po części implementacyjnej 0979; polecenie pięciu tasków uruchomiło 0978. Operator-local v1/v2, checksummy źródła
 i wybranych plików, preview i nowy projekt bez modyfikacji oryginału.
-Brak dowodów lub różna tożsamość źródła blokują migrację. Stary output nie
+Brak dowodów lub różna tożsamość źródła blokują migrację. V1 wymaga jawnej
+konfiguracji. Historyczny końcowy malejący v1 o semantyce niezgodnej z v2
+jest odrzucany; nie zmieniamy ukrycie flagi zakończenia. Historia z wielokrotną
+akceptacją tego samego źródła również wymaga odrębnego rozszerzenia, mimo
+że stary parser tolerował taki zapis; GUI i obecny desktop blokują powtórki. Stary output nie
 zawiera pełnej listy metadanych źródła: nie wolno na podstawie samej innej
 checksummy twierdzić, że różni się wyłącznie mtime. Taki scenariusz wymaga
-osobnego rozszerzenia. Szczegóły: [task 0978](../tasks/0978-selector-desktop-legacy-adoption.md).
+osobnego rozszerzenia. Szczegóły: [task 0978](../tasks/completed/0978-selector-desktop-legacy-adoption.md).
 
 ## Dokumentacja, audyt planu i odbiór
 

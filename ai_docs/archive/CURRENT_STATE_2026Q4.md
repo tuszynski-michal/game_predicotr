@@ -6,6 +6,14 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0951 — dokładny licznik serii supergry (done)
+
+- `listSuperGameSeries` zwraca `counts { total, undefined }`: dokładne liczby wszystkich serii gry i serii bez super symbolu, niezależne od filtrów i strony, z tego samego snapshotu. Admin pokazuje „<undefined> z <total> serii bez super symbolu” zamiast `200+`; osobne zapytanie licznika usunięte.
+- Odczyt API Mumii 2026-10-09 (generacja nieświeża): 2553 serie, 4 z super symbolem, 2549 do zdefiniowania.
+- API 10/10, PostgreSQL 3/3, Admin 733/733, typecheck, lint, mypy, `openapi:check` PASS. Bez migracji, zmian danych, usług i push.
+- Outcome: `ai_docs/tasks/completed/0951-super-game-series-exact-counts.md`.
+- Scalone do gałęzi integracyjnej 2026-10-10 (merge v1.7.310).
+
 ### TASK-0971 — przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (done)
 
 - Plik: `ai_docs/tasks/completed/0971-replacement-photo-sequence-takeover.md`; plan etap R3. Commit v1.7.296 / 530c1d1728be460b5be72e138ee5dab59cdbba3b.

@@ -9,7 +9,8 @@ last_updated: 2026-10-11
 ## Lokalny selektor Windows — D-545, zaakceptowana architektura
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
-ma zaimplementowane fundament0975, trwałość0976 i interfejs0977; wydanie jest w realizacji. Korzysta z manual-image-selection-core,
+ma zaimplementowane fundament0975, trwałość0976, interfejs0977 oraz przejęcie0978.
+Wydanie0979 przeszło testy lokalne; fizyczny odbiór jest otwarty. Korzysta z manual-image-selection-core,
 ma własny renderer i natywne adaptery; nie wydziela komponentów Admina ani
 Reviewera. Brak nowych endpointów, OpenAPI i tabel PostgreSQL.
 
@@ -36,6 +37,15 @@ nazwą manual-image-selection-output-v1.json. Jest projekcją, a nie drugim
 przechowuje ścieżkę względną; brak folderu wymaga relink bez resetu.
 Zdjęcia są kopiowane bajtowo/strumieniowo i checksummowane.
 
+Przejęcie wielu JPEG-ów wykorzystuje journal schema v2 z listą importCopies;
+zwykłe operacje i recovery istniejącego journal v1 pozostają zgodne. Import
+tworzy nowy projekt i wynik, po walidacji source/output oraz jawnej akceptacji
+preview. Nie odtwarza historii przez powtarzanie nowych poleceń accept.
+Generacja każdej decyzji jest zachowana. Stary manifest nie ma osobnego pola
+bieżącej generacji partii; nowy lokalny licznik przyjmuje maksimum generacji
+decyzji lub0 dla pustej historii. Preview używa osobnego indeksu źródła,
+więc nie unieważnia identyfikatorów otwartego projektu.
+
 Krok, zoom i obie pozycje scrolla są pomocniczym atomowym cache userData
 według projectId. Brak cache nie resetuje decyzji ani kursora. UI serializuje
 mutacje i pokazuje zatwierdzenie dopiero po finalnym zapisie. Relink zdrowego
@@ -44,6 +54,9 @@ projektu pozwala jawnie powiązać kopię wyniku przed dalszą pracą.
 Przy migracji starych sesji (0978) sama różna checksuma source manifestu
 nie dowodzi zmiany wyłącznie mtime: stary output nie ma pełnego source
 inventory. Brak wystarczających dowodów blokuje przejęcie.
+V1 bez jawnej konfiguracji, sprzeczny końcowy malejący v1 i historia
+ponownie akceptująca tę samą source path nie są zgodne z bieżącym stanem
+desktopu; import ich nie naprawia ani nie zmienia oryginału.
 Pełny zakres, taski, błędy i odbiór: [plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md).
 
 Workspace React działa wyłącznie w przeglądarce Admina. Wspólny lokalny

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { CHANNELS, type SelectorBridge } from './contracts.ts';
 const bridge = Object.freeze<SelectorBridge>({
+  legacyPreview: () => ipcRenderer.invoke(CHANNELS.legacyPreview),
+  legacyAdopt: (token) => ipcRenderer.invoke(CHANNELS.legacyAdopt, token),
   pickSource: () => ipcRenderer.invoke(CHANNELS.pickSource),
   openLogs: () => ipcRenderer.invoke(CHANNELS.openLogs),
   create: (options) => ipcRenderer.invoke(CHANNELS.create, options),

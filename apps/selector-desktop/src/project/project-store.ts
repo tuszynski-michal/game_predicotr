@@ -50,6 +50,8 @@ import {
   type OperationReceipt,
   type SourceInventoryItem,
   type RestartPreview,
+  type ProjectAdoptionSeed,
+  type JournalCopy,
 } from './types.ts';
 
 export interface ProjectStoreOptions {
@@ -60,7 +62,7 @@ export interface ProjectIssue {
   code: string;
   message: string;
 }
-async function inventoryFor(root: string): Promise<{
+export async function inventoryFor(root: string): Promise<{
   inventory: SourceInventoryItem[];
   checksum: string;
   root: string;
@@ -145,6 +147,23 @@ export class ProjectStore {
     input: ProjectCreateOptions,
     options: ProjectStoreOptions = {},
   ): Promise<ProjectStore> {
+    return this.createInitial(input, options);
+  }
+  /** Native-only hook for a fully verified selection; new roots must be empty. */
+  static async createFromSelection(
+    input: ProjectCreateOptions,
+    options: ProjectStoreOptions,
+    seed: ProjectAdoptionSeed,
+    oldOutputRoot: string,
+  ): Promise<ProjectStore> {
+    return this.createInitial(input, options, seed, oldOutputRoot);
+  }
+  private static async createInitial(
+    input: ProjectCreateOptions,
+    options: ProjectStoreOptions,
+    adoption?: ProjectAdoptionSeed,
+    oldOutputRoot?: string,
+  ): Promise<ProjectStore> {
     if (input.direction !== 'ascending' && input.direction !== 'descending')
       throw new SelectorError(
         'INVALID_ARGUMENT',
@@ -166,13 +185,31 @@ export class ProjectStore {
     await assertLocalStorage(input.projectRoot, input.localStorageConfirmed);
     await assertLocalStorage(input.outputRoot, input.localStorageConfirmed);
     const source = await inventoryFor(input.sourceRoot);
+    if (
+      adoption &&
+      (source.checksum !== adoption.sourceManifestChecksumSha256 ||
+        stableStringify(source.inventory) !==
+          stableStringify(adoption.inventory) ||
+        path.basename(source.root) !== adoption.sourceDirectoryName)
+    )
+      throw new SelectorError(
+        'SOURCE_IDENTITY_CONFLICT',
+        'Źródło zmieniło się od podglądu przejęcia.',
+      );
     if (!source.inventory.length)
       throw new SelectorError('EMPTY_SOURCE', 'Źródło nie zawiera zdjęć JPEG.');
     // Resolve parents before creating either leaf. An 8.3 alias must never
     // cause even an empty project directory to be created inside source.
     const projectLocation = await canonicalDirectoryLocation(input.projectRoot);
     const outputLocation = await canonicalDirectoryLocation(input.outputRoot);
-    assertSeparateRoots([source.root, projectLocation, outputLocation]);
+    assertSeparateRoots([
+      source.root,
+      projectLocation,
+      outputLocation,
+      ...(oldOutputRoot
+        ? [await canonicalDirectoryLocation(oldOutputRoot)]
+        : []),
+    ]);
     const projectRoot = await ensureDirectory(input.projectRoot);
     const outputRoot = await ensureDirectory(input.outputRoot);
     assertSeparateRoots([source.root, projectRoot, outputRoot]);
@@ -184,7 +221,6 @@ export class ProjectStore {
         'FOREIGN_CONTENT',
         'Nowy projekt wymaga pustego katalogu projektu i wyniku.',
       );
-    const lock = await ProjectLock.acquire(files, options.processes);
     const state: ProjectState = {
       schemaVersion: 1,
       projectId: randomUUID(),
@@ -194,20 +230,26 @@ export class ProjectStore {
       sourceDirectoryName: path.basename(source.root),
       sourceManifestChecksumSha256: source.checksum,
       inventory: source.inventory,
-      firstLayout: input.firstLayout,
-      direction: input.direction,
-      sequenceUpperBound: input.sequenceUpperBound ?? null,
-      currentRelativePath: source.inventory[0].relativePath,
-      nextRangeStart: input.firstLayout,
-      selectionComplete: false,
-      selectionGeneration: 0,
-      decisions: [],
+      firstLayout: adoption ? adoption.firstLayout : input.firstLayout,
+      direction: adoption ? adoption.direction : input.direction,
+      sequenceUpperBound: adoption
+        ? adoption.sequenceUpperBound
+        : (input.sequenceUpperBound ?? null),
+      currentRelativePath: adoption
+        ? adoption.currentRelativePath
+        : source.inventory[0].relativePath,
+      nextRangeStart: adoption ? adoption.nextRangeStart : input.firstLayout,
+      selectionComplete: adoption ? adoption.selectionComplete : false,
+      selectionGeneration: adoption ? adoption.selectionGeneration : 0,
+      decisions: adoption ? structuredClone(adoption.decisions) : [],
       receipts: {},
       updatedAt: new Date().toISOString(),
     };
+    validateState(state);
+    const lock = await ProjectLock.acquire(files, options.processes);
     const store = new ProjectStore(files, lock, state, options);
     const journal: ProjectJournal = {
-      schemaVersion: 1,
+      schemaVersion: adoption ? 2 : 1,
       projectId: state.projectId,
       phase: 'prepared',
       before: null,
@@ -215,6 +257,16 @@ export class ProjectStore {
       operationId: 'initial-create',
       copy: null,
       removals: [],
+      ...(adoption
+        ? {
+            importCopies: accepted(state).map((d) => ({
+              imagePath: d.imagePath!,
+              outputName: d.outputName!,
+              checksumSha256: d.imageChecksumSha256!,
+              sizeBytes: state.inventory[d.sourceIndex].sizeBytes,
+            })),
+          }
+        : {}),
     };
     try {
       await store.prepare(journal);
@@ -388,6 +440,7 @@ export class ProjectStore {
       if (actual === null) {
         const recoverable =
           journal?.copy?.outputName === name ||
+          journal?.importCopies?.some((item) => item.outputName === name) ||
           journal?.removals.some((item) => item.outputName === name);
         if (!recoverable)
           throw new SelectorError(
@@ -467,16 +520,16 @@ export class ProjectStore {
   private async copyJpeg(
     journal: ProjectJournal,
     output: SecureFiles,
+    copy: JournalCopy | null = journal.copy,
   ): Promise<void> {
-    const copy = journal.copy;
     if (!copy) return;
-    if ((await output.hash(copy.outputName)) === copy.checksumSha256) return;
     const sourceHash = await this.sourceChecksum(journal.after, copy.imagePath);
     if (sourceHash !== copy.checksumSha256)
       throw new SelectorError(
         'SOURCE_CHECKSUM_CONFLICT',
         'Źródłowe zdjęcie ma inną sumę kontrolną.',
       );
+    if ((await output.hash(copy.outputName)) === copy.checksumSha256) return;
     const temporary = scratch(journal, 'jpeg');
     await output.clearScratch(temporary);
     const destination = await open(await output.target(temporary), 'wx');
@@ -546,6 +599,7 @@ export class ProjectStore {
     if (recovery) await this.checkSource(journal.after);
     const touched = new Set(journal.removals.map((item) => item.outputName));
     if (journal.copy) touched.add(journal.copy.outputName);
+    for (const copy of journal.importCopies ?? []) touched.add(copy.outputName);
     const output = await this.outputFiles(journal.after);
     this.outputLease = await ProjectLock.acquire(output, this.processes, true);
     this.outputLeaseRoot = output.root;
@@ -559,6 +613,10 @@ export class ProjectStore {
       );
       await this.checkpoint('jpeg:before');
       await this.copyJpeg(journal, output);
+      for (const copy of journal.importCopies ?? []) {
+        await this.copyJpeg(journal, output, copy);
+        await this.checkpoint('import:copy');
+      }
       for (const removal of journal.removals)
         await output.removeOwned(removal.outputName, removal.checksumSha256);
       await this.checkpoint('jpeg:after');

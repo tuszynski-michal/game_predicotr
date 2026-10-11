@@ -6,16 +6,16 @@ last_updated: 2026-10-11
 
 # Lokalny selektor Windows — instrukcja projektowana
 
-Gotowy jest fundament 0975: wybór lokalnego źródła, podgląd JPEG i diagnostyka.
-Paczka tego taska nie realizuje jeszcze trwałej selekcji. Dalsze sekcje
-opisują docelowy workflow; wyniki 0976/0977/0979/0978 uzupełnią tę instrukcję.
+Gotowe są fundament0975 i natywna trwałość0976. Pełny interfejs selekcji
+powstaje w0977; wcześniejsza paczka fundamentu go nie zawiera. Dalsze sekcje
+opisują docelowy workflow, który zostanie sprawdzony przy wydaniu0979.
 
 ## Budowanie i kontrola fundamentu
 
 Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node:
 
 ```powershell
-node apps/selector-desktop/scripts/run-bounded.mjs 60 npm run test --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run selector:make
@@ -58,6 +58,17 @@ W pierwszym wydaniu zaczyna się nowe partie; bieżące kończy się w Reviewerz
 Brak źródła lub wyniku wymaga ponownego wskazania lokalizacji, bez resetu.
 Nie nadpisywać ręcznie plików seq_* w aktywnym projekcie. Obcy lub zmieniony
 plik blokuje zapis/cofnięcie. Restart wymaga preview i świadomego potwierdzenia.
+
+## Trwałość projektu
+
+Decyzje i bieżąca względna ścieżka zdjęcia są w wersjonowanym projekcie.
+Manifest w wyniku jest jego projekcją. Potwierdzenie decyzji następuje po zapisie
+JPEG-a, stanu, manifestu i kopii stanu. Dziennik pozwala dokończyć przerwaną
+operację po awarii procesu. Uszkodzenie, brak miejsca lub konflikt zatrzymują
+nowe decyzje; nie usuwać ręcznie dziennika ani plików blokad.
+Nieznany właściciel blokady wymaga diagnostyki, a sam upływ czasu nie pozwala
+przejąć projektu. Folderów projektu i aktywnego wyniku nie synchronizować.
+Nie obiecujemy odporności na awarię dysku ani zanik zasilania.
 
 ## Aktualizacja, kopia i diagnostyka
 

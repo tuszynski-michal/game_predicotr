@@ -72,7 +72,20 @@ Legacy adoption, OCR, trace uczenia, repair, upload, wspólny pakiet UI i zmiany
 
 ## Technical notes
 
-F zachowuje bieżący JPEG jak Reviewer, Enter ma zachowanie Reviewera; nie przenoś niescalonej semantyki Admina. Skoki są listą 1–10,15,20, nie każdym numerem do 20. Edytor respektuje rangeForStart (9 lub końcówka). Mutacje są szeregowane; busy nie resetuje scrolla. Restart jest destrukcyjną funkcją, nie zgodą na jej wykonanie na zdjęciach użytkownika.
+Reviewer `remote-manual-selection-workspace.tsx:437`, `:548`, `:729`:
+Enter/F wykonują tę samą akceptację i przesuwają źródło o jeden (z końcowym
+clamp), niezależnie od navigationStep. Tab pomija zakres i zachowuje bieżące
+zdjęcie. Kierunek zmienia numerację, nie porządek zdjęć. Testy i UI muszą
+zachować te reguły; nie przenosić odmiennych zachowań innych konsumentów rdzenia.
+
+Skoki są listą 1–10,15,20, nie każdym numerem do20. Edytor respektuje rangeForStart (9 lub końcówka). Mutacje są szeregowane; busy nie resetuje scrolla. Restart jest destrukcyjną funkcją, nie zgodą na jej wykonanie na zdjęciach użytkownika.
+
+Założenie implementacyjne: krok nawigacji, zoom i obie pozycje scrolla są
+pomocniczym cache'em widoku w userData według stabilnego projectId. Natywna
+warstwa waliduje i serializuje atomowy zapis; zamknięcie/zmiana projektu
+rozlicza oczekujące zapisy. Brak/uszkodzenie cache'u przywraca domyślny widok,
+bez resetowania projektu, decyzji lub kursora. Kopia projektu zachowuje pracę;
+preferencje widoku nie są wymaganym dowodem jej tożsamości.
 
 ## Expected files
 
@@ -94,18 +107,17 @@ Z katalogu worktree selektora. Każda skończona komenda ma timeout do 120 s;
 znany dłuższy build tylko po uprzedniej informacji i osobnym limicie.
 
 ```powershell
-npm run test --workspace @game-predictor/manual-image-selection-core
-npm run typecheck --workspace @game-predictor/manual-image-selection-core
-npm run test --workspace @game-predictor/reviewer
-npm run docs:check
-npm run code-map:check
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/manual-image-selection-core
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run typecheck --workspace @game-predictor/manual-image-selection-core
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/reviewer
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run docs:check
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run code-map:check
 ```
 
 Powyższe skrypty istnieją w repo. W nowym worktree wymagają dostępnych
 zależności oraz interpreterów; przygotowanie środowiska nie uprawnia do
-restartu usług ani migracji. TASK-0975 ma dodać test/lint/typecheck/build/
-package/make aplikacji desktopowej, a następnie zapisać sprawdzone komendy
-i wyniki w Outcome. Te skrypty są teraz proponowane, nie wykonane.
+restartu usług ani migracji. TASK-0975 dodał test/lint/typecheck/build/package/make aplikacji desktopowej.
+Dla bieżącego taska należy zapisać sprawdzone komendy i wyniki w Outcome. Skrypty desktopu istnieją po0975; ich wynik dla bieżącego taska wymaga osobnego wykonania.
 Testy Reviewera sprawdzają zgodność kontraktu; nie zastępują odbioru Electrona.
 Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:check.
 

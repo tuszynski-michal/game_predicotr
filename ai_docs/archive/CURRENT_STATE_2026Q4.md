@@ -6,6 +6,15 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0970 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
+
+- Plik: `ai_docs/tasks/completed/0970-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.
+- Odrzucenie slotu (`rejectPendingBoardCellGeometry`, powód `cropped`/`blurred`/`other`) i planszy (istniejące rozstrzygnięcie `rejected`, odmowa `BOARD_REJECT_CANONICAL`) z przycisku „Odrzuć planszę” w Reviewerze; bramka bez zmian (zdjęcie czeka, W8); odrzucone pozycje wykluczone z weryfikacji symboli, liczników i operacji zbiorczych (`review_item_id NOT IN` odrzuconych), liczniki zwalniane i przywracane przy każdym wyjściu z `rejected`; cofnięcie odrzucenia z listy „Ostatnie korekty” (`GEOMETRY_REVERT_REPLACED` po przejęciu sekwencji).
+- Migracja `0154` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
+- Naprawiona regresja TASK-0966/0967: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
+- Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
+
+
 ### TASK-0969 — sekcja „Ostatnie korekty” w Reviewerze (done)
 
 - Plik: `ai_docs/tasks/completed/0969-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.

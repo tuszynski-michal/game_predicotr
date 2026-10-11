@@ -9,7 +9,7 @@ last_updated: 2026-09-15
 ## Lokalny selektor Windows — D-545, zaakceptowana architektura
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
-ma zaimplementowany fundament 0975; dalsze taski są w realizacji. Korzysta z manual-image-selection-core,
+ma zaimplementowane fundament0975 i trwałość0976; UI i wydanie są w realizacji. Korzysta z manual-image-selection-core,
 ma własny renderer i natywne adaptery; nie wydziela komponentów Admina ani
 Reviewera. Brak nowych endpointów, OpenAPI i tabel PostgreSQL.
 
@@ -24,6 +24,9 @@ Wersjonowany projekt na dysku jest źródłem prawdy. Stan temp/sync/replace
 z backupem, journal faz prepare/JPEG/decision i idempotentny writer są
 rozliczane przez recovery przed mutacjami. Plik blokady projektu powstaje
 atomowo; heartbeat timeout nie pozwala samodzielnie przejąć własności.
+Transakcja dodatkowo bierze atomową przejściową lease outputu, chroniąc dwa
+różne projekty przed wyścigiem o ten sam folder; lease jest usuwana przed
+potwierdzeniem, a recovery sprawdza jej właściciela/proces.
 Nieznany host/proces blokuje zapis; same requestSingleInstanceLock i folder
 synchronizowany nie dają locka między komputerami. Projekt nie jest w chmurze.
 

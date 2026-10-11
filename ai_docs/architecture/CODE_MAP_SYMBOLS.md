@@ -922,9 +922,17 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 ## apps/selector-desktop/src
 
 - contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- filesystem/local-storage.ts: powershellJson, assertLocalStorage
+- filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
+- manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/diagnostic-log.ts: DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/source-registry.ts: MAX_SOURCE_IMAGES, SourceRegistry
+- project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
+- project/project-store.ts: ProjectStoreOptions, ProjectIssue, ProjectStore
+- project/recent-projects.ts: RecentProject, RecentProjects
+- project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateJournal
+- project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, RestartPreview, ProjectJournal
 
 ## apps/mobile/src
 

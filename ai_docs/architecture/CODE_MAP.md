@@ -21,6 +21,9 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 
 ### Katalogi
 
+- `apps/selector-desktop/src/project/` (5 ts/tsx) - wersjonowany projekt, dziennik, blokada i ostatnie projekty
+- `apps/selector-desktop/src/filesystem/` (2 ts/tsx) - bezpieczny lokalny zapis i ograniczenia katalogów
+- `apps/selector-desktop/src/manifest/` (1 ts/tsx) - projekcja manifestu operator-local
 - `apps/selector-desktop/src/native/` (3 ts/tsx) - lokalne pliki, bezpieczeństwo ścieżek i logi
 - `apps/selector-desktop/src/renderer/` (2 ts/tsx) - interfejs React dołączony do ZIP
 - `apps/selector-desktop/src/contracts.ts` - typowany most IPC
@@ -33,7 +36,7 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 
 ### Testy
 
-- `apps/selector-desktop/test/` (1 plików w katalogu testów, rekurencyjnie)
+- `apps/selector-desktop/test/` (3 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

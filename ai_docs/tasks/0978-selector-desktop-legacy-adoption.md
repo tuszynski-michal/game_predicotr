@@ -87,18 +87,17 @@ Z katalogu worktree selektora. Każda skończona komenda ma timeout do 120 s;
 znany dłuższy build tylko po uprzedniej informacji i osobnym limicie.
 
 ```powershell
-npm run test --workspace @game-predictor/manual-image-selection-core
-npm run typecheck --workspace @game-predictor/manual-image-selection-core
-npm run test --workspace @game-predictor/reviewer
-npm run docs:check
-npm run code-map:check
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/manual-image-selection-core
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run typecheck --workspace @game-predictor/manual-image-selection-core
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/reviewer
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run docs:check
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run code-map:check
 ```
 
 Powyższe skrypty istnieją w repo. W nowym worktree wymagają dostępnych
 zależności oraz interpreterów; przygotowanie środowiska nie uprawnia do
-restartu usług ani migracji. TASK-0975 ma dodać test/lint/typecheck/build/
-package/make aplikacji desktopowej, a następnie zapisać sprawdzone komendy
-i wyniki w Outcome. Te skrypty są teraz proponowane, nie wykonane.
+restartu usług ani migracji. TASK-0975 dodał test/lint/typecheck/build/package/make aplikacji desktopowej.
+Dla bieżącego taska należy zapisać sprawdzone komendy i wyniki w Outcome. Skrypty desktopu istnieją po0975; ich wynik dla bieżącego taska wymaga osobnego wykonania.
 Testy Reviewera sprawdzają zgodność kontraktu; nie zastępują odbioru Electrona.
 Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:check.
 

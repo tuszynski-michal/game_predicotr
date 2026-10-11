@@ -247,7 +247,10 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 - **Durability:** local disk project outside sync/network shares; versioned
   state, backup, synchronized temporary replacement, operation journal,
   idempotency and recovery before writes. Exclusive project lock; stale
-  heartbeat alone never authorizes takeover. Missing folders require relink,
+  heartbeat alone never authorizes takeover. A transient exclusive output
+  lease also prevents two different projects from claiming one output; it
+  uses the same owner/process checks and is removed before confirmation.
+  Missing folders require relink,
   never an automatic reset. Only ready output is manually shared.
 - **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
   The later instruction to implement five tasks also authorizes TASK-0978

@@ -87,9 +87,16 @@ komputera pozostaje osobną bramką 0979; nie zatrzymuje implementacji 0978.
 
 - Ekran startowy: Nowy projekt, Otwórz projekt, Kontynuuj.
   Lista ostatnich projektów jest cache'em; cały postęp jest w projekcie.
+- Pomocniczy cache widoku w userData według projectId przechowuje krok
+  nawigacji, zoom i scroll. Jest zapisywany atomowo i rozliczany przy
+  zamknięciu. Brak/uszkodzenie tego cache'u zmienia wyłącznie widok;
+  projekt nadal określa decyzje, zdjęcie, zakres i kierunek.
 - Semantyka Reviewera: zapis szeregowy, licznik po trwałym commitcie,
   Enter/F, Tab, A/Ctrl+Z, strzałki i brak powtórnej akceptacji tego samego
   źródła bez cofnięcia. Kierunek numeracji nie zmienia porządku źródła.
+- Zweryfikowany Reviewer: Enter i F akceptują i przesuwają zdjęcie o jeden,
+  niezależnie od kroku nawigacji; Tab pomija zakres, pozostawiając zdjęcie.
+  Na końcu listy kursor pozostaje na ostatnim zdjęciu.
 - `rangeForStart` daje standardowo dziewięć plansz i krótszy zakres przy
   końcowej granicy sesji. Edytor nie dopuszcza dowolnej długości 1–9.
 - Skoki z rdzenia: 1–10, 15, 20. Zoom 100–3000%, fullscreen, obie osie
@@ -111,6 +118,11 @@ komputera pozostaje osobną bramką 0979; nie zatrzymuje implementacji 0978.
   Martwy proces tego samego hosta można przejąć po sprawdzeniu tożsamości;
   nieznany właściciel blokuje zapis. requestSingleInstanceLock nie zastępuje
   blokady projektu i nie chroni folderu synchronizowanego między komputerami.
+- Transakcja dodatkowo bierze atomową przejściową blokadę folderu wynikowego,
+  aby dwa różne projekty nie przypisały tego samego outputu. Własność/proces
+  są sprawdzane jak w blokadzie projektu; nieznany lub aktywny właściciel
+  blokuje zapis. Blokada znika przed potwierdzeniem. Finalny wynik zawiera
+  wyłącznie JPEG-i i manifest; po awarii najpierw rozlicza się blokadę i journal.
 - Brak miejsca/błąd zapisu: zatrzymanie nowych decyzji, wcześniejsze commity
   pozostają, dziennik nie znika. Komunikat opisuje etap i jawne wznowienie.
 - Brak źródła/wyniku: ponowne wskazanie i weryfikacja, bez resetu.
@@ -142,7 +154,7 @@ Szczegóły: [task 0975](../tasks/completed/0975-selector-desktop-foundation.md)
 
 Po 0975: wersjonowany projekt, recovery, backup, journal, lock oraz writer
 JPEG/manifest. Czyste testy Node z awariami przed/po każdym kroku i restartem
-procesu. Szczegóły: [task 0976](../tasks/0976-selector-desktop-durability.md).
+procesu. Szczegóły: [task 0976](../tasks/completed/0976-selector-desktop-durability.md).
 
 ## TASK-0977 — Interfejs pełnej selekcji
 

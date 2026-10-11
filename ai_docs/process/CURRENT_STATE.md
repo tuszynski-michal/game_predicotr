@@ -171,14 +171,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0976 — Projekt, manifest i odzyskiwanie (todo)
-
-- Plik: `ai_docs/tasks/0976-selector-desktop-durability.md`; plan selektora Windows, D-545.
-- Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
-- Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
-
 ### TASK-0977 — Interfejs pełnej selekcji (todo)
 
+- Założenie widoku: krok/zoom/scroll w atomowym cache userData według projectId;
+  decyzje/kursor/numeracja pozostają w projekcie. Brak cache'u nie resetuje pracy.
 - Plik: `ai_docs/tasks/0977-selector-desktop-selection-ui.md`; plan selektora Windows, D-545.
 - Zależności i kryteria w tasku; implementacja i testy nie zostały rozpoczęte.
 - Brak commita implementacyjnego i wyników audytu; dane odbiorcy pozostają lokalne.
@@ -870,9 +866,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0976 — Projekt, manifest i odzyskiwanie (done)
+
+- Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319; hash po commicie.
+- Stan/journal/backup, receipts, streaming JPEG i operator-local v2; lock projektu oraz przejściowa lease wyniku, relink bez resetu, fail-closed ochrona obcych danych.
+- 50 unikalnych testów PASS (pełne48/48 oraz grupy4/4 i2/2); realne awarie procesów, utrata odpowiedzi, ENOSPC/rename, checksumy, dwa projekty/jeden output i brakujące źródło. Lint/typecheck/build/format PASS.
+- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot pozostaje0979. Awaria procesu objęta recovery; zanik zasilania/fsync katalogu i dowolna synchronizacja nie mają gwarancji. Pozostawione tempy nie są automatycznie kasowane.
+
 ### TASK-0975 — Fundament aplikacji Windows i pakowanie (done)
 
-- Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545.
+- Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545. Commit v1.7.318 / `00331d5776c462a3dd91e4d9113b39d0223fe6c4`.
 - Electron/React/TS, Forge ZIP, typed IPC, protokół JPEG, sandbox/CSP, blokada sieci i zewnętrznych okien; kontrola ReparsePoint i rotowane logi.
 - Testy: desktop7/7, packaged EXE smoke, lint/typecheck/build/package/make/format/docs/mapy PASS; rdzeń110/110 + typy, Reviewer264/264 PASS poza sandbox.
 - Foundation ZIP149372115 bajtów; nie jest paczką pełnej selekcji. Do 0976/0977 pozostają trwałe projekty/UI. Dodatkowy limit źródła:100000 wpisów katalogowych,15000 JPEG.
@@ -967,15 +970,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Globalna kolejność blokad (`storage/sequence_ownership_lock.py`, `DATA_MODEL.md`): lease joba (`FOR NO KEY UPDATE`) → blokada własności gry (wyłączna dla operacji mogących przejąć sekwencję, współdzielona dla decyzji komórek, bez podnoszenia trybu) → sekwencje → źródła rosnąco → wiersze → stan liczników → komórki.
 - Audyt Codex `gpt-6-astra`/`high`: rundy 1–4 REVISE (7×P0: ochrona lateralna, przejęcie z niepełną historią, proweniencja zatwierdzenia, cztery zakleszczenia), poprawione w czterech rundach; dalsze audyty Codex niedostępne (wyczerpany limit, decyzja operatora). Audyt zastępczy Claude `claude-sonnet-5-5`/`high`: PASS, 5×P2 przyjęte jako ryzyka (m.in. kolejność blokad w `pipeline_store.py:353` i `_recompute_liveness_changes`). **Do ponownego audytu Codex po odnowieniu limitu.**
 - Testy: pełne `services/api/tests` 2638 passed, `services/worker/tests` 2822 passed; zestawy PG przejęcia, współbieżności, bramki, odrzuceń, cofania, własności i importu zielone.
-
-### TASK-0970 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
-
-- Plik: `ai_docs/tasks/completed/0970-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 / a7f9fe27d9a726dc220117d274e4fa52aa8eb273.
-- Odrzucenie slotu (`rejectPendingBoardCellGeometry`, powód `cropped`/`blurred`/`other`) i planszy (istniejące rozstrzygnięcie `rejected`, odmowa `BOARD_REJECT_CANONICAL`) z przycisku „Odrzuć planszę” w Reviewerze; bramka bez zmian (zdjęcie czeka, W8); odrzucone pozycje wykluczone z weryfikacji symboli, liczników i operacji zbiorczych (`review_item_id NOT IN` odrzuconych), liczniki zwalniane i przywracane przy każdym wyjściu z `rejected`; cofnięcie odrzucenia z listy „Ostatnie korekty” (`GEOMETRY_REVERT_REPLACED` po przejęciu sekwencji).
-- Migracja `0154` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
-- Naprawiona regresja TASK-0966/0967: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
-- Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
-
 
 ## Archiwum
 

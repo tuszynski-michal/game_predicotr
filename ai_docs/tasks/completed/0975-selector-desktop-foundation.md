@@ -116,10 +116,13 @@ Audyt przed startem/commitem został odroczony przez operatora do końca zakresu
 
 ### Changed
 
+Commit implementacji: v1.7.318, `00331d5776c462a3dd91e4d9113b39d0223fe6c4`. Zapis po commicie wchodzi z następnym taskiem.
+
 - Workspace Electron/React/TypeScript, statyczny renderer, Forge ZIP Windows x64, typed IPC i strumieniowanie JPEG przez własny protokół.
 - Walidacja nadawcy i argumentów, identyfikatory indeksu, sandbox/CSP oraz blokada sieci, nawigacji, nowych okien i uprawnień.
 - Naturalny indeks do 15 000 JPEG; dodatkowa defensywna granica 100 000 wpisów katalogowych. Kontrola symlink/junction i atrybutu Windows ReparsePoint. Rotowane logi.
 - Root workspace quality, przypięte zależności/lockfile, wyłącznie allowScripts esbuild@0.25.12, mapa kodu i ignorowanie wygenerowanych plików w formatowaniu.
+- Rozwiązanie nowych zależności podniosło współdzielone terser5.49.0→5.51.2 i is-core-module2.16.2→2.17.0, wymagane przez nowe pakiety. Wybrany pin typescript-eslint8.71.1 podniósł współdzieloną rodzinę z8.65.0; poprzednia wersja również obsługiwała TypeScript6. Npm odświeżył także dopuszczone wersje minimatch10.2.5→10.2.6 i brace-expansion5.0.8→5.0.12. Są to jawne zmiany lockfile, bez zmian komponentów webowych.
 - Przygotowanie dokumentacji: v1.7.317, commit `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`; nie był to commit implementacji.
 
 ### Verification results

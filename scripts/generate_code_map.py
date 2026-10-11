@@ -88,12 +88,22 @@ AREAS: tuple[Area, ...] = (
         ),
         units=(
             Unit(
+                "apps/selector-desktop/src/project",
+                "wersjonowany projekt, dziennik, blokada i ostatnie projekty",
+            ),
+            Unit(
+                "apps/selector-desktop/src/filesystem",
+                "bezpieczny lokalny zapis i ograniczenia katalogów",
+            ),
+            Unit(
+                "apps/selector-desktop/src/manifest",
+                "projekcja manifestu operator-local",
+            ),
+            Unit(
                 "apps/selector-desktop/src/native",
                 "lokalne pliki, bezpieczeństwo ścieżek i logi",
             ),
-            Unit(
-                "apps/selector-desktop/src/renderer", "interfejs React dołączony do ZIP"
-            ),
+            Unit("apps/selector-desktop/src/renderer", "interfejs React dołączony do ZIP"),
             Unit("apps/selector-desktop/src/contracts.ts", "typowany most IPC"),
         ),
         entry_points=(

@@ -15,6 +15,7 @@ odbiórką na komputerze odbiorcy. TASK-0979 pozostaje osobną bramką fizyczną
 - TASK-0984: v1.7.334 /c52518a8ece7c79f88b31224d4d90a84f0779b4c; bezpieczna historia/foldery, repeat decyzji i zamykanie/relaunch.151 testów oraz actualfull/UX smoke PASS.
 - TASK-0985: v1.7.335 /d82fbcb576ef138b8b6049102212b85f97d0a803; head2/journal3, mirrored immutable inventory/baseline, append-only receipts bez retencji.233 testy PASS. Wewnętrzny review Codex REVISE2P1 → jedna runda poprawek → ograniczony PASS. [Raport](TASK-0985_ENGINEERING_REVIEW_CODEX.md) zachowuje pierwotne znaleziska i rozróżnia przegląd od testów oraz Claude.
 - TASK-0986: v1.7.336 /c43434c28d49597407072f9636c7c07d1c3622b8; ograniczony timeout retry, bezpieczne telemetry, failure logs i exactarchive provenance.53 focused testy PASS, actualstart obu kierunków PASS. Pierwsze błędy harnessu i ich poprawki są w Outcome, nie są ukryte.
+- TASK-0987: przygotowanie/runtime v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`. Finalny ZIP, pomiar i komplet dowodów poniżej. Późniejszy commit dokumentacyjny zapisuje hash zamknięcia; nie zmienia aplikacji.
 
 ## Kontrole kodu przed finalnym release
 

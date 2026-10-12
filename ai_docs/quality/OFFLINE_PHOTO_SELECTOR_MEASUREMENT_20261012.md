@@ -33,7 +33,9 @@ ProjectStore.close i disposeNativeChecks. Nie używano fałszywego ProcessInspec
   `c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f`, źródło ZIP0.1.2.
 - Finalny runtime pomiaru: pełne src z
   `c43434c28d49597407072f9636c7c07d1c3622b8`, po TASK-0985/0986.
-  Pomiar poprzedza zmianę samej wersji paczki na0.1.3; nie jest testem ZIP-a.
+  Pomiar używa src z Git, bez testowania opakowania ZIP. Finalny runtime
+  paczki0.1.3 z `0b1ab3302df2119efb2519661e2f82b8bdf545df` ma identyczne
+  src i rdzeń: pusty `git diff c43434c2 0b1ab330 -- apps/selector-desktop/src packages/manual-image-selection-core`.
 - Kopie src zostały wyprowadzone z Git blobów, bez zgadywania źródeł starego
   builda. configuration.json zapisuje SHA każdego pliku i zbiorczy SHA drzewa.
   Potwierdzono brak diffu współdzielonego manual-image-selection-core pomiędzy

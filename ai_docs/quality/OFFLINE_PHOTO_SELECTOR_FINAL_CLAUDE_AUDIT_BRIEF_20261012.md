@@ -33,6 +33,8 @@ medium, a dla trwałości TASK-0985 high. Nie zastępuj Claude modelem Codex.
   Sąsiadujące `.sha256` i `.release.json` identyfikują ten sam artefakt.
 
 Commity po v1.7.337 mogą zawierać dokumentację i harness aktualizacji.
+TASK-0987 zamknięto w v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`;
+kolejny commit dokumentacyjny utrwala jego hash w Outcome i CURRENT_STATE.
 Porównaj zakres zamiast przypisywać taki HEAD do starego build-info.
 Aktualny runtime i rdzeń muszą być identyczne ze źródłami finalnego buildu.
 Historyczne ZIP-y, pierwszy REVISE i późniejszy PASS pozostają zachowane.

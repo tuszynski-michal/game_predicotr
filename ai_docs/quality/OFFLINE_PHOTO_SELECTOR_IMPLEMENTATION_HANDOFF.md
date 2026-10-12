@@ -26,6 +26,8 @@ app.asar `23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2`.
 TASK-0984: v1.7.334 /`c52518a8ece7c79f88b31224d4d90a84f0779b4c`;
 TASK-0985: v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`;
 TASK-0986: v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
+TASK-0987: zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`;
+runtime paczki jest z osobnego czystego commita v1.7.337 wskazanego powyżej.
 Wewnętrzny review Codex zamknął dwie P1 trwałości po jednej rundzie poprawek;
 nie jest audytem Claude. Pełne testy runtime: 262/262, core 110/110,
 operator-local Reviewer 16/16 PASS. [Dowody finalizacji](OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)

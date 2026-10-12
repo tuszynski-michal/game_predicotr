@@ -117,8 +117,9 @@ gotowość renderera po native commit, zamiast wysyłać klawisz podczas zapisu.
 
 Commit kodu/przygotowania wydania: v1.7.337 /
 `0b1ab3302df2119efb2519661e2f82b8bdf545df`. Build wykonano z czystego worktree.
-Runtime src i rdzeń są identyczne z mierzoną rewizją v1.7.336. Następny
-commit zamyka dokumentację/dowody i patch harnessu; nie zmienia ZIP-a.
+Runtime src i rdzeń są identyczne z mierzoną rewizją v1.7.336.
+Commit zamknięcia taska: v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`.
+Zawiera dokumentację/dowody i patch harnessu; nie zmienia runtime ani ZIP-a.
 
 Finalny ZIP: `apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`,
 149410942 B. ZIP SHA-256 `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`;

@@ -183,6 +183,28 @@ async function assertCentered() {
     );
   });
 }
+async function assertRangeCentered() {
+  const layout = await page.evaluate(() => {
+    const range = document.querySelector('.range-indicator strong');
+    const label = range.getBoundingClientRect();
+    const photo = document.querySelector('.preview').getBoundingClientRect();
+    const toolbar = document
+      .querySelector('.viewer-toolbar')
+      .getBoundingClientRect();
+    return {
+      offset: Math.abs(label.x + label.width / 2 - (photo.x + photo.width / 2)),
+      abovePhoto: label.bottom <= photo.top,
+      belowToolbar: label.top >= toolbar.bottom,
+      inToolbar: Boolean(range.closest('nav')),
+    };
+  });
+  assert.ok(
+    layout.offset < 1,
+    `Range is not centered over photo: ${JSON.stringify(layout)}`,
+  );
+  assert.ok(layout.abovePhoto && layout.belowToolbar);
+  assert.equal(layout.inToolbar, false);
+}
 try {
   await smoke.run(async () => {
     await mkdir(source);
@@ -230,6 +252,7 @@ try {
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await ready();
     await assertCentered();
+    await assertRangeCentered();
     await page.evaluate(() => {
       const top = document
         .querySelector('.preview')
@@ -270,6 +293,7 @@ try {
       .click();
     await page.locator('main.fullscreen').waitFor();
     await assertCentered();
+    await assertRangeCentered();
     const fullscreenLayout = await page.evaluate(() => {
       const preview = document
         .querySelector('.preview')
@@ -313,7 +337,7 @@ try {
     await page.keyboard.press('ArrowRight');
     await page.getByTestId('cursor').filter({ hasText: '2 / 3' }).waitFor();
     await ready();
-    const screenshots = path.resolve('../../artifacts/selector-layout-0.1.5');
+    const screenshots = path.resolve('../../artifacts/selector-layout-0.1.6');
     await mkdir(screenshots, { recursive: true });
     await page.screenshot({ path: path.join(screenshots, 'fullscreen.png') });
     await page
@@ -343,6 +367,7 @@ try {
       .getByRole('button', { name: 'Zmień zakres', exact: true })
       .waitFor();
     await assertCentered();
+    await assertRangeCentered();
     await page.screenshot({ path: path.join(screenshots, 'windowed.png') });
     console.log(
       'PASS: quiet/stable navigation; landscape and portrait centering; minimal native fullscreen, keyboard navigation, button/F11/Escape/native exit.',

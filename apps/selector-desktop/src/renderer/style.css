@@ -211,7 +211,15 @@ main.fullscreen {
   flex-direction: column;
   overflow: hidden;
 }
-.fullscreen > :not(.viewer-toolbar):not(.preview):not(.feedback) {
+.range-indicator {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 18px;
+  line-height: 26px;
+  margin-bottom: 8px;
+}
+.fullscreen
+  > :not(.viewer-toolbar):not(.range-indicator):not(.preview):not(.feedback) {
   display: none;
 }
 .fullscreen .viewer-toolbar {

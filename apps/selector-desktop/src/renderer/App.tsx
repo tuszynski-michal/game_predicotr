@@ -520,11 +520,6 @@ export function App() {
             >
               Cofnij (A / Ctrl+Z)
             </button>
-            <strong data-testid="range">
-              {workspace.selectionComplete
-                ? 'Numeracja zakończona'
-                : `Zakres: ${range?.start}–${range?.end}`}
-            </strong>
             <button
               disabled={blocked || workspace.selectionComplete}
               onClick={() => {
@@ -580,16 +575,9 @@ export function App() {
                 : 'Źródło niedostępne'}
             </span>
             {fullscreen && (
-              <>
-                <span data-testid="fullscreen-counts">
-                  Wybrane: {workspace.acceptedCount}
-                </span>
-                <strong data-testid="fullscreen-range">
-                  {workspace.selectionComplete
-                    ? 'Numeracja zakończona'
-                    : `Zakres: ${range?.start}–${range?.end}`}
-                </strong>
-              </>
+              <span data-testid="fullscreen-counts">
+                Wybrane: {workspace.acceptedCount}
+              </span>
             )}
             <button
               disabled={
@@ -644,6 +632,13 @@ export function App() {
                 : 'Pełny ekran (F11)'}
             </button>
           </nav>
+          <div className="range-indicator">
+            <strong data-testid={fullscreen ? 'fullscreen-range' : 'range'}>
+              {workspace.selectionComplete
+                ? 'Numeracja zakończona'
+                : `Zakres: ${range?.start}–${range?.end}`}
+            </strong>
+          </div>
           {source && image ? (
             <ImageViewer
               key={source.id}

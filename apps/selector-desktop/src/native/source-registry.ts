@@ -13,7 +13,6 @@ import {
   safeExistingPath,
 } from './path-security.ts';
 
-export const MAX_SOURCE_IMAGES = 15000;
 // A scan is transient native evidence, never reconstructed from persisted inventory.
 export interface VerifiedSourceScan {
   readonly root: string;
@@ -34,18 +33,12 @@ export async function scanSource(
   const sourceId = randomUUID();
   const images: SourceImage[] = [];
   const pending = [''];
-  let entriesSeen = 0;
   while (pending.length) {
     const prefix = pending.pop()!;
     const entries = await readdir(path.join(root, prefix), {
       withFileTypes: true,
     });
     for (const entry of entries) {
-      if (++entriesSeen > 100000)
-        throw new SelectorError(
-          'SOURCE_TOO_LARGE',
-          'Katalog zawiera zbyt wiele plików lub podkatalogów.',
-        );
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
       // Fail closed rather than silently omitting a linked subtree.
       const file = await safeExistingPath(root, relativePath, false);
@@ -55,11 +48,6 @@ export async function scanSource(
         continue;
       }
       if (!stat.isFile() || !/\.jpe?g$/i.test(entry.name)) continue;
-      if (images.length === MAX_SOURCE_IMAGES)
-        throw new SelectorError(
-          'SOURCE_TOO_LARGE',
-          'Projekt obsługuje najwyżej 15 000 zdjęć JPEG.',
-        );
       const id = randomUUID();
       images.push({
         id,

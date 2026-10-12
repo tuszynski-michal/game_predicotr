@@ -11,6 +11,8 @@ import {
   rename,
 } from 'node:fs/promises';
 import path from 'node:path';
+import fsPromises from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { SourceRegistry } from '../src/native/source-registry.ts';
 import {
   containedPath,
@@ -139,6 +141,60 @@ test('a directory replaced by a junction after indexing cannot be read', async (
 test('empty directory is represented explicitly', async (t) => {
   const registry = new SourceRegistry();
   assert.deepEqual((await registry.register(await fixture(t))).images, []);
+});
+test('source index has no photo or directory-entry count ceiling', async (t) => {
+  const root = await fixture(t);
+  const template = path.join(root, 'template.jpg');
+  await writeFile(template, 'sample metadata');
+  const fileStat = await fsPromises.lstat(template);
+  const originalLstat = fsPromises.lstat;
+  const originalRealpath = fsPromises.realpath;
+  const originalReaddir = fsPromises.readdir;
+  const statCache = new Map();
+  const pathCache = new Map();
+  const virtualFile = (file) =>
+    path.dirname(file) === root &&
+    /^photo\d+\.(jpg|txt)$/.test(path.basename(file));
+  // Controlled directory metadata exercises both former ceilings without creating
+  // a large on-disk JPEG fixture or running a performance benchmark.
+  const entries = [
+    ...Array.from({ length: 100001 }, (_, i) => ({
+      name: `photo${i + 1}.txt`,
+    })),
+    ...Array.from({ length: 30000 }, (_, i) => ({
+      name: `photo${30000 - i}.jpg`,
+    })),
+  ];
+  // This test file runs in its own process. Avoid recording a mock-call object
+  // for every ancestor check; restore all bindings before subsequent tests.
+  fsPromises.lstat = async (file) => {
+    if (virtualFile(file)) return fileStat;
+    if (!statCache.has(file)) statCache.set(file, await originalLstat(file));
+    return statCache.get(file);
+  };
+  fsPromises.realpath = async (file) => {
+    if (virtualFile(file)) return file;
+    if (!pathCache.has(file)) pathCache.set(file, await originalRealpath(file));
+    return pathCache.get(file);
+  };
+  fsPromises.readdir = (file, options) =>
+    file === root ? Promise.resolve(entries) : originalReaddir(file, options);
+  syncBuiltinESMExports();
+  try {
+    const registry = new SourceRegistry();
+    const index = await registry.register(root);
+    assert.equal(index.images.length, 30000);
+    assert.equal(index.images[0].relativePath, 'photo1.jpg');
+    assert.equal(index.images[1].relativePath, 'photo2.jpg');
+    assert.equal(index.images.at(-1).relativePath, 'photo30000.jpg');
+    assert.equal(new Set(index.images.map((image) => image.id)).size, 30000);
+    assert.equal(registry.getRoot(index.id), root);
+  } finally {
+    fsPromises.lstat = originalLstat;
+    fsPromises.realpath = originalRealpath;
+    fsPromises.readdir = originalReaddir;
+    syncBuiltinESMExports();
+  }
 });
 test('diagnostic logs rotate serially and remain bounded across a new instance', async (t) => {
   const root = await fixture(t);

@@ -165,6 +165,30 @@ async function child(mode, projectRoot, point, extra = []) {
   });
 }
 
+test('serialized projects retain 30000 inventory entries and the last cursor in both directions', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  const state = store.snapshot();
+  state.inventory = Array.from({ length: 30000 }, (_, i) => ({
+    ...state.inventory[0],
+    relativePath: `photo${i + 1}.jpg`,
+    name: `photo${i + 1}.jpg`,
+  }));
+  state.currentRelativePath = 'photo30000.jpg';
+  for (const direction of ['ascending', 'descending']) {
+    state.direction = direction;
+    const serialized = encodeEnvelope(state);
+    const restored = decodeEnvelope(Buffer.from(serialized));
+    assert.doesNotThrow(() => validateState(restored));
+    assert.equal(restored.inventory.length, 30000);
+    assert.equal(restored.currentRelativePath, 'photo30000.jpg');
+    assert.equal(restored.direction, direction);
+  }
+  const invalid = structuredClone(state);
+  invalid.inventory[1].relativePath = '../outside.jpg';
+  assert.throws(() => validateState(invalid), { code: 'PROJECT_CORRUPT' });
+});
+
 test('compact heads omit collections, immutable bytes stay fixed, and snapshots isolate all public projections', async (t) => {
   const f = await fixture(t);
   const store = await f.create();

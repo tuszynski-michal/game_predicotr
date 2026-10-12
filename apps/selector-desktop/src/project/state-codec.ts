@@ -442,7 +442,6 @@ function validateStateStructure(state: ProjectState): void {
     typeof state.outputRoot !== 'string' ||
     !Array.isArray(state.inventory) ||
     state.inventory.length < 1 ||
-    state.inventory.length > 15000 ||
     !Array.isArray(state.decisions) ||
     !state.receipts ||
     typeof state.receipts !== 'object' ||

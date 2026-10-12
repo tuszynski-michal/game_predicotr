@@ -159,8 +159,9 @@ zaniku zasilania lub awarii sprzętowej ponad dotychczasową obsługę fsync.
 
 D-546, wymagania i architektura opisują format/migrację/recovery. Instrukcja
 wymaga kopii całego folderu projektu i nowej wersji po upgrade. Plan, mapy
-kodu oraz CURRENT_STATE odnotowują wynik. Pełna wersja/hash tego commita
-zostaną dopisane po commicie w kolejnym commicie dokumentacyjnym/tasku.
+kodu oraz CURRENT_STATE odnotowują wynik. Commit wykonania: v1.7.335 /
+`d82fbcb576ef138b8b6049102212b85f97d0a803`. Zapis pełnego hash w kolejnym
+commicie/tasku zgodnie z procesem.
 
 ### Recommended next task
 

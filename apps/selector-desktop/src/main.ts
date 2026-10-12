@@ -23,7 +23,10 @@ import {
 import { SourceRegistry } from './native/source-registry.ts';
 import { DiagnosticLog } from './native/diagnostic-log.ts';
 import { ProjectController } from './native/project-controller.ts';
-import { disposeNativeChecks } from './native/windows-check-worker.ts';
+import {
+  disposeNativeChecks,
+  nativeChecks,
+} from './native/windows-check-worker.ts';
 import { DesktopLifecycle } from './native/desktop-lifecycle.ts';
 
 // Standard Chromium/Electron switch also isolates native project/view caches.
@@ -132,6 +135,9 @@ else {
     .whenReady()
     .then(async () => {
       log = new DiagnosticLog(path.join(app.getPath('userData'), 'logs'));
+      nativeChecks().setDiagnostics(({ code, attempt, elapsedMs }) =>
+        log.write('process-identity-check', code, { attempt, elapsedMs }),
+      );
       await log.write('application-start');
       controller = new ProjectController(app.getPath('userData'), registry, {
         directory: async (title, defaultPath) => {

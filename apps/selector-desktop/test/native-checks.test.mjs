@@ -22,7 +22,12 @@ import {
 import { SourceRegistry, scanSource } from '../src/native/source-registry.ts';
 import { ProjectStore } from '../src/project/project-store.ts';
 import { ProjectController } from '../src/native/project-controller.ts';
-import { nativeProcesses } from '../src/project/project-lock.ts';
+import {
+  nativeProcesses,
+  ProjectLock,
+  PROJECT_LOCK_NAME,
+} from '../src/project/project-lock.ts';
+import { SecureFiles } from '../src/filesystem/secure-files.ts';
 after(disposeNativeChecks);
 const childPath = fileURLToPath(
   new URL('./check-worker-child.mjs', import.meta.url),
@@ -278,3 +283,109 @@ test(
     });
   },
 );
+
+test('identity retries only timeout with a fresh child and bounded safe diagnostics', async (t) => {
+  let launches = 0;
+  const diagnostics = [];
+  const worker = new WindowsCheckWorker({
+    timeoutMs: 200,
+    diagnostics: (entry) => diagnostics.push(entry),
+    launch: () =>
+      spawn(process.execPath, [childPath, launches++ ? 'valid' : 'hang'], {
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }),
+  });
+  t.after(() => worker.dispose());
+  assert.equal(await worker.processIdentity(12345), '12345');
+  assert.equal(launches, 2);
+  assert.deepEqual(
+    diagnostics.map((entry) => [entry.attempt, entry.code]),
+    [
+      [1, 'NATIVE_CHECK_TIMEOUT'],
+      [2, 'NATIVE_CHECK_OK'],
+    ],
+  );
+  for (const entry of diagnostics) {
+    assert.deepEqual(Object.keys(entry).sort(), [
+      'attempt',
+      'code',
+      'elapsedMs',
+    ]);
+    assert.ok(Number.isSafeInteger(entry.elapsedMs) && entry.elapsedMs >= 0);
+  }
+  assert.ok(!JSON.stringify(diagnostics).includes('12345'));
+});
+test('two identity timeouts remain unknown and stop after exactly two attempts', async (t) => {
+  const diagnostics = [];
+  const worker = fake(t, 'hang', {
+    timeoutMs: 150,
+    diagnostics: (entry) => diagnostics.push(entry),
+  });
+  await assert.rejects(worker.processIdentity(11), {
+    code: 'NATIVE_CHECK_TIMEOUT',
+  });
+  assert.equal(worker.stats().spawnCount, 2);
+  assert.deepEqual(
+    diagnostics.map((entry) => entry.attempt),
+    [1, 2],
+  );
+});
+for (const mode of ['wrong-id', 'crash'])
+  test(`identity ${mode} never retries`, async (t) => {
+    const worker = fake(t, mode);
+    await assert.rejects(worker.processIdentity(11));
+    assert.equal(worker.stats().spawnCount, 1);
+  });
+test('valid null identity is evidence and diagnostic sink failures are harmless', async (t) => {
+  const script =
+    "require('readline').createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);console.log(JSON.stringify({version:1,id:r.id,ok:true,result:{identity:null}}))})";
+  for (const diagnostics of [
+    () => {
+      throw new Error('sink');
+    },
+    async () => {
+      throw new Error('sink');
+    },
+  ]) {
+    const worker = new WindowsCheckWorker({
+      diagnostics,
+      launch: () =>
+        spawn(process.execPath, ['-e', script], {
+          windowsHide: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }),
+    });
+    t.after(() => worker.dispose());
+    assert.equal(await worker.processIdentity(11), null);
+    assert.equal(worker.stats().spawnCount, 1);
+  }
+});
+
+test('identity timeout retry never reclaims or changes an existing owner lock', async (t) => {
+  const f = await fixture(t);
+  await mkdir(f.projectRoot);
+  const worker = fake(t, 'hang', { timeoutMs: 150 });
+  const ownerBytes = JSON.stringify({
+    schemaVersion: 1,
+    ownerId: 'existing-owner',
+    host: 'test-host',
+    pid: 11,
+    processIdentity: 'original-identity',
+    createdAt: '2026-10-12T00:00:00.000Z',
+  });
+  const lock = path.join(f.projectRoot, PROJECT_LOCK_NAME);
+  await writeFile(lock, ownerBytes);
+  const inspector = {
+    host: 'test-host',
+    pid: 12,
+    identity: async (pid) =>
+      pid === 12 ? 'own-identity' : worker.processIdentity(pid),
+  };
+  await assert.rejects(
+    ProjectLock.acquire(new SecureFiles(f.projectRoot), inspector),
+    { code: 'LOCK_OWNER_UNKNOWN' },
+  );
+  assert.equal(await readFile(lock, 'utf8'), ownerBytes);
+  assert.equal(worker.stats().spawnCount, 2);
+});

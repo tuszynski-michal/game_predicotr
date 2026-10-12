@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. TASK-0984/0985 done;0986 in_progress. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
+- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. TASK-0984/0985/0986 done;0987 in_progress. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
@@ -190,12 +190,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (in_progress)
-
-- Plik: `ai_docs/tasks/0986-selector-desktop-diagnostics-and-archive.md`; plan finalizacji2026-10-12, D-546.
-- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
-
-### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (todo)
+### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (in_progress)
 
 - Plik: `ai_docs/tasks/0987-selector-desktop-final-pilot.md`; plan finalizacji2026-10-12, D-546.
 - Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
@@ -884,9 +879,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
+
+- Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wersja/hash po commicie.
+- Identity ma najwyżej dwie świeże próby tylko po timeout, unknown failclosed; bounded telemetry bez identity/PID/path. Obcy lock po dwóch timeoutach bajtowo zachowany.
+- Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
+- 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
+- Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.
+
 ### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
 
-- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wersja/hash wykonania zostaną dopisane po commicie.
+- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wykonanie v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`.
 - Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
 - Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
 - 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
@@ -954,14 +957,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Stan/journal/backup, receipts, streaming JPEG i operator-local v2; lock projektu oraz przejściowa lease wyniku, relink bez resetu, fail-closed ochrona obcych danych.
 - 50 unikalnych testów PASS (pełne48/48 oraz grupy4/4 i2/2); realne awarie procesów, utrata odpowiedzi, ENOSPC/rename, checksumy, dwa projekty/jeden output i brakujące źródło. Lint/typecheck/build/format PASS.
 - Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot pozostaje0979. Awaria procesu objęta recovery; zanik zasilania/fsync katalogu i dowolna synchronizacja nie mają gwarancji. Pozostawione tempy nie są automatycznie kasowane.
-
-### TASK-0975 — Fundament aplikacji Windows i pakowanie (done)
-
-- Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545. Commit v1.7.318 / `00331d5776c462a3dd91e4d9113b39d0223fe6c4`.
-- Electron/React/TS, Forge ZIP, typed IPC, protokół JPEG, sandbox/CSP, blokada sieci i zewnętrznych okien; kontrola ReparsePoint i rotowane logi.
-- Testy: desktop7/7, packaged EXE smoke, lint/typecheck/build/package/make/format/docs/mapy PASS; rdzeń110/110 + typy, Reviewer264/264 PASS poza sandbox.
-- Foundation ZIP149372115 bajtów; nie jest paczką pełnej selekcji. Do 0976/0977 pozostają trwałe projekty/UI. Dodatkowy limit źródła:100000 wpisów katalogowych,15000 JPEG.
-- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot/dystrybucja pozostaje 0979. Przygotowanie dokumentacji: v1.7.317 / `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`.
 
 ## Archiwum
 

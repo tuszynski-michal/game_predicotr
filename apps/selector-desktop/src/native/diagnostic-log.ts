@@ -1,5 +1,9 @@
 import { mkdir, stat, rename, appendFile, rm } from 'node:fs/promises';
 import path from 'node:path';
+export interface DiagnosticMetadata {
+  attempt?: number;
+  elapsedMs?: number;
+}
 export class DiagnosticLog {
   private queue: Promise<void> = Promise.resolve();
   readonly directory: string;
@@ -10,7 +14,21 @@ export class DiagnosticLog {
     this.maxBytes = maxBytes;
     this.copies = copies;
   }
-  write(event: string, code?: string): Promise<void> {
+  write(
+    event: string,
+    code?: string,
+    metadata?: DiagnosticMetadata,
+  ): Promise<void> {
+    // Explicit numeric whitelist prevents paths, identities and arbitrary dumps.
+    const safe: DiagnosticMetadata = {};
+    if (metadata?.attempt === 1 || metadata?.attempt === 2)
+      safe.attempt = metadata.attempt;
+    if (
+      typeof metadata?.elapsedMs === 'number' &&
+      Number.isFinite(metadata.elapsedMs) &&
+      metadata.elapsedMs >= 0
+    )
+      safe.elapsedMs = Math.min(Math.round(metadata.elapsedMs), 86400000);
     const work = this.queue.then(async () => {
       await mkdir(this.directory, { recursive: true });
       const file = path.join(this.directory, 'selector.log');
@@ -19,6 +37,7 @@ export class DiagnosticLog {
           time: new Date().toISOString(),
           event: event.slice(0, 120),
           code: code?.slice(0, 80),
+          ...safe,
         }) + '\n';
       const size = await stat(file).then(
         (s) => s.size,

@@ -128,8 +128,10 @@ scenariusze spakowanego EXE: pełna selekcja/restart oraz zamykanie/relaunch.
 Pierwsze błędy oczekiwań kodów i założenia skoku w teście zostały opisane
 w Outcome. TASK-0985 ukończony: 233/233 desktop PASS, lint/typecheck/format
 i mapy PASS. Wewnętrzny review Codex zamknął dwie P1 po jednej rundzie
-poprawek; raport zachowuje pierwotne REVISE. TASK-0986 jest w realizacji,
-0987 oczekuje na zależność i pomiar15000.
+poprawek; raport zachowuje pierwotne REVISE. TASK-0986 ukończony:53/53
+focused PASS, actualstart obu kierunków PASS, kontrolowany błąd zachował
+log oraz przyczynę. Verifier rzeczywistego ZIP0.1.2 PASS. TASK-0987 jest
+w realizacji: finalny ZIP i pomiar15000.
 Nie wykonano końcowego audytu krzyżowego ani fizycznego odbioru operatora.
 
 ## Przypisanie modeli do zadań

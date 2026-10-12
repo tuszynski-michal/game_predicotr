@@ -927,12 +927,12 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/desktop-lifecycle.ts: DesktopLifecycle
-- native/diagnostic-log.ts: DiagnosticLog
+- native/diagnostic-log.ts: DiagnosticMetadata, DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController
 - native/source-registry.ts: MAX_SOURCE_IMAGES, VerifiedSourceScan, scanSource, SourceRegistry
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
-- native/windows-check-worker.ts: CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
+- native/windows-check-worker.ts: IdentityDiagnostic, CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
 - project/project-storage.ts: PROJECT_LEDGER_NAME, PROJECT_LEDGER_BACKUP_NAME, scalarFor, compactNames, headIdentity, ProjectStorage, isCompactIntent
 - project/project-store.ts: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore

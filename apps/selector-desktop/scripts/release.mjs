@@ -1,7 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { hashFile, requireFreshArchive } from './release-support.mjs';
+import {
+  hashFile,
+  requireFreshArchive,
+  removeOwnedTemp,
+} from './release-support.mjs';
+import { extractAndVerifyRelease } from './verify-release.mjs';
 
 const manifest = JSON.parse(await readFile('package.json', 'utf8'));
 const makeStartedAt = Date.now();
@@ -40,6 +45,18 @@ const metadata = {
   releasedAt: new Date().toISOString(),
   byteIdenticalRebuildGuaranteed: false,
 };
+const tempRoot = path.resolve('.tmp');
+await mkdir(tempRoot, { recursive: true });
+const verification = await mkdtemp(path.join(tempRoot, 'release-verify-'));
+try {
+  await extractAndVerifyRelease(
+    archive,
+    path.join(verification, 'program'),
+    metadata,
+  );
+} finally {
+  await removeOwnedTemp(verification, tempRoot);
+}
 await writeFile(`${archive}.sha256`, `${sha256}  ${archiveName}\n`, 'utf8');
 await writeFile(
   `${archive}.release.json`,

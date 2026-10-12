@@ -251,6 +251,22 @@ ręcznie. Test kopii agenta i fizyczny odbiór operatora zostaną
 zapisane osobno w raporcie0979. Logi mają rotację, bez treści obrazów; przycisk
 logów otwiera ich katalog. Nie usuwać ręcznie blokad, aby wymusić otwarcie.
 
+## Diagnostyka startu i testów wydania
+
+Kontrola tożsamości procesu ma ograniczony czas. Po timeout aplikacja może
+wykonać jedną świeżą próbę. Timeout nie oznacza, że właściciel projektu nie
+żyje; nieznana tożsamość nadal zatrzymuje zapis. W logu pojawiają się numer
+próby, jej czas i kod wyniku. Nie usuwać blokady ręcznie i nie wyłączać
+zabezpieczeń systemu, aby obejść błąd.
+
+Testy wydania uruchamiane przez operatora zachowują logi po porażce w
+`artifacts/selector-smoke-diagnostics/<unikalny-przebieg>` w worktree.
+Katalog zawiera selector.log, dostępne rotacje oraz krótki failure.json.
+Dowód jest poza tymczasowym katalogiem testu. Gdy kopiowanie logów nie
+powiedzie się, test zachowuje cały własny katalog i podaje jego ścieżkę.
+Ta procedura dotyczy testów wydania; zwykły użytkownik otwiera lokalne logi
+przyciskiem aplikacji.
+
 ## Warunki odbioru
 
 TASK-0979 wymaga rzeczywistego drugiego komputera, dostarczenia ZIP faktycznym

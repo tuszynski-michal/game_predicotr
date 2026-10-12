@@ -76,7 +76,13 @@ interface Pending {
   reject(error: unknown): void;
   timer: ReturnType<typeof setTimeout>;
 }
+export interface IdentityDiagnostic {
+  attempt: 1 | 2;
+  elapsedMs: number;
+  code: string;
+}
 export interface CheckWorkerOptions {
+  diagnostics?: (entry: IdentityDiagnostic) => void | Promise<void>;
   /** Native test seam; never exposed to IPC. Production uses the fixed dispatcher. */
   launch?: () => ChildProcessWithoutNullStreams;
   timeoutMs?: number;
@@ -116,11 +122,41 @@ export class WindowsCheckWorker {
     await this.request({ op: 'reparseScan', paths: [...paths], recursive });
   }
   async processIdentity(pid: number): Promise<string | null> {
-    const result = (await this.request({ op: 'processIdentity', pid })) as {
-      identity: string | null;
-    };
-    return result.identity;
+    for (const attempt of [1, 2] as const) {
+      const started = performance.now();
+      try {
+        const result = (await this.request({ op: 'processIdentity', pid })) as {
+          identity: string | null;
+        };
+        this.reportIdentity(attempt, started, 'NATIVE_CHECK_OK');
+        return result.identity;
+      } catch (error) {
+        const code =
+          error instanceof SelectorError ? error.code : 'NATIVE_CHECK_FAILED';
+        this.reportIdentity(attempt, started, code);
+        // A timeout is unknown, never evidence of a dead owner. The retirement
+        // barrier must finish before the retry dispatches a new request.
+        if (attempt === 2 || code !== 'NATIVE_CHECK_TIMEOUT') throw error;
+      }
+    }
+    throw failure();
   }
+  setDiagnostics(sink: CheckWorkerOptions['diagnostics']): void {
+    this.options.diagnostics = sink;
+  }
+  private reportIdentity(attempt: 1 | 2, started: number, code: string): void {
+    try {
+      const result = this.options.diagnostics?.({
+        attempt,
+        elapsedMs: Math.max(0, Math.round(performance.now() - started)),
+        code,
+      });
+      if (result) void result.catch(() => {});
+    } catch {
+      // Diagnostics cannot change ownership evidence or block the check.
+    }
+  }
+
   private request(check: Check): Promise<Result> {
     if (this.disposed) return Promise.reject(failure('NATIVE_CHECK_CLOSED'));
     if (

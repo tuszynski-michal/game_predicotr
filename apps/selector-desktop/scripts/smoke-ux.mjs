@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { removeOwnedTemp } from './release-support.mjs';
+import { createOwnedSmoke, boundedSmokeStep } from './release-support.mjs';
 const executablePath = path.resolve(
   process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe',
 );
@@ -14,13 +14,17 @@ await mkdir('.tmp', { recursive: true });
 const fixture = await mkdtemp(path.resolve('.tmp/ux-smoke-'));
 const source = path.join(fixture, 'source');
 const userData = path.join(fixture, 'user-data');
-await mkdir(source);
-await mkdir(userData);
+const smoke = createOwnedSmoke({
+  name: 'smoke-ux',
+  fixture: fixture,
+  tempRoot: path.resolve('.tmp'),
+  userData: [userData],
+});
 let application;
 let page;
 let reopenedBrowser;
 async function launch(extraArgs = []) {
-  application = await electron.launch({
+  application = await smoke.launch(electron, {
     executablePath,
     args: [`--user-data-dir=${userData}`, ...extraArgs],
     timeout: 20000,
@@ -43,10 +47,12 @@ async function launch(extraArgs = []) {
   }, source);
 }
 async function secondLaunch() {
-  const child = spawn(executablePath, [`--user-data-dir=${userData}`], {
-    windowsHide: true,
-    stdio: 'ignore',
-  });
+  const child = smoke.registerProcess(
+    spawn(executablePath, [`--user-data-dir=${userData}`], {
+      windowsHide: true,
+      stdio: 'ignore',
+    }),
+  );
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.kill();
@@ -128,10 +134,11 @@ async function verifyDeferredRelaunch() {
   }
   const session = await reopenedBrowser.newBrowserCDPSession();
   const { processInfo } = await session.send('SystemInfo.getProcessInfo');
-  assert.notEqual(
-    processInfo.find((entry) => entry.type === 'browser')?.id,
-    oldPid,
-  );
+  const relaunchedPid = processInfo.find(
+    (entry) => entry.type === 'browser',
+  )?.id;
+  smoke.registerPid(relaunchedPid);
+  assert.notEqual(relaunchedPid, oldPid);
   const windows = reopenedBrowser
     .contexts()
     .flatMap((context) => context.pages());
@@ -144,7 +151,7 @@ async function verifyDeferredRelaunch() {
   assert.ok(diagnostic.includes('application-start'));
   // Close only the relaunched fixture's window through Electron's normal close.
   await windows[0].close();
-  await reopenedBrowser.close();
+  await boundedSmokeStep(() => reopenedBrowser.close());
   reopenedBrowser = null;
   console.log(
     'PASS: two real EXE launches during close produce one deferred process/window and preserve user-data arguments.',
@@ -161,142 +168,162 @@ async function ready() {
   );
 }
 try {
-  await launch();
-  assert.equal(
-    await page.evaluate(() => 'pickSource' in window.selector),
-    false,
-  );
-  const jpeg = Buffer.from(
-    await application.evaluate(({ nativeImage }) =>
-      nativeImage
-        .createFromBitmap(Buffer.alloc(800 * 600 * 4, 140), {
-          width: 800,
-          height: 600,
-        })
-        .toJPEG(80)
-        .toString('base64'),
-    ),
-    'base64',
-  );
-  for (let i = 1; i <= 3; i++)
-    await writeFile(path.join(source, `photo${i}.jpg`), jpeg);
-  await page
-    .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
-    .click();
-  await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
-  await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
-  await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
-  await ready();
-  await page.getByRole('button', { name: 'Następne', exact: true }).click();
-  await page.getByText('Pozycja zdjęcia zapisana.', { exact: true }).waitFor();
-  await ready();
-  assert.equal(
-    (await page.evaluate(() => window.selector.snapshot())).value.acceptedCount,
-    0,
-  );
-  await page.getByLabel('Zoom', { exact: true }).selectOption('1000');
-  await page.waitForFunction(() => {
-    const preview = document.querySelector('.preview');
-    return preview.scrollWidth > preview.clientWidth;
-  });
-  const finalScroll = await page.locator('.preview').evaluate((preview) => {
-    for (let i = 0; i < 50; i++) {
-      preview.scrollLeft = i;
-      preview.scrollTop = i * 2;
-      preview.dispatchEvent(new Event('scroll'));
-    }
-    return { scrollX: preview.scrollLeft, scrollY: preview.scrollTop };
-  });
-  await page
-    .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
-    .click();
-  await page.getByTestId('counts').filter({ hasText: 'Wybrane: 1' }).waitFor();
-  await ready();
-  const current = (await page.evaluate(() => window.selector.snapshot())).value;
-  assert.equal(current.view.scrollX, finalScroll.scrollX);
-  assert.equal(current.view.scrollY, finalScroll.scrollY);
-  await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await waitForHistory(page);
-  const savedView = JSON.parse(
-    await readFile(
-      path.join(userData, 'views', `${current.projectId}.json`),
-      'utf8',
-    ),
-  );
-  assert.deepEqual(savedView, current.view);
-  await application.evaluate(({ dialog }, directory) => {
-    dialog.showOpenDialog = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return { canceled: false, filePaths: [directory] };
-    };
-  }, `${source} selekcja`);
-  await page
-    .getByRole('button', { name: 'Otwórz projekt', exact: true })
-    .click();
-  await page
-    .getByText('Weryfikacja źródła i sum kontrolnych JPEG-ów…', { exact: true })
-    .waitFor();
-  await ready();
-  await application.close();
-  application = null;
-  await launch();
-  await continueFromHistory(page);
-  await ready();
-  const reopened = (await page.evaluate(() => window.selector.snapshot()))
-    .value;
-  assert.equal(reopened.acceptedCount, 1);
-  assert.deepEqual(reopened.view, savedView);
-  await page.waitForFunction((expected) => {
-    const preview = document.querySelector('.preview');
-    return (
-      preview.scrollLeft === expected.scrollX &&
-      preview.scrollTop === expected.scrollY
+  await smoke.run(async () => {
+    await mkdir(source);
+    await mkdir(userData);
+
+    await launch();
+    assert.equal(
+      await page.evaluate(() => 'pickSource' in window.selector),
+      false,
     );
-  }, finalScroll);
-  console.log(
-    'PASS: removed picker, open verification, NAV message, scroll burst with accept, project-close flush and new-process view/decisions.',
-  );
-  const closingScroll = await page.locator('.preview').evaluate((preview) => {
-    preview.scrollLeft = 120;
-    preview.scrollTop = 160;
-    preview.dispatchEvent(new Event('scroll'));
-    return { scrollX: preview.scrollLeft, scrollY: preview.scrollTop };
-  });
-  const lockPath = `${source} selekcja/selector-project.lock`;
-  const foreign = JSON.parse(await readFile(lockPath, 'utf8'));
-  foreign.ownerId = randomUUID();
-  const foreignBytes = Buffer.from(JSON.stringify(foreign));
-  await writeFile(lockPath, foreignBytes);
-  const exited = application.waitForEvent('close', { timeout: 15000 });
-  await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].close(),
-  );
-  await exited;
-  application = null;
-  assert.deepEqual(await readFile(lockPath), foreignBytes);
-  const closedView = JSON.parse(
-    await readFile(
-      path.join(userData, 'views', `${current.projectId}.json`),
+    const jpeg = Buffer.from(
+      await application.evaluate(({ nativeImage }) =>
+        nativeImage
+          .createFromBitmap(Buffer.alloc(800 * 600 * 4, 140), {
+            width: 800,
+            height: 600,
+          })
+          .toJPEG(80)
+          .toString('base64'),
+      ),
+      'base64',
+    );
+    for (let i = 1; i <= 3; i++)
+      await writeFile(path.join(source, `photo${i}.jpg`), jpeg);
+    await page
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
+      .click();
+    await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+    await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+    await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
+    await ready();
+    await page.getByRole('button', { name: 'Następne', exact: true }).click();
+    await page
+      .getByText('Pozycja zdjęcia zapisana.', { exact: true })
+      .waitFor();
+    await ready();
+    assert.equal(
+      (await page.evaluate(() => window.selector.snapshot())).value
+        .acceptedCount,
+      0,
+    );
+    await page.getByLabel('Zoom', { exact: true }).selectOption('1000');
+    await page.waitForFunction(() => {
+      const preview = document.querySelector('.preview');
+      return preview.scrollWidth > preview.clientWidth;
+    });
+    const finalScroll = await page.locator('.preview').evaluate((preview) => {
+      for (let i = 0; i < 50; i++) {
+        preview.scrollLeft = i;
+        preview.scrollTop = i * 2;
+        preview.dispatchEvent(new Event('scroll'));
+      }
+      return { scrollX: preview.scrollLeft, scrollY: preview.scrollTop };
+    });
+    await page
+      .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
+      .click();
+    await page
+      .getByTestId('counts')
+      .filter({ hasText: 'Wybrane: 1' })
+      .waitFor();
+    await ready();
+    const current = (await page.evaluate(() => window.selector.snapshot()))
+      .value;
+    assert.equal(current.view.scrollX, finalScroll.scrollX);
+    assert.equal(current.view.scrollY, finalScroll.scrollY);
+    await page.getByRole('button', { name: 'Zamknij projekt' }).click();
+    await waitForHistory(page);
+    const savedView = JSON.parse(
+      await readFile(
+        path.join(userData, 'views', `${current.projectId}.json`),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(savedView, current.view);
+    await application.evaluate(({ dialog }, directory) => {
+      dialog.showOpenDialog = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return { canceled: false, filePaths: [directory] };
+      };
+    }, `${source} selekcja`);
+    await page
+      .getByRole('button', { name: 'Otwórz projekt', exact: true })
+      .click();
+    await page
+      .getByText('Weryfikacja źródła i sum kontrolnych JPEG-ów…', {
+        exact: true,
+      })
+      .waitFor();
+    await ready();
+    await smoke.close(application);
+    application = null;
+    await launch();
+    await continueFromHistory(page);
+    await ready();
+    const reopened = (await page.evaluate(() => window.selector.snapshot()))
+      .value;
+    assert.equal(reopened.acceptedCount, 1);
+    assert.deepEqual(reopened.view, savedView);
+    await page.waitForFunction((expected) => {
+      const preview = document.querySelector('.preview');
+      return (
+        preview.scrollLeft === expected.scrollX &&
+        preview.scrollTop === expected.scrollY
+      );
+    }, finalScroll);
+    console.log(
+      'PASS: removed picker, open verification, NAV message, scroll burst with accept, project-close flush and new-process view/decisions.',
+    );
+    const closingScroll = await page.locator('.preview').evaluate((preview) => {
+      preview.scrollLeft = 120;
+      preview.scrollTop = 160;
+      preview.dispatchEvent(new Event('scroll'));
+      return { scrollX: preview.scrollLeft, scrollY: preview.scrollTop };
+    });
+    const lockPath = `${source} selekcja/selector-project.lock`;
+    const foreign = JSON.parse(await readFile(lockPath, 'utf8'));
+    foreign.ownerId = randomUUID();
+    const foreignBytes = Buffer.from(JSON.stringify(foreign));
+    await writeFile(lockPath, foreignBytes);
+    const exited = application.waitForEvent('close', { timeout: 15000 });
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].close(),
+    );
+    await exited;
+    application = null;
+    assert.deepEqual(await readFile(lockPath), foreignBytes);
+    const closedView = JSON.parse(
+      await readFile(
+        path.join(userData, 'views', `${current.projectId}.json`),
+        'utf8',
+      ),
+    );
+    assert.equal(closedView.scrollX, closingScroll.scrollX);
+    assert.equal(closedView.scrollY, closingScroll.scrollY);
+    const log = await readFile(
+      path.join(userData, 'logs', 'selector.log'),
       'utf8',
-    ),
-  );
-  assert.equal(closedView.scrollX, closingScroll.scrollX);
-  assert.equal(closedView.scrollY, closingScroll.scrollY);
-  const log = await readFile(
-    path.join(userData, 'logs', 'selector.log'),
-    'utf8',
-  );
-  assert.match(log, /LOCK_LOST/);
-  console.log(
-    'PASS: real window/process closes after LOCK_LOST, flushes last view, logs diagnostic and preserves foreign lock bytes.',
-  );
-  await verifyDeferredRelaunch();
+    );
+    assert.match(log, /LOCK_LOST/);
+    console.log(
+      'PASS: real window/process closes after LOCK_LOST, flushes last view, logs diagnostic and preserves foreign lock bytes.',
+    );
+    await verifyDeferredRelaunch();
+  });
+  smoke.result.succeeded = true;
+} catch (error) {
+  smoke.result.error = error;
 } finally {
-  await application?.close();
-  if (reopenedBrowser)
-    for (const context of reopenedBrowser.contexts())
-      for (const window of context.pages())
-        await window.close().catch(() => {});
-  await reopenedBrowser?.close();
-  await removeOwnedTemp(fixture, path.resolve('.tmp'));
+  await smoke.finish({
+    teardown: async () => {
+      if (reopenedBrowser) {
+        for (const context of reopenedBrowser.contexts())
+          for (const window of context.pages())
+            await boundedSmokeStep(() => window.close());
+        await boundedSmokeStep(() => reopenedBrowser.close());
+      }
+    },
+  });
 }

@@ -47,6 +47,22 @@ wyniku przy open/recovery zostają. Dowody130 testów, ZIP0.1.1 i aktualizacji
 są w raporcie quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md;
 ponowny audyt i fizyczny odbiór należą do operatora.
 
+### Diagnostyka natywna i kontrola paczki — TASK-0986
+
+ProcessIdentity dopuszcza najwyżej dwie świeże próby i ponawia wyłącznie
+NATIVE_CHECK_TIMEOUT. Każda próba ma własny deadline, a poprzedni worker
+jest wycofany przed dalszym dispatch. Błąd protokołu, crash i inne błędy
+nie są ponawiane. Timeout nadal oznacza nieznaną tożsamość; nie pozwala
+przejąć locka. Log zawiera attempt, elapsedMs i kod, bez PID/identity/ścieżek.
+Błąd zapisu diagnostyki nie zmienia wyniku kontroli własności.
+
+Verifier odczytuje app.asar ze świeżo rozpakowanego ZIP-a, porównuje SHA,
+ścisłą listę siedmiu plików dist/package.json oraz wersję i build-info z
+metadata. Odrzuca źródła, node_modules, linki i unpacked entries. Starsze
+metadata dirty=true pozostają dopuszczone wyłącznie przy dokładnej zgodności;
+nie są niejawnie oznaczane jako clean. Paczka końcowa jest weryfikowana
+oddzielnie od luźnego katalogu builda.
+
 ### Kompaktowy zapis projektu — D-546
 
 Logiczny ProjectState schema1 i projekcja operator-local v2 nie zmieniają

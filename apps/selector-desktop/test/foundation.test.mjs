@@ -158,3 +158,33 @@ test('diagnostic logs rotate serially and remain bounded across a new instance',
     /application-start/,
   );
 });
+
+test('diagnostic metadata keeps only bounded safe numeric fields', async (t) => {
+  const root = await fixture(t);
+  const log = new DiagnosticLog(root);
+  await log.write('process-identity-check', 'NATIVE_CHECK_TIMEOUT', {
+    attempt: 1,
+    elapsedMs: 999999999,
+    pid: 12345,
+    path: 'secret.jpg',
+    identity: 'secret',
+  });
+  await log.write('process-identity-check', 'NATIVE_CHECK_OK', {
+    attempt: 99,
+    elapsedMs: NaN,
+  });
+  const lines = (await readFile(path.join(root, 'selector.log'), 'utf8'))
+    .trim()
+    .split('\n')
+    .map(JSON.parse);
+  assert.equal(lines[0].attempt, 1);
+  assert.equal(lines[0].elapsedMs, 86400000);
+  assert.deepEqual(Object.keys(lines[0]).sort(), [
+    'attempt',
+    'code',
+    'elapsedMs',
+    'event',
+    'time',
+  ]);
+  assert.deepEqual(Object.keys(lines[1]).sort(), ['code', 'event', 'time']);
+});

@@ -6,6 +6,14 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0975 — Fundament aplikacji Windows i pakowanie (done)
+
+- Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545. Commit v1.7.318 / `00331d5776c462a3dd91e4d9113b39d0223fe6c4`.
+- Electron/React/TS, Forge ZIP, typed IPC, protokół JPEG, sandbox/CSP, blokada sieci i zewnętrznych okien; kontrola ReparsePoint i rotowane logi.
+- Testy: desktop7/7, packaged EXE smoke, lint/typecheck/build/package/make/format/docs/mapy PASS; rdzeń110/110 + typy, Reviewer264/264 PASS poza sandbox.
+- Foundation ZIP149372115 bajtów; nie jest paczką pełnej selekcji. Do 0976/0977 pozostają trwałe projekty/UI. Dodatkowy limit źródła:100000 wpisów katalogowych,15000 JPEG.
+- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot/dystrybucja pozostaje 0979. Przygotowanie dokumentacji: v1.7.317 / `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`.
+
 ### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
 
 - Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).

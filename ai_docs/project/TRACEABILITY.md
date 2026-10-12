@@ -1,13 +1,15 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Mapa śledzenia wymagań
 
 | Obszar | Dokument źródła prawdy | Milestone |
 |---|---|---|
+| Brak limitu liczby zdjęć, stabilny fullscreen i zakres nad zdjęciem | D-547, `quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md` | TASK-0988, TASK-0989, TASK-0990 |
+| Windows ZIP1.0.0 i odbiór decyzją operatora | D-547, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md` | TASK-0979 |
 | Lokalny selektor Windows, dane u odbiorcy, trwałe projekty i ZIP | `requirements/MANUAL_IMAGE_SELECTION.md`, `architecture/MANUAL_IMAGE_SELECTION.md`, D-545, `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md` | TASK-0975, TASK-0976, TASK-0977, TASK-0979 |
 | Wydanie selektora: SHA-256, instrukcja, aktualizacja i osobny fizyczny odbiór | `guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-545 | TASK-0979 |
 | Przejęcie zgodnej sesji operator-local bez zmian oryginału | `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, `architecture/MANUAL_IMAGE_SELECTION.md`, `quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md`, D-545 | TASK-0978 |
@@ -16,7 +18,7 @@ last_updated: 2026-10-12
 | Brak projektu bez resetu, obce foldery, repeat i zamykanie | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0984 |
 | Kompaktowy zapis, zgodna migracja i pełna idempotencja | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0985 |
 | Diagnostyka startu i automatyczna kontrola zawartości paczki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0986 |
-| Finalny ZIP0.1.3, pomiar15000, aktualizacje i oba kierunki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-546 | TASK-0987; fizyczny TASK-0979 blocked |
+| Finalny ZIP0.1.3, pomiar15000, aktualizacje i oba kierunki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-546 | TASK-0987; odbiór TASK-0979 accepted by operator D-547 |
 | Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
 | Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
 | Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |

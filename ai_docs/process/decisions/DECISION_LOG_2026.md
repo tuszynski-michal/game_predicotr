@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,16 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
+
+- **Date:** 2026-10-13.
+- **Status:** accepted by explicit operator instructions in this conversation.
+- **Decision:** remove the imposed 15 000-photo and directory-entry limits without replacing them with another configured cap. Path, checksum, ownership, journal and lock validation remain. This supersedes the scale restriction in D-545/D-546; their historical 15 000 measurement remains evidence only, without guarantees for larger real collections.
+- **Interface:** routine navigation/save messages are silent, necessary feedback is a bottom overlay, native fullscreen retains position/count, step, zoom and exit. The photo is centered horizontally and vertically; its sequence range is a separate centered row immediately above it. Late view events during close cannot replace the final flushed view.
+- **Release and acceptance:** generate Windows ZIP 1.0.0 and close TASK-0979 by the operator's explicit approval on 2026-10-13. No physical second-PC/reboot/protection PASS is asserted without evidence. This changes the previous requirement that physical evidence must block task closure; automated checks and operator decision are recorded separately. No new independent Claude audit is asserted.
+- **Integration:** local merge into literal main must preserve the newer primary-checkout changes. The user authorizes removal of the selector worktree after preserving release, historical ZIPs and needed ignored materials outside it. Other worktrees and user photo data are untouched. No push or migration.
+- **Source:** user requests in this conversation; release record ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md; TASK-0988–0990 implementation records and TASK-0979.
 
 ## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
 

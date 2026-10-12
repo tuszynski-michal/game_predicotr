@@ -1,10 +1,12 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Architektura lokalnej ręcznej selekcji
+
+Wydanie 1.0.0 (D-547) nie ma narzuconego limitu liczby zdjęć/wpisów źródła. Nie zmienia to formatów projektu, ledgerów ani kontroli plików. Renderer ma stały dolny overlay zamiast rutynowych komunikatów, osobny zakres pośrodku nad zdjęciem i natywny minimalistyczny fullscreen. Strażnik closingProject odrzuca spóźnione zmiany widoku podczas zamykania. TASK-0979 zamknięto decyzją operatora; dowody wydania w quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
 ## Lokalny selektor Windows — D-545/D-546, zaakceptowana architektura
 
@@ -108,7 +110,7 @@ nie usuwa jawnych kosztów otwarcia, manifestu, pamięci ani source IPC.
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
 ma zaimplementowane fundament0975, trwałość0976, interfejs0977 oraz przejęcie0978.
-Wydanie0979 przeszło testy lokalne; fizyczny odbiór jest otwarty. Korzysta z manual-image-selection-core,
+Wydanie0979 przeszło testy lokalne; odbiór zatwierdzono decyzją operatora (D-547). Korzysta z manual-image-selection-core,
 ma własny renderer i natywne adaptery; nie wydziela komponentów Admina ani
 Reviewera. Brak nowych endpointów, OpenAPI i tabel PostgreSQL.
 
@@ -116,7 +118,7 @@ Typowane IPC waliduje nadawcę/argumenty i używa identyfikatorów indeksu,
 nie dowolnych ścieżek. Własny protokół strumieniuje lokalne JPEG-i;
 contextIsolation/sandbox, brak nodeIntegration, CSP i blokada nawigacji
 zewnętrznej chronią granicę renderera. Adapter odrzuca traversal i reparse
-pointy przy odczycie/zapisie. Indeks metadanych ma granicę 15 000 JPEG,
+pointy przy odczycie/zapisie. Indeks metadanych nie ma narzuconej granicy liczby JPEG,
 preview ±3, bez Blobów całej kolekcji i miniaturek.
 
 Wersjonowany projekt na dysku jest źródłem prawdy. Stan temp/sync/replace

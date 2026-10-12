@@ -1,10 +1,12 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Lokalna ręczna selekcja zdjęć
+
+Aktualny kontrakt wydania 1.0.0: D-547. Brak narzuconej granicy liczby zdjęć i wpisów katalogowych. Rutynowe komunikaty pozycji są wyłączone; potrzebne informacje pozostają przy dolnej krawędzi. Zdjęcie jest wyśrodkowane w obu osiach, zakres pośrodku nad zdjęciem. Fullscreen pokazuje pozycję/liczbę wybranych, skok, zoom i wyjście; zmiana konfiguracji wymaga wyjścia. Odbiór TASK-0979 zamknięty jawną decyzją operatora, bez dopisania niewykonanych testów fizycznych. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md. Poniższe dane starszych paczek są historią implementacji.
 
 ## Lokalny selektor Windows — D-545/D-546, zaakceptowany zakres
 
@@ -21,14 +23,14 @@ osobne naciśnięcie działa, a strzałki mogą powtarzać nawigację.
 Nieznana blokada nie uniemożliwia zamknięcia programu i nie jest usuwana.
 Ponowne uruchomienie podczas zamykania kończy się jednym otwartym oknem.
 
-D-546 zachowuje limit 15 000 JPEG i pełną historię identyfikatorów operacji.
+D-546 zachowuje pełną historię identyfikatorów operacji; D-547 usuwa limit liczby JPEG.
 Nowy format dyskowy wydziela niezmienny spis zdjęć oraz dopisuje decyzje,
 zamiast przepisywać cały projekt na każdą nawigację. Stare lokalne projekty
 są migrowane pod blokadą po odzyskaniu przerwanej operacji. JPEG-i i manifest
 operator-local v2 pozostają zgodne. Po migracji starsza aplikacja odmawia
 zapisu nowego formatu; nie wolno używać starej wersji do dalszej selekcji.
 Zachowana jest kopia zapasowa metadanych i pełne retry tego samego operationId.
-Pomiar granicy 15 000 zdjęć i finalna paczka należą do TASK-0987.
+Historyczny pomiar 15 000 zdjęć i finalna paczka należą do TASK-0987.
 Dowody paczki 0.1.3 zapisano w
 `quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`,
 a warunki i ograniczenia pomiaru w `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`.
@@ -53,7 +55,7 @@ ale nigdy nie pozwala kontynuować zapisu ani usunąć cudzej blokady.
 
 Fundament i trwałe projekty oddzielnego selektora Windows 11 x64 są
 zaimplementowane przez0975/0976; pełny interfejs0977 również przeszedł testy.
-Paczka0979 przeszła testy lokalne; fizyczny odbiór pozostaje otwarty. [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
+Paczka0979 przeszła testy lokalne; odbiór zatwierdzono decyzją operatora (D-547). [Plan](../delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
 opisuje TASK-0975/0976/0977/0979/0978. Odbiorca rozpakowuje ZIP i pracuje offline,
 bez hosta, tunelu, instalacji narzędzi deweloperskich i sesji sieciowej.
 Źródła, postęp oraz wyniki pozostają na jego urządzeniu; Proton Drive
@@ -73,7 +75,7 @@ Domyślne katalogi obok źródła to `<źródło> selekcja` (projekt) i
 `<źródło> wybrane` (JPEG-i seq_* i manifest operator-local v2). Projekt jest
 na lokalnym dysku poza synchronizacją/udziałem sieciowym. Brak folderu
 uruchamia ponowne wskazanie, nigdy reset. Potwierdzony wybór przetrwa restart;
-obcy/zmieniony wynik blokuje nadpisanie. Skala założona: do 15 000 JPEG/projekt.
+obcy/zmieniony wynik blokuje nadpisanie. Nie narzucamy limitu liczby JPEG/projekt.
 
 Pilotaż jest bez podpisu, z odbiorem na konkretnym komputerze użytkownika.
 Blokada Windows wstrzymuje odbiór; wyłączenie ochrony nie jest instrukcją.

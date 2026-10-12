@@ -1,16 +1,26 @@
 ---
 title: Lokalny selektor Windows — odbiór pilotażu
-status: blocked
-last_updated: 2026-10-12
+status: accepted
+last_updated: 2026-10-13
 ---
 
 # Odbiór pilotażu lokalnego selektora Windows
+
+Wydanie **1.0.0**, kod v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Paczka zachowana poza worktree:
+`D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`.
+ZIP 149411351 B, SHA-256 `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`;
+app.asar SHA-256 `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`.
+Obie flagi dirty=false. Metadane .release.json i suma .sha256 są obok ZIP-a.
+
+Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierdź odbiór -wygeneruj wersje 1. a cały worktree usuń”. Odbiór zamknięto na podstawie tej jawnej decyzji. Nie przedstawiono osobnych dowodów fizycznego drugiego komputera, rebootu Windows ani wyniku ochrony na komputerze odbiorcy; nie oznaczamy tych kontroli jako PASS. Decyzja operatora zwalnia je jako bramkę zamknięcia TASK-0979, nie zastępuje dowodów testowych.
+
+Aktualne dowody: [wydanie 1.0.0](OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md). Poniższe wpisy 0.1.x i tabela PENDING są zachowanym rejestrem historycznym. PENDING oznacza brak przekazanego dowodu fizycznego, a nie otwarty status taska po decyzji D-547.
 
 To jest rejestr dowodów odbioru TASK-0979, nie raport audytu kodu.
 Operator zlecił audyt całego zakresu dopiero po pięciu taskach. Testy agentowe
 nie zastępują uruchomienia paczki otrzymanej przez odbiorcę.
 
-## Aktualna paczka 0.1.3 — finalizacja TASK-0984–0987
+## Historyczna paczka 0.1.3 — finalizacja TASK-0984–0987
 
 Przedmiot końcowego odbioru:
 `apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
@@ -155,7 +165,7 @@ Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOT
 
 ## Warunek zakończenia
 
-TASK-0979 pozostaje blocked do przedstawienia dowodów fizycznego odbioru.
+Historyczny warunek fizycznego odbioru zmieniła jawna decyzja operatora D-547. TASK-0979 jest done, bez uznania niewykonanych testów fizycznych za PASS.
 Przygotowanie kodu i paczki umożliwia wykonanie0978 zgodnie z poleceniem operatora.
 Pilotaż nie ma podpisu. Blokada Windows wstrzymuje odbiór; nie wyłączać ochrony.
 Po zmianie paczki powtórzyć kontrole odnoszące się do otrzymanej wersji.

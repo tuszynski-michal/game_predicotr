@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Decision Log
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
 | [D-544](decisions/DECISION_LOG_2026.md#d-544--nowe-gry-777-importują-przez-v3-z-profilem-grid_profile_777_v2) | Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2` | accepted | 2026-10-11 | każdy profil silnika siatek importuje przez ścieżkę neural z własnym modelem (777 v2 z laboratorium), V1.1 zostaje tylko dla starej 777 (rozszerza D-521). |
@@ -225,8 +226,18 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-546, D-545, D-544, D-543, D-542), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-547, D-546, D-545, D-544, D-543), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
+
+- **Date:** 2026-10-13.
+- **Status:** accepted by explicit operator instructions in this conversation.
+- **Decision:** remove the imposed 15 000-photo and directory-entry limits without replacing them with another configured cap. Path, checksum, ownership, journal and lock validation remain. This supersedes the scale restriction in D-545/D-546; their historical 15 000 measurement remains evidence only, without guarantees for larger real collections.
+- **Interface:** routine navigation/save messages are silent, necessary feedback is a bottom overlay, native fullscreen retains position/count, step, zoom and exit. The photo is centered horizontally and vertically; its sequence range is a separate centered row immediately above it. Late view events during close cannot replace the final flushed view.
+- **Release and acceptance:** generate Windows ZIP 1.0.0 and close TASK-0979 by the operator's explicit approval on 2026-10-13. No physical second-PC/reboot/protection PASS is asserted without evidence. This changes the previous requirement that physical evidence must block task closure; automated checks and operator decision are recorded separately. No new independent Claude audit is asserted.
+- **Integration:** local merge into literal main must preserve the newer primary-checkout changes. The user authorizes removal of the selector worktree after preserving release, historical ZIPs and needed ignored materials outside it. Other worktrees and user photo data are untouched. No push or migration.
+- **Source:** user requests in this conversation; release record ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md; TASK-0988–0990 implementation records and TASK-0979.
 
 ## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
 
@@ -441,85 +452,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 - **Source:** decyzje operatora W7–W9 (2026-10-09) w
   `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
   TASK-0970 i TASK-0971.
-
-## D-542 — Cofnięcie ostatniej ręcznej korekty cięcia siatki
-
-- **Date:** 2026-10-10 (plan zaakceptowany przez operatora 2026-10-09; implementacja TASK-0966–TASK-0969).
-- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
-  (v1.7.291–v1.7.294), wymaga migracji `0154_geometry_correction_revert`
-  (manifest v7) wykonanej przez operatora. **Zmienia D-462** w zakresie „bez
-  usuwania historii” dla wierszy utworzonych przez cofany zapis.
-- **Jednostka i zakres:** cofnąć można wyłącznie najnowszą ręczną korektę
-  planszy (zdarzenie `geometry_saved` i rewizja geometrii planszy), tylko gdy po
-  niej nic się nie zmieniło (CAS `expectedGeometryRevision`,
-  `expectedResolutionRevision`). Drugie cofnięcie nie jest „redo”. Obsługiwane
-  są oba rodzaje: (B) rozstrzygnięcie slotu odroczonego i (A) korekta istniejącej
-  planszy. Reviewer: „Korekta cięcia siatki” → „Ostatnie korekty” z podglądem
-  skutków i potwierdzeniem; trasy `listGeometryCorrections`,
-  `previewGeometryCorrectionRevert`, `revertGeometryCorrection`.
-- **Warunki (fail-closed, 409 z polskim komunikatem, pierwszy niespełniony
-  wygrywa):** `NOT_LATEST`, `STALE`, `SOURCE_ADVANCED`,
-  `SHARED_SOURCE_REVISION`, `CELLS_CHANGED`, `RESOLVED`, `SEQUENCE_OWNERSHIP`,
-  `IMAGE_ADMITTED`, `PINNED`, `REOPENED_RESOLUTION`, `HISTORY_INCOMPLETE`,
-  `NOT_SUPPORTED` (prefiks `GEOMETRY_REVERT_`), a przy wykonaniu także
-  `RENDERER_UNAVAILABLE` i `RENDER_FAILED`. „Transakcja korekty” jest wyznaczana
-  strukturalnie: wspólne serwerowe `created_at` manifestu, rewizji źródła i
-  zdarzeń komórek (Z1 potwierdzone).
-- **Przypadek B:** jedna transakcja usuwa wiersze utworzone przez cofany zapis
-  (plansza, pozycja, komórki, zdarzenia komórek, rewizja planszy, manifest,
-  zdarzenie geometrii) po zapisaniu ich migawki z checksumą w append-only
-  tabeli gry `image_geometry_correction_reverts` (bez FK do usuniętych
-  wierszy); slot wraca do `pending`, sąsiedzi przepięci zapisem wracają na
-  poprzednią rewizję źródła, bramka i status zdjęcia są przeliczane.
-- **Przypadek A:** nic nie jest usuwane; nowa rewizja planszy `N + 1` ma
-  geometrię i specyfikację renderu `N − 1` i wskazuje poprzednią rewizję
-  źródła. Decyzje komórek wracają z najwcześniejszego zdarzenia transakcji
-  korekty; zatwierdzenie wraca tylko przy identycznych rzeczywistych pikselach
-  (zasada D-462, render przez `VirtualRestoredRenderVerifier`; bez renderera
-  `RENDERER_UNAVAILABLE`). `assignment_source` z nowej kolumny
-  `previous_assignment_source`, a dla starszych zdarzeń reguła: `approved` →
-  `human`, `partial_visibility` → `geometry_partial`, reszta → `model`.
-- **Decyzje leada zapisane w tej decyzji:**
-  - **Zatwierdzenie przechodzi na `N + 1`:** jeżeli przed korektą zatwierdzona
-    była dokładnie przywracana rewizja `N − 1`, `approved_geometry_revision`
-    przechodzi na `N + 1` (ta sama geometria; bramka wymaga zatwierdzenia
-    bieżącej rewizji) z pierwotnym czasem i autorem, odczytanym ze zdarzenia
-    zatwierdzenia albo z migawki wcześniejszego cofnięcia; czas i autor nigdy nie
-    pochodzą z samego cofnięcia.
-  - **Węższy `PINNED` dla A:** kohorty treningowe i biblioteka wzorców blokują
-    zawsze; cele operacji zbiorczych tylko przy `expected_geometry_revision >= N`;
-    rewizje predykcji tylko, gdy wskazują odrzucany render (suma specyfikacji
-    renderu rewizji `>= N`, a bez niej suma pikseli należąca wyłącznie do
-    renderu `>= N`), w ostateczności po czasie. Predykcja importu dotyczy
-    przywracanego renderu i nie blokuje. Przypadek B blokuje każda predykcja.
-  - **`HISTORY_INCOMPLETE` i `RENDERER_UNAVAILABLE`:** brak jednoznacznego
-    dowodu proweniencji zatwierdzenia w jednym zapisie odmawia zamiast
-    rekonstrukcji z mieszanej proweniencji; brak renderera odmawia cofnięcia A.
-  - **Klucze idempotencji cofnięć unikalne w grze:** jedna przestrzeń kluczy dla
-    tabeli audytu cofnięć, zdarzeń slotów i zdarzeń rozstrzygnięcia pozycji;
-    to samo polecenie odtwarza wynik (`created=false`), każde inne użycie klucza
-    → 409 `GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`. Pierwsza blokada transakcji to
-    `pg_advisory_xact_lock` z `(game_id, klucz)`; ponowienie starego zapisu
-    cofniętej korekty → 409 `GEOMETRY_CORRECTION_REVERTED`.
-  - **Reguła własności D-539 → D-543 z ochroną lateralną:** cofnięcie korekty,
-    która przejęła sekwencję odrzuconego właściciela (zamknęła odrzucony slot
-    albo inne zdjęcie ma odrzuconą pozycję tej sekwencji), odmawia
-    `SEQUENCE_OWNERSHIP`; reguła przejęcia i ochrona lateralna są opisane w
-    D-543.
-  - **Globalna kolejność blokad:** wszystkie cofnięcia biorą po kluczu
-    idempotencji blokadę własności gry `EXCLUSIVE` (czytelnik/pisarz, D-543), a
-    potem sekwencje → źródła → wiersze → stan liczników → komórki.
-  - **Zmiana D-462:** zasada „bez usuwania historii” nie obejmuje wierszy
-    utworzonych przez cofany zapis slotu (przypadek B); ich pełna treść zostaje
-    w migawce audytu z checksumą. Przypadek A niczego nie usuwa.
-- **Rewizja źródła `reverted`:** nowy status; „bieżąca” rewizja to najwyższa
-  nie-`reverted` (API, worker, bramka, kolejka); UNIQUE checksumy staje się
-  indeksem częściowym `WHERE status <> 'reverted'`, więc ponowny zapis tej samej
-  geometrii po cofnięciu tworzy nową rewizję. Downgrade migracji odmawia przy
-  jakiejkolwiek historii cofnięć lub odrzuceń.
-- **Poza zakresem:** cofanie wielu slotów jednym zapisem źródła, dowolnej
-  starszej rewizji, „redo”, kanonu i alternatyw sekwencji, wyjątku bramki,
-  geometrii strony; plansze z kwalifikacją geometrii (`NOT_SUPPORTED`).
-- **Source:** decyzje operatora W1–W6 (2026-10-09) w
-  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
-  TASK-0966–TASK-0969; instrukcja `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.

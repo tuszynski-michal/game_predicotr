@@ -46,7 +46,7 @@ zmianie ochrony danych, protokołu trwałości lub przekroczeniu zatwierdzonego 
 - ai_docs/architecture/MANUAL_IMAGE_SELECTION.md — Lokalny selektor Windows
 - ai_docs/architecture/CODE_MAP.md
 - ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md
-- ai_docs/tasks/0979-selector-desktop-release-acceptance.md
+- ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md
 
 ## Scope
 

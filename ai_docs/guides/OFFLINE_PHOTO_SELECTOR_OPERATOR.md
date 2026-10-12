@@ -1,23 +1,26 @@
 ---
 title: Lokalny selektor Windows — instrukcja operatora
 status: accepted
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Lokalny selektor Windows — instrukcja operatora
 
-Aktualna paczka to **0.1.3**, przygotowana po pełnej rundzie TASK-0984–0987:
-`apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
-ZIP SHA-256: `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`.
-[Dowody finalizacji](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)
-identyfikują runtime, kontrole i ograniczenia. Wszystkie części implementacji,
-w tym przejęcie starej sesji, są dostępne. Dane i wyniki pozostają lokalnie.
-Wcześniejszy audyt Claude rundy 2 miał PASS dla paczki 0.1.2; końcowy audyt
-nowych zmian i fizyczny odbiór paczki 0.1.3 wykonuje operator.
+Wydanie **1.0.0**, kod v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Paczka zachowana poza worktree:
+`D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`.
+ZIP 149411351 B, SHA-256 `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`;
+app.asar SHA-256 `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`.
+Obie flagi dirty=false. Metadane .release.json i suma .sha256 są obok ZIP-a.
+[Dowody wydania](../quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md).
+Odbiór zatwierdził operator. Wszystkie zdjęcia i wyniki pozostają lokalnie.
+
+Rutynowe komunikaty zapisania pozycji są wyłączone; błędy i potrzebne informacje pokazują się na dole bez przesuwania zdjęcia. Zakres sekwencji znajduje się pośrodku nad zdjęciem. Zdjęcie jest wyśrodkowane w obu osiach. Pełny ekran zachowuje wyłącznie pozycję/liczbę wybranych, skok, zoom i wyjście; F11/Escape lub przycisk przywraca zwykły widok. Konfigurację zakresu i pozostałe operacje zmieniaj poza pełnym ekranem.
+
+Nie ma narzuconego limitu liczby zdjęć w katalogu. Testy metadanych 30 000 pozycji nie stanowią pomiaru wydajności rzeczywistych JPEG-ów.
 
 ## Budowanie i kontrola programu
 
-Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node.
+Z katalogu głównego repozytorium `D:\game_predicotr` na `main`, w PowerShell, po instalacji zależności Node.
 Finalne scenariusze sprawdzają nowy start i wznowienie w obu kierunkach,
 przejęcie starej sesji, zamykanie i rzeczywiste aktualizacje ze starszych ZIP-ów.
 Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów projektu:
@@ -66,7 +69,7 @@ Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Uruchomienie i nowa partia
 
-Poniższy przepływ przeszedł testy i rzeczywisty smoke finalnego ZIP-a 0.1.3. Paczka i dowody testów są w
+Poniższy przepływ przeszedł testy i rzeczywisty smoke finalnego ZIP-a 1.0.0. Paczka i dowody testów są w
 [raporcie odbioru](../quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); stary ZIP
 fundamentu go nie realizuje.
 
@@ -285,7 +288,5 @@ przyciskiem aplikacji.
 
 ## Warunki odbioru
 
-TASK-0979 wymaga rzeczywistego drugiego komputera, dostarczenia ZIP faktycznym
-kanałem, offline selekcji, restartu Windows, aktualizacji, relink źródła
-i odczytu wyników. Agent nie może wpisać PASS tych kontroli bez dowodów
-operatora. Brak takiego odbioru pozostaje jawnym ograniczeniem wydania.
+Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierdź odbiór -wygeneruj wersje 1. a cały worktree usuń”. Odbiór zamknięto na podstawie tej jawnej decyzji. Nie przedstawiono osobnych dowodów fizycznego drugiego komputera, rebootu Windows ani wyniku ochrony na komputerze odbiorcy; nie oznaczamy tych kontroli jako PASS. Decyzja operatora zwalnia je jako bramkę zamknięcia TASK-0979, nie zastępuje dowodów testowych.
+Program pozostaje niepodpisany; nie zalecamy wyłączania ochrony Windows.

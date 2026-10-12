@@ -1,10 +1,12 @@
 ---
 title: Lokalny selektor zdjęć Windows
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-13
 ---
 
 # Lokalny selektor zdjęć Windows — plan po audycie Codex
+
+Zamknięcie 2026-10-13 (D-547): wszystkie pięć tasków done; TASK-0979 zaakceptowany jawną decyzją operatora. Aktualne wydanie1.0.0 obejmuje także0988 (bez limitu zdjęć),0989 (stabilny układ/minimalny fullscreen) i0990 (zakres nad zdjęciem i bezpieczny zapis widoku przy close). Scalenie do main i usunięcie wyłącznie worktree selektora są autoryzowane po zachowaniu artefaktów. Fizyczne kontrole bez przekazanych dowodów nie otrzymują PASS. Poprzednie opisy odbioru/wersji są historycznym planem; aktualny kontrakt i rejestr w D-547 oraz quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
 ## Stan obecny i cel
 
@@ -137,7 +139,7 @@ komputera pozostaje osobną bramką 0979; nie zatrzymuje implementacji 0978.
 - Protokół zdjęć strumieniuje pliki spod zarejestrowanego korzenia.
   Identyfikatory indeksu zamiast ścieżek i base64. Natywna warstwa odrzuca
   wyjście poza korzenie, traversal i reparse pointy także przy zapisie.
-- Założenie: do 15 000 JPEG na projekt; indeks metadanych w pamięci,
+- D-547: brak narzuconego limitu JPEG na projekt; indeks metadanych w pamięci,
   bounded preview ±3, hashowanie/kopiowanie strumieniowe.
 - Rotowane logi bez treści obrazów i z przyciskiem otwarcia folderu logów.
 - ZIP pilotażowy może wywołać ostrzeżenie albo blokadę Windows. Blokada
@@ -168,7 +170,7 @@ Szczegóły: [task 0977](../tasks/completed/0977-selector-desktop-selection-ui.m
 Po 0977, niezależnie od 0978: wersja i SHA-256 ZIP, instrukcja, aktualizacja,
 backup, odbiór rzeczywistej drogi dystrybucji na komputerze odbiorcy.
 Nie raportować pilotażu jako zaliczonego bez dowodów operatora.
-Szczegóły: [task 0979](../tasks/0979-selector-desktop-release-acceptance.md).
+Szczegóły: [task 0979](../tasks/completed/0979-selector-desktop-release-acceptance.md).
 
 ## TASK-0978 — Przejęcie starej sesji
 
@@ -196,7 +198,7 @@ konkretny manifest, semantyka Reviewera, brak refaktoru web UI, jawna
 trwałość/security, początkowo odroczona migracja, osobny odbiór. Skorygowano twierdzenia
 o zawsze dziewięciu planszach, dowodzie zmiany wyłącznie mtime i pewnej
 blokadzie niepodpisanego EXE. Audyt Codex planu nie zastępuje końcowego audytu implementacji przez operatora. Wszystkie pięć części implementacyjnych przeszło testy zapisane w Outcome;
-końcowy audyt i fizyczny odbiór0979 pozostają do wykonania przez operatora.
+końcowy niezależny audyt nowych zmian nie jest wykonany; odbiór0979 zaakceptowano decyzją operatora D-547.
 
 | Wymaganie | Task | Dowód odbioru |
 |---|---|---|
@@ -250,3 +252,6 @@ trwałości. Niedostępnego modelu wykonawcy nie zastępujemy niejawnie.
 | TASK-0977 | gpt-6.1-sol | medium | Interfejs i semantyka selekcji. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
 | TASK-0979 | gpt-6.1-sol | medium | Wydanie i odbiór użytkowy. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
 | TASK-0978 | gpt-6.1-sol | high | Walidacja historycznych danych. | Operator na końcu; zalecany claude-sonnet-5-5 / medium |
+| TASK-0988 | gpt-6.1-sol | medium | Usunięcie limitów i regresje istniejącego kontraktu. | Operator na końcu według D-545/D-546; bez nowego audytu przed commitem. |
+| TASK-0989 | gpt-6.1-sol | medium | Stabilny renderer, natywny fullscreen i centrowanie. | Operator na końcu według D-545/D-546; bez nowego audytu przed commitem. |
+| TASK-0990 | gpt-6.1-sol | medium | Zakres nad zdjęciem i końcowy zapis widoku. | Operator na końcu według D-545/D-546; bez nowego audytu przed commitem. |

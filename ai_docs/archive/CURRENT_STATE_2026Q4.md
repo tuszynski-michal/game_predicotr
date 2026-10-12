@@ -6,6 +6,36 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
+
+- Plik: `ai_docs/tasks/completed/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545. Commit źródeł v1.7.326 / ede94bdcb3ad1cac5838f524b604423bec81b69f; końcowe dowody i poprawka harnessu w v1.7.327.
+- ZIP0.1.1 w out/releases/pilot-0.1.1-ede94bdc, 149400221 bajtów, SHA fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023; app.asar9c3d0c6b..., dirty=false/applicationSourceDirty=false. Stare ZIP-y zachowane bez zmiany sum.
+- Release2/2, globalny lint/typecheck/format/release i full/shortcuts/source-relink/legacy/UX oraz real update0.1.0→0.1.1 PASS. Łącznie130 unikalnych testów tej rundy. Update kopii zachowuje decyzje/currentRelativePath/SHA starego JPEG-a; nowa decyzja przetrwała proces. Oryginalne fixture SHA/size/mtime bez zmian; własne procesy zamknięte.
+- Pierwszy smoke update porównywał opaque UUID między procesami; poprawiony tylko harness porównuje ordinal/relativePath i zapisany kursor. Runtime oraz finalZIP pozostają z326. Docs/mapy/diff PASS.
+- Dowody wykonawcy w quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md. Oryginalny audyt REVISE bez zmian; operator ponownie audytuje. Fizyczny odbiór0979 nadal blocked. Bez danych operatora/usług/benchmarku/push/merge.
+
+### TASK-0981 — Obsługa błędów i płynny zapis widoku (done)
+
+- Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
+- Close czeka na szereg i flush, loguje utratę locka, kończy własny worker i pozwala wyjść. Debounce250ms ostatniego widoku, decyzje bez kolejki scroll, usunięty pickSource, komunikat open/NAV i instrukcja brakującego JPEG-a.
+- UI4/4, lint/typecheck/format/package i real EXE smoke-ux PASS: burst50+accept, flush/reopen oraz pending scroll+close przy LOCK_LOST, obca blokada niezmieniona i diagnostyka zapisana. Pierwszy błąd harnessu scroll49 vs48,8 skorygowany do dokładnej wartości DOM; runtime bez tej zmiany.
+- Bez własnego PASS audytu, danych operatora, usług i push/merge. Nowy ZIP i aktualizacja innej wersji w0982; fizyczny odbiór0979 pozostaje blocked.
+
+### TASK-0980 — Natywne kontrole i zgodność trwałych projektów (done)
+
+- Plik: `ai_docs/tasks/completed/0980-selector-desktop-native-checks-and-recovery.md`; plan poprawek2026-10-12, D-545. Commit v1.7.324 / a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1.
+- Jeden typed checks worker, świeże kontrole, pojedynczy scan source z natywnym proof, close bez unlink cudzej blokady, skipped zgodny z Reviewerem i stop nowych decyzji po utracie output JPEG.
+- Backend124 unikalne PASS: native15+projekt48+legacy25+recovery26+process3+foundation7; lint/typecheck/format PASS. Mały fixture3JPEG: NAV88ms, preview15ms, accept133ms bez dodatkowych startów PowerShell. Mapy zregenerowane.
+- Format project/journal i pełna retencja receipts bez zmian; koszt O(inventory+historia), pełne SHA open, pusty nieznany recovery guard i brak USB pozostają jawnymi ograniczeniami. Audyt po rundzie wykonuje operator; własne testy nie zmieniają REVISE.
+- Bez usług, danych operatora, benchmarku, push/merge. Realne UI i nowy ZIP w0981/0982; fizyczny odbiór0979 nadal blocked.
+
+### TASK-0978 — Przejęcie starej sesji (done)
+
+- Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322 / `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17`.
+- Read-only dowody v1/v2, preview/opaque token, nowe puste katalogi, seed historii i wieloplikowy journal v2; recovery zwykłego journal v1 zachowane. Oryginalne source/output nietknięte.
+-107 unikalnych testów PASS: legacy25+recovery29+projekt43+foundation7+UI3; lint/typecheck/format/build/package i legacy smoke EXE PASS. Realne przerwania procesów, retry, checksumy, anulowanie i nowy proces. Mapy zregenerowane.
+- Fail-closed brak dowodów/MIME/mtime mismatch, niejednoznaczny lub sprzeczny terminalny v1 i duplikaty accepted source path. Zachowane generacje decyzji, nowy licznik max/0.
+- Audyt operatora po pięciu taskach; finalny ZIP z commita v1.7.322 sprawdzony pełnym/source-relink/legacy smoke, stabilna kopia w out/releases/pilot-0.1.0-abe8e645. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.
 ### TASK-0977 — Interfejs pełnej selekcji (done)
 
 - Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.

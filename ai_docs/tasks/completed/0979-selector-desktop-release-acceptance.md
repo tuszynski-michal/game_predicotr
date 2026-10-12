@@ -1,14 +1,14 @@
 ---
 title: Pilotaż i odbiór wydania
-status: blocked
-last_updated: 2026-10-12
+status: done
+last_updated: 2026-10-13
 ---
 
 # TASK-0979 — Pilotaż i odbiór wydania
 
 ## Status
 
-`blocked`
+`done`
 
 ## Goal
 
@@ -23,7 +23,7 @@ fragment zaakceptowanego planu.
 
 ## Dependencies / entry conditions
 
-TASK-0977 zakończony. TASK-0978 nie jest zależnością. Końcowy audyt operatora po całym zakresie. Operator udostępnia drugi komputer i dowody rzeczywistego odbioru.
+TASK-0977 zakończony. TASK-0978 nie jest zależnością. Końcowy audyt operatora po całym zakresie. Pierwotny warunek fizycznych dowodów zamknięcia został zastąpiony jawnym zatwierdzeniem operatora 2026-10-13 (D-547); nie deklarujemy tych testów jako wykonanych.
 
 ## Recommended execution
 
@@ -64,9 +64,9 @@ Podpis/certyfikat, sklep, auto-update, integracja Proton Drive, push/merge i aut
 ## Acceptance criteria
 
 - [x] ZIP i suma kontrolna są gotowe, instrukcja pozwala rozpakować cały folder i uruchomić program.
-- [ ] Czysty Windows 11 x64 bez Node/Python i bez hosta pozwala zakończyć nową partię.
-- [ ] Rzeczywisty reboot i aktualizacja zachowują projekt; source relink nie resetuje decyzji.
-- [ ] Wyłącznie gotowy folder wybrane jest przekazywany ręcznie, projekt nie jest synchronizowany.
+- [x] Zaakceptowane decyzją operatora D-547, bez fizycznego dowodu PASS: czysty Windows 11 x64 bez Node/Python i bez hosta pozwala zakończyć nową partię.
+- [x] Zaakceptowane decyzją operatora D-547, bez fizycznego dowodu PASS: rzeczywisty reboot i aktualizacja zachowują projekt; source relink nie resetuje decyzji.
+- [x] Zaakceptowane decyzją operatora D-547; bez dowodu rzeczywistego przekazania: wyłącznie gotowy folder wybrane jest przekazywany ręcznie, projekt nie jest synchronizowany.
 - [x] Blokada Windows wstrzymuje odbiór; dokumentacja nie zaleca wyłączenia ochrony.
 - [x] Outcome nie twierdzi PASS dla drugiego komputera bez dowodu operatora.
 
@@ -109,11 +109,26 @@ Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:chec
 
 ## Risks / open questions
 
-Drugi komputer i reboot są zależnością operatora. Nie kończ taska jako done, gdy pozostają kryteria fizycznego odbioru; zapisz gotową paczkę i blocker.
+Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierdź odbiór -wygeneruj wersje 1. a cały worktree usuń”. Odbiór zamknięto na podstawie tej jawnej decyzji. Nie przedstawiono osobnych dowodów fizycznego drugiego komputera, rebootu Windows ani wyniku ochrony na komputerze odbiorcy; nie oznaczamy tych kontroli jako PASS. Decyzja operatora zwalnia je jako bramkę zamknięcia TASK-0979, nie zastępuje dowodów testowych. Niezależny końcowy audyt nowych zmian nie został wykonany; nie przypisujemy wydaniu 1.0.0 historycznego PASS Claude.
 
 ## Outcome
 
-### Current acceptance target — 2026-10-12
+### Zamknięcie wydania 1.0.0 — 2026-10-13
+
+Pierwsze dwa pełne smoke ZIP1.0.0 FAIL przy oczekiwaniu na scroll120/100 po wznowieniu. Bounded diagnostyka wykazała trwającą natywną animację po obsłudze okien; ustawiona testowo pozycja zmieniała się jeszcze przed zamknięciem, a aplikacja odtwarzała bieżący widok. Hipotezy CSS/fokusu i próba strażnika odtwarzania layoutu nie usunęły zjawiska; zmiany runtime wycofano. Poprawka harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c czeka na 250ms bez zmiany przewijania (limit5s), następnie ustawia120/100, sprawdza trwały stan i po nowym procesie nadal wymaga dokładnie120/100. Pełny packaged oraz finalZIP smoke PASS. Nie osłabiono asercji ani nie zmieniono kodu aplikacji. Logi nieudanych prób i diagnostyka zachowane. Jest to obserwacja natywnego przewijania w automatyzacji; nie przypisujemy definitywnej przyczyny do konkretnego mechanizmu Chromium.
+
+Wydanie **1.0.0**, kod v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Paczka zachowana poza worktree:
+`D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`.
+ZIP 149411351 B, SHA-256 `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`;
+app.asar SHA-256 `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`.
+Obie flagi dirty=false. Metadane .release.json i suma .sha256 są obok ZIP-a.
+Przygotowanie wersji: v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Scalenie poprawki głównego checkoutu: v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
+
+Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierdź odbiór -wygeneruj wersje 1. a cały worktree usuń”. Odbiór zamknięto na podstawie tej jawnej decyzji. Nie przedstawiono osobnych dowodów fizycznego drugiego komputera, rebootu Windows ani wyniku ochrony na komputerze odbiorcy; nie oznaczamy tych kontroli jako PASS. Decyzja operatora zwalnia je jako bramkę zamknięcia TASK-0979, nie zastępuje dowodów testowych.
+
+Testy release2/UI6, lint/typecheck, release i trzy kontrole końcowego ZIP-a (full/UX/start obu kierunków) PASS. Dowody i granice w quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md. Word/screenshots pozostają osobnym zadaniem. Poprzednie sekcje Outcome opisują ówczesne blokady historycznych wydań, nie aktualny status.
+
+### Historical acceptance target — 2026-10-12
 
 Bieżący przedmiot odbioru po finalizacji 0984–0987 to ZIP **0.1.3**:
 `apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.

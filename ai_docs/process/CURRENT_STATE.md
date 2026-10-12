@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-12
+last_updated: 2026-10-13
 ---
 
 # Current State
@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Word osobno. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
+
 - **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.
 
 - **Historical numbering collision:** selector foundation and symbol-training recovery both use TASK-0975 and v1.7.317/318 on parallel branches. Preserve both historical records and identify tasks by complete file path; do not renumber existing commits or audit reports.
@@ -31,13 +33,13 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
-- **Aktualny brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md` obejmuje cały zakres0975–0987, wszystkie rundy, D-546, pomiar i aktualny ZIP0.1.3. Audyt nowych zmian nie jest wykonany. Starszy brief v1.7.331 i PASS Claude rundy2 dla0.1.2 zachowano jako historyczne. Odbiór0979 pozostaje blocked.
+- **Aktualny brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md` obejmuje cały zakres0975–0987, wszystkie rundy, D-546, pomiar i aktualny ZIP0.1.3. Audyt nowych zmian nie jest wykonany. Starszy brief v1.7.331 i PASS Claude rundy2 dla0.1.2 zachowano jako historyczne. Historyczny blocker0979 zamknięto decyzją D-547.
 
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
 - Zapis raportu rundy2: v1.7.332 /`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`.
 
-- **Selektor Windows / historyczny audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, PASS bez P0/P1 dla0.1.2,140 testów i potwierdzone SHA. Pierwsze start/update FAIL i późniejsze PASS pozostają w niezmienionym raporcie. Odpowiedzi wykonawcy na wszystkie P2-A–E/P3-A–E są w finalizacji0984–0987; nie są nowym niezależnym audytem. Historical P2-E nie uznano zbiorczo za zdiagnozowane: udowodniono wyścig aktualizacji0.1.0 w harnessie, dodano bounded retry identity/failure logs. Pierwotny REVISE i reaudit zachowano z identycznym SHA; fizyczny0979 blocked.
+- **Selektor Windows / historyczny audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, PASS bez P0/P1 dla0.1.2,140 testów i potwierdzone SHA. Pierwsze start/update FAIL i późniejsze PASS pozostają w niezmienionym raporcie. Odpowiedzi wykonawcy na wszystkie P2-A–E/P3-A–E są w finalizacji0984–0987; nie są nowym niezależnym audytem. Historical P2-E nie uznano zbiorczo za zdiagnozowane: udowodniono wyścig aktualizacji0.1.0 w harnessie, dodano bounded retry identity/failure logs. Pierwotny REVISE i reaudit zachowano z identycznym SHA; Historyczny blocker0979 zamknięto decyzją D-547.
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
@@ -90,18 +92,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
 
 ## Plany z niezakończonymi taskami
-
-### Lokalny selektor zdjęć Windows (accepted, execution authorized, 2026-10-11)
-
-- Plan: `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545.
-- Pierwsze wydanie: 0975→0976→0977→0979; migracja 0978 również uruchomiona późniejszym poleceniem operatora.
-- Gałąź `codex/offline-photo-selector`, worktree `D:\game_predicotr\worktrees\offline-photo-selector`.
-- Koszt zaakceptowany. Implementacja uruchomiona; operator wykona końcowy
-  audyt po pięciu taskach. Jawny wyjątek od gate CLI/per-task review.
-- Bez API/DDL, usług głównej aplikacji, push/merge i cloud transferu.
-- Wszystkie części implementacji i rundy0980–0987 done; aktualna paczka0.1.3,
-  plan finalizacji D-546 i dowody w sekcji ograniczeń. Pozostaje fizyczny0979
-  oraz końcowy audyt operatora zgodnie z D-545.
 
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
@@ -189,14 +179,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0979 — Pilotaż i odbiór wydania (blocked)
-
-- Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
-- Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
-- Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Historyczny build sprzed0978. Finalny ZIP0.1.0 zachowano w out/releases/pilot-0.1.0-abe8e645,149397136 bajtów, SHA `2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`; sourceCommitabe8e645, dirty=true od docs/applicationSourceDirty=false. Release i trzy smoke rozpakowanej kopii PASS.
-- Bieżący przedmiot odbioru: ZIP0.1.3 z0b1ab3302df2119efb2519661e2f82b8bdf545df, out/releases/pilot-0.1.3-0b1ab330;149410942 B, SHA cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md i FINAL_VERIFICATION.
-- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy.0987 sprawdził actual update0.1.0/0.1.2→0.1.3 i odmowę starszych readerów na własnych kopiach; nie zalicza fizycznego odbioru. Końcowy audyt nowych zmian przez operatora pending. Niepodpisany pilot, ochrona pozostaje włączona.0978 jest done.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -873,6 +855,32 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
+
+- Poprawka synchronizacji harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c; initial/repeat smoke FAIL zachowane. Końcowy PASS wymaga dokładnego scroll120/100 po restarcie; runtime bez zmian.
+
+- Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
+- ZIP1.0.0 149411351 B, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, app.asar `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`, dirty=false/applicationSourceDirty=false. Zachowany poza usuwanym worktree.
+- Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Word osobno; bez push/migracji.
+
+### TASK-0990 — Zakres pośrodku nad zdjęciem i końcowy zapis widoku (done)
+
+- Plik: `ai_docs/tasks/completed/0990-selector-desktop-centered-range.md`; D-547. Commity: v1.7.342 / c9afef29d4839cc17eee727ca8324832f6b9379b; v1.7.343 / 8a3249fdefc49547cb2d8ed001e8841cdd2867eb.
+- Zakres przeniesiono poza toolbar do osobnego wyśrodkowanego wiersza nad zdjęciem w obu trybach. Semantyka dziewięciu plansz pozostaje. closingProject blokuje spóźnione zmiany widoku podczas close; dodano deterministyczną regresję scrolla po kliknięciu zamknięcia.
+- UI6/6, lint/typecheck, packaged UX po poprawce oraz finalZIP0.1.6 UX PASS. Geometria zakresu: mniej niż1CSSpixel od środka zdjęcia. Pierwszy smoke wykrył utratę widoku przy close; nieudane logi zachowane. Świeży1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
+
+### TASK-0989 — Stabilny układ, minimalny fullscreen i centrowanie zdjęcia (done)
+
+- Plik: `ai_docs/tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md`; D-547. Commity: v1.7.341 / a9cb2fed291077419c1b67fab546deafaf98771b.
+- Wyłączono rutynowe komunikaty nawigacji/zapisu, pozostałe informacje są dolnym overlayem. Minimalny natywny fullscreen, zsynchronizowane wyjście F11/Escape/przycisk i centrowanie zdjęcia w obu osiach zachowują przewijanie przy dużym zoomie.
+- UI6/6, lint/typecheck/format, packaged UX i finalZIP0.1.5 full/UX PASS. Świeży finalZIP1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
+
+### TASK-0988 — Brak limitu liczby zdjęć (done)
+
+- Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
+- Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
+- Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.
+
 ### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
 
 - Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
@@ -903,7 +911,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
 - Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
 - 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
-- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; fizyczny0979 blocked.
+- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; Historyczny blocker0979 zamknięto decyzją D-547.
 
 ### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (done)
 
@@ -921,34 +929,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 -122 unikalne testy PASS; lint/typecheck/format/docs/mapy PASS. Sześć realnych smoke finalnego ZIP, oba kierunki po procesie, moved-source reselect i aktualizacja0.1.0→0.1.2 PASS. Screenshots formularza/historii obejrzane.
 - ZIP0.1.2 w out/releases/pilot-0.1.2-c4181f7d, 149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27; dirty=false/applicationSourceDirty=false. Starsze paczki i oryginalny audyt REVISE zachowane z identycznymi sumami.
 - Dowody wykonawcy: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Późniejszy audyt operatora quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md: PASS,140 testów, otwarte P2/P3 i niewyjaśnione pierwsze błędy dwóch smoke. Fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, push/merge i transferu.
-
-### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
-
-- Plik: `ai_docs/tasks/completed/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545. Commit źródeł v1.7.326 / ede94bdcb3ad1cac5838f524b604423bec81b69f; końcowe dowody i poprawka harnessu w v1.7.327.
-- ZIP0.1.1 w out/releases/pilot-0.1.1-ede94bdc, 149400221 bajtów, SHA fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023; app.asar9c3d0c6b..., dirty=false/applicationSourceDirty=false. Stare ZIP-y zachowane bez zmiany sum.
-- Release2/2, globalny lint/typecheck/format/release i full/shortcuts/source-relink/legacy/UX oraz real update0.1.0→0.1.1 PASS. Łącznie130 unikalnych testów tej rundy. Update kopii zachowuje decyzje/currentRelativePath/SHA starego JPEG-a; nowa decyzja przetrwała proces. Oryginalne fixture SHA/size/mtime bez zmian; własne procesy zamknięte.
-- Pierwszy smoke update porównywał opaque UUID między procesami; poprawiony tylko harness porównuje ordinal/relativePath i zapisany kursor. Runtime oraz finalZIP pozostają z326. Docs/mapy/diff PASS.
-- Dowody wykonawcy w quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md. Oryginalny audyt REVISE bez zmian; operator ponownie audytuje. Fizyczny odbiór0979 nadal blocked. Bez danych operatora/usług/benchmarku/push/merge.
-
-### TASK-0981 — Obsługa błędów i płynny zapis widoku (done)
-
-- Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
-- Close czeka na szereg i flush, loguje utratę locka, kończy własny worker i pozwala wyjść. Debounce250ms ostatniego widoku, decyzje bez kolejki scroll, usunięty pickSource, komunikat open/NAV i instrukcja brakującego JPEG-a.
-- UI4/4, lint/typecheck/format/package i real EXE smoke-ux PASS: burst50+accept, flush/reopen oraz pending scroll+close przy LOCK_LOST, obca blokada niezmieniona i diagnostyka zapisana. Pierwszy błąd harnessu scroll49 vs48,8 skorygowany do dokładnej wartości DOM; runtime bez tej zmiany.
-- Bez własnego PASS audytu, danych operatora, usług i push/merge. Nowy ZIP i aktualizacja innej wersji w0982; fizyczny odbiór0979 pozostaje blocked.
-
-### TASK-0980 — Natywne kontrole i zgodność trwałych projektów (done)
-
-- Plik: `ai_docs/tasks/completed/0980-selector-desktop-native-checks-and-recovery.md`; plan poprawek2026-10-12, D-545. Commit v1.7.324 / a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1.
-- Jeden typed checks worker, świeże kontrole, pojedynczy scan source z natywnym proof, close bez unlink cudzej blokady, skipped zgodny z Reviewerem i stop nowych decyzji po utracie output JPEG.
-- Backend124 unikalne PASS: native15+projekt48+legacy25+recovery26+process3+foundation7; lint/typecheck/format PASS. Mały fixture3JPEG: NAV88ms, preview15ms, accept133ms bez dodatkowych startów PowerShell. Mapy zregenerowane.
-- Format project/journal i pełna retencja receipts bez zmian; koszt O(inventory+historia), pełne SHA open, pusty nieznany recovery guard i brak USB pozostają jawnymi ograniczeniami. Audyt po rundzie wykonuje operator; własne testy nie zmieniają REVISE.
-- Bez usług, danych operatora, benchmarku, push/merge. Realne UI i nowy ZIP w0981/0982; fizyczny odbiór0979 nadal blocked.
-
-### TASK-0978 — Przejęcie starej sesji (done)
-
-- Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322 / `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17`.
-- Read-only dowody v1/v2, preview/opaque token, nowe puste katalogi, seed historii i wieloplikowy journal v2; recovery zwykłego journal v1 zachowane. Oryginalne source/output nietknięte.
--107 unikalnych testów PASS: legacy25+recovery29+projekt43+foundation7+UI3; lint/typecheck/format/build/package i legacy smoke EXE PASS. Realne przerwania procesów, retry, checksumy, anulowanie i nowy proces. Mapy zregenerowane.
-- Fail-closed brak dowodów/MIME/mtime mismatch, niejednoznaczny lub sprzeczny terminalny v1 i duplikaty accepted source path. Zachowane generacje decyzji, nowy licznik max/0.
-- Audyt operatora po pięciu taskach; finalny ZIP z commita v1.7.322 sprawdzony pełnym/source-relink/legacy smoke, stabilna kopia w out/releases/pilot-0.1.0-abe8e645. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.

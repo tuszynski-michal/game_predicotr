@@ -180,7 +180,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 ### TASK-0983 — Start od zdjęć i wznowienie (in_progress)
 
 - Plik: `ai_docs/tasks/0983-selector-desktop-source-first-start.md`. Zatwierdzony zakres1–2 h; oba foldery obok źródła, nazwa gry tylko etykietą.
-- HEADv1.7.327/c32fa802; brak otwartych pytań produktowych, audyt końcowy operatora zgodnie z D-545. Źródła0983: przygotowany commit v1.7.328;121 unikalnych testów i packaged start obu kierunków PASS. Czysty ZIP0.1.2 oraz końcowy zapis hashów pozostają do wykonania.
+- HEADv1.7.327/c32fa802; brak otwartych pytań produktowych, audyt końcowy operatora zgodnie z D-545. Źródła0983: v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f;122 unikalne testy i packaged start obu kierunków PASS. Historia aktualizowana po relink źródła, regresja10/10 PASS; uzupełnienie w v1.7.329. Czysty ZIP0.1.2 oraz końcowy zapis hashów pozostają do wykonania.
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 

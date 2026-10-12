@@ -206,6 +206,11 @@ export class ProjectController {
     this.store = store;
     this.view = await this.views.load(store.snapshot().projectId);
     await this.refreshSource();
+    await this.rememberActive();
+    return this.snapshot()!;
+  }
+  private async rememberActive(): Promise<void> {
+    const store = this.active();
     const s = store.snapshot();
     await this.recentCache.remember({
       projectId: s.projectId,
@@ -215,7 +220,6 @@ export class ProjectController {
       ...(s.gameName ? { gameName: s.gameName } : {}),
       openedAt: new Date().toISOString(),
     });
-    return this.snapshot()!;
   }
   private async closeInternal() {
     await this.views.flush();
@@ -559,6 +563,7 @@ export class ProjectController {
     return this.serial(async () => {
       await this.active().resume();
       await this.refreshSource();
+      await this.rememberActive();
       return this.snapshot()!;
     });
   }
@@ -587,6 +592,7 @@ export class ProjectController {
           : { outputRoot: directory }),
       });
       await this.refreshSource();
+      await this.rememberActive();
       return this.snapshot()!;
     });
   }

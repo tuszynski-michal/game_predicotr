@@ -123,19 +123,23 @@ Source-first begin/create z opaque tokenem, gameName jako zgodne metadane
 schema1, dropdown10 projektów oraz auto-resume z walidacją przed recovery.
 Nie ma pickerów projektu/wyniku w głównym nowym przepływie. Stare custom
 projekty/cache/manifesty są zgodne. Numeracja i naturalny porządek bez zmian.
-Wersja programu0.1.2; źródła przygotowane do commita v1.7.328.
+Wersja programu0.1.2; źródła v1.7.328 /
+9ade6a8596cd316d214cf25339eae40e8789be9f. Uzupełnienie historii po relink
+w osobnym kolejnym commicie v1.7.329.
 
 
 ### Verification results
 
-121 unikalnych testów PASS: start9, project48, UI4, legacy25,
+122 unikalne testy PASS: start10, project48, UI4, legacy25,
 legacy-recovery26, foundation7, release2. Typecheck PASS. Packaged start
 PASS w obu kierunkach po nowym procesie; formularz/historia obejrzane na
 screenshotach. Pierwszy smoke wymagał jednoznacznego aria-label kierunku;
 uzupełniono UI. Test wstrzykniętej awarii poprawiono do rzeczywistego
 kontraktu WRITE_FAILED, z asercją osiągnięcia fazy prepare:after.
 Końcowy lint/typecheck, format i docs:check PASS; mapy zregenerowane.
-Czysty ZIP i jego realne smoke testy pending.
+Pierwszy czysty ZIP9ade6a85 przeszedł full/start smoke i jest zachowany.
+Test10/10 obejmuje również aktualizację historii po relink źródła; dodano
+tę regresję do realnego smoke. Końcowy ZIP z uzupełnieniem historii pending.
 
 
 ### Not completed

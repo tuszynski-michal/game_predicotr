@@ -9,6 +9,7 @@ import {
   readdir,
   unlink,
   symlink,
+  rename,
 } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -369,4 +370,29 @@ test('source picker rejects a junction before looking up or creating a project',
   await symlink(f.source, linked, 'junction');
   f.choose(linked);
   await assert.rejects(f.controller().begin(), { code: 'REPARSE_POINT' });
+});
+
+test('relinked source is remembered and its next selection resumes the same project in a new controller', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const initial = await c.create(
+    request((await c.begin()).draft, 'descending'),
+  );
+  await command(c, { kind: 'accept', imageId: initial.currentImageId });
+  const moved = path.join(f.root, 'Mumie', 'moved-123');
+  await rename(f.source, moved);
+  f.choose(moved);
+  const linked = await c.relink('source');
+  assert.equal(linked.projectId, initial.projectId);
+  const entry = (await new RecentProjects(f.userData).list())[0];
+  assert.equal(entry.sourceRoot.toLowerCase(), moved.toLowerCase());
+  await c.close();
+  const result = await f.controller().begin();
+  assert.equal(result.kind, 'existing');
+  assert.equal(result.workspace.projectId, initial.projectId);
+  assert.equal(result.workspace.gameName, 'Mumie');
+  assert.equal(result.workspace.direction, 'descending');
+  assert.equal(result.workspace.nextRangeStart, 11);
+  assert.equal(result.workspace.acceptedCount, 1);
+  assert.equal(position(result.workspace), 'photo2.jpg');
 });

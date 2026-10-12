@@ -1,6 +1,6 @@
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, readFile, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { removeOwnedTemp } from './release-support.mjs';
 import { waitForHistory } from './ui-smoke-support.mjs';
@@ -169,6 +169,40 @@ try {
     await page.getByRole('button', { name: 'Kontynuuj', exact: true }).click();
     await imageReady();
     assert.equal((await state()).projectId, initial.projectId);
+    if (direction === 'descending') {
+      const moved = path.join(root, 'Mumie', 'moved-456');
+      await rename(source, moved);
+      await application.evaluate(({ dialog }, moved) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [moved],
+        });
+        dialog.showMessageBox = async () => ({
+          response: 1,
+          checkboxChecked: false,
+        });
+      }, moved);
+      await page
+        .getByText('Inne lokalizacje źródła i wyniku', { exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Wskaż ponownie źródło', exact: true })
+        .click();
+      await imageReady();
+      assert.equal((await state()).projectId, initial.projectId);
+      await application.close();
+      application = null;
+      await launch(moved);
+      await page
+        .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
+        .click();
+      await imageReady();
+      assert.equal((await state()).projectId, initial.projectId);
+      assert.equal((await state()).nextRangeStart, saved.nextRangeStart);
+      console.log(
+        'PASS: moved source relink updates history; source reselect resumes the same project after another process restart.',
+      );
+    }
     console.log(
       `PASS: ${direction} one-folder start, game history dropdown and source reselect resume after new process.`,
     );

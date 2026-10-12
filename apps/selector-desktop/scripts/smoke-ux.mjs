@@ -402,6 +402,18 @@ try {
       .value;
     assert.equal(current.view.scrollX, finalScroll.scrollX);
     assert.equal(current.view.scrollY, finalScroll.scrollY);
+    // Browser scroll events arriving after Close must not overwrite the last view.
+    await page.evaluate(() => {
+      document.addEventListener(
+        'click',
+        () => {
+          const preview = document.querySelector('.preview');
+          preview.scrollLeft += 180;
+          preview.dispatchEvent(new Event('scroll'));
+        },
+        { once: true },
+      );
+    });
     await page.getByRole('button', { name: 'Zamknij projekt' }).click();
     await waitForHistory(page);
     const savedView = JSON.parse(

@@ -38,6 +38,7 @@ export function App() {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const closingProject = useRef(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [error, setError] = useState('');
   const [decoded, setDecoded] = useState<string | null>(null);
@@ -97,7 +98,7 @@ export function App() {
   }
   function changeView(view: ViewPreferences) {
     const current = latest.current;
-    if (!current) return;
+    if (!current || closingProject.current) return;
     const updated = { ...current, view };
     latest.current = updated;
     setWorkspace(updated);
@@ -680,10 +681,15 @@ export function App() {
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  unwrap(await window.selector.close());
-                  setWorkspace(null);
-                  latest.current = null;
-                  setRecent(unwrap(await window.selector.recent()));
+                  closingProject.current = true;
+                  try {
+                    unwrap(await window.selector.close());
+                    setWorkspace(null);
+                    latest.current = null;
+                    setRecent(unwrap(await window.selector.recent()));
+                  } finally {
+                    closingProject.current = false;
+                  }
                 })
               }
             >

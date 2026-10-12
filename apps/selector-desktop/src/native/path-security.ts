@@ -1,7 +1,7 @@
 import { lstat, realpath } from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { SelectorError } from '../contracts.ts';
+import { nativeChecks } from './windows-check-worker.ts';
 
 export function containedPath(root: string, relative: string): string {
   if (
@@ -34,49 +34,21 @@ export async function assertWindowsReparse(
   recursive = false,
 ): Promise<void> {
   if (process.platform !== 'win32') return;
-  // One native attribute scan for the entire index, never one process per JPEG.
-  // Paths travel as stdin JSON, never interpolated into executable code.
-  const script = `$ErrorActionPreference='Stop'; try { $data=[Console]::In.ReadToEnd() | ConvertFrom-Json; foreach($p in $data.paths) { $item=Get-Item -LiteralPath $p -Force; if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 42 }; if($data.recursive) { Get-ChildItem -LiteralPath $p -Recurse -Force | ForEach-Object { if(($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 42 } } } }; exit 0 } catch { exit 43 }`;
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-EncodedCommand',
-        Buffer.from(script, 'utf16le').toString('base64'),
-      ],
-      { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'] },
+  try {
+    await nativeChecks().reparseScan(paths, recursive);
+  } catch (error) {
+    const code = (error as SelectorError).code;
+    throw new SelectorError(
+      code === 'REPARSE_POINT'
+        ? code
+        : code === 'NATIVE_CHECK_TIMEOUT'
+          ? 'ATTRIBUTE_SCAN_TIMEOUT'
+          : 'ATTRIBUTE_SCAN_FAILED',
+      code === 'REPARSE_POINT'
+        ? 'Punkty ponownej analizy nie są obsługiwane.'
+        : 'Nie można sprawdzić atrybutów katalogu.',
     );
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(
-        new SelectorError(
-          'ATTRIBUTE_SCAN_TIMEOUT',
-          'Sprawdzenie katalogu przekroczyło limit czasu.',
-        ),
-      );
-    }, 30000);
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve();
-      else
-        reject(
-          new SelectorError(
-            code === 42 ? 'REPARSE_POINT' : 'ATTRIBUTE_SCAN_FAILED',
-            code === 42
-              ? 'Punkty ponownej analizy nie są obsługiwane.'
-              : 'Nie można sprawdzić atrybutów katalogu.',
-          ),
-        );
-    });
-    child.stdin.on('error', () => {});
-    child.stdin.end(JSON.stringify({ paths, recursive }));
-  });
+  }
 }
 export async function assertNoLinks(
   absolute: string,

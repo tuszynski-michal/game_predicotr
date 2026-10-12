@@ -87,6 +87,10 @@ domyślnym kontekstem implementacyjnym.
 
 ### Dostarczanie
 
+- [Poprawki selektora po audycie Claude](delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md)
+  — accepted2026-10-12, TASK-0980/0981/0982, dodatkowa runda2–4 h.
+  Raport REVISE jest zachowany; poprawki i nowy ZIP0.1.1 w realizacji.
+
 - [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
   — accepted, pierwsze wydanie TASK-0975/0976/0977/0979; nowe partie i dane
   u odbiorcy; TASK-0978 również uruchomiony po części implementacyjnej 0979. Pięć części implementacyjnych gotowych; audyt operatora na końcu.

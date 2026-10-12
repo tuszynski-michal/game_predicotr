@@ -9,6 +9,7 @@
   "main": "dist/main.cjs",
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "test:native": "node --experimental-strip-types --test test/native-checks.test.mjs",
     "test:foundation": "node --experimental-strip-types --test test/foundation.test.mjs",
     "test:project": "node --experimental-strip-types --test test/project.test.mjs",
     "test:ui": "node --experimental-strip-types --test test/renderer-contracts.test.mjs",

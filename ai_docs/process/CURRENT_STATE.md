@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Current State
@@ -22,6 +22,10 @@ ograniczenia”. Lead dopisuje hashe commitów jak dotychczas. Spójność okna
 sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`).
 
 ## Obowiązujące ograniczenia
+
+- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
+
+- **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień pozostaje otwarte i blokuje przekazanie. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawek jeszcze nie wykonano; fizyczny odbiór0979 nadal blocked.
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
@@ -170,6 +174,19 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0981 — Obsługa błędów i płynny zapis widoku (in_progress)
+
+- Plik: `ai_docs/tasks/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545.
+- UI zamknięcia/weryfikacji, debounce250 ms z flush, picker aktywnego źródła, komunikaty i procedura OUTPUT_MISSING_FILE.
+- Kodowanie równoległe z0980 przy rozłącznych plikach; commit po0980. Backend/controller własnością0980. Wyniki do uzupełnienia.
+
+### TASK-0982 — Poprawiony pilotaż0.1.1 i dowody odbioru (todo)
+
+- Plik: `ai_docs/tasks/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545.
+- Po commitach0980/0981: ZIP0.1.1, SHA/provenance i full/relink/legacy smoke oraz aktualizacja własnej kopii0.1.0→0.1.1.
+- Historyczny0.1.0 zachowany. Bez własnego PASS audytu, fizycznego odbioru0979, push/merge i usług operatora.
+
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
@@ -853,6 +870,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0980 — Natywne kontrole i zgodność trwałych projektów (done)
+
+- Plik: `ai_docs/tasks/completed/0980-selector-desktop-native-checks-and-recovery.md`; plan poprawek2026-10-12, D-545. Commit v1.7.324; hash po commicie.
+- Jeden typed checks worker, świeże kontrole, pojedynczy scan source z natywnym proof, close bez unlink cudzej blokady, skipped zgodny z Reviewerem i stop nowych decyzji po utracie output JPEG.
+- Backend124 unikalne PASS: native15+projekt48+legacy25+recovery26+process3+foundation7; lint/typecheck/format PASS. Mały fixture3JPEG: NAV88ms, preview15ms, accept133ms bez dodatkowych startów PowerShell. Mapy zregenerowane.
+- Format project/journal i pełna retencja receipts bez zmian; koszt O(inventory+historia), pełne SHA open, pusty nieznany recovery guard i brak USB pozostają jawnymi ograniczeniami. Audyt po rundzie wykonuje operator; własne testy nie zmieniają REVISE.
+- Bez usług, danych operatora, benchmarku, push/merge. Realne UI i nowy ZIP w0981/0982; fizyczny odbiór0979 nadal blocked.
+
 ### TASK-0978 — Przejęcie starej sesji (done)
 
 - Plik: `ai_docs/tasks/completed/0978-selector-desktop-legacy-adoption.md`; D-545. Commit v1.7.322 / `abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17`.
@@ -945,19 +970,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Wykluczono nieczytelną pozostałość testu `*pytest-run*` (ERROR 5).
   Wykonawca opus-5-5 zamiast sonnet-5-5.
 - Task: `ai_docs/tasks/completed/0953-disk-d-data-directory-sync.md`.
-
-### TASK-0952 — kopia zapasowa bazy na D (done)
-
-- Etap A planu przeniesienia na D (D-540). `D:\game_predictor_backup`:
-  zrzut `game_predictor-20261010-0100.dump` (33,8 GB, SHA-256 `94E5DB9B…`),
-  role `globals-20261010-0100.sql`, spis i log. Kody wyjścia 0 dla
-  `pg_dumpall`, `pg_dump` (26,5 min), `pg_restore --list` (263 `TABLE DATA`)
-  i pełnego odczytu `pg_restore --file=/dev/null` (15,7 min).
-- Raport etapu A: baza 88 GB, `0153`, 272/59 tabel, 839 jobów, 13 sesji
-  zdalnej selekcji. Bez zmian w bazie i usługach. Wykonawca opus-5-5 zamiast
-  sonnet-5-5 (zmiana modelu przez operatora).
-- Task: `ai_docs/tasks/completed/0952-disk-d-database-backup.md`.
-
 
 ## Archiwum
 

@@ -123,6 +123,7 @@ AREAS: tuple[Area, ...] = (
         commands=(
             "`npm run selector:build`",
             "`npm run selector:make`",
+            "`npm run test:native --workspace @game-predictor/selector-desktop`",
             "`npm run test:foundation --workspace @game-predictor/selector-desktop`",
             "`npm run test:project --workspace @game-predictor/selector-desktop`",
             "`npm run test:ui --workspace @game-predictor/selector-desktop`",

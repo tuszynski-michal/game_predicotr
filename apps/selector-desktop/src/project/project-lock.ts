@@ -3,7 +3,7 @@ import { hostname } from 'node:os';
 import { open, unlink } from 'node:fs/promises';
 import { SelectorError } from '../contracts.ts';
 import { SecureFiles, stableStringify } from '../filesystem/secure-files.ts';
-import { powershellJson } from '../filesystem/local-storage.ts';
+import { nativeChecks } from '../native/windows-check-worker.ts';
 
 export const PROJECT_LOCK_NAME = 'selector-project.lock';
 const RECOVERY_LOCK_NAME = 'selector-project-lock-recovery.lock';
@@ -25,11 +25,7 @@ export const nativeProcesses: ProcessInspector = {
   pid: process.pid,
   async identity(pid) {
     if (process.platform === 'win32') {
-      const result = (await powershellJson(
-        "$ErrorActionPreference='Stop'; try { $d=[Console]::In.ReadToEnd() | ConvertFrom-Json; $p=Get-CimInstance Win32_Process -Filter ('ProcessId = '+[int]$d.pid); if($null -eq $p) { @{identity=$null} | ConvertTo-Json -Compress } else { if($null -eq $p.CreationDate) { exit 2 }; @{identity=$p.CreationDate.ToUniversalTime().ToString('O')} | ConvertTo-Json -Compress } } catch { exit 1 }",
-        { pid },
-      )) as { identity: string | null };
-      return result.identity;
+      return nativeChecks().processIdentity(pid);
     }
     // Linux tests use the OS start tick; an inaccessible process is unknown.
     const { readFile } = await import('node:fs/promises');
@@ -82,6 +78,11 @@ export class ProjectLock {
     rootVerified = false,
   ): Promise<ProjectLock> {
     if (!rootVerified) await files.verifyRoot();
+    if (await files.read(RECOVERY_LOCK_NAME))
+      throw new SelectorError(
+        'LOCK_OWNER_UNKNOWN',
+        'Nieznana blokada odzyskiwania. Nie została usunięta ani przejęta; wymaga diagnostyki operatora.',
+      );
     const identity = await inspector.identity(inspector.pid);
     if (!identity)
       throw new SelectorError(
@@ -140,7 +141,7 @@ export class ProjectLock {
     } catch {
       throw new SelectorError(
         'LOCK_OWNER_UNKNOWN',
-        'Inny proces sprawdza porzuconą blokadę.',
+        'Nieznana blokada odzyskiwania. Nie została usunięta ani przejęta; wymaga diagnostyki operatora.',
       );
     }
     try {

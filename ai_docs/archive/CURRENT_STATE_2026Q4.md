@@ -1,10 +1,23 @@
 ---
 title: Current state archive 2026Q4
 status: archive
-last_updated: 2026-10-09
+last_updated: 2026-10-12
 ---
 
 # Current State — archiwum 2026Q4
+
+### TASK-0952 — kopia zapasowa bazy na D (done)
+
+- Etap A planu przeniesienia na D (D-540). `D:\game_predictor_backup`:
+  zrzut `game_predictor-20261010-0100.dump` (33,8 GB, SHA-256 `94E5DB9B…`),
+  role `globals-20261010-0100.sql`, spis i log. Kody wyjścia 0 dla
+  `pg_dumpall`, `pg_dump` (26,5 min), `pg_restore --list` (263 `TABLE DATA`)
+  i pełnego odczytu `pg_restore --file=/dev/null` (15,7 min).
+- Raport etapu A: baza 88 GB, `0153`, 272/59 tabel, 839 jobów, 13 sesji
+  zdalnej selekcji. Bez zmian w bazie i usługach. Wykonawca opus-5-5 zamiast
+  sonnet-5-5 (zmiana modelu przez operatora).
+- Task: `ai_docs/tasks/completed/0952-disk-d-database-backup.md`.
+
 
 ### TASK-0951 — dokładny licznik serii supergry (done)
 

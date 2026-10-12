@@ -8,7 +8,10 @@ import {
   isManualSelectionRangeTerminal,
 } from '@game-predictor/manual-image-selection-core';
 import { SelectorError } from '../contracts.ts';
-import { SourceRegistry } from '../native/source-registry.ts';
+import {
+  scanSource,
+  type VerifiedSourceScan,
+} from '../native/source-registry.ts';
 import { safeExistingPath } from '../native/path-security.ts';
 import {
   SecureFiles,
@@ -66,9 +69,10 @@ export async function inventoryFor(root: string): Promise<{
   inventory: SourceInventoryItem[];
   checksum: string;
   root: string;
+  scan: VerifiedSourceScan;
 }> {
-  const registry = new SourceRegistry();
-  const index = await registry.register(root);
+  const scan = await scanSource(root);
+  const index = scan.index;
   const inventory = index.images.map((image) => ({
     relativePath: image.relativePath,
     name: image.name,
@@ -85,7 +89,8 @@ export async function inventoryFor(root: string): Promise<{
   return {
     inventory,
     checksum: manifest.manifestChecksumSha256,
-    root: registry.getRoot(index.id),
+    root: scan.root,
+    scan,
   };
 }
 function stateIdentity(state: ProjectState): string {
@@ -107,6 +112,8 @@ export class ProjectStore {
   private queue: Promise<unknown> = Promise.resolve();
   private issue: ProjectIssue | null = null;
   private closed = false;
+  private sourceScan: VerifiedSourceScan | null = null;
+  private closeIssue: ProjectIssue | null = null;
   private outputLease: ProjectLock | null = null;
   private outputLeaseRoot: string | null = null;
   private readonly processes: ProcessInspector;
@@ -134,6 +141,14 @@ export class ProjectStore {
   }
   getIssue(): ProjectIssue | null {
     return this.issue ? { ...this.issue } : null;
+  }
+  getVerifiedSourceScan(): VerifiedSourceScan | null {
+    return this.sourceScan?.root === this.state.sourceRoot
+      ? this.sourceScan
+      : null;
+  }
+  getCloseIssue(): ProjectIssue | null {
+    return this.closeIssue ? { ...this.closeIssue } : null;
   }
   getProjectRoot(): string {
     return this.files.root;
@@ -269,6 +284,7 @@ export class ProjectStore {
         : {}),
     };
     try {
+      store.sourceScan = source.scan;
       await store.prepare(journal);
       await store.applyJournal(journal);
       return store;
@@ -347,6 +363,7 @@ export class ProjectStore {
         );
   }
   private async checkSource(state: ProjectState): Promise<void> {
+    this.sourceScan = null;
     let source;
     try {
       source = await inventoryFor(state.sourceRoot);
@@ -366,6 +383,7 @@ export class ProjectStore {
         'SOURCE_IDENTITY_CONFLICT',
         'Źródło ma inne pliki lub metadane. Postęp nie został zresetowany.',
       );
+    this.sourceScan = source.scan;
   }
   private async outputFiles(state: ProjectState): Promise<SecureFiles> {
     const files = new SecureFiles(state.outputRoot);
@@ -428,13 +446,23 @@ export class ProjectStore {
       allowed.add(scratch(journal, 'jpeg'));
       allowed.add(scratch(journal, 'manifest'));
     }
-    for (const name of await files.names(true))
+    const present = new Set(await files.names(true));
+    for (const name of present)
       if (!allowed.has(name))
         throw new SelectorError(
           'FOREIGN_CONTENT',
           'Katalog wyniku zawiera obce dane. Zapis został zatrzymany.',
         );
     for (const [name, expectedHash] of managed) {
+      const recoverable =
+        journal?.copy?.outputName === name ||
+        journal?.importCopies?.some((item) => item.outputName === name) ||
+        journal?.removals.some((item) => item.outputName === name);
+      if (!present.has(name) && !recoverable)
+        throw new SelectorError(
+          'OUTPUT_MISSING_FILE',
+          'Brakuje zaakceptowanego pliku wynikowego. Przywróć jego zgodną kopię i wznów projekt.',
+        );
       if (hashNames !== 'all' && !hashNames.has(name)) continue;
       const actual = await files.hash(name);
       if (actual === null) {
@@ -811,7 +839,10 @@ export class ProjectStore {
           );
           if (
             before.decisions.some(
-              (d) => d.rangeStart <= range.end && d.rangeEnd >= range.start,
+              (d) =>
+                d.action === 'accepted' &&
+                d.rangeStart <= range.end &&
+                d.rangeEnd >= range.start,
             )
           )
             throw new SelectorError(
@@ -982,6 +1013,8 @@ export class ProjectStore {
             'WRITE_DENIED',
             'SOURCE_MISSING',
             'OUTPUT_MISSING',
+            'OUTPUT_MISSING_FILE',
+            'LOCK_LOST',
             'SOURCE_IDENTITY_CONFLICT',
             'SOURCE_CHANGED',
             'SOURCE_CHECKSUM_CONFLICT',
@@ -1048,8 +1081,15 @@ export class ProjectStore {
   close(): Promise<void> {
     return this.serial(async () => {
       if (!this.closed) {
-        await this.lock.release();
+        try {
+          await this.lock.release();
+        } catch (error) {
+          if (!(error instanceof SelectorError) || error.code !== 'LOCK_LOST')
+            throw error;
+          this.closeIssue = { code: error.code, message: error.message };
+        }
         this.closed = true;
+        this.sourceScan = null;
       }
     });
   }

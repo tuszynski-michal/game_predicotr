@@ -84,6 +84,174 @@ async function fixture(t, overrides = {}) {
   };
 }
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+test('skipped ranges can be corrected and accepted while accepted ranges and repeated sources stay protected', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  await store.execute('skip-audit-001', { kind: 'skip' });
+  await store.execute('range-audit-001', { kind: 'range', start: 1 });
+  await store.execute('accept-audit-001', {
+    kind: 'accept',
+    imagePath: 'photo1.jpg',
+  });
+  const skipped = store.snapshot().decisions[0];
+  for (const field of [
+    'fileId',
+    'imagePath',
+    'imageChecksumSha256',
+    'outputName',
+  ])
+    assert.equal(skipped[field], null);
+  assert.equal(store.snapshot().decisions.length, 2);
+  await store.execute('range-audit-002', { kind: 'range', start: 5 });
+  await assert.rejects(store.execute('skip-audit-002', { kind: 'skip' }), {
+    code: 'RANGE_CONFLICT',
+  });
+  await store.execute('range-audit-003', { kind: 'range', start: 30 });
+  await store.execute('navigate-audit-001', {
+    kind: 'navigate',
+    imagePath: 'photo1.jpg',
+  });
+  await assert.rejects(
+    store.execute('accept-audit-002', {
+      kind: 'accept',
+      imagePath: 'photo1.jpg',
+    }),
+    { code: 'IMAGE_ALREADY_ACCEPTED' },
+  );
+  await store.close();
+  const reopened = f.track(await ProjectStore.open(f.input.projectRoot));
+  assert.equal(reopened.getIssue(), null);
+  assert.equal(reopened.snapshot().decisions.length, 2);
+});
+test('missing confirmed JPEG freezes skip and accept; reopen requires matching backup and explicit resume', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  await store.execute('accept-missing-001', {
+    kind: 'accept',
+    imagePath: 'photo1.jpg',
+  });
+  const jpeg = path.join(f.input.outputRoot, 'seq_1-9.jpg');
+  const backup = await readFile(jpeg);
+  const revision = store.snapshot().revision;
+  await rm(jpeg);
+  await assert.rejects(store.execute('skip-missing-001', { kind: 'skip' }), {
+    code: 'OUTPUT_MISSING_FILE',
+  });
+  assert.equal(store.getIssue().code, 'OUTPUT_MISSING_FILE');
+  await assert.rejects(
+    store.execute('accept-missing-002', {
+      kind: 'accept',
+      imagePath: 'photo2.jpg',
+    }),
+    { code: 'PROJECT_FROZEN' },
+  );
+  assert.equal(store.snapshot().revision, revision);
+  await store.close();
+  const reopened = f.track(await ProjectStore.open(f.input.projectRoot));
+  assert.equal(reopened.getIssue().code, 'OUTPUT_MISSING_FILE');
+  await assert.rejects(reopened.execute('skip-missing-002', { kind: 'skip' }), {
+    code: 'PROJECT_FROZEN',
+  });
+  await writeFile(jpeg, Buffer.alloc(backup.length));
+  await assert.rejects(reopened.resume(), { code: 'OUTPUT_CHECKSUM_CONFLICT' });
+  await writeFile(jpeg, backup);
+  await reopened.resume();
+  assert.equal(reopened.getIssue(), null);
+  await reopened.execute('skip-missing-003', { kind: 'skip' });
+  assert.equal(reopened.snapshot().decisions.length, 2);
+});
+test('close after lock loss preserves a foreign lock and pending journal and permanently closes the store', async (t) => {
+  const f = await fixture(t);
+  let armed = false;
+  const store = await f.create({
+    checkpoint(point) {
+      if (armed && point === 'jpeg:after')
+        throw new Error('fixture interrupted transaction');
+    },
+  });
+  armed = true;
+  await assert.rejects(
+    store.execute('accept-close-001', {
+      kind: 'accept',
+      imagePath: 'photo1.jpg',
+    }),
+  );
+  const journalPath = path.join(f.input.projectRoot, PROJECT_JOURNAL_NAME);
+  const journal = await readFile(journalPath);
+  const lockPath = path.join(f.input.projectRoot, PROJECT_LOCK_NAME);
+  const owner = JSON.parse(await readFile(lockPath, 'utf8'));
+  owner.ownerId = 'foreign-owner-audit';
+  const foreign = JSON.stringify(owner);
+  await writeFile(lockPath, foreign);
+  await store.close();
+  assert.equal(store.getCloseIssue().code, 'LOCK_LOST');
+  assert.equal(await readFile(lockPath, 'utf8'), foreign);
+  assert.deepEqual(await readFile(journalPath), journal);
+  await assert.rejects(store.execute('skip-close-001', { kind: 'skip' }), {
+    code: 'PROJECT_CLOSED',
+  });
+  await store.close();
+});
+test('unknown empty recovery guard is never reclaimed even without a main lock', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  await store.close();
+  const guard = path.join(
+    f.input.projectRoot,
+    'selector-project-lock-recovery.lock',
+  );
+  await writeFile(guard, '');
+  await assert.rejects(ProjectStore.open(f.input.projectRoot), {
+    code: 'LOCK_OWNER_UNKNOWN',
+  });
+  assert.deepEqual(await readFile(guard), Buffer.alloc(0));
+  assert.ok(!(await readdir(f.input.projectRoot)).includes(PROJECT_LOCK_NAME));
+});
+test('close waits for queued durable work before releasing the project lock', async (t) => {
+  const f = await fixture(t);
+  let armed = false;
+  let release;
+  let reached;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const waiting = new Promise((resolve) => {
+    reached = resolve;
+  });
+  const store = await f.create({
+    async checkpoint(point) {
+      if (armed && point === 'prepare:after') {
+        reached();
+        await gate;
+      }
+    },
+  });
+  armed = true;
+  const operation = store.execute('navigate-close-001', {
+    kind: 'navigate',
+    imagePath: 'photo2.jpg',
+  });
+  await waiting;
+  let closed = false;
+  const closing = store.close().then(() => {
+    closed = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal(closed, false);
+  assert.ok((await readdir(f.input.projectRoot)).includes(PROJECT_LOCK_NAME));
+  release();
+  const receipt = await operation;
+  await closing;
+  assert.equal(receipt.currentRelativePath, 'photo2.jpg');
+  const reopened = f.track(await ProjectStore.open(f.input.projectRoot));
+  assert.deepEqual(
+    await reopened.execute('navigate-close-001', {
+      kind: 'navigate',
+      imagePath: 'photo2.jpg',
+    }),
+    receipt,
+  );
+});
 const child = (args, expectedCode = 0) =>
   new Promise((resolve, reject) => {
     const worker = spawn(

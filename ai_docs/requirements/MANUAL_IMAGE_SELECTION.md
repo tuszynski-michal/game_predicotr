@@ -1,12 +1,18 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Lokalna ręczna selekcja zdjęć
 
 ## Lokalny selektor Windows — D-545, zaakceptowany zakres
+
+Runda poprawek po audycie2026-10-12 jest zaakceptowana i w realizacji.
+Desktop ma pozwalać powrócić do zakresu pominiętego Tabem i przypisać mu JPEG;
+kolizja z już zaakceptowanym zakresem nadal blokuje zapis. Nie zmienia to
+wcześniejszych decyzji po cichu. Utrata locka nie blokuje zamknięcia programu,
+ale nigdy nie pozwala kontynuować zapisu ani usunąć cudzej blokady.
 
 Fundament i trwałe projekty oddzielnego selektora Windows 11 x64 są
 zaimplementowane przez0975/0976; pełny interfejs0977 również przeszedł testy.

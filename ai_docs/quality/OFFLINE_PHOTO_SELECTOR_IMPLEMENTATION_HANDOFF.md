@@ -1,7 +1,7 @@
 ---
 title: Lokalny selektor Windows — przekazanie implementacji do audytu operatora
-status: ready_for_review
-last_updated: 2026-10-11
+status: changes_requested
+last_updated: 2026-10-12
 ---
 
 # Przekazanie implementacji do audytu operatora
@@ -53,6 +53,13 @@ i Reviewer264/264 PASS; nie udajemy ich ponownego wykonania bez zmian tych modu�
 Docs:check i code-map:check PASS. Pełne grupy, komendy i ograniczenia zapisano
 w Outcome tasków. Końcowy smoke sprawdził nowy proces, backup/relink,
 relokację tej samej wersji programu oraz legacy preview/anulowanie/import.
+
+## Wynik audytu operatora
+
+[Raport Claude2026-10-12](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md):
+REVISE. Testy109/109, lint/typecheck/docs/mapy i sumy paczki potwierdzone
+przez operatora. Otwarty P1-1 blokuje przekazanie pilotażu. Znaleziska i
+oryginalny raport pozostają niezmienione; runda poprawek nie została wykonana.
 
 ## Punkty do sprawdzenia w końcowym audycie
 

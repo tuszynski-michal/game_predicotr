@@ -68,6 +68,7 @@ export function validateCreate(value: unknown): CreateProjectRequest {
 export class ProjectController {
   private store: ProjectStore | null = null;
   private source: SourceIndex | null = null;
+  private closeIssue: { code: string; message: string } | null = null;
   private view: ViewPreferences = { ...DEFAULT_VIEW };
   private queue: Promise<unknown> = Promise.resolve();
   readonly registry: SourceRegistry;
@@ -110,7 +111,13 @@ export class ProjectController {
     this.source = null;
     if (this.active().getIssue()?.code === 'SOURCE_MISSING') return;
     try {
-      const source = await this.registry.register(state.sourceRoot);
+      const scan = this.active().getVerifiedSourceScan();
+      if (!scan)
+        throw new SelectorError(
+          'SOURCE_IDENTITY_CONFLICT',
+          'Brakuje zweryfikowanego indeksu źródła. Wznów projekt.',
+        );
+      const source = await this.registry.registerVerifiedScan(scan);
       const actual = source.images.map((i) => [
         i.relativePath,
         i.size,
@@ -177,8 +184,12 @@ export class ProjectController {
   private async closeInternal() {
     await this.views.flush();
     await this.store?.close();
+    this.closeIssue = this.store?.getCloseIssue() ?? null;
     this.store = null;
     this.source = null;
+  }
+  getCloseIssue(): { code: string; message: string } | null {
+    return this.closeIssue ? { ...this.closeIssue } : null;
   }
   close(): Promise<void> {
     return this.serial(() => this.closeInternal());

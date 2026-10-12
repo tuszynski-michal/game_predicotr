@@ -258,6 +258,14 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   Initial pilot is unsigned; real Windows blocking stops acceptance without
   advising the recipient to disable protection. No upload, generated links,
   cloud integration, repair or training trace.
+- **Remediation2026-10-12:** operator approved an additional2–4 hour round
+  after the REVISE implementation audit. A controlled, hidden PowerShell
+  worker runs fresh typed drive/reparse/process checks. Reuse a verified
+  native source index; preserve output SHA, ProjectState1/journal1/2,
+  serialized durable cursor writes and receipt retention. Correct close
+  after LOCK_LOST and skipped-range compatibility. TASK-0980/0981/0982
+  produce pilot0.1.1; operator review and recipient acceptance stay separate.
+  No recovery-guard takeover without owner evidence or weaker file checks.
 - **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
   tests, packaging and audits, without a reliable package-percentage estimate.
   The later operator instruction defers review until all five tasks are

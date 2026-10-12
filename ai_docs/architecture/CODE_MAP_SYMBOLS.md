@@ -922,15 +922,16 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 ## apps/selector-desktop/src
 
 - contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
-- filesystem/local-storage.ts: powershellJson, assertLocalStorage
+- filesystem/local-storage.ts: assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/diagnostic-log.ts: DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController
-- native/source-registry.ts: MAX_SOURCE_IMAGES, SourceRegistry
+- native/source-registry.ts: MAX_SOURCE_IMAGES, VerifiedSourceScan, scanSource, SourceRegistry
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
+- native/windows-check-worker.ts: CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
 - project/project-store.ts: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
 - project/recent-projects.ts: RecentProject, RecentProjects

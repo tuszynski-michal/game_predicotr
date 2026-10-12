@@ -1,7 +1,7 @@
 ---
 title: Lokalny selektor Windows — odbiór pilotażu
 status: blocked
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Odbiór pilotażu lokalnego selektora Windows
@@ -68,6 +68,16 @@ Uzupełnić status i konkretny dowód. Nie wpisywać PASS na podstawie testu age
 | Kopia zamkniętego projektu i wyniku przywrócona w osobnym lokalnym katalogu | PENDING | — |
 | JPEG-i zgodne bajtowo, zwykły folder wynikowy i manifest v2 | PENDING | — |
 | Projekt i aktywny wynik poza synchronizacją/udziałem; przekazano tylko gotowy wynik | PENDING | — |
+
+## Audyt implementacji — 2026-10-12
+
+[Audyt operatora Claude](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md)
+ma werdykt REVISE. Potwierdza109/109 testów i sumy obecnej paczki, ale
+P1-1 (opóźnienia interakcji) pozostaje otwarte i blokuje przekazanie pilotażu.
+P2-1 wymaga poprawki zamykania po utracie blokady; P2-3 wymaga przywrócenia
+semantyki Reviewera. Droga naprawy brakującego JPEG-a i koszt otwarcia
+zostaną rozstrzygnięte w rundzie poprawek. Raport operatora pozostaje bez zmian.
+Nie wykonano jeszcze poprawek ani ponownego audytu.
 
 ## Warunek zakończenia
 

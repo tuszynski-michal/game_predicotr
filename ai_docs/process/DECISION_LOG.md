@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
 | [D-544](decisions/DECISION_LOG_2026.md#d-544--nowe-gry-777-importują-przez-v3-z-profilem-grid_profile_777_v2) | Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2` | accepted | 2026-10-11 | każdy profil silnika siatek importuje przez ścieżkę neural z własnym modelem (777 v2 z laboratorium), V1.1 zostaje tylko dla starej 777 (rozszerza D-521). |
 | [D-543](decisions/DECISION_LOG_2026.md#d-543--odrzucanie-przyciętych-plansz-po-imporcie-i-przejęcie-sekwencji-przez-zdjęcie-zastępcze) | Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze | accepted | 2026-10-10 | odrzucony slot lub plansza czeka na zamiennik; nowe zdjęcie przejmuje tylko sekwencje odrzucone albo bez właściciela, żywa pozycja `pending` innego zdjęcia zostaje (zmienia D-238). |
@@ -224,8 +225,57 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-545, D-544, D-543, D-542, D-541), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-546, D-545, D-544, D-543, D-542), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
+
+- **Date:** 2026-10-12.
+- **Status:** accepted by operator instruction to complete all remaining work
+  and explicit approval of the3–5 hour full P2/P3 round, compatible persistence
+  redesign, controlled15000-image measurement and final ZIP. Recipient
+  acceptance takes place at the end.
+- **Scope:** TASK-0984→0985→0986→0987 in
+  `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
+  New pilot0.1.3; source/output stay local and untouched except owned selection
+  transactions. No API/Admin/Reviewer/database/cloud/service changes.
+- **Start and UX:** missing cached project never silently resets. A new batch
+  requires explicit confirmation; only stale cache metadata is forgotten.
+  Preflight both target directories before creating either; no lock in a foreign
+  directory without project markers. Desktop ignores key repeat for decisions.
+  Close with unknown ownership does not remove another owner's lock.
+- **Persistence:** supersedes D-545's temporary retention of full per-operation
+  state serialization. Logical ProjectState1 and operator-local manifest2 remain.
+  Disk head2 at existing primary/backup names points to mirrored immutable
+  inventory/baseline and two append-only checksummed operation ledgers.
+  All previous receipts and operationIds remain valid indefinitely.
+- **Commit and recovery:** journal3 holds compact before/after heads and exact
+  pending record, copy/removals and phase. JPEG/lease rules stay unchanged.
+  Ledger records are synchronized in both mirrors before primary head commit;
+  manifest and backup finish before acknowledgement. Partial exact pending
+  suffix can be completed; unknown bytes and unproved ownership fail closed.
+  Root bindings are in heads/journal, so pending relink does not rewrite ledger
+  bytes. Healthy matching copies recover corruption; two damaged copies block.
+- **Upgrade:** under project lock verify source/project identity, recover
+  journal1/2, write upgrade journal3 containing verified old state, publish
+  mirrored sidecars/ledger then both head2 files, remove descriptor last.
+  Old readers reject journal3/head2 and cannot fall back to a writable old
+  backup. Each interrupted step resumes; no JPEG/manifest change during upgrade.
+- **Safety and performance:** no receipt trimming or weakened checksum/path
+  checks. Full open validation uses a path Set; hot writes validate only delta.
+  UI projection omits internal receipt history. Remaining full manifest O(D)
+  and open checks are explicit. The operator authorizes bounded measurement
+  of15000 synthetic JPEGs; this is not a guarantee for every disk/large photo.
+- **Diagnostics and release:** bounded process-identity retry never proves a
+  timed-out owner dead. Preserve failed smoke logs; verify asar contents and
+  build-info automatically. Explain manual JPEG restoration via manifest path
+  and checksum. Preserve prior reports and ZIPs byte for byte.
+- **Execution gates:** D-545's operator audit at the end and CLI/per-task review
+  exception remain. Internal Codex review is not cross-family audit. Physical
+  TASK-0979 acceptance cannot be asserted from local process smoke or this
+  approval. No push, merge, signing, user-data deletion or protection disabling.
+- **Source:** operator's full-scope approval in this conversation2026-10-12;
+  audit `OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md` and finalization plan.
 
 ## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
 
@@ -473,54 +523,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
 - **Source:** decyzje operatora W1–W6 (2026-10-09) w
   `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
   TASK-0966–TASK-0969; instrukcja `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
-
-## D-541 — Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć
-
-- **Date:** 2026-10-10.
-- **Status:** accepted; kod etapów A i B zaimplementowany (TASK-0961–0964,
-  v1.7.301–v1.7.304), odbiór na żywych danych w TASK-0965.
-- **Decision:** lokalny Reviewer (port 3001, `mode=local`) pracuje w zakresie
-  gry; `importJobId` jest opcjonalny (zdalny Reviewer bez zmian). Ekran ma dwie
-  zakładki: „Do korekty” (dotychczasowa kolejka z D-462: sloty odroczone i
-  plansze ze zgłoszeniem „Zła siatka”) oraz „Braki zdjęć” (realne braki z
-  klasyfikacji D-484: `incomplete_missing`, `incomplete_partial`,
-  `import_failed`, `no_source_geometry`). Pozycję zdjęcia, która ma planszę lub
-  slot, edytuje się istniejącym edytorem narożników (bez nowej ścieżki zapisu
-  geometrii); pozycje bez planszy i slotu oraz błędy importu są informacyjne.
-  „Siatka niepotwierdzona” (`incomplete_uncertain`) NIE jest kolejką i
-  pozostaje licznikiem w „Diagnostyce siatek zdjęć” w Adminie; część D-462
-  „bez walidacji gotowych siatek” obowiązuje bez zmian.
-- **Admin:** launcher „Korekta cięcia siatki” bez wyboru importu; „Diagnostyka
-  siatek zdjęć” pokazuje tylko liczniki i przycisk otwarcia Reviewera. UI
-  wyjątków bramki („Dopuść wyjątkiem…”, „Wycofaj wyjątek”) i lista zdjęć zostały
-  usunięte z Admina; endpointy, audyt i dane wyjątków zostają, a Reviewer ich
-  nie przejmuje (mutacje wysokiego wpływu są poza allowlistą origin Reviewera).
-  Przywrócenie UI wyjątków to osobny task, jeśli bramka znów zacznie
-  wstrzymywać plansze.
-- **Rationale:** dane z 2026-10-10: Mumie — 51 541 z 51 749 zdjęć
-  „niepotwierdzonych” (463 816 plansz) przy 4 realnych brakach; 777 — 76 zdjęć
-  `incomplete_partial`. „51 tys. niekompletnych” oznaczało więc automatyczną
-  siatkę bez ręcznego potwierdzenia, nie błąd cięcia. Do tego czarny podgląd i
-  długi scroll listy w Adminie oraz koszt 23–45 s liczników całej gry na
-  każdej planszy kolejki.
-- **Safety/Boundary:** tryb liczników `counts=correction` w `grid-reviews` i
-  filtr `gapsOnly` w liście niekompletnych zdjęć to wyłącznie odczyt, bez DDL i
-  bez zmiany klasyfikacji D-484; `gapsOnly` razem z `imageState` albo
-  `completenessStatus` daje 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`.
-  Budżety czasu: korekta ≤ 3 s, strona braków ≤ 12 s. Zdalny Reviewer bez
-  zmian. „Plansza częściowa” (`partial`) nie ma stanu końcowego także po
-  ręcznym zatwierdzeniu (D-449), więc pozycja ma flagę `humanApproved`, a
-  zakładka domyślnie ukrywa zdjęcia, w których wszystkie pozycje `partial` są
-  zatwierdzone ręcznie (przełącznik „Pokaż także zatwierdzone ręcznie”).
-- **Supersedes/Amends:** doprecyzowuje D-462 („Correction queue”: lokalny
-  ekran ma dwie zakładki, kolejka korekty bez zmian) i D-484 (miejsce pracy z
-  diagnostyką przechodzi z Admina do Reviewera; Admin zachowuje liczniki); nie
-  zmienia D-488 (korekta cięcia nadal może zatwierdzić symbole wskazane przez
-  operatora).
-- **Out of scope:** walidacja i zatwierdzanie gotowych siatek, kolejka „Siatka
-  niepotwierdzona”, zmiana klasyfikacji D-484, blokada ponownego importu tych
-  samych zdjęć, zdalny Reviewer.
-- **Source:** polecenie operatora z 2026-10-10 i plan
-  `ai_docs/delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`
-  (TASK-0961–0965). Numer D-541, bo D-540 zajęła gałąź
-  `feat/disk-d-migration-plan`.

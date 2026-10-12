@@ -14,6 +14,55 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
+
+- **Date:** 2026-10-12.
+- **Status:** accepted by operator instruction to complete all remaining work
+  and explicit approval of the3–5 hour full P2/P3 round, compatible persistence
+  redesign, controlled15000-image measurement and final ZIP. Recipient
+  acceptance takes place at the end.
+- **Scope:** TASK-0984→0985→0986→0987 in
+  `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
+  New pilot0.1.3; source/output stay local and untouched except owned selection
+  transactions. No API/Admin/Reviewer/database/cloud/service changes.
+- **Start and UX:** missing cached project never silently resets. A new batch
+  requires explicit confirmation; only stale cache metadata is forgotten.
+  Preflight both target directories before creating either; no lock in a foreign
+  directory without project markers. Desktop ignores key repeat for decisions.
+  Close with unknown ownership does not remove another owner's lock.
+- **Persistence:** supersedes D-545's temporary retention of full per-operation
+  state serialization. Logical ProjectState1 and operator-local manifest2 remain.
+  Disk head2 at existing primary/backup names points to mirrored immutable
+  inventory/baseline and two append-only checksummed operation ledgers.
+  All previous receipts and operationIds remain valid indefinitely.
+- **Commit and recovery:** journal3 holds compact before/after heads and exact
+  pending record, copy/removals and phase. JPEG/lease rules stay unchanged.
+  Ledger records are synchronized in both mirrors before primary head commit;
+  manifest and backup finish before acknowledgement. Partial exact pending
+  suffix can be completed; unknown bytes and unproved ownership fail closed.
+  Root bindings are in heads/journal, so pending relink does not rewrite ledger
+  bytes. Healthy matching copies recover corruption; two damaged copies block.
+- **Upgrade:** under project lock verify source/project identity, recover
+  journal1/2, write upgrade journal3 containing verified old state, publish
+  mirrored sidecars/ledger then both head2 files, remove descriptor last.
+  Old readers reject journal3/head2 and cannot fall back to a writable old
+  backup. Each interrupted step resumes; no JPEG/manifest change during upgrade.
+- **Safety and performance:** no receipt trimming or weakened checksum/path
+  checks. Full open validation uses a path Set; hot writes validate only delta.
+  UI projection omits internal receipt history. Remaining full manifest O(D)
+  and open checks are explicit. The operator authorizes bounded measurement
+  of15000 synthetic JPEGs; this is not a guarantee for every disk/large photo.
+- **Diagnostics and release:** bounded process-identity retry never proves a
+  timed-out owner dead. Preserve failed smoke logs; verify asar contents and
+  build-info automatically. Explain manual JPEG restoration via manifest path
+  and checksum. Preserve prior reports and ZIPs byte for byte.
+- **Execution gates:** D-545's operator audit at the end and CLI/per-task review
+  exception remain. Internal Codex review is not cross-family audit. Physical
+  TASK-0979 acceptance cannot be asserted from local process smoke or this
+  approval. No push, merge, signing, user-data deletion or protection disabling.
+- **Source:** operator's full-scope approval in this conversation2026-10-12;
+  audit `OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md` and finalization plan.
+
 ## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
 
 - **Date:** 2026-10-11.

@@ -115,6 +115,11 @@ Drugi komputer i reboot są zależnością operatora. Nie kończ taska jako done
 
 ### Current acceptance target — 2026-10-12
 
+Zapis raportu rundy2 i statusu odbioru: v1.7.332 /
+`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`. Operator następnie uruchomił
+pełną finalizację0984–0987; nowy przedmiot odbioru0.1.3 zostanie wskazany
+po wykonaniu tych tasków. Fizyczny odbiór pozostaje na końcu.
+
 Bieżący przedmiot odbioru to ZIP0.1.2:
 `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
 Source commit v1.7.329 /`c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f`;

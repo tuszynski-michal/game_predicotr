@@ -87,6 +87,9 @@ domyślnym kontekstem implementacyjnym.
 
 ### Dostarczanie
 
+- [Finalizacja selektora po audycie](delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md)
+  — accepted, operator uruchomił0984–0987 i zatwierdził3–5 h; wszystkie P2/P3, zgodna migracja, pomiar15000 oraz ZIP0.1.3.
+
 - [Prosty start selektora i historia](delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md)
   — implemented, TASK-0983; wybór wyłącznie zdjęć, foldery obok źródła,
   etykieta gry i automatyczne wznowienie obu kierunków; ZIP0.1.2, audyt Claude rundy2 PASS z otwartymi P2/P3; odbiór odbiorcy osobno.

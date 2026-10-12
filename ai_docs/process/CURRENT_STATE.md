@@ -23,11 +23,15 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
+
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
 - **Brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md`, commit v1.7.331 /`150359c863275ad2e427bf041a6758d049a5f768`. Pełny zakres0975–0983, poprzedni REVISE, testy z timeoutami i finalny ZIP0.1.2. Podczas przygotowania briefu nie uruchomiono audytu; operator później przekazał raport rundy2. Odbiór0979 pozostaje blocked.
 
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt rundy2 PASS; fizyczny odbiór0979 osobno.
+
+- Zapis raportu rundy2: v1.7.332 /`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`.
 
 - **Selektor Windows / audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, werdykt PASS bez P0/P1.140/140 testów, lint/typecheck/docs/mapy i sumy finalnego ZIP0.1.2 potwierdzone przez audytora. Full/shortcuts/legacy/UX PASS; start/update FAIL za pierwszym razem i PASS po powtórce, przyczyna nieustalona (P2-E). P1 opóźnień zamknięty w części zmierzonej; koszt dużych partii pozostaje P2-B. P2-A–P2-E i P3-A–P3-E otwarte, bez automatycznej akceptacji ryzyk. Pierwotny REVISE zachowany. Kod/paczka bez zmian; fizyczny odbiór0979 nadal blocked.
 
@@ -82,6 +86,13 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
 
 ## Plany z niezakończonymi taskami
+
+### Finalizacja selektora po audycie (accepted, execution authorized, 2026-10-12)
+
+- Plan: `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546.
+- Operator zatwierdził3–5 h dla całego zakresu0984→0985→0986→0987 i controlled15000.
+- Pełny ZIP0.1.3 po taskach; audyt i fizyczny odbiór przez operatora na końcu.
+
 
 ### Lokalny selektor zdjęć Windows (accepted, execution authorized, 2026-10-11)
 
@@ -178,6 +189,27 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (in_progress)
+
+- Plik: `ai_docs/tasks/0984-selector-desktop-final-ux.md`; plan finalizacji2026-10-12, D-546.
+- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
+
+### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (todo)
+
+- Plik: `ai_docs/tasks/0985-selector-desktop-compact-persistence.md`; plan finalizacji2026-10-12, D-546.
+- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
+
+### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (todo)
+
+- Plik: `ai_docs/tasks/0986-selector-desktop-diagnostics-and-archive.md`; plan finalizacji2026-10-12, D-546.
+- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
+
+### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (todo)
+
+- Plik: `ai_docs/tasks/0987-selector-desktop-final-pilot.md`; plan finalizacji2026-10-12, D-546.
+- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
+
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 

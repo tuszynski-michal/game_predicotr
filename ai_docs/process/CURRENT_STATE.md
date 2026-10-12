@@ -23,6 +23,10 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.
+
+- **Historical numbering collision:** selector foundation and symbol-training recovery both use TASK-0975 and v1.7.317/318 on parallel branches. Preserve both historical records and identify tasks by complete file path; do not renumber existing commits or audit reports.
+
 - **Finalizacja selektora / D-546:** cały zatwierdzony zakres0984→0985→0986→0987 done. Aktualny ZIP0.1.3 z v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`, out/releases/pilot-0.1.3-0b1ab330; pełny desktop262, core110, operator-local16 PASS, pięć finalnych release smoke i oba update0.1.0/0.1.2→0.1.3 PASS. Pomiar15000: NAV p50/p95 95,08/106,66 ms; brak przepisywania inventory i dodatkowych warm worker spawns, pełne stare receipty po procesie/retry. Create21,277 s/openp50 10,523 s są jawne. Dowody: quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md i MEASUREMENT. Końcowy audyt oraz fizyczny0979 operatora pozostają osobne.
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
@@ -869,6 +873,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
+
+- Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
+
+- Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
+- Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
+- Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.
+
 ### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (done)
 
 - Plik: `ai_docs/tasks/completed/0987-selector-desktop-final-pilot.md`; D-546 i plan finalizacji2026-10-12. Kod/przygotowanie v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`.
@@ -940,11 +952,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 -107 unikalnych testów PASS: legacy25+recovery29+projekt43+foundation7+UI3; lint/typecheck/format/build/package i legacy smoke EXE PASS. Realne przerwania procesów, retry, checksumy, anulowanie i nowy proces. Mapy zregenerowane.
 - Fail-closed brak dowodów/MIME/mtime mismatch, niejednoznaczny lub sprzeczny terminalny v1 i duplikaty accepted source path. Zachowane generacje decyzji, nowy licznik max/0.
 - Audyt operatora po pięciu taskach; finalny ZIP z commita v1.7.322 sprawdzony pełnym/source-relink/legacy smoke, stabilna kopia w out/releases/pilot-0.1.0-abe8e645. Fizyczny odbiór0979 pozostaje blocked. Bez uploadu/usług/benchmarków i danych operatora.
-
-### TASK-0977 — Interfejs pełnej selekcji (done)
-
-- Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.
-- Nowy/Otwórz/Kontynuuj, typed native controller, opaque imageId, Enter/F+1, Tab bez zmiany zdjęcia, zakresy/undo/restart, zoom/scroll/fullscreen i bounded cache7.
-- Cache widoku atomowo w userData; relink także zdrowego projektu dla kopii output. UI pokazuje wyłącznie trwałe decyzje, blokuje repeat/doubleclick/błędnyJPEG/recovery.
-- test:ui3/3, realEXE pełny i krótki smoke, lint/typecheck/format/build/package PASS; nowe procesy, oba kierunki, missingoutput, kopia i terminalrange. Oryginalny output nietknięty. Mapy zregenerowane.
-- Audyt operatora po pięciu taskach. ZIP i rzeczywisty drugi komputer/reboot pozostają0979; bez testów Androida/usług/benchmarków.

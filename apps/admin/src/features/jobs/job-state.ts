@@ -46,7 +46,16 @@ export interface JobFilters {
   readonly jobType?: JobType;
 }
 
-export function jobStatusLabel(status: JobStatus): string {
+export function jobStatusLabel(status: JobStatus, job?: JobResponse): string {
+  if (
+    status === 'completed' &&
+    job?.jobType === 'symbol_training' &&
+    (job.progress.stage === 'symbol_training:rejected_before_training' ||
+      (job.progress.stage === 'symbol_training:dataset_build' &&
+        job.progress.current === 0))
+  ) {
+    return 'Odrzucony przed treningiem';
+  }
   return JOB_STATUS_LABELS[status];
 }
 
@@ -149,6 +158,9 @@ export function jobStageLabel(
   inputPayload?: JobResponse['inputPayload'],
 ): string {
   if (stage === null) return 'Etap nie został jeszcze rozpoczęty';
+  if (stage === 'symbol_training:rejected_before_training') {
+    return 'Dane nie pozwalają na niezależną naukę i ocenę każdego symbolu';
+  }
   if (stage === 'page_geometry_registering') {
     return 'Pierwszy przebieg dopasowania geometrii';
   }

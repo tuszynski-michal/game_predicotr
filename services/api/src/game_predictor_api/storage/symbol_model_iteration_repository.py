@@ -149,6 +149,28 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                 "TRAINING_COHORT_GAME_MISMATCH", "Cohort belongs to another game."
             )
         model_payload = configuration.to_payload()
+        # A lost response may be retried after the iteration has finished. Resolve
+        # the original command before deriving a new split or terminal retry nonce.
+        replay = self._session.execute(
+            select(SymbolModelIterationModel, JobModel)
+            .join(JobModel, SymbolModelIterationModel.job_id == JobModel.id)
+            .where(
+                SymbolModelIterationModel.game_id == game_id,
+                SymbolModelIterationModel.cohort_id == cohort_id,
+                JobModel.input_payload["idempotency_key"].as_string() == str(idempotency_key),
+            )
+        ).first()
+        if replay is not None:
+            previous_iteration, previous_job = replay
+            if any(
+                previous_iteration.configuration_payload.get(key) != value
+                for key, value in model_payload.items()
+            ):
+                raise JobConflictError(
+                    "SYMBOL_TRAINING_IDEMPOTENCY_CONFLICT",
+                    "The training command key was already used with another configuration.",
+                )
+            return _to_domain(previous_iteration), job_from_record(previous_job), False
         source_symbol_counts = _cohort_source_symbol_counts(self._session, cohort_id)
         protected_reference: dict[str, object] | None = None
         if str(game_id) == MUMIE_GAME_ID:
@@ -205,6 +227,8 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             .order_by(SymbolModelIterationModel.iteration_number.desc())
         ).all()
         for prior in prior_rows:
+            if not _can_inherit_training_split(prior):
+                continue
             raw_dataset = prior.configuration_payload.get("dataset")
             if isinstance(raw_dataset, dict):
                 if raw_dataset.get("splitPolicyVersion") != CLASS_STRATIFIED_SPLIT_POLICY_VERSION:
@@ -240,6 +264,7 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
         if prior_with_configuration is not None and prior_with_configuration.status in {
             SymbolModelIterationStatus.FAILED.value,
             SymbolModelIterationStatus.CANCELLED.value,
+            SymbolModelIterationStatus.REJECTED.value,
         }:
             # A failed terminal attempt must remain auditable, but must not make
             # the owner re-use its broken job when explicitly starting again.
@@ -338,6 +363,24 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             .limit(limit)
         ).all()
         return tuple(_to_domain(record) for record in records)
+
+
+def _can_inherit_training_split(record: SymbolModelIterationModel) -> bool:
+    """A pre-training terminal attempt never established evaluation references.
+
+    Its failed assignments must not consume all rare-class training sources in
+    subsequent attempts. References actually used by training remain immutable,
+    including candidates rejected later by the quality gate.
+    """
+    return not (
+        record.last_completed_epoch == 0
+        and record.status
+        in {
+            SymbolModelIterationStatus.REJECTED.value,
+            SymbolModelIterationStatus.FAILED.value,
+            SymbolModelIterationStatus.CANCELLED.value,
+        }
+    )
 
 
 def _to_domain(record: SymbolModelIterationModel) -> SymbolModelIteration:

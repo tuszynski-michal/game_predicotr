@@ -326,6 +326,7 @@ class SymbolTrainingJobHandler:
                     rejection_reasons=("SYMBOL_TRAINING_EVALUATION_CLASS_COVERAGE_INSUFFICIENT",),
                     updated_at=context.now(),
                 )
+                _rejected_stage_checkpoint(context)
                 return
         source_family_count = int(getattr(dataset, "source_family_count", 4))
         if source_family_count < 4:
@@ -339,6 +340,7 @@ class SymbolTrainingJobHandler:
                 rejection_reasons=("SYMBOL_TRAINING_INDEPENDENT_SOURCE_COVERAGE_INSUFFICIENT",),
                 updated_at=context.now(),
             )
+            _rejected_stage_checkpoint(context)
             return
         empty_splits = [
             split
@@ -741,6 +743,18 @@ def _checkpoint_context(
         success_count=0,
         failure_count=0,
         review_count=0,
+    )
+
+
+def _rejected_stage_checkpoint(context: JobExecutionContext) -> None:
+    context.checkpoint(
+        checkpoint_payload=dict(context.job.checkpoint_payload or {}),
+        stage="symbol_training:rejected_before_training",
+        current=context.job.progress_current,
+        total=context.job.progress_total,
+        success_count=context.job.success_count,
+        failure_count=context.job.failure_count,
+        review_count=context.job.review_count,
     )
 
 

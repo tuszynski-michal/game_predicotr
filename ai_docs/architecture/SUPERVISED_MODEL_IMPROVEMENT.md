@@ -239,6 +239,27 @@ dla każdej rodziny, najpierw zapewnia pokrycie każdej klasy w czterech
 splitach, a następnie deterministycznie równoważy liczbę rodzin do proporcji
 65/15/10/10. Rodzina nadal należy dokładnie do jednego splitu.
 
+TASK-0975 nie dziedziczy podziału z terminalnej iteracji (`rejected`, `failed`,
+`cancelled`), która nie ukończyła pierwszej epoki. Taka próba nie ustanowiła
+użytego zestawu kontrolnego; jej niespełniające pokrycia przypisania nie mogą
+blokować późniejszego treningu po dodaniu zatwierdzeń. Repozytorium szuka
+wcześniejszej użytecznej kotwicy w tej samej grze, a bez niej wyznacza świeży
+deterministyczny podział. Przypisania faktycznie wykorzystane przez trening,
+także kandydata odrzuconego później przez bramkę jakości, pozostają stałe.
+Powtórzenie jawnego treningu po odrzuceniu tworzy osobną iterację; odtworzenie
+tego samego klucza polecenia zwraca pierwotną iterację również po zakończeniu.
+Zmieniona konfiguracja z tym samym kluczem daje konflikt. Dawne iteracje i
+joby pozostają niezmienne. Odrzucenie przed pierwszą epoką zapisuje etap
+`symbol_training:rejected_before_training`, który monitor pokazuje jawnie.
+Panel jakości wymienia symbole brakujące w konkretnych zbiorach.
+
+Produkcyjny trener korzysta z `SpatialSymbolCnn`, tej samej architektury sieci
+RGB co trener laboratorium użyty dla Mumii. Każda gra buduje własny katalog
+klas, dataset i świeże wagi. Wspólny kod sieci nie współdzieli modeli gier.
+Nowa wersja zostaje kandydatem; dopiero jawna aktywacja ustala najnowszą
+wersję używaną przez następne importy. Model przypięty do trwającego importu
+nie jest podmieniany.
+
 Przypisania v3 są częścią konfiguracji i fingerprintu. Builder nie może dla
 brakującego przypisania wrócić do hashowania; kończy się stabilnym błędem.
 Manifest raportuje brak pokrycia jako failed quality gate, a worker powtarza

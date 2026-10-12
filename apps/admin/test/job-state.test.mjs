@@ -71,6 +71,34 @@ test('presents every lifecycle value as explicit text', () => {
   assert.equal(jobStageLabel(null), 'Etap nie został jeszcze rozpoczęty');
 });
 
+test('distinguishes pretraining rejection from a completed neural training', () => {
+  for (const stage of [
+    'symbol_training:dataset_build',
+    'symbol_training:rejected_before_training',
+  ]) {
+    const rejected = job({
+      jobType: 'symbol_training',
+      status: 'completed',
+      progress: { current: 0, total: 45, stage },
+    });
+    assert.equal(
+      jobStatusLabel(rejected.status, rejected),
+      'Odrzucony przed treningiem',
+    );
+  }
+  const trained = job({
+    jobType: 'symbol_training',
+    status: 'completed',
+    progress: { current: 45, total: 45, stage: 'symbol_training:manifest' },
+  });
+  assert.equal(jobStatusLabel(trained.status, trained), 'Ukończone');
+  assert.equal(jobStatusLabel('completed', job()), 'Ukończone');
+  assert.equal(
+    jobStageLabel('symbol_training:rejected_before_training'),
+    'Dane nie pozwalają na niezależną naukę i ocenę każdego symbolu',
+  );
+});
+
 test('labels attested sequence assignment for browser import schema v7', () => {
   assert.equal(
     jobStageLabel('image_pipeline:sequence_ocr', {

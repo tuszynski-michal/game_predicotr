@@ -6,6 +6,13 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0977 — Interfejs pełnej selekcji (done)
+
+- Plik: `ai_docs/tasks/completed/0977-selector-desktop-selection-ui.md`; D-545. Commit v1.7.320 / `0121ce8f1bd3604977e1c60872da43a4110326d7`.
+- Nowy/Otwórz/Kontynuuj, typed native controller, opaque imageId, Enter/F+1, Tab bez zmiany zdjęcia, zakresy/undo/restart, zoom/scroll/fullscreen i bounded cache7.
+- Cache widoku atomowo w userData; relink także zdrowego projektu dla kopii output. UI pokazuje wyłącznie trwałe decyzje, blokuje repeat/doubleclick/błędnyJPEG/recovery.
+- test:ui3/3, realEXE pełny i krótki smoke, lint/typecheck/format/build/package PASS; nowe procesy, oba kierunki, missingoutput, kopia i terminalrange. Oryginalny output nietknięty. Mapy zregenerowane.
+- Audyt operatora po pięciu taskach. ZIP i rzeczywisty drugi komputer/reboot pozostają0979; bez testów Androida/usług/benchmarków.
 ### TASK-0976 — Projekt, manifest i odzyskiwanie (done)
 
 - Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319 / `be20ad8e3835cc6aed0078a7b137ea161ea2497b`.

@@ -13,7 +13,34 @@ import {
   loadGridQuality,
   previewGridActivation,
   previewModelActivation,
+  symbolTrainingRejectionDetails,
 } from '../src/features/model-quality/model-quality-actions.ts';
+
+test('explains missing training symbols and the whole-photo minimum', () => {
+  const iteration = {
+    gateMetrics: {
+      trainingStarted: false,
+      missingClassCoverage: { train: ['SLIWKA'] },
+    },
+    rejectionReasons: [
+      'SYMBOL_TRAINING_EVALUATION_CLASS_COVERAGE_INSUFFICIENT',
+    ],
+  };
+  const details = symbolTrainingRejectionDetails(iteration);
+  assert.equal(details[0], 'Brak przykładów w zbiorze do nauki: SLIWKA.');
+  assert.match(details[1], /czterech różnych zdjęć źródłowych/);
+  assert.deepEqual(
+    symbolTrainingRejectionDetails({ ...iteration, gateMetrics: {} }),
+    iteration.rejectionReasons,
+  );
+  assert.deepEqual(
+    symbolTrainingRejectionDetails({
+      ...iteration,
+      gateMetrics: { missingClassCoverage: { train: [3] } },
+    }),
+    iteration.rejectionReasons,
+  );
+});
 
 const workspaceSource = await readFile(
   new URL(

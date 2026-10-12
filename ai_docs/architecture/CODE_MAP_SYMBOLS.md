@@ -776,7 +776,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-quality-panel.tsx: GridQualityPanel
 - features/model-quality/lab-candidate-registry-panel.tsx: LabCandidateRegistryPanel
 - features/model-quality/lab-registry-command.ts: PendingLabRegistryCommand, readPendingLabRegistryCommand, saveLabRegistryCommand, clearLabRegistryCommand, reconcileLabRegistryFailure
-- features/model-quality/model-quality-actions.ts: ModelQualityClient, PendingSymbolReinferenceResult, previewPendingSymbolReinference, startPendingSymbolReinference, GridQualityClient, GridQualityLoadResult, GridCandidateResult, GridActivationPreviewResult, GridActivationResult, loadGridQuality, PendingGridReinferenceResult, previewPendingGridReinference, startPendingGridReinference, createGridCandidate, previewGridActivation, confirmGridActivation, ModelQualityLoadResult, ModelQualityFreezeResult, ModelActivationPreviewResult, ModelActivationResult, loadModelQuality, prepareModelQualityCohort, previewModelActivation, confirmModelActivation, freezeModelQualityCohort
+- features/model-quality/model-quality-actions.ts: symbolTrainingRejectionDetails, ModelQualityClient, PendingSymbolReinferenceResult, previewPendingSymbolReinference, startPendingSymbolReinference, GridQualityClient, GridQualityLoadResult, GridCandidateResult, GridActivationPreviewResult, GridActivationResult, loadGridQuality, PendingGridReinferenceResult, previewPendingGridReinference, startPendingGridReinference, createGridCandidate, previewGridActivation, confirmGridActivation, ModelQualityLoadResult, ModelQualityFreezeResult, ModelActivationPreviewResult, ModelActivationResult, loadModelQuality, prepareModelQualityCohort, previewModelActivation, confirmModelActivation, freezeModelQualityCohort
 - features/model-quality/model-quality-workspace.tsx: ModelQualityWorkspace
 - features/releases/release-actions.ts: ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult, createAndStartRelease, RefreshReleaseResult, refreshRelease, RetryReleaseBuildResult, retryReleaseBuild, DownloadReleaseApkResult, downloadReleaseApk
 - features/releases/release-panel.tsx: ReleasePanel
@@ -930,7 +930,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - native/diagnostic-log.ts: DiagnosticMetadata, DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController
-- native/source-registry.ts: MAX_SOURCE_IMAGES, VerifiedSourceScan, scanSource, SourceRegistry
+- native/source-registry.ts: VerifiedSourceScan, scanSource, SourceRegistry
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
 - native/windows-check-worker.ts: IdentityDiagnostic, CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock

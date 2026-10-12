@@ -61,6 +61,9 @@ The minimum remains the documented coverage of every active class in four indepe
 
 ## Outcome
 
+- Implementation commit: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
+- The migrated checkout had no Git author configuration. Restored repository-local name/email from its existing commit history; the subsequent commit and a fresh Git process confirm persistence. Global Git settings were not changed.
+
 ### Changed
 
 - Terminal attempts with zero completed epochs no longer establish inherited split references. Trained candidates, including quality-rejected ones, keep their evaluation assignments.

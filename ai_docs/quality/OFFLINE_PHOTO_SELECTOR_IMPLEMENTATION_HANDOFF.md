@@ -10,11 +10,32 @@ Operator polecił wykonać pięć tasków i odłożył audyt do końca.
 Ten dokument zestawia wykonanie i dowody testów; nie jest audytem ani jego PASS.
 
 Gotowe zlecenie pełnego przeglądu dla operatora:
-[brief audytu Claude Code](OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md).
-Obejmuje wszystkie taski selektora, odpowiedzi na wcześniejszy REVISE,
-nowy start0983 i finalną paczkę0.1.2. Audytu nie uruchomiono przy przygotowaniu briefu.
+[końcowy brief audytu Claude Code](OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md).
+Obejmuje całą implementację 0975–0987, wcześniejszy REVISE, PASS rundy 2,
+nowy start, kompaktowy zapis oraz finalny ZIP 0.1.3. Audytu nowych zmian nie
+uruchomiono przy przygotowaniu briefu. Starszy brief 0.1.2 jest historyczny.
 
-## Wynik ponownego audytu operatora — runda 2
+## Aktualne przekazanie — finalizacja 0.1.3
+
+Paczka: `apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
+Runtime v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`;
+149410942 B, dirty=false, applicationSourceDirty=false.
+ZIP SHA-256 `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`;
+app.asar `23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2`.
+
+TASK-0984: v1.7.334 /`c52518a8ece7c79f88b31224d4d90a84f0779b4c`;
+TASK-0985: v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`;
+TASK-0986: v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
+Wewnętrzny review Codex zamknął dwie P1 trwałości po jednej rundzie poprawek;
+nie jest audytem Claude. Pełne testy runtime: 262/262, core 110/110,
+operator-local Reviewer 16/16 PASS. [Dowody finalizacji](OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)
+zawierają wszystkie kontrole, pierwsze błędy i ich poprawki.
+[Pomiar 15 000](OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md) potwierdza
+NAV p50 95,08 ms zamiast 918,79 ms, zachowanie receiptów i brak przepisywania
+inwentarza na krok; koszt tworzenia/otwarcia i inne granice opisano osobno.
+Końcowy audyt operatora i fizyczny odbiór 0979 pozostają do wykonania.
+
+## Historyczny wynik ponownego audytu operatora — runda 2, paczka 0.1.2
 
 [Raport Claude](OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md) ma werdykt
 PASS, bez otwartych P0/P1. Operator przekazał raport obejmujący kod paczki
@@ -24,12 +45,13 @@ smoke przeszły za pierwszym razem; start i update przeszły po powtórzeniu.
 Przyczyna ich pierwszych błędów pozostaje nieustalona (P2-E).
 
 P1-1 zamknięto w części zmierzonej; liniowy koszt większego inwentarza
-pozostaje ograniczeniem P2-B. Około1 s przy15000 zdjęć jest ekstrapolacją,
-nie pomiarem. Otwarte są P2-A–P2-E i P3-A–P3-E z raportu. Nie są tutaj
-oznaczone jako naprawione ani zaakceptowane przez operatora. Fizyczny odbiór
+pozostawał ograniczeniem P2-B. Około1 s przy15000 zdjęć było ekstrapolacją
+w tamtym audycie; nowy rzeczywisty pomiar jest w przekazaniu powyżej.
+P2-A–P2-E i P3-A–P3-E są zachowane w oryginalnym raporcie; bieżące poprawki
+mają osobne dowody wykonawcy i wymagają audytu. Fizyczny odbiór
 TASK-0979 pozostaje blocked. Pierwotny REVISE zachowano bez zmian.
 
-## Aktualne przekazanie0983
+## Historyczne przekazanie0983 — paczka 0.1.2
 
 Najświeższy ZIP0.1.2: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
 Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f i v1.7.329 /

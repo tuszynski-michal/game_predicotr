@@ -98,6 +98,14 @@ ma nadal O(D), open kontroluje SHA wyników, a pamięć ma O(N+R+D).
 Gwarancja dotyczy awarii procesu; brak fsync katalogu Windows nie pozwala
 deklarować nowej gwarancji przy zaniku zasilania.
 
+Finalny ZIP 0.1.3 oraz rzeczywiste starsze EXE 0.1.0/0.1.2 sprawdzono
+na własnych kopiach: zachowano decyzje i względny kursor, a starsze aplikacje
+odrzuciły oba migrowane head2 bez zmiany plików. Dowody:
+`quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`.
+Pomiar 15 000 w `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`
+potwierdza brak przepisywania inventory/baseline w ciepłych operacjach;
+nie usuwa jawnych kosztów otwarcia, manifestu, pamięci ani source IPC.
+
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
 ma zaimplementowane fundament0975, trwałość0976, interfejs0977 oraz przejęcie0978.
 Wydanie0979 przeszło testy lokalne; fizyczny odbiór jest otwarty. Korzysta z manual-image-selection-core,

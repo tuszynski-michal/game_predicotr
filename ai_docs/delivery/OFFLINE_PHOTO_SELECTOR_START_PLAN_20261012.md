@@ -58,6 +58,21 @@ Historia jest odświeżana także po relink źródła; regresja obejmuje ponowny
 wybór przeniesionych zdjęć po nowym procesie. [Dowody](../quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md)
 zawierają sumy i pochodzenie paczki. Audyt i fizyczny odbiór pozostają osobne.
 
+## Aktualna finalizacja — 2026-10-12
+
+Wszystkie rundy implementacji, w tym TASK-0984–0987, są wykonane na osobnej
+gałęzi. Aktualna paczka to ZIP 0.1.3 z v1.7.337 /
+`0b1ab3302df2119efb2519661e2f82b8bdf545df`.
+[Plan finalizacji](OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md)
+opisuje D-546, zgodną migrację i pełną retencję receiptów.
+[Aktualne dowody](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)
+obejmują 262 testy desktopu, pięć wariantów finalnego release smoke,
+rzeczywiste aktualizacje 0.1.0/0.1.2 do 0.1.3 i pomiar 15 000.
+Wcześniejsze wyniki w tym planie są historyczne; nie nadpisano ich.
+[Końcowy brief Claude](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md)
+jest gotowy do przekazania operatorowi. Audyt nowych zmian i fizyczny
+odbiór TASK-0979 pozostają osobne; nie są zaliczone lokalnymi testami.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

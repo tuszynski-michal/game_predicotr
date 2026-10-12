@@ -115,18 +115,20 @@ Drugi komputer i reboot są zależnością operatora. Nie kończ taska jako done
 
 ### Current acceptance target — 2026-10-12
 
-Zapis raportu rundy2 i statusu odbioru: v1.7.332 /
-`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`. Operator następnie uruchomił
-pełną finalizację0984–0987; nowy przedmiot odbioru0.1.3 zostanie wskazany
-po wykonaniu tych tasków. Fizyczny odbiór pozostaje na końcu.
+Bieżący przedmiot odbioru po finalizacji 0984–0987 to ZIP **0.1.3**:
+`apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
+Source commit v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`;
+149410942 B, dirty=false, applicationSourceDirty=false.
+ZIP SHA-256 `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`;
+app.asar `23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2`.
+Pełne metadane i otwarte kryteria fizycznego odbioru są w rejestrze acceptance;
+aktualne dowody lokalne w quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md.
+Końcowy brief audytu: quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md.
+Nie wpisano PASS drugiego komputera, dystrybucji, reboot ani ochrony Windows.
+Poniższe dane 0.1.0/0.1.2 są historyczne, nie paczką do nowego odbioru.
 
-Bieżący przedmiot odbioru to ZIP0.1.2:
-`apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
-Source commit v1.7.329 /`c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f`;
-149402003 bajtów, SHA-256
-`9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27`.
-Pełne metadane i otwarte kryteria fizycznego odbioru są w rejestrze acceptance.
-Poniższe dane0.1.0 pozostają historycznymi dowodami, nie paczką do nowego odbioru.
+Zapis raportu rundy 2: v1.7.332 /`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`.
+Ten audyt dotyczył poprzedniej paczki 0.1.2, nie finalizacji 0.1.3.
 
 Brief audytu zapisano w commicie v1.7.331 /
 `150359c863275ad2e427bf041a6758d049a5f768`; raport obejmuje tę rewizję
@@ -135,8 +137,9 @@ Operator przekazał niezależny raport Claude rundy2: PASS bez P0/P1;
 140/140 testów i sumy finalnego ZIP-a/app.asar potwierdzone. Cztery warianty
 smoke PASS za pierwszym razem; start oraz aktualizacja0.1.0→0.1.2 FAIL
 za pierwszym razem, PASS po powtórce, bez wyjaśnionej przyczyny (P2-E).
-Otwarte P2-A–P2-E oraz P3-A–P3-E pozostają w raporcie. Nie uznajemy ich za
-naprawione ani nowych ryzyk za zaakceptowane przez operatora.
+Otwarte w tamtym raporcie P2-A–P2-E oraz P3-A–P3-E mają odpowiedzi w
+finalizacji 0984–0987. Pierwotnego raportu nie zmieniano; nowe dowody
+wykonawcy nie są niezależnym audytem Claude ani odbiorem operatora.
 Task nadal blocked: brak fizycznego odbioru na komputerze odbiorcy.
 
 ### Changed
@@ -206,7 +209,8 @@ oryginały nietknięte. Scoped status kodu/skryptów/locków pozostał pusty.
 Operator musi przedstawić dowody: rzeczywisty drugi komputer Windows11 x64
 bez Node/Python, faktyczny kanał otrzymania ZIP-a, wynik ochrony Windows,
 selekcja offline, restart Windows i aktualizacja do innej wersji programu.
-Agent sprawdził relokację kopii tej samej wersji, nie fizyczną aktualizację.
+Agent sprawdził relokację oraz rzeczywiste różne ZIP-y na własnych kopiach;
+nie jest to aktualizacja na komputerze odbiorcy ani fizyczny restart Windows.
 Nie wykonano rzeczywistego przekazania wyników ani końcowego audytu operatora.
 Wydanie jest bez podpisu; blokada ochrony wstrzymuje odbiór. Nie wyłączano jej.
 
@@ -218,5 +222,5 @@ Task pozostaje aktywny w ai_docs/tasks ze statusem blocked.
 
 ### Recommended next task
 
-TASK-0978 jest uruchomiony: brak fizycznego odbioru0979 nie blokuje jego kodu.
-Po pięciu częściach implementacyjnych audyt i fizyczny odbiór wykonuje operator.
+TASK-0978 i wszystkie rundy implementacyjne są wykonane. Operator przeprowadza
+końcowy audyt paczki 0.1.3 oraz uzupełnia dowody fizycznego odbioru TASK-0979.

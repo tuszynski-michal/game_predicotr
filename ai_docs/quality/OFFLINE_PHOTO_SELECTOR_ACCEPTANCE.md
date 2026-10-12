@@ -10,7 +10,28 @@ To jest rejestr dowodów odbioru TASK-0979, nie raport audytu kodu.
 Operator zlecił audyt całego zakresu dopiero po pięciu taskach. Testy agentowe
 nie zastępują uruchomienia paczki otrzymanej przez odbiorcę.
 
-## Paczka0.1.2 — TASK-0983, prosty start i historia
+## Aktualna paczka 0.1.3 — finalizacja TASK-0984–0987
+
+Przedmiot końcowego odbioru:
+`apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
+149410942 B; source v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`;
+dirty=false, applicationSourceDirty=false.
+ZIP SHA-256 `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`;
+app.asar `23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2`.
+BuiltAt 2026-10-12T15:33:25.902Z, releasedAt 2026-10-12T15:33:52.292Z.
+
+Pełny desktop262/262, core110/110 i operator-local16/16 PASS. Pięć wariantów
+finalnego release smoke oraz rzeczywiste aktualizacje0.1.0/0.1.2→0.1.3 PASS;
+stare EXE odrzucają migrowany projekt bez zmiany jego plików.
+[Dowody wykonawcy](OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)
+oraz [pomiar 15 000](OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md) opisują
+bieżące kontrole. [Końcowy brief Claude](OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md)
+obejmuje wszystkie rundy i tę paczkę. Nie jest raportem niezależnego audytu.
+TASK-0979 pozostaje blocked na rzeczywistym komputerze odbiorcy, dystrybucji,
+ochronie Windows, restarcie systemu i aktualizacji odbiorcy. Tabela fizycznego
+odbioru poniżej pozostaje PENDING. Starsze paczki i raporty zachowano.
+
+## Historyczna paczka 0.1.2 — TASK-0983, prosty start i historia
 
 Finalna paczka: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
 Wersja0.1.2, 149402003 bajtów, ZIP SHA-256 `9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27`,
@@ -36,10 +57,11 @@ pierwszym razem. Start i aktualizacja0.1.0→0.1.2: pierwszy przebieg FAIL,
 powtórka PASS; przyczyna nieustalona, otwarte P2-E. Nie raportujemy pełnej
 powtarzalności tych scenariuszy.
 
-Otwarte P2-A–P2-E obejmują martwy wpis historii, koszt dużych partii,
+Otwarte w tamtym audycie P2-A–P2-E obejmują martwy wpis historii, koszt dużych partii,
 auto-repeat klawiszy decyzji, komunikaty obcych folderów i diagnostykę smoke.
 Audytor zaleca rozstrzygnięcie P2-A/P2-B przed przekazaniem odbiorcy.
-Wskazane P3 pozostają w raporcie. PASS audytu nie zamyka odbioru0979 ani
+Wskazane P3 pozostają w historycznym raporcie. Finalizacja 0984–0987 ma
+oddzielne dowody i wymaga końcowego audytu operatora. PASS audytu nie zamyka odbioru0979 ani
 nie stanowi decyzji operatora o akceptacji nowych ryzyk.
 
 ## Poprawiona paczka 0.1.1

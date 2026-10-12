@@ -6,21 +6,24 @@ last_updated: 2026-10-12
 
 # Lokalny selektor Windows — instrukcja operatora
 
-Gotowe są wszystkie pięć części implementacyjnych, w tym przejęcie0978.
-ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Audyt operatora
-2026-10-12 ma werdykt REVISE. Poprawki0980–0982 i paczka0.1.1 przeszły
-lokalne kontrole; ponowny audyt operatora pozostaje pending. Do tego audytu
-użyć najnowszej paczki pilot-0.1.2-c4181f7d (TASK-0983). Rejestr odbioru
-identyfikuje każdą paczkę i jej ograniczenia. Fizyczny odbiór nadal jest pending.
+Aktualna paczka to **0.1.3**, przygotowana po pełnej rundzie TASK-0984–0987:
+`apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
+ZIP SHA-256: `cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761`.
+[Dowody finalizacji](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md)
+identyfikują runtime, kontrole i ograniczenia. Wszystkie części implementacji,
+w tym przejęcie starej sesji, są dostępne. Dane i wyniki pozostają lokalnie.
+Wcześniejszy audyt Claude rundy 2 miał PASS dla paczki 0.1.2; końcowy audyt
+nowych zmian i fizyczny odbiór paczki 0.1.3 wykonuje operator.
 
 ## Budowanie i kontrola programu
 
 Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node.
-TASK-0983 dodatkowo sprawdził aktualizację0.1.0→0.1.2 oraz nowy start
-i wznowienie w obu kierunkach po restarcie procesu.
+Finalne scenariusze sprawdzają nowy start i wznowienie w obu kierunkach,
+przejęcie starej sesji, zamykanie i rzeczywiste aktualizacje ze starszych ZIP-ów.
 Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów projektu:
 
 ```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 node --experimental-strip-types --test apps/selector-desktop/test/start-resume.test.mjs
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:native --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:foundation --workspace @game-predictor/selector-desktop
@@ -63,7 +66,7 @@ Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Uruchomienie i nowa partia
 
-Poniższy przepływ przeszedł testy0983 i realny smoke ZIP0.1.2. Paczka i dowody testów są w
+Poniższy przepływ przeszedł testy i rzeczywisty smoke finalnego ZIP-a 0.1.3. Paczka i dowody testów są w
 [raporcie odbioru](../quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); stary ZIP
 fundamentu go nie realizuje.
 
@@ -150,6 +153,10 @@ przeniesiony katalog, nie pusty zamiennik. Po naprawie miejsca/uprawnień użyć
 program nie zgaduje, że zmieniły się tylko daty plików.
 Otwarcie projektu sprawdza inwentarz źródła i SHA-256 wszystkich zapisanych
 JPEG-ów. Duży wynik może wymagać dłuższej kontroli przed odblokowaniem pracy.
+Przy kontrolowanym pomiarze 15 000 małych JPEG-ów utworzenie projektu trwało
+około 21 s, a ponowne otwarcie około 10,5 s. To orientacja z jednego komputera;
+duże zdjęcia i wolniejszy dysk mogą wymagać więcej czasu. Ekran „Weryfikacja…”
+nie oznacza potrzeby ponownego kliknięcia lub resetu.
 Obsługiwany jest lokalny dysk stały; nośniki wymienne i udziały sieciowe
 nie należą do tego pilotażu.
 

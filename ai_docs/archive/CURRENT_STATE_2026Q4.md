@@ -6,6 +6,17 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0976 — Projekt, manifest i odzyskiwanie (done)
+
+- Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319 / `be20ad8e3835cc6aed0078a7b137ea161ea2497b`.
+- Stan/journal/backup, receipts, streaming JPEG i operator-local v2; lock projektu oraz przejściowa lease wyniku, relink bez resetu, fail-closed ochrona obcych danych.
+- 50 unikalnych testów PASS (pełne48/48 oraz grupy4/4 i2/2); realne awarie procesów, utrata odpowiedzi, ENOSPC/rename, checksumy, dwa projekty/jeden output i brakujące źródło. Lint/typecheck/build/format PASS.
+- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot pozostaje0979. Awaria procesu objęta recovery; zanik zasilania/fsync katalogu i dowolna synchronizacja nie mają gwarancji. Pozostawione tempy nie są automatycznie kasowane.
+
+## Archiwum
+
+- Q4 2026 (od 2026-10-01): `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
+- Q3 2026 i starsze tory: `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 ### TASK-0975 — Fundament aplikacji Windows i pakowanie (done)
 
 - Plik: `ai_docs/tasks/completed/0975-selector-desktop-foundation.md`; D-545. Commit v1.7.318 / `00331d5776c462a3dd91e4d9113b39d0223fe6c4`.

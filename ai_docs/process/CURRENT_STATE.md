@@ -23,17 +23,17 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. TASK-0984/0985/0986 done;0987 in_progress. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
+- **Finalizacja selektora / D-546:** cały zatwierdzony zakres0984→0985→0986→0987 done. Aktualny ZIP0.1.3 z v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`, out/releases/pilot-0.1.3-0b1ab330; pełny desktop262, core110, operator-local16 PASS, pięć finalnych release smoke i oba update0.1.0/0.1.2→0.1.3 PASS. Pomiar15000: NAV p50/p95 95,08/106,66 ms; brak przepisywania inventory i dodatkowych warm worker spawns, pełne stare receipty po procesie/retry. Create21,277 s/openp50 10,523 s są jawne. Dowody: quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md i MEASUREMENT. Końcowy audyt oraz fizyczny0979 operatora pozostają osobne.
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
-- **Brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md`, commit v1.7.331 /`150359c863275ad2e427bf041a6758d049a5f768`. Pełny zakres0975–0983, poprzedni REVISE, testy z timeoutami i finalny ZIP0.1.2. Podczas przygotowania briefu nie uruchomiono audytu; operator później przekazał raport rundy2. Odbiór0979 pozostaje blocked.
+- **Aktualny brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md` obejmuje cały zakres0975–0987, wszystkie rundy, D-546, pomiar i aktualny ZIP0.1.3. Audyt nowych zmian nie jest wykonany. Starszy brief v1.7.331 i PASS Claude rundy2 dla0.1.2 zachowano jako historyczne. Odbiór0979 pozostaje blocked.
 
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
 - Zapis raportu rundy2: v1.7.332 /`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`.
 
-- **Selektor Windows / audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, werdykt PASS bez P0/P1.140/140 testów, lint/typecheck/docs/mapy i sumy finalnego ZIP0.1.2 potwierdzone przez audytora. Full/shortcuts/legacy/UX PASS; start/update FAIL za pierwszym razem i PASS po powtórce, przyczyna nieustalona (P2-E). P1 opóźnień zamknięty w części zmierzonej; koszt dużych partii pozostaje P2-B. P2-A–P2-E i P3-A–P3-E otwarte, bez automatycznej akceptacji ryzyk. Pierwotny REVISE zachowany. Kod/paczka bez zmian; fizyczny odbiór0979 nadal blocked.
+- **Selektor Windows / historyczny audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, PASS bez P0/P1 dla0.1.2,140 testów i potwierdzone SHA. Pierwsze start/update FAIL i późniejsze PASS pozostają w niezmienionym raporcie. Odpowiedzi wykonawcy na wszystkie P2-A–E/P3-A–E są w finalizacji0984–0987; nie są nowym niezależnym audytem. Historical P2-E nie uznano zbiorczo za zdiagnozowane: udowodniono wyścig aktualizacji0.1.0 w harnessie, dodano bounded retry identity/failure logs. Pierwotny REVISE i reaudit zachowano z identycznym SHA; fizyczny0979 blocked.
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
@@ -87,13 +87,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Finalizacja selektora po audycie (accepted, execution authorized, 2026-10-12)
-
-- Plan: `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546.
-- Operator zatwierdził3–5 h dla całego zakresu0984→0985→0986→0987 i controlled15000.
-- Pełny ZIP0.1.3 po taskach; audyt i fizyczny odbiór przez operatora na końcu.
-
-
 ### Lokalny selektor zdjęć Windows (accepted, execution authorized, 2026-10-11)
 
 - Plan: `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, D-545.
@@ -102,6 +95,9 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Koszt zaakceptowany. Implementacja uruchomiona; operator wykona końcowy
   audyt po pięciu taskach. Jawny wyjątek od gate CLI/per-task review.
 - Bez API/DDL, usług głównej aplikacji, push/merge i cloud transferu.
+- Wszystkie części implementacji i rundy0980–0987 done; aktualna paczka0.1.3,
+  plan finalizacji D-546 i dowody w sekcji ograniczeń. Pozostaje fizyczny0979
+  oraz końcowy audyt operatora zgodnie z D-545.
 
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
@@ -190,19 +186,13 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (in_progress)
-
-- Plik: `ai_docs/tasks/0987-selector-desktop-final-pilot.md`; plan finalizacji2026-10-12, D-546.
-- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
-
-
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
 - Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 - Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
 - Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Historyczny build sprzed0978. Finalny ZIP0.1.0 zachowano w out/releases/pilot-0.1.0-abe8e645,149397136 bajtów, SHA `2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`; sourceCommitabe8e645, dirty=true od docs/applicationSourceDirty=false. Release i trzy smoke rozpakowanej kopii PASS.
-- Bieżący przedmiot odbioru: ZIP0.1.2 z c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f, out/releases/pilot-0.1.2-c4181f7d; niezależny audyt rundy2 PASS z otwartymi P2/P3. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md.
-- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy. TASK-0983 i audyt sprawdziły realną zmianę0.1.0→0.1.2 na własnej kopii; nie zalicza fizycznego odbioru. Pierwsze błędy start/update pozostają P2-E. Niepodpisany pilot, ochrona pozostaje włączona.0978 jest już done.
+- Bieżący przedmiot odbioru: ZIP0.1.3 z0b1ab3302df2119efb2519661e2f82b8bdf545df, out/releases/pilot-0.1.3-0b1ab330;149410942 B, SHA cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md i FINAL_VERIFICATION.
+- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy.0987 sprawdził actual update0.1.0/0.1.2→0.1.3 i odmowę starszych readerów na własnych kopiach; nie zalicza fizycznego odbioru. Końcowy audyt nowych zmian przez operatora pending. Niepodpisany pilot, ochrona pozostaje włączona.0978 jest done.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -879,6 +869,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (done)
+
+- Plik: `ai_docs/tasks/completed/0987-selector-desktop-final-pilot.md`; D-546 i plan finalizacji2026-10-12. Kod/przygotowanie v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; commit zamknięcia zostanie dopisany po jego utworzeniu.
+- ZIP0.1.3: out/releases/pilot-0.1.3-0b1ab330,149410942 B, SHA cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761; asar23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2, clean provenance.
+- Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
+- Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
+- Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.
+
 ### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
 
 - Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wykonanie v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
@@ -950,15 +948,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Cache widoku atomowo w userData; relink także zdrowego projektu dla kopii output. UI pokazuje wyłącznie trwałe decyzje, blokuje repeat/doubleclick/błędnyJPEG/recovery.
 - test:ui3/3, realEXE pełny i krótki smoke, lint/typecheck/format/build/package PASS; nowe procesy, oba kierunki, missingoutput, kopia i terminalrange. Oryginalny output nietknięty. Mapy zregenerowane.
 - Audyt operatora po pięciu taskach. ZIP i rzeczywisty drugi komputer/reboot pozostają0979; bez testów Androida/usług/benchmarków.
-
-### TASK-0976 — Projekt, manifest i odzyskiwanie (done)
-
-- Plik: `ai_docs/tasks/completed/0976-selector-desktop-durability.md`; D-545. Commit v1.7.319 / `be20ad8e3835cc6aed0078a7b137ea161ea2497b`.
-- Stan/journal/backup, receipts, streaming JPEG i operator-local v2; lock projektu oraz przejściowa lease wyniku, relink bez resetu, fail-closed ochrona obcych danych.
-- 50 unikalnych testów PASS (pełne48/48 oraz grupy4/4 i2/2); realne awarie procesów, utrata odpowiedzi, ENOSPC/rename, checksumy, dwa projekty/jeden output i brakujące źródło. Lint/typecheck/build/format PASS.
-- Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot pozostaje0979. Awaria procesu objęta recovery; zanik zasilania/fsync katalogu i dowolna synchronizacja nie mają gwarancji. Pozostawione tempy nie są automatycznie kasowane.
-
-## Archiwum
-
-- Q4 2026 (od 2026-10-01): `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
-- Q3 2026 i starsze tory: `ai_docs/archive/CURRENT_STATE_2026Q3.md`.

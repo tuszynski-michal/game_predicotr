@@ -16,7 +16,7 @@ last_updated: 2026-10-12
 | Brak projektu bez resetu, obce foldery, repeat i zamykanie | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0984 |
 | Kompaktowy zapis, zgodna migracja i pełna idempotencja | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0985 |
 | Diagnostyka startu i automatyczna kontrola zawartości paczki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0986 |
-| Finalny ZIP0.1.3, pomiar15000, aktualizacje i oba kierunki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-546 | TASK-0987, TASK-0979 |
+| Finalny ZIP0.1.3, pomiar15000, aktualizacje i oba kierunki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-546 | TASK-0987; fizyczny TASK-0979 blocked |
 | Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
 | Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
 | Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |

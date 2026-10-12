@@ -29,6 +29,10 @@ operator-local v2 pozostają zgodne. Po migracji starsza aplikacja odmawia
 zapisu nowego formatu; nie wolno używać starej wersji do dalszej selekcji.
 Zachowana jest kopia zapasowa metadanych i pełne retry tego samego operationId.
 Pomiar granicy 15 000 zdjęć i finalna paczka należą do TASK-0987.
+Dowody paczki 0.1.3 zapisano w
+`quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md`,
+a warunki i ograniczenia pomiaru w `quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md`.
+Nie są to gwarancje czasów dla dowolnego dysku lub JPEG ani fizyczny odbiór 0979.
 
 Start od źródła0983 jest zaimplementowany i lokalnie przetestowany2026-10-12. Użytkownik wybiera wyłącznie
 folder zdjęć; projekt i wyniki powstają jako sąsiednie `<źródło> selekcja`

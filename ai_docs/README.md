@@ -88,7 +88,11 @@ domyślnym kontekstem implementacyjnym.
 ### Dostarczanie
 
 - [Finalizacja selektora po audycie](delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md)
-  — accepted, operator uruchomił0984–0987 i zatwierdził3–5 h; wszystkie P2/P3, zgodna migracja, pomiar15000 oraz ZIP0.1.3.
+  — implementacja TASK-0984–0987, zgodna migracja i pomiar 15 000; aktualny ZIP 0.1.3.
+  [Dowody finalizacji](quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md),
+  [raport pomiaru](quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md)
+  i [końcowy brief Claude Code](quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md).
+  Fizyczny odbiór 0979 i końcowy audyt nowych zmian przez operatora pozostają osobne.
 
 - [Prosty start selektora i historia](delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md)
   — implemented, TASK-0983; wybór wyłącznie zdjęć, foldery obok źródła,
@@ -104,8 +108,8 @@ domyślnym kontekstem implementacyjnym.
   [rejestr odbioru](quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); fundament,
   trwałość, interfejs i zgodne przejęcie przeszły testy lokalne. Fizyczny pilotaż jest pending.
   [Przekazanie do audytu](quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md).
-  [Brief pełnego audytu dla Claude Code](quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md)
-  obejmuje całą implementację, poprawki REVISE, start/wznowienie i finalny ZIP0.1.2.
+  [Historyczny brief audytu dla Claude Code](quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md)
+  dotyczy paczki 0.1.2; aktualny brief 0.1.3 znajduje się w sekcji finalizacji powyżej.
   [Raport ponownego audytu Claude](quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md)
   potwierdza140 testów i sumy paczki; opisuje pierwsze błędy dwóch smoke i pozostawione uwagi.
 

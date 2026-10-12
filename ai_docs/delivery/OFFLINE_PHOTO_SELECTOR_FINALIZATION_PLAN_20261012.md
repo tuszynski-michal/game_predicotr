@@ -130,8 +130,21 @@ w Outcome. TASK-0985 ukończony: 233/233 desktop PASS, lint/typecheck/format
 i mapy PASS. Wewnętrzny review Codex zamknął dwie P1 po jednej rundzie
 poprawek; raport zachowuje pierwotne REVISE. TASK-0986 ukończony:53/53
 focused PASS, actualstart obu kierunków PASS, kontrolowany błąd zachował
-log oraz przyczynę. Verifier rzeczywistego ZIP0.1.2 PASS. TASK-0987 jest
-w realizacji: finalny ZIP i pomiar15000.
+log oraz przyczynę. Verifier rzeczywistego ZIP0.1.2 PASS. TASK-0987 ukończony:
+262/262 desktop,110/110 core,16/16 operator-local, lint/typecheck/format PASS.
+Finalny ZIP0.1.3 z v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`:
+`apps/selector-desktop/out/releases/pilot-0.1.3-0b1ab330/Selektor zdjec-win32-x64-0.1.3.zip`.
+Pięć finalnych wariantów release smoke i dwa rzeczywiste update0.1.0/0.1.2
+do0.1.3 PASS; stare EXE odrzucają migrowany projekt bez zmiany bajtów/mtime.
+Pierwsze błędy encoding/readiness harnessu zachowano i wyjaśniono w Outcome.
+Pomiar15000: NAV p50/p95 95,08/106,66 ms zamiast918,79/979,36 ms,
+zero dodatkowych warm worker spawns i niezmienne inventory/baseline.
+Wszystkie100 receiptów po nowym procesie/retry i wszystkie15000 oryginałów
+bez zmian. Create21,277 s i openp50 10,523 s są jawnymi kosztami.
+[Raport wykonawcy](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md),
+[pomiar](../quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md)
+i [końcowy brief Claude](../quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md)
+identyfikują paczkę, dowody oraz granice.
 Nie wykonano końcowego audytu krzyżowego ani fizycznego odbioru operatora.
 
 ## Przypisanie modeli do zadań

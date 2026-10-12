@@ -217,19 +217,19 @@ try {
         .click();
       await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
       await page
-        .getByRole('checkbox', { name: /Projekt i wynik b�d�/ })
+        .getByRole('checkbox', { name: /Projekt i wynik będą/ })
         .check();
       await page
-        .getByRole('button', { name: 'Wybierz zdj�cia i utw�rz projekt' })
+        .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
         .click();
     } else {
       await page
-        .getByRole('button', { name: 'Wybierz folder zdj��', exact: true })
+        .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
         .click();
       await page.getByLabel('Nazwa gry', { exact: true }).fill('Smoke update');
       await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
       await page
-        .getByRole('checkbox', { name: /Projekt i wynik b�d�/ })
+        .getByRole('checkbox', { name: /Projekt i wynik będą/ })
         .check();
       await page
         .getByRole('button', { name: 'Rozpocznij wybieranie', exact: true })
@@ -240,6 +240,22 @@ try {
       .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
       .click();
     await waitState((value) => value.acceptedCount === 1);
+    // The native commit can precede React's response and busy=false render.
+    // A key sent during that interval is intentionally ignored by the old UI.
+    await imageReady();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="counts"]')
+          ?.textContent.includes('Wybrane: 1') &&
+        !document.querySelector('.save-state')?.textContent.includes('w toku'),
+    );
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Pomiń zakres (Tab)', exact: true })
+        .isEnabled(),
+      true,
+    );
     await page.locator('h1').click();
     await page.keyboard.press('Tab');
     await waitState((value) => value.skippedCount === 1);

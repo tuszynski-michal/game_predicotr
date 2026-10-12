@@ -19,5 +19,13 @@ const bridge = Object.freeze<SelectorBridge>({
   close: () => ipcRenderer.invoke(CHANNELS.close),
   openOutput: () => ipcRenderer.invoke(CHANNELS.openOutput),
   fullscreen: () => ipcRenderer.invoke(CHANNELS.fullscreen),
+  onFullscreenChanged: (listener) => {
+    const receive = (_event: Electron.IpcRendererEvent, active: unknown) => {
+      if (typeof active === 'boolean') listener(active);
+    };
+    ipcRenderer.on(CHANNELS.fullscreenChanged, receive);
+    return () =>
+      ipcRenderer.removeListener(CHANNELS.fullscreenChanged, receive);
+  },
 });
 contextBridge.exposeInMainWorld('selector', bridge);

@@ -84,8 +84,7 @@ async function waitState(predicate) {
 }
 async function settled() {
   await page.waitForFunction(
-    () =>
-      !document.querySelector('.save-state')?.textContent?.includes('w toku'),
+    () => document.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
 }
 async function imageReady() {

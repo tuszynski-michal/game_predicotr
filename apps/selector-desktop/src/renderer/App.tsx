@@ -38,12 +38,29 @@ export function App() {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const [notice, setNotice] = useState('');
+  const [fullscreen, setFullscreen] = useState(false);
   const [error, setError] = useState('');
   const [decoded, setDecoded] = useState<string | null>(null);
   const [rangeEditor, setRangeEditor] = useState(false);
   const [rangeStart, setRangeStart] = useState('');
   const [restart, setRestart] = useState<RestartSummary | null>(null);
+  function applyFullscreen(active: boolean) {
+    setFullscreen(active);
+    if (active) {
+      setRangeEditor(false);
+      setRestart(null);
+    }
+  }
+  useEffect(() => window.selector.onFullscreenChanged(applyFullscreen), []);
+  async function toggleFullscreen() {
+    try {
+      applyFullscreen(unwrap(await window.selector.fullscreen()));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Nie można zmienić ekranu.',
+      );
+    }
+  }
   useEffect(() => {
     void window.selector
       .recent()
@@ -55,7 +72,6 @@ export function App() {
     busyRef.current = true;
     setBusy(true);
     setError('');
-    setNotice('');
     try {
       await work();
     } catch (cause) {
@@ -116,16 +132,6 @@ export function App() {
       latest.current = updated;
       setRangeEditor(false);
       setRestart(null);
-      setNotice(
-        {
-          navigate: 'Pozycja zdjęcia zapisana.',
-          accept: 'Wybór zapisany trwale.',
-          skip: 'Pominięcie zapisane trwale.',
-          undo: 'Cofnięcie zapisane trwale.',
-          range: 'Zakres zapisany.',
-          restart: 'Partia zrestartowana.',
-        }[command.kind],
-      );
     });
   }
   const source = workspace?.source;
@@ -167,7 +173,12 @@ export function App() {
     function keyboard(event: KeyboardEvent) {
       if (event.key === 'F11' && !event.repeat) {
         event.preventDefault();
-        void window.selector.fullscreen();
+        void toggleFullscreen();
+        return;
+      }
+      if (event.key === 'Escape' && fullscreen && !event.repeat) {
+        event.preventDefault();
+        void toggleFullscreen();
         return;
       }
       if (!workspace || blocked || rangeEditor || restart || draft || legacy)
@@ -212,7 +223,10 @@ export function App() {
     /* A terminal project has no next range. */
   }
   return (
-    <main>
+    <main
+      className={workspace && fullscreen ? 'fullscreen' : ''}
+      aria-busy={busy}
+    >
       <header>
         <div>
           <h1>Selektor zdjęć</h1>
@@ -229,8 +243,6 @@ export function App() {
           Otwórz logi
         </button>
       </header>
-      {error && <p role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
       {legacy && (
         <section className="legacy-preview">
           <h2>Podgląd sesji Reviewera</h2>
@@ -295,7 +307,6 @@ export function App() {
                   if (!result) return;
                   if (result.kind === 'existing') {
                     await install(result.workspace);
-                    setNotice('Wznowiono ostatnią zapisaną pozycję.');
                   } else {
                     setDraft(result.draft);
                     setLegacy(null);
@@ -476,9 +487,6 @@ export function App() {
               </button>
             </section>
           )}
-          {busy && (
-            <p role="status">Weryfikacja źródła i sum kontrolnych JPEG-ów…</p>
-          )}
         </section>
       ) : (
         <>
@@ -496,52 +504,7 @@ export function App() {
               {workspace.skippedCount}
             </span>
           </div>
-          {workspace.issue && (
-            <section className="issue" role="alert">
-              <strong>
-                Zapis zatrzymany: {workspace.issue.message} (
-                {workspace.issue.code})
-              </strong>
-              <p>
-                {workspace.issue.code === 'OUTPUT_MISSING_FILE'
-                  ? 'Przywróć brakujący JPEG z zgodnej kopii wyniku do tego samego katalogu, potem wznów. Bez kopii otwórz logi i przekaż diagnostykę. Nie resetuj projektu ani nie edytuj manifestu.'
-                  : 'Usuń przyczynę i wznów. Wcześniejsze decyzje pozostają w projekcie.'}
-              </p>
-              <nav>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () =>
-                      install(unwrap(await window.selector.resume())),
-                    )
-                  }
-                >
-                  Wznów po naprawie
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () =>
-                      install(unwrap(await window.selector.relink('source'))),
-                    )
-                  }
-                >
-                  Wskaż ponownie źródło
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () =>
-                      install(unwrap(await window.selector.relink('output'))),
-                    )
-                  }
-                >
-                  Wskaż ponownie wynik
-                </button>
-              </nav>
-            </section>
-          )}
-          <nav className="toolbar">
+          <nav className="toolbar selection-actions">
             <button disabled={!canAccept} onClick={accept}>
               Wybierz (Enter / F)
             </button>
@@ -601,7 +564,10 @@ export function App() {
               </button>
             </form>
           )}
-          <nav className="toolbar">
+          <nav
+            className="toolbar viewer-toolbar"
+            aria-label="Sterowanie podglądem"
+          >
             <button
               disabled={blocked || ordinal <= 0}
               onClick={() => move(-workspace.view.navigationStep)}
@@ -613,6 +579,18 @@ export function App() {
                 ? `${ordinal + 1} / ${source!.images.length} · ${image.relativePath}`
                 : 'Źródło niedostępne'}
             </span>
+            {fullscreen && (
+              <>
+                <span data-testid="fullscreen-counts">
+                  Wybrane: {workspace.acceptedCount}
+                </span>
+                <strong data-testid="fullscreen-range">
+                  {workspace.selectionComplete
+                    ? 'Numeracja zakończona'
+                    : `Zakres: ${range?.start}–${range?.end}`}
+                </strong>
+              </>
+            )}
             <button
               disabled={
                 blocked || !source || ordinal >= source.images.length - 1
@@ -657,16 +635,15 @@ export function App() {
                 ))}
               </select>
             </label>
-            <button onClick={() => void window.selector.fullscreen()}>
-              Pełny ekran (F11)
+            <button
+              onClick={() => void toggleFullscreen()}
+              aria-pressed={fullscreen}
+            >
+              {fullscreen
+                ? 'Wyjdź z pełnego ekranu (F11)'
+                : 'Pełny ekran (F11)'}
             </button>
           </nav>
-          {accepted && (
-            <p>
-              To zdjęcie jest już wybrane. Aby wybrać je ponownie, cofnij jego
-              decyzję.
-            </p>
-          )}
           {source && image ? (
             <ImageViewer
               key={source.id}
@@ -778,15 +755,72 @@ export function App() {
               </button>
             </section>
           )}
-          <p className="save-state" role="status">
-            {busy
-              ? 'Trwały zapis w toku…'
-              : workspace.issue
-                ? 'Zapis zablokowany'
-                : `Projekt zapisany · rewizja ${workspace.revision} · ${workspace.direction === 'ascending' ? 'numeracja rosnąca' : 'numeracja malejąca'}`}
-          </p>
         </>
       )}
+      <footer className="feedback">
+        {workspace?.issue && !fullscreen && (
+          <section className="issue" role="alert">
+            <strong>
+              Zapis zatrzymany: {workspace.issue.message} (
+              {workspace.issue.code})
+            </strong>
+            <p>
+              {workspace.issue.code === 'OUTPUT_MISSING_FILE'
+                ? 'Przywróć brakujący JPEG z zgodnej kopii wyniku do tego samego katalogu, potem wznów. Bez kopii otwórz logi i przekaż diagnostykę. Nie resetuj projektu ani nie edytuj manifestu.'
+                : 'Usuń przyczynę i wznów. Wcześniejsze decyzje pozostają w projekcie.'}
+            </p>
+            <nav>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () =>
+                    install(unwrap(await window.selector.resume())),
+                  )
+                }
+              >
+                Wznów po naprawie
+              </button>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () =>
+                    install(unwrap(await window.selector.relink('source'))),
+                  )
+                }
+              >
+                Wskaż ponownie źródło
+              </button>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () =>
+                    install(unwrap(await window.selector.relink('output'))),
+                  )
+                }
+              >
+                Wskaż ponownie wynik
+              </button>
+            </nav>
+          </section>
+        )}
+
+        {busy && !workspace && (
+          <p role="status">Weryfikacja źródła i sum kontrolnych JPEG-ów…</p>
+        )}
+        {error && <p role="alert">{error}</p>}
+        {workspace?.issue && fullscreen && (
+          <p role="alert">
+            Zapis zatrzymany: {workspace.issue.message}. Wyjdź z pełnego ekranu,
+            aby naprawić problem.
+          </p>
+        )}
+        {accepted && !error && !workspace?.issue && (
+          <p role="status">
+            To zdjęcie jest już wybrane. Aby wybrać je ponownie, cofnij jego
+            decyzję.
+          </p>
+        )}
+      </footer>
     </main>
   );
 }

@@ -163,9 +163,25 @@ async function ready() {
     return image?.complete && image.naturalWidth > 0;
   });
   await page.waitForFunction(
-    () =>
-      !document.querySelector('.save-state')?.textContent.includes('w toku'),
+    () => document.querySelector('main')?.getAttribute('aria-busy') === 'false',
   );
+}
+async function assertCentered() {
+  await page.waitForFunction(() => {
+    const preview = document.querySelector('.preview');
+    const image = preview?.querySelector('img');
+    if (!image?.complete || !image.naturalWidth) return false;
+    const outer = preview.getBoundingClientRect();
+    const inner = image.getBoundingClientRect();
+    return (
+      Math.abs(
+        inner.x + inner.width / 2 - (outer.x + preview.clientWidth / 2),
+      ) < 2 &&
+      Math.abs(
+        inner.y + inner.height / 2 - (outer.y + preview.clientHeight / 2),
+      ) < 2
+    );
+  });
 }
 try {
   await smoke.run(async () => {
@@ -189,8 +205,23 @@ try {
       ),
       'base64',
     );
+    const portrait = Buffer.from(
+      await application.evaluate(({ nativeImage }) =>
+        nativeImage
+          .createFromBitmap(Buffer.alloc(400 * 800 * 4, 140), {
+            width: 400,
+            height: 800,
+          })
+          .toJPEG(80)
+          .toString('base64'),
+      ),
+      'base64',
+    );
     for (let i = 1; i <= 3; i++)
-      await writeFile(path.join(source, `photo${i}.jpg`), jpeg);
+      await writeFile(
+        path.join(source, `photo${i}.jpg`),
+        i === 2 ? portrait : jpeg,
+      );
     await page
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
@@ -198,11 +229,124 @@ try {
     await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await ready();
+    await assertCentered();
+    await page.evaluate(() => {
+      const top = document
+        .querySelector('.preview')
+        .getBoundingClientRect().top;
+      window.previewTops = [top];
+      window.layoutObserver = new MutationObserver(() =>
+        window.previewTops.push(
+          document.querySelector('.preview').getBoundingClientRect().top,
+        ),
+      );
+      window.layoutObserver.observe(document.querySelector('main'), {
+        subtree: true,
+        childList: true,
+        attributes: true,
+      });
+    });
     await page.getByRole('button', { name: 'Następne', exact: true }).click();
-    await page
-      .getByText('Pozycja zdjęcia zapisana.', { exact: true })
-      .waitFor();
+    await page.getByTestId('cursor').filter({ hasText: '2 / 3' }).waitFor();
     await ready();
+    const tops = await page.evaluate(() => {
+      window.layoutObserver.disconnect();
+      return window.previewTops;
+    });
+    assert.ok(
+      Math.max(...tops) - Math.min(...tops) < 1,
+      `Preview moved during navigation: ${tops}`,
+    );
+    assert.equal(
+      await page
+        .getByText('Pozycja zdjęcia zapisana.', { exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(await page.locator('main [role="status"]').count(), 0);
+    await assertCentered();
+    await page
+      .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
+      .click();
+    await page.locator('main.fullscreen').waitFor();
+    await assertCentered();
+    const fullscreenLayout = await page.evaluate(() => {
+      const preview = document
+        .querySelector('.preview')
+        .getBoundingClientRect();
+      const toolbar = document
+        .querySelector('.viewer-toolbar')
+        .getBoundingClientRect();
+      const visibleButtons = [...document.querySelectorAll('button')]
+        .filter((button) => button.getClientRects().length > 0)
+        .map((button) => button.textContent.trim());
+      return {
+        height: preview.height,
+        top: preview.top,
+        bottom: preview.bottom,
+        viewport: innerHeight,
+        toolbarBottom: toolbar.bottom,
+        visibleButtons,
+      };
+    });
+    assert.deepEqual(fullscreenLayout.visibleButtons, [
+      'Wyjdź z pełnego ekranu (F11)',
+    ]);
+    assert.ok(fullscreenLayout.height > fullscreenLayout.viewport * 0.8);
+    assert.ok(
+      Math.abs(fullscreenLayout.bottom - (fullscreenLayout.viewport - 8)) < 1,
+    );
+    assert.ok(fullscreenLayout.top >= fullscreenLayout.toolbarBottom);
+    await page
+      .getByTestId('fullscreen-counts')
+      .filter({ hasText: 'Wybrane: 0' })
+      .waitFor();
+    await page
+      .getByTestId('fullscreen-range')
+      .filter({ hasText: 'Zakres: 1–9' })
+      .waitFor();
+    await page.locator('.preview').click();
+    await page.keyboard.press('ArrowLeft');
+    await page.getByTestId('cursor').filter({ hasText: '1 / 3' }).waitFor();
+    await ready();
+    await assertCentered();
+    await page.keyboard.press('ArrowRight');
+    await page.getByTestId('cursor').filter({ hasText: '2 / 3' }).waitFor();
+    await ready();
+    const screenshots = path.resolve('../../artifacts/selector-layout-0.1.5');
+    await mkdir(screenshots, { recursive: true });
+    await page.screenshot({ path: path.join(screenshots, 'fullscreen.png') });
+    await page
+      .getByRole('button', {
+        name: 'Wyjdź z pełnego ekranu (F11)',
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole('button', { name: 'Zmień zakres', exact: true })
+      .waitFor();
+    await page.keyboard.press('F11');
+    await page.locator('main.fullscreen').waitFor();
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: 'Zmień zakres', exact: true })
+      .waitFor();
+    // Changes through the native window must update the renderer too.
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setFullScreen(true),
+    );
+    await page.locator('main.fullscreen').waitFor();
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setFullScreen(false),
+    );
+    await page
+      .getByRole('button', { name: 'Zmień zakres', exact: true })
+      .waitFor();
+    await assertCentered();
+    await page.screenshot({ path: path.join(screenshots, 'windowed.png') });
+    console.log(
+      'PASS: quiet/stable navigation; landscape and portrait centering; minimal native fullscreen, keyboard navigation, button/F11/Escape/native exit.',
+    );
     assert.equal(
       (await page.evaluate(() => window.selector.snapshot())).value
         .acceptedCount,
@@ -274,7 +418,7 @@ try {
       );
     }, finalScroll);
     console.log(
-      'PASS: removed picker, open verification, NAV message, scroll burst with accept, project-close flush and new-process view/decisions.',
+      'PASS: removed picker, open verification, quiet navigation, scroll burst with accept, project-close flush and new-process view/decisions.',
     );
     const closingScroll = await page.locator('.preview').evaluate((preview) => {
       preview.scrollLeft = 120;

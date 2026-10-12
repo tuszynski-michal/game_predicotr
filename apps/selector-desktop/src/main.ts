@@ -115,6 +115,12 @@ async function createWindow() {
       window?.close();
     });
   });
+  window.on('enter-full-screen', () =>
+    window?.webContents.send(CHANNELS.fullscreenChanged, true),
+  );
+  window.on('leave-full-screen', () =>
+    window?.webContents.send(CHANNELS.fullscreenChanged, false),
+  );
   await window.loadURL(APP_URL);
 }
 

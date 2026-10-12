@@ -119,25 +119,27 @@ export function ImageViewer({
           });
       }}
     >
-      {error ? (
-        <p role="alert">
-          Nie można odczytać JPEG-a. Plik jest uszkodzony, zmieniony lub
-          niedostępny.
-        </p>
-      ) : !display ? (
-        <p role="status">Ładowanie zdjęcia…</p>
-      ) : (
-        <img
-          src={image.url}
-          alt={image.relativePath}
-          style={{
-            width: display.width,
-            height: display.height,
-            maxWidth: 'none',
-            maxHeight: 'none',
-          }}
-        />
-      )}
+      <div className="preview-stage">
+        {error ? (
+          <p role="alert">
+            Nie można odczytać JPEG-a. Plik jest uszkodzony, zmieniony lub
+            niedostępny.
+          </p>
+        ) : !display ? (
+          <span className="image-loading" aria-label="Ładowanie zdjęcia" />
+        ) : (
+          <img
+            src={image.url}
+            alt={image.relativePath}
+            style={{
+              width: display.width,
+              height: display.height,
+              maxWidth: 'none',
+              maxHeight: 'none',
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -15,6 +15,7 @@ export const CHANNELS = {
   close: 'selector:close',
   openOutput: 'selector:open-output',
   fullscreen: 'selector:fullscreen',
+  fullscreenChanged: 'selector:fullscreen-changed',
   legacyPreview: 'selector:legacy-preview',
   legacyAdopt: 'selector:legacy-adopt',
 } as const;
@@ -61,6 +62,7 @@ export interface SelectorBridge {
   close(): Promise<NativeResult<void>>;
   openOutput(): Promise<NativeResult<void>>;
   fullscreen(): Promise<NativeResult<boolean>>;
+  onFullscreenChanged(listener: (active: boolean) => void): () => void;
 }
 export interface LegacyPreviewSummary {
   previewToken: string;

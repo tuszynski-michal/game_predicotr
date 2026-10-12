@@ -248,7 +248,7 @@ try {
         document
           .querySelector('[data-testid="counts"]')
           ?.textContent.includes('Wybrane: 1') &&
-        !document.querySelector('.save-state')?.textContent.includes('w toku'),
+        document.querySelector('main')?.getAttribute('aria-busy') === 'false',
     );
     assert.equal(
       await page

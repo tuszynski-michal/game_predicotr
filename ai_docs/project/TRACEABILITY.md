@@ -13,6 +13,10 @@ last_updated: 2026-10-12
 | Przejęcie zgodnej sesji operator-local bez zmian oryginału | `delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`, `architecture/MANUAL_IMAGE_SELECTION.md`, `quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md`, D-545 | TASK-0978 |
 | Poprawki selektora po audycie: świeże kontrole, close/scroll/skipped i pilot0.1.1 | `delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, D-545 | TASK-0980, TASK-0981, TASK-0982 |
 | Start od źródła, etykieta gry, historia i wznowienie obu kierunków | `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`, `requirements/MANUAL_IMAGE_SELECTION.md`, `architecture/MANUAL_IMAGE_SELECTION.md`, D-545 | TASK-0983 |
+| Brak projektu bez resetu, obce foldery, repeat i zamykanie | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0984 |
+| Kompaktowy zapis, zgodna migracja i pełna idempotencja | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0985 |
+| Diagnostyka startu i automatyczna kontrola zawartości paczki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, D-546 | TASK-0986 |
+| Finalny ZIP0.1.3, pomiar15000, aktualizacje i oba kierunki | `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, `quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md`, D-546 | TASK-0987, TASK-0979 |
 | Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
 | Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
 | Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |

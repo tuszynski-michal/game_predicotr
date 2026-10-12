@@ -6,7 +6,19 @@ last_updated: 2026-10-12
 
 # Architektura lokalnej ręcznej selekcji
 
-## Lokalny selektor Windows — D-545, zaakceptowana architektura
+## Lokalny selektor Windows — D-545/D-546, zaakceptowana architektura
+
+TASK-0984 sprawdza zawartość obu docelowych folderów przed utworzeniem
+któregokolwiek. Open folderu bez markerów projektu nie tworzy locka.
+Expected source/project identity nadal jest sprawdzana pod blokadą przed
+recovery. Martwy wpis cache może być zapomniany wyłącznie po jawnym
+potwierdzeniu Nowa partia i ponownym sprawdzeniu braku folderu.
+RecentProjects preferuje newest wpis i deduplikuje projectRoot bez względu
+na wielkość liter. Cache nadal nie jest dowodem tożsamości.
+Desktop odrzuca repeat dla accept/skip/undo bez zmiany wspólnego rdzenia.
+Close po LOCK_LOST/LOCK_OWNER_UNKNOWN kończy własny store, zachowując obcy
+lock. Second-instance podczas close planuje jeden relaunch po zakończeniu
+procesu. Plan finalizacji: `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
 
 Start0983 wykorzystuje typowane begin IPC: natywny picker rozpoznaje źródło
 oraz domyślny projekt lub wpis pomocniczej historii. Nowa konfiguracja dostaje

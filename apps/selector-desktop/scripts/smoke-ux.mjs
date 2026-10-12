@@ -1,5 +1,7 @@
 import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
-import { _electron as electron } from 'playwright-core';
+import { _electron as electron, chromium } from 'playwright-core';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -16,10 +18,11 @@ await mkdir(source);
 await mkdir(userData);
 let application;
 let page;
-async function launch() {
+let reopenedBrowser;
+async function launch(extraArgs = []) {
   application = await electron.launch({
     executablePath,
-    args: [`--user-data-dir=${userData}`],
+    args: [`--user-data-dir=${userData}`, ...extraArgs],
     timeout: 20000,
   });
   page = await application.firstWindow({ timeout: 20000 });
@@ -38,6 +41,114 @@ async function launch() {
       checkboxChecked: false,
     });
   }, source);
+}
+async function secondLaunch() {
+  const child = spawn(executablePath, [`--user-data-dir=${userData}`], {
+    windowsHide: true,
+    stdio: 'ignore',
+  });
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('Second instance did not exit within 10 seconds'));
+    }, 10000);
+    child.once('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+}
+
+async function verifyDeferredRelaunch() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const port = server.address().port;
+  await new Promise((resolve) => server.close(resolve));
+  const evidencePath = path.join(fixture, 'relaunch-evidence.json');
+  await launch([`--remote-debugging-port=${port}`]);
+  const oldPid = application.process().pid;
+  await application.evaluate(({ app, BrowserWindow }, evidencePath) => {
+    const fs = process.getBuiltinModule('fs');
+    const relaunch = app.relaunch.bind(app);
+    const evidence = {
+      requests: 0,
+      relaunches: [],
+      args: process.argv.slice(1),
+    };
+    app.on('second-instance', () => {
+      evidence.requests++;
+      fs.writeFileSync(evidencePath, JSON.stringify(evidence));
+    });
+    app.relaunch = (options) => {
+      evidence.relaunches.push(options);
+      fs.writeFileSync(evidencePath, JSON.stringify(evidence));
+      relaunch(options);
+    };
+    const window = BrowserWindow.getAllWindows()[0];
+    // Hold the final window close so two real launches arrive during shutdown.
+    // Production close and disposal still execute through their normal handlers.
+    let released = false;
+    window.on('close', (event) => {
+      if (!released) event.preventDefault();
+    });
+    setTimeout(() => {
+      released = true;
+      window.close();
+    }, 5000);
+    window.close();
+  }, evidencePath);
+  const exited = application.waitForEvent('close', { timeout: 15000 });
+  await secondLaunch();
+  await secondLaunch();
+  await exited;
+  application = null;
+  const evidence = JSON.parse(await readFile(evidencePath, 'utf8'));
+  assert.equal(evidence.requests, 2);
+  assert.equal(evidence.relaunches.length, 1);
+  assert.deepEqual(evidence.relaunches[0].args, evidence.args);
+  assert.ok(evidence.args.includes(`--user-data-dir=${userData}`));
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      reopenedBrowser = await chromium.connectOverCDP(
+        `http://127.0.0.1:${port}`,
+        { timeout: 1000 },
+      );
+      break;
+    } catch (error) {
+      if (attempt === 19) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  const session = await reopenedBrowser.newBrowserCDPSession();
+  const { processInfo } = await session.send('SystemInfo.getProcessInfo');
+  assert.notEqual(
+    processInfo.find((entry) => entry.type === 'browser')?.id,
+    oldPid,
+  );
+  const windows = reopenedBrowser
+    .contexts()
+    .flatMap((context) => context.pages());
+  assert.equal(windows.length, 1);
+  await waitForHistory(windows[0]);
+  const diagnostic = await readFile(
+    path.join(userData, 'logs', 'selector.log'),
+    'utf8',
+  );
+  assert.ok(diagnostic.includes('application-start'));
+  // Close only the relaunched fixture's window through Electron's normal close.
+  await windows[0].close();
+  await reopenedBrowser.close();
+  reopenedBrowser = null;
+  console.log(
+    'PASS: two real EXE launches during close produce one deferred process/window and preserve user-data arguments.',
+  );
 }
 async function ready() {
   await page.waitForFunction(() => {
@@ -179,7 +290,13 @@ try {
   console.log(
     'PASS: real window/process closes after LOCK_LOST, flushes last view, logs diagnostic and preserves foreign lock bytes.',
   );
+  await verifyDeferredRelaunch();
 } finally {
   await application?.close();
+  if (reopenedBrowser)
+    for (const context of reopenedBrowser.contexts())
+      for (const window of context.pages())
+        await window.close().catch(() => {});
+  await reopenedBrowser?.close();
   await removeOwnedTemp(fixture, path.resolve('.tmp'));
 }

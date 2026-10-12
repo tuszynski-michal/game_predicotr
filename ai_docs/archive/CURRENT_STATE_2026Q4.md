@@ -6,6 +6,12 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0973 — ponowienie kroku partycji przy lock timeout (done)
+
+- Plik: `ai_docs/tasks/completed/0973-game-partition-lock-retry.md`. Przyczyna 500 przy dodawaniu gry na bazie V2: `CREATE TABLE … PARTITION OF game_data_v2.board_render_manifests` czekał na `ACCESS EXCLUSIVE` dłużej niż `lock_timeout = 2s`, bo sesja aplikacji trzymała `AccessShareLock` ponad 22 s (wolny `count` po `image_symbol_review_cells`).
+- `_run_partition_step_in` ponawia krok do 6 razy (rollback kroku, backoff 0,5–4 s, wznowienie od checkpointu); po wyczerpaniu `409 GAME_PARTITION_LOCK_BUSY`. Błędy inne niż SQLSTATE `55P03` i dryf checkpointu nie są ponawiane.
+- Testy: jednostkowe 9 + katalog 12, integracja PostgreSQL 2 (blokada `ACCESS SHARE` zwalniana przy pierwszym backoffie). Version v1.7.313. Wymaga restartu API przez operatora. Otwarte: przyspieszenie `_current_selected_cell_count`.
+
 ### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (done)
 
 - Etap A/A′ (D-540): `scripts/inventory_worktrees.ps1`, kopie worktree'ów,

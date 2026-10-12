@@ -13,7 +13,61 @@ import { validateCreate } from '../src/native/project-controller.ts';
 import { removeOwnedTemp } from '../scripts/release-support.mjs';
 import { SecureFiles } from '../src/filesystem/secure-files.ts';
 import { disposeNativeChecks } from '../src/native/windows-check-worker.ts';
+import { resolveDesktopShortcut } from '../src/renderer/desktop-shortcuts.ts';
+import { DesktopLifecycle } from '../src/native/desktop-lifecycle.ts';
 after(() => disposeNativeChecks());
+test('desktop decision repeats are consumed without a decision; fresh presses and arrows work', () => {
+  for (const [input, action] of [
+    [{ key: 'Enter' }, 'accept'],
+    [{ key: 'f' }, 'accept'],
+    [{ key: 'F' }, 'accept'],
+    [{ key: 'Tab' }, 'skip'],
+    [{ key: 'z', ctrlKey: true }, 'undo'],
+    [{ key: 'z', metaKey: true }, 'undo'],
+    [{ key: 'a' }, 'undo'],
+  ]) {
+    assert.deepEqual(resolveDesktopShortcut({ ...input, repeat: true }), {
+      action: null,
+      preventDefault: true,
+    });
+    assert.deepEqual(resolveDesktopShortcut({ ...input, repeat: false }), {
+      action,
+      preventDefault: true,
+    });
+  }
+  for (const [key, action] of [
+    ['ArrowLeft', 'previous_image'],
+    ['ArrowRight', 'next_image'],
+    ['ArrowUp', 'previous_step'],
+    ['ArrowDown', 'next_step'],
+  ])
+    assert.deepEqual(resolveDesktopShortcut({ key, repeat: true }), {
+      action,
+      preventDefault: true,
+    });
+  for (const tagName of ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'])
+    assert.deepEqual(
+      resolveDesktopShortcut({ key: 'Tab', repeat: true, target: { tagName } }),
+      { action: null, preventDefault: false },
+    );
+  assert.deepEqual(
+    resolveDesktopShortcut({ key: 'f', repeat: true, ctrlKey: true }),
+    {
+      action: null,
+      preventDefault: false,
+    },
+  );
+});
+
+test('second instance focuses normally and schedules exactly one deferred relaunch during close', () => {
+  const lifecycle = new DesktopLifecycle();
+  assert.equal(lifecycle.secondInstance(), 'focus');
+  lifecycle.beginClosing();
+  assert.equal(lifecycle.secondInstance(), 'relaunch');
+  lifecycle.beginClosing();
+  for (let i = 0; i < 5; i++)
+    assert.equal(lifecycle.secondInstance(), 'pending');
+});
 test('native view cache validates every field and rejects extra paths', () => {
   assert.deepEqual(validateView(DEFAULT_VIEW), DEFAULT_VIEW);
   for (const v of [

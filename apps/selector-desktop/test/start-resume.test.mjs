@@ -12,6 +12,7 @@ import {
   rename,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import {
   ProjectController,
   validateCreate,
@@ -78,6 +79,11 @@ test('pending creation restores the game label; a foreign pending source is reje
     { code: 'SOURCE_PROJECT_CONFLICT' },
   );
   assert.deepEqual(await readFile(journalPath), before);
+  await assert.rejects(
+    ProjectStore.open(foreignProject, { expectedProjectId: randomUUID() }),
+    { code: 'PROJECT_ID_CONFLICT' },
+  );
+  assert.deepEqual(await readFile(journalPath), before);
 });
 async function fixture(t) {
   const base = path.resolve('.tmp');
@@ -95,15 +101,20 @@ async function fixture(t) {
   let chosen = source;
   let pickers = 0;
   let confirmations = 0;
+  let confirmResult = true;
+  let onConfirm = async () => {};
+  const prompts = [];
   const controller = () => {
     const c = new ProjectController(userData, new SourceRegistry(), {
       directory: async () => {
         pickers++;
         return chosen;
       },
-      confirm: async () => {
+      confirm: async (message, label) => {
         confirmations++;
-        return true;
+        prompts.push({ message, label });
+        await onConfirm();
+        return confirmResult;
       },
       openFolder: async () => {},
     });
@@ -122,6 +133,11 @@ async function fixture(t) {
     choose(value) {
       chosen = value;
     },
+    confirm(value, callback = async () => {}) {
+      confirmResult = value;
+      onConfirm = callback;
+    },
+    prompts,
     get pickers() {
       return pickers;
     },
@@ -283,7 +299,9 @@ test('foreign sibling contents block creation and remain byte-identical', async 
   const folder = `${f.source} selekcja`;
   await mkdir(folder);
   await writeFile(path.join(folder, 'foreign.txt'), 'preserve');
-  await assert.rejects(f.controller().begin(), { code: 'PROJECT_NOT_FOUND' });
+  await assert.rejects(f.controller().begin(), {
+    code: 'PROJECT_FOLDER_FOREIGN',
+  });
   assert.deepEqual(await readdir(folder), ['foreign.txt']);
   assert.equal(
     await readFile(path.join(folder, 'foreign.txt'), 'utf8'),
@@ -359,7 +377,7 @@ test('multiple cached projects for one source require explicit history choice; s
     JSON.stringify({ schemaVersion: 1, projects: [stale] }),
   );
   await assert.rejects(f.controller().begin(), {
-    code: 'SOURCE_PROJECT_CONFLICT',
+    code: 'PROJECT_ID_CONFLICT',
   });
   assert.notEqual(stale.projectId, created.projectId);
 });
@@ -370,6 +388,236 @@ test('source picker rejects a junction before looking up or creating a project',
   await symlink(f.source, linked, 'junction');
   f.choose(linked);
   await assert.rejects(f.controller().begin(), { code: 'REPARSE_POINT' });
+});
+
+async function beginInNewProcess(f) {
+  const controllerUrl = new URL(
+    '../src/native/project-controller.ts',
+    import.meta.url,
+  ).href;
+  const registryUrl = new URL(
+    '../src/native/source-registry.ts',
+    import.meta.url,
+  ).href;
+  const checksUrl = new URL(
+    '../src/native/windows-check-worker.ts',
+    import.meta.url,
+  ).href;
+  const script = `
+    import { ProjectController } from ${JSON.stringify(controllerUrl)};
+    import { SourceRegistry } from ${JSON.stringify(registryUrl)};
+    import { disposeNativeChecks } from ${JSON.stringify(checksUrl)};
+    const controller = new ProjectController(${JSON.stringify(f.userData)}, new SourceRegistry(), {
+      directory: async () => ${JSON.stringify(f.source)},
+      confirm: async () => { throw new Error('Unexpected reset confirmation'); },
+      openFolder: async () => {},
+    });
+    try { console.log(JSON.stringify(await controller.begin())); }
+    finally { await controller.close(); disposeNativeChecks(); }
+  `;
+  return new Promise((resolve, reject) => {
+    const worker = spawn(
+      process.execPath,
+      ['--experimental-strip-types', '--input-type=module', '-e', script],
+      { windowsHide: true },
+    );
+    let output = '',
+      errors = '';
+    const timer = setTimeout(() => {
+      worker.kill();
+      reject(new Error('New-process start exceeded 30 seconds'));
+    }, 30000);
+    worker.stdout.on('data', (bytes) => {
+      output += bytes;
+    });
+    worker.stderr.on('data', (bytes) => {
+      errors += bytes;
+    });
+    worker.on('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    worker.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) reject(new Error(errors));
+      else resolve(JSON.parse(output));
+    });
+  });
+}
+
+test('missing history has a stable path error; cancel keeps cache, explicit new batch preserves the moved project', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const initial = await c.create(request((await c.begin()).draft));
+  await command(c, { kind: 'accept', imageId: initial.currentImageId });
+  await c.close();
+  const oldRoot = `${f.source} selekcja`;
+  const movedProject = path.join(f.root, 'moved-project');
+  const movedOutput = path.join(f.root, 'moved-output');
+  await rename(oldRoot, movedProject);
+  await rename(`${f.source} wybrane`, movedOutput);
+  const oldState = await readFile(
+    path.join(movedProject, 'selector-project-v1.json'),
+  );
+  const oldJpeg = await readFile(path.join(movedOutput, 'seq_20-28.jpg'));
+  const cachePath = path.join(f.userData, 'selector-recent-projects-v1.json');
+  const before = await readFile(cachePath);
+  const next = f.controller();
+  await assert.rejects(
+    next.open(initial.projectId),
+    (error) =>
+      error.code === 'PROJECT_FOLDER_MISSING' &&
+      error.message.includes(oldRoot),
+  );
+  f.confirm(false);
+  assert.equal(await next.begin(), null);
+  assert.deepEqual(await readFile(cachePath), before);
+  assert.equal(next.snapshot(), null);
+  assert.equal(f.prompts.at(-1).label, 'Nowa partia');
+  assert.ok(f.prompts.at(-1).message.includes(oldRoot));
+  assert.ok(f.prompts.at(-1).message.includes('Otwórz projekt'));
+  f.confirm(true);
+  const fresh = await next.begin();
+  assert.equal(fresh.kind, 'new');
+  assert.deepEqual(await new RecentProjects(f.userData).list(), []);
+  const created = await next.create(request(fresh.draft, 'descending'));
+  assert.notEqual(created.projectId, initial.projectId);
+  assert.equal(created.decisionCount, 0);
+  await next.close();
+  const resumed = await beginInNewProcess(f);
+  assert.equal(resumed.workspace.projectId, created.projectId);
+  assert.equal(resumed.workspace.direction, 'descending');
+  assert.deepEqual(
+    await readFile(path.join(movedProject, 'selector-project-v1.json')),
+    oldState,
+  );
+  assert.deepEqual(
+    await readFile(path.join(movedOutput, 'seq_20-28.jpg')),
+    oldJpeg,
+  );
+});
+
+test('confirmation rechecks a restored root and resumes progress instead of forgetting its identity', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const initial = await c.create(request((await c.begin()).draft));
+  await command(c, { kind: 'skip' });
+  await c.close();
+  const root = `${f.source} selekcja`;
+  const moved = path.join(f.root, 'temporarily-missing');
+  await rename(root, moved);
+  f.confirm(true, () => rename(moved, root));
+  const result = await f.controller().begin();
+  assert.equal(result.kind, 'existing');
+  assert.equal(result.workspace.projectId, initial.projectId);
+  assert.equal(result.workspace.skippedCount, 1);
+  assert.equal(
+    (await new RecentProjects(f.userData).list())[0].projectId,
+    initial.projectId,
+  );
+});
+
+test('newest cached root wins over an older duplicate ID even after a process restart; remember deduplicates roots', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const initial = await c.create(request((await c.begin()).draft));
+  await command(c, { kind: 'skip' });
+  await c.close();
+  const newest = (await new RecentProjects(f.userData).list())[0];
+  const stale = {
+    ...newest,
+    projectId: randomUUID(),
+    openedAt: '2020-01-01T00:00:00.000Z',
+  };
+  await writeFile(
+    path.join(f.userData, 'selector-recent-projects-v1.json'),
+    JSON.stringify({ schemaVersion: 1, projects: [stale, newest] }),
+  );
+  const result = await beginInNewProcess(f);
+  assert.equal(result.workspace.projectId, initial.projectId);
+  assert.equal(result.workspace.skippedCount, 1);
+  const entries = await new RecentProjects(f.userData).list();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].projectId, initial.projectId);
+});
+
+test('foreign output blocks draft create without creating the missing project folder', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const draft = (await c.begin()).draft;
+  await mkdir(draft.outputPath);
+  const foreign = path.join(draft.outputPath, 'foreign.txt');
+  await writeFile(foreign, 'preserve exact foreign bytes');
+  await assert.rejects(
+    c.create(request(draft)),
+    (error) =>
+      error.code === 'OUTPUT_FOLDER_NOT_EMPTY' &&
+      error.message.includes(draft.outputPath),
+  );
+  assert.ok(
+    !(await readdir(path.dirname(f.source))).includes(
+      path.basename(draft.projectPath),
+    ),
+  );
+  assert.deepEqual(await readdir(draft.outputPath), ['foreign.txt']);
+  assert.equal(await readFile(foreign, 'utf8'), 'preserve exact foreign bytes');
+});
+
+test('older valid cache ID cannot override a conflicting newest ID for the same root', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  await c.create(request((await c.begin()).draft));
+  await c.close();
+  const valid = (await new RecentProjects(f.userData).list())[0];
+  const stale = {
+    ...valid,
+    projectId: randomUUID(),
+    openedAt: '2099-01-01T00:00:00.000Z',
+  };
+  const statePath = path.join(valid.projectRoot, 'selector-project-v1.json');
+  const before = await readFile(statePath);
+  await writeFile(
+    path.join(f.userData, 'selector-recent-projects-v1.json'),
+    JSON.stringify({ schemaVersion: 1, projects: [stale, valid] }),
+  );
+  await assert.rejects(f.controller().begin(), { code: 'PROJECT_ID_CONFLICT' });
+  assert.deepEqual(await readFile(statePath), before);
+});
+
+test('cancelling a missing-history confirmation preserves another active project and its decision', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const initial = await c.create(request((await c.begin()).draft));
+  await command(c, { kind: 'skip' });
+  const before = c.snapshot();
+  const source = path.join(f.root, 'other-source');
+  await mkdir(source);
+  await writeFile(
+    path.join(source, 'photo.jpg'),
+    Buffer.from([255, 216, 1, 255, 217]),
+  );
+  const cache = new RecentProjects(f.userData);
+  await cache.remember({
+    projectId: randomUUID(),
+    projectRoot: path.join(f.root, 'missing-project'),
+    sourceRoot: source,
+    sourceDirectoryName: 'other-source',
+    openedAt: new Date().toISOString(),
+  });
+  const history = await readFile(
+    path.join(f.userData, 'selector-recent-projects-v1.json'),
+  );
+  f.choose(source);
+  f.confirm(false);
+  assert.equal(await c.begin(), null);
+  assert.deepEqual(c.snapshot(), before);
+  assert.equal(c.snapshot().projectId, initial.projectId);
+  assert.deepEqual(
+    await readFile(path.join(f.userData, 'selector-recent-projects-v1.json')),
+    history,
+  );
+  await command(c, { kind: 'undo' });
+  assert.equal(c.snapshot().skippedCount, 0);
 });
 
 test('relinked source is remembered and its next selection resumes the same project in a new controller', async (t) => {

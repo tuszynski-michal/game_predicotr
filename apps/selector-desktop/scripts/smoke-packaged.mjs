@@ -159,12 +159,57 @@ try {
   );
   assert.equal(state.nextRangeStart, 19);
   await page.locator('h1').click();
+  const beforeRepeats = await snapshot();
+  for (const key of ['Enter', 'f', 'F', 'Tab', 'Control+z', 'a']) {
+    const consumed = await page.evaluate((key) => {
+      const event = new KeyboardEvent('keydown', {
+        key: key === 'Control+z' ? 'z' : key,
+        ctrlKey: key === 'Control+z',
+        repeat: true,
+        cancelable: true,
+        bubbles: true,
+      });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, key);
+    assert.equal(
+      consumed,
+      true,
+      `${key} repeat must suppress browser defaults`,
+    );
+    await settled();
+    const afterRepeat = await snapshot();
+    assert.equal(afterRepeat.revision, beforeRepeats.revision);
+    assert.equal(afterRepeat.acceptedCount, beforeRepeats.acceptedCount);
+    assert.equal(afterRepeat.skippedCount, beforeRepeats.skippedCount);
+    assert.equal(afterRepeat.currentImageId, beforeRepeats.currentImageId);
+  }
+  await page.getByLabel('Skok', { exact: true }).selectOption('1');
+  await waitState((state) => state.view.navigationStep === 1);
   await page.evaluate(() =>
     window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'f', repeat: true }),
+      new KeyboardEvent('keydown', { key: 'ArrowRight', repeat: true }),
     ),
   );
-  assert.equal((await snapshot()).acceptedCount, 1);
+  await waitState(
+    (state) => state.currentImageId !== beforeRepeats.currentImageId,
+  );
+  await imageReady();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', repeat: true }),
+    ),
+  );
+  await waitState(
+    (state) => state.currentImageId === beforeRepeats.currentImageId,
+  );
+  await imageReady();
+  await page
+    .getByLabel('Skok', { exact: true })
+    .selectOption(String(beforeRepeats.view.navigationStep));
+  await waitState(
+    (state) => state.view.navigationStep === beforeRepeats.view.navigationStep,
+  );
   await page
     .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
     .evaluate((e) => {

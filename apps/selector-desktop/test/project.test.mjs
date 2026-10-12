@@ -207,6 +207,87 @@ test('unknown empty recovery guard is never reclaimed even without a main lock',
   assert.deepEqual(await readFile(guard), Buffer.alloc(0));
   assert.ok(!(await readdir(f.input.projectRoot)).includes(PROJECT_LOCK_NAME));
 });
+
+test('close with an unreadable lock owner ends only its own store and preserves all foreign bytes', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  const lockPath = path.join(f.input.projectRoot, PROJECT_LOCK_NAME);
+  const foreign = Buffer.from('not a valid lock owner');
+  const state = await readFile(
+    path.join(f.input.projectRoot, PROJECT_STATE_NAME),
+  );
+  const manifest = await readFile(
+    path.join(f.input.outputRoot, OUTPUT_MANIFEST_NAME),
+  );
+  await writeFile(lockPath, foreign);
+  await store.close();
+  assert.equal(store.getCloseIssue().code, 'LOCK_OWNER_UNKNOWN');
+  assert.deepEqual(await readFile(lockPath), foreign);
+  assert.deepEqual(
+    await readFile(path.join(f.input.projectRoot, PROJECT_STATE_NAME)),
+    state,
+  );
+  assert.deepEqual(
+    await readFile(path.join(f.input.outputRoot, OUTPUT_MANIFEST_NAME)),
+    manifest,
+  );
+  await assert.rejects(store.execute('skip-unknown-close', { kind: 'skip' }), {
+    code: 'PROJECT_CLOSED',
+  });
+  await store.close();
+  assert.deepEqual(await readFile(lockPath), foreign);
+});
+
+test('foreign or empty folders are rejected before lock acquisition; missing root reports its full path', async (t) => {
+  const f = await fixture(t);
+  const missing = path.join(f.root, 'missing');
+  await assert.rejects(
+    ProjectStore.open(missing),
+    (error) =>
+      error.code === 'PROJECT_FOLDER_MISSING' &&
+      error.message.includes(missing),
+  );
+  for (const content of [null, 'foreign bytes']) {
+    const root = path.join(f.root, content === null ? 'empty' : 'foreign');
+    await mkdir(root);
+    if (content) await writeFile(path.join(root, 'foreign.txt'), content);
+    await assert.rejects(
+      ProjectStore.open(root),
+      (error) =>
+        error.code === 'PROJECT_FOLDER_FOREIGN' && error.message.includes(root),
+    );
+    assert.deepEqual(await readdir(root), content ? ['foreign.txt'] : []);
+    if (content)
+      assert.equal(
+        await readFile(path.join(root, 'foreign.txt'), 'utf8'),
+        content,
+      );
+  }
+});
+
+test('create checks both destinations before creating either directory', async (t) => {
+  for (const kind of ['output', 'project']) {
+    const f = await fixture(t);
+    const root = kind === 'output' ? f.input.outputRoot : f.input.projectRoot;
+    const absent = kind === 'output' ? f.input.projectRoot : f.input.outputRoot;
+    await mkdir(root);
+    await writeFile(path.join(root, 'foreign.txt'), 'untouched');
+    await assert.rejects(
+      ProjectStore.create(f.input),
+      (error) =>
+        error.code ===
+          (kind === 'output'
+            ? 'OUTPUT_FOLDER_NOT_EMPTY'
+            : 'PROJECT_FOLDER_FOREIGN') && error.message.includes(root),
+    );
+    assert.ok(!(await readdir(f.root)).includes(path.basename(absent)));
+    assert.deepEqual(await readdir(root), ['foreign.txt']);
+    assert.equal(
+      await readFile(path.join(root, 'foreign.txt'), 'utf8'),
+      'untouched',
+    );
+  }
+});
 test('close waits for queued durable work before releasing the project lock', async (t) => {
   const f = await fixture(t);
   let armed = false;

@@ -232,17 +232,48 @@ export class ProjectStore {
         ? [await canonicalDirectoryLocation(oldOutputRoot)]
         : []),
     ]);
+    // Read both locations before creating either leaf. A foreign output must
+    // not leave an empty project directory behind (and vice versa).
+    const preflightEmpty = async (
+      root: string,
+      code: string,
+      label: string,
+    ) => {
+      const candidate = new SecureFiles(root);
+      try {
+        await candidate.verifyRoot();
+      } catch (error) {
+        if (isMissing(error)) return;
+        throw error;
+      }
+      if ((await candidate.names()).length)
+        throw new SelectorError(code, `${label} nie jest pusty: ${root}`);
+    };
+    await preflightEmpty(
+      projectLocation,
+      'PROJECT_FOLDER_FOREIGN',
+      'Folder projektu',
+    );
+    await preflightEmpty(
+      outputLocation,
+      'OUTPUT_FOLDER_NOT_EMPTY',
+      'Folder wyniku',
+    );
     const projectRoot = await ensureDirectory(input.projectRoot);
     const outputRoot = await ensureDirectory(input.outputRoot);
     assertSeparateRoots([source.root, projectRoot, outputRoot]);
     const files = new SecureFiles(projectRoot);
-    const output = new SecureFiles(outputRoot);
     // A new project never adopts, replaces, or cleans a nonempty directory.
-    if ((await files.names()).length || (await output.names()).length)
-      throw new SelectorError(
-        'FOREIGN_CONTENT',
-        'Nowy projekt wymaga pustego katalogu projektu i wyniku.',
-      );
+    await preflightEmpty(
+      projectRoot,
+      'PROJECT_FOLDER_FOREIGN',
+      'Folder projektu',
+    );
+    await preflightEmpty(
+      outputRoot,
+      'OUTPUT_FOLDER_NOT_EMPTY',
+      'Folder wyniku',
+    );
     const state: ProjectState = {
       ...(gameName === undefined ? {} : { gameName }),
       schemaVersion: 1,
@@ -307,6 +338,25 @@ export class ProjectStore {
   ): Promise<ProjectStore> {
     await assertLocalStorage(projectRoot, true);
     const files = new SecureFiles(projectRoot);
+    try {
+      await files.verifyRoot();
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+      throw new SelectorError(
+        'PROJECT_FOLDER_MISSING',
+        `Nie znaleziono folderu projektu: ${files.root}. Jeżeli projekt został przeniesiony, wskaż go przez „Otwórz projekt”. Postęp nie został zresetowany.`,
+      );
+    }
+    const names = await files.names();
+    if (
+      ![PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME].some(
+        (name) => names.includes(name),
+      )
+    )
+      throw new SelectorError(
+        'PROJECT_FOLDER_FOREIGN',
+        `Folder nie zawiera projektu selekcji: ${files.root}`,
+      );
     const lock = await ProjectLock.acquire(files, options.processes);
     try {
       let state: ProjectState | null = null;
@@ -367,10 +417,16 @@ export class ProjectStore {
     const samePath = (a: string, b: string) =>
       path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
     if (
-      (options.expectedSourceRoot &&
-        !samePath(state.sourceRoot, options.expectedSourceRoot)) ||
-      (options.expectedProjectId &&
-        state.projectId !== options.expectedProjectId)
+      options.expectedProjectId &&
+      state.projectId !== options.expectedProjectId
+    )
+      throw new SelectorError(
+        'PROJECT_ID_CONFLICT',
+        'Znaleziony projekt ma inną tożsamość niż wpis historii. Otwórz właściwy projekt przez „Otwórz projekt”.',
+      );
+    if (
+      options.expectedSourceRoot &&
+      !samePath(state.sourceRoot, options.expectedSourceRoot)
     )
       throw new SelectorError(
         'SOURCE_PROJECT_CONFLICT',
@@ -1113,7 +1169,10 @@ export class ProjectStore {
         try {
           await this.lock.release();
         } catch (error) {
-          if (!(error instanceof SelectorError) || error.code !== 'LOCK_LOST')
+          if (
+            !(error instanceof SelectorError) ||
+            !['LOCK_LOST', 'LOCK_OWNER_UNKNOWN'].includes(error.code)
+          )
             throw error;
           this.closeIssue = { code: error.code, message: error.message };
         }

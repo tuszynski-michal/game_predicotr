@@ -926,6 +926,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
+- native/desktop-lifecycle.ts: DesktopLifecycle
 - native/diagnostic-log.ts: DiagnosticLog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController
@@ -938,6 +939,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateJournal
 - project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal
 - renderer/App.tsx: App
+- renderer/desktop-shortcuts.ts: resolveDesktopShortcut
 - renderer/image-viewer.tsx: ImageViewer
 
 ## apps/mobile/src

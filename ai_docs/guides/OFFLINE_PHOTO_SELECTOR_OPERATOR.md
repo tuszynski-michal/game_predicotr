@@ -96,6 +96,11 @@ fundamentu go nie realizuje.
 8. Konflikt, kilka projektów źródła lub brak znanego folderu nie tworzą nowej
    selekcji w miejsce istniejącej. Wybiera właściwy projekt z historii albo
    używa `Otwórz projekt`. Obce dane nie są nadpisywane.
+   Gdy znany folder nie istnieje, dialog pokazuje jego ścieżkę. `Anuluj`
+   zachowuje pracę i pozwala wskazać przeniesiony projekt przez `Otwórz projekt`.
+   `Nowa partia` wymaga świadomego potwierdzenia i zapomina wyłącznie martwy
+   wpis historii. Nie usuwa plików. Istniejący niepusty wynik nadal blokuje
+   nową partię; aplikacja podaje jego ścieżkę i nie nadpisuje zawartości.
 
 Pilotaż jest bez podpisu. Windows może ostrzec albo zablokować uruchomienie.
 Przy blokadzie należy zachować komunikat i wstrzymać odbiór; instrukcja
@@ -111,6 +116,9 @@ wybór tego samego źródła pozostają chronione. Strzałki lewo/prawo
 zmieniają oglądany JPEG bez zatwierdzania. Skoki to1–10,15,20.
 A lub Ctrl+Z cofa ostatnią decyzję; plik zostanie usunięty tylko po potwierdzeniu
 jego własności i sumy kontrolnej. Skróty nie przejmują wpisywania w polach.
+Przytrzymanie Enter/F/Tab/A/Ctrl+Z nie wykonuje kolejnych decyzji. Aby wykonać
+następną, należy zwolnić i ponownie nacisnąć klawisz. Przytrzymane strzałki
+mogą przechodzić między zdjęciami.
 
 Zakres ma standardowo dziewięć plansz, a na końcu określonej sesji może być
 krótszy. Korekta początku zakresu respektuje tę regułę; nie oznacza dowolnej
@@ -201,7 +209,9 @@ nowe decyzje; nie usuwać ręcznie dziennika ani plików blokad.
 Nieznany właściciel blokady wymaga diagnostyki, a sam upływ czasu nie pozwala
 przejąć projektu. Folderów projektu i aktywnego wyniku nie synchronizować.
 Po utracie blokady można zamknąć program; zamknięcie nie przejmuje projektu
-ani nie usuwa cudzej blokady. Widok jest zapisywany po250 ms ciszy i przed
+ani nie usuwa cudzej blokady. Dotyczy to także blokady o nieznanym właścicielu.
+Ponowne uruchomienie podczas zamykania otworzy jedno okno po zakończeniu
+poprzedniego procesu. Widok jest zapisywany po250 ms ciszy i przed
 zamknięciem lub zmianą projektu. Decyzje i kursor nie korzystają z debounce.
 
 Idempotencja warstwy natywnej dotyczy ponowienia tego samego operationId.

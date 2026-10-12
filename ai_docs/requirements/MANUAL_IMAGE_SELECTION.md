@@ -6,7 +6,20 @@ last_updated: 2026-10-12
 
 # Lokalna ręczna selekcja zdjęć
 
-## Lokalny selektor Windows — D-545, zaakceptowany zakres
+## Lokalny selektor Windows — D-545/D-546, zaakceptowany zakres
+
+Finalizacja TASK-0984–0987 usuwa otwarte uwagi pełnego audytu Claude rundy2.
+Plan: `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
+Brak folderu znanego projektu pokazuje pełną ścieżkę. Użytkownik może wskazać
+przeniesiony projekt przez Otwórz projekt albo jawnie potwierdzić Nowa partia.
+Potwierdzenie usuwa tylko martwy wpis historii; nie usuwa plików. Anulowanie
+zachowuje dotychczasową pracę. Historia preferuje najnowszy wpis dla folderu.
+Oba docelowe foldery są sprawdzane przed utworzeniem projektu. Obce dane
+blokują zapis z czytelną ścieżką, bez pozostawienia pustego folderu projektu.
+Przytrzymanie Enter/F/Tab/A/Ctrl+Z nie wykonuje kolejnych decyzji. Kolejne
+osobne naciśnięcie działa, a strzałki mogą powtarzać nawigację.
+Nieznana blokada nie uniemożliwia zamknięcia programu i nie jest usuwana.
+Ponowne uruchomienie podczas zamykania kończy się jednym otwartym oknem.
 
 Start od źródła0983 jest zaimplementowany i lokalnie przetestowany2026-10-12. Użytkownik wybiera wyłącznie
 folder zdjęć; projekt i wyniki powstają jako sąsiednie `<źródło> selekcja`

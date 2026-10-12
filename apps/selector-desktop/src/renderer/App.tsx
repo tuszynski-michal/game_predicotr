@@ -3,7 +3,6 @@ import {
   adjacentManualNavigationStep,
   MANUAL_IMAGE_NAVIGATION_STEPS,
   rangeForStart,
-  resolveManualSelectionShortcut,
 } from '@game-predictor/manual-image-selection-core';
 import type {
   DesktopWorkspace,
@@ -16,6 +15,7 @@ import type {
   NewProjectDraft,
 } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
+import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
 function unwrap<T>(result: NativeResult<T>): T {
   if (!result.ok)
     throw new Error(`${result.error.message} (${result.error.code})`);
@@ -172,7 +172,7 @@ export function App() {
       }
       if (!workspace || blocked || rangeEditor || restart || draft || legacy)
         return;
-      const action = resolveManualSelectionShortcut({
+      const shortcut = resolveDesktopShortcut({
         key: event.key,
         ctrlKey: event.ctrlKey,
         altKey: event.altKey,
@@ -180,8 +180,9 @@ export function App() {
         repeat: event.repeat,
         target: event.target instanceof HTMLElement ? event.target : null,
       });
+      if (shortcut.preventDefault) event.preventDefault();
+      const action = shortcut.action;
       if (!action) return;
-      event.preventDefault();
       if (action === 'accept') accept();
       else if (action === 'skip') skip();
       else if (action === 'undo') undo();

@@ -297,7 +297,7 @@ describe('read-only legacy contract', { concurrency: 6 }, () => {
         proof.seed,
         f.oldOutputRoot,
       ),
-      { code: 'FOREIGN_CONTENT' },
+      { code: 'OUTPUT_FOLDER_NOT_EMPTY' },
     );
     assert.equal(await readFile(foreign, 'utf8'), 'foreign');
     assert.deepEqual(await originalProof(f), original);

@@ -35,7 +35,7 @@ import {
 } from '../contracts.ts';
 export interface NativeDialogs {
   directory(title: string, defaultPath?: string): Promise<string | null>;
-  confirm(message: string): Promise<boolean>;
+  confirm(message: string, confirmLabel?: string): Promise<boolean>;
   openFolder(directory: string): Promise<void>;
 }
 function object(value: unknown, keys: string[]): Record<string, unknown> {
@@ -360,7 +360,11 @@ export class ProjectController {
       } catch (error) {
         if (!isMissing(error)) throw error;
       }
+      const cachedRoots = new Set<string>();
       for (const entry of await this.recentCache.list()) {
+        const rootKey = key(entry.projectRoot);
+        if (cachedRoots.has(rootKey)) continue;
+        cachedRoots.add(rootKey);
         if (entry.sourceRoot && key(entry.sourceRoot) === key(sourceRoot))
           candidates.set(key(entry.projectRoot), {
             root: entry.projectRoot,
@@ -374,14 +378,41 @@ export class ProjectController {
         );
       const existing = candidates.values().next().value;
       if (existing) {
-        await this.closeInternal();
-        const store = await ProjectStore.open(existing.root, {
-          expectedSourceRoot: sourceRoot,
-          expectedProjectId: existing.projectId,
-        });
-        const workspace = await this.replaceStore(store);
-        this.draft = null;
-        return { kind: 'existing', workspace };
+        let missing = false;
+        try {
+          await lstat(existing.root);
+        } catch (error) {
+          if (!isMissing(error)) throw error;
+          missing = true;
+        }
+        if (missing) {
+          if (
+            !(await this.dialogs.confirm(
+              `Nie znaleziono folderu projektu:\n${existing.root}\n\nJeżeli projekt został przeniesiony, anuluj i wskaż go przez „Otwórz projekt”. „Nowa partia” zapomina tylko martwy wpis historii i otwiera nową konfigurację. Nie usuwa plików. Rozpocząć nową partię?`,
+              'Nowa partia',
+            ))
+          )
+            return null;
+          // A moved/restored project may reappear while the dialog is open.
+          // Never discard its identity or progress based on the old check.
+          try {
+            await lstat(existing.root);
+            missing = false;
+          } catch (error) {
+            if (!isMissing(error)) throw error;
+          }
+          if (missing) await this.recentCache.forgetRoot(existing.root);
+        }
+        if (!missing) {
+          await this.closeInternal();
+          const store = await ProjectStore.open(existing.root, {
+            expectedSourceRoot: sourceRoot,
+            expectedProjectId: existing.projectId,
+          });
+          const workspace = await this.replaceStore(store);
+          this.draft = null;
+          return { kind: 'existing', workspace };
+        }
       }
       const draft: NewProjectDraft = {
         sourceToken: randomUUID(),

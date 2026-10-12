@@ -164,8 +164,9 @@ describe('adoption boundary faults', { concurrency: 6 }, () => {
       assert.deepEqual(await readdir(f.input.projectRoot), []);
       await assert.rejects(
         ProjectStore.open(f.input.projectRoot, { processes }),
-        { code: 'PROJECT_NOT_FOUND' },
+        { code: 'PROJECT_FOLDER_FOREIGN' },
       );
+      assert.deepEqual(await readdir(f.input.projectRoot), []);
       assert.deepEqual(await originalProof(f), original);
     });
   for (const phase of [

@@ -24,6 +24,7 @@ import { SourceRegistry } from './native/source-registry.ts';
 import { DiagnosticLog } from './native/diagnostic-log.ts';
 import { ProjectController } from './native/project-controller.ts';
 import { disposeNativeChecks } from './native/windows-check-worker.ts';
+import { DesktopLifecycle } from './native/desktop-lifecycle.ts';
 
 // Standard Chromium/Electron switch also isolates native project/view caches.
 // It is a process-launch option, never a renderer filesystem capability.
@@ -46,6 +47,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 const registry = new SourceRegistry();
+const lifecycle = new DesktopLifecycle();
 let window: BrowserWindow | null = null;
 let log: DiagnosticLog;
 let controller: ProjectController;
@@ -84,6 +86,7 @@ async function createWindow() {
     event.preventDefault();
     if (closingRequested) return;
     closingRequested = true;
+    lifecycle.beginClosing();
     void (async () => {
       try {
         await controller.close();
@@ -115,6 +118,13 @@ async function createWindow() {
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => {
+    const action = lifecycle.secondInstance();
+    if (action === 'relaunch') {
+      // Electron defers the new process until this process has exited.
+      app.relaunch({ args: process.argv.slice(1) });
+      return;
+    }
+    if (action === 'pending') return;
     window?.restore();
     window?.focus();
   });
@@ -132,12 +142,12 @@ else {
           });
           return result.canceled ? null : (result.filePaths[0] ?? null);
         },
-        confirm: async (message) =>
+        confirm: async (message, confirmLabel) =>
           (
             await dialog.showMessageBox(window!, {
               type: 'question',
               message,
-              buttons: ['Anuluj', 'Potwierdź'],
+              buttons: ['Anuluj', confirmLabel ?? 'Potwierdź'],
               defaultId: 0,
               cancelId: 0,
             })

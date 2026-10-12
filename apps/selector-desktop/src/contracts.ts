@@ -1,6 +1,5 @@
 export const APP_URL = 'selector://app/index.html';
 export const CHANNELS = {
-  pickSource: 'selector:pick-source',
   openLogs: 'selector:open-logs',
   create: 'selector:create',
   open: 'selector:open',
@@ -39,7 +38,6 @@ export interface SelectorBridge {
   legacyAdopt(
     previewToken: string,
   ): Promise<NativeResult<DesktopWorkspace | null>>;
-  pickSource(): Promise<NativeResult<SourceIndex | null>>;
   openLogs(): Promise<NativeResult<void>>;
   create(
     options: CreateProjectRequest,

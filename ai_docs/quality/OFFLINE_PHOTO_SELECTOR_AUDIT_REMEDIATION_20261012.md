@@ -18,15 +18,15 @@ Plik wejściowy pozostaje niezmieniony. Zakres i przyjęte ograniczenia opisuje
 |---|---|---|
 | P1: start PowerShell na każdym kroku | Jeden worker, świeże kontrole każdego żądania | Testy natywne15/15; mały fixture3JPEG: NAV88ms, preview15ms, accept133ms; bez dodatkowych startów po rozgrzaniu |
 | P1: rozmiar dziennika i receiptów NAV | Format oraz pełna retencja zachowane | Koszt rośnie z inwentarzem i historią; nowy protokół trwałości poza tą rundą |
-| P2: zamknięcie po LOCK_LOST | Bezpieczny close bez usuwania cudzej blokady | Backendowe regresje PASS; rzeczywiste okno jeszcze do sprawdzenia |
+| P2: zamknięcie po LOCK_LOST | Bezpieczny close bez usuwania cudzej blokady | Backendowe regresje PASS; real EXE zamknięty, obcy lock bez zmian i diagnostyka LOCK_LOST |
 | P2: brak seq JPEG | Nowe decyzje blokowane, instrukcja odtworzenia zgodnej kopii | Missing→skip/accept→reopen→zła/dobra kopia→resume; bez automatycznego repair |
 | P2: pominięty zakres | Skipped nie blokuje późniejszej akceptacji | Accepted konflikt i ponowny source nadal chronione; regresje projektu48/48 PASS |
 | P2: podwójny scan open i SHA | Jeden zweryfikowany scan źródła; wszystkie SHA pozostają | Duży wynik nadal kosztowny przy open; nie stosujemy stale cache dowodów |
 | P3: recovery guard | Fail-closed z diagnostyką | Pusta blokada nie dowodzi właściciela; bez automatycznego przejęcia |
 | P3: scroll | Debounce250ms, wspólny pending Promise i flush | UI4/4; burst50 daje jeden atomowy zapis ostatniego widoku |
 | P3: nośnik wymienny | Właściwy kod i komunikat | USB nadal poza pilotażem; brak zmiany zasad przechowywania |
-| P3: pickSource | Martwy kanał usunięty | Scoped lint/typecheck PASS; smoke jeszcze pending |
-| P3: komunikat po NAV | Oddzielny komunikat nawigacji | Wymaga potwierdzenia rzeczywistym EXE |
+| P3: pickSource | Martwy kanał usunięty | Scoped lint/typecheck PASS; real EXE smoke-ux PASS |
+| P3: komunikat po NAV | Oddzielny komunikat nawigacji | Potwierdzone smoke-ux rzeczywistego EXE |
 | P3: commit bez TASK ID | Nowe commity zawierają numery0980–0982 | Historia poprzednich commitów nie jest przepisywana |
 | Pozostałe: esbuild, retry UI, desktop.ini/Thumbs.db | Bez przebudowy zależności; instrukcja doprecyzowana | Idempotencja dotyczy tego samego operationId; obce pliki nadal blokują wynik |
 

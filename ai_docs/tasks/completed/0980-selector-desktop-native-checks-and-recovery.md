@@ -184,7 +184,7 @@ Fizyczny odbiór0979 pozostaje blocked. Realne okno i ZIP należą do0981/0982.
 Zaakceptowany plan/taski0980–0982, D-545, wymagania i architektura,
 mapy, TRACEABILITY, rejestr oraz dowody poprawek. Instrukcja odtwarzania
 JPEG-a zostanie ukończona w0981. Wejściowy audyt zachowany bajtowo.
-Commit implementacji: v1.7.324; pełny hash zostanie dopisany po commicie.
+Commit implementacji: v1.7.324 / a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1.
 
 ### Recommended next task
 

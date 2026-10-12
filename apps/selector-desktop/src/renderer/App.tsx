@@ -42,7 +42,6 @@ export function App() {
   const [rangeEditor, setRangeEditor] = useState(false);
   const [rangeStart, setRangeStart] = useState('');
   const [restart, setRestart] = useState<RestartSummary | null>(null);
-  const pendingView = useRef(Promise.resolve());
   useEffect(() => {
     void window.selector
       .recent()
@@ -56,7 +55,6 @@ export function App() {
     setError('');
     setNotice('');
     try {
-      await pendingView.current;
       await work();
     } catch (cause) {
       setError(
@@ -85,7 +83,7 @@ export function App() {
     const updated = { ...current, view };
     latest.current = updated;
     setWorkspace(updated);
-    pendingView.current = window.selector
+    void window.selector
       .saveView(current.projectId, view)
       .then((result) => {
         unwrap(result);
@@ -105,11 +103,27 @@ export function App() {
           command,
         }),
       );
-      setWorkspace(result);
-      latest.current = result;
+      const updated = {
+        ...result,
+        view:
+          latest.current?.projectId === result.projectId
+            ? latest.current.view
+            : result.view,
+      };
+      setWorkspace(updated);
+      latest.current = updated;
       setRangeEditor(false);
       setRestart(null);
-      setNotice('Zapisano trwale.');
+      setNotice(
+        {
+          navigate: 'Pozycja zdjęcia zapisana.',
+          accept: 'Wybór zapisany trwale.',
+          skip: 'Pominięcie zapisane trwale.',
+          undo: 'Cofnięcie zapisane trwale.',
+          range: 'Zakres zapisany.',
+          restart: 'Partia zrestartowana.',
+        }[command.kind],
+      );
     });
   }
   const source = workspace?.source;
@@ -413,7 +427,9 @@ export function App() {
               ))}
             </>
           )}
-          {busy && <p role="status">Otwieranie projektu…</p>}
+          {busy && (
+            <p role="status">Weryfikacja źródła i sum kontrolnych JPEG-ów…</p>
+          )}
         </section>
       ) : (
         <>
@@ -434,8 +450,9 @@ export function App() {
                 {workspace.issue.code})
               </strong>
               <p>
-                Usuń przyczynę i wznów. Wcześniejsze decyzje pozostają w
-                projekcie.
+                {workspace.issue.code === 'OUTPUT_MISSING_FILE'
+                  ? 'Przywróć brakujący JPEG z zgodnej kopii wyniku do tego samego katalogu, potem wznów. Bez kopii otwórz logi i przekaż diagnostykę. Nie resetuj projektu ani nie edytuj manifestu.'
+                  : 'Usuń przyczynę i wznów. Wcześniejsze decyzje pozostają w projekcie.'}
               </p>
               <nav>
                 <button

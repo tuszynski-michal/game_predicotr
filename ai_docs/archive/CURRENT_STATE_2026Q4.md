@@ -6,6 +6,20 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
+
+- Etap A (D-540). Nowy `scripts/sync_data_directories_to_d.ps1`
+  (`npm run data:sync:d`): inwentarz wpisów ignorowanych (98 zachowywanych,
+  59 odtwarzalnych, 2 korzenie worktree'ów), tryby `Initial`/`Final`,
+  `-VerifyOnly -Manifest`, `-Mirror` z zatwierdzoną listą, manifesty SHA-256,
+  redakcja ścieżek `.tooling`.
+- `D:\game_predicotr` zawiera ok. 80 GB danych ignorowanych z C i
+  `v7-output/`. Drugi przebieg `Initial`: 3 pliki, `OK`. Test `Final` na
+  prawdziwych wpisach: manifesty równe. Pełny `Final` w TASK-0955.
+- Wykluczono nieczytelną pozostałość testu `*pytest-run*` (ERROR 5).
+  Wykonawca opus-5-5 zamiast sonnet-5-5.
+- Task: `ai_docs/tasks/completed/0953-disk-d-data-directory-sync.md`.
+
 ### TASK-0952 — kopia zapasowa bazy na D (done)
 
 - Etap A planu przeniesienia na D (D-540). `D:\game_predictor_backup`:

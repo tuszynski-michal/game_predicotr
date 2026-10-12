@@ -23,6 +23,7 @@ import {
 import { SourceRegistry } from './native/source-registry.ts';
 import { DiagnosticLog } from './native/diagnostic-log.ts';
 import { ProjectController } from './native/project-controller.ts';
+import { disposeNativeChecks } from './native/windows-check-worker.ts';
 
 // Standard Chromium/Electron switch also isolates native project/view caches.
 // It is a process-launch option, never a renderer filesystem capability.
@@ -77,21 +78,36 @@ async function createWindow() {
     window = null;
   });
   let closing = false;
+  let closingRequested = false;
   window.on('close', (event) => {
     if (closing) return;
     event.preventDefault();
-    void controller
-      .close()
-      .then(() => {
-        closing = true;
-        window?.close();
-      })
-      .catch(() =>
-        dialog.showErrorBox(
-          'Selektor zdjęć',
-          'Nie udało się rozliczyć zapisu. Spróbuj zamknąć ponownie.',
-        ),
-      );
+    if (closingRequested) return;
+    closingRequested = true;
+    void (async () => {
+      try {
+        await controller.close();
+        const issue = controller.getCloseIssue();
+        if (issue) await log.write('project-close-issue', issue.code);
+      } catch (error) {
+        await log.write(
+          'project-close-failed',
+          error instanceof SelectorError ? error.code : 'IO_ERROR',
+        );
+      } finally {
+        try {
+          await disposeNativeChecks();
+        } catch {
+          await log.write('native-checks-dispose-failed', 'IO_ERROR');
+        } finally {
+          closing = true;
+          window?.close();
+        }
+      }
+    })().catch(() => {
+      closing = true;
+      window?.close();
+    });
   });
   await window.loadURL(APP_URL);
 }
@@ -231,15 +247,6 @@ else {
             }
           },
         );
-      handle(CHANNELS.pickSource, async () => {
-        const selected = await dialog.showOpenDialog(window!, {
-          title: 'Wybierz katalog zdjęć JPEG',
-          properties: ['openDirectory', 'dontAddToRecent'],
-        });
-        return selected.canceled || !selected.filePaths[0]
-          ? null
-          : registry.register(selected.filePaths[0]);
-      });
       handle(CHANNELS.openLogs, async () => {
         await log.write('open-logs');
         const error = await shell.openPath(log.directory);
@@ -265,7 +272,11 @@ else {
         (projectId, view) => controller.saveView(projectId, view),
         2,
       );
-      handle(CHANNELS.close, () => controller.close());
+      handle(CHANNELS.close, async () => {
+        await controller.close();
+        const issue = controller.getCloseIssue();
+        if (issue) await log.write('project-close-issue', issue.code);
+      });
       handle(CHANNELS.openOutput, () => controller.openOutput());
       handle(CHANNELS.fullscreen, () => {
         window!.setFullScreen(!window!.isFullScreen());
@@ -273,7 +284,7 @@ else {
       });
       await createWindow();
     })
-    .catch((error) => {
+    .catch(async (error) => {
       void log?.write(
         'startup-failed',
         error instanceof SelectorError ? error.code : 'IO_ERROR',
@@ -282,7 +293,11 @@ else {
         'Selektor zdjęć',
         'Aplikacja nie może się uruchomić. Sprawdź dostęp do lokalnego katalogu aplikacji.',
       );
-      app.quit();
+      try {
+        await disposeNativeChecks();
+      } finally {
+        app.quit();
+      }
     });
 }
 app.on('window-all-closed', () => app.quit());

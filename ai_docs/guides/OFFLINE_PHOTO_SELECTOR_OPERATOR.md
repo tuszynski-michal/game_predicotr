@@ -1,15 +1,16 @@
 ---
 title: Lokalny selektor Windows — instrukcja operatora
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Lokalny selektor Windows — instrukcja operatora
 
 Gotowe są wszystkie pięć części implementacyjnych, w tym przejęcie0978.
-Finalny ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Fizyczny
-odbiór i końcowy audyt pozostają pending. Wcześniejsze ZIP-y nie zawierają
-całego zakresu; użyć paczki pilot-0.1.0-abe8e645 z rejestru odbioru.
+ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Audyt operatora
+2026-10-12 ma werdykt REVISE; trwa runda poprawek0980–0982 i przygotowanie0.1.1.
+Nie traktować starej paczki jako zatwierdzonego wydania. Rejestr odbioru
+identyfikuje każdą paczkę i jej ograniczenia. Fizyczny odbiór nadal jest pending.
 
 ## Budowanie i kontrola programu
 
@@ -17,6 +18,7 @@ Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node.
 Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów projektu:
 
 ```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:native --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:foundation --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:project --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:ui --workspace @game-predictor/selector-desktop
@@ -27,6 +29,7 @@ node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --worksp
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:packaged --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:ux --workspace @game-predictor/selector-desktop
 ```
 
 Wrapper uruchamia npm przez jego plik JS obok Node.js, bez zależności od
@@ -82,7 +85,9 @@ nie zaleca wyłączania ochrony ani gwarantuje obejścia blokady.
 
 Enter lub F zatwierdza zdjęcie i przechodzi do następnego JPEG-a po trwałym
 zapisie. Akceptacja przesuwa o jeden, niezależnie od wybranego skoku nawigacji.
-Tab pomija zakres numeracji i pozostawia to samo zdjęcie. Strzałki lewo/prawo
+Tab pomija zakres numeracji i pozostawia to samo zdjęcie. Do pominiętego zakresu
+można później wrócić przez korektę początku; zaakceptowany zakres i powtórny
+wybór tego samego źródła pozostają chronione. Strzałki lewo/prawo
 zmieniają oglądany JPEG bez zatwierdzania. Skoki to1–10,15,20.
 A lub Ctrl+Z cofa ostatnią decyzję; plik zostanie usunięty tylko po potwierdzeniu
 jego własności i sumy kontrolnej. Skróty nie przejmują wpisywania w polach.
@@ -115,8 +120,34 @@ Przy `Zapis zatrzymany` zapisać kod błędu. Brak źródła lub wyniku wymaga
 przeniesiony katalog, nie pusty zamiennik. Po naprawie miejsca/uprawnień użyć
 `Wznów po naprawie`. Zmieniona lista lub metadane źródła blokują wznowienie;
 program nie zgaduje, że zmieniły się tylko daty plików.
+Otwarcie projektu sprawdza inwentarz źródła i SHA-256 wszystkich zapisanych
+JPEG-ów. Duży wynik może wymagać dłuższej kontroli przed odblokowaniem pracy.
+Obsługiwany jest lokalny dysk stały; nośniki wymienne i udziały sieciowe
+nie należą do tego pilotażu.
+
 Nie nadpisywać ręcznie plików seq_* w aktywnym projekcie. Obcy lub zmieniony
 plik blokuje zapis/cofnięcie. Restart wymaga preview i świadomego potwierdzenia.
+
+## Brak zdjęcia wynikowego
+
+`OUTPUT_MISSING_FILE` oznacza brak JPEG-a należącego do potwierdzonej decyzji.
+Program zatrzymuje nowe decyzje. Nie używać restartu, pustego folderu wyniku
+ani ręcznej edycji projektu lub manifestu do obejścia błędu.
+
+1. Zamknąć program i zachować kopię folderu projektu oraz obecnego wyniku.
+2. Odszukać kopię zapasową dokładnie brakującego `seq_<start>-<end>.jpg`
+   z tej samej decyzji. Przywrócić ją pod pierwotną nazwą do folderu wyniku,
+   wyłącznie gdy plik nadal jest nieobecny. Nie zastępować istniejącego pliku.
+3. Otworzyć projekt i użyć `Wznów po naprawie`, jeśli zapis nadal jest
+   zatrzymany. Program sprawdza SHA-256; niezgodna kopia nie odblokuje pracy.
+4. Jeżeli brak zgodnej kopii, zachować dane i logi do diagnostyki operatora.
+   W tym wydaniu nie ma automatycznego odtworzenia ze źródła.
+
+Gdy przeniesiono cały wynik, wskazać zgodny folder przez `Wskaż ponownie wynik`.
+Obce pliki, również `desktop.ini` lub `Thumbs.db`, blokują zapis. Nie usuwać ich
+automatycznie; operator ustala ich pochodzenie na kopii danych. Nieznana lub
+pusta blokada odzyskiwania wymaga diagnostyki, ponieważ nie dowodzi tożsamości
+właściciela. Sam upływ czasu nie uprawnia do jej usunięcia.
 
 ## Przejęcie sesji Reviewera
 
@@ -149,6 +180,14 @@ operację po awarii procesu. Uszkodzenie, brak miejsca lub konflikt zatrzymują
 nowe decyzje; nie usuwać ręcznie dziennika ani plików blokad.
 Nieznany właściciel blokady wymaga diagnostyki, a sam upływ czasu nie pozwala
 przejąć projektu. Folderów projektu i aktywnego wyniku nie synchronizować.
+Po utracie blokady można zamknąć program; zamknięcie nie przejmuje projektu
+ani nie usuwa cudzej blokady. Widok jest zapisywany po250 ms ciszy i przed
+zamknięciem lub zmianą projektu. Decyzje i kursor nie korzystają z debounce.
+
+Idempotencja warstwy natywnej dotyczy ponowienia tego samego operationId.
+Nowe kliknięcie w interfejsie tworzy nowy identyfikator i nie jest ponowieniem
+utraconej odpowiedzi. Projekt zachowuje historię receiptów, także nawigacji;
+rozmiar stanu i koszt jego zapisu rosną z inwentarzem i historią operacji.
 Nie obiecujemy odporności na awarię dysku ani zanik zasilania.
 
 ## Aktualizacja, kopia i diagnostyka

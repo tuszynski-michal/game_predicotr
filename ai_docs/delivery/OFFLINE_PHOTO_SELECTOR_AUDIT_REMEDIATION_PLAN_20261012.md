@@ -69,7 +69,7 @@ odrębny. Baza rundy: d21f9f3ed6c5739f8fce7fac128cc59a8094330b.
 
 1. [TASK-0980](../tasks/completed/0980-selector-desktop-native-checks-and-recovery.md):
    natywne kontrole, pojedynczy indeks, backend close i reguły zakresów.
-2. [TASK-0981](../tasks/0981-selector-desktop-audit-ux.md):
+2. [TASK-0981](../tasks/completed/0981-selector-desktop-audit-ux.md):
    UI zamknięcia/weryfikacji, debounce, picker i procedury błędów.
 3. [TASK-0982](../tasks/0982-selector-desktop-remediated-pilot.md):
    nowy ZIP, zgodność aktualizacji, sumy i przekazanie do ponownego audytu.

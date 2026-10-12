@@ -46,6 +46,16 @@ export function validateId(value: unknown): string {
 }
 export class ViewPreferencesStore {
   private queue: Promise<void> = Promise.resolve();
+  private pending = new Map<
+    string,
+    {
+      value: ViewPreferences;
+      promise: Promise<void>;
+      resolve: () => void;
+      reject: (error: unknown) => void;
+    }
+  >();
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private directory: string;
   constructor(directory: string) {
     this.directory = directory;
@@ -66,15 +76,46 @@ export class ViewPreferencesStore {
   save(projectId: string, view: ViewPreferences): Promise<void> {
     validateId(projectId);
     const value = validateView(view);
+    let entry = this.pending.get(projectId);
+    if (entry) entry.value = value;
+    else {
+      let resolve!: () => void;
+      let reject!: (error: unknown) => void;
+      const promise = new Promise<void>((success, failure) => {
+        resolve = success;
+        reject = failure;
+      });
+      entry = { value, promise, resolve, reject };
+      this.pending.set(projectId, entry);
+    }
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      void this.flush().catch(() => {});
+    }, 250);
+    return entry.promise;
+  }
+  async flush(): Promise<void> {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    const batch = [...this.pending.entries()];
+    this.pending.clear();
     const work = this.queue.then(async () => {
-      const files = new SecureFiles(await ensureDirectory(this.directory));
-      await files.verifyRoot();
-      await files.replace(`${projectId}.json`, stableStringify(value));
+      for (const [projectId, entry] of batch) {
+        try {
+          const files = new SecureFiles(await ensureDirectory(this.directory));
+          await files.verifyRoot();
+          await files.replace(
+            `${projectId}.json`,
+            stableStringify(entry.value),
+          );
+          entry.resolve();
+        } catch (error) {
+          for (const [, waiting] of batch) waiting.reject(error);
+          throw error;
+        }
+      }
     });
     this.queue = work.catch(() => {});
-    return work;
-  }
-  flush(): Promise<void> {
-    return this.queue;
+    await work;
   }
 }

@@ -175,12 +175,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0981 — Obsługa błędów i płynny zapis widoku (in_progress)
-
-- Plik: `ai_docs/tasks/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545.
-- UI zamknięcia/weryfikacji, debounce250 ms z flush, picker aktywnego źródła, komunikaty i procedura OUTPUT_MISSING_FILE.
-- Kodowanie równoległe z0980 przy rozłącznych plikach; commit po0980. Backend/controller własnością0980. Wyniki do uzupełnienia.
-
 ### TASK-0982 — Poprawiony pilotaż0.1.1 i dowody odbioru (todo)
 
 - Plik: `ai_docs/tasks/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545.
@@ -870,9 +864,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0981 — Obsługa błędów i płynny zapis widoku (done)
+
+- Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325; hash po commicie.
+- Close czeka na szereg i flush, loguje utratę locka, kończy własny worker i pozwala wyjść. Debounce250ms ostatniego widoku, decyzje bez kolejki scroll, usunięty pickSource, komunikat open/NAV i instrukcja brakującego JPEG-a.
+- UI4/4, lint/typecheck/format/package i real EXE smoke-ux PASS: burst50+accept, flush/reopen oraz pending scroll+close przy LOCK_LOST, obca blokada niezmieniona i diagnostyka zapisana. Pierwszy błąd harnessu scroll49 vs48,8 skorygowany do dokładnej wartości DOM; runtime bez tej zmiany.
+- Bez własnego PASS audytu, danych operatora, usług i push/merge. Nowy ZIP i aktualizacja innej wersji w0982; fizyczny odbiór0979 pozostaje blocked.
+
 ### TASK-0980 — Natywne kontrole i zgodność trwałych projektów (done)
 
-- Plik: `ai_docs/tasks/completed/0980-selector-desktop-native-checks-and-recovery.md`; plan poprawek2026-10-12, D-545. Commit v1.7.324; hash po commicie.
+- Plik: `ai_docs/tasks/completed/0980-selector-desktop-native-checks-and-recovery.md`; plan poprawek2026-10-12, D-545. Commit v1.7.324 / a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1.
 - Jeden typed checks worker, świeże kontrole, pojedynczy scan source z natywnym proof, close bez unlink cudzej blokady, skipped zgodny z Reviewerem i stop nowych decyzji po utracie output JPEG.
 - Backend124 unikalne PASS: native15+projekt48+legacy25+recovery26+process3+foundation7; lint/typecheck/format PASS. Mały fixture3JPEG: NAV88ms, preview15ms, accept133ms bez dodatkowych startów PowerShell. Mapy zregenerowane.
 - Format project/journal i pełna retencja receipts bez zmian; koszt O(inventory+historia), pełne SHA open, pusty nieznany recovery guard i brak USB pozostają jawnymi ograniczeniami. Audyt po rundzie wykonuje operator; własne testy nie zmieniają REVISE.
@@ -956,20 +957,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   A′. Druga runda: audyt Codex niedostępny (limit), do wykonania później.
 - Version v1.7.307; commit 4b96372c938a61f82c97a6398d13e0d63f787fb2.
 - Task: `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`.
-
-### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
-
-- Etap A (D-540). Nowy `scripts/sync_data_directories_to_d.ps1`
-  (`npm run data:sync:d`): inwentarz wpisów ignorowanych (98 zachowywanych,
-  59 odtwarzalnych, 2 korzenie worktree'ów), tryby `Initial`/`Final`,
-  `-VerifyOnly -Manifest`, `-Mirror` z zatwierdzoną listą, manifesty SHA-256,
-  redakcja ścieżek `.tooling`.
-- `D:\game_predicotr` zawiera ok. 80 GB danych ignorowanych z C i
-  `v7-output/`. Drugi przebieg `Initial`: 3 pliki, `OK`. Test `Final` na
-  prawdziwych wpisach: manifesty równe. Pełny `Final` w TASK-0955.
-- Wykluczono nieczytelną pozostałość testu `*pytest-run*` (ERROR 5).
-  Wykonawca opus-5-5 zamiast sonnet-5-5.
-- Task: `ai_docs/tasks/completed/0953-disk-d-data-directory-sync.md`.
 
 ## Archiwum
 

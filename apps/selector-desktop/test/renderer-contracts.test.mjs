@@ -1,7 +1,7 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   DEFAULT_VIEW,
@@ -10,6 +10,10 @@ import {
   ViewPreferencesStore,
 } from '../src/native/view-preferences.ts';
 import { validateCreate } from '../src/native/project-controller.ts';
+import { removeOwnedTemp } from '../scripts/release-support.mjs';
+import { SecureFiles } from '../src/filesystem/secure-files.ts';
+import { disposeNativeChecks } from '../src/native/windows-check-worker.ts';
+after(() => disposeNativeChecks());
 test('native view cache validates every field and rejects extra paths', () => {
   assert.deepEqual(validateView(DEFAULT_VIEW), DEFAULT_VIEW);
   for (const v of [
@@ -44,13 +48,14 @@ test('new project validates numbering and explicit local storage confirmation', 
 test('view writes serialize and survive a new instance; corrupt/missing cache only resets view', async (t) => {
   await mkdir('.tmp', { recursive: true });
   const root = await mkdtemp(path.resolve('.tmp/renderer-cache-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => removeOwnedTemp(root, path.resolve('.tmp')));
   const id = randomUUID();
   const cache = new ViewPreferencesStore(path.join(root, 'views'));
   assert.deepEqual(await cache.load(id), DEFAULT_VIEW);
   const first = cache.save(id, { ...DEFAULT_VIEW, zoom: 200 });
   const final = { navigationStep: 15, zoom: 3000, scrollX: 44, scrollY: 72 };
   const second = cache.save(id, final);
+  assert.equal(first, second);
   await Promise.all([first, second]);
   await cache.flush();
   assert.deepEqual(
@@ -59,4 +64,35 @@ test('view writes serialize and survive a new instance; corrupt/missing cache on
   );
   await writeFile(path.join(root, 'views', `${id}.json`), 'corrupt');
   assert.deepEqual(await cache.load(id), DEFAULT_VIEW);
+});
+
+test('scroll burst coalesces one pending write and close flush preserves the final view', async (t) => {
+  await mkdir('.tmp', { recursive: true });
+  const root = await mkdtemp(path.resolve('.tmp/renderer-debounce-'));
+  t.after(() => removeOwnedTemp(root, path.resolve('.tmp')));
+  const cache = new ViewPreferencesStore(path.join(root, 'views'));
+  let writes = 0;
+  const replace = SecureFiles.prototype.replace;
+  SecureFiles.prototype.replace = async function (...args) {
+    writes++;
+    return replace.apply(this, args);
+  };
+  t.after(() => {
+    SecureFiles.prototype.replace = replace;
+  });
+  const id = randomUUID();
+  const first = cache.save(id, { ...DEFAULT_VIEW, zoom: 1000 });
+  let final;
+  for (let i = 0; i < 50; i++) {
+    final = { ...DEFAULT_VIEW, zoom: 1000, scrollX: i, scrollY: i * 2 };
+    assert.equal(cache.save(id, final), first);
+  }
+  assert.equal(writes, 0);
+  await cache.flush();
+  await first;
+  assert.equal(writes, 1);
+  assert.deepEqual(
+    await new ViewPreferencesStore(path.join(root, 'views')).load(id),
+    final,
+  );
 });

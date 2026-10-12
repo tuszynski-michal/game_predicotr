@@ -1,6 +1,6 @@
 ---
 title: Obsługa błędów i płynny zapis widoku
-status: in_progress
+status: done
 last_updated: 2026-10-12
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -66,12 +66,12 @@ resetowania błędnego projektu, usuwania obcych danych lub ślepego cache proof
 
 ## Acceptance criteria
 
-- [ ] Rzeczywiste okno zamyka się po LOCK_LOST, bez kasowania cudzych plików; bez błędnej instrukcji retryclose.
-- [ ] Scroll burst zapisuje ostatnią wartość; close/zmiana projektu zachowuje ją w nowym procesie.
-- [ ] Akceptacja nie oczekuje na każdy pośredni scroll; potwierdzone decyzje pozostają szeregowane.
-- [ ] Open pokazuje weryfikację; NAV nie udaje zapisu wyboru.
-- [ ] Picker nie unieważnia adresów otwartego źródła, anulowanie zachowuje projekt.
-- [ ] Instrukcja obejmuje brak seq JPEG, obce systemowe pliki oraz źródło dowodów idempotencji.
+- [x] Rzeczywiste okno zamyka się po LOCK_LOST, bez kasowania cudzych plików; bez błędnej instrukcji retryclose.
+- [x] Scroll burst zapisuje ostatnią wartość; close/zmiana projektu zachowuje ją w nowym procesie.
+- [x] Akceptacja nie oczekuje na każdy pośredni scroll; potwierdzone decyzje pozostają szeregowane.
+- [x] Open pokazuje weryfikację; NAV nie udaje zapisu wyboru.
+- [x] Picker nie unieważnia adresów otwartego źródła, anulowanie zachowuje projekt.
+- [x] Instrukcja obejmuje brak seq JPEG, obce systemowe pliki oraz źródło dowodów idempotencji.
 
 ## Technical notes
 
@@ -135,20 +135,52 @@ P3 nieznanego pustego recovery-lock pozostaje fail-closed do dowodu właściciel
 
 ### Changed
 
-Do uzupełnienia po implementacji.
+Main oczekuje na szereg controller.close(), zapisuje diagnostykę, kończy
+własny worker i pozwala wyjść także po LOCK_LOST. Nie usuwa cudzych blokad.
+Preferencje widoku mają debounce250ms i wspólny pending Promise; flush
+obejmuje zmianę projektu i zamknięcie. Decyzje nie czekają na każdy scroll,
+a odpowiedź mutacji nie nadpisuje nowszego widoku interfejsu.
+
+Usunięty martwy pickSource z IPC/preload/main. NAV pokazuje zapis pozycji,
+wybór pokazuje trwałe zatwierdzenie, open informuje o weryfikacji źródła
+oraz SHA JPEG-ów. OUTPUT_MISSING_FILE ma instrukcję zgodnego backupu
+bez resetu lub edycji manifestu. Instrukcja opisuje obce pliki systemowe,
+unknown recovery guard, idempotencję tego samego operationId i ograniczenia.
 
 ### Verification results
 
-Testów tej rundy jeszcze nie wykonano.109/109 z audytu dotyczy poprzedniej paczki.
+UI4/4 PASS, globalny typecheck i lint/format zmienionych modułów PASS.
+Package wspólnego runtime PASS. Rzeczywisty EXE smoke-ux PASS (~7,5s):
+open verification, NAV, 50 zdarzeń scroll+accept, flush i wznowienie w nowym
+procesie, utrata locka oraz końcowy pending scroll tuż przed zamknięciem.
+Obca blokada pozostała bajtowo identyczna, log zawiera LOCK_LOST, cache
+zawiera ostatnie współrzędne po wyjściu. Unit burst50 daje jeden atomowy
+zapis ostatniego widoku. Anulowanie pickera zachowuje projekt; martwy kanał
+nie istnieje.
+
+Pierwszy przebieg smoke miał błąd założenia harnessu: scroll49 był48,8
+przy skali Windows. Test porównuje teraz ostatnią rzeczywistą wartość DOM
+z cache i wznowionym widokiem; runtime nie zmieniono dla tego błędu.
+Każdy krok bounded120s lub45s dla lint/typecheck. Komendy: test:ui,
+package i smoke:ux przez run-bounded oraz scoped ESLint/Prettier.
+Logi w ignorowanym apps/selector-desktop/.tmp/0981-*.log, finalny wynik
+w0981-smoke-ux-final.log. docs:check/code-map:check/diff --check PASS.
+Mapa zregenerowana; zmiany metod istniejących klas nie dodały symboli eksportu.
 
 ### Not completed
 
-Kryteria powyżej, końcowy audyt i fizyczny odbiór0979.
+Końcowy audyt operatora po rundzie oraz fizyczny odbiór0979. Nie wykonano
+CLI audytu, push/merge, usług ani danych operatora. Brak automatycznego repair
+JPEG, nowego protokołu receipts, USB i przejęcia nieznanego recovery-lock
+pozostaje świadomym ograniczeniem zaakceptowanego planu.
 
 ### Documentation updates
 
-Plan i task opisują zaakceptowany zamiar, nie wyniki implementacji.
+Instrukcja odtworzenia brakującego JPEG-a i storage/lock/retry,
+raport dowodów poprawek, Outcome/CURRENT_STATE. Commit implementacji:
+v1.7.325; pełny hash zostanie dopisany po commicie.
 
 ### Recommended next task
 
-Następny task według kolejności planu; po0982 audyt/odbiór operatora.
+TASK-0982 — świeży ZIP0.1.1, test aktualizacji0.1.0→0.1.1 oraz przekazanie
+operatorowi do końcowego audytu i fizycznego odbioru.

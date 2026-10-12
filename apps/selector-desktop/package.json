@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
+    "smoke:ux": "node scripts/smoke-ux.mjs",
     "smoke:shortcuts": "node scripts/smoke-shortcuts.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "smoke:legacy": "node scripts/smoke-legacy.mjs",

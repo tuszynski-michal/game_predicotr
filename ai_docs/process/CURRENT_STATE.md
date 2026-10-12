@@ -857,6 +857,8 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
 
+- Commit zamknięcia v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`. Lokalny `main` w `D:\game_predicotr` zawiera cały selektor oraz dotychczasowy checkout `667f5d712486adee1c5f895b65690da73b023eb0`. Worktree selektora usunięty po zachowaniu 180 zweryfikowanych plików i ZIP1.0.0 poza nim; `v3-777-profile` nietknięty. Bez push. docs:check/code-map:check PASS z nowego procesu w głównym katalogu.
+
 - Poprawka synchronizacji harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c; initial/repeat smoke FAIL zachowane. Końcowy PASS wymaga dokładnego scroll120/100 po restarcie; runtime bez zmian.
 
 - Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.

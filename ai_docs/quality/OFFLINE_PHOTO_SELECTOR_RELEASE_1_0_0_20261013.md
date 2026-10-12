@@ -32,6 +32,15 @@ Regresje desktopu 264/264 PASS z TASK-0988 oraz wcześniejsze testy rdzenia 110 
 
 ## Scalenie i zachowanie materiałów
 
+Wykonano lokalne scalenie do `main` w `D:\game_predicotr` z commitem zamknięcia
+**v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`**.
+Stary `main` i ostatni checkout `667f5d712486adee1c5f895b65690da73b023eb0`
+pozostają w historii. Worktree selektora usunięty, ścieżka nie istnieje;
+pozostały `v3-777-profile` nadal wskazuje `bb883b5902cb0934b9732d1bc24361d01085051d`.
+Nie wykonano push. Po scaleniu `docs:check` i `code-map:check` PASS z nowego
+procesu na main. Usuwanie Git pozostawiło broken junctiony workspace'ów;
+usunięto wyłącznie linki (bez podążania do celów) i puste katalogi.
+
 Operator autoryzował lokalne scalenie do main oraz usunięcie tylko D:/game_predicotr/worktrees/offline-photo-selector. Main obejmuje również nowszą gałąź v1.1-vision-lab-hybrid-geometry; pozostałe worktree pozostają. Bez push, wdrożenia, migracji lub operacji na zdjęciach operatora.
 
 Historyczne paczki, raporty diagnostyczne, logi nieudanych prób i szkic instrukcji Word zachowano w D:/game_predicotr/artifacts/selector-worktree-archive-20261013. Manifest preserved-files.json zawiera SHA-256 każdej kopii: 180 plików, 1 351 344 426 B; wszystkie kopie zweryfikowano. Końcowy ZIP1.0.0 oraz oba pliki metadanych zachowano i niezależnie sprawdzono ich sumy. Materiały lokalne nie są częścią Git. Szkic Word 0.1.3 wymaga osobnego zadania aktualizacji; nie jest instrukcją odbiorczą wydania 1.0.0.

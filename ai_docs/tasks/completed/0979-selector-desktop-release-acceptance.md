@@ -115,6 +115,16 @@ Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierd
 
 ### Zamknięcie wydania 1.0.0 — 2026-10-13
 
+Commit zamknięcia: **v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`**.
+Kod i dokumentacja scalone lokalnie do `main` w `D:\game_predicotr`;
+zachowano historię starego `main` i poprawki dotychczasowego checkoutu
+`667f5d712486adee1c5f895b65690da73b023eb0`.
+Worktree `D:\game_predicotr\worktrees\offline-photo-selector` usunięto
+po zachowaniu i sprawdzeniu artefaktów. Git pozostawił wyłącznie junctiony
+pakietów; usunięto same linki bez rekursji oraz puste katalogi.
+Pozostały worktree `v3-777-profile` nie został zmieniony. Bez push.
+Kontrole `docs:check` i `code-map:check` PASS również z nowego procesu na main.
+
 Pierwsze dwa pełne smoke ZIP1.0.0 FAIL przy oczekiwaniu na scroll120/100 po wznowieniu. Bounded diagnostyka wykazała trwającą natywną animację po obsłudze okien; ustawiona testowo pozycja zmieniała się jeszcze przed zamknięciem, a aplikacja odtwarzała bieżący widok. Hipotezy CSS/fokusu i próba strażnika odtwarzania layoutu nie usunęły zjawiska; zmiany runtime wycofano. Poprawka harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c czeka na 250ms bez zmiany przewijania (limit5s), następnie ustawia120/100, sprawdza trwały stan i po nowym procesie nadal wymaga dokładnie120/100. Pełny packaged oraz finalZIP smoke PASS. Nie osłabiono asercji ani nie zmieniono kodu aplikacji. Logi nieudanych prób i diagnostyka zachowane. Jest to obserwacja natywnego przewijania w automatyzacji; nie przypisujemy definitywnej przyczyny do konkretnego mechanizmu Chromium.
 
 Wydanie **1.0.0**, kod v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Paczka zachowana poza worktree:

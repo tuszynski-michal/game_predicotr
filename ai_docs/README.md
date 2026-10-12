@@ -101,6 +101,8 @@ domyślnym kontekstem implementacyjnym.
   [rejestr odbioru](quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); fundament,
   trwałość, interfejs i zgodne przejęcie przeszły testy lokalne. Fizyczny pilotaż jest pending.
   [Przekazanie do audytu](quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md).
+  [Brief pełnego audytu dla Claude Code](quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md)
+  obejmuje całą implementację, poprawki REVISE, start/wznowienie i finalny ZIP0.1.2.
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
   — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).

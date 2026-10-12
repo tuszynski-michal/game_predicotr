@@ -9,6 +9,11 @@ last_updated: 2026-10-12
 Operator polecił wykonać pięć tasków i odłożył audyt do końca.
 Ten dokument zestawia wykonanie i dowody testów; nie jest audytem ani jego PASS.
 
+Gotowe zlecenie pełnego przeglądu dla operatora:
+[brief audytu Claude Code](OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md).
+Obejmuje wszystkie taski selektora, odpowiedzi na wcześniejszy REVISE,
+nowy start0983 i finalną paczkę0.1.2. Audytu nie uruchomiono przy przygotowaniu briefu.
+
 ## Aktualne przekazanie0983
 
 Najświeższy ZIP0.1.2: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.

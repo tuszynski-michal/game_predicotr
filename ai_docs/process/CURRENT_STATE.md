@@ -25,6 +25,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS. Końcowy audyt operatora i odbiór0979 osobno.
 
+- **Brief audytu selektora:** na prośbę operatora przygotowano `quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md` dla Claude Code. Pełny zakres0975–0983, poprzedni REVISE, testy z timeoutami i finalny ZIP0.1.2; nie uruchomiono audytu ani nie zmieniono statusu odbioru0979.
+
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
 
 - **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień z oryginalnego raportu oczekuje ponownej oceny operatora przed przekazaniem. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawki0980–0982 wykonane,130 testów tej rundy i wszystkie smokes ZIP0.1.1 PASS. Ponowna ocena P1 należy do operatora; pełne SHA i rosnąca historia pozostają jawnym ograniczeniem. Fizyczny odbiór0979 nadal blocked.

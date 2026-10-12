@@ -1,6 +1,6 @@
 ---
 title: Diagnozowalny start i automatyczna kontrola paczki
-status: todo
+status: in_progress
 last_updated: 2026-10-12
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 

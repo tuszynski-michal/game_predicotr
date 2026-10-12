@@ -1,6 +1,6 @@
 ---
 title: Trwały zapis bez przepisywania inwentarza i historii
-status: in_progress
+status: done
 last_updated: 2026-10-12
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -59,12 +59,12 @@ instalator, push/merge oraz fizyczny odbiór0979. Bez danych użytkownika.
 
 ## Acceptance criteria
 
-- [ ] Każda faza commit/upgrade ma test przerwania i recovery; nie gubi potwierdzonych decyzji ani nie dubluje receiptów.
-- [ ] Legacy state1/journal1/2 migratują po recovery; starszy reader blokuje head2/journal3 także przy uszkodzonym primary.
-- [ ] Retry bardzo starego operationId po undo/restart/open daje pierwotny receipt; inny fingerprint daje konflikt; retencja nie jest ograniczona.
-- [ ] Zdrowe mirrory odtwarzają uszkodzony head/inventory/baseline/ledger; obie uszkodzone kopie blokują. Partial zgodny suffix jest kończony; inny/nadmiar jest odrzucany.
-- [ ] Relink pending nie przepisuje recordu ledgeru; roots/source/project sprawdzane pod lockiem przed recovery.
-- [ ] Zwykła operacja nie zapisuje inventory ani pełnego zbioru receiptów; UI nie klonuje historii receiptów na każdy krok.
+- [x] Każda faza commit/upgrade ma test przerwania i recovery; nie gubi potwierdzonych decyzji ani nie dubluje receiptów.
+- [x] Legacy state1/journal1/2 migratują po recovery; starszy reader blokuje head2/journal3 także przy uszkodzonym primary.
+- [x] Retry bardzo starego operationId po undo/restart/open daje pierwotny receipt; inny fingerprint daje konflikt; retencja nie jest ograniczona.
+- [x] Zdrowe mirrory odtwarzają uszkodzony head/inventory/baseline/ledger; obie uszkodzone kopie blokują. Partial zgodny suffix jest kończony; inny/nadmiar jest odrzucany.
+- [x] Relink pending nie przepisuje recordu ledgeru; roots/source/project sprawdzane pod lockiem przed recovery.
+- [x] Zwykła operacja nie zapisuje inventory ani pełnego zbioru receiptów; UI nie klonuje historii receiptów na każdy krok.
 
 ## Technical notes
 
@@ -109,20 +109,59 @@ jednokierunkową zgodną migracją do nowej aplikacji; stara musi odmówić zapi
 
 ### Changed
 
-Do uzupełnienia po wykonaniu.
+Disk head schema2, journal schema3, dwie niezmienne kopie inventory/baseline
+oraz lustrzany append-only ledger zastępują pełny zapis stanu na każdy krok.
+Logiczny ProjectState1 i manifest operator-local v2 pozostają zgodne. Cała
+historia operationId i dokładne receipty są zachowane bez limitu retencji.
+Recovery kończy wyłącznie zgodny pending suffix. Zdrowy mirror naprawia
+uszkodzoną kopię; dwie uszkodzone kopie blokują zapis. Upgrade starych
+projektów odbywa się po recovery, pod lockiem, z descriptor journal3 przed
+sidecarami. Stary reader odmawia zapisu nowego projektu.
+
+Gorąca ścieżka używa delty i pojedynczego receipt, współdzieli inventory
+oraz indeks historii. Odpowiedź UI pomija inventory/receipty; publiczny
+snapshot pozostaje izolowany. Relink pending zachowuje bajty recordu i
+zmienia wyłącznie zweryfikowane bindings. Migracja po błędzie dysku i
+przeniesieniu folderów zachowuje decyzje oraz dawny receipt.
+
+Wewnętrzny statyczny review gpt-6-astra/high: początkowy REVISE z dwoma P1.
+Jedna runda poprawek i ograniczony przegląd zmienionych P1: PASS, oba
+zamknięte. Raport TASK-0985_ENGINEERING_REVIEW_CODEX.md zachowuje pierwotne
+znaleziska. Nie jest audytem krzyżowym Claude.
 
 ### Verification results
 
-Do uzupełnienia po wykonaniu; planowane komendy nie są wynikiem PASS.
+Komendy z worktree, jawne limity w run-bounded.mjs:
+
+- 120 s: npm run test --workspace @game-predictor/selector-desktop — 233/233 PASS, 110,605 s, bez skip. Zawiera 82 przypadki compact, fault każdej fazy upgrade/ledger/head, poison copy/removals, mirrory, legacy journal1/2, rzeczywiste exit/reopen, stare ID, retry, undo/restart oraz oba kierunki.
+- 60 s: npm run lint --workspace @game-predictor/selector-desktop — PASS.
+- 60 s: npm run typecheck --workspace @game-predictor/selector-desktop — PASS.
+- 30 s: node node_modules/prettier/bin/prettier.cjs --check zmienione src/test — PASS.
+- 30 s: python scripts/generate_code_map.py — aktualizacja nowych modułów/symboli.
+- 60 s: npm run code-map:check — PASS.
+- 60 s: npm run docs:check oraz 30 s git diff --check — PASS; okno 45 aktywnych tasków /10 done, 543 powiązania decyzji.
+
+Wykonawca wcześniej: 165/165 skoncentrowanych testów PASS, dodatkowa macierz
+14 błędów ledger/head i cztery rzeczywiste przerwania upgrade PASS. Finalna
+grupa czterech regresji P1 PASS, 8,31 s. Pełna kontrola lead powyżej obejmuje
+ostateczne poprawki. Analiza/review nie jest dowodem wykonania testów.
 
 ### Not completed
 
-Do uzupełnienia po wykonaniu.
+Pakowanie końcowego ZIP i kontrolowany pomiar15000 należą do TASK-0987.
+Nie uruchomiono benchmarku ani usług operatora w tym tasku. Formalny audyt
+Claude i fizyczny odbiór0979 pozostają operatorowi zgodnie z D-545.
+Pozostałe jawne koszty: manifest O(D), pełne SHA przy open, pamięć
+O(N+R+D), source IPC O(N) i izolowany snapshot publiczny. Nie certyfikujemy
+zaniku zasilania lub awarii sprzętowej ponad dotychczasową obsługę fsync.
 
 ### Documentation updates
 
-Do uzupełnienia po wykonaniu.
+D-546, wymagania i architektura opisują format/migrację/recovery. Instrukcja
+wymaga kopii całego folderu projektu i nowej wersji po upgrade. Plan, mapy
+kodu oraz CURRENT_STATE odnotowują wynik. Pełna wersja/hash tego commita
+zostaną dopisane po commicie w kolejnym commicie dokumentacyjnym/tasku.
 
 ### Recommended next task
 
-TASK-0986
+TASK-0986.

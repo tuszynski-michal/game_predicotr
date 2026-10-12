@@ -40,11 +40,47 @@ Runda poprawek2026-10-12 została wykonana w kodzie i lokalnych testach: [plan09
 Przyjęto jeden ukryty, kontrolowany worker natywnych kontroli z typed JSONL;
 kontrole pozostają świeże. Zweryfikowany indeks źródła jest przekazywany
 wewnątrz native z ułamkowym mtimeMs, nie odtwarzany tylko z zapisanych metadanych.
-Nie zmieniamy ProjectState1/journal1/2 ani retencji receiptów. NAV nadal
-zapisuje pełny stan trwale; jego koszt rośnie z inventory/historią. Pełne SHA
+W tej historycznej rundzie nie zmieniono ProjectState1/journal1/2 ani retencji
+receiptów. NAV zapisywał pełny stan trwale; jego koszt rósł z inventory/historią.
+Kontrakt kompaktowy D-546 poniżej zastępuje ten zapis w TASK-0985. Pełne SHA
 wyniku przy open/recovery zostają. Dowody130 testów, ZIP0.1.1 i aktualizacji
 są w raporcie quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md;
 ponowny audyt i fizyczny odbiór należą do operatora.
+
+### Kompaktowy zapis projektu — D-546
+
+Logiczny ProjectState schema1 i projekcja operator-local v2 nie zmieniają
+kontraktu. Dyskowe head schema2 zastępują stan pod istniejącymi nazwami
+selector-project-v1.json oraz selector-project-v1.backup.json. Inventory
+oraz baseline są niezmienne, adresowane SHA-256 i mają niezależne kopie.
+Baseline zawiera konfigurację oraz stare decyzje i receipty. Dwa append-only
+ledgery przechowują nowe operacje bez limitu retencji. Head wskazuje rewizję,
+zatwierdzoną długość i hash prefixu, skalary i bindings folderów.
+
+Journal schema3 operacji zawiera before/after heads, dokładny pending record,
+copy/removals i fazę. Record zawiera receipt oraz deltę none/append/pop/clear;
+nie zawiera roots ani całego inwentarza. Relink zmienia tylko bindings.
+Kolejność: prepared → JPEG → jpeg_written → fsync obu ledgerów → primary head
+→ committed → zgodny manifest → backup head → release lease → clear journal.
+Potwierdzenie następuje na końcu. Recovery dopisuje wyłącznie brakującą część
+dokładnego pending recordu; inny suffix albo ogon bez journalu blokuje zapis.
+Mirrory odtwarzają uszkodzoną kopię wyłącznie po dowodzie zgodności z head,
+journalem oraz wynikiem, nie na podstawie największej długości pliku.
+
+Migracja legacy pod lockiem najpierw sprawdza expected source/project identity
+i odzyskuje journal1/2. Atomowy descriptor upgrade schema3 utrwala stary stan,
+następnie publikuje obie kopie sidecarów/ledgerów i oba heads2. Usuwany jest
+dopiero po zakończeniu. Starszy reader odrzuca schema3, a po migracji head2,
+także w backupie. Upgrade nie zmienia JPEG-ów ani manifestu wynikowego.
+Nie zostawia używanego legacy backupu. Każda faza jest wznawialna.
+
+Pełna walidacja przy open/upgrade jest O(N+R+D); ścieżki inventory są w Set.
+Zwykła operacja współdzieli immutable inventory i indeks receiptów, waliduje
+nową deltę i nie wykonuje dwóch pełnych snapshotów. Publiczny snapshot nadal
+jest odizolowany; projekcja do UI pomija cały indeks receiptów. Pełny manifest
+ma nadal O(D), open kontroluje SHA wyników, a pamięć ma O(N+R+D).
+Gwarancja dotyczy awarii procesu; brak fsync katalogu Windows nie pozwala
+deklarować nowej gwarancji przy zaniku zasilania.
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
 ma zaimplementowane fundament0975, trwałość0976, interfejs0977 oraz przejęcie0978.

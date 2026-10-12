@@ -21,6 +21,15 @@ osobne naciśnięcie działa, a strzałki mogą powtarzać nawigację.
 Nieznana blokada nie uniemożliwia zamknięcia programu i nie jest usuwana.
 Ponowne uruchomienie podczas zamykania kończy się jednym otwartym oknem.
 
+D-546 zachowuje limit 15 000 JPEG i pełną historię identyfikatorów operacji.
+Nowy format dyskowy wydziela niezmienny spis zdjęć oraz dopisuje decyzje,
+zamiast przepisywać cały projekt na każdą nawigację. Stare lokalne projekty
+są migrowane pod blokadą po odzyskaniu przerwanej operacji. JPEG-i i manifest
+operator-local v2 pozostają zgodne. Po migracji starsza aplikacja odmawia
+zapisu nowego formatu; nie wolno używać starej wersji do dalszej selekcji.
+Zachowana jest kopia zapasowa metadanych i pełne retry tego samego operationId.
+Pomiar granicy 15 000 zdjęć i finalna paczka należą do TASK-0987.
+
 Start od źródła0983 jest zaimplementowany i lokalnie przetestowany2026-10-12. Użytkownik wybiera wyłącznie
 folder zdjęć; projekt i wyniki powstają jako sąsiednie `<źródło> selekcja`
 i `<źródło> wybrane`. D:\Mumie\123 daje dwa foldery w D:\Mumie.

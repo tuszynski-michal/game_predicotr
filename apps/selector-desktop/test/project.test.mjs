@@ -16,6 +16,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { ProjectStore } from '../src/project/project-store.ts';
+import { ProjectStorage } from '../src/project/project-storage.ts';
 import {
   ProjectLock,
   PROJECT_LOCK_NAME,
@@ -595,11 +596,11 @@ describe('durable Windows projects', { concurrency: 8 }, () => {
     );
     const files = new SecureFiles(f.input.projectRoot);
     assert.equal(
-      decodeEnvelope(await files.read(PROJECT_STATE_NAME)).decisions.length,
+      decodeEnvelope(await files.read(PROJECT_STATE_NAME)).revision,
       0,
     );
     assert.equal(
-      decodeEnvelope(await files.read(PROJECT_BACKUP_NAME)).decisions.length,
+      decodeEnvelope(await files.read(PROJECT_BACKUP_NAME)).revision,
       0,
     );
     assert.ok(await files.read(PROJECT_JOURNAL_NAME));
@@ -799,9 +800,15 @@ describe('durable Windows projects', { concurrency: 8 }, () => {
       await assert.rejects(store.execute('remove-0001', command), {
         code: 'DISK_FULL',
       });
-      const journal = decodeEnvelope(
+      const diskJournal = decodeEnvelope(
         await readFile(path.join(f.input.projectRoot, PROJECT_JOURNAL_NAME)),
       );
+      const loaded = await ProjectStorage.load(
+        new SecureFiles(f.input.projectRoot),
+        diskJournal.before,
+        diskJournal,
+      );
+      const journal = await loaded.storage.hydrate(diskJournal);
       assert.equal(journal.removals.length, 1);
       assert.equal(journal.before.decisions.length, 1);
       await store.close();
@@ -997,7 +1004,7 @@ describe('durable Windows projects', { concurrency: 8 }, () => {
     const state = decodeEnvelope(
       await readFile(path.join(f.input.projectRoot, PROJECT_STATE_NAME)),
     );
-    const newer = encodeEnvelope({ ...state, schemaVersion: 2 });
+    const newer = encodeEnvelope({ ...state, schemaVersion: 4 });
     await writeFile(path.join(f.input.projectRoot, PROJECT_STATE_NAME), newer);
     const manifest = await readFile(
       path.join(f.input.outputRoot, OUTPUT_MANIFEST_NAME),

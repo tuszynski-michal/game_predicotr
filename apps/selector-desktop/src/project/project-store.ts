@@ -44,7 +44,17 @@ import {
   decodeEnvelope,
   validateState,
   validateJournal,
+  validateDiskHead,
+  validateCompactJournalStructure,
+  validateScalar,
+  validateReceipt,
 } from './state-codec.ts';
+import {
+  ProjectStorage,
+  compactNames,
+  headIdentity,
+  scalarFor,
+} from './project-storage.ts';
 import {
   type ProjectState,
   type ProjectJournal,
@@ -55,6 +65,9 @@ import {
   type RestartPreview,
   type ProjectAdoptionSeed,
   type JournalCopy,
+  type ProjectDiskHead,
+  type ProjectCompactJournal,
+  type ProjectUpgradeJournal,
 } from './types.ts';
 
 export interface ProjectStoreOptions {
@@ -120,6 +133,10 @@ export class ProjectStore {
   private outputLease: ProjectLock | null = null;
   private outputLeaseRoot: string | null = null;
   private readonly processes: ProcessInspector;
+  private storage: ProjectStorage | null = null;
+  private compactIntent: ProjectCompactJournal | null = null;
+  private upgradeIntent: ProjectUpgradeJournal | null = null;
+  private inventoryPaths: ReadonlySet<string>;
   private constructor(
     files: SecureFiles,
     lock: ProjectLock,
@@ -129,6 +146,9 @@ export class ProjectStore {
     this.files = files;
     this.lock = lock;
     this.state = state;
+    this.inventoryPaths = new Set(
+      state.inventory.map((item) => item.relativePath),
+    );
     this.checkpoint = options.checkpoint ?? noCheckpoint;
     const inspector = options.processes ?? nativeProcesses;
     this.processes = {
@@ -141,6 +161,22 @@ export class ProjectStore {
   }
   snapshot(): ProjectState {
     return structuredClone(this.state);
+  }
+  /** Safe UI projection deliberately excludes the retained operation receipts. */
+  workspaceSnapshot(): Omit<ProjectState, 'inventory' | 'receipts'> {
+    const { inventory: _inventory, receipts: _receipts, ...value } = this.state;
+    void _inventory;
+    void _receipts;
+    return structuredClone(value);
+  }
+  sourceSnapshot(): Pick<ProjectState, 'sourceRoot' | 'inventory'> {
+    return {
+      sourceRoot: this.state.sourceRoot,
+      inventory: structuredClone(this.state.inventory),
+    };
+  }
+  hasImage(relativePath: string): boolean {
+    return this.inventoryPaths.has(relativePath);
   }
   getIssue(): ProjectIssue | null {
     return this.issue ? { ...this.issue } : null;
@@ -326,6 +362,7 @@ export class ProjectStore {
       store.sourceScan = source.scan;
       await store.prepare(journal);
       await store.applyJournal(journal);
+      await store.upgrade();
       return store;
     } catch (error) {
       await lock.release();
@@ -360,24 +397,73 @@ export class ProjectStore {
     const lock = await ProjectLock.acquire(files, options.processes);
     try {
       let state: ProjectState | null = null;
+      let storage: ProjectStorage | null = null;
       let corrupt = false;
+      const journalBytes = await files.read(PROJECT_JOURNAL_NAME);
+      const intent = journalBytes
+        ? decodeEnvelope<
+            ProjectJournal | ProjectCompactJournal | ProjectUpgradeJournal
+          >(journalBytes)
+        : null;
+      if (intent?.schemaVersion === 3) {
+        validateCompactJournalStructure(intent);
+        if (intent.mode === 'upgrade') {
+          validateState(intent.state);
+          ProjectStore.validateOpenIdentity(intent.state, options);
+          ProjectStore.validateOpenIdentity(intent.head, options);
+          state = intent.state;
+        } else {
+          ProjectStore.validateOpenIdentity(intent.before, options);
+          ProjectStore.validateOpenIdentity(intent.after, options);
+        }
+      }
       for (const name of [PROJECT_STATE_NAME, PROJECT_BACKUP_NAME]) {
+        if (state) break;
         const bytes = await files.read(name);
         if (!bytes) continue;
         try {
-          const candidate = decodeEnvelope<ProjectState>(bytes);
-          validateState(candidate);
-          state = candidate;
+          const candidate = decodeEnvelope<ProjectState | ProjectDiskHead>(
+            bytes,
+          );
+          if (candidate.schemaVersion === 2) {
+            validateDiskHead(candidate);
+            ProjectStore.validateOpenIdentity(candidate, options);
+            if (intent && intent.schemaVersion !== 3)
+              throw new SelectorError(
+                'JOURNAL_CONFLICT',
+                'Nowy projekt ma niezgodny stary dziennik.',
+              );
+            const loaded = await ProjectStorage.load(
+              files,
+              candidate,
+              intent?.schemaVersion === 3 && intent.mode === 'operation'
+                ? intent
+                : undefined,
+            );
+            storage = loaded.storage;
+            state = loaded.state;
+          } else {
+            validateState(candidate);
+            ProjectStore.validateOpenIdentity(candidate, options);
+            state = candidate;
+          }
           break;
         } catch (error) {
           if (!(error instanceof SelectorError)) throw error;
-          if (error.code === 'UNSUPPORTED_PROJECT_SCHEMA') throw error;
+          if (
+            [
+              'UNSUPPORTED_PROJECT_SCHEMA',
+              'SOURCE_PROJECT_CONFLICT',
+              'PROJECT_ID_CONFLICT',
+              'JOURNAL_CONFLICT',
+            ].includes(error.code)
+          )
+            throw error;
           corrupt = true;
         }
       }
-      const bytes = await files.read(PROJECT_JOURNAL_NAME);
-      if (bytes) {
-        const journal = decodeEnvelope<ProjectJournal>(bytes);
+      if (intent && intent.schemaVersion !== 3) {
+        const journal = intent;
         validateJournal(journal);
         ProjectStore.validateOpenIdentity(journal.after, options);
         if (journal.before)
@@ -398,6 +484,9 @@ export class ProjectStore {
         );
       ProjectStore.validateOpenIdentity(state, options);
       const store = new ProjectStore(files, lock, state, options);
+      store.storage = storage;
+      if (intent?.schemaVersion === 3 && intent.mode === 'upgrade')
+        store.upgradeIntent = intent;
       try {
         await store.resumeInternal();
       } catch (error) {
@@ -411,7 +500,7 @@ export class ProjectStore {
     }
   }
   private static validateOpenIdentity(
-    state: ProjectState,
+    state: Pick<ProjectState, 'sourceRoot' | 'projectId'>,
     options: ProjectStoreOptions,
   ): void {
     const samePath = (a: string, b: string) =>
@@ -439,6 +528,11 @@ export class ProjectStore {
       PROJECT_BACKUP_NAME,
       PROJECT_JOURNAL_NAME,
       'selector-project.lock',
+      ...(this.storage
+        ? this.storage.names()
+        : this.upgradeIntent
+          ? compactNames(this.upgradeIntent.head)
+          : []),
     ]);
     for (const name of await this.files.names())
       if (!allowed.has(name) && !/^\.selector-[a-f0-9-]{36}\.tmp$/.test(name))
@@ -568,12 +662,18 @@ export class ProjectStore {
     }
     return files;
   }
-  private async prepare(journal: ProjectJournal): Promise<void> {
-    validateJournal(journal);
+  private async prepare(
+    journal: ProjectJournal,
+    receipt?: OperationReceipt,
+  ): Promise<void> {
+    if (this.storage) {
+      this.compactIntent = this.storage.makeJournal(journal, receipt!);
+      this.storage.validateJournal(this.compactIntent);
+    } else validateJournal(journal);
     await this.checkpoint('prepare:before');
     await this.files.replace(
       PROJECT_JOURNAL_NAME,
-      encodeEnvelope(journal),
+      encodeEnvelope(this.compactIntent ?? journal),
       this.checkpoint,
     );
     await this.checkpoint('prepare:after');
@@ -700,7 +800,9 @@ export class ProjectStore {
     journal: ProjectJournal,
     recovery = false,
   ): Promise<void> {
-    validateJournal(journal);
+    if (this.storage && this.compactIntent)
+      this.storage.validateJournal(this.compactIntent);
+    else validateJournal(journal);
     await this.lock.assertOwned();
     await this.validateProjectContents();
     assertSeparateRoots([
@@ -724,6 +826,7 @@ export class ProjectStore {
         recovery ? 'all' : touched,
         output,
       );
+      if (this.storage) await this.storage.repair(this.checkpoint);
       await this.checkpoint('jpeg:before');
       await this.copyJpeg(journal, output);
       for (const copy of journal.importCopies ?? []) {
@@ -734,25 +837,26 @@ export class ProjectStore {
         await output.removeOwned(removal.outputName, removal.checksumSha256);
       await this.checkpoint('jpeg:after');
       journal.phase = 'jpeg_written';
-      await this.files.replace(
-        PROJECT_JOURNAL_NAME,
-        encodeEnvelope(journal),
-        this.checkpoint,
-      );
+      await this.writePhase(journal);
       await this.checkpoint('state:before');
-      await this.files.replace(
-        PROJECT_STATE_NAME,
-        encodeEnvelope(journal.after),
-        this.checkpoint,
-      );
-      this.state = structuredClone(journal.after);
+      if (this.storage && this.compactIntent) {
+        await this.storage.commit(this.compactIntent, this.checkpoint);
+        const pending = JSON.parse(this.compactIntent.record) as {
+          payload: { receipt: OperationReceipt };
+        };
+        journal.after.receipts[journal.operationId] = pending.payload.receipt;
+        this.state = journal.after;
+      } else {
+        await this.files.replace(
+          PROJECT_STATE_NAME,
+          encodeEnvelope(journal.after),
+          this.checkpoint,
+        );
+        this.state = structuredClone(journal.after);
+      }
       await this.checkpoint('state:after');
       journal.phase = 'committed';
-      await this.files.replace(
-        PROJECT_JOURNAL_NAME,
-        encodeEnvelope(journal),
-        this.checkpoint,
-      );
+      await this.writePhase(journal);
       await this.checkpoint('manifest:before');
       await this.verifyOutput(
         journal.before,
@@ -770,11 +874,13 @@ export class ProjectStore {
       );
       await this.checkpoint('manifest:after');
       await this.checkpoint('backup:before');
-      await this.files.replace(
-        PROJECT_BACKUP_NAME,
-        encodeEnvelope(journal.after),
-        this.checkpoint,
-      );
+      if (this.storage) await this.storage.backup(this.checkpoint);
+      else
+        await this.files.replace(
+          PROJECT_BACKUP_NAME,
+          encodeEnvelope(journal.after),
+          this.checkpoint,
+        );
       await this.checkpoint('backup:after');
       await this.checkpoint('finalize:before');
       // Release while the journal still exists. A killed process can never leave
@@ -785,6 +891,7 @@ export class ProjectStore {
       await this.files.clearScratch(PROJECT_JOURNAL_NAME);
       await this.files.syncDirectory();
       await this.checkpoint('finalize:after');
+      this.compactIntent = null;
       this.issue = null;
     } finally {
       if (this.outputLease) {
@@ -794,34 +901,139 @@ export class ProjectStore {
       }
     }
   }
+  private async writePhase(journal: ProjectJournal): Promise<void> {
+    if (this.storage && this.compactIntent) {
+      this.compactIntent.phase = journal.phase;
+      await this.storage.saveJournal(this.compactIntent, this.checkpoint);
+    } else
+      await this.files.replace(
+        PROJECT_JOURNAL_NAME,
+        encodeEnvelope(journal),
+        this.checkpoint,
+      );
+  }
+  private async upgrade(): Promise<void> {
+    if (this.storage) return;
+    await this.lock.assertOwned();
+    if (!this.upgradeIntent) {
+      this.upgradeIntent = ProjectStorage.upgradeDescriptor(this.state);
+    }
+    const descriptor = encodeEnvelope(this.upgradeIntent);
+    const persisted = await this.files.read(PROJECT_JOURNAL_NAME);
+    if (persisted && persisted.toString() !== descriptor)
+      throw new SelectorError(
+        'JOURNAL_CONFLICT',
+        'Dziennik migracji nie odpowiada dokładnemu stanowi projektu.',
+      );
+    if (!persisted) {
+      await this.checkpoint('upgrade:prepare:before');
+      await this.files.replace(
+        PROJECT_JOURNAL_NAME,
+        descriptor,
+        this.checkpoint,
+      );
+      await this.checkpoint('upgrade:prepare:after');
+    }
+    // A retained in-memory intent is never evidence that publication succeeded.
+    if (
+      (await this.files.read(PROJECT_JOURNAL_NAME))?.toString() !== descriptor
+    )
+      throw new SelectorError(
+        'JOURNAL_CONFLICT',
+        'Nie potwierdzono trwałego dziennika migracji.',
+      );
+    await this.validateProjectContents();
+    await this.checkSource(this.upgradeIntent.state);
+    await this.verifyOutput(this.upgradeIntent.state, this.upgradeIntent.state);
+    await ProjectStorage.completeUpgrade(
+      this.files,
+      this.upgradeIntent,
+      this.checkpoint,
+    );
+    const loaded = await ProjectStorage.load(
+      this.files,
+      this.upgradeIntent.head,
+    );
+    this.storage = loaded.storage;
+    this.state = loaded.state;
+    this.inventoryPaths = this.storage.paths;
+    this.upgradeIntent = null;
+    this.issue = null;
+  }
   private async resumeInternal(): Promise<void> {
     if (this.closed)
       throw new SelectorError('PROJECT_CLOSED', 'Projekt jest zamknięty.');
     await this.lock.assertOwned();
     await this.validateProjectContents();
+    if (this.upgradeIntent) {
+      await this.upgrade();
+      this.issue = null;
+      return;
+    }
     const bytes = await this.files.read(PROJECT_JOURNAL_NAME);
     if (bytes) {
-      const journal = decodeEnvelope<ProjectJournal>(bytes);
-      validateJournal(journal);
-      const identity = stateIdentity(this.state);
-      if (
-        journal.projectId !== this.state.projectId ||
-        (identity !== stateIdentity(journal.after) &&
-          (journal.before === null ||
-            identity !== stateIdentity(journal.before)))
-      )
-        throw new SelectorError(
-          'JOURNAL_CONFLICT',
-          'Dziennik nie odpowiada rewizji projektu.',
-        );
+      const disk = decodeEnvelope<ProjectJournal | ProjectCompactJournal>(
+        bytes,
+      );
+      let journal: ProjectJournal;
+      if (disk.schemaVersion === 3) {
+        if (!this.storage)
+          throw new SelectorError(
+            'JOURNAL_CONFLICT',
+            'Brak nowego formatu projektu.',
+          );
+        this.storage.validateJournal(disk);
+        const identity = headIdentity(this.storage.head);
+        if (
+          identity !== headIdentity(disk.before) &&
+          identity !== headIdentity(disk.after)
+        )
+          throw new SelectorError(
+            'JOURNAL_CONFLICT',
+            'Dziennik nie odpowiada rewizji projektu.',
+          );
+        journal = await this.storage.hydrate(disk);
+        validateJournal(journal);
+        this.compactIntent = disk;
+      } else {
+        journal = disk;
+        validateJournal(journal);
+        const identity = stateIdentity(this.state);
+        if (
+          journal.projectId !== this.state.projectId ||
+          (identity !== stateIdentity(journal.after) &&
+            (journal.before === null ||
+              identity !== stateIdentity(journal.before)))
+        )
+          throw new SelectorError(
+            'JOURNAL_CONFLICT',
+            'Dziennik nie odpowiada rewizji projektu.',
+          );
+      }
       await this.applyJournal(journal, true);
     } else {
       await this.checkSource(this.state);
       await this.verifyOutput(this.state, this.state);
       // Restore a valid backup only after proving the output still agrees.
-      await this.files.replace(PROJECT_STATE_NAME, encodeEnvelope(this.state));
-      await this.files.replace(PROJECT_BACKUP_NAME, encodeEnvelope(this.state));
+      if (this.storage) {
+        await this.storage.repair(this.checkpoint);
+        await this.files.replace(
+          PROJECT_STATE_NAME,
+          encodeEnvelope(this.storage.head),
+        );
+        await this.storage.backup(this.checkpoint);
+      } else {
+        await this.files.replace(
+          PROJECT_STATE_NAME,
+          encodeEnvelope(this.state),
+        );
+        await this.files.replace(
+          PROJECT_BACKUP_NAME,
+          encodeEnvelope(this.state),
+        );
+      }
     }
+    if (!this.storage) await this.upgrade();
     this.issue = null;
   }
   resume(): Promise<ProjectState> {
@@ -876,8 +1088,15 @@ export class ProjectStore {
             'Identyfikator operacji został użyty z innymi argumentami.',
           );
         // A receipt is confirmed only once pending manifest/backup work completes.
-        if (await this.files.read(PROJECT_JOURNAL_NAME))
-          await this.resumeInternal();
+        try {
+          if (await this.files.read(PROJECT_JOURNAL_NAME))
+            await this.resumeInternal();
+          if (!this.storage) await this.upgrade();
+        } catch (error) {
+          const failure = ioError(error, 'recovery');
+          this.issue = { code: failure.code, message: failure.message };
+          throw failure;
+        }
         return structuredClone(previous);
       }
       if (this.issue && command.kind !== 'relink')
@@ -891,8 +1110,9 @@ export class ProjectStore {
           await this.resumeInternal();
         await this.lock.assertOwned();
         await this.validateProjectContents();
-        const before = this.snapshot();
-        const after = this.snapshot();
+        if (!this.storage && command.kind !== 'relink') await this.upgrade();
+        const before = this.state;
+        const after = { ...this.state };
         const journal: ProjectJournal = {
           schemaVersion: 1,
           projectId: before.projectId,
@@ -961,20 +1181,23 @@ export class ProjectStore {
               sizeBytes: before.inventory[currentIndex].sizeBytes,
             };
           }
-          after.decisions.push({
-            action: command.kind === 'accept' ? 'accepted' : 'skipped',
-            operationId,
-            fileId:
-              command.kind === 'accept' ? checksum(command.imagePath) : null,
-            sourceIndex: currentIndex,
-            imagePath: command.kind === 'accept' ? command.imagePath : null,
-            imageChecksumSha256: hash,
-            outputName,
-            rangeStart: range.start,
-            rangeEnd: range.end,
-            activeBoardCount: range.end - range.start + 1,
-            selectionGeneration: before.selectionGeneration,
-          });
+          after.decisions = [
+            ...before.decisions,
+            {
+              action: command.kind === 'accept' ? 'accepted' : 'skipped',
+              operationId,
+              fileId:
+                command.kind === 'accept' ? checksum(command.imagePath) : null,
+              sourceIndex: currentIndex,
+              imagePath: command.kind === 'accept' ? command.imagePath : null,
+              imageChecksumSha256: hash,
+              outputName,
+              rangeStart: range.start,
+              rangeEnd: range.end,
+              activeBoardCount: range.end - range.start + 1,
+              selectionGeneration: before.selectionGeneration,
+            },
+          ];
           after.selectionComplete = isManualSelectionRangeTerminal(
             before.direction,
             range.start,
@@ -987,11 +1210,7 @@ export class ProjectStore {
           );
           if (command.kind === 'accept') moveForward();
         } else if (command.kind === 'navigate') {
-          if (
-            !before.inventory.some(
-              (item) => item.relativePath === command.imagePath,
-            )
-          )
+          if (!this.inventoryPaths.has(command.imagePath))
             throw new SelectorError(
               'UNKNOWN_IMAGE',
               'Zdjęcie nie należy do źródła.',
@@ -1010,6 +1229,7 @@ export class ProjectStore {
           }
           after.nextRangeStart = command.start;
         } else if (command.kind === 'undo') {
+          after.decisions = [...before.decisions];
           const last = after.decisions.pop();
           if (!last)
             throw new SelectorError(
@@ -1074,8 +1294,14 @@ export class ProjectStore {
           selectionComplete: after.selectionComplete,
           decisionCount: after.decisions.length,
         };
-        after.receipts = { ...after.receipts, [operationId]: receipt };
-        validateState(after);
+        validateScalar(scalarFor(after), this.inventoryPaths);
+        validateReceipt(receipt, after.revision, this.inventoryPaths);
+        if (!this.storage) {
+          // A missing legacy root needs its compatible restorative relink before
+          // migration can verify source/output. Retain that one legacy receipt.
+          after.receipts = { ...before.receipts, [operationId]: receipt };
+          validateState(after);
+        }
         // Check the old projection before preparing any intent. A JPEG that
         // happens to have the desired name is never adopted by a new selection.
         await this.verifyOutput(
@@ -1084,8 +1310,9 @@ export class ProjectStore {
           undefined,
           new Set(journal.removals.map((item) => item.outputName)),
         );
-        await this.prepare(journal);
+        await this.prepare(journal, receipt);
         await this.applyJournal(journal);
+        if (!this.storage) await this.upgrade();
         return structuredClone(receipt);
       } catch (error) {
         const failure = ioError(error, command.kind);
@@ -1118,9 +1345,66 @@ export class ProjectStore {
   ): Promise<void> {
     if (!command.sourceRoot && !command.outputRoot)
       throw new SelectorError('INVALID_ARGUMENT', 'Wskaż źródło lub wynik.');
+    await this.lock.assertOwned();
     const bytes = await this.files.read(PROJECT_JOURNAL_NAME);
     if (!bytes) return;
-    const journal = decodeEnvelope<ProjectJournal>(bytes);
+    const disk = decodeEnvelope<
+      ProjectJournal | ProjectCompactJournal | ProjectUpgradeJournal
+    >(bytes);
+    if (disk.schemaVersion === 3 && disk.mode === 'upgrade') {
+      validateCompactJournalStructure(disk);
+      validateState(disk.state);
+      if (
+        stableStringify(ProjectStorage.upgradeDescriptor(disk.state)) !==
+        stableStringify(disk)
+      )
+        throw new SelectorError(
+          'JOURNAL_CONFLICT',
+          'Dziennik migracji nie odpowiada stanowi projektu.',
+        );
+      const sourceRoot = command.sourceRoot
+        ? await canonicalDirectoryLocation(command.sourceRoot)
+        : disk.state.sourceRoot;
+      const outputRoot = command.outputRoot
+        ? await canonicalDirectoryLocation(command.outputRoot)
+        : disk.state.outputRoot;
+      const relocated = { ...disk.state, sourceRoot, outputRoot };
+      assertSeparateRoots([sourceRoot, this.files.root, outputRoot]);
+      await assertLocalStorage(outputRoot, true);
+      await this.checkSource(relocated);
+      const output = await this.outputFiles(relocated);
+      this.outputLease = await ProjectLock.acquire(
+        output,
+        this.processes,
+        true,
+      );
+      this.outputLeaseRoot = output.root;
+      try {
+        await this.verifyOutput(relocated, relocated, undefined, 'all', output);
+        const descriptor = ProjectStorage.upgradeDescriptor(relocated);
+        if (headIdentity(descriptor.head) !== headIdentity(disk.head))
+          throw new SelectorError(
+            'JOURNAL_CONFLICT',
+            'Relink zmienił niezmienne dane migracji.',
+          );
+        await this.lock.assertOwned();
+        await this.files.replace(
+          PROJECT_JOURNAL_NAME,
+          encodeEnvelope(descriptor),
+          this.checkpoint,
+        );
+        this.upgradeIntent = descriptor;
+        this.state = relocated;
+      } finally {
+        await this.outputLease.release();
+        this.outputLease = null;
+        this.outputLeaseRoot = null;
+      }
+      await this.resumeInternal();
+      return;
+    }
+    const journal =
+      disk.schemaVersion === 3 ? await this.storage!.hydrate(disk) : disk;
     validateJournal(journal);
     const sourceRoot = command.sourceRoot
       ? await canonicalDirectoryLocation(command.sourceRoot)
@@ -1155,7 +1439,12 @@ export class ProjectStore {
       );
       // Relocation changes only the durable pending intent's root bindings. The
       // journal still carries every original decision and operation receipt.
-      await this.files.replace(PROJECT_JOURNAL_NAME, encodeEnvelope(journal));
+      if (disk.schemaVersion === 3) {
+        disk.before = { ...disk.before, sourceRoot, outputRoot };
+        disk.after = { ...disk.after, sourceRoot, outputRoot };
+        await this.storage!.saveJournal(disk, this.checkpoint);
+      } else
+        await this.files.replace(PROJECT_JOURNAL_NAME, encodeEnvelope(journal));
     } finally {
       await this.outputLease.release();
       this.outputLease = null;

@@ -923,7 +923,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 - contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: assertLocalStorage
-- filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
+- filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, FileIdentity, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/desktop-lifecycle.ts: DesktopLifecycle
@@ -934,10 +934,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
 - native/windows-check-worker.ts: CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
+- project/project-storage.ts: PROJECT_LEDGER_NAME, PROJECT_LEDGER_BACKUP_NAME, scalarFor, compactNames, headIdentity, ProjectStorage, isCompactIntent
 - project/project-store.ts: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
 - project/recent-projects.ts: RecentProject, RecentProjects
-- project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateJournal
-- project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal
+- project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateScalar, validateReceipt, validateDiskHead, validateLedgerRecordStructure, validateCompactJournalStructure, validateJournal
+- project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal, ProjectScalar, ProjectDiskHead, ProjectDecisionDelta, ProjectLedgerPayload, ProjectLedgerRecord, ProjectCompactJournal, ProjectUpgradeJournal
 - renderer/App.tsx: App
 - renderer/desktop-shortcuts.ts: resolveDesktopShortcut
 - renderer/image-viewer.tsx: ImageViewer

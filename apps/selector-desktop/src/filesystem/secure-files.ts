@@ -18,6 +18,12 @@ import {
 
 export type WriteCheckpoint = (phase: string) => void | Promise<void>;
 export const noCheckpoint: WriteCheckpoint = () => {};
+export interface FileIdentity {
+  dev: number;
+  ino: number;
+  size: number;
+  mtimeMs: number;
+}
 export function checksum(value: string | Uint8Array): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -248,6 +254,95 @@ export class SecureFiles {
       // scratch files, output-root validation admits only the journal's exact temp.
       await unlink(temporaryPath).catch(() => {});
       throw error;
+    }
+  }
+  async identity(name: string): Promise<FileIdentity> {
+    const stat = await lstat(await this.target(name));
+    return {
+      dev: stat.dev,
+      ino: stat.ino,
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+    };
+  }
+  /** Complete only the exact pending record. Never truncate an unexplained tail. */
+  async appendExact(
+    name: string,
+    prefixBytes: number,
+    record: string,
+    expected: FileIdentity | undefined,
+    checkpoint: WriteCheckpoint = noCheckpoint,
+  ): Promise<FileIdentity> {
+    const target = await this.target(name);
+    const handle = await open(target, 'r+');
+    try {
+      const stat = await handle.stat();
+      const current = await this.identity(name);
+      if (
+        !stat.isFile() ||
+        stat.dev !== current.dev ||
+        stat.ino !== current.ino ||
+        (expected &&
+          (expected.dev !== stat.dev ||
+            expected.ino !== stat.ino ||
+            expected.size !== stat.size ||
+            expected.mtimeMs !== stat.mtimeMs))
+      )
+        throw new SelectorError(
+          'PATH_CHANGED',
+          'Dziennik operacji zmienił się poza zapisem projektu.',
+        );
+      const bytes = Buffer.from(record);
+      const tailLength = stat.size - prefixBytes;
+      if (tailLength < 0 || tailLength > bytes.length)
+        throw new SelectorError(
+          'JOURNAL_CONFLICT',
+          'Dziennik operacji ma nieznany zakres bajtów.',
+        );
+      const tail = Buffer.alloc(tailLength);
+      const read = await handle.read(tail, 0, tail.length, prefixBytes);
+      if (
+        read.bytesRead !== tail.length ||
+        !tail.equals(bytes.subarray(0, tailLength))
+      )
+        throw new SelectorError(
+          'JOURNAL_CONFLICT',
+          'Dziennik operacji zawiera niezgodny zapis oczekujący.',
+        );
+      await checkpoint(`${name}:append`);
+      let written = tailLength;
+      const boundary = written + Math.ceil((bytes.length - written) / 2);
+      for (const end of [boundary, bytes.length]) {
+        while (written < end) {
+          const result = await handle.write(
+            bytes,
+            written,
+            end - written,
+            prefixBytes + written,
+          );
+          if (!result.bytesWritten)
+            throw new Error('Ledger write made no progress');
+          written += result.bytesWritten;
+        }
+        if (end === boundary) await checkpoint(`${name}:partial`);
+      }
+      await checkpoint(`${name}:sync`);
+      await handle.sync();
+      await this.target(name);
+      const after = await this.identity(name);
+      if (
+        after.dev !== stat.dev ||
+        after.ino !== stat.ino ||
+        after.size !== prefixBytes + bytes.length
+      )
+        throw new SelectorError(
+          'PATH_CHANGED',
+          'Dziennik operacji zmienił tożsamość podczas zapisu.',
+        );
+      await checkpoint(`${name}:appended`);
+      return after;
+    } finally {
+      await handle.close();
     }
   }
   async removeOwned(name: string, expectedHash: string): Promise<void> {

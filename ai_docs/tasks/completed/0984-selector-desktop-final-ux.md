@@ -109,7 +109,8 @@ jednokierunkową zgodną migracją do nowej aplikacji; stara musi odmówić zapi
 
 TASK-0984 zamknął P2-A/C/D i P3-A/B raportu rundy2. Brak projektu ma pełną ścieżkę i jawne potwierdzenie „Nowa partia”; anulowanie zachowuje aktywny projekt. Historia preferuje newest wpis i deduplikuje projectRoot. Preflight obu folderów chroni obce dane oraz nie pozostawia pustego projektu po konflikcie wyniku. Open obcego folderu nie tworzy locka. Repeat accept/skip/undo jest ignorowany wyłącznie w desktopie. Close toleruje LOCK_LOST/LOCK_OWNER_UNKNOWN bez usunięcia cudzej blokady. Dwa uruchomienia podczas close planują jeden relaunch.
 
-Przygotowanie planu/D-546: v1.7.333 / 9434446b39e23044e9d7198e205dce8ff9a6aaeb. Hash commita wykonania zostanie dopisany w kolejnym commicie zgodnie z AGENTS.
+Przygotowanie planu/D-546: v1.7.333 / 9434446b39e23044e9d7198e205dce8ff9a6aaeb.
+Commit wykonania: v1.7.334 / c52518a8ece7c79f88b31224d4d90a84f0779b4c.
 
 ### Verification results
 

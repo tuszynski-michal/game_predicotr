@@ -6,6 +6,12 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
+
+- Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
+- API: `neural_import_profile`, resolver snapshotu i `uses_neural_grid_pilot` według profilu gry, `NeuralGridSnapshot.from_payload` według profilu z payloadu, `NeuralGridModelManifestPayload.profile` z oboma profilami (OpenAPI i klient zregenerowane), preflight innego profilu nie jest ponownie użyty. Worker bez zmian (model z zamrożonego snapshotu). Admin: V3 z etykietą profilu.
+- Testy: API 85 + resolver 3 + worker/kanoniczne/katalog 38, Admin 731 + interakcje 16; dymny przebieg modelu 777 v2 na 12 złotych zdjęciach 777: 108/108 plansz z dopasowaną siatką. Commity v1.7.314 (`4344510b`) i v1.7.315 (`55af1b63`, etykieta startu V3 po audycie E2E), scalone i wypchnięte; audyty Codex: zadanie REVISE→P1 naprawione, E2E rundy 1–2 PASS. Pozostaje restart workera `general` przez operatora.
+
 ### TASK-0973 — ponowienie kroku partycji przy lock timeout (done)
 
 - Plik: `ai_docs/tasks/completed/0973-game-partition-lock-retry.md`. Przyczyna 500 przy dodawaniu gry na bazie V2: `CREATE TABLE … PARTITION OF game_data_v2.board_render_manifests` czekał na `ACCESS EXCLUSIVE` dłużej niż `lock_timeout = 2s`, bo sesja aplikacji trzymała `AccessShareLock` ponad 22 s (wolny `count` po `image_symbol_review_cells`).

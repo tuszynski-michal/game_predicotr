@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. TASK-0984 done;0985 in_progress. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
+- **Finalizacja selektora / D-546:** operator zatwierdził całą nową rundę3–5 h, wszystkie P2/P3, zgodną optymalizację zapisu, pomiar15000 i ZIP0.1.3. Plan `delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`, kolejność0984→0985→0986→0987. TASK-0984/0985 done;0986 in_progress. Odbiór operatora na końcu; brak resetu, utraty receiptów i zmian danych źródłowych.
 
 - **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
@@ -190,12 +190,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (in_progress)
-
-- Plik: `ai_docs/tasks/0985-selector-desktop-compact-persistence.md`; plan finalizacji2026-10-12, D-546.
-- Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
-
-### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (todo)
+### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (in_progress)
 
 - Plik: `ai_docs/tasks/0986-selector-desktop-diagnostics-and-archive.md`; plan finalizacji2026-10-12, D-546.
 - Zgoda operatora na cały zakres3–5 h; kryteria i komendy w tasku. Fizyczny odbiór0979 pozostaje osobny.
@@ -889,9 +884,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
+
+- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wersja/hash wykonania zostaną dopisane po commicie.
+- Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
+- Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
+- 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
+- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; fizyczny0979 blocked.
+
 ### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (done)
 
-- Plik: `ai_docs/tasks/completed/0984-selector-desktop-final-ux.md`; plan finalizacji20261012, D-546. Przygotowanie v1.7.333 /9434446b39e23044e9d7198e205dce8ff9a6aaeb; hash wykonania w kolejnym commicie.
+- Plik: `ai_docs/tasks/completed/0984-selector-desktop-final-ux.md`; plan finalizacji20261012, D-546. Przygotowanie v1.7.333 /9434446b39e23044e9d7198e205dce8ff9a6aaeb; wykonanie v1.7.334 /c52518a8ece7c79f88b31224d4d90a84f0779b4c.
 - Martwa historia z jawną nową partią, newest projectRoot, preflight obu folderów bez zapisów w obcych; źródło tylko do odczytu. Cancel zachowuje aktywny projekt.
 - Repeat accept/skip/undo ignorowany; arrow repeat działa. Close unknown/lost lock bez unlink. Dwa realne EXE podczas close dają jeden relaunch i nowe okno.
 -151/151 desktop PASS, lint/typecheck/format/package, UX i full packaged smoke, docs/mapy/diff PASS. Początkowe pięć starych kodów testów i błędne założenie skoku w nowym smoke poprawione; powtórki PASS.
@@ -959,12 +962,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Testy: desktop7/7, packaged EXE smoke, lint/typecheck/build/package/make/format/docs/mapy PASS; rdzeń110/110 + typy, Reviewer264/264 PASS poza sandbox.
 - Foundation ZIP149372115 bajtów; nie jest paczką pełnej selekcji. Do 0976/0977 pozostają trwałe projekty/UI. Dodatkowy limit źródła:100000 wpisów katalogowych,15000 JPEG.
 - Audyt operatora po pięciu taskach. Odbiór drugiego komputera/reboot/dystrybucja pozostaje 0979. Przygotowanie dokumentacji: v1.7.317 / `e91b365cd02bf50ff914b1c4cda0b732432f8f3a`.
-
-### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
-
-- Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
-- API: `neural_import_profile`, resolver snapshotu i `uses_neural_grid_pilot` według profilu gry, `NeuralGridSnapshot.from_payload` według profilu z payloadu, `NeuralGridModelManifestPayload.profile` z oboma profilami (OpenAPI i klient zregenerowane), preflight innego profilu nie jest ponownie użyty. Worker bez zmian (model z zamrożonego snapshotu). Admin: V3 z etykietą profilu.
-- Testy: API 85 + resolver 3 + worker/kanoniczne/katalog 38, Admin 731 + interakcje 16; dymny przebieg modelu 777 v2 na 12 złotych zdjęciach 777: 108/108 plansz z dopasowaną siatką. Commity v1.7.314 (`4344510b`) i v1.7.315 (`55af1b63`, etykieta startu V3 po audycie E2E), scalone i wypchnięte; audyty Codex: zadanie REVISE→P1 naprawione, E2E rundy 1–2 PASS. Pozostaje restart workera `general` przez operatora.
 
 ## Archiwum
 

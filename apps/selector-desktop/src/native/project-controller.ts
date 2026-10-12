@@ -140,7 +140,7 @@ export class ProjectController {
     }));
   }
   private async refreshSource(): Promise<void> {
-    const state = this.active().snapshot();
+    const state = this.active().sourceSnapshot();
     this.source = null;
     if (this.active().getIssue()?.code === 'SOURCE_MISSING') return;
     try {
@@ -173,7 +173,7 @@ export class ProjectController {
   }
   snapshot(): DesktopWorkspace | null {
     if (!this.store) return null;
-    const s = this.store.snapshot();
+    const s = this.store.workspaceSnapshot();
     const byPath = new Map(
       this.source?.images.map((i) => [i.relativePath, i.id]),
     );
@@ -204,14 +204,14 @@ export class ProjectController {
   }
   private async replaceStore(store: ProjectStore): Promise<DesktopWorkspace> {
     this.store = store;
-    this.view = await this.views.load(store.snapshot().projectId);
+    this.view = await this.views.load(store.workspaceSnapshot().projectId);
     await this.refreshSource();
     await this.rememberActive();
     return this.snapshot()!;
   }
   private async rememberActive(): Promise<void> {
     const store = this.active();
-    const s = store.snapshot();
+    const s = store.workspaceSnapshot();
     await this.recentCache.remember({
       projectId: s.projectId,
       projectRoot: store.getProjectRoot(),
@@ -281,7 +281,9 @@ export class ProjectController {
           'Wykonaj ponownie podgląd starej sesji.',
         );
       if (preview.result) {
-        if (this.store?.snapshot().projectId !== preview.result.projectId)
+        if (
+          this.store?.workspaceSnapshot().projectId !== preview.result.projectId
+        )
           throw new SelectorError(
             'LEGACY_PREVIEW_EXPIRED',
             'Projekt został zmieniony. Otwórz zapisany projekt.',
@@ -440,7 +442,7 @@ export class ProjectController {
       if (draft?.result) {
         if (
           draft.request !== JSON.stringify(options) ||
-          this.store?.snapshot().projectId !== draft.result.projectId
+          this.store?.workspaceSnapshot().projectId !== draft.result.projectId
         )
           throw new SelectorError(
             'STALE_SOURCE_TOKEN',
@@ -521,7 +523,7 @@ export class ProjectController {
       validateId(request.projectId);
       validateId(request.operationId);
       const store = this.active();
-      if (store.snapshot().projectId !== request.projectId)
+      if (store.workspaceSnapshot().projectId !== request.projectId)
         throw new SelectorError('STALE_PROJECT', 'Projekt został zmieniony.');
       const command = object(request.command, [
         'kind',
@@ -539,12 +541,7 @@ export class ProjectController {
           );
         validateId(command.imageId);
         const image = this.source?.images.find((i) => i.id === command.imageId);
-        if (
-          !image ||
-          !store
-            .snapshot()
-            .inventory.some((i) => i.relativePath === image.relativePath)
-        )
+        if (!image || !store.hasImage(image.relativePath))
           throw new SelectorError(
             'UNKNOWN_IMAGE',
             'Zdjęcie nie należy do projektu.',
@@ -630,7 +627,7 @@ export class ProjectController {
   saveView(projectId: unknown, value: unknown): Promise<void> {
     validateId(projectId);
     const view = validateView(value);
-    if (projectId !== this.active().snapshot().projectId)
+    if (projectId !== this.active().workspaceSnapshot().projectId)
       throw new SelectorError('STALE_PROJECT', 'Projekt został zmieniony.');
     this.view = view;
     return this.views.save(projectId as string, view);
@@ -642,6 +639,6 @@ export class ProjectController {
         'PROJECT_BLOCKED',
         'Najpierw rozwiąż problem projektu.',
       );
-    await this.dialogs.openFolder(store.snapshot().outputRoot);
+    await this.dialogs.openFolder(store.workspaceSnapshot().outputRoot);
   }
 }

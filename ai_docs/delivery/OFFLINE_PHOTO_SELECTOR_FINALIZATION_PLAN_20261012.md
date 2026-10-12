@@ -120,6 +120,18 @@ końcowy, nie udaje niezależnego PASS nowych zmian. Fizyczny odbiór0979
 Bez uploadu/linków/chmury, zmian API/Admin/Reviewera/bazy, usług operatora,
 instalatora/podpisu, danych użytkownika, push ani merge.
 
+## Stan wykonania
+
+TASK-0984 zakończony: v1.7.334 / `c52518a8ece7c79f88b31224d4d90a84f0779b4c`.
+151 testów PASS oraz lint/typecheck/format, pakowanie i dwa rzeczywiste
+scenariusze spakowanego EXE: pełna selekcja/restart oraz zamykanie/relaunch.
+Pierwsze błędy oczekiwań kodów i założenia skoku w teście zostały opisane
+w Outcome. TASK-0985 ukończony: 233/233 desktop PASS, lint/typecheck/format
+i mapy PASS. Wewnętrzny review Codex zamknął dwie P1 po jednej rundzie
+poprawek; raport zachowuje pierwotne REVISE. TASK-0986 jest w realizacji,
+0987 oczekuje na zależność i pomiar15000.
+Nie wykonano końcowego audytu krzyżowego ani fizycznego odbioru operatora.
+
 ## Przypisanie modeli do zadań
 
 Wykonawcy potwierdzeni w narzędziach sesji. Review Claude pozostaje warunkowe:

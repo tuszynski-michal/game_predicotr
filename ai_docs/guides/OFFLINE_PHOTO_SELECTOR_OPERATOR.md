@@ -216,8 +216,18 @@ zamknięciem lub zmianą projektu. Decyzje i kursor nie korzystają z debounce.
 
 Idempotencja warstwy natywnej dotyczy ponowienia tego samego operationId.
 Nowe kliknięcie w interfejsie tworzy nowy identyfikator i nie jest ponowieniem
-utraconej odpowiedzi. Projekt zachowuje historię receiptów, także nawigacji;
-rozmiar stanu i koszt jego zapisu rosną z inwentarzem i historią operacji.
+utraconej odpowiedzi. Projekt zachowuje całą historię potwierdzeń, także nawigacji.
+Nowy format dyskowy zapisuje inwentarz raz oraz dopisuje operacje do dwóch
+zgodnych dzienników. Nie przepisuje całego inwentarza i historii na każdy krok.
+Rozmiar dziennika i pamięć nadal rosną z liczbą operacji; otwarcie sprawdza
+całą historię, a manifest wynikowy rośnie z liczbą decyzji.
+
+Otwarcie starszego projektu wykonuje odzyskiwanie i automatyczną migrację
+pod jego blokadą. Migracja zachowuje decyzje, kursor, wyniki i dawne
+potwierdzenia operacji. Po migracji stara aplikacja odmawia zapisu tego
+projektu. Przed aktualizacją zachować cały folder projektu i wyniku; do
+kontynuacji używać nowej wersji. Wszystkie pliki folderu projektu są częścią
+kopii zapasowej, również pliki inwentarza i dzienników.
 Nie obiecujemy odporności na awarię dysku ani zanik zasilania.
 
 ## Aktualizacja, kopia i diagnostyka

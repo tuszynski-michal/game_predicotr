@@ -162,14 +162,23 @@ plik blokuje zapis/cofnięcie. Restart wymaga preview i świadomego potwierdzeni
 Program zatrzymuje nowe decyzje. Nie używać restartu, pustego folderu wyniku
 ani ręcznej edycji projektu lub manifestu do obejścia błędu.
 
-1. Zamknąć program i zachować kopię folderu projektu oraz obecnego wyniku.
-2. Odszukać kopię zapasową dokładnie brakującego `seq_<start>-<end>.jpg`
-   z tej samej decyzji. Przywrócić ją pod pierwotną nazwą do folderu wyniku,
-   wyłącznie gdy plik nadal jest nieobecny. Nie zastępować istniejącego pliku.
-3. Otworzyć projekt i użyć `Wznów po naprawie`, jeśli zapis nadal jest
-   zatrzymany. Program sprawdza SHA-256; niezgodna kopia nie odblokuje pracy.
-4. Jeżeli brak zgodnej kopii, zachować dane i logi do diagnostyki operatora.
-   W tym wydaniu nie ma automatycznego odtworzenia ze źródła.
+1. Zamknąć program i zachować kopię całego folderu projektu oraz obecnego wyniku.
+2. W manifeście `manual-image-selection-output-v1.json` znaleźć zaakceptowaną
+   decyzję, której `outputName` odpowiada brakującemu `seq_<start>-<end>.jpg`.
+   Odczytać jej `imagePath` oraz `imageChecksumSha256`. `imagePath` jest
+   względną ścieżką oryginalnego JPEG-a w źródle; uwzględnić podkatalogi.
+3. Użyć zgodnej kopii brakującego wyniku albo dokładnie oryginalnego JPEG-a
+   wskazanego przez `decisions[].imagePath`. Przed kopiowaniem porównać jego
+   SHA-256 z `imageChecksumSha256`, np. przez `Get-FileHash -Algorithm SHA256`.
+   Kopiować tylko przy identycznej sumie, bez ponownego zapisu lub konwersji
+   zdjęcia. Nie wystarczy podobny obraz ani zgodna nazwa.
+4. Przywrócić te same bajty pod `outputName` do folderu wyniku, wyłącznie
+   gdy plik nadal jest nieobecny. Nie zastępować istniejącego pliku i nie
+   edytować projektu ani manifestu.
+5. Otworzyć projekt i użyć `Wznów po naprawie`, jeśli zapis nadal jest
+   zatrzymany. Program ponownie sprawdza SHA-256; niezgodna kopia nie
+   odblokuje pracy. Jeśli brak potwierdzonego oryginału/kopii, zachować dane
+   i logi do diagnostyki operatora. Automatycznego odtworzenia z UI nie ma.
 
 Gdy przeniesiono cały wynik, wskazać zgodny folder przez `Wskaż ponownie wynik`.
 Obce pliki, również `desktop.ini` lub `Thumbs.db`, blokują zapis. Nie usuwać ich

@@ -70,6 +70,13 @@ Windows11 x64. The recipient extracts the entire ZIP and runs
 selected JPEGs locally. It does not need the host, internet, developer Node.js,
 Python, Docker or the main application's services. There is no upload or link
 sharing. Keep active projects and outputs outside synchronized/network folders.
+Choose only the source folder and a game label. The app creates sibling project
+and selected-photo folders automatically; selecting the source again or using
+the recent-project dropdown resumes its saved cursor and numbering direction.
+Compact mirrored project storage preserves confirmed decisions and old retry IDs
+without rewriting the full inventory for each key press. Keep the entire project
+folder in backups; after migration continue with the new application version.
+
 Compatible operator-local v1/v2 sessions can be previewed and adopted into new
 project/output folders after source and JPEG checksum verification; originals
 remain unchanged. Missing evidence or incompatible histories block adoption.
@@ -88,7 +95,9 @@ acceptance on the actual recipient's computer is pending; a Windows security
 block stops acceptance.
 
 See the [operator guide](ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md),
-[execution plan](ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md) and
+[execution plan](ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md),
+[finalization plan](ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md),
+[final verification](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md),
 [acceptance record](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) and
 [implementation handoff](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_HANDOFF.md) for
 verified commands, project recovery, updates and remaining acceptance evidence.

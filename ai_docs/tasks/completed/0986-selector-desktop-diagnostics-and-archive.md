@@ -160,8 +160,9 @@ pozostają odroczone zgodnie z D-545. Bez usług operatora lub jego danych.
 ### Documentation updates
 
 Architektura i instrukcja opisują retry/failclosed oraz zachowanie logów.
-Plan i CURRENT_STATE otrzymały wynik. Pełny hash commita tego taska zostanie
-dopisany po commicie w kolejnym commicie/tasku.
+Plan i CURRENT_STATE otrzymały wynik. Commit wykonania: v1.7.336 /
+`c43434c28d49597407072f9636c7c07d1c3622b8`. Zapis hash w kolejnym
+commicie/tasku zgodnie z procesem.
 
 ### Recommended next task
 

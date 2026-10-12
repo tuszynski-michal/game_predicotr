@@ -109,11 +109,11 @@ jednokierunkową zgodną migracją do nowej aplikacji; stara musi odmówić zapi
 
 ### Changed
 
-Do uzupełnienia po wykonaniu.
+W toku: wersja0.1.3 i lockfile bez zmiany zależności; odtwarzalny pomiar15000 w dwóch wersjach; update smoke sprawdza rzeczywisty starszy EXE na migrowanym projekcie oraz niezmienione bajty/mtime. Finalny release i komplet smoke pozostają do wykonania.
 
 ### Verification results
 
-Do uzupełnienia po wykonaniu; planowane komendy nie są wynikiem PASS.
+Wykonano pełny desktop262/262 PASS (110,837 s, limit120 s), core110/110 PASS (2,132 s,60 s), zgodność operator-local Reviewera16/16 PASS (0,160 s,60 s), desktop lint/typecheck PASS (60 s). Kontrolowany pomiar15000 zakończony: NAV p50/p95 95,08/106,66 ms zamiast918,79/979,36 ms; zero dodatkowych warm worker spawns; wszystkie oryginalne SHA/size/mtime bez zmian. Szczegóły i ograniczenia: quality/OFFLINE_PHOTO_SELECTOR_MEASUREMENT_20261012.md. Pierwszy Prettier nowych skryptów wskazał measure-selector.mjs; poprawka formatowania przed commitem. Finalny ZIP, release i smoke nie są jeszcze wynikami PASS.
 
 ### Not completed
 

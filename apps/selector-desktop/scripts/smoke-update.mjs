@@ -21,11 +21,12 @@ const fixture = await mkdtemp(path.join(tempRoot, 'update-smoke-'));
 const source = path.join(fixture, 'source');
 const oldUserData = path.join(fixture, 'old-user-data');
 const newUserData = path.join(fixture, 'new-user-data');
+const oldReaderUserData = path.join(fixture, 'old-reader-user-data');
 const smoke = createOwnedSmoke({
   name: 'smoke-update',
   fixture,
   tempRoot,
-  userData: [oldUserData, newUserData],
+  userData: [oldUserData, newUserData, oldReaderUserData],
 });
 let application;
 let page;
@@ -327,6 +328,38 @@ try {
       photoHash,
     );
     await close();
+    // Exercise the genuine historical reader against our migrated copy only.
+    // Include every authoritative file and its mtime; a transient reader lock
+    // must be released before comparison and cannot hide any data mutation.
+    for (const file of [
+      'selector-project-v1.json',
+      'selector-project-v1.backup.json',
+    ]) {
+      assert.equal(
+        JSON.parse(await readFile(path.join(copiedProject, file), 'utf8')).value
+          .schemaVersion,
+        2,
+      );
+    }
+    const migratedFiles = await Promise.all([
+      tree(copiedProject),
+      tree(copiedOutput),
+    ]);
+    await launch(programs[0], versions[0], oldReaderUserData);
+    await select(copiedProject);
+    // Both verified historical preload contracts expose open() without args.
+    const refused = await page.evaluate(() => window.selector.open());
+    assert.equal(refused.ok, false);
+    assert.equal(refused.error.code, 'UNSUPPORTED_PROJECT_SCHEMA');
+    await smoke.close(application);
+    application = null;
+    assert.deepEqual(
+      await Promise.all([tree(copiedProject), tree(copiedOutput)]),
+      migratedFiles,
+    );
+    console.log(
+      `PASS: historical EXE ${versions[0]} refuses migrated head2 with UNSUPPORTED_PROJECT_SCHEMA; project/output bytes and mtimes unchanged.`,
+    );
     assert.deepEqual(
       await Promise.all([tree(source), tree(project), tree(output)]),
       originals,

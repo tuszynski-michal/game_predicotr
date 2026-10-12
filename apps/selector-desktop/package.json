@@ -1,7 +1,7 @@
 {
   "name": "@game-predictor/selector-desktop",
   "productName": "Selektor zdjec",
-  "version": "0.1.6",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Local offline JPEG selection for Windows",

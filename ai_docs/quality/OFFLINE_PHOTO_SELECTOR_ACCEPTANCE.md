@@ -27,6 +27,21 @@ nie zastępują audytu operatora ani odbioru na komputerze odbiorcy; status
 rejestru pozostaje blocked. Paczka0.1.2-9ade6a85 jest tylko wcześniejszym
 buildem historycznym; nie używać jej jako finalnej.
 
+## Niezależny audyt paczki0.1.2 — runda2
+
+[Raport Claude przekazany przez operatora](OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md):
+PASS, brak otwartych P0/P1. Audytor potwierdził140/140 testów oraz sumy ZIP-a
+i app.asar wskazane powyżej. Full, shortcuts, legacy i UX smoke PASS za
+pierwszym razem. Start i aktualizacja0.1.0→0.1.2: pierwszy przebieg FAIL,
+powtórka PASS; przyczyna nieustalona, otwarte P2-E. Nie raportujemy pełnej
+powtarzalności tych scenariuszy.
+
+Otwarte P2-A–P2-E obejmują martwy wpis historii, koszt dużych partii,
+auto-repeat klawiszy decyzji, komunikaty obcych folderów i diagnostykę smoke.
+Audytor zaleca rozstrzygnięcie P2-A/P2-B przed przekazaniem odbiorcy.
+Wskazane P3 pozostają w raporcie. PASS audytu nie zamyka odbioru0979 ani
+nie stanowi decyzji operatora o akceptacji nowych ryzyk.
+
 ## Poprawiona paczka 0.1.1
 
 Paczka z commitów0980–0982, przygotowana do ponownego audytu operatora:
@@ -105,15 +120,16 @@ Uzupełnić status i konkretny dowód. Nie wpisywać PASS na podstawie testu age
 | JPEG-i zgodne bajtowo, zwykły folder wynikowy i manifest v2 | PENDING | — |
 | Projekt i aktywny wynik poza synchronizacją/udziałem; przekazano tylko gotowy wynik | PENDING | — |
 
-## Audyt implementacji — 2026-10-12
+## Historyczny audyt implementacji0.1.0 — 2026-10-12
 
 [Audyt operatora Claude](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md)
-ma werdykt REVISE. Potwierdza109/109 testów i sumy obecnej paczki, ale
-P1-1 (opóźnienia interakcji) oczekuje ponownej oceny operatora przed przekazaniem.
+ma werdykt REVISE. Potwierdza109/109 testów i sumy historycznej paczki0.1.0.
+P1-1 ponownie oceniono w rundzie2: zamknięty dla zmierzonej części,
+koszt dużego inwentarza pozostaje P2-B.
 P2-1 i P2-3 mają poprawki0980/0981 oraz regresje backendu i ZIP-a.
 Instrukcja opisuje odtworzenie brakującego JPEG-a z kopii; pełny SHA open
 i rosnąca historia pozostają jawnymi ograniczeniami. Raport operatora pozostaje bez zmian.
-Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md) opisują wykonanie oraz pozostawione ograniczenia. ZIP0.1.1 i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii PASS0982. Ponowny audyt operatora jeszcze nie został wykonany.
+Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md) opisują wykonanie oraz pozostawione ograniczenia. ZIP0.1.1 i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii PASS0982. Bieżący raport całego zakresu i ZIP0.1.2 wskazano powyżej.
 
 ## Warunek zakończenia
 

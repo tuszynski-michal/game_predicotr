@@ -1,7 +1,7 @@
 ---
 title: Pilotaż i odbiór wydania
 status: blocked
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # TASK-0979 — Pilotaż i odbiór wydania
@@ -46,6 +46,8 @@ modelu/reasoning niejawnie. Wyjątek operatora: bez audytu przed każdym commite
 - ai_docs/architecture/REMOTE_MANUAL_IMAGE_SELECTION.md — obowiązująca sekcja operator-local
 - ai_docs/architecture/CODE_MAP.md
 - ai_docs/guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md
+- ai_docs/quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md
+- ai_docs/quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md
 
 ## Scope
 
@@ -110,6 +112,27 @@ Po zmianie modułów/symboli zregenerować mapę, potem sprawdzić code-map:chec
 Drugi komputer i reboot są zależnością operatora. Nie kończ taska jako done, gdy pozostają kryteria fizycznego odbioru; zapisz gotową paczkę i blocker.
 
 ## Outcome
+
+### Current acceptance target — 2026-10-12
+
+Bieżący przedmiot odbioru to ZIP0.1.2:
+`apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
+Source commit v1.7.329 /`c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f`;
+149402003 bajtów, SHA-256
+`9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27`.
+Pełne metadane i otwarte kryteria fizycznego odbioru są w rejestrze acceptance.
+Poniższe dane0.1.0 pozostają historycznymi dowodami, nie paczką do nowego odbioru.
+
+Brief audytu zapisano w commicie v1.7.331 /
+`150359c863275ad2e427bf041a6758d049a5f768`; raport obejmuje tę rewizję
+dokumentacji i kod paczki v1.7.329.
+Operator przekazał niezależny raport Claude rundy2: PASS bez P0/P1;
+140/140 testów i sumy finalnego ZIP-a/app.asar potwierdzone. Cztery warianty
+smoke PASS za pierwszym razem; start oraz aktualizacja0.1.0→0.1.2 FAIL
+za pierwszym razem, PASS po powtórce, bez wyjaśnionej przyczyny (P2-E).
+Otwarte P2-A–P2-E oraz P3-A–P3-E pozostają w raporcie. Nie uznajemy ich za
+naprawione ani nowych ryzyk za zaakceptowane przez operatora.
+Task nadal blocked: brak fizycznego odbioru na komputerze odbiorcy.
 
 ### Changed
 

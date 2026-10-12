@@ -23,13 +23,13 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS. Końcowy audyt operatora i odbiór0979 osobno.
+- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
-- **Brief audytu selektora:** na prośbę operatora przygotowano `quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md` dla Claude Code. Pełny zakres0975–0983, poprzedni REVISE, testy z timeoutami i finalny ZIP0.1.2; nie uruchomiono audytu ani nie zmieniono statusu odbioru0979.
+- **Brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_CLAUDE_AUDIT_BRIEF_20261012.md`, commit v1.7.331 /`150359c863275ad2e427bf041a6758d049a5f768`. Pełny zakres0975–0983, poprzedni REVISE, testy z timeoutami i finalny ZIP0.1.2. Podczas przygotowania briefu nie uruchomiono audytu; operator później przekazał raport rundy2. Odbiór0979 pozostaje blocked.
 
-- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
+- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt rundy2 PASS; fizyczny odbiór0979 osobno.
 
-- **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień z oryginalnego raportu oczekuje ponownej oceny operatora przed przekazaniem. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawki0980–0982 wykonane,130 testów tej rundy i wszystkie smokes ZIP0.1.1 PASS. Ponowna ocena P1 należy do operatora; pełne SHA i rosnąca historia pozostają jawnym ograniczeniem. Fizyczny odbiór0979 nadal blocked.
+- **Selektor Windows / audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, werdykt PASS bez P0/P1.140/140 testów, lint/typecheck/docs/mapy i sumy finalnego ZIP0.1.2 potwierdzone przez audytora. Full/shortcuts/legacy/UX PASS; start/update FAIL za pierwszym razem i PASS po powtórce, przyczyna nieustalona (P2-E). P1 opóźnień zamknięty w części zmierzonej; koszt dużych partii pozostaje P2-B. P2-A–P2-E i P3-A–P3-E otwarte, bez automatycznej akceptacji ryzyk. Pierwotny REVISE zachowany. Kod/paczka bez zmian; fizyczny odbiór0979 nadal blocked.
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
@@ -184,7 +184,8 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 - Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
 - Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Historyczny build sprzed0978. Finalny ZIP0.1.0 zachowano w out/releases/pilot-0.1.0-abe8e645,149397136 bajtów, SHA `2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`; sourceCommitabe8e645, dirty=true od docs/applicationSourceDirty=false. Release i trzy smoke rozpakowanej kopii PASS.
-- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy. Końcowy audyt operatora oczekuje osobno. TASK-0982 sprawdził realną zmianę0.1.0→0.1.1 na własnej kopii; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
+- Bieżący przedmiot odbioru: ZIP0.1.2 z c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f, out/releases/pilot-0.1.2-c4181f7d; niezależny audyt rundy2 PASS z otwartymi P2/P3. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md.
+- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy. TASK-0983 i audyt sprawdziły realną zmianę0.1.0→0.1.2 na własnej kopii; nie zalicza fizycznego odbioru. Pierwsze błędy start/update pozostają P2-E. Niepodpisany pilot, ochrona pozostaje włączona.0978 jest już done.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -868,7 +869,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Jeden picker zdjęć, automatyczne sibling folders, gameName w schema1 i dropdown10 projektów. Auto-resume sprawdza source/id pod lockiem przed recovery; cache loss/stare projekty/konflikty bez resetu. Po relink historia wskazuje nowy sourceRoot.
 -122 unikalne testy PASS; lint/typecheck/format/docs/mapy PASS. Sześć realnych smoke finalnego ZIP, oba kierunki po procesie, moved-source reselect i aktualizacja0.1.0→0.1.2 PASS. Screenshots formularza/historii obejrzane.
 - ZIP0.1.2 w out/releases/pilot-0.1.2-c4181f7d, 149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27; dirty=false/applicationSourceDirty=false. Starsze paczki i oryginalny audyt REVISE zachowane z identycznymi sumami.
-- Dowody: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Audyt końcowy operatora i fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, benchmarków, push/merge i transferu.
+- Dowody wykonawcy: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Późniejszy audyt operatora quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md: PASS,140 testów, otwarte P2/P3 i niewyjaśnione pierwsze błędy dwóch smoke. Fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, push/merge i transferu.
 
 ### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
 

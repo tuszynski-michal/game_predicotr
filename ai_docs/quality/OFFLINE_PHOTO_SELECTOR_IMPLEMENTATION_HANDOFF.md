@@ -14,6 +14,21 @@ Gotowe zlecenie pełnego przeglądu dla operatora:
 Obejmuje wszystkie taski selektora, odpowiedzi na wcześniejszy REVISE,
 nowy start0983 i finalną paczkę0.1.2. Audytu nie uruchomiono przy przygotowaniu briefu.
 
+## Wynik ponownego audytu operatora — runda 2
+
+[Raport Claude](OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md) ma werdykt
+PASS, bez otwartych P0/P1. Operator przekazał raport obejmujący kod paczki
+c4181f7d oraz dokumentację do v1.7.331. Audytor potwierdził140/140 testów,
+kontrole jakości i sumy ZIP0.1.2/app.asar. Full, shortcuts, legacy i UX
+smoke przeszły za pierwszym razem; start i update przeszły po powtórzeniu.
+Przyczyna ich pierwszych błędów pozostaje nieustalona (P2-E).
+
+P1-1 zamknięto w części zmierzonej; liniowy koszt większego inwentarza
+pozostaje ograniczeniem P2-B. Około1 s przy15000 zdjęć jest ekstrapolacją,
+nie pomiarem. Otwarte są P2-A–P2-E i P3-A–P3-E z raportu. Nie są tutaj
+oznaczone jako naprawione ani zaakceptowane przez operatora. Fizyczny odbiór
+TASK-0979 pozostaje blocked. Pierwotny REVISE zachowano bez zmian.
+
 ## Aktualne przekazanie0983
 
 Najświeższy ZIP0.1.2: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
@@ -21,8 +36,9 @@ Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f i v1.7.329 /
 c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f. Przyrost do audytu0983 zaczyna się od
 c32fa802597ecaeb3d9ad0b4d15466a730e6bb70. [Dowody startu i wznowienia](OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md)
 zawierają122 testy i sześć smoke PASS. GameName/schema1, source-first IPC,
-lookup pod lockiem i odświeżenie historii po relink wymagają review operatora.
-Oryginalny REVISE pozostaje zachowany; własne testy go nie zmieniają.
+lookup pod lockiem i odświeżenie historii po relink objęto rundą2 audytu.
+Oryginalny REVISE pozostaje zachowany jako historyczny raport; bieżący
+werdykt niezależnego audytora to PASS z otwartymi uwagami niższej ważności.
 
 ## Zakres kodu
 
@@ -89,15 +105,15 @@ Docs:check i code-map:check PASS. Pełne grupy, komendy i ograniczenia zapisano
 w Outcome tasków. Końcowy smoke sprawdził nowy proces, backup/relink,
 relokację tej samej wersji programu oraz legacy preview/anulowanie/import.
 
-## Wynik audytu operatora
+## Pierwszy audyt operatora — stan przed rundą 2
 
 [Raport Claude2026-10-12](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md):
-REVISE. Testy109/109, lint/typecheck/docs/mapy i sumy paczki potwierdzone
-przez operatora. Ponowna ocena P1-1 należy do operatora przed przekazaniem pilotażu. Znaleziska i
+REVISE dla historycznej paczki0.1.0. Testy109/109, lint/typecheck/docs/mapy i sumy paczki potwierdzone
+przez operatora. Znaleziska i
 oryginalny raport pozostają niezmienione. Poprawki0980/0981 są w commitach
 v1.7.324 i v1.7.325, ich testy PASS opisują [dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md).
 Paczka0.1.1 i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii PASS0982;
-ponowny audyt operatora pending.
+ponowny audyt całego zakresu zakończono raportem rundy2 wskazanym powyżej.
 
 ## Zakres ponownego audytu
 

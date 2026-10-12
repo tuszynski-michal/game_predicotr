@@ -8,13 +8,15 @@ last_updated: 2026-10-12
 
 ## Lokalny selektor Windows — D-545, zaakceptowana architektura
 
-Runda poprawek2026-10-12 jest w realizacji: [plan0980–0982](../delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md).
+Runda poprawek2026-10-12 została wykonana w kodzie i lokalnych testach: [plan0980–0982](../delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md).
 Przyjęto jeden ukryty, kontrolowany worker natywnych kontroli z typed JSONL;
 kontrole pozostają świeże. Zweryfikowany indeks źródła jest przekazywany
 wewnątrz native z ułamkowym mtimeMs, nie odtwarzany tylko z zapisanych metadanych.
 Nie zmieniamy ProjectState1/journal1/2 ani retencji receiptów. NAV nadal
 zapisuje pełny stan trwale; jego koszt rośnie z inventory/historią. Pełne SHA
-wyniku przy open/recovery zostają. Te reguły nie są jeszcze dowodem poprawki.
+wyniku przy open/recovery zostają. Dowody130 testów, ZIP0.1.1 i aktualizacji
+są w raporcie quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md;
+ponowny audyt i fizyczny odbiór należą do operatora.
 
 Nowy workspace `apps/selector-desktop` (Electron/React/TypeScript, Forge ZIP)
 ma zaimplementowane fundament0975, trwałość0976, interfejs0977 oraz przejęcie0978.

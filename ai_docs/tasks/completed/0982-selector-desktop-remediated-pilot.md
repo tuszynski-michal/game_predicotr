@@ -1,6 +1,6 @@
 ---
 title: Poprawiony pilotaż 0.1.1 i dowody odbioru
-status: in_progress
+status: done
 last_updated: 2026-10-12
 ---
 
@@ -8,11 +8,11 @@ last_updated: 2026-10-12
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
-Zbudować i sprawdzić ZIP0.1.1 z obu commitów poprawek oraz przekazać dowody operatorowi.
+Zbudować i sprawdzić ZIP 0.1.1 z obu commitów poprawek oraz przekazać dowody operatorowi.
 
 ## Context
 
@@ -65,12 +65,12 @@ resetowania błędnego projektu, usuwania obcych danych lub ślepego cache proof
 
 ## Acceptance criteria
 
-- [ ] ZIP0.1.1 ma SHA, prawdziwy sourceCommit i applicationSourceDirty=false.
-- [ ] Wszystkie smoke poprawionej paczki PASS, fixture/userData izolowane i procesy posprzątane.
-- [ ] Projekt kopii utworzony0.1.0 otwiera się0.1.1 z decyzjami/kur­sorem/JPEG zachowanymi.
-- [ ] Historyczny ZIP0.1.0 i jego sumy niezmienione.
-- [ ] Lista zamkniętych i otwartych uwag nie udaje werdyktu niezależnego audytu.
-- [ ] docs:check/code-map:check PASS; brak fizycznego odbioru nie jest raportowany jako PASS.
+- [x] ZIP 0.1.1 ma SHA, prawdziwy sourceCommit i applicationSourceDirty=false.
+- [x] Wszystkie smoke poprawionej paczki PASS, fixture/userData izolowane i procesy posprzątane.
+- [x] Projekt kopii utworzony0.1.0 otwiera się0.1.1 z decyzjami/kur­sorem/JPEG zachowanymi.
+- [x] Historyczny ZIP 0.1.0 i jego sumy niezmienione.
+- [x] Lista zamkniętych i otwartych uwag nie udaje werdyktu niezależnego audytu.
+- [x] docs:check/code-map:check PASS; brak fizycznego odbioru nie jest raportowany jako PASS.
 
 ## Technical notes
 
@@ -131,27 +131,47 @@ P3 nieznanego pustego recovery-lock pozostaje fail-closed do dowodu właściciel
 
 ### Changed
 
-Wersja aplikacji0.1.1 i wyłącznie zgodny wpis workspace version w lockfile,
-bez odświeżania zależności. smoke-release obsługuje warianty full/shortcuts/
-legacy/ux z weryfikacją tego samego ZIP-a. Nowy smoke-update uruchamia
-historyczne0.1.0, tworzy własny projekt, otwiera kopię w0.1.1, jawnie przepina
-kopię wyniku i sprawdza decyzje/kursor/SHA w nowym procesie. Oryginalny
-fixture source/project/output musi pozostać niezmieniony.
+Wersja aplikacji 0.1.1 i zgodny wpis workspace version w lockfile, bez zmian
+zależności. Warianty smoke-release sprawdzają full/shortcuts/legacy/ux z tego
+samego ZIP-a. smoke-update sprawdza rzeczywiste programy 0.1.0 i 0.1.1 na
+izolowanej kopii projektu, z jawnym przepięciem kopii wyniku. Oryginalne
+fixture source/project/output pozostają niezmienione.
 
-Kod wydania commitowany przed finalnym buildem w celu prawdziwego provenance:
-v1.7.326; hash zostanie dopisany po commicie. Task pozostaje in_progress do
-wykonania nowego release i odbioru lokalnego.
+Commit źródeł wydania: v1.7.326 /
+ede94bdcb3ad1cac5838f524b604423bec81b69f. Finalny zapis dowodów i poprawki
+harnessu w v1.7.327 nie zmienia runtime ani ZIP-a.
+
+Paczka zachowana w apps/selector-desktop/out/releases/pilot-0.1.1-ede94bdc:
+Selektor zdjec-win32-x64-0.1.1.zip, 149400221 bajtów. Sąsiadujące .sha256 i
+.release.json zachowano bajtowo. ZIP SHA-256:
+fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023.
+app.asar SHA-256:
+9c3d0c6bb46ac262106c1cf1e8c5181971045ee4ebafdf0d0bfcb957bd17adc8.
+dirty=false, applicationSourceDirty=false. BuiltAt2026-10-12T09:43:02.413Z,
+releasedAt2026-10-12T09:43:25.794Z. Historyczne oba ZIP-y 0.1.0 zachowały SHA.
 
 ### Verification results
 
-test:release2/2 PASS, globalny lint i typecheck desktopu PASS, format/diff
-PASS. Bounded120s dla testów,45s lint/typecheck. Warianty końcowego ZIP-a
-oraz rzeczywista aktualizacja zostaną wykonane po commicie źródeł.
-Logi dotychczasowe: apps/selector-desktop/.tmp/0982-{test-release,lint,
-typecheck,format}.log. Testy backendu124 i UI4 są aktualne z0980/0981;
-nie powtarzamy ich bez zmiany modułów. docs:check/code-map:check PASS.
+test:release 2/2, globalny lint/typecheck, format i diff PASS. Release
+około 24 s; full smoke 18 s, shortcuts/source-relink 12 s, legacy 12 s, UX 12 s i
+rzeczywista aktualizacja 35 s PASS. Czasy przybliżone według logów; każdy
+build/smoke ma rzeczywisty timeout 120 s. Unit/lint/typecheck bounded 30 s.
+Aktualizacja zachowuje projectId, decyzje, kursor oraz SHA seq_1-9.jpg.
+Po jawnym relink kopii wyniku nowa decyzja seq_19-27.jpg ma zgodne bajty
+i przetrwała nowy proces. SHA/size/mtime oryginalnych fixture są identyczne.
+Nie pozostały własne osierocone procesy. Kopia ZIP-a i metadane zweryfikowane.
 
-Komendy kolejnych kroków, każda bounded120s:
+Pierwszy smoke aktualizacji porównywał tymczasowy opaque UUID między
+procesami. Poprawiony wyłącznie harness porównuje ordinal, relativePath
+oraz zapisany currentRelativePath; nie osłabia dowodu kursora. Finalny test
+PASS. Poprawka testu po commicie326 nie wymagała zmiany runtime lub ZIP-a.
+
+Backend124 oraz UI 4 z0980/0981 pozostają aktualne; z release 2 łącznie130
+unikalnych testów tej rundy PASS. Nie powtarzano rdzenia/Reviewera bez zmiany
+ich modułów. docs:check/code-map:check i git diff --check PASS przy zamknięciu.
+Logi: apps/selector-desktop/.tmp/0982-*.log, w tym0982-smoke-update-final.log.
+
+Komendy z katalogu worktree, każda bounded 120 s:
 
 ```powershell
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
@@ -164,15 +184,19 @@ node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:update --wo
 
 ### Not completed
 
-Świeży release, smoke nowegoZIP-a, faktyczna zmiana wersji na własnej kopii,
-finalne SHA i przekazanie. Końcowy audyt oraz fizyczny odbiór0979 pozostają
-operacjami operatora; nie zostaną oznaczone PASS na podstawie testów agenta.
+Końcowy audyt i fizyczny odbiór0979: drugi komputer, rzeczywista dystrybucja,
+restart Windows i uruchomienie bez narzędzi deweloperskich wymagają operatora.
+Niepodpisany pilot; brak gwarancji identycznych bajtów przebudowy lub odporności
+na awarię dysku/zasilania. Pełne SHA open, rosnący journal/receipts,
+nieznany recovery guard, brak USB/automatycznego repair pozostają świadomymi
+ograniczeniami planu. Bez benchmarku, usług, danych operatora, push i merge.
 
 ### Documentation updates
 
-Przygotowane statusy i komendy; końcowy rejestr paczki i wyniki po wykonaniu.
-Bez usług operatora, danych użytkownika, push/merge i niezleconego audytu.
+Rejestr paczki, przekazanie, instrukcja, raport dowodów poprawek, plan,
+Outcome/CURRENT_STATE i mapy. Oryginalny audyt REVISE zachowano bez zmiany.
+To dowody wykonawcy, nie PASS niezależnego audytu.
 
 ### Recommended next task
 
-Dokończyć0982 po commicie źródeł; następnie audyt/odbiór operatora.
+Operator: audyt poprawionego zakresu i fizyczny odbiór TASK-0979.

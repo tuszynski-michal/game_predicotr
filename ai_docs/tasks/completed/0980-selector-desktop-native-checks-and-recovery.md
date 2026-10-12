@@ -152,10 +152,10 @@ mylący NETWORK_STORAGE dla lokalnego nośnika wymiennego.
 
 ### Verification results
 
-124 unikalne testy backendu PASS: native15, projekt48, legacy25,
-legacy recovery26, przerwania prawdziwego procesu3, foundation7.
-Każda grupa miała rzeczywisty timeout120s. Projekt48/48 trwał24,1s.
-Mały funkcjonalny fixture3JPEG: ciepły NAV88ms, preview15ms, accept133ms;
+124 unikalne testy backendu PASS: native 15, projekt 48, legacy 25,
+legacy recovery 26, przerwania prawdziwego procesu3, foundation 7.
+Każda grupa miała rzeczywisty timeout 120 s. Projekt48/48 trwał24,1s.
+Mały funkcjonalny fixture 3 JPEG: ciepły NAV88ms, preview15ms, accept133ms;
 liczba startów PowerShell nie rosła przy kolejnych operacjach. Jest to
 ograniczony dowód usunięcia narzutu startu, nie benchmark dużych partii.
 Testy obejmują crash/błędnyID/JSON/timeout/kolejkę/shutdown, reparse po scan,

@@ -137,7 +137,7 @@ P3 nieznanego pustego recovery-lock pozostaje fail-closed do dowodu właściciel
 
 Main oczekuje na szereg controller.close(), zapisuje diagnostykę, kończy
 własny worker i pozwala wyjść także po LOCK_LOST. Nie usuwa cudzych blokad.
-Preferencje widoku mają debounce250ms i wspólny pending Promise; flush
+Preferencje widoku mają debounce 250 ms i wspólny pending Promise; flush
 obejmuje zmianę projektu i zamknięcie. Decyzje nie czekają na każdy scroll,
 a odpowiedź mutacji nie nadpisuje nowszego widoku interfejsu.
 
@@ -149,19 +149,19 @@ unknown recovery guard, idempotencję tego samego operationId i ograniczenia.
 
 ### Verification results
 
-UI4/4 PASS, globalny typecheck i lint/format zmienionych modułów PASS.
+UI 4/4 PASS, globalny typecheck i lint/format zmienionych modułów PASS.
 Package wspólnego runtime PASS. Rzeczywisty EXE smoke-ux PASS (~7,5s):
 open verification, NAV, 50 zdarzeń scroll+accept, flush i wznowienie w nowym
 procesie, utrata locka oraz końcowy pending scroll tuż przed zamknięciem.
 Obca blokada pozostała bajtowo identyczna, log zawiera LOCK_LOST, cache
-zawiera ostatnie współrzędne po wyjściu. Unit burst50 daje jeden atomowy
+zawiera ostatnie współrzędne po wyjściu. Unit burst 50 daje jeden atomowy
 zapis ostatniego widoku. Anulowanie pickera zachowuje projekt; martwy kanał
 nie istnieje.
 
 Pierwszy przebieg smoke miał błąd założenia harnessu: scroll49 był48,8
 przy skali Windows. Test porównuje teraz ostatnią rzeczywistą wartość DOM
 z cache i wznowionym widokiem; runtime nie zmieniono dla tego błędu.
-Każdy krok bounded120s lub45s dla lint/typecheck. Komendy: test:ui,
+Każdy krok bounded 120 s lub45s dla lint/typecheck. Komendy: test:ui,
 package i smoke:ux przez run-bounded oraz scoped ESLint/Prettier.
 Logi w ignorowanym apps/selector-desktop/.tmp/0981-*.log, finalny wynik
 w0981-smoke-ux-final.log. docs:check/code-map:check/diff --check PASS.
@@ -182,5 +182,5 @@ v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
 
 ### Recommended next task
 
-TASK-0982 — świeży ZIP0.1.1, test aktualizacji0.1.0→0.1.1 oraz przekazanie
+TASK-0982 — świeży ZIP 0.1.1, test aktualizacji0.1.0→0.1.1 oraz przekazanie
 operatorowi do końcowego audytu i fizycznego odbioru.

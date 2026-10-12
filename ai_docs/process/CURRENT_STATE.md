@@ -23,9 +23,9 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
+- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
 
-- **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień pozostaje otwarte i blokuje przekazanie. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawek jeszcze nie wykonano; fizyczny odbiór0979 nadal blocked.
+- **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień z oryginalnego raportu oczekuje ponownej oceny operatora przed przekazaniem. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawki0980–0982 wykonane,130 testów tej rundy i wszystkie smokes ZIP0.1.1 PASS. Ponowna ocena P1 należy do operatora; pełne SHA i rosnąca historia pozostają jawnym ograniczeniem. Fizyczny odbiór0979 nadal blocked.
 
 - **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
   koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
@@ -175,19 +175,12 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0982 — Poprawiony pilotaż0.1.1 i dowody odbioru (in_progress)
-
-- Plik: `ai_docs/tasks/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545.
-- Commity0980/0981 gotowe: a5ae9604 oraz892c34f1. Bump0.1.1 i test aktualizacji przed commitem źródeł wydania; finalny ZIP z prawdziwym sourceCommit i applicationSourceDirty=false, full/relink/legacy smoke oraz aktualizacja własnej kopii0.1.0→0.1.1.
-- Historyczny0.1.0 zachowany. Bez własnego PASS audytu, fizycznego odbioru0979, push/merge i usług operatora.
-
-
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
 - Plik: `ai_docs/tasks/0979-selector-desktop-release-acceptance.md`; D-545. Część implementacyjna gotowa, commit v1.7.321 / `60449f54d6b4cd08c041b86c294cc498b11efba4`.
 - Świeży release ZIP/SHA/metadata/app.asar, provenance, instrukcja i raport odbioru. Testy release2/2, lint/typecheck/format/make, full oraz source-relink smoke rozpakowanego EXE PASS.
 - Zachowany ZIP0.1.0 w out/releases/task-0979,149393535 bajtów, SHA `0e21b78a2fbaa79f57a9ad6504c5a071b678f933d0e624b7bb2d09adbcc0b108`; sourceCommit0121ce8f, dirty/applicationSourceDirty=true. Historyczny build sprzed0978. Finalny ZIP0.1.0 zachowano w out/releases/pilot-0.1.0-abe8e645,149397136 bajtów, SHA `2dcfe275cd7af44519c126272ad7df0e3354faed74366663ad7126480da21bea`; sourceCommitabe8e645, dirty=true od docs/applicationSourceDirty=false. Release i trzy smoke rozpakowanej kopii PASS.
-- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji do innej wersji. Końcowy audyt operatora oczekuje osobno. Agent sprawdził relokację tej samej wersji; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
+- Blocker: brak dowodów odbioru drugiego komputera/faktycznej dystrybucji/reboot/aktualizacji na komputerze odbiorcy. Końcowy audyt operatora oczekuje osobno. TASK-0982 sprawdził realną zmianę0.1.0→0.1.1 na własnej kopii; nie zalicza fizycznego odbioru. Niepodpisany pilot, ochrona pozostaje włączona.0978 może kontynuować.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -864,6 +857,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
+
+- Plik: `ai_docs/tasks/completed/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545. Commit źródeł v1.7.326 / ede94bdcb3ad1cac5838f524b604423bec81b69f; końcowe dowody i poprawka harnessu w v1.7.327.
+- ZIP0.1.1 w out/releases/pilot-0.1.1-ede94bdc, 149400221 bajtów, SHA fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023; app.asar9c3d0c6b..., dirty=false/applicationSourceDirty=false. Stare ZIP-y zachowane bez zmiany sum.
+- Release2/2, globalny lint/typecheck/format/release i full/shortcuts/source-relink/legacy/UX oraz real update0.1.0→0.1.1 PASS. Łącznie130 unikalnych testów tej rundy. Update kopii zachowuje decyzje/currentRelativePath/SHA starego JPEG-a; nowa decyzja przetrwała proces. Oryginalne fixture SHA/size/mtime bez zmian; własne procesy zamknięte.
+- Pierwszy smoke update porównywał opaque UUID między procesami; poprawiony tylko harness porównuje ordinal/relativePath i zapisany kursor. Runtime oraz finalZIP pozostają z326. Docs/mapy/diff PASS.
+- Dowody wykonawcy w quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md. Oryginalny audyt REVISE bez zmian; operator ponownie audytuje. Fizyczny odbiór0979 nadal blocked. Bez danych operatora/usług/benchmarku/push/merge.
+
 ### TASK-0981 — Obsługa błędów i płynny zapis widoku (done)
 
 - Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
@@ -936,27 +937,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Version v1.7.308; commit 41aa80584cd8564d6b6d4955a3bf95e3fd053935. Audyt Codex niedostępny
   (limit), do wykonania później.
 - Task: `ai_docs/tasks/completed/0954-disk-d-repository-handover.md`.
-
-### TASK-0955 — przeniesienie obrazu dysku Dockera na D (done)
-
-- B1 wykonany 2026-10-10 16:20–18:15 (D-540). Po etapie A′ (nowy zrzut
-  34,4 GB, kopia `Initial`, inwentaryzacja i bundle, checkout D na
-  v1.7.310): zatrzymane usługi C, kopia `Final` 102 wpisów z równymi
-  SHA-256, raport odniesienia, czyste wyłączenie PostgreSQL, Docker Desktop i
-  WSL zatrzymane, `docker_data.vhdx` (158,4 GB) skopiowany do backupu i do
-  `D:\docker\DockerDesktopWSL` (SHA-256 równe), `CustomWslDistroDir` ustawiony
-  w `settings-store.json` (kopia pliku zachowana), Docker używa dysku z D.
-- PostgreSQL z `D:\game_predicotr`: wolumen obecny, `0154`, raport po
-  przeniesieniu równy odniesieniu (różnica tylko `pg_internal.init` w
-  nieprawidłowej bazie testowej). Stary obraz na C nieużywany, do etapu C.
-- Audyt Codex (gpt-6.1-sol, high): REVISE, 1 P0, 5 P1, 1 P2; poprawki
-  dokumentacyjne (v1.7.307): wyjątek `pg_internal.init` zaakceptowany przez
-  leada, kontrole jobów/dzierżaw/akcji hosta z czasami, pilot V7 zmierzony
-  po fakcie (`0146`, 64/48 tabel), `DATABASE_MAINTENANCE.md` (obraz na D,
-  kolejność: sam PostgreSQL → porównanie → `db:up`), kryteria według bazy
-  A′. Druga runda: audyt Codex niedostępny (limit), do wykonania później.
-- Version v1.7.307; commit 4b96372c938a61f82c97a6398d13e0d63f787fb2.
-- Task: `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`.
 
 ## Archiwum
 

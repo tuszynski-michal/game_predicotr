@@ -10,7 +10,24 @@ To jest rejestr dowodów odbioru TASK-0979, nie raport audytu kodu.
 Operator zlecił audyt całego zakresu dopiero po pięciu taskach. Testy agentowe
 nie zastępują uruchomienia paczki otrzymanej przez odbiorcę.
 
-## Paczka
+## Poprawiona paczka 0.1.1
+
+Paczka z commitów0980–0982, przygotowana do ponownego audytu operatora:
+`apps/selector-desktop/out/releases/pilot-0.1.1-ede94bdc/Selektor zdjec-win32-x64-0.1.1.zip`.
+
+- Wersja0.1.1;149400221 bajtów.
+- ZIP SHA-256: `fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023`.
+- app.asar SHA-256: `9c3d0c6bb46ac262106c1cf1e8c5181971045ee4ebafdf0d0bfcb957bd17adc8`.
+- Source commit: `ede94bdcb3ad1cac5838f524b604423bec81b69f` (v1.7.326).
+- dirty=false, applicationSourceDirty=false.
+- BuiltAt2026-10-12T09:43:02.413Z; releasedAt2026-10-12T09:43:25.794Z.
+
+Full, shortcuts/source-relink, legacy i UX smoke oraz aktualizacja
+rzeczywistych ZIP-ów0.1.0→0.1.1 na własnej kopii PASS. Sąsiadujące `.sha256` i `.release.json` identyfikują tę paczkę.
+Odbiór na komputerze odbiorcy i ponowny audyt operatora pozostają pending.
+Starych paczek nie zastępujemy; poniższe dane są historycznym dowodem0.1.0.
+
+## Historyczne paczki i wyniki 0.1.0
 
 Końcowa paczka wszystkich pięciu tasków:
 `apps/selector-desktop/out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip`.
@@ -46,6 +63,8 @@ ma własną sumę. Odbiorca sprawdza konkretną przekazaną paczkę.
 | ZIP0979 i finalny ZIP po0978, SHA-256, rozpakowana kopia | PASS | release2/2 wcześniej; finalny release i trzy smoke tego samego ZIP-a; metadane powyżej |
 | Backup/restore oraz relokacja kopii programu | PASS0979 częściowy | smoke:release; symulacja aktualizacji tą samą wersją, bez fizycznego reboot/innej wersji |
 | Przejęcie starej sesji bez zmian oryginału | PASS0978 | Kontrakt25 i recovery29, packed EXE preview/import/nowy proces; Outcome0978 |
+| Poprawki po audycie i ZIP0.1.1 | PASS0980–0982 lokalny |130 testów, fresh worker/close/skipped/scroll, cztery warianty smoke końcowego ZIP-a |
+| Rzeczywista zmiana programu0.1.0→0.1.1 na własnej kopii | PASS0982 lokalny | Decyzje/currentRelativePath/SHA seq1-9 zachowane, nowa decyzja i kolejny proces; oryginalne SHA/size/mtime bez zmian |
 
 Test przeniesionego źródła i natywnego relink w nowym procesie również PASS0979.
 Oryginalne dane pozostają nienaruszone. Pierwszy timeout harnessu naprawiono;
@@ -73,11 +92,11 @@ Uzupełnić status i konkretny dowód. Nie wpisywać PASS na podstawie testu age
 
 [Audyt operatora Claude](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md)
 ma werdykt REVISE. Potwierdza109/109 testów i sumy obecnej paczki, ale
-P1-1 (opóźnienia interakcji) pozostaje otwarte i blokuje przekazanie pilotażu.
-P2-1 wymaga poprawki zamykania po utracie blokady; P2-3 wymaga przywrócenia
-semantyki Reviewera. Droga naprawy brakującego JPEG-a i koszt otwarcia
-zostaną rozstrzygnięte w rundzie poprawek. Raport operatora pozostaje bez zmian.
-Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md) opisują wykonanie oraz pozostawione ograniczenia. ZIP0.1.1 i test zmiany wersji są w toku0982. Ponowny audyt operatora jeszcze nie został wykonany.
+P1-1 (opóźnienia interakcji) oczekuje ponownej oceny operatora przed przekazaniem.
+P2-1 i P2-3 mają poprawki0980/0981 oraz regresje backendu i ZIP-a.
+Instrukcja opisuje odtworzenie brakującego JPEG-a z kopii; pełny SHA open
+i rosnąca historia pozostają jawnymi ograniczeniami. Raport operatora pozostaje bez zmian.
+Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md) opisują wykonanie oraz pozostawione ograniczenia. ZIP0.1.1 i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii PASS0982. Ponowny audyt operatora jeszcze nie został wykonany.
 
 ## Warunek zakończenia
 

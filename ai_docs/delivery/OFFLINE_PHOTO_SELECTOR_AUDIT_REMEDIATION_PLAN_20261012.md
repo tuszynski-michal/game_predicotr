@@ -71,7 +71,7 @@ odrębny. Baza rundy: d21f9f3ed6c5739f8fce7fac128cc59a8094330b.
    natywne kontrole, pojedynczy indeks, backend close i reguły zakresów.
 2. [TASK-0981](../tasks/completed/0981-selector-desktop-audit-ux.md):
    UI zamknięcia/weryfikacji, debounce, picker i procedury błędów.
-3. [TASK-0982](../tasks/0982-selector-desktop-remediated-pilot.md):
+3. [TASK-0982](../tasks/completed/0982-selector-desktop-remediated-pilot.md):
    nowy ZIP, zgodność aktualizacji, sumy i przekazanie do ponownego audytu.
 
 0980 i0981 mogą być kodowane równolegle z rozłącznym ownership plików;
@@ -99,6 +99,17 @@ docs:check i code-map:check obowiązkowe. Obce i zmienione pliki nadal blokują.
 | P2-4 |0980,0981|jeden skan, zachowany SHA, komunikat weryfikacji|
 | P3 scroll/picker/komunikaty |0981|ostatni widok/flush i aktywny podgląd|
 | Wydanie i audyt |0982|SHA/provenance, wersje0.1.0→0.1.1, lista uwag|
+
+## Wynik wykonania — 2026-10-12
+
+TASK-0980/0981/0982 zakończone w kodzie i lokalnych testach. Commity wykonania:
+v1.7.324 a5ae9604, v1.7.325 892c34f1, v1.7.326 ede94bdc. ZIP 0.1.1 ma
+applicationSourceDirty=false. 130 unikalnych testów PASS oraz full/shortcuts/
+source-relink/legacy/UX i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii.
+[Raport dowodów](../quality/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md)
+i [rejestr paczki](../quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) podają
+sumy, pełne hashe, komendy oraz ograniczenia. Końcowy audyt operatora i
+fizyczny odbiór0979 pozostają pending. Oryginalny werdykt REVISE bez zmian.
 
 ## Przypisanie modeli do zadań
 

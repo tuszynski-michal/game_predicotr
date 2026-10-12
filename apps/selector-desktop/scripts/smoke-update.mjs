@@ -62,6 +62,19 @@ async function snapshot() {
   assert.equal(result.ok, true);
   return result.value;
 }
+function cursor(value) {
+  const ordinal = value.source.images.findIndex(
+    (image) => image.id === value.currentImageId,
+  );
+  assert.ok(ordinal >= 0);
+  return { ordinal, relativePath: value.source.images[ordinal].relativePath };
+}
+async function persistedCursor(project) {
+  const envelope = JSON.parse(
+    await readFile(path.join(project, 'selector-project-v1.json'), 'utf8'),
+  );
+  return envelope.value.currentRelativePath;
+}
 async function waitState(predicate) {
   const deadline = Date.now() + 20000;
   do {
@@ -191,6 +204,9 @@ try {
   await close();
   const project = `${source} selekcja`;
   const output = `${source} wybrane`;
+  const oldCursor = cursor(old);
+  assert.deepEqual(oldCursor, { ordinal: 2, relativePath: 'photo3.jpg' });
+  assert.equal(await persistedCursor(project), oldCursor.relativePath);
   const oldAcceptedHash = await hashFile(path.join(output, 'seq_1-9.jpg'));
   const originals = await Promise.all([
     tree(source),
@@ -220,7 +236,8 @@ try {
   assert.equal(opened.acceptedCount, 1);
   assert.equal(opened.skippedCount, 1);
   assert.equal(opened.nextRangeStart, 19);
-  assert.equal(opened.currentImageId, old.currentImageId);
+  assert.deepEqual(cursor(opened), oldCursor);
+  assert.equal(await persistedCursor(copiedProject), oldCursor.relativePath);
   assert.equal(
     await hashFile(path.join(copiedOutput, 'seq_1-9.jpg')),
     oldAcceptedHash,
@@ -248,7 +265,8 @@ try {
   const continued = await snapshot();
   assert.equal(continued.acceptedCount, 2);
   assert.equal(continued.skippedCount, 1);
-  assert.equal(continued.currentImageId, old.currentImageId);
+  assert.deepEqual(cursor(continued), oldCursor);
+  assert.equal(await persistedCursor(copiedProject), oldCursor.relativePath);
   assert.equal(continued.nextRangeStart, 28);
   assert.equal(
     await hashFile(path.join(copiedOutput, 'seq_1-9.jpg')),

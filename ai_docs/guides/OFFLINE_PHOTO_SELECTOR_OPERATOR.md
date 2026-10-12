@@ -8,8 +8,9 @@ last_updated: 2026-10-12
 
 Gotowe są wszystkie pięć części implementacyjnych, w tym przejęcie0978.
 ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Audyt operatora
-2026-10-12 ma werdykt REVISE; trwa runda poprawek0980–0982 i przygotowanie0.1.1.
-Nie traktować starej paczki jako zatwierdzonego wydania. Rejestr odbioru
+2026-10-12 ma werdykt REVISE. Poprawki0980–0982 i paczka0.1.1 przeszły
+lokalne kontrole; ponowny audyt operatora pozostaje pending. Do tego audytu
+użyć paczki pilot-0.1.1-ede94bdc. Rejestr odbioru
 identyfikuje każdą paczkę i jej ograniczenia. Fizyczny odbiór nadal jest pending.
 
 ## Budowanie i kontrola programu
@@ -24,10 +25,16 @@ node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:project --wo
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:ui --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:legacy --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:legacy-recovery --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:legacy-process --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run test:release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:shortcuts --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:legacy --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:ux --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:update --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:packaged --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:ux --workspace @game-predictor/selector-desktop
 ```
@@ -45,8 +52,9 @@ Osadzone dane buildu pozwalają sprawdzić pochodzenie rozpakowanego programu.
 Powtarzalny workflow nie oznacza identycznych bajtów ZIP przy każdym buildzie;
 każdą paczkę identyfikuje jej własna suma. Artefakty są ignorowane przez Git.
 Smoke release sprawdza sumy i uruchamia EXE po rozpakowaniu do własnego katalogu.
-Przeniesienie tej samej wersji programu jest symulacją aktualizacji, nie
-fizycznym odbiorem instalacji innej wersji.
+TASK-0982 sprawdził rzeczywistą zmianę0.1.0→0.1.1 na własnej kopii projektu.
+Przeniesienie tej samej wersji pozostaje jedynie symulacją zmiany lokalizacji
+programu. Obie kontrole są lokalne; odbiór aktualizacji przez odbiorcę jest osobny.
 Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Uruchomienie i nowa partia

@@ -1,6 +1,6 @@
 ---
 title: Lokalny selektor Windows — przekazanie implementacji do audytu operatora
-status: changes_requested
+status: ready_for_review
 last_updated: 2026-10-12
 ---
 
@@ -25,13 +25,33 @@ Nie wykonano push, merge, migracji ani restartu usług operatora.
 |0977 interfejs|v1.7.320 /0121ce8f1bd3604977e1c60872da43a4110326d7|done|
 |0979 wydanie|v1.7.321 /60449f54d6b4cd08c041b86c294cc498b11efba4|kod i paczka gotowe, fizyczny odbiór blocked|
 |0978 stara sesja|v1.7.322 /abe8e645ad9afe0444a4cf4ddd4c521b3ea7ff17|done|
+|0980 natywne poprawki|v1.7.324 /a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1|done|
+|0981 UI poprawek|v1.7.325 /892c34f1f99bd54b0d8394919a389682a3d8891e|done|
+|0982 pilot0.1.1|v1.7.326 /ede94bdcb3ad1cac5838f524b604423bec81b69f|done lokalnie; audyt/odbiór operatora pending|
 
 Przygotowanie dokumentacji: v1.7.317 /e91b365cd02bf50ff914b1c4cda0b732432f8f3a.
 Każdy task ma osobny commit. Pełne wyniki i ograniczenia są w jego Outcome oraz
 CURRENT_STATE. Finalna paczka po0978 jest wskazana w rejestrze odbioru.
 Historyczny ZIP0979 zachowano w out/releases/task-0979; nie mylić obu buildów.
 
-## Finalna paczka i wyniki
+## Poprawiona paczka 0.1.1
+
+Paczka z commitów0980–0982, przygotowana do ponownego audytu operatora:
+`apps/selector-desktop/out/releases/pilot-0.1.1-ede94bdc/Selektor zdjec-win32-x64-0.1.1.zip`.
+
+- Wersja0.1.1;149400221 bajtów.
+- ZIP SHA-256: `fa1891d20f0348de2e89e4a66d5b4e849744ba148ae961c29e5997072512b023`.
+- app.asar SHA-256: `9c3d0c6bb46ac262106c1cf1e8c5181971045ee4ebafdf0d0bfcb957bd17adc8`.
+- Source commit: `ede94bdcb3ad1cac5838f524b604423bec81b69f` (v1.7.326).
+- dirty=false, applicationSourceDirty=false.
+- BuiltAt2026-10-12T09:43:02.413Z; releasedAt2026-10-12T09:43:25.794Z.
+
+Full, shortcuts/source-relink, legacy i UX smoke oraz aktualizacja
+rzeczywistych ZIP-ów0.1.0→0.1.1 na własnej kopii PASS. Sąsiadujące `.sha256` i `.release.json` identyfikują tę paczkę.
+Odbiór na komputerze odbiorcy i ponowny audyt operatora pozostają pending.
+Starych paczek nie zastępujemy; poniższe dane są historycznym dowodem0.1.0.
+
+## Historyczne paczki i wyniki 0.1.0
 
 Końcowa paczka wszystkich pięciu tasków:
 `apps/selector-desktop/out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip`.
@@ -58,10 +78,23 @@ relokację tej samej wersji programu oraz legacy preview/anulowanie/import.
 
 [Raport Claude2026-10-12](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md):
 REVISE. Testy109/109, lint/typecheck/docs/mapy i sumy paczki potwierdzone
-przez operatora. Otwarty P1-1 blokuje przekazanie pilotażu. Znaleziska i
+przez operatora. Ponowna ocena P1-1 należy do operatora przed przekazaniem pilotażu. Znaleziska i
 oryginalny raport pozostają niezmienione. Poprawki0980/0981 są w commitach
 v1.7.324 i v1.7.325, ich testy PASS opisują [dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md).
-Paczka0.1.1 i test zmiany wersji są w toku0982; ponowny audyt operatora pending.
+Paczka0.1.1 i rzeczywista aktualizacja0.1.0→0.1.1 na własnej kopii PASS0982;
+ponowny audyt operatora pending.
+
+## Zakres ponownego audytu
+
+Baza rundy poprawek: d21f9f3ed6c5739f8fce7fac128cc59a8094330b (v1.7.323).
+Porównać z końcem rundy v1.7.327. Pliki runtime to wyłącznie desktop;
+327 dopisuje dowody i poprawkę harnessu cursor UUID→relativePath/ordinal.
+Pełne metadane ZIP-a opisują runtime z326 i pozostają niezmienione.
+[Dowody poprawek](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md)
+mapują każde ustalenie, aktualne130 testów i pozostawione ograniczenia.
+W szczególności sprawdzić świeżość worker controls i jego awarie/lifecycle,
+proof pojedynczego scan, close obcego locka, skipped, missing JPEG i debounce.
+Nie kwalifikować małego fixture jako benchmarku15000 zdjęć.
 
 ## Punkty do sprawdzenia w końcowym audycie
 
@@ -83,9 +116,9 @@ Paczka0.1.1 i test zmiany wersji są w toku0982; ponowny audyt operatora pending
 
 [Rejestr odbioru](OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md) oddziela testy agentowe
 od dowodów operatora. Rzeczywisty drugi komputer, faktyczny kanał dystrybucji,
-Windows bez narzędzi deweloperskich, reboot, ochrona Windows i aktualizacja do
-innej wersji pozostają pending. Symulacja relokacji tej samej wersji nie jest
-odbiorem aktualizacji. Niepodpisany pilot nie ma gwarancji uruchomienia na
+Windows bez narzędzi deweloperskich, reboot, ochrona Windows i aktualizacja na komputerze odbiorcy pozostają pending.0982 sprawdził
+rzeczywistą zmianę0.1.0→0.1.1 na własnej kopii; nie zastępuje to odbioru
+aktualizacji przez odbiorcę. Niepodpisany pilot nie ma gwarancji uruchomienia na
 każdym komputerze; blokada ochrony wstrzymuje odbiór.
 
 Recovery sprawdzono dla awarii procesu. Nie obiecujemy odporności na zanik

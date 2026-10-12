@@ -6,6 +6,27 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0955 — przeniesienie obrazu dysku Dockera na D (done)
+
+- B1 wykonany 2026-10-10 16:20–18:15 (D-540). Po etapie A′ (nowy zrzut
+  34,4 GB, kopia `Initial`, inwentaryzacja i bundle, checkout D na
+  v1.7.310): zatrzymane usługi C, kopia `Final` 102 wpisów z równymi
+  SHA-256, raport odniesienia, czyste wyłączenie PostgreSQL, Docker Desktop i
+  WSL zatrzymane, `docker_data.vhdx` (158,4 GB) skopiowany do backupu i do
+  `D:\docker\DockerDesktopWSL` (SHA-256 równe), `CustomWslDistroDir` ustawiony
+  w `settings-store.json` (kopia pliku zachowana), Docker używa dysku z D.
+- PostgreSQL z `D:\game_predicotr`: wolumen obecny, `0154`, raport po
+  przeniesieniu równy odniesieniu (różnica tylko `pg_internal.init` w
+  nieprawidłowej bazie testowej). Stary obraz na C nieużywany, do etapu C.
+- Audyt Codex (gpt-6.1-sol, high): REVISE, 1 P0, 5 P1, 1 P2; poprawki
+  dokumentacyjne (v1.7.307): wyjątek `pg_internal.init` zaakceptowany przez
+  leada, kontrole jobów/dzierżaw/akcji hosta z czasami, pilot V7 zmierzony
+  po fakcie (`0146`, 64/48 tabel), `DATABASE_MAINTENANCE.md` (obraz na D,
+  kolejność: sam PostgreSQL → porównanie → `db:up`), kryteria według bazy
+  A′. Druga runda: audyt Codex niedostępny (limit), do wykonania później.
+- Version v1.7.307; commit 4b96372c938a61f82c97a6398d13e0d63f787fb2.
+- Task: `ai_docs/tasks/completed/0955-disk-d-database-cutover.md`.
+
 ### TASK-0953 — przyrostowa kopia katalogów danych na D (done)
 
 - Etap A (D-540). Nowy `scripts/sync_data_directories_to_d.ps1`

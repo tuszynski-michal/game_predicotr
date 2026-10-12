@@ -5,6 +5,18 @@ import assert from 'node:assert/strict';
 import { hashFile, removeOwnedTemp } from './release-support.mjs';
 
 const manifest = JSON.parse(await readFile('package.json', 'utf8'));
+const options = ['--shortcuts', '--legacy', '--ux'].filter((flag) =>
+  process.argv.includes(flag),
+);
+if (options.length > 1)
+  throw new Error('Choose only one release smoke variant');
+const variant = options[0] ?? '--full';
+const scripts = {
+  '--full': 'smoke-packaged.mjs',
+  '--shortcuts': 'smoke-shortcuts.mjs',
+  '--legacy': 'smoke-legacy.mjs',
+  '--ux': 'smoke-ux.mjs',
+};
 const archiveName = `${manifest.productName}-win32-x64-${manifest.version}.zip`;
 const archive = path.resolve('out/make/zip/win32/x64', archiveName);
 const metadata = JSON.parse(await readFile(`${archive}.release.json`, 'utf8'));
@@ -50,11 +62,9 @@ try {
     process.execPath,
     [
       'scripts/run-bounded.mjs',
-      process.argv.includes('--shortcuts') ? '60' : '110',
+      variant === '--shortcuts' ? '60' : '110',
       'node',
-      process.argv.includes('--shortcuts')
-        ? 'scripts/smoke-shortcuts.mjs'
-        : 'scripts/smoke-packaged.mjs',
+      `scripts/${scripts[variant]}`,
       path.join(program, 'Selektor-zdjec.exe'),
       '--relocate-program',
       `--release-metadata=${archive}.release.json`,
@@ -66,8 +76,8 @@ try {
     },
   );
   console.log(
-    process.argv.includes('--shortcuts')
-      ? 'PASS: verified final ZIP, extracted EXE and shortcut/source-relink checks.'
+    variant !== '--full'
+      ? `PASS: verified final ZIP, extracted EXE and ${variant.slice(2)} checks.`
       : 'PASS: verified final ZIP, extracted EXE, offline workflow, process restart, backup/restore and changed program location. Same-version update simulation; physical reboot/recipient acceptance pending.',
   );
 } finally {

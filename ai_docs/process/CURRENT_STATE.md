@@ -175,10 +175,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0982 — Poprawiony pilotaż0.1.1 i dowody odbioru (todo)
+### TASK-0982 — Poprawiony pilotaż0.1.1 i dowody odbioru (in_progress)
 
 - Plik: `ai_docs/tasks/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545.
-- Po commitach0980/0981: ZIP0.1.1, SHA/provenance i full/relink/legacy smoke oraz aktualizacja własnej kopii0.1.0→0.1.1.
+- Commity0980/0981 gotowe: a5ae9604 oraz892c34f1. Bump0.1.1 i test aktualizacji przed commitem źródeł wydania; finalny ZIP z prawdziwym sourceCommit i applicationSourceDirty=false, full/relink/legacy smoke oraz aktualizacja własnej kopii0.1.0→0.1.1.
 - Historyczny0.1.0 zachowany. Bez własnego PASS audytu, fizycznego odbioru0979, push/merge i usług operatora.
 
 
@@ -866,7 +866,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0981 — Obsługa błędów i płynny zapis widoku (done)
 
-- Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325; hash po commicie.
+- Plik: `ai_docs/tasks/completed/0981-selector-desktop-audit-ux.md`; plan poprawek2026-10-12, D-545. Commit v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
 - Close czeka na szereg i flush, loguje utratę locka, kończy własny worker i pozwala wyjść. Debounce250ms ostatniego widoku, decyzje bez kolejki scroll, usunięty pickSource, komunikat open/NAV i instrukcja brakującego JPEG-a.
 - UI4/4, lint/typecheck/format/package i real EXE smoke-ux PASS: burst50+accept, flush/reopen oraz pending scroll+close przy LOCK_LOST, obca blokada niezmieniona i diagnostyka zapisana. Pierwszy błąd harnessu scroll49 vs48,8 skorygowany do dokładnej wartości DOM; runtime bez tej zmiany.
 - Bez własnego PASS audytu, danych operatora, usług i push/merge. Nowy ZIP i aktualizacja innej wersji w0982; fizyczny odbiór0979 pozostaje blocked.

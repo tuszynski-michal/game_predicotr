@@ -1,6 +1,6 @@
 ---
 title: Poprawiony pilotaż 0.1.1 i dowody odbioru
-status: todo
+status: in_progress
 last_updated: 2026-10-12
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -131,20 +131,48 @@ P3 nieznanego pustego recovery-lock pozostaje fail-closed do dowodu właściciel
 
 ### Changed
 
-Do uzupełnienia po implementacji.
+Wersja aplikacji0.1.1 i wyłącznie zgodny wpis workspace version w lockfile,
+bez odświeżania zależności. smoke-release obsługuje warianty full/shortcuts/
+legacy/ux z weryfikacją tego samego ZIP-a. Nowy smoke-update uruchamia
+historyczne0.1.0, tworzy własny projekt, otwiera kopię w0.1.1, jawnie przepina
+kopię wyniku i sprawdza decyzje/kursor/SHA w nowym procesie. Oryginalny
+fixture source/project/output musi pozostać niezmieniony.
+
+Kod wydania commitowany przed finalnym buildem w celu prawdziwego provenance:
+v1.7.326; hash zostanie dopisany po commicie. Task pozostaje in_progress do
+wykonania nowego release i odbioru lokalnego.
 
 ### Verification results
 
-Testów tej rundy jeszcze nie wykonano.109/109 z audytu dotyczy poprzedniej paczki.
+test:release2/2 PASS, globalny lint i typecheck desktopu PASS, format/diff
+PASS. Bounded120s dla testów,45s lint/typecheck. Warianty końcowego ZIP-a
+oraz rzeczywista aktualizacja zostaną wykonane po commicie źródeł.
+Logi dotychczasowe: apps/selector-desktop/.tmp/0982-{test-release,lint,
+typecheck,format}.log. Testy backendu124 i UI4 są aktualne z0980/0981;
+nie powtarzamy ich bez zmiany modułów. docs:check/code-map:check PASS.
+
+Komendy kolejnych kroków, każda bounded120s:
+
+```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:shortcuts --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:legacy --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:ux --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:update --workspace @game-predictor/selector-desktop
+```
 
 ### Not completed
 
-Kryteria powyżej, końcowy audyt i fizyczny odbiór0979.
+Świeży release, smoke nowegoZIP-a, faktyczna zmiana wersji na własnej kopii,
+finalne SHA i przekazanie. Końcowy audyt oraz fizyczny odbiór0979 pozostają
+operacjami operatora; nie zostaną oznaczone PASS na podstawie testów agenta.
 
 ### Documentation updates
 
-Plan i task opisują zaakceptowany zamiar, nie wyniki implementacji.
+Przygotowane statusy i komendy; końcowy rejestr paczki i wyniki po wykonaniu.
+Bez usług operatora, danych użytkownika, push/merge i niezleconego audytu.
 
 ### Recommended next task
 
-Następny task według kolejności planu; po0982 audyt/odbiór operatora.
+Dokończyć0982 po commicie źródeł; następnie audyt/odbiór operatora.

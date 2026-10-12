@@ -32,7 +32,12 @@ Plik wejściowy pozostaje niezmieniony. Zakres i przyjęte ograniczenia opisuje
 
 ## Weryfikacja i paczka
 
-Wyniki końcowych grup regresji i ZIP0.1.1 zostaną wpisane po wykonaniu.
+Backend124/124 oraz UI4/4 PASS w tej rundzie. Lint/typecheck/format,
+package i smoke-ux rzeczywistego EXE PASS. docs:check/code-map:check i
+sprawdzenie whitespace Git PASS. Commity:0980 v1.7.324 /
+a5ae96049de1fb48a216d7ebaaf895a24cc1e6e1;0981 v1.7.325 /
+892c34f1f99bd54b0d8394919a389682a3d8891e.
+ZIP0.1.1 i test prawdziwej zmiany wersji zostaną wpisane po wykonaniu.
 Stare109/109 z audytu dotyczą0.1.0 i nie są testami tej rundy.
 Fizyczny odbiór TASK-0979, restart Windows na komputerze odbiorcy i końcowy
 audyt operatora pozostają pending.

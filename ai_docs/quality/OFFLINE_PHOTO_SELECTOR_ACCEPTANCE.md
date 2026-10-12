@@ -77,7 +77,7 @@ P1-1 (opóźnienia interakcji) pozostaje otwarte i blokuje przekazanie pilotażu
 P2-1 wymaga poprawki zamykania po utracie blokady; P2-3 wymaga przywrócenia
 semantyki Reviewera. Droga naprawy brakującego JPEG-a i koszt otwarcia
 zostaną rozstrzygnięte w rundzie poprawek. Raport operatora pozostaje bez zmian.
-Nie wykonano jeszcze poprawek ani ponownego audytu.
+Poprawki0980/0981 mają osobne commity i nowe testy. [Dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md) opisują wykonanie oraz pozostawione ograniczenia. ZIP0.1.1 i test zmiany wersji są w toku0982. Ponowny audyt operatora jeszcze nie został wykonany.
 
 ## Warunek zakończenia
 

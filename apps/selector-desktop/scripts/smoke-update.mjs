@@ -1,0 +1,273 @@
+import { _electron as electron } from 'playwright-core';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  writeFile,
+  cp,
+  readdir,
+  stat,
+} from 'node:fs/promises';
+import path from 'node:path';
+import { hashFile, removeOwnedTemp } from './release-support.mjs';
+
+const archives = [
+  path.resolve(
+    process.argv[2] ??
+      'out/releases/pilot-0.1.0-abe8e645/Selektor zdjec-win32-x64-0.1.0.zip',
+  ),
+  path.resolve(
+    process.argv[3] ??
+      'out/make/zip/win32/x64/Selektor zdjec-win32-x64-0.1.1.zip',
+  ),
+];
+const tempRoot = path.resolve('.tmp');
+await mkdir(tempRoot, { recursive: true });
+const fixture = await mkdtemp(path.join(tempRoot, 'update-smoke-'));
+const source = path.join(fixture, 'source');
+let application;
+let page;
+async function select(directory) {
+  await application.evaluate(({ dialog }, value) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [value],
+    });
+    dialog.showMessageBox = async () => ({
+      response: 1,
+      checkboxChecked: false,
+    });
+  }, directory);
+}
+async function launch(program, version, userData) {
+  application = await electron.launch({
+    executablePath: path.join(program, 'Selektor-zdjec.exe'),
+    args: [`--user-data-dir=${userData}`],
+    timeout: 20000,
+  });
+  assert.deepEqual(
+    await application.evaluate(({ app }) => [
+      app.getVersion(),
+      app.getPath('userData'),
+    ]),
+    [version, userData],
+  );
+  page = await application.firstWindow({ timeout: 20000 });
+  page.setDefaultTimeout(20000);
+}
+async function snapshot() {
+  const result = await page.evaluate(() => window.selector.snapshot());
+  assert.equal(result.ok, true);
+  return result.value;
+}
+async function waitState(predicate) {
+  const deadline = Date.now() + 20000;
+  do {
+    const value = await snapshot();
+    if (predicate(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  } while (Date.now() < deadline);
+  throw new Error('Update state did not settle');
+}
+async function imageReady() {
+  await page.waitForFunction(() => {
+    const image = document.querySelector('.preview img');
+    return image?.complete && image.naturalWidth === 800;
+  });
+}
+async function close() {
+  await page
+    .getByRole('button', { name: 'Zamknij projekt', exact: true })
+    .click();
+  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await application.close();
+  application = null;
+}
+async function tree(directory) {
+  const result = [];
+  async function walk(current) {
+    for (const entry of (await readdir(current, { withFileTypes: true })).sort(
+      (a, b) => a.name.localeCompare(b.name),
+    )) {
+      const file = path.join(current, entry.name);
+      assert.equal(entry.isSymbolicLink(), false);
+      if (entry.isDirectory()) await walk(file);
+      else {
+        const info = await stat(file);
+        result.push([
+          path.relative(directory, file),
+          info.size,
+          info.mtimeMs,
+          await hashFile(file),
+        ]);
+      }
+    }
+  }
+  await walk(directory);
+  return result;
+}
+try {
+  const programs = [];
+  for (const [index, archive] of archives.entries()) {
+    const metadata = JSON.parse(
+      await readFile(`${archive}.release.json`, 'utf8'),
+    );
+    assert.equal(metadata.applicationVersion, index === 0 ? '0.1.0' : '0.1.1');
+    assert.equal(metadata.applicationSourceDirty, false);
+    assert.equal(metadata.bytes, (await stat(archive)).size);
+    assert.equal(metadata.sha256, await hashFile(archive));
+    assert.equal(
+      await readFile(`${archive}.sha256`, 'utf8'),
+      `${metadata.sha256}  ${path.basename(archive)}\n`,
+    );
+    const program = path.join(fixture, `program-${index}`);
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Expand-Archive -LiteralPath $env:SELECTOR_ARCHIVE -DestinationPath $env:SELECTOR_PROGRAM -ErrorAction Stop',
+      ],
+      {
+        env: {
+          ...process.env,
+          SELECTOR_ARCHIVE: archive,
+          SELECTOR_PROGRAM: program,
+        },
+        timeout: 30000,
+        windowsHide: true,
+      },
+    );
+    assert.equal(
+      await hashFile(path.join(program, 'resources/app.asar')),
+      metadata.appAsarSha256,
+    );
+    programs.push(program);
+  }
+  await mkdir(source);
+  const oldUserData = path.join(fixture, 'old-user-data');
+  const newUserData = path.join(fixture, 'new-user-data');
+  await launch(programs[0], '0.1.0', oldUserData);
+  const jpeg = await application.evaluate(({ nativeImage }) =>
+    nativeImage
+      .createFromBitmap(Buffer.alloc(800 * 600 * 4, 180), {
+        width: 800,
+        height: 600,
+      })
+      .toJPEG(80)
+      .toString('base64'),
+  );
+  for (let index = 1; index <= 3; index++)
+    await writeFile(
+      path.join(source, `photo${index}.jpg`),
+      Buffer.from(jpeg, 'base64'),
+    );
+  await select(source);
+  await page.getByRole('button', { name: 'Nowy projekt', exact: true }).click();
+  await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
+  await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+  await page
+    .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
+    .click();
+  await imageReady();
+  await page
+    .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
+    .click();
+  await waitState((value) => value.acceptedCount === 1);
+  await page.locator('h1').click();
+  await page.keyboard.press('Tab');
+  await waitState((value) => value.skippedCount === 1);
+  await page.getByRole('button', { name: 'Następne', exact: true }).click();
+  const old = await waitState(
+    (value) =>
+      value.source.images.findIndex(
+        (image) => image.id === value.currentImageId,
+      ) === 2,
+  );
+  assert.equal(old.nextRangeStart, 19);
+  await close();
+  const project = `${source} selekcja`;
+  const output = `${source} wybrane`;
+  const oldAcceptedHash = await hashFile(path.join(output, 'seq_1-9.jpg'));
+  const originals = await Promise.all([
+    tree(source),
+    tree(project),
+    tree(output),
+  ]);
+  const copiedProject = path.join(fixture, 'copied-project');
+  const copiedOutput = path.join(fixture, 'copied-output');
+  await cp(project, copiedProject, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+  });
+  await cp(output, copiedOutput, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+  });
+  await launch(programs[1], '0.1.1', newUserData);
+  await select(copiedProject);
+  await page
+    .getByRole('button', { name: 'Otwórz projekt', exact: true })
+    .click();
+  await imageReady();
+  const opened = await snapshot();
+  assert.equal(opened.projectId, old.projectId);
+  assert.equal(opened.acceptedCount, 1);
+  assert.equal(opened.skippedCount, 1);
+  assert.equal(opened.nextRangeStart, 19);
+  assert.equal(opened.currentImageId, old.currentImageId);
+  assert.equal(
+    await hashFile(path.join(copiedOutput, 'seq_1-9.jpg')),
+    oldAcceptedHash,
+  );
+  await page
+    .locator('summary', { hasText: 'Inne lokalizacje źródła i wyniku' })
+    .click();
+  await select(copiedOutput);
+  await page
+    .getByRole('button', { name: 'Wskaż ponownie wynik', exact: true })
+    .click();
+  await waitState((value) => value.outputName === 'copied-output');
+  await page
+    .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
+    .click();
+  await waitState(
+    (value) => value.acceptedCount === 2 && value.nextRangeStart === 28,
+  );
+  await imageReady();
+  await close();
+  await launch(programs[1], '0.1.1', newUserData);
+  await select(copiedProject);
+  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await imageReady();
+  const continued = await snapshot();
+  assert.equal(continued.acceptedCount, 2);
+  assert.equal(continued.skippedCount, 1);
+  assert.equal(continued.currentImageId, old.currentImageId);
+  assert.equal(continued.nextRangeStart, 28);
+  assert.equal(
+    await hashFile(path.join(copiedOutput, 'seq_1-9.jpg')),
+    oldAcceptedHash,
+  );
+  const photoHash = await hashFile(path.join(source, 'photo3.jpg'));
+  assert.equal(
+    await hashFile(path.join(copiedOutput, 'seq_19-27.jpg')),
+    photoHash,
+  );
+  await close();
+  assert.deepEqual(
+    await Promise.all([tree(source), tree(project), tree(output)]),
+    originals,
+  );
+  console.log(
+    'PASS: actual ZIP versions 0.1.0 → 0.1.1; copied project decisions/cursor/JPEG retained, explicit copied-output relink, continued decisions survive new process, original fixture files unchanged.',
+  );
+} finally {
+  if (application) await application.close();
+  await removeOwnedTemp(fixture, tempRoot);
+}

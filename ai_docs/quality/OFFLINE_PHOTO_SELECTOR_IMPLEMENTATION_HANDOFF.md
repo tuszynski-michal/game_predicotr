@@ -59,7 +59,9 @@ relokację tej samej wersji programu oraz legacy preview/anulowanie/import.
 [Raport Claude2026-10-12](OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md):
 REVISE. Testy109/109, lint/typecheck/docs/mapy i sumy paczki potwierdzone
 przez operatora. Otwarty P1-1 blokuje przekazanie pilotażu. Znaleziska i
-oryginalny raport pozostają niezmienione; runda poprawek nie została wykonana.
+oryginalny raport pozostają niezmienione. Poprawki0980/0981 są w commitach
+v1.7.324 i v1.7.325, ich testy PASS opisują [dowody rundy](OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_20261012.md).
+Paczka0.1.1 i test zmiany wersji są w toku0982; ponowny audyt operatora pending.
 
 ## Punkty do sprawdzenia w końcowym audycie
 

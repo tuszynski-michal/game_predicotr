@@ -178,7 +178,7 @@ pozostaje świadomym ograniczeniem zaakceptowanego planu.
 
 Instrukcja odtworzenia brakującego JPEG-a i storage/lock/retry,
 raport dowodów poprawek, Outcome/CURRENT_STATE. Commit implementacji:
-v1.7.325; pełny hash zostanie dopisany po commicie.
+v1.7.325 / 892c34f1f99bd54b0d8394919a389682a3d8891e.
 
 ### Recommended next task
 

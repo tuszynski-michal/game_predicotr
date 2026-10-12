@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Decision Log

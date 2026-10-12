@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-08-02
+last_updated: 2026-10-12
 ---
 
 # Dokumentacja AI Driven Development

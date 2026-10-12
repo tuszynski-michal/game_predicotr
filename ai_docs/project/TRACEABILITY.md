@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Mapa śledzenia wymagań

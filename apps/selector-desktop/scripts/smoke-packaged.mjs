@@ -94,6 +94,33 @@ async function imageReady() {
   });
   await settled();
 }
+async function previewScrollIdle() {
+  // Native focus/scroll-into-view animations can outlive the dialog click.
+  // Set the exact test position only after that interaction has completed.
+  await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const preview = document.querySelector('.preview');
+        const started = performance.now();
+        let changed = started;
+        let x = preview.scrollLeft;
+        let y = preview.scrollTop;
+        const poll = () => {
+          const now = performance.now();
+          if (preview.scrollLeft !== x || preview.scrollTop !== y) {
+            x = preview.scrollLeft;
+            y = preview.scrollTop;
+            changed = now;
+          }
+          if (now - changed >= 250) resolve();
+          else if (now - started >= 5000)
+            reject(new Error('Preview scroll did not become idle'));
+          else requestAnimationFrame(poll);
+        };
+        requestAnimationFrame(poll);
+      }),
+  );
+}
 async function bodyKey(key) {
   await page.locator('h1').click();
   await page.keyboard.press(key);
@@ -255,11 +282,15 @@ try {
     await page.getByRole('dialog').waitFor();
     await page.getByRole('button', { name: 'Anuluj restart' }).click();
     assert.equal((await snapshot()).decisionCount, 2);
+    await previewScrollIdle();
     await page.locator('.preview').evaluate((e) => {
       e.scrollLeft = 120;
       e.scrollTop = 100;
       e.dispatchEvent(new Event('scroll'));
     });
+    await waitState(
+      (state) => state.view.scrollX === 120 && state.view.scrollY === 100,
+    );
     const beforeClose = await snapshot();
     console.log(
       'PASS: shortcuts, undo, repeat/double-submit, fullscreen and view changes.',

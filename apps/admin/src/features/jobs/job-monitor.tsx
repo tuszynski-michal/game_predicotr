@@ -435,7 +435,7 @@ function JobCard({
           </small>
         </span>
         <span className={`jobStatus jobStatus-${job.status}`}>
-          {jobStatusLabel(job.status)}
+          {jobStatusLabel(job.status, job)}
         </span>
         <span className="jobSummaryProgress">
           <span>

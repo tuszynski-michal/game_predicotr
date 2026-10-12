@@ -23,6 +23,7 @@ import {
   previewModelActivation,
   previewPendingSymbolReinference as loadPendingSymbolReinference,
   startPendingSymbolReinference,
+  symbolTrainingRejectionDetails,
   type ModelQualityClient,
 } from '@/features/model-quality/model-quality-actions';
 
@@ -564,9 +565,11 @@ function SymbolQualityWorkspace({
                   className="modelQualityWarnings"
                   aria-label="Powody odrzucenia kandydata"
                 >
-                  {latestIteration.rejectionReasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
+                  {symbolTrainingRejectionDetails(latestIteration).map(
+                    (reason) => (
+                      <li key={reason}>{reason}</li>
+                    ),
+                  )}
                 </ul>
               ) : null}
               {latestIteration.gateReportRelativePath ? (

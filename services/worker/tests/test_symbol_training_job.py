@@ -590,3 +590,5 @@ def test_v3_training_rejects_missing_test_class_before_first_epoch(tmp_path: Pat
         "trainingStarted": False,
     }
     assert not list((tmp_path / "data" / "models").glob("**/epoch-*.pt"))
+    assert context.job.stage == "symbol_training:rejected_before_training"
+    assert context.job.progress_current == 0

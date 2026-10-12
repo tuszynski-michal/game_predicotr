@@ -24,6 +24,44 @@ import type {
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
+export function symbolTrainingRejectionDetails(
+  iteration: SymbolModelIterationResponse,
+): readonly string[] {
+  const coverage = iteration.gateMetrics.missingClassCoverage;
+  if (
+    coverage === null ||
+    typeof coverage !== 'object' ||
+    Array.isArray(coverage)
+  ) {
+    return iteration.rejectionReasons;
+  }
+  const labels: Readonly<Record<string, string>> = {
+    train: 'do nauki',
+    validation: 'walidacyjnym',
+    test: 'testowym',
+    regression: 'kontrolnym',
+  };
+  const details = Object.entries(coverage).flatMap(([split, codes]) => {
+    if (
+      !Array.isArray(codes) ||
+      !codes.every((code) => typeof code === 'string')
+    ) {
+      return [];
+    }
+    return codes.length === 0
+      ? []
+      : [
+          `Brak przykładów w zbiorze ${labels[split] ?? split}: ${codes.join(', ')}.`,
+        ];
+  });
+  return details.length === 0
+    ? iteration.rejectionReasons
+    : [
+        ...details,
+        'Każdy symbol wymaga zatwierdzonych wycinków z co najmniej czterech różnych zdjęć źródłowych, aby oddzielić naukę od oceny jakości.',
+      ];
+}
+
 export type ModelQualityClient = Pick<
   AdminApiClient,
   | 'freezeVerifiedTrainingCohort'

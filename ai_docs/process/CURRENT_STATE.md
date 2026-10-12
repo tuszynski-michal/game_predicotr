@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 ---
 
 # Current State
@@ -22,6 +22,8 @@ ograniczenia”. Lead dopisuje hashe commitów jak dotychczas. Spójność okna
 sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`).
 
 ## Obowiązujące ograniczenia
+
+- **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.
 
 - **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
 
@@ -831,6 +833,12 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
+
+- Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
+- Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
+- Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.
+
 ### TASK-0974 — import V3 dla profilu `grid_profile_777_v2` (done)
 
 - Plik: `ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md`, decyzja D-544. Każdy profil silnika siatek importuje folder ścieżką neural z modelem własnego profilu: `grid_profile_777_v2` → model 777 z laboratorium (run `43933ac8…`, eksport `2cd19738367121e6-round3`), Mumie bez zmian. V1.1 tylko dla gier bez profilu (stara 777, kod `7`).
@@ -928,13 +936,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Migracja `0154` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
 - Naprawiona regresja TASK-0966/0967: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
 - Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
-
-### TASK-0969 — sekcja „Ostatnie korekty” w Reviewerze (done)
-
-- Plik: `ai_docs/tasks/completed/0969-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.
-- `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
-- Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
-- Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0154`).
 
 ## Archiwum
 

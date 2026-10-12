@@ -10,15 +10,18 @@ Gotowe są wszystkie pięć części implementacyjnych, w tym przejęcie0978.
 ZIP0.1.0 po0978 przeszedł pełny lokalny test po rozpakowaniu. Audyt operatora
 2026-10-12 ma werdykt REVISE. Poprawki0980–0982 i paczka0.1.1 przeszły
 lokalne kontrole; ponowny audyt operatora pozostaje pending. Do tego audytu
-użyć paczki pilot-0.1.1-ede94bdc. Rejestr odbioru
+użyć najnowszej paczki pilot-0.1.2-c4181f7d (TASK-0983). Rejestr odbioru
 identyfikuje każdą paczkę i jej ograniczenia. Fizyczny odbiór nadal jest pending.
 
 ## Budowanie i kontrola programu
 
 Z katalogu głównego worktree, w PowerShell, po instalacji zależności Node.
+TASK-0983 dodatkowo sprawdził aktualizację0.1.0→0.1.2 oraz nowy start
+i wznowienie w obu kierunkach po restarcie procesu.
 Grupy testów mają osobne limity120 s; nie oznacza to pominięcia testów projektu:
 
 ```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 120 node --experimental-strip-types --test apps/selector-desktop/test/start-resume.test.mjs
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:native --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:foundation --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run test:project --workspace @game-predictor/selector-desktop
@@ -30,6 +33,7 @@ node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run test:release --wor
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run lint --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 45 npm run typecheck --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:start --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:shortcuts --workspace @game-predictor/selector-desktop
 node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:legacy --workspace @game-predictor/selector-desktop
@@ -59,7 +63,7 @@ Lokalny packaged smoke nie zastępuje odbioru na komputerze odbiorcy.
 
 ## Uruchomienie i nowa partia
 
-Poniższy przepływ przeszedł testy0977. Paczka i dowody testów są w
+Poniższy przepływ przeszedł testy0983 i realny smoke ZIP0.1.2. Paczka i dowody testów są w
 [raporcie odbioru](../quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md); stary ZIP
 fundamentu go nie realizuje.
 

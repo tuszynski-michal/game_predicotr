@@ -1,6 +1,6 @@
 ---
 title: Source-first selector start and resume
-status: in_progress
+status: done
 last_updated: 2026-10-12
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -66,7 +66,7 @@ Zmiana semantyki numeracji lub osłabienie granic wymaga zatrzymania.
 - [x] Dropdown wznawia zapisany projekt; stare projekty/cache są zgodne.
 - [x] Oba kierunki, undo/skip/korekta zakresu i wznowienie zachowują semantykę.
 - [x] Anulowanie, obce dane i niejednoznaczność nie resetują ani nadpisują.
-- [ ] Kontrole jakości oraz realny smoke czystego ZIP zaliczone.
+- [x] Kontrole jakości oraz realny smoke czystego ZIP zaliczone.
 
 ## Technical notes
 
@@ -79,7 +79,8 @@ można dalej otworzyć; główny nowy przepływ nie pyta o dodatkowe foldery.
 Istniejące: contracts.ts, preload.ts, main.ts, native/project-controller.ts,
 project/types.ts, state-codec.ts, project-store.ts, recent-projects.ts,
 renderer/App.tsx/style.css; scripts/smoke-* i manifest/lockfile wersji.
-Nowe proponowane: test/start-resume.test.mjs, scripts/smoke-start.mjs.
+Nowe: test/start-resume.test.mjs, scripts/smoke-start.mjs oraz
+scripts/ui-smoke-support.mjs (wspólny helper nowej historii i starego pilota).
 Dokumentacja wymagań/architektury/guides/README/TRACEABILITY i mapa kodu.
 
 ## Test cases
@@ -125,7 +126,7 @@ Nie ma pickerów projektu/wyniku w głównym nowym przepływie. Stare custom
 projekty/cache/manifesty są zgodne. Numeracja i naturalny porządek bez zmian.
 Wersja programu0.1.2; źródła v1.7.328 /
 9ade6a8596cd316d214cf25339eae40e8789be9f. Uzupełnienie historii po relink
-w osobnym kolejnym commicie v1.7.329.
+w v1.7.329 /c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f.
 
 
 ### Verification results
@@ -136,15 +137,19 @@ PASS w obu kierunkach po nowym procesie; formularz/historia obejrzane na
 screenshotach. Pierwszy smoke wymagał jednoznacznego aria-label kierunku;
 uzupełniono UI. Test wstrzykniętej awarii poprawiono do rzeczywistego
 kontraktu WRITE_FAILED, z asercją osiągnięcia fazy prepare:after.
-Końcowy lint/typecheck, format i docs:check PASS; mapy zregenerowane.
+Końcowy lint/typecheck i format PASS; mapy zregenerowane.
+Docs:check i code-map:check po zamknięciu taska PASS; git diff --check PASS.
 Pierwszy czysty ZIP9ade6a85 przeszedł full/start smoke i jest zachowany.
 Test10/10 obejmuje również aktualizację historii po relink źródła; dodano
-tę regresję do realnego smoke. Końcowy ZIP z uzupełnieniem historii pending.
+tę regresję do realnego smoke. Końcowy czysty ZIPc4181f7d i wszystkie sześć smoke scenariuszy PASS,
+w tym rzeczywista aktualizacja0.1.0→0.1.2.
+ZIP149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27.
+Dowody: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md.
 
 
 ### Not completed
 
-Finalny ZIP z czystego commita w kolejnym kroku. Nie wykonano niezależnego
+Finalny ZIP gotowy w out/releases/pilot-0.1.2-c4181f7d. Nie wykonano niezależnego
 audytu zamiast operatora, odbioru na jego komputerze/rebootu ani podpisu.
 Brak danych użytkownika, usług, push/merge i benchmarków.
 
@@ -152,7 +157,9 @@ Brak danych użytkownika, usług, push/merge i benchmarków.
 ### Documentation updates
 
 Plan/start task, wymagania, architektura, D-545 (obie kopie), README,
-TRACEABILITY, instrukcja operatora i CURRENT_STATE. Mapa do regeneracji.
+TRACEABILITY, instrukcja operatora, CURRENT_STATE, rejestr odbioru/handoff
+i raport dowodów0983. Mapy zregenerowane; task przeniesiony do completed.
+Końcowe dowody dokumentacyjne v1.7.330 (kod paczki pozostaje z329).
 
 
 ### Recommended next task

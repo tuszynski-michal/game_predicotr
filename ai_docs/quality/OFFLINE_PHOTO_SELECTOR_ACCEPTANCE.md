@@ -10,6 +10,23 @@ To jest rejestr dowodów odbioru TASK-0979, nie raport audytu kodu.
 Operator zlecił audyt całego zakresu dopiero po pięciu taskach. Testy agentowe
 nie zastępują uruchomienia paczki otrzymanej przez odbiorcę.
 
+## Paczka0.1.2 — TASK-0983, prosty start i historia
+
+Finalna paczka: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
+Wersja0.1.2, 149402003 bajtów, ZIP SHA-256 `9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27`,
+app.asar SHA-256 `0e2c2bf2894bd519ceea96e957e564dbe02f54d0963f3d381085396815c323c0`.
+Source commit v1.7.329 /`c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f`;
+dirty=false, applicationSourceDirty=false. BuiltAt2026-10-12T12:13:30.073Z;
+releasedAt2026-10-12T12:13:58.018Z. Sąsiadujące .sha256 i .release.json zachowane.
+
+122 testy oraz wszystkie sześć finalnych smoke PASS: source-first start,
+full, shortcuts/relink, legacy, UX oraz aktualizacja0.1.0→0.1.2.
+Oba kierunki, historia i ponowne wskazanie przeniesionego źródła przeszły
+nowy proces. [Dowody0983](OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md)
+nie zastępują audytu operatora ani odbioru na komputerze odbiorcy; status
+rejestru pozostaje blocked. Paczka0.1.2-9ade6a85 jest tylko wcześniejszym
+buildem historycznym; nie używać jej jako finalnej.
+
 ## Poprawiona paczka 0.1.1
 
 Paczka z commitów0980–0982, przygotowana do ponownego audytu operatora:

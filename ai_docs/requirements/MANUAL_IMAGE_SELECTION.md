@@ -8,7 +8,7 @@ last_updated: 2026-10-12
 
 ## Lokalny selektor Windows — D-545, zaakceptowany zakres
 
-Start od źródła0983 jest zaakceptowany2026-10-12. Użytkownik wybiera wyłącznie
+Start od źródła0983 jest zaimplementowany i lokalnie przetestowany2026-10-12. Użytkownik wybiera wyłącznie
 folder zdjęć; projekt i wyniki powstają jako sąsiednie `<źródło> selekcja`
 i `<źródło> wybrane`. D:\Mumie\123 daje dwa foldery w D:\Mumie.
 Nazwa gry jest etykietą historii (np. Mumie — 123), nie ścieżką ani gameId.

@@ -88,8 +88,8 @@ domyślnym kontekstem implementacyjnym.
 ### Dostarczanie
 
 - [Prosty start selektora i historia](delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md)
-  — accepted, TASK-0983; wybór wyłącznie zdjęć, foldery obok źródła,
-  etykieta gry i automatyczne wznowienie obu kierunków; nowy ZIP0.1.2 w realizacji.
+  — implemented, TASK-0983; wybór wyłącznie zdjęć, foldery obok źródła,
+  etykieta gry i automatyczne wznowienie obu kierunków; ZIP0.1.2 i sześć lokalnych smoke PASS; audyt/odbiór operatora osobno.
 - [Poprawki selektora po audycie Claude](delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md)
   — accepted2026-10-12, TASK-0980/0981/0982, dodatkowa runda2–4 h.
   Raport REVISE jest zachowany; poprawki i ZIP0.1.1 wykonane, ponowny audyt operatora otwarty.

@@ -6,6 +6,21 @@ last_updated: 2026-10-12
 
 # Current State — archiwum 2026Q4
 
+### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (done)
+
+- Etap A/A′ (D-540): `scripts/inventory_worktrees.ps1`, kopie worktree'ów,
+  `all-refs.bundle` i `-VerifyClone` w `D:\game_predictor_backup\repo-20261010`
+  i `repo-20261010-a2` (`RESULT: OK`); gałęzie C na D jako
+  `refs/remotes/c/*` (0 rozbieżności).
+- Zamknięty 2026-10-10 wieczorem: operator zlecił dokończenie planu, więc
+  push i merge są rozstrzygnięte. Cztery gałęzie ze Scope scalone do
+  gałęzi integracyjnej i usunięte razem z worktree'ami; na C zostały tylko
+  główny checkout i `worktrees\disk-migration`. Niescalone gałęzie tylko
+  lokalne (7) mają równe hashe na D i w bundle; rozlicza je TASK-0957.
+- Version v1.7.308; commit 41aa80584cd8564d6b6d4955a3bf95e3fd053935. Audyt Codex niedostępny
+  (limit), do wykonania później.
+- Task: `ai_docs/tasks/completed/0954-disk-d-repository-handover.md`.
+
 ### TASK-0955 — przeniesienie obrazu dysku Dockera na D (done)
 
 - B1 wykonany 2026-10-10 16:20–18:15 (D-540). Po etapie A′ (nowy zrzut

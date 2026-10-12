@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. W realizacji; końcowy audyt operatora i odbiór0979 osobno.
+- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS. Końcowy audyt operatora i odbiór0979 osobno.
 
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
 
@@ -176,11 +176,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0983 — Start od zdjęć i wznowienie (in_progress)
-
-- Plik: `ai_docs/tasks/0983-selector-desktop-source-first-start.md`. Zatwierdzony zakres1–2 h; oba foldery obok źródła, nazwa gry tylko etykietą.
-- HEADv1.7.327/c32fa802; brak otwartych pytań produktowych, audyt końcowy operatora zgodnie z D-545. Źródła0983: v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f;122 unikalne testy i packaged start obu kierunków PASS. Historia aktualizowana po relink źródła, regresja10/10 PASS; uzupełnienie w v1.7.329. Czysty ZIP0.1.2 oraz końcowy zapis hashów pozostają do wykonania.
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 
@@ -864,6 +859,15 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0983 — Start od zdjęć, etykieta gry i wznowienie (done)
+
+- Plik: `ai_docs/tasks/completed/0983-selector-desktop-source-first-start.md`; plan start2026-10-12, D-545.
+- Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f; historia po relink v1.7.329 /c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f. Końcowy zapis dowodów v1.7.330.
+- Jeden picker zdjęć, automatyczne sibling folders, gameName w schema1 i dropdown10 projektów. Auto-resume sprawdza source/id pod lockiem przed recovery; cache loss/stare projekty/konflikty bez resetu. Po relink historia wskazuje nowy sourceRoot.
+-122 unikalne testy PASS; lint/typecheck/format/docs/mapy PASS. Sześć realnych smoke finalnego ZIP, oba kierunki po procesie, moved-source reselect i aktualizacja0.1.0→0.1.2 PASS. Screenshots formularza/historii obejrzane.
+- ZIP0.1.2 w out/releases/pilot-0.1.2-c4181f7d, 149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27; dirty=false/applicationSourceDirty=false. Starsze paczki i oryginalny audyt REVISE zachowane z identycznymi sumami.
+- Dowody: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Audyt końcowy operatora i fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, benchmarków, push/merge i transferu.
+
 ### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
 
 - Plik: `ai_docs/tasks/completed/0982-selector-desktop-remediated-pilot.md`; plan poprawek2026-10-12, D-545. Commit źródeł v1.7.326 / ede94bdcb3ad1cac5838f524b604423bec81b69f; końcowe dowody i poprawka harnessu w v1.7.327.
@@ -929,21 +933,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0973-game-partition-lock-retry.md`. Przyczyna 500 przy dodawaniu gry na bazie V2: `CREATE TABLE … PARTITION OF game_data_v2.board_render_manifests` czekał na `ACCESS EXCLUSIVE` dłużej niż `lock_timeout = 2s`, bo sesja aplikacji trzymała `AccessShareLock` ponad 22 s (wolny `count` po `image_symbol_review_cells`).
 - `_run_partition_step_in` ponawia krok do 6 razy (rollback kroku, backoff 0,5–4 s, wznowienie od checkpointu); po wyczerpaniu `409 GAME_PARTITION_LOCK_BUSY`. Błędy inne niż SQLSTATE `55P03` i dryf checkpointu nie są ponawiane.
 - Testy: jednostkowe 9 + katalog 12, integracja PostgreSQL 2 (blokada `ACCESS SHARE` zwalniana przy pierwszym backoffie). Version v1.7.313. Wymaga restartu API przez operatora. Otwarte: przyspieszenie `_current_selected_cell_count`.
-
-### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (done)
-
-- Etap A/A′ (D-540): `scripts/inventory_worktrees.ps1`, kopie worktree'ów,
-  `all-refs.bundle` i `-VerifyClone` w `D:\game_predictor_backup\repo-20261010`
-  i `repo-20261010-a2` (`RESULT: OK`); gałęzie C na D jako
-  `refs/remotes/c/*` (0 rozbieżności).
-- Zamknięty 2026-10-10 wieczorem: operator zlecił dokończenie planu, więc
-  push i merge są rozstrzygnięte. Cztery gałęzie ze Scope scalone do
-  gałęzi integracyjnej i usunięte razem z worktree'ami; na C zostały tylko
-  główny checkout i `worktrees\disk-migration`. Niescalone gałęzie tylko
-  lokalne (7) mają równe hashe na D i w bundle; rozlicza je TASK-0957.
-- Version v1.7.308; commit 41aa80584cd8564d6b6d4955a3bf95e3fd053935. Audyt Codex niedostępny
-  (limit), do wykonania później.
-- Task: `ai_docs/tasks/completed/0954-disk-d-repository-handover.md`.
 
 ## Archiwum
 

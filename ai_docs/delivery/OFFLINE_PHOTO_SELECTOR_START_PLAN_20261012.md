@@ -49,6 +49,15 @@ po stronie operatora zgodnie z jego wcześniejszym poleceniem dla selektora
 (D-545); własny przegląd i testy nie są takim audytem. Bez API, usług,
 transferu, benchmarku, push/merge i zmian danych użytkownika.
 
+## Wynik wykonania
+
+TASK-0983 done2026-10-12.122 unikalne testy i sześć scenariuszy rzeczywistego
+ZIP0.1.2 PASS. Kod: v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f
+oraz v1.7.329 /c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f.
+Historia jest odświeżana także po relink źródła; regresja obejmuje ponowny
+wybór przeniesionych zdjęć po nowym procesie. [Dowody](../quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md)
+zawierają sumy i pochodzenie paczki. Audyt i fizyczny odbiór pozostają osobne.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

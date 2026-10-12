@@ -9,6 +9,16 @@ last_updated: 2026-10-12
 Operator polecił wykonać pięć tasków i odłożył audyt do końca.
 Ten dokument zestawia wykonanie i dowody testów; nie jest audytem ani jego PASS.
 
+## Aktualne przekazanie0983
+
+Najświeższy ZIP0.1.2: `apps/selector-desktop/out/releases/pilot-0.1.2-c4181f7d/Selektor zdjec-win32-x64-0.1.2.zip`.
+Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f i v1.7.329 /
+c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f. Przyrost do audytu0983 zaczyna się od
+c32fa802597ecaeb3d9ad0b4d15466a730e6bb70. [Dowody startu i wznowienia](OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md)
+zawierają122 testy i sześć smoke PASS. GameName/schema1, source-first IPC,
+lookup pod lockiem i odświeżenie historii po relink wymagają review operatora.
+Oryginalny REVISE pozostaje zachowany; własne testy go nie zmieniają.
+
 ## Zakres kodu
 
 Gałąź `codex/offline-photo-selector`, worktree

@@ -1,3 +1,4 @@
+import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, rename } from 'node:fs/promises';
@@ -37,14 +38,15 @@ try {
       checkboxChecked: false,
     });
   }, source);
-  await page.getByRole('button', { name: 'Nowy projekt', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
+    .click();
+  await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
   await page.getByLabel('Pierwsza plansza', { exact: true }).fill('19');
   await page.getByLabel('Ostatnia plansza', { exact: true }).fill('20');
   await page.getByLabel('Kierunek numeracji').selectOption('descending');
   await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
-  await page
-    .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
-    .click();
+  await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
   await page
     .getByRole('button', { name: 'Wybierz (Enter / F)' })
     .waitFor({ state: 'visible' });
@@ -104,7 +106,7 @@ try {
     'PASS: descending F advances one despite step20, shortened range19–20, malformed JPEG blocks accept, repeat accept blocked, opaque IPC rejects paths.',
   );
   await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   await application.close();
   application = null;
   const movedSource = path.join(root, 'moved-source');
@@ -116,7 +118,7 @@ try {
   });
   page = await application.firstWindow();
   page.setDefaultTimeout(20000);
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await continueFromHistory(page);
   await page.getByRole('button', { name: 'Wznów po naprawie' }).waitFor();
   assert.equal(
     (await page.evaluate(() => window.selector.snapshot())).value.acceptedCount,

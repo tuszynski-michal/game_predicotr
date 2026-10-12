@@ -85,9 +85,42 @@ select {
   width: 20px;
   height: 20px;
 }
-.recent {
-  display: block;
-  margin: 12px 0;
+.primary {
+  background: #2757a5;
+  border-color: #78a7f5;
+  color: #fff;
+}
+.folder-summary {
+  background: #202733;
+  padding: 8px 16px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.history select {
+  min-width: 280px;
+  max-width: min(600px, 80vw);
+}
+.history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.history h2 {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+.history label {
+  margin-right: 0;
+}
+.history button {
+  margin-bottom: 8px;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #9bbfff;
+  outline-offset: 3px;
 }
 .project-info {
   display: flex;

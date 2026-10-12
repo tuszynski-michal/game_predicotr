@@ -1,3 +1,4 @@
+import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -13,6 +14,9 @@ import {
 import path from 'node:path';
 import { hashFile, removeOwnedTemp } from './release-support.mjs';
 
+const currentVersion = JSON.parse(
+  await readFile('package.json', 'utf8'),
+).version;
 const archives = [
   path.resolve(
     process.argv[2] ??
@@ -20,7 +24,7 @@ const archives = [
   ),
   path.resolve(
     process.argv[3] ??
-      'out/make/zip/win32/x64/Selektor zdjec-win32-x64-0.1.1.zip',
+      `out/make/zip/win32/x64/Selektor zdjec-win32-x64-${currentVersion}.zip`,
   ),
 ];
 const tempRoot = path.resolve('.tmp');
@@ -94,7 +98,7 @@ async function close() {
   await page
     .getByRole('button', { name: 'Zamknij projekt', exact: true })
     .click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   await application.close();
   application = null;
 }
@@ -127,7 +131,10 @@ try {
     const metadata = JSON.parse(
       await readFile(`${archive}.release.json`, 'utf8'),
     );
-    assert.equal(metadata.applicationVersion, index === 0 ? '0.1.0' : '0.1.1');
+    assert.equal(
+      metadata.applicationVersion,
+      index === 0 ? '0.1.0' : currentVersion,
+    );
     assert.equal(metadata.applicationSourceDirty, false);
     assert.equal(metadata.bytes, (await stat(archive)).size);
     assert.equal(metadata.sha256, await hashFile(archive));
@@ -225,7 +232,7 @@ try {
     errorOnExist: true,
     force: false,
   });
-  await launch(programs[1], '0.1.1', newUserData);
+  await launch(programs[1], currentVersion, newUserData);
   await select(copiedProject);
   await page
     .getByRole('button', { name: 'Otwórz projekt', exact: true })
@@ -258,9 +265,9 @@ try {
   );
   await imageReady();
   await close();
-  await launch(programs[1], '0.1.1', newUserData);
+  await launch(programs[1], currentVersion, newUserData);
   await select(copiedProject);
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await continueFromHistory(page);
   await imageReady();
   const continued = await snapshot();
   assert.equal(continued.acceptedCount, 2);
@@ -283,7 +290,7 @@ try {
     originals,
   );
   console.log(
-    'PASS: actual ZIP versions 0.1.0 → 0.1.1; copied project decisions/cursor/JPEG retained, explicit copied-output relink, continued decisions survive new process, original fixture files unchanged.',
+    `PASS: actual ZIP versions 0.1.0 → ${currentVersion}; copied project decisions/cursor/JPEG retained, explicit copied-output relink, continued decisions survive new process, original fixture files unchanged.`,
   );
 } finally {
   if (application) await application.close();

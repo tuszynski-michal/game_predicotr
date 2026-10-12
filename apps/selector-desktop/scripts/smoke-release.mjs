@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { hashFile, removeOwnedTemp } from './release-support.mjs';
 
 const manifest = JSON.parse(await readFile('package.json', 'utf8'));
-const options = ['--shortcuts', '--legacy', '--ux'].filter((flag) =>
+const options = ['--shortcuts', '--legacy', '--ux', '--start'].filter((flag) =>
   process.argv.includes(flag),
 );
 if (options.length > 1)
@@ -16,6 +16,7 @@ const scripts = {
   '--shortcuts': 'smoke-shortcuts.mjs',
   '--legacy': 'smoke-legacy.mjs',
   '--ux': 'smoke-ux.mjs',
+  '--start': 'smoke-start.mjs',
 };
 const archiveName = `${manifest.productName}-win32-x64-${manifest.version}.zip`;
 const archive = path.resolve('out/make/zip/win32/x64', archiveName);

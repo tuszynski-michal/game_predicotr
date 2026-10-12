@@ -257,6 +257,7 @@ else {
           );
       });
       handle(CHANNELS.create, (options) => controller.create(options), 1);
+      handle(CHANNELS.begin, () => controller.begin());
       handle(CHANNELS.legacyPreview, () => controller.legacyPreview());
       handle(CHANNELS.legacyAdopt, (token) => controller.legacyAdopt(token), 1);
       handle(CHANNELS.open, () => controller.open());

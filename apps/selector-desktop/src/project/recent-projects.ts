@@ -8,6 +8,8 @@ export interface RecentProject {
   projectId: string;
   projectRoot: string;
   sourceDirectoryName: string;
+  sourceRoot?: string;
+  gameName?: string;
   openedAt: string;
 }
 /** Optional native-only cache. Loss or corruption never changes project state. */
@@ -34,6 +36,11 @@ export class RecentProjects {
             /^[a-f0-9-]{36}$/.test(project.projectId) &&
             typeof project.projectRoot === 'string' &&
             typeof project.sourceDirectoryName === 'string' &&
+            (project.sourceRoot === undefined ||
+              typeof project.sourceRoot === 'string') &&
+            (project.gameName === undefined ||
+              (typeof project.gameName === 'string' &&
+                project.gameName.length <= 80)) &&
             Number.isFinite(Date.parse(project.openedAt)),
         )
         .slice(0, 10);

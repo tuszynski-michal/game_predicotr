@@ -1,3 +1,4 @@
+import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, readFile } from 'node:fs/promises';
@@ -68,11 +69,12 @@ try {
   );
   for (let i = 1; i <= 3; i++)
     await writeFile(path.join(source, `photo${i}.jpg`), jpeg);
-  await page.getByRole('button', { name: 'Nowy projekt', exact: true }).click();
-  await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
   await page
-    .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
+    .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
     .click();
+  await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+  await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+  await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
   await ready();
   await page.getByRole('button', { name: 'Następne', exact: true }).click();
   await page.getByText('Pozycja zdjęcia zapisana.', { exact: true }).waitFor();
@@ -103,7 +105,7 @@ try {
   assert.equal(current.view.scrollX, finalScroll.scrollX);
   assert.equal(current.view.scrollY, finalScroll.scrollY);
   await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   const savedView = JSON.parse(
     await readFile(
       path.join(userData, 'views', `${current.projectId}.json`),
@@ -127,7 +129,7 @@ try {
   await application.close();
   application = null;
   await launch();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await continueFromHistory(page);
   await ready();
   const reopened = (await page.evaluate(() => window.selector.snapshot()))
     .value;

@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. W realizacji; końcowy audyt operatora i odbiór0979 osobno.
+
 - **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt operatora oraz fizyczny odbiór0979 osobno.
 
 - **Selektor Windows / audyt2026-10-12:** Claude operatora wydał REVISE.109/109 testów, kontrole jakości i sumy ZIP potwierdzone; P1 opóźnień z oryginalnego raportu oczekuje ponownej oceny operatora przed przekazaniem. Raport: `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_IMPLEMENTATION_AUDIT_CLAUDE_20261012.md`. Poprawki0980–0982 wykonane,130 testów tej rundy i wszystkie smokes ZIP0.1.1 PASS. Ponowna ocena P1 należy do operatora; pełne SHA i rosnąca historia pozostają jawnym ograniczeniem. Fizyczny odbiór0979 nadal blocked.
@@ -174,6 +176,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0983 — Start od zdjęć i wznowienie (in_progress)
+
+- Plik: `ai_docs/tasks/0983-selector-desktop-source-first-start.md`. Zatwierdzony zakres1–2 h; oba foldery obok źródła, nazwa gry tylko etykietą.
+- HEADv1.7.327/c32fa802; brak otwartych pytań produktowych, audyt końcowy operatora zgodnie z D-545. Źródła0983: przygotowany commit v1.7.328;121 unikalnych testów i packaged start obu kierunków PASS. Czysty ZIP0.1.2 oraz końcowy zapis hashów pozostają do wykonania.
 
 ### TASK-0979 — Pilotaż i odbiór wydania (blocked)
 

@@ -2,6 +2,7 @@ export const APP_URL = 'selector://app/index.html';
 export const CHANNELS = {
   openLogs: 'selector:open-logs',
   create: 'selector:create',
+  begin: 'selector:begin',
   open: 'selector:open',
   recent: 'selector:recent',
   continue: 'selector:continue',
@@ -34,6 +35,7 @@ export type NativeResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string } };
 export interface SelectorBridge {
+  begin(): Promise<NativeResult<StartSelectionResult | null>>;
   legacyPreview(): Promise<NativeResult<LegacyPreviewSummary | null>>;
   legacyAdopt(
     previewToken: string,
@@ -83,11 +85,36 @@ export interface ViewPreferences {
   scrollY: number;
 }
 export interface CreateProjectRequest {
+  sourceToken?: string;
+  gameName?: string;
   firstLayout: number;
   direction: 'ascending' | 'descending';
   sequenceUpperBound: number | null;
   customLocations: boolean;
   localStorageConfirmed: boolean;
+}
+export interface NewProjectDraft {
+  sourceToken: string;
+  sourceName: string;
+  sourcePath: string;
+  projectPath: string;
+  outputPath: string;
+}
+export type StartSelectionResult =
+  | { kind: 'new'; draft: NewProjectDraft }
+  | { kind: 'existing'; workspace: DesktopWorkspace };
+export function validateGameName(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    !value.trim() ||
+    value.trim().length > 80 ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  )
+    throw new SelectorError(
+      'INVALID_ARGUMENT',
+      'Podaj nazwę gry (1–80 znaków).',
+    );
+  return value.trim();
 }
 export type DesktopCommand =
   | { kind: 'accept' | 'navigate'; imageId: string }
@@ -111,6 +138,7 @@ export interface RecentProjectSummary {
   openedAt: string;
 }
 export interface DesktopWorkspace {
+  gameName?: string;
   projectId: string;
   revision: number;
   source: SourceIndex | null;

@@ -8,7 +8,18 @@ last_updated: 2026-10-12
 
 ## Lokalny selektor Windows — D-545, zaakceptowany zakres
 
-Runda poprawek po audycie2026-10-12 jest zaakceptowana i w realizacji.
+Start od źródła0983 jest zaakceptowany2026-10-12. Użytkownik wybiera wyłącznie
+folder zdjęć; projekt i wyniki powstają jako sąsiednie `<źródło> selekcja`
+i `<źródło> wybrane`. D:\Mumie\123 daje dwa foldery w D:\Mumie.
+Nazwa gry jest etykietą historii (np. Mumie — 123), nie ścieżką ani gameId.
+Nowa partia wymaga nazwy gry i konfiguracji numeracji; ponowne wskazanie
+źródła wznawia zapisaną konfigurację, zdjęcie i postęp. Historia to dropdown
+maksymalnie10 projektów. Stary projekt bez nazwy gry nadal można wznowić.
+Przy kilku projektach źródła wymagany jest jawny wybór; obcy/uszkodzony
+folder nie jest automatycznie zastępowany ani resetowany.
+Plan: `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`.
+
+Runda poprawek po audycie2026-10-12 została wykonana; audyt operatora pozostaje otwarty.
 Desktop ma pozwalać powrócić do zakresu pominiętego Tabem i przypisać mu JPEG;
 kolizja z już zaakceptowanym zakresem nadal blokuje zapis. Nie zmienia to
 wcześniejszych decyzji po cichu. Utrata locka nie blokuje zamknięcia programu,

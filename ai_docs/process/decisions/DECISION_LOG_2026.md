@@ -53,6 +53,11 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
   after LOCK_LOST and skipped-range compatibility. TASK-0980/0981/0982
   produce pilot0.1.1; operator review and recipient acceptance stay separate.
   No recovery-guard takeover without owner evidence or weaker file checks.
+- **Source-first UX2026-10-12:** operator accepted a separate1–2 h budget:
+  choose only source, auto-create sibling project/output, resume the same
+  source without reconfiguration, persist optional gameName as display label
+  and use a recent-project dropdown. Older unnamed projects remain valid;
+  source/project identity is verified under lock before automatic recovery.
 - **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
   tests, packaging and audits, without a reliable package-percentage estimate.
   The later operator instruction defers review until all five tasks are

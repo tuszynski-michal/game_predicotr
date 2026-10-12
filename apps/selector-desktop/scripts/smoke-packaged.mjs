@@ -1,3 +1,4 @@
+import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
 import {
@@ -113,13 +114,14 @@ try {
       path.join(source, `photo${n}.jpg`),
       Buffer.from(jpeg, 'base64'),
     );
-  await page.getByRole('button', { name: 'Nowy projekt', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
+    .click();
+  await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
   await page.screenshot({ path: path.resolve('.tmp/ui-start.png') });
   await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
   await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
-  await page
-    .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
-    .click();
+  await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
   await imageReady();
   console.log('PASS: isolated project created and JPEG decoded.');
   let state = await snapshot();
@@ -209,7 +211,7 @@ try {
     'PASS: shortcuts, undo, repeat/double-submit, fullscreen and view changes.',
   );
   await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   await application.close();
   application = null;
   if (process.argv.includes('--relocate-program')) {
@@ -235,7 +237,7 @@ try {
     );
   }
   await launch();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await continueFromHistory(page);
   await imageReady();
   state = await snapshot();
   assert.equal(state.projectId, beforeClose.projectId);
@@ -267,12 +269,12 @@ try {
     true,
   );
   await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   await application.close();
   application = null;
   await rename(`${source} wybrane`, path.join(fixture, 'moved-output'));
   await launch();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).click();
+  await continueFromHistory(page);
   await page.getByRole('button', { name: 'Wznów po naprawie' }).waitFor();
   assert.equal(
     await page
@@ -297,7 +299,7 @@ try {
   assert.equal(state.issue, null);
   assert.equal(state.acceptedCount, 1);
   await page.getByRole('button', { name: 'Zamknij projekt' }).click();
-  await page.getByRole('button', { name: /^Kontynuuj:/ }).waitFor();
+  await waitForHistory(page);
   const copiedProject = path.join(fixture, 'copied-project');
   const copiedOutput = path.join(fixture, 'copied-output');
   await cp(`${source} selekcja`, copiedProject, { recursive: true });

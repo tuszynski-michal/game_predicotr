@@ -13,6 +13,7 @@ import type {
   RestartSummary,
   ViewPreferences,
   LegacyPreviewSummary,
+  NewProjectDraft,
 } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -25,14 +26,15 @@ export function App() {
   const latest = useRef(workspace);
   latest.current = workspace;
   const [recent, setRecent] = useState<RecentProjectSummary[]>([]);
-  const [newProject, setNewProject] = useState(false);
+  const [draft, setDraft] = useState<NewProjectDraft | null>(null);
+  const [gameName, setGameName] = useState('');
+  const [recentId, setRecentId] = useState('');
   const [legacy, setLegacy] = useState<LegacyPreviewSummary | null>(null);
   const [first, setFirst] = useState('1');
   const [last, setLast] = useState('');
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
-  const [custom, setCustom] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -72,7 +74,7 @@ export function App() {
     setWorkspace(value);
     latest.current = value;
     setDecoded(null);
-    setNewProject(false);
+    setDraft(null);
     setRangeEditor(false);
     setRestart(null);
     setLegacy(null);
@@ -168,14 +170,7 @@ export function App() {
         void window.selector.fullscreen();
         return;
       }
-      if (
-        !workspace ||
-        blocked ||
-        rangeEditor ||
-        restart ||
-        newProject ||
-        legacy
-      )
+      if (!workspace || blocked || rangeEditor || restart || draft || legacy)
         return;
       const action = resolveManualSelectionShortcut({
         key: event.key,
@@ -291,18 +286,28 @@ export function App() {
         <section className="start">
           <nav>
             <button
+              className="primary"
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  setNewProject(false);
-                  setLegacy(unwrap(await window.selector.legacyPreview()));
+                  const result = unwrap(await window.selector.begin());
+                  if (!result) return;
+                  if (result.kind === 'existing') {
+                    await install(result.workspace);
+                    setNotice('Wznowiono ostatnią zapisaną pozycję.');
+                  } else {
+                    setDraft(result.draft);
+                    setLegacy(null);
+                    setGameName('');
+                    setFirst('1');
+                    setLast('');
+                    setDirection('ascending');
+                    setConfirmed(false);
+                  }
                 })
               }
             >
-              Przejmij sesję Reviewera
-            </button>
-            <button disabled={busy} onClick={() => setNewProject(true)}>
-              Nowy projekt
+              Wybierz folder zdjęć
             </button>
             <button
               disabled={busy}
@@ -314,8 +319,25 @@ export function App() {
             >
               Otwórz projekt
             </button>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  setDraft(null);
+                  setLegacy(unwrap(await window.selector.legacyPreview()));
+                })
+              }
+            >
+              Przejmij sesję Reviewera
+            </button>
           </nav>
-          {newProject && (
+          {!draft && (
+            <p>
+              Wybierz zdjęcia, aby zacząć lub wrócić do zapisanej pracy. Wyniki
+              zapisujemy automatycznie obok tego folderu.
+            </p>
+          )}
+          {draft && (
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -323,10 +345,12 @@ export function App() {
                   install(
                     unwrap(
                       await window.selector.create({
+                        sourceToken: draft.sourceToken,
+                        gameName,
                         firstLayout: Number(first),
                         direction,
                         sequenceUpperBound: last === '' ? null : Number(last),
-                        customLocations: custom,
+                        customLocations: false,
                         localStorageConfirmed: confirmed,
                       }),
                     ),
@@ -335,6 +359,21 @@ export function App() {
               }}
             >
               <h2>Nowa partia zdjęć</h2>
+              <p>
+                Zdjęcia: <strong>{draft.sourceName}</strong>
+              </p>
+              <label>
+                Nazwa gry
+                <input
+                  autoFocus
+                  aria-label="Nazwa gry"
+                  required
+                  maxLength={80}
+                  placeholder="np. Mumie lub Siódemki"
+                  value={gameName}
+                  onChange={(e) => setGameName(e.target.value)}
+                />
+              </label>
               <label>
                 Pierwsza plansza
                 <input
@@ -359,6 +398,7 @@ export function App() {
               <label>
                 Kierunek numeracji
                 <select
+                  aria-label="Kierunek numeracji"
                   value={direction}
                   onChange={(e) =>
                     setDirection(e.target.value as typeof direction)
@@ -368,18 +408,14 @@ export function App() {
                   <option value="descending">Malejący</option>
                 </select>
               </label>
-              <p>
-                Domyślne foldery obok źródła: „nazwa selekcja” dla projektu i
-                „nazwa wybrane” dla wyników.
-              </p>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={custom}
-                  onChange={(e) => setCustom(e.target.checked)}
-                />
-                Wybiorę osobne katalogi projektu i wyniku
-              </label>
+              <div className="folder-summary">
+                <p>Zdjęcia: {draft.sourcePath}</p>
+                <p>Wybrane zdjęcia: {draft.outputPath}</p>
+                <p>Postęp: {draft.projectPath}</p>
+                <p>
+                  Foldery utworzymy automatycznie. Nie musisz zapisywać ręcznie.
+                </p>
+              </div>
               <label className="check">
                 <input
                   type="checkbox"
@@ -391,41 +427,53 @@ export function App() {
                 udziałami sieciowymi.
               </label>
               <nav>
-                <button disabled={busy || !confirmed} type="submit">
-                  Wybierz zdjęcia i utwórz projekt
+                <button
+                  className="primary"
+                  disabled={busy || !confirmed || !gameName.trim()}
+                  type="submit"
+                >
+                  Rozpocznij wybieranie
                 </button>
                 <button
                   disabled={busy}
                   type="button"
-                  onClick={() => setNewProject(false)}
+                  onClick={() => setDraft(null)}
                 >
                   Anuluj
                 </button>
               </nav>
             </form>
           )}
-          {!newProject && recent.length > 0 && (
-            <>
-              <h2>Ostatnie projekty</h2>
-              {recent.map((project) => (
-                <button
-                  className="recent"
-                  key={project.projectId}
+          {!draft && recent.length > 0 && (
+            <section className="history">
+              <h2>Historia wyboru zdjęć</h2>
+              <label>
+                Ostatnie projekty
+                <select
+                  aria-label="Ostatnie projekty"
                   disabled={busy}
-                  onClick={() =>
-                    void run(async () =>
-                      install(
-                        unwrap(
-                          await window.selector.continue(project.projectId),
-                        ),
-                      ),
-                    )
-                  }
+                  value={recentId}
+                  onChange={(event) => setRecentId(event.target.value)}
                 >
-                  Kontynuuj: {project.name}
-                </button>
-              ))}
-            </>
+                  <option value="">Wybierz grę i partię zdjęć</option>
+                  {recent.map((project) => (
+                    <option key={project.projectId} value={project.projectId}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                disabled={busy || !recentId}
+                onClick={() =>
+                  void run(async () =>
+                    install(unwrap(await window.selector.continue(recentId))),
+                  )
+                }
+              >
+                Kontynuuj
+              </button>
+            </section>
           )}
           {busy && (
             <p role="status">Weryfikacja źródła i sum kontrolnych JPEG-ów…</p>
@@ -434,7 +482,11 @@ export function App() {
       ) : (
         <>
           <div className="project-info">
-            <strong>{workspace.sourceName}</strong>
+            <strong>
+              {workspace.gameName
+                ? `${workspace.gameName} — ${workspace.sourceName}`
+                : workspace.sourceName}
+            </strong>
             <span>
               Projekt: {workspace.projectName} · Wynik: {workspace.outputName}
             </span>

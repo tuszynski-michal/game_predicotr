@@ -1,5 +1,12 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { lstat } from 'node:fs/promises';
+import { assertNoLinks } from './path-security.ts';
+import {
+  SecureFiles,
+  canonicalDirectoryLocation,
+  isMissing,
+} from '../filesystem/secure-files.ts';
 import { ProjectStore } from '../project/project-store.ts';
 import { RecentProjects } from '../project/recent-projects.ts';
 import type { ProjectCommand } from '../project/types.ts';
@@ -17,11 +24,14 @@ import {
 } from './view-preferences.ts';
 import {
   SelectorError,
+  validateGameName,
   type CreateProjectRequest,
   type SourceIndex,
   type DesktopWorkspace,
   type ViewPreferences,
   type LegacyPreviewSummary,
+  type NewProjectDraft,
+  type StartSelectionResult,
 } from '../contracts.ts';
 export interface NativeDialogs {
   directory(title: string, defaultPath?: string): Promise<string | null>;
@@ -48,6 +58,8 @@ export function validateCreate(value: unknown): CreateProjectRequest {
     'sequenceUpperBound',
     'customLocations',
     'localStorageConfirmed',
+    'sourceToken',
+    'gameName',
   ]);
   if (
     !Number.isSafeInteger(v.firstLayout) ||
@@ -63,7 +75,21 @@ export function validateCreate(value: unknown): CreateProjectRequest {
       'INVALID_ARGUMENT',
       'Podaj prawidłową numerację i potwierdź lokalne katalogi.',
     );
-  return v as unknown as CreateProjectRequest;
+  if (v.sourceToken !== undefined) {
+    validateId(v.sourceToken);
+    if (v.customLocations)
+      throw new SelectorError(
+        'INVALID_ARGUMENT',
+        'Katalogi powstają obok zdjęć.',
+      );
+    validateGameName(v.gameName);
+  }
+  return {
+    ...v,
+    ...(v.gameName === undefined
+      ? {}
+      : { gameName: validateGameName(v.gameName) }),
+  } as unknown as CreateProjectRequest;
 }
 export class ProjectController {
   private store: ProjectStore | null = null;
@@ -79,6 +105,11 @@ export class ProjectController {
     token: string;
     proof: LegacyProof;
     result: DesktopWorkspace | null;
+  } | null = null;
+  private draft: {
+    value: NewProjectDraft;
+    request?: string;
+    result?: DesktopWorkspace;
   } | null = null;
   constructor(
     userData: string,
@@ -102,7 +133,9 @@ export class ProjectController {
   async recent() {
     return (await this.recentCache.list()).map((r) => ({
       projectId: r.projectId,
-      name: r.sourceDirectoryName,
+      name: r.gameName
+        ? `${r.gameName} — ${r.sourceDirectoryName}`
+        : r.sourceDirectoryName,
       openedAt: r.openedAt,
     }));
   }
@@ -146,6 +179,7 @@ export class ProjectController {
     );
     return {
       projectId: s.projectId,
+      ...(s.gameName ? { gameName: s.gameName } : {}),
       revision: s.revision,
       source: this.source,
       sourceName: s.sourceDirectoryName,
@@ -177,6 +211,8 @@ export class ProjectController {
       projectId: s.projectId,
       projectRoot: store.getProjectRoot(),
       sourceDirectoryName: s.sourceDirectoryName,
+      sourceRoot: s.sourceRoot,
+      ...(s.gameName ? { gameName: s.gameName } : {}),
       openedAt: new Date().toISOString(),
     });
     return this.snapshot()!;
@@ -296,12 +332,90 @@ export class ProjectController {
       }
     });
   }
+  begin(): Promise<StartSelectionResult | null> {
+    return this.serial(async () => {
+      const chosen = await this.dialogs.directory('Wybierz folder zdjęć');
+      if (!chosen) return null;
+      // No image is read here. Check the selected path and ancestors; create/open
+      // perform the full source content scan once before any selection access.
+      await assertNoLinks(chosen);
+      if (!(await lstat(chosen)).isDirectory())
+        throw new SelectorError('NOT_DIRECTORY', 'Wybierz folder zdjęć.');
+      const sourceRoot = await canonicalDirectoryLocation(chosen);
+      const projectRoot = `${sourceRoot} selekcja`;
+      const candidates = new Map<
+        string,
+        { root: string; projectId?: string }
+      >();
+      const key = (root: string) => path.resolve(root).toLowerCase();
+      try {
+        const files = new SecureFiles(projectRoot);
+        await files.verifyRoot();
+        if ((await files.names()).length)
+          candidates.set(key(projectRoot), { root: projectRoot });
+      } catch (error) {
+        if (!isMissing(error)) throw error;
+      }
+      for (const entry of await this.recentCache.list()) {
+        if (entry.sourceRoot && key(entry.sourceRoot) === key(sourceRoot))
+          candidates.set(key(entry.projectRoot), {
+            root: entry.projectRoot,
+            projectId: entry.projectId,
+          });
+      }
+      if (candidates.size > 1)
+        throw new SelectorError(
+          'SOURCE_PROJECT_AMBIGUOUS',
+          'Ten folder ma kilka projektów. Wybierz właściwy z historii.',
+        );
+      const existing = candidates.values().next().value;
+      if (existing) {
+        await this.closeInternal();
+        const store = await ProjectStore.open(existing.root, {
+          expectedSourceRoot: sourceRoot,
+          expectedProjectId: existing.projectId,
+        });
+        const workspace = await this.replaceStore(store);
+        this.draft = null;
+        return { kind: 'existing', workspace };
+      }
+      const draft: NewProjectDraft = {
+        sourceToken: randomUUID(),
+        sourceName: path.basename(sourceRoot),
+        sourcePath: sourceRoot,
+        projectPath: projectRoot,
+        outputPath: `${sourceRoot} wybrane`,
+      };
+      this.draft = { value: draft };
+      return { kind: 'new', draft: { ...draft } };
+    });
+  }
   create(value: unknown): Promise<DesktopWorkspace | null> {
     return this.serial(async () => {
       const options = validateCreate(value);
-      const sourceRoot = await this.dialogs.directory(
-        'Wybierz katalog źródłowych zdjęć',
-      );
+      const draft = options.sourceToken ? this.draft : null;
+      if (
+        options.sourceToken &&
+        (!draft || options.sourceToken !== draft.value.sourceToken)
+      )
+        throw new SelectorError(
+          'STALE_SOURCE_TOKEN',
+          'Wybierz folder zdjęć ponownie.',
+        );
+      if (draft?.result) {
+        if (
+          draft.request !== JSON.stringify(options) ||
+          this.store?.snapshot().projectId !== draft.result.projectId
+        )
+          throw new SelectorError(
+            'STALE_SOURCE_TOKEN',
+            'Projekt został zmieniony.',
+          );
+        return this.snapshot();
+      }
+      const sourceRoot = draft
+        ? draft.value.sourcePath
+        : await this.dialogs.directory('Wybierz katalog źródłowych zdjęć');
       if (!sourceRoot) return null;
       let projectRoot = `${sourceRoot} selekcja`;
       let outputRoot = `${sourceRoot} wybrane`;
@@ -320,13 +434,14 @@ export class ProjectController {
         outputRoot = selectedOutput;
       }
       if (
+        !draft &&
         !(await this.dialogs.confirm(
           `Źródło: ${sourceRoot}\nProjekt: ${projectRoot}\nWynik: ${outputRoot}\n\nProjekt i wynik są na lokalnym dysku poza synchronizacją. Utworzyć projekt?`,
         ))
       )
         return null;
       await this.closeInternal();
-      return this.replaceStore(
+      const result = await this.replaceStore(
         await ProjectStore.create({
           sourceRoot,
           projectRoot,
@@ -334,6 +449,11 @@ export class ProjectController {
           ...options,
         }),
       );
+      if (draft) {
+        draft.request = JSON.stringify(options);
+        draft.result = result;
+      }
+      return result;
     });
   }
   open(projectId?: unknown): Promise<DesktopWorkspace | null> {
@@ -353,7 +473,11 @@ export class ProjectController {
         root = await this.dialogs.directory('Otwórz katalog projektu selekcji');
       if (!root) return null;
       await this.closeInternal();
-      return this.replaceStore(await ProjectStore.open(root));
+      return this.replaceStore(
+        await ProjectStore.open(root, {
+          expectedProjectId: projectId as string | undefined,
+        }),
+      );
     });
   }
   execute(value: unknown): Promise<DesktopWorkspace> {

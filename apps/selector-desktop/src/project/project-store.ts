@@ -7,7 +7,7 @@ import {
   nextManualRangeStart,
   isManualSelectionRangeTerminal,
 } from '@game-predictor/manual-image-selection-core';
-import { SelectorError } from '../contracts.ts';
+import { SelectorError, validateGameName } from '../contracts.ts';
 import {
   scanSource,
   type VerifiedSourceScan,
@@ -58,6 +58,9 @@ import {
 } from './types.ts';
 
 export interface ProjectStoreOptions {
+  /** Native lookup expectations, checked under the lock before any recovery. */
+  expectedSourceRoot?: string;
+  expectedProjectId?: string;
   checkpoint?: WriteCheckpoint;
   processes?: ProcessInspector;
 }
@@ -179,6 +182,10 @@ export class ProjectStore {
     adoption?: ProjectAdoptionSeed,
     oldOutputRoot?: string,
   ): Promise<ProjectStore> {
+    const gameName =
+      input.gameName === undefined
+        ? undefined
+        : validateGameName(input.gameName);
     if (input.direction !== 'ascending' && input.direction !== 'descending')
       throw new SelectorError(
         'INVALID_ARGUMENT',
@@ -237,6 +244,7 @@ export class ProjectStore {
         'Nowy projekt wymaga pustego katalogu projektu i wyniku.',
       );
     const state: ProjectState = {
+      ...(gameName === undefined ? {} : { gameName }),
       schemaVersion: 1,
       projectId: randomUUID(),
       revision: 0,
@@ -321,6 +329,9 @@ export class ProjectStore {
       if (bytes) {
         const journal = decodeEnvelope<ProjectJournal>(bytes);
         validateJournal(journal);
+        ProjectStore.validateOpenIdentity(journal.after, options);
+        if (journal.before)
+          ProjectStore.validateOpenIdentity(journal.before, options);
         if (!state) state = journal.before ?? journal.after;
         if (state.projectId !== journal.projectId)
           throw new SelectorError(
@@ -335,6 +346,7 @@ export class ProjectStore {
             ? 'Projekt i kopia zapasowa są uszkodzone.'
             : 'Nie znaleziono projektu.',
         );
+      ProjectStore.validateOpenIdentity(state, options);
       const store = new ProjectStore(files, lock, state, options);
       try {
         await store.resumeInternal();
@@ -347,6 +359,23 @@ export class ProjectStore {
       await lock.release();
       throw error;
     }
+  }
+  private static validateOpenIdentity(
+    state: ProjectState,
+    options: ProjectStoreOptions,
+  ): void {
+    const samePath = (a: string, b: string) =>
+      path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+    if (
+      (options.expectedSourceRoot &&
+        !samePath(state.sourceRoot, options.expectedSourceRoot)) ||
+      (options.expectedProjectId &&
+        state.projectId !== options.expectedProjectId)
+    )
+      throw new SelectorError(
+        'SOURCE_PROJECT_CONFLICT',
+        'Znaleziony projekt należy do innego źródła. Otwórz właściwy projekt z historii.',
+      );
   }
   private async validateProjectContents(): Promise<void> {
     const allowed = new Set([

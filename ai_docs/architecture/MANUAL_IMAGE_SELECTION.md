@@ -8,6 +8,22 @@ last_updated: 2026-10-12
 
 ## Lokalny selektor Windows — D-545, zaakceptowana architektura
 
+Start0983 wykorzystuje typowane begin IPC: natywny picker rozpoznaje źródło
+oraz domyślny projekt lub wpis pomocniczej historii. Nowa konfiguracja dostaje
+opaque sourceToken; ścieżki w rendererze służą wyłącznie do podglądu.
+Żądanie create nie przyjmuje dowolnej ścieżki. ProjectStore.open sprawdza
+expectedSourceRoot/expectedProjectId pod blokadą przed recovery, także dla
+before/after dziennika. Konflikt lub niejednoznaczność wymaga jawnego wyboru.
+Brak cache nie blokuje znalezienia domyślnego projektu; brak znanego projektu
+nigdy nie prowadzi do automatycznego resetu.
+
+Opcjonalna gameName w ProjectState schema1 jest walidowaną etykietą1–80
+znaków bez znaków sterujących. Zachowują ją envelope, journal i backup;
+brak pola w starym projekcie pozostaje zgodny. Projekcja operator-local nie
+zmienia się. RecentProjects schema1 otrzymuje opcjonalne sourceRoot/gameName;
+to cache10 wpisów, nie dowód tożsamości ani źródło decyzji. UI wybiera tylko
+źródło, a ustawienia pojawiają się dopiero dla nowej partii.
+
 Runda poprawek2026-10-12 została wykonana w kodzie i lokalnych testach: [plan0980–0982](../delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md).
 Przyjęto jeden ukryty, kontrolowany worker natywnych kontroli z typed JSONL;
 kontrole pozostają świeże. Zweryfikowany indeks źródła jest przekazywany

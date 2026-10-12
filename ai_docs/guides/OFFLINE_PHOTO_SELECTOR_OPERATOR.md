@@ -72,18 +72,26 @@ fundamentu go nie realizuje.
    Nie uruchamia EXE bezpośrednio z ZIP i nie kopiuje samego EXE bez zasobów.
 3. Uruchamia `Selektor-zdjec.exe` na Windows11 x64. Internet, host, Node.js
    i Python nie są potrzebne. Wymagany systemowy PowerShell jest częścią Windows.
-4. Wybiera `Nowy projekt`, podaje pierwszą planszę, opcjonalną ostatnią
-   planszę oraz kierunek numeracji. Lista zdjęć pozostaje naturalna w obu
-   kierunkach; kierunek dotyczy wyłącznie kolejnych numerów plansz.
-5. Potwierdza, że projekt i aktywny wynik są na lokalnym dysku poza
-   synchronizacją i udziałami sieciowymi. Kliknięcie
-   `Wybierz zdjęcia i utwórz projekt` otwiera wybór katalogu źródła.
-6. Domyślne katalogi projektu/wyniku powstają obok źródła. Opcja
-   `Wybiorę osobne katalogi projektu i wyniku` pozwala wskazać inne miejsca.
-   Przed utworzeniem natywne potwierdzenie pokazuje wszystkie trzy lokalizacje.
-   Istniejące obce dane nie są nadpisywane; anulowanie nie resetuje pracy.
-7. Po zamknięciu i ponownym uruchomieniu wybiera `Kontynuuj: <nazwa>` albo
-   `Otwórz projekt` i wskazuje folder projektu, nie sam folder wybranych zdjęć.
+4. Wybiera `Wybierz folder zdjęć` i wskazuje katalog źródła.
+   Jeżeli katalog należy do zapisanego projektu, aplikacja od razu wznawia
+   ostatnią pozycję, numerację i postęp. Nie wpisuje ustawień ponownie.
+5. Dla nowej partii wpisuje nazwę gry, np. `Mumie`, pierwszą planszę,
+   opcjonalną ostatnią planszę i kierunek numeracji. Nazwa gry jest etykietą
+   historii. Kierunek zmienia wyłącznie numerację plansz; zdjęcia pozostają
+   w naturalnej kolejności w obu kierunkach.
+6. Ekran pokazuje ścieżki: dla `D:\Mumie\123` projekt powstaje jako
+   `D:\Mumie\123 selekcja`, wynik jako `D:\Mumie\123 wybrane`.
+   Oba foldery są obok źródła; aplikacja tworzy je sama. Potwierdza lokalny
+   dysk poza synchronizacją/udziałem sieciowym i klika `Rozpocznij wybieranie`.
+   Wybory i postęp zapisują się automatycznie; nie ma ręcznego przycisku zapisu.
+7. Po restarcie może ponownie wskazać te same zdjęcia albo wybrać pozycję
+   z listy `Ostatnie projekty`, np. `Mumie — 123`, i kliknąć `Kontynuuj`.
+   `Otwórz projekt` nadal pozwala wskazać zapisany folder projektu, np. ze
+   starszego wydania lub przeniesionej kopii. Projekty bez nazwy gry mają
+   etykietę folderu źródła. Historia jest pomocnicza i ma10 ostatnich pozycji.
+8. Konflikt, kilka projektów źródła lub brak znanego folderu nie tworzą nowej
+   selekcji w miejsce istniejącej. Wybiera właściwy projekt z historii albo
+   używa `Otwórz projekt`. Obce dane nie są nadpisywane.
 
 Pilotaż jest bez podpisu. Windows może ostrzec albo zablokować uruchomienie.
 Przy blokadzie należy zachować komunikat i wstrzymać odbiór; instrukcja

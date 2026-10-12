@@ -1,3 +1,4 @@
+import { continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
 import {
@@ -216,9 +217,7 @@ try {
   await application.close();
   application = null;
   await launch([]);
-  await page
-    .getByRole('button', { name: 'Kontynuuj: source', exact: true })
-    .click();
+  await continueFromHistory(page);
   await page.waitForFunction(() =>
     document
       .querySelector('[data-testid="counts"]')

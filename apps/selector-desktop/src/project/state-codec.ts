@@ -70,6 +70,12 @@ function validateStateStructure(state: ProjectState): void {
     typeof state.sourceRoot !== 'string' ||
     typeof state.outputRoot !== 'string' ||
     typeof state.sourceDirectoryName !== 'string' ||
+    (state.gameName !== undefined &&
+      (typeof state.gameName !== 'string' ||
+        !state.gameName.trim() ||
+        state.gameName !== state.gameName.trim() ||
+        state.gameName.length > 80 ||
+        /[\u0000-\u001f\u007f]/.test(state.gameName))) ||
     !/^[a-f0-9]{64}$/.test(state.sourceManifestChecksumSha256) ||
     !Array.isArray(state.inventory) ||
     state.inventory.length < 1 ||

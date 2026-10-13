@@ -841,6 +841,8 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
 
+- Commit zamknięcia dokumentacji i sprzątania: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**. Usunięto36 plików, 1 346 463 654 B; SHA-256 bieżącego ZIP1.0.0 bez zmian. docs:check/diff PASS. Brak otwartego zadania Word.
+
 - Zamknięcie dokumentacji i sprzątanie2026-10-13: operator nie wymaga obecnie nowej instrukcji. Zachowano1.0.0, istniejący Word/PDF, screenshoty i dowody; usunięto stare ZIP-y oraz pomocnicze pliki robocze według zweryfikowanego manifestu. Bez zmian aplikacji i nowych testów runtime.
 
 - Commit zamknięcia v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`. Lokalny `main` w `D:\game_predicotr` zawiera cały selektor oraz dotychczasowy checkout `667f5d712486adee1c5f895b65690da73b023eb0`. Worktree selektora usunięty po zachowaniu 180 zweryfikowanych plików i ZIP1.0.0 poza nim; `v3-777-profile` nietknięty. Bez push. docs:check/code-map:check PASS z nowego procesu w głównym katalogu.

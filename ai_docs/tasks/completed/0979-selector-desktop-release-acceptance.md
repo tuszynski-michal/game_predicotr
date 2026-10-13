@@ -115,6 +115,8 @@ Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierd
 
 ### Zamknięcie dokumentacji i sprzątanie — 2026-10-13
 
+Commit: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**.
+
 Operator uznał istniejącą instrukcję za wystarczającą na obecnym etapie. Nie powstaje nowe zadanie Word ani otwarta bramka dokumentacji. Wszystkie taski selektora są zamknięte. Usuwanie obejmuje tylko zweryfikowane stare ZIP-y, pomocnicze skrypty, podglądy stron i kopie robocze planów z archiwum usuniętego worktree. Bieżący ZIP1.0.0 z metadanymi, Word/PDF, screenshoty oraz logi i raporty dowodowe pozostają zachowane. Kod aplikacji i dane użytkownika nie zmieniają się.
 
 Usunięto 36 plików, 1 346 463 654 B. Manifest `cleanup-20261013.json` w archiwum selektora zapisuje ścieżki i sumy usuniętych plików. SHA-256 ZIP1.0.0 przed i po sprzątaniu zgodna. `docs:check` PASS (544 decyzje, 42 aktywne zadania innych obszarów, 10 done), `git diff --check` PASS. Nie powtarzano testów aplikacji bez zmian w kodzie.

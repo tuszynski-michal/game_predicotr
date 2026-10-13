@@ -1,10 +1,12 @@
 ---
 title: Selector source-first start and resume
-status: accepted
-last_updated: 2026-10-12
+status: completed
+last_updated: 2026-10-13
 ---
 
 # Lokalny selektor — prosty start i historia
+
+Stan końcowy 2026-10-13: zakres wykonany i zamknięty, odbiór wydania1.0.0 zatwierdzony przez operatora (D-547), kod na lokalnym main, worktree usunięty. Nowa instrukcja Word nie jest obecnie potrzebna. Poniższe opisy wcześniejszych wersji i bramek są historią planu; aktualny rejestr: [wydanie1.0.0](../quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md).
 
 Operator zatwierdził zakres i dodatkowe 1–2 godziny2026-10-12.
 Obecne foldery są automatyczne, lecz ponowny wybór źródła próbuje tworzyć

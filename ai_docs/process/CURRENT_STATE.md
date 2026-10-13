@@ -23,29 +23,13 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Word osobno. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
+- **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
 - **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.
 
 - **Historical numbering collision:** selector foundation and symbol-training recovery both use TASK-0975 and v1.7.317/318 on parallel branches. Preserve both historical records and identify tasks by complete file path; do not renumber existing commits or audit reports.
 
-- **Finalizacja selektora / D-546:** cały zatwierdzony zakres0984→0985→0986→0987 done. Aktualny ZIP0.1.3 z v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`, out/releases/pilot-0.1.3-0b1ab330; pełny desktop262, core110, operator-local16 PASS, pięć finalnych release smoke i oba update0.1.0/0.1.2→0.1.3 PASS. Pomiar15000: NAV p50/p95 95,08/106,66 ms; brak przepisywania inventory i dodatkowych warm worker spawns, pełne stare receipty po procesie/retry. Create21,277 s/openp50 10,523 s są jawne. Dowody: quality/OFFLINE_PHOTO_SELECTOR_FINAL_VERIFICATION_20261012.md i MEASUREMENT. Końcowy audyt oraz fizyczny0979 operatora pozostają osobne.
-
-- **Start selektora0983:** operator zaakceptował1–2 h; source-only picker, sibling folders, game label/history i auto-resume obu kierunków. Plan `delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md`. TASK-0983 done;122 testy i sześć smoke finalnego ZIP0.1.2 PASS wykonawcy. Audyt rundy2 PASS; fizyczny odbiór0979 osobno.
-
-- **Aktualny brief audytu selektora:** `quality/OFFLINE_PHOTO_SELECTOR_FINAL_CLAUDE_AUDIT_BRIEF_20261012.md` obejmuje cały zakres0975–0987, wszystkie rundy, D-546, pomiar i aktualny ZIP0.1.3. Audyt nowych zmian nie jest wykonany. Starszy brief v1.7.331 i PASS Claude rundy2 dla0.1.2 zachowano jako historyczne. Historyczny blocker0979 zamknięto decyzją D-547.
-
-- **Poprawki selektora2026-10-12:** operator zaakceptował pełną dodatkową rundę2–4 h. Plan `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md`, taski0980/0981/0982 done. Świeże kontrole, trwałość i SHA bez osłabienia. Końcowy audyt rundy2 PASS; fizyczny odbiór0979 osobno.
-
-- Zapis raportu rundy2: v1.7.332 /`c7b9d52ea09b22b4a5f174d4ce8212a242a43eca`.
-
-- **Selektor Windows / historyczny audyt2026-10-12, runda2:** operator przekazał `quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md`, PASS bez P0/P1 dla0.1.2,140 testów i potwierdzone SHA. Pierwsze start/update FAIL i późniejsze PASS pozostają w niezmienionym raporcie. Odpowiedzi wykonawcy na wszystkie P2-A–E/P3-A–E są w finalizacji0984–0987; nie są nowym niezależnym audytem. Historical P2-E nie uznano zbiorczo za zdiagnozowane: udowodniono wyścig aktualizacji0.1.0 w harnessie, dodano bounded retry identity/failure logs. Pierwotny REVISE i reaudit zachowano z identycznym SHA; Historyczny blocker0979 zamknięto decyzją D-547.
-
-- **Selektor Windows / D-545:** zaakceptowane pierwsze wydanie 0975→0976→0977→0979,
-  koszt 3–6 h zatwierdzony 2026-10-11; dane/źródła/wynik u odbiorcy. TASK-0978
-  również uruchomiony późniejszym poleceniem wykonania pięciu tasków. Operator polecił start pięciu tasków i audyt dopiero na końcu;
-  CLI audytora nie blokuje startu ani commitów. Pilotaż bez podpisu i odbiór drugiego komputera
-  nie mogą zostać uznane za wykonane na podstawie lokalnego smoke testu.
+- **Historia selektora:** wszystkie rundy TASK-0975–0990 dotyczące selektora zamknięto; bieżące wydanie1.0.0 i decyzja D-547 zastępują dawne statusy pilota0.1.x. Historyczne raporty/audyty/limity pomiarów pozostają w quality i completed. Brak nowego niezależnego audytu i dowodów fizycznych nie jest ukrywany ani oznaczany jako PASS.
 
 - **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
 
@@ -857,13 +841,15 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
 
+- Zamknięcie dokumentacji i sprzątanie2026-10-13: operator nie wymaga obecnie nowej instrukcji. Zachowano1.0.0, istniejący Word/PDF, screenshoty i dowody; usunięto stare ZIP-y oraz pomocnicze pliki robocze według zweryfikowanego manifestu. Bez zmian aplikacji i nowych testów runtime.
+
 - Commit zamknięcia v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`. Lokalny `main` w `D:\game_predicotr` zawiera cały selektor oraz dotychczasowy checkout `667f5d712486adee1c5f895b65690da73b023eb0`. Worktree selektora usunięty po zachowaniu 180 zweryfikowanych plików i ZIP1.0.0 poza nim; `v3-777-profile` nietknięty. Bez push. docs:check/code-map:check PASS z nowego procesu w głównym katalogu.
 
 - Poprawka synchronizacji harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c; initial/repeat smoke FAIL zachowane. Końcowy PASS wymaga dokładnego scroll120/100 po restarcie; runtime bez zmian.
 
 - Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
 - ZIP1.0.0 149411351 B, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, app.asar `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`, dirty=false/applicationSourceDirty=false. Zachowany poza usuwanym worktree.
-- Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Word osobno; bez push/migracji.
+- Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Bez nowej instrukcji Word na tym etapie; bez push/migracji.
 
 ### TASK-0990 — Zakres pośrodku nad zdjęciem i końcowy zapis widoku (done)
 

@@ -1,10 +1,12 @@
 ---
 title: Lokalny selektor Windows — poprawki po audycie implementacji
-status: accepted
-last_updated: 2026-10-12
+status: completed
+last_updated: 2026-10-13
 ---
 
 # Poprawki po audycie selektora Windows
+
+Stan końcowy 2026-10-13: zakres wykonany i zamknięty, odbiór wydania1.0.0 zatwierdzony przez operatora (D-547), kod na lokalnym main, worktree usunięty. Nowa instrukcja Word nie jest obecnie potrzebna. Poniższe opisy wcześniejszych wersji i bramek są historią planu; aktualny rejestr: [wydanie1.0.0](../quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md).
 
 ## Stan obecny i zgoda
 

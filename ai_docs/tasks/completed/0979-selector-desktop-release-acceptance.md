@@ -113,6 +113,12 @@ Operator 2026-10-13 polecił: „zmerguj zmiany do głównej gałęzi i zatwierd
 
 ## Outcome
 
+### Zamknięcie dokumentacji i sprzątanie — 2026-10-13
+
+Operator uznał istniejącą instrukcję za wystarczającą na obecnym etapie. Nie powstaje nowe zadanie Word ani otwarta bramka dokumentacji. Wszystkie taski selektora są zamknięte. Usuwanie obejmuje tylko zweryfikowane stare ZIP-y, pomocnicze skrypty, podglądy stron i kopie robocze planów z archiwum usuniętego worktree. Bieżący ZIP1.0.0 z metadanymi, Word/PDF, screenshoty oraz logi i raporty dowodowe pozostają zachowane. Kod aplikacji i dane użytkownika nie zmieniają się.
+
+Usunięto 36 plików, 1 346 463 654 B. Manifest `cleanup-20261013.json` w archiwum selektora zapisuje ścieżki i sumy usuniętych plików. SHA-256 ZIP1.0.0 przed i po sprzątaniu zgodna. `docs:check` PASS (544 decyzje, 42 aktywne zadania innych obszarów, 10 done), `git diff --check` PASS. Nie powtarzano testów aplikacji bez zmian w kodzie.
+
 ### Zamknięcie wydania 1.0.0 — 2026-10-13
 
 Commit zamknięcia: **v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`**.
@@ -165,7 +171,11 @@ za pierwszym razem, PASS po powtórce, bez wyjaśnionej przyczyny (P2-E).
 Otwarte w tamtym raporcie P2-A–P2-E oraz P3-A–P3-E mają odpowiedzi w
 finalizacji 0984–0987. Pierwotnego raportu nie zmieniano; nowe dowody
 wykonawcy nie są niezależnym audytem Claude ani odbiorem operatora.
-Task nadal blocked: brak fizycznego odbioru na komputerze odbiorcy.
+Historyczny status pilota0.1.3: blocked z powodu braku fizycznego odbioru; zastąpiony zamknięciem1.0.0 i decyzją D-547.
+
+### Historyczne wyniki pilotażu 0.1.x
+
+Poniższe dowody i statusy opisują wcześniejszy etap. Aktualny status taska jest done zgodnie z zamknięciem1.0.0 powyżej.
 
 ### Changed
 
@@ -243,9 +253,8 @@ Wydanie jest bez podpisu; blokada ochrony wstrzymuje odbiór. Nie wyłączano je
 
 Root README, ai_docs README, guide, TRACEABILITY, mapy, raport odbioru i
 CURRENT_STATE opisują kod i gotową paczkę, a nie zaliczony fizyczny pilotaż.
-Task pozostaje aktywny w ai_docs/tasks ze statusem blocked.
+Historyczny status etapu0.1.x: aktywny w ai_docs/tasks, blocked. Aktualny task jest done w completed zgodnie z decyzją D-547.
 
 ### Recommended next task
 
-TASK-0978 i wszystkie rundy implementacyjne są wykonane. Operator przeprowadza
-końcowy audyt paczki 0.1.3 oraz uzupełnia dowody fizycznego odbioru TASK-0979.
+Brak aktywnego zadania selektora. Odbiór zamknięty decyzją D-547. Aktualizacja instrukcji Word nie jest obecnie zlecona; ewentualne przyszłe zmiany wymagają nowego polecenia operatora.

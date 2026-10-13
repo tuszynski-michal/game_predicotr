@@ -1,6 +1,6 @@
 # Game Predictor
 
-Selektor Windows **1.0.0**: [wydanie i zatwierdzenie odbioru](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md). Brak narzuconego limitu zdjęć, automatyczny projekt/wynik obok źródła, historia i wznowienie obu kierunków. Bieżąca paczka zachowana w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`; odbiór zatwierdzony przez operatora 2026-10-13. Starsze wpisy0.1.x poniżej są historyczne. Instrukcja Word pozostaje osobnym zadaniem.
+Selektor Windows **1.0.0**: [wydanie i zatwierdzenie odbioru](ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md). Brak narzuconego limitu zdjęć, automatyczny projekt/wynik obok źródła, historia i wznowienie obu kierunków. Bieżąca paczka zachowana w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`; odbiór zatwierdzony przez operatora 2026-10-13. Starsze wpisy0.1.x poniżej są historyczne. Aktualizacja instrukcji Word nie jest wymagana na tym etapie decyzją operatora z 2026-10-13; istniejąca instrukcja pozostaje zachowana.
 
 Offline-first Android application and local authoring tools for deterministic
 layout-sequence analysis.

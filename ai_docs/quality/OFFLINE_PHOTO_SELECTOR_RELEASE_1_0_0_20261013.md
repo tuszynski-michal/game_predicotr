@@ -43,9 +43,29 @@ usunięto wyłącznie linki (bez podążania do celów) i puste katalogi.
 
 Operator autoryzował lokalne scalenie do main oraz usunięcie tylko D:/game_predicotr/worktrees/offline-photo-selector. Main obejmuje również nowszą gałąź v1.1-vision-lab-hybrid-geometry; pozostałe worktree pozostają. Bez push, wdrożenia, migracji lub operacji na zdjęciach operatora.
 
-Historyczne paczki, raporty diagnostyczne, logi nieudanych prób i szkic instrukcji Word zachowano w D:/game_predicotr/artifacts/selector-worktree-archive-20261013. Manifest preserved-files.json zawiera SHA-256 każdej kopii: 180 plików, 1 351 344 426 B; wszystkie kopie zweryfikowano. Końcowy ZIP1.0.0 oraz oba pliki metadanych zachowano i niezależnie sprawdzono ich sumy. Materiały lokalne nie są częścią Git. Szkic Word 0.1.3 wymaga osobnego zadania aktualizacji; nie jest instrukcją odbiorczą wydania 1.0.0.
+Historyczne paczki, raporty diagnostyczne, logi nieudanych prób i szkic instrukcji Word zachowano w D:/game_predicotr/artifacts/selector-worktree-archive-20261013. Manifest preserved-files.json zawiera SHA-256 każdej kopii: 180 plików, 1 351 344 426 B; wszystkie kopie zweryfikowano. Końcowy ZIP1.0.0 oraz oba pliki metadanych zachowano i niezależnie sprawdzono ich sumy. Materiały lokalne nie są częścią Git. Aktualizacja instrukcji Word nie jest wymagana na tym etapie decyzją operatora z 2026-10-13; istniejąca instrukcja pozostaje zachowana. Nie oznaczamy starej instrukcji jako nowo zweryfikowanej dla1.0.0.
 
 ## Pozostałe ograniczenia
+
+### Zamknięcie dokumentacji i sprzątanie — 2026-10-13
+
+Operator uznał istniejącą instrukcję za wystarczającą na tym etapie i polecił
+zamknąć zadanie oraz usunąć zbędne materiały. Wszystkie plany selektora mają
+status `completed`; nie ma otwartego zadania aktualizacji Worda.
+Usunięto **36 plików, 1 346 463 654 B**: dziewięć historycznych ZIP-ów,
+pomocnicze skrypty robocze, podglądy stron instrukcji, przykładowy obraz,
+nieaktualny zapis właściciela procesu i kopie robocze planów już zapisanych w Git.
+Przed usunięciem sprawdzono lokalizację każdego pliku, brak reparse pointów
+w całej ścieżce oraz zgodność SHA-256 z manifestem zachowania worktree.
+Usuwanie dotyczyło wyłącznie archiwum selektora, bez rekursji i bez danych użytkownika.
+
+Zachowano bieżący ZIP1.0.0 z sumą i metadanymi, istniejący Word/PDF,
+podpisane screenshoty, wszystkie logi testów i raporty audytów oraz metadane
+historycznych wydań. SHA-256 ZIP1.0.0 przed i po sprzątaniu jest identyczna
+z sumą powyżej. `preserved-files.json` pozostaje niezmienionym historycznym
+manifestem kopii; `cleanup-20261013.json` obok niego wylicza później usunięte
+pliki i ich sumy. Nie zmieniano kodu aplikacji, nie budowano ponownie paczki
+i nie przypisano temu sprzątaniu nowych testów funkcjonalnych.
 
 Program jest niepodpisany. Zdjęcia, projekt i wyniki zostają lokalnie; brak integracji upload/link/synchronizacji. Kontrole własności, ścieżek, checksum i blokad pozostają. Projekt poza synchronizacją/udziałem sieciowym. Brak limitu liczby zdjęć nie jest gwarancją czasu otwarcia ani zużycia pamięci na dowolnym komputerze. Pełna walidacja źródła i JPEG przy otwarciu nadal zależy od liczby i wielkości plików.
 

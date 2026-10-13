@@ -1,10 +1,12 @@
 ---
 title: Lokalny selektor zdjęć Windows
-status: accepted
+status: completed
 last_updated: 2026-10-13
 ---
 
 # Lokalny selektor zdjęć Windows — plan po audycie Codex
+
+Stan końcowy 2026-10-13: zakres wykonany i zamknięty, odbiór wydania1.0.0 zatwierdzony przez operatora (D-547), kod na lokalnym main, worktree usunięty. Nowa instrukcja Word nie jest obecnie potrzebna. Poniższe opisy wcześniejszych wersji i bramek są historią planu; aktualny rejestr: [wydanie1.0.0](../quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md).
 
 Zamknięcie 2026-10-13 (D-547): wszystkie pięć tasków done; TASK-0979 zaakceptowany jawną decyzją operatora. Aktualne wydanie1.0.0 obejmuje także0988 (bez limitu zdjęć),0989 (stabilny układ/minimalny fullscreen) i0990 (zakres nad zdjęciem i bezpieczny zapis widoku przy close). Scalenie do main i usunięcie wyłącznie worktree selektora są autoryzowane po zachowaniu artefaktów. Fizyczne kontrole bez przekazanych dowodów nie otrzymują PASS. Poprzednie opisy odbioru/wersji są historycznym planem; aktualny kontrakt i rejestr w D-547 oraz quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 

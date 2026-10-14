@@ -164,6 +164,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
+### TASK-0992 — Gałąź integracyjna i reguła końcowego scalania (in_progress)
+
+- Task: `ai_docs/tasks/0992-integration-branch-merge-policy.md`. Operator zlecił scalenie naprawy symboli i dodanie obowiązku lokalnej integracji po ukończonej pracy.
+- Gałąź `v1.1-vision-lab-hybrid-geometry` w `worktrees/multi-game-share` ma cudze niezacommitowane zmiany. Zabezpieczono 53 zmienione/nowe pliki; tylko `CURRENT_STATE.md` koliduje z zakresem scalenia. Odtworzenie bez utraty danych i kontrola hashy są warunkiem zakończenia. Bez push, migracji i restartu usług.
+
 ### TASK-0991 — Wznowienie rozpoznawania symboli i jednorazowy zakres <80% (in_progress)
 
 - Commit naprawy: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. Kod zapisany; task pozostaje otwarty do zakończenia przebiegu operacyjnego.

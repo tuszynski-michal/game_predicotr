@@ -193,6 +193,28 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
   klienta, wrappera klienta i testu żądania. Nie utrzymuj ręcznie rozbieżnych
   typów.
 
+### Scalanie do gałęzi integracyjnej
+
+- Domyślną gałęzią integracyjną repozytorium jest
+  `v1.1-vision-lab-hybrid-geometry`, chyba że użytkownik jawnie wskaże inną.
+- Po zakończeniu pracy, wymaganej weryfikacji i audycie oraz osobnym commicie
+  taska scal zmianę lokalnie do gałęzi integracyjnej. Jest to domyślny etap
+  ukończenia zadania i nie wymaga ponownej zgody użytkownika. Gdy pracujesz
+  bezpośrednio na gałęzi integracyjnej, wystarcza commit na tej gałęzi.
+- Przed scaleniem sprawdź historię, zakres commitów i stan obu worktree.
+  Preferuj fast-forward, gdy zachowuje pełną historię. Nie nadpisuj ani nie
+  dołączaj do commita cudzych niezacommitowanych zmian; kolidującą pracę
+  zabezpiecz i odtwórz bez utraty danych. Jeśli nie można tego potwierdzić,
+  zatrzymaj scalenie i zgłoś konkretny blocker.
+- Scalenie nie znosi pozostałych bramek: otwartych uwag P0/P1, wymaganych
+  migracji i zgód na operacje danych lub koszt poza zatwierdzonym zakresem.
+  Nie scalaj kodu wymagającego niewykonanej migracji do checkoutu działającego
+  API. Nie wykonuj automatycznego push, restartu usług ani wdrożenia.
+- Po scaleniu potwierdź, że gałąź integracyjna zawiera commit taska, sprawdź
+  pozostały stan worktree i zapisz wynik oraz pełny hash w `Outcome` i
+  `CURRENT_STATE.md`. Raport końcowy podaje nazwę gałęzi i wynik scalenia;
+  niezintegrowanej zmiany nie przedstawiaj jako w pełni przekazanej.
+
 ### Przed kodowaniem
 
 1. Potwierdź zakres zadania na podstawie dokumentacji.
@@ -290,8 +312,9 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
    wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, otwartych uwagach
    audytu P0/P1 po jednej rundzie poprawek (uwagi P2 odnotowane w `Outcome`
    nie zatrzymują; zasady w sekcji „Audyt krzyżowy”) lub przed operacją czy
-   kosztem poza zatwierdzonym zakresem. Nie wykonuj automatycznego push,
-   merge, aktywacji modelu ani wdrożenia.
+   kosztem poza zatwierdzonym zakresem. Scalenie do gałęzi integracyjnej
+   wykonaj zgodnie z sekcją „Scalanie do gałęzi integracyjnej”. Nie wykonuj
+   automatycznego push, aktywacji modelu ani wdrożenia.
 
 ## Audyt krzyżowy
 

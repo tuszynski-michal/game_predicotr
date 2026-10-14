@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 ---
 
 # Current State
@@ -163,6 +163,13 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0991 — Wznowienie rozpoznawania symboli i jednorazowy zakres <80% (in_progress)
+
+- Task: `ai_docs/tasks/0991-symbol-reinference-resume.md`. Operator zatwierdził naprawę oraz jednorazowe przeliczenie bez dodawania filtra API/UI.
+- Job `2f807266…` gry `777a2` zatrzymał się na 6824/341461 z `JOB_PROGRESS_REGRESSION`; handler ignorował checkpoint i zerował liczniki. Nowy checkpoint przechowuje stabilny klucz wznowienia; historyczny jest odtwarzany idempotentnie z zachowaniem trwałych liczników.
+- Manifest operacyjny: 35122 pending komórki <0.80, 24309 plansz, osiem klas, model `747c21d5…`; SHA-256 `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Runner, manifest i receipty: `artifacts/symbol-reinference-20261014/`. Przebieg trwa; nie jest jeszcze ukończony. Bez restartu usług, treningu, aktywacji, migracji ani zmian API.
+- 43 testy worker/domain, ruff i targeted mypy PASS; docs i mapa aktualne. Claude CLI niedostępny: brief zapisano, niezależnego audytu nie wykonano. Ostatni odczyt: 2584/24309 plansz, 3383 nowo przeliczone komórki, 255 plansz miało wynik tego samego modelu. Po chwilowej blokadzie pliku statusu Windows proces wznowił trwałe receipty; ograniczone ponowienie podmiany usuwa tę przyczynę. Pięciominutowy heartbeat `doko-cz-rozpoznawanie-777-a2-poni-ej-80` w tym czacie dopilnuje weryfikacji, domknięcia taska i commita wyniku; bez rutynowych powiadomień. Poll worker nie jest przeładowany; instrukcja tylko dla operatora w tasku.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 

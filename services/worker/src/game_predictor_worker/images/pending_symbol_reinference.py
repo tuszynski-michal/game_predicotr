@@ -11,6 +11,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import cast
 from uuid import UUID
@@ -145,20 +146,36 @@ class PendingSymbolReinferenceHandler:
             **symbol_onnx_variant_arguments(snapshot.model_version),
         )
         rows = self._pending_rows(job.game_id)
-        total = len(rows)
-        if total == 0:
+        saved = job.checkpoint_payload or {}
+        cursor = _resume_cursor(saved)
+        if cursor is not None:
+            rows = [row for row in rows if _row_cursor(row) > cursor]
+        # Old checkpoints have no stable cursor. Replay their current eligible
+        # rows idempotently, retaining the durable counters until caught up.
+        processed = job.success_count if cursor is not None else 0
+        skipped = job.progress_current - job.success_count if cursor is not None else 0
+        total = max(job.progress_total or 0, processed + skipped + len(rows))
+
+        def checkpoint(*, last_row: tuple[UUID, datetime, UUID] | None = None) -> None:
+            current = max(job.progress_current, processed + skipped)
+            ready = processed + skipped >= job.progress_current
             context.checkpoint(
-                checkpoint_payload=_checkpoint_payload(processed=0, skipped=0),
+                checkpoint_payload=_checkpoint_payload(
+                    processed=max(job.success_count, processed),
+                    skipped=current - max(job.success_count, processed),
+                    cursor=last_row if ready else None,
+                ),
                 stage="symbol_reinference",
-                current=0,
-                total=0,
-                success_count=0,
-                failure_count=0,
-                review_count=0,
+                current=current,
+                total=max(total, current),
+                success_count=max(job.success_count, processed),
+                failure_count=job.failure_count,
+                review_count=job.review_count,
             )
+
+        if not rows:
+            checkpoint(last_row=cursor)
             return
-        processed = 0
-        skipped = 0
         source_loader = CanonicalSourceLoader()
         try:
             for item, board, source in rows:
@@ -207,17 +224,7 @@ class PendingSymbolReinferenceHandler:
                         )
                         if pending_cell is None:
                             skipped += 1
-                            context.checkpoint(
-                                checkpoint_payload=_checkpoint_payload(
-                                    processed=processed, skipped=skipped
-                                ),
-                                stage="symbol_reinference",
-                                current=processed + skipped,
-                                total=total,
-                                success_count=processed,
-                                failure_count=0,
-                                review_count=0,
-                            )
+                            checkpoint(last_row=_row_cursor((item, board, source)))
                             continue
                         existing = session.scalar(
                             select(ImageSymbolPredictionRevisionModel).where(
@@ -260,15 +267,7 @@ class PendingSymbolReinferenceHandler:
                                     "refresh.",
                                 )
                         processed += 1
-                context.checkpoint(
-                    checkpoint_payload=_checkpoint_payload(processed=processed, skipped=skipped),
-                    stage="symbol_reinference",
-                    current=processed + skipped,
-                    total=total,
-                    success_count=processed,
-                    failure_count=0,
-                    review_count=0,
-                )
+                checkpoint(last_row=_row_cursor((item, board, source)))
         finally:
             source_loader.clear()
 
@@ -564,13 +563,43 @@ def _available_indices(raw: Mapping[str, object] | None) -> tuple[int, ...]:
     return tuple(index for index in range(15) if index not in excluded)
 
 
-def _checkpoint_payload(*, processed: int, skipped: int) -> dict[str, object]:
-    return {
+def _row_cursor(
+    row: tuple[ImageReviewItemModel, RecognizedBoardModel, SourceImageModel],
+) -> tuple[UUID, datetime, UUID]:
+    item, _, source = row
+    return source.id, item.created_at, item.id
+
+
+def _resume_cursor(payload: Mapping[str, object]) -> tuple[UUID, datetime, UUID] | None:
+    if payload.get("kind") != "pending-symbol-reinference-v2":
+        return None
+    raw = payload.get("cursor")
+    if not isinstance(raw, list) or len(raw) != 3 or not all(isinstance(v, str) for v in raw):
+        raise JobHandlerError("IMAGE_SYMBOL_REINFERENCE_CHECKPOINT_INVALID", "Invalid cursor.")
+    try:
+        created_at = datetime.fromisoformat(raw[1])
+        if created_at.tzinfo is None:
+            raise ValueError("Cursor timestamp must include a timezone.")
+        return UUID(raw[0]), created_at, UUID(raw[2])
+    except ValueError as error:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_REINFERENCE_CHECKPOINT_INVALID", "Invalid cursor."
+        ) from error
+
+
+def _checkpoint_payload(
+    *, processed: int, skipped: int, cursor: tuple[UUID, datetime, UUID] | None = None
+) -> dict[str, object]:
+    payload: dict[str, object] = {
         "schema_version": 1,
         "kind": "pending-symbol-reinference-v1",
         "processed": processed,
         "skippedConcurrentResolution": skipped,
     }
+    if cursor is not None:
+        payload["kind"] = "pending-symbol-reinference-v2"
+        payload["cursor"] = [str(cursor[0]), cursor[1].isoformat(), str(cursor[2])]
+    return payload
 
 
 def _model_path(

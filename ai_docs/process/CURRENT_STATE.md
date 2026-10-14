@@ -889,6 +889,10 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-1016 — P1: galeria przycięcia zdjęć (done)
 
+- Poprawka po odbiorze 2026-10-14: SVG używa wymiarów `right-left` i
+  `bottom-top`, zamiast współrzędnych prawego/dolnego brzegu. Test 40 zdjęć /
+  45 016 punktów i przypadek z niezerowym offsetem PASS. Raster zdjęć bez zmian.
+
 - Korekta kolizji numeracji: **v1.7.363 / `c36087bcfa22f32d432d32fe6baa3a33237ad24e`**.
 
 - Commit dokumentacji: **v1.7.361 / `063f259048080e94cffc79cce5eb0da335a69863`**, gałąź

@@ -101,3 +101,22 @@ Nie uruchamiano usług, pełnych testów aplikacji, migracji ani niezależnego
 audytu Claude. Dla P1 plan przewiduje wizualny odbiór operatora; ten odbiór
 pozostaje oczekujący. Następny krok to obejrzenie przykładów i decyzja o P2,
 z osobnym kontraktem przechowywania oraz retencją oryginałów.
+
+## Poprawka nakładek po uwadze operatora (2026-10-14)
+
+Operator wykrył przesunięte siatki po przycięciu. W funkcji `svg` zapis
+`bbox = [left, top, right, bottom]` potraktowano błędnie jako
+`[x, y, width, height]`. Odjęcie początku kadru było poprawne, lecz viewport
+nakładki używał `right` i `bottom` zamiast `right-left` oraz `bottom-top`.
+W rezultacie siatki były rozciągane względem pikseli przyciętego zdjęcia.
+Wcześniejszy przegląd wizualny nie wykrył tego błędu; nie stanowił dowodu
+poprawnego pozycjonowania nakładek.
+
+Poprawiono funkcję w galerii i generatorze. Zdjęcia i wszystkie pomiary bajtów
+pozostały bez zmian, co potwierdzono przez SHA-256 40 oryginałów i 40 cropów.
+Test regresyjny wykonuje rzeczywistą funkcję SVG z pliku HTML: sprawdza
+wymiary viewportu oraz współrzędne wszystkich 45 016 punktów cropów z 40
+zdjęć, a także przypadek `[100,50,600,450]` wymagający viewportu `500×400`.
+Test przeszedł; poprzednia funkcja nie spełnia tej asercji. Ponowiono kontrolę
+wizualną, powiększenie i widok mobilny; nakładki uwzględniają wyłącznie
+przesunięcie początku kadru. Zaktualizowano ZIP i zrzuty galerii.

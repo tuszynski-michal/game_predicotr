@@ -77,6 +77,16 @@ Documentation link/window checks passed (42 active tasks, 10 done sections).
 Final gallery checks also verified all 80 visible before/after images, overlay
 toggles and fitted/100%/200% enlargement. Staged diff checks passed at closure.
 
+### Overlay regression correction (2026-10-14)
+
+Operator review revealed that the crop bbox right/bottom coordinates were
+incorrectly used as SVG viewport width/height. The prior visual review missed
+this issue. Fixed the actual HTML and generator to use right-left/bottom-top,
+retaining the coordinate translation by left/top. Regression checks passed
+for all 40 images and 45 016 cropped points, plus a nonzero-offset fixture.
+Original and cropped image SHA-256 values are unchanged. Updated screenshots
+and ZIP; no database or production geometry changes.
+
 ### Not completed
 
 Operator visual acceptance, P2–P4 and integration merge. No space was reclaimed

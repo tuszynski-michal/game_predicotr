@@ -48,7 +48,11 @@ numer taska (np. 0930). Nie uruchamiaj skilla w pętli.
 3. Odczytaj wynik:
    - Kod 0 i komunikat „Report stored”: otwórz
      `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` i przeczytaj werdykt.
-   - Kod 0 i komunikat „brief-only mode” (brak CLI `claude` w PATH): brief leży w
+   - Skrypt szuka CLI najpierw w PATH, następnie w natywnej instalacji użytkownika
+     i fizycznym katalogu pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code`.
+     Nie utrwalaj wersji ani builda; brak wyniku `Get-Command claude` nie oznacza
+     braku instalacji. `--version` potwierdza start CLI, nie stan logowania.
+   - Kod 0 i komunikat „brief-only mode” (CLI niewykryte w obsługiwanych lokalizacjach): brief leży w
      `artifacts/audits/TASK-NNNN_BRIEF_claude.md`. Poproś operatora o wklejenie
      go w aplikacji Claude albo użyj niezależnego audytora Claude (inny model niż wykonawca)
      (zasada zastępcza z `AGENTS.md`). Audytor zastępczy uruchamia skrypt z

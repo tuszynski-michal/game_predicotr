@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
+
 - **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
 
 - **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
@@ -876,6 +878,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
+
+- Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
+- Skrypt audytu zachowuje PATH jako pierwszy wybór; wykrywa także natywną i pakietową instalację Claude Code, wybierając wersję liczbowo. Reguła w AGENTS.md oraz skillu audytu.
+- Osiem regresji PASS w nowym Windows PowerShell 5.1; rzeczywiste CLI 2.1.295 startuje w nowym procesie (exit 0). Bez testu logowania/modelu, reinstalacji, zmiany PATH i restartu usług.
+- Gałąź `codex/claude-cli-discovery`; oczekuje akceptacji i scalenia, bez push. Hash commita zostanie dopisany po zatwierdzeniu zmian w Git.
+
 ### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
 
 - Commit zweryfikowanego zamknięcia operacyjnego: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, na main. Do scalenia dokumentacji wymagana jest końcowa akceptacja operatora; bez automatycznego merge.
@@ -949,11 +958,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
 - 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
 - Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.
-
-### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
-
-- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wykonanie v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`.
-- Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
-- Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
-- 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
-- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; Historyczny blocker0979 zamknięto decyzją D-547.

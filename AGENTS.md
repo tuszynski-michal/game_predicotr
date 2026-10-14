@@ -329,6 +329,17 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
 
 ## Audyt krzyżowy
 
+- **Dostęp do Claude Code CLI (trwałe ustalenie 2026-10-14):** operator używa
+  lokalnego Claude Code CLI. Brak `claude` w `PATH` nie oznacza braku instalacji
+  ani problemu z siecią lub logowaniem. `scripts/audit_task.ps1` wykrywa także
+  `.local/bin/claude.exe` i instalacje `Claude/claude-code/<wersja>/<build>`
+  w profilu użytkownika, w tym fizyczny katalog pakietu Windows
+  `AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude/claude-code`.
+  Korzystaj z tego wykrywania przed zgłoszeniem niedostępności audytora.
+  Ścieżka `AppData/Roaming` raportowana przez działający proces może być
+  wirtualna; nie utrwalaj numeru wersji, builda ani PID. Sprawdzenie `--version`
+  z limitem czasu potwierdza uruchomienie CLI, ale nie logowanie ani wykonanie
+  audytu. Nie proponuj ponownej instalacji wyłącznie na podstawie `Get-Command`.
 - Zmiany taska audytuje model z innej rodziny niż wykonawca: pracę Claude
   audytuje Codex, a pracę Codex audytuje Claude. Wykonawca nie audytuje
   własnej pracy. Audyt jest wymagany po każdym tasku, który wskazuje go w

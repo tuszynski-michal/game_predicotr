@@ -157,6 +157,7 @@ def create_image_reviews_router(
             int | None, Query(alias="afterSequenceNumber", ge=1)
         ] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 100,
+        include_diagnostics: Annotated[bool, Query(alias="includeDiagnostics")] = False,
     ) -> BoardImportCoverageResponse:
         return to_board_import_coverage_response(
             service.board_import_coverage(
@@ -166,6 +167,7 @@ def create_image_reviews_router(
                 range_to=range_to,
                 after_sequence_number=after_sequence_number,
                 limit=limit,
+                include_diagnostics=include_diagnostics,
             )
         )
 

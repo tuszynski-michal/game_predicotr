@@ -12,12 +12,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TypedDict
 from uuid import UUID
 
-from sqlalchemy import BigInteger, and_, func, literal_column, select
+from sqlalchemy import BigInteger, Connection, and_, func, literal_column, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
+from game_predictor_api.application.grid_diagnostics import (
+    GridDiagnostics,
+    missing_reason_diagnostics,
+)
 from game_predictor_api.domain.board_import_coverage import (
     CoveragePage,
     MissingReason,
@@ -46,6 +51,15 @@ from game_predictor_api.storage.models import (
 )
 
 _LIVE_STATUSES = ("pending", "accepted", "corrected")
+
+
+class _CoverageOptions(TypedDict):
+    view: str
+    range_from: int | None
+    range_to: int | None
+    after_sequence_number: int | None
+    limit: int
+    include_diagnostics: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +92,7 @@ class BoardImportCoverageReport:
     range_counts: tuple[int, int] | None  # (added, missing) in the requested range
     page: CoveragePage
     computed_at: datetime
+    diagnostics: GridDiagnostics | None = None
 
 
 class SqlAlchemyBoardImportCoverageRepository:
@@ -98,6 +113,48 @@ class SqlAlchemyBoardImportCoverageRepository:
         range_to: int | None = None,
         after_sequence_number: int | None = None,
         limit: int = 100,
+        include_diagnostics: bool = False,
+    ) -> BoardImportCoverageReport | None:
+        options: _CoverageOptions = {
+            "view": view,
+            "range_from": range_from,
+            "range_to": range_to,
+            "after_sequence_number": after_sequence_number,
+            "limit": limit,
+            "include_diagnostics": include_diagnostics,
+        }
+        if not include_diagnostics:
+            return self._coverage_report(game_id, **options)
+        # A diagnostics request compares multiple populations. A fresh read-only
+        # snapshot keeps them consistent even while the worker commits updates;
+        # the request's ordinary session may already have begun READ COMMITTED.
+        bind = self._session.get_bind()
+        engine = bind.engine if isinstance(bind, Connection) else bind
+        with (
+            engine.connect().execution_options(isolation_level="REPEATABLE READ") as connection,
+            connection.begin(),
+        ):
+            connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+            connection.exec_driver_sql("SET LOCAL statement_timeout = '30000ms'")
+            # This plain Session avoids treating textual SELECT/WITH aggregates
+            # as writes. _coverage_report reads only public.games before its
+            # explicit READ/RLS bind; all game-owned SQL must follow that bind.
+            # The engine retains the caller's application connection identity.
+            with Session(bind=connection) as snapshot:
+                return SqlAlchemyBoardImportCoverageRepository(snapshot)._coverage_report(
+                    game_id, **options
+                )
+
+    def _coverage_report(
+        self,
+        game_id: UUID,
+        *,
+        view: str,
+        range_from: int | None,
+        range_to: int | None,
+        after_sequence_number: int | None,
+        limit: int,
+        include_diagnostics: bool,
     ) -> BoardImportCoverageReport | None:
         expected = self.expected_layout_count(game_id)
         if expected is None:
@@ -121,8 +178,9 @@ class SqlAlchemyBoardImportCoverageRepository:
         added_total = sum(interval.end - interval.start + 1 for interval in added)
         approved = int(
             self._session.scalar(
-                select(func.count(func.distinct(ImageSequenceCanonicalModel.sequence_number)))
-                .where(
+                select(
+                    func.count(func.distinct(ImageSequenceCanonicalModel.sequence_number))
+                ).where(
                     ImageSequenceCanonicalModel.game_id == game_id,
                     ImageSequenceCanonicalModel.sequence_number.between(1, expected),
                 )
@@ -131,7 +189,9 @@ class SqlAlchemyBoardImportCoverageRepository:
         )
         out_of_range = int(
             self._session.scalar(
-                select(func.count(func.distinct(ImageSequenceCanonicalModel.sequence_number))).where(
+                select(
+                    func.count(func.distinct(ImageSequenceCanonicalModel.sequence_number))
+                ).where(
                     ImageSequenceCanonicalModel.game_id == game_id,
                     ImageSequenceCanonicalModel.sequence_number > expected,
                 )
@@ -174,6 +234,23 @@ class SqlAlchemyBoardImportCoverageRepository:
             else:
                 range_counts = (0, 0)
 
+        diagnostics = None
+        if include_diagnostics:
+            from game_predictor_api.storage.grid_diagnostics_repository import (
+                read_grid_diagnostics,
+            )
+
+            signals, intersections = missing_reason_diagnostics(
+                expected=expected, added=added, reasons=reasons
+            )
+            diagnostics = read_grid_diagnostics(
+                self._session,
+                game_id=game_id,
+                expected=expected,
+                canonical_sequences=approved,
+                missing_signals=signals,
+                missing_intersections=intersections,
+            )
         return BoardImportCoverageReport(
             game_id=game_id,
             expected_layout_count=expected,
@@ -186,6 +263,7 @@ class SqlAlchemyBoardImportCoverageRepository:
             range_counts=range_counts,
             page=page,
             computed_at=datetime.now(UTC),
+            diagnostics=diagnostics,
         )
 
     def _added_islands(self, game_id: UUID, expected: int) -> list[SequenceInterval]:
@@ -212,10 +290,9 @@ class SqlAlchemyBoardImportCoverageRepository:
     def _islands(self, number_column: ColumnElement[int]) -> list[SequenceInterval]:
         ordered = select(
             number_column.label("n"),
-            (
-                number_column
-                - func.row_number().over(order_by=number_column).cast(BigInteger)
-            ).label("grp"),
+            (number_column - func.row_number().over(order_by=number_column).cast(BigInteger)).label(
+                "grp"
+            ),
         ).subquery()
         rows = self._session.execute(
             select(func.min(ordered.c.n), func.max(ordered.c.n))
@@ -251,26 +328,45 @@ class SqlAlchemyBoardImportCoverageRepository:
                 )
             )
 
-        partial_rows = self._session.execute(
-            select(ImageReviewItemModel.sequence_number)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        rejected_slots = self._session.scalars(
+            select(ImageBoardGeometryPendingModel.sequence_number).where(
+                ImageBoardGeometryPendingModel.game_id == game_id,
+                ImageBoardGeometryPendingModel.status == "rejected",
+                ImageBoardGeometryPendingModel.sequence_number.between(1, expected),
             )
-            .where(
-                ImageReviewItemModel.game_id == game_id,
-                ImageReviewItemModel.status.in_(_LIVE_STATUSES),
-                ImageReviewItemModel.sequence_number.between(1, expected),
-                RecognizedBoardModel.completeness_status == "pending_partial",
-                ~select(ImageSequenceCanonicalModel.sequence_number)
-                .where(
-                    ImageSequenceCanonicalModel.game_id == game_id,
-                    ImageSequenceCanonicalModel.sequence_number
-                    == ImageReviewItemModel.sequence_number,
+        ).all()
+        for sequence_number in rejected_slots:
+            spans.append(
+                ReasonSpan(
+                    SequenceInterval(int(sequence_number), int(sequence_number)),
+                    MissingReason.REJECTED,
                 )
-                .exists(),
             )
-        ).scalars().all()
+
+        partial_rows = (
+            self._session.execute(
+                select(ImageReviewItemModel.sequence_number)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .where(
+                    ImageReviewItemModel.game_id == game_id,
+                    ImageReviewItemModel.status.in_(_LIVE_STATUSES),
+                    ImageReviewItemModel.sequence_number.between(1, expected),
+                    RecognizedBoardModel.completeness_status == "pending_partial",
+                    ~select(ImageSequenceCanonicalModel.sequence_number)
+                    .where(
+                        ImageSequenceCanonicalModel.game_id == game_id,
+                        ImageSequenceCanonicalModel.sequence_number
+                        == ImageReviewItemModel.sequence_number,
+                    )
+                    .exists(),
+                )
+            )
+            .scalars()
+            .all()
+        )
         for sequence_number in partial_rows:
             assert sequence_number is not None  # filtered by .between(1, expected) above
             spans.append(
@@ -280,25 +376,28 @@ class SqlAlchemyBoardImportCoverageRepository:
                 )
             )
 
-        rejected_rows = self._session.execute(
-            select(func.distinct(ImageReviewItemModel.sequence_number))
-            .where(
-                ImageReviewItemModel.game_id == game_id,
-                ImageReviewItemModel.status == "rejected",
-                ImageReviewItemModel.sequence_number.between(1, expected),
-                ~select(literal_column("1"))
-                .select_from(ImageReviewItemModel.__table__.alias("live"))
-                .where(
-                    and_(
-                        literal_column("live.game_id") == game_id,
-                        literal_column("live.sequence_number")
-                        == ImageReviewItemModel.sequence_number,
-                        literal_column("live.status").in_(_LIVE_STATUSES),
+        rejected_rows = (
+            self._session.execute(
+                select(func.distinct(ImageReviewItemModel.sequence_number)).where(
+                    ImageReviewItemModel.game_id == game_id,
+                    ImageReviewItemModel.status == "rejected",
+                    ImageReviewItemModel.sequence_number.between(1, expected),
+                    ~select(literal_column("1"))
+                    .select_from(ImageReviewItemModel.__table__.alias("live"))
+                    .where(
+                        and_(
+                            literal_column("live.game_id") == game_id,
+                            literal_column("live.sequence_number")
+                            == ImageReviewItemModel.sequence_number,
+                            literal_column("live.status").in_(_LIVE_STATUSES),
+                        )
                     )
+                    .exists(),
                 )
-                .exists(),
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for sequence_number in rejected_rows:
             spans.append(
                 ReasonSpan(
@@ -307,25 +406,28 @@ class SqlAlchemyBoardImportCoverageRepository:
                 )
             )
 
-        superseded_rows = self._session.execute(
-            select(func.distinct(ImageReviewItemModel.sequence_number))
-            .where(
-                ImageReviewItemModel.game_id == game_id,
-                ImageReviewItemModel.status == "superseded",
-                ImageReviewItemModel.sequence_number.between(1, expected),
-                ~select(literal_column("1"))
-                .select_from(ImageReviewItemModel.__table__.alias("live"))
-                .where(
-                    and_(
-                        literal_column("live.game_id") == game_id,
-                        literal_column("live.sequence_number")
-                        == ImageReviewItemModel.sequence_number,
-                        literal_column("live.status").in_((*_LIVE_STATUSES, "rejected")),
+        superseded_rows = (
+            self._session.execute(
+                select(func.distinct(ImageReviewItemModel.sequence_number)).where(
+                    ImageReviewItemModel.game_id == game_id,
+                    ImageReviewItemModel.status == "superseded",
+                    ImageReviewItemModel.sequence_number.between(1, expected),
+                    ~select(literal_column("1"))
+                    .select_from(ImageReviewItemModel.__table__.alias("live"))
+                    .where(
+                        and_(
+                            literal_column("live.game_id") == game_id,
+                            literal_column("live.sequence_number")
+                            == ImageReviewItemModel.sequence_number,
+                            literal_column("live.status").in_((*_LIVE_STATUSES, "rejected")),
+                        )
                     )
+                    .exists(),
                 )
-                .exists(),
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for sequence_number in superseded_rows:
             spans.append(
                 ReasonSpan(

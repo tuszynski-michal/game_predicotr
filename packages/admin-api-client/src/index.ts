@@ -745,6 +745,7 @@ export type {
   ImageDatasetCompletenessResponse,
   BoardImportCoverageView,
   BoardImportCoverageResponse,
+  GridDiagnosticsResponse,
   BoardImportCoverageCountsResponse,
   BoardImportCoverageNoticesResponse,
   BoardImportCoverageRangeResponse,
@@ -1068,6 +1069,7 @@ export interface ListImageGridReviewsOptions {
 
 export interface GetBoardImportCoverageOptions {
   readonly gameId: string;
+  readonly includeDiagnostics?: boolean;
   readonly view?: BoardImportCoverageView;
   readonly from?: number;
   readonly to?: number;
@@ -2552,6 +2554,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: options.gameId },
         query: {
+          ...(options.includeDiagnostics === undefined
+            ? {}
+            : { includeDiagnostics: options.includeDiagnostics }),
           ...(options.view === undefined ? {} : { view: options.view }),
           ...(options.from === undefined ? {} : { from: options.from }),
           ...(options.to === undefined ? {} : { to: options.to }),

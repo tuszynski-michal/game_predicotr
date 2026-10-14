@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-14
 ---
 
 # Model danych
@@ -53,6 +53,16 @@ obrazów, cropów ani kopii manifestu importu. Zapisuje jedynie wynik i SHA
 wejścia; pełny podgląd pozostaje artefaktem operatora.
 
 ## Pokrycie importu plansz (D-437) — TASK-0629
+
+TASK-1010 rozszerza istniejący GET pokrycia o opcjonalne `includeDiagnostics`.
+Domyślnie pozostaje false. Diagnostyka jest odczytem całej gry w oddzielnym
+snapshotcie REPEATABLE READ READ ONLY, z przypiętym RLS i limitem 30 s per
+zapytanie. Nie zmienia schematu ani kwalifikacji sekwencji. Rozdziela rekordy
+review, unikalne sekwencje, zdjęcia, sloty, plansze i komórki; kategorie oraz
+przecięcia nie są dodatkowymi brakami. Pola aktualnych symboli wymagają zgodnej
+rewizji geometrii, widoczności źródła/outside i aktywnego review item. Stan
+zapisany bramki oraz bieżąca klasyfikacja zdjęcia pozostają osobnymi licznikami.
+Odrzucony slot bez powstałej planszy daje sygnał rejected brakującej sekwencji.
 
 Definicja „planszy dodanej" i indeksy pod odczyt braków importu, bez nowej
 kolumny ani flagi (pełna treść decyzji: `ai_docs/process/DECISION_LOG.md`

@@ -216,6 +216,7 @@ class BoardImportCoverageRepository(Protocol):
         range_to: int | None,
         after_sequence_number: int | None,
         limit: int,
+        include_diagnostics: bool = False,
     ) -> BoardImportCoverageReport | None: ...
 
 
@@ -583,6 +584,7 @@ class OperationalImageReviewService:
         range_to: int | None,
         after_sequence_number: int | None,
         limit: int,
+        include_diagnostics: bool = False,
     ) -> BoardImportCoverageReport:
         if self._board_import_coverage_repository is None:
             raise ImageReviewConflictError(
@@ -606,6 +608,7 @@ class OperationalImageReviewService:
             range_to=range_to,
             after_sequence_number=after_sequence_number,
             limit=limit,
+            **({"include_diagnostics": True} if include_diagnostics else {}),
         )
         if report is None:
             raise ImageReviewNotFoundError(

@@ -155,7 +155,7 @@ Historyczna baza zachowuje historyczny raport i ograniczenia; nie otrzymuje fikc
 
 - Repozytorium główne: `D:\game_predicotr`.
 - Oryginalna baza: `main`, commit `171e23799ebdbee4ed4590a53376bf870c6741c2`, v1.7.360.
-- Operator zatwierdził włączenie upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` 2026-10-14; worktree przewinięto fast-forward do tego HEAD przed commitem bootstrapu. Kolejny commit taska: v1.7.363; hash zostanie zapisany po jego utworzeniu. Nasza akceptacja silnika została przemianowana TASK-1007 → TASK-1017; historyczny ukończony TASK-1007 wykrywania CLI pozostaje bez zmian.
+- Operator zatwierdził włączenie upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` 2026-10-14; worktree przewinięto fast-forward do tego HEAD przed commitem bootstrapu. Bootstrap utrwalono jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; wcześniejszy przydział v1.7.363 zajęła równoległa praca. Nasza akceptacja silnika została przemianowana TASK-1007 → TASK-1017; historyczny ukończony TASK-1007 wykrywania CLI pozostaje bez zmian.
 - Worktree wykonawczy: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Gałąź robocza: `codex/v3-grid-fine-tuning`.
 - Wybór `main` dotyczy bazy tego planu. Nie zmienia automatycznie globalnej polityki integracji ani nie upoważnia do scalenia.
@@ -209,6 +209,8 @@ W `Outcome` zapisujemy dodatkowo:
 - dokładny następny krok;
 - wersję i hash commita po jego utworzeniu.
 
+Skrypt w zatwierdzonej bazie przekazuje `Effort` tylko do Codex. Dla Claude lead buduje ten sam ograniczony brief przez `scripts/audit_task.ps1 -DryRun`, następnie uruchamia wykryty CLI z jawnymi `--model claude-fable-5-1 --effort medium` albo `high` według tabeli, `--permission-mode plan` i wyłącznie narzędziami odczytu `Read,Glob,Grep`. Limit pozostaje 480 s. Wywołanie zapisuje w `artifacts/audits/TASK-NNNN_AUDIT_INVOCATION.json`, a otrzymany raport w wymaganej ścieżce quality. Nie przypina fizycznej wersji instalacji i nie stosuje fallbacku modelu. Brak obsługi żądanego poziomu wymaga rozstrzygnięcia, nie cichego pominięcia. Ten jawny sposób wywołania działa także z nowego procesu i nie jest zmianą skryptu w TASK-1010.
+
 Wykonawca przed audytem zapisuje wyniki kontroli i ograniczony zakres diffu. Audytor ocenia kod tylko do odczytu i zwraca raport według szablonu. Raport z zewnętrznej sesji zostaje zapisany w worktree bez zmiany ustaleń audytora.
 
 Po `REVISE` task pozostaje `in_progress`, z fazą „poprawki audytu”. Otwarte P0/P1 blokują commit. Brak raportu nie jest PASS. Stosujemy zasady repo dotyczące limitu audytu, jednej rundy poprawek i ponownego audytu tylko w wymaganych przypadkach.
@@ -217,7 +219,7 @@ Po commicie wykonawca wpisuje pełny hash do taska i CURRENT_STATE. Zgodnie z AG
 
 ### 3.4. Wersjonowanie
 
-Po zatwierdzonym włączeniu upstream v1.7.362 pierwszy commit bootstrapu będzie v1.7.363. Oryginalna propozycja v1.7.361 została jawnie zastąpiona decyzją operatora; istniejących commitów nie renumerujemy. Przed każdym commitem:
+Po zatwierdzonym włączeniu upstream v1.7.362 bootstrap utrwalono jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Oryginalna propozycja v1.7.361 została jawnie zastąpiona decyzją operatora; istniejących commitów nie renumerujemy. Przed każdym commitem:
 
 - sprawdzić ostatnią wersję na gałęzi roboczej;
 - wyznaczyć następny patch;
@@ -337,7 +339,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Recommended execution:** `gpt-6.1-sol`, `medium`; ryzyko dotyczy zachowania dokumentów i poprawnego stanu przekazania. Konflikt własności plików zatrzymuje operację.
 - **Relevant docs:** AGENTS, PLAN_STANDARD, TASK_TEMPLATE, raport Claude round3, niniejszy plan.
 - **Scope / Technical notes:** Utworzyć worktree z przypiętego commita. Zastąpić starszy plan rewizją 6, zachować raporty, uzupełnić odpowiedź Codexa i indeksy. Utworzyć 23 taski z pełną treścią oraz proponowane decyzje. Zapisać ścieżkę, bazę, kolejność i stan wznowienia.
-- **Expected files:** istniejące dokumenty planu i raportów w `ai_docs/delivery` oraz `ai_docs/quality`; README, CURRENT_STATE, DECISION_LOG z pełnymi wpisami, inwentarz V3, TASK-0957; nowe `ai_docs/tasks/0993-…` do `1016-…` z wyłączeniem `1007-…`.
+- **Expected files:** istniejące dokumenty planu i raportów w `ai_docs/delivery` oraz `ai_docs/quality`; README, CURRENT_STATE, DECISION_LOG z pełnymi wpisami, inwentarz V3, TASK-0957; nowe `ai_docs/tasks/0993-…` do `1015-…` z wyłączeniem `1007-…` oraz `1017-…`.
 - **Acceptance criteria / Test cases:** Nowa sesja z samych plików identyfikuje worktree, aktywny task i następny krok. Wszystkie taski mają model, zakres, pliki, kryteria, testy i Outcome. Raporty historyczne pozostają zachowane. Jeden commit dokumentacyjny, bez kodu i danych.
 - **Verification:** DOC oraz porównanie aktualnego planu z rozliczeniem P1-7/P1-8. Test wznowienia jest odczytem dokumentów, bez uruchamiania implementacji.
 - **Risks / Out of scope:** Nie czyścić innych worktree, nie zmieniać gitlinków, nie uruchamiać kolejnego taska bez zleconego zakresu.
@@ -669,7 +671,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 | ------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------- |
 | Trwały plan i wznowienie między modelami   | 1015                   | Nowa sesja ustala stan z plików i Git.                                       |
 | Czytelne różnice liczników obu gier        | 1010                   | Uzgodnione jednostki, przyczyny i przecięcia.                                |
-| Akceptacja silnika i historyczne statusy   | 1016, 1008             | Atomowy zapis, zgodne projekcje, brak recropu.                               |
+| Akceptacja silnika i historyczne statusy   | 1017, 1008             | Atomowy zapis, zgodne projekcje, brak recropu.                               |
 | Edytor 4/24                                | 0993                   | Roundtrip, transformacja, undo, restart.                                     |
 | Checkpointy na D                           | 1014                   | Hash, receipt i odczyt z nowego procesu.                                     |
 | Dynamiczne wersje i nowe gry               | 0994, 1012, 0998, 1004 | Trzecia rodzina, stare snapshoty, nowa gra bez obcego klasyfikatora symboli. |
@@ -683,7 +685,7 @@ Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżel
 
 Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-Aktualna faza: TASK-1015 done, dokumentacyjny bootstrap zakończony w worktree z sekcji 3; commit v1.7.363 przygotowuje lead. Zewnętrzny audyt Claude Code TASK-1015 otrzymano: PASS, bez P0/P1; cztery P2 rozliczono i kontrole dokumentacji zakończono. Po audycie, rozliczeniu uwag, commicie i zapisie stanu kolejnym taskiem jest TASK-1010. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku.
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Jego commit v1.7.368 jest przygotowany; hash zapisze lead po utworzeniu. Następny TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
 
 ## 8. Przypisanie modeli do zadań
 

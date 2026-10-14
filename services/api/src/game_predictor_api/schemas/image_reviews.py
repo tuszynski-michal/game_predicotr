@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -217,6 +218,37 @@ class BoardImportCoverageSegmentResponse(ApiModel):
     import_job_id: UUID | None = None
 
 
+class GridDiagnosticsResponse(ApiModel):
+    """Whole-game populations: sequence, review row, source slot, board and cell.
+
+    Categories and intersections overlap. Neither unconfirmed geometry nor
+    unknown symbols imply a missing sequence or measured pixel correctness.
+    """
+
+    scope: Literal["whole_game"] = "whole_game"
+    review_rows_by_status: dict[str, int]
+    review_sequences_by_status: dict[str, int]
+    qualifying_review_rows: int = Field(ge=0)
+    qualifying_review_sequences: int = Field(ge=0)
+    canonical_sequences: int = Field(ge=0)
+    canonical_review_overlap: int = Field(ge=0)
+    duplicate_qualifying_review_rows: int = Field(ge=0)
+    deferred_slots_by_status: dict[str, int]
+    deferred_slots_by_reason: dict[str, int]
+    deferred_slot_coverage: dict[str, int]
+    flagged_grid_boards: int = Field(ge=0)
+    unconfirmed_geometry_boards: int = Field(ge=0)
+    flagged_unconfirmed_boards: int = Field(ge=0)
+    symbol_cells: dict[str, int]
+    symbol_cell_intersections: dict[str, int]
+    missing_reason_signals: dict[str, int]
+    missing_reason_intersections: dict[str, int]
+    source_images: dict[str, int]
+    source_positions: dict[str, int]
+    source_gate: dict[str, int]
+    low_confidence_threshold: Probability
+
+
 class BoardImportCoverageResponse(ApiModel):
     game_id: UUID
     expected_layout_count: int = Field(ge=1)
@@ -229,6 +261,7 @@ class BoardImportCoverageResponse(ApiModel):
     segments: tuple[BoardImportCoverageSegmentResponse, ...] = Field(max_length=100)
     next_after_sequence_number: int | None
     computed_at: datetime
+    diagnostics: GridDiagnosticsResponse | None = None
 
 
 class ImageSequenceSourceCandidateResponse(ApiModel):
@@ -524,6 +557,11 @@ def to_board_import_coverage_response(
     range_to = report.range_to
     has_range = range_from is not None or range_to is not None
     return BoardImportCoverageResponse(
+        diagnostics=(
+            GridDiagnosticsResponse(**asdict(report.diagnostics))
+            if report.diagnostics is not None
+            else None
+        ),
         game_id=report.game_id,
         expected_layout_count=report.expected_layout_count,
         counts=BoardImportCoverageCountsResponse(

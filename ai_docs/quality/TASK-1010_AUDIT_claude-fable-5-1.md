@@ -1,0 +1,57 @@
+# Audyt TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier
+
+Werdykt: REVISE
+Audytor: claude-fable-5-1, reasoning medium
+Wykonawca: gpt-6.1-sol, reasoning high
+Zakres: b35a9ee7dadf3da485427f81a84149e63f0b8cfc...b35a9ee7dadf3da485427f81a84149e63f0b8cfc oraz zmiany niezacommitowane, data 2026-10-14
+Runda: 1
+
+Przegląd statyczny. Audytor nie zmieniał żadnych plików.
+
+## Streszczenie
+
+Zbadano pełny diff z briefu: addytywny parametr `includeDiagnostics` istniejącego GET pokrycia, nowy moduł `application/grid_diagnostics.py`, repozytorium agregatów `storage/grid_diagnostics_repository.py`, zmianę `board_import_coverage_repository.py` (oddzielny snapshot REPEATABLE READ READ ONLY i nowy sygnał `rejected` z odrzuconych slotów), schematy, OpenAPI, wygenerowany klient i wrapper, kontrolkę Admina z testem interakcji, skrypt odczytu, nowy test pionu, raport rzeczywisty oraz dokumentację. Zweryfikowano też, że snapshot przypina RLS gry przez istniejące `GameStorageRouter().bind` przed odczytem tabel gry, że predykat „dodanej planszy” nie zależy od symboli i że formuła uzgodnienia w panelu jest zgodna z predykatem `_added_islands`. Kontrakt API jest spójny (backend, OpenAPI, typy, wrapper, test żądania). Główne ryzyko: zmiana zachowania domyślnego raportu pokrycia (przyczyna `rejected` dla odrzuconego slotu bez planszy) i cała ścieżka snapshotu w repozytorium SQLAlchemy nie mają żadnego testu automatycznego; dowód opiera się wyłącznie na jednorazowym odczycie rzeczywistych danych.
+
+## Znaleziska
+
+### P0
+
+Brak.
+
+### P1
+
+- [P1-1] `services/api/src/game_predictor_api/storage/board_import_coverage_repository.py:327` — nowy sygnał `MissingReason.REJECTED` z `image_board_geometry_pending.status = 'rejected'` zmienia wynik istniejącego, domyślnego GET pokrycia (bez `includeDiagnostics`), a żaden test tego nie pokrywa: `test_grid_diagnostics_and_counters.py` wykonuje tylko surowe SQL z `grid_diagnostics_repository.py` na SQLite i nie dotyka `_reason_spans`, `tests/integration/test_board_import_coverage_repository.py` ma jedynie przypadek slotu `pending` (linia 433), a `test_board_import_coverage_api.py` używa atrapy repozytorium. Tak samo bez testu pozostaje ścieżka snapshotu w `board_import_coverage_repository.py:126-142` (nowe połączenie z silnika, REPEATABLE READ, `SET TRANSACTION READ ONLY`, `statement_timeout`, przypięcie RLS na zwykłym `Session` w linii 168, zwrot `diagnostics`). Skutek: naruszenie reguły „Dodawaj testy razem z kodem” z `AGENTS.md:243` przy zmianie zachowania widocznej dla istniejących konsumentów; regresja priorytetów przyczyn lub błąd wiązania RLS w snapshotcie nie zostałby wykryty. Proponowana poprawka: dodać do `services/api/tests/integration/test_board_import_coverage_repository.py` przypadek odrzuconego slotu bez planszy (oczekiwany `rejected` w raporcie, bez zmiany `added`) oraz przypadek `include_diagnostics=True` sprawdzający, że zwrócone `diagnostics` spełniają `qualifying_review_sequences + canonical_sequences − canonical_review_overlap == counts.added` i że odczyt bez przypiętej gry nie przecieka między grami; uruchomić z `$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'` i zapisać wynik w Outcome.
+
+### P2
+
+- [P2-1] `services/api/src/game_predictor_api/storage/grid_diagnostics_repository.py:130` — próg niskiej pewności jest zaszyty jako literał `0.6` w `params`, osobno zdefiniowany jako domyślna wartość `GridDiagnostics.low_confidence_threshold` w `services/api/src/game_predictor_api/application/grid_diagnostics.py:38` i niezależnie w `apps/admin/src/features/symbol-reviews/symbol-review-state.ts:113` (`below_60`). Trzy niepowiązane stałe mogą się rozjechać, a UI wyświetla próg z odpowiedzi, więc rozjazd byłby niewidoczny. Propozycja: jedna stała modułowa w `grid_diagnostics.py` przekazywana zarówno do SQL, jak i do pola odpowiedzi; drift z Adminem odnotować jako ryzyko akceptowane.
+- [P2-2] `ai_docs/process/DECISION_LOG.md:238` — diff dotyka wyłącznie treści D-552; brak wpisu dla dwóch zmian o charakterze domenowo-architektonicznym: (a) odrzucony slot bez planszy daje przyczynę `rejected` w istniejącym raporcie D-437/TASK-0629, (b) endpoint otwiera drugie połączenie do bazy poza sesją żądania w izolacji REPEATABLE READ READ ONLY. `ai_docs/architecture/DATA_MODEL.md:57-66` opisuje zachowanie, ale `AGENTS.md:235` wymaga wpisu w logu decyzji przy zmianie modelu domenowego lub architektury. Propozycja: krótki wpis D-553 (albo jawna adnotacja leada w Outcome, że zmiana mieści się w D-437 i nie wymaga decyzji).
+- [P2-3] `ai_docs/tasks/1010-grid-diagnostics-and-counters.md:103` — lista poleceń weryfikacji wymienia `npm run test --workspace @game-predictor/admin`, które według `apps/admin/package.json:11` uruchamia tylko `test/*.test.mjs`; nowy `test-interactions/grid-diagnostics-panel.test.mjs` wykonuje wyłącznie `test:geometry` (`apps/admin/package.json:12`). Linia pytest w tym samym bloku pomija też nowy `test_grid_diagnostics_and_counters.py`. Dokumentacja weryfikacji nie odpowiada realnie wykonanym kontrolom z Outcome. Propozycja: dopisać `npm run test:geometry --workspace @game-predictor/admin` oraz nowy plik pytest do bloku Verification.
+- [P2-4] `services/api/src/game_predictor_api/storage/board_import_coverage_repository.py:139` — snapshot używa zwykłego `Session`, nie `GameStorageSession`, więc listenery `do_orm_execute`/`after_transaction_end` z `storage/database.py:100-163` nie działają; bezpieczeństwo RLS opiera się wyłącznie na jawnym `bind` w linii 168. Dziś jest to poprawne (jedyny odczyt przed bindem to katalogowa tabela `games`), ale każde przyszłe zapytanie dodane przed linią 168 trafi na nieprzypiętą sesję. Propozycja: komentarz przy linii 139 albo użycie `GameStorageSession(bind=connection)`; akceptowalne jako ryzyko odnotowane.
+- [P2-5] `packages/admin-api-client/src/generated/sdk.gen.ts` (oraz `client.gen.ts`, `core/*.gen.ts`, `client/*.gen.ts`) — `git status` z kontekstu sesji pokazuje te pliki jako zmodyfikowane, a brief ogranicza diff do `index.ts` i `types.gen.ts`. Audytor nie mógł statycznie ustalić, czy są to hunki tego taska (regeneracja klienta), czy artefakt innej wersji generatora. Propozycja: przed commitem lead sprawdza `git diff --stat` tych plików i albo dołącza je do commita, albo potwierdza, że są poza zakresem; `check:generated` powinien przejść na zestawie staged.
+
+## Pokrycie kryteriów akceptacji
+
+| Kryterium | Status (spełnione / niespełnione / niezweryfikowane) | Dowód (`ścieżka:linia` lub wynik polecenia) |
+|---|---|---|
+| Duplikaty, dane kanoniczne, pending, rejected, deferred i nieznane symbole mają jednoznaczne liczniki | spełnione (z zastrzeżeniem P1-1 dla `rejected` slotu) | `grid_diagnostics_repository.py:16-38` (rekordy vs. unikalne sekwencje per status, overlap kanonu), `:98-117` (sloty: unnumbered/out_of_range/already_added/missing_slots/missing_unique_sequences), `:40-96` (komórki unknown/pending/approved/unreadable/outside/low_confidence z przecięciami); `grid_diagnostics.py:42-91` (sygnały i przecięcia przyczyn bez enumeracji sekwencji); test `test_grid_diagnostics_and_counters.py:19-45, 95-132`; `board_import_coverage_repository.py:327-340` (slot rejected → `rejected`, bez testu) |
+| Brak symbolu nie udaje braku planszy | spełnione | `board_import_coverage_repository.py:265-284` (predykat dodania: żywy status + `completeness_status='complete'` ∪ kanon, bez tabeli komórek); fixture `test_grid_diagnostics_and_counters.py:97-98` (plansza `b1` z nieznanymi komórkami kwalifikuje się); `grid_diagnostics_repository.py:21-22` (ta sama definicja `qualifies`) |
+| Wszystkie różnice rzeczywistego raportu mają powód albo kategorię nierozstrzygniętą | spełnione (liczby niezweryfikowane statycznie) | `ai_docs/quality/V3_GRID_DIAGNOSTICS_20261014.md:44-49` (uzgodnienie dodanych), `:60-63` (246/27 superseded), `:74-78` (`no_source` jawnie nierozstrzygnięte), `:91-96` (262 = 259 + 3), `:121-127` (94 zdjęcia jawnie nierozstrzygnięte), `:141-145` (18 pozycji missing), `:187-190` (90 błędów plików jawnie nierozstrzygnięte) |
+| Wyniki właściwych kontroli, audytu i ograniczenia zapisano w Outcome; dokumentacja odpowiada zachowaniu | niezweryfikowane | Outcome wypełniony (`1010-grid-diagnostics-and-counters.md:117-155`), ale wynik audytu jeszcze nie wpisany, commit nie istnieje; rozbieżność bloku Verification z faktycznie użytymi poleceniami (P2-3); wyniki testów, mypy, Ruff i pomiarów czasu nie dały się potwierdzić statycznie |
+
+## Listy zamknięte i otwarte
+
+Zamknięte (tylko w rundzie 2 lub później): nie dotyczy, runda 1.
+
+Otwarte: P1-1, P2-1, P2-2, P2-3, P2-4, P2-5.
+
+## Proponowane testy
+
+- Integracyjny PostgreSQL w `services/api/tests/integration/test_board_import_coverage_repository.py`: slot `image_board_geometry_pending` ze statusem `rejected` bez `recognized_board_id` i bez kanonu → segment `rejected` w `view="missing"`, `counts.added` bez zmian; ten sam numer z dodatkowym slotem `pending` → wygrywa `waiting_for_geometry`. Komenda: `$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'; .\.venv\Scripts\python.exe -m pytest services/api/tests/integration/test_board_import_coverage_repository.py -k rejected`.
+- Integracyjny PostgreSQL: `board_import_coverage(..., include_diagnostics=True)` na sesji z `create_session_factory` — sprawdzić, że `diagnostics` nie jest `None`, że `qualifying_review_sequences + canonical_sequences − canonical_review_overlap == counts.added`, że dane drugiej gry w tej samej bazie nie wchodzą do agregatów (RLS snapshotu) oraz że po wywołaniu sesja żądania nie ma otwartej transakcji READ ONLY (brak wpływu na późniejszy zapis). Ta sama komenda z `-k diagnostics`.
+- Jednostkowy w `services/api/tests/test_board_import_coverage_api.py`: `includeDiagnostics=false` jawnie oraz wartość nie-boolowska → 422, aby zamrozić kontrakt parametru.
+- Dodanie `npm run test:geometry --workspace @game-predictor/admin` do bloku Verification taska i do kontroli przed commitem, aby test panelu był częścią udokumentowanej bramki.
+
+## Zakres przeglądu i ograniczenia
+
+Przeczytano cały brief (task, wycinek planu, diff plików śledzonych, pełną treść nowych plików: raport rzeczywisty, panel Admina i jego test, test żądania klienta, skrypt odczytu, `grid_diagnostics.py`, `grid_diagnostics_repository.py`, nowy test pionu). Dodatkowo odczytano z repozytorium: `storage/database.py` (listenery i silniki), `storage/game_storage_routing.py` (`bind`, `_set_transaction_scope`), aktualny `board_import_coverage_repository.py` (snapshot, bind RLS, `_added_islands`, `_reason_spans`), fragmenty `storage/models.py` (modele `image_board_geometry_pending`, `image_symbol_review_cells`, `recognized_boards`, `image_review_items`), `domain/board_import_coverage.py` (priorytety przyczyn, `count_missing_by_reason`), `image_geometry_completeness_repository.py` (dataclassy i `completeness_report`), `schemas/catalog.py` (`ApiModel` z `populate_by_name`), `main.py:1459-1483` (zależność serwisu), `package.json` Admina i klienta, `AGENTS.md:240-269`, a także etykiety w `geometry-completeness-state.ts` i `missing-boards-state.ts`. Nie uruchomiono żadnych testów, lintu, mypy, generowania OpenAPI ani poleceń git; wyniki kontroli i liczby z raportu rzeczywistego pochodzą wyłącznie z deklaracji wykonawcy. Nie dało się statycznie potwierdzić zgodności SQL ze SQLite w środowisku wykonawcy (`IS DISTINCT FROM`, `FILTER`), stanu plików wygenerowanych poza pathspec briefu (P2-5) ani twierdzenia z `CURRENT_STATE.md:73`, że API zwraca `active` dla gry Mumie.

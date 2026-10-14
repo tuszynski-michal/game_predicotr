@@ -1151,6 +1151,7 @@ export type BoardImportCoverageResponse = {
    */
   computedAt: string;
   counts: BoardImportCoverageCountsResponse;
+  diagnostics?: GridDiagnosticsResponse | null;
   /**
    * Expectedlayoutcount
    */
@@ -5028,6 +5029,129 @@ export type GridCorrectionSymbolsResponse = {
    * Cells
    */
   cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
+};
+
+/**
+ * GridDiagnosticsResponse
+ *
+ * Whole-game populations: sequence, review row, source slot, board and cell.
+ *
+ * Categories and intersections overlap. Neither unconfirmed geometry nor
+ * unknown symbols imply a missing sequence or measured pixel correctness.
+ */
+export type GridDiagnosticsResponse = {
+  /**
+   * Canonicalreviewoverlap
+   */
+  canonicalReviewOverlap: number;
+  /**
+   * Canonicalsequences
+   */
+  canonicalSequences: number;
+  /**
+   * Deferredslotcoverage
+   */
+  deferredSlotCoverage: {
+    [key: string]: number;
+  };
+  /**
+   * Deferredslotsbyreason
+   */
+  deferredSlotsByReason: {
+    [key: string]: number;
+  };
+  /**
+   * Deferredslotsbystatus
+   */
+  deferredSlotsByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Duplicatequalifyingreviewrows
+   */
+  duplicateQualifyingReviewRows: number;
+  /**
+   * Flaggedgridboards
+   */
+  flaggedGridBoards: number;
+  /**
+   * Flaggedunconfirmedboards
+   */
+  flaggedUnconfirmedBoards: number;
+  /**
+   * Lowconfidencethreshold
+   */
+  lowConfidenceThreshold: number;
+  /**
+   * Missingreasonintersections
+   */
+  missingReasonIntersections: {
+    [key: string]: number;
+  };
+  /**
+   * Missingreasonsignals
+   */
+  missingReasonSignals: {
+    [key: string]: number;
+  };
+  /**
+   * Qualifyingreviewrows
+   */
+  qualifyingReviewRows: number;
+  /**
+   * Qualifyingreviewsequences
+   */
+  qualifyingReviewSequences: number;
+  /**
+   * Reviewrowsbystatus
+   */
+  reviewRowsByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Reviewsequencesbystatus
+   */
+  reviewSequencesByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Scope
+   */
+  scope?: 'whole_game';
+  /**
+   * Sourcegate
+   */
+  sourceGate: {
+    [key: string]: number;
+  };
+  /**
+   * Sourceimages
+   */
+  sourceImages: {
+    [key: string]: number;
+  };
+  /**
+   * Sourcepositions
+   */
+  sourcePositions: {
+    [key: string]: number;
+  };
+  /**
+   * Symbolcellintersections
+   */
+  symbolCellIntersections: {
+    [key: string]: number;
+  };
+  /**
+   * Symbolcells
+   */
+  symbolCells: {
+    [key: string]: number;
+  };
+  /**
+   * Unconfirmedgeometryboards
+   */
+  unconfirmedGeometryBoards: number;
 };
 
 /**
@@ -26307,6 +26431,10 @@ export type GetBoardImportCoverageData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Includediagnostics
+     */
+    includeDiagnostics?: boolean;
   };
   url: '/api/v1/admin/image-review-items/board-import-coverage/{game_id}';
 };

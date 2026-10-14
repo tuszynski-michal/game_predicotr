@@ -58,7 +58,7 @@ Task jest częścią zaakceptowanej rewizji 6. Dokumentacja, bezpieczny start i 
 - [x] Nowa sesja z samych plików identyfikuje worktree, aktywny task i następny krok.
 - [x] Wszystkie taski mają model, zakres, pliki, kryteria, testy i Outcome.
 - [x] Raporty historyczne pozostają zachowane.
-- [ ] Jeden commit dokumentacyjny, bez kodu i danych.
+- [x] Jeden commit dokumentacyjny bez kodu i danych: v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`.
 - [x] Wyniki właściwych kontroli, audytu i ograniczenia zapisano w Outcome; dokumentacja odpowiada zachowaniu.
 
 ## Technical notes
@@ -114,6 +114,8 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Authorization: zaakceptowana rewizja 6, zlecony cały plan i jawnie zatwierdzony koszt 12–28 dni roboczych, 2026-10-14. Zachowana surowa kopia zatwierdzonego źródła: `artifacts/audits/V3_GRID_REVISION6_APPROVED_USER_SOURCE.md`.
 - Audit: zewnętrzny Claude Code `claude-fable-5-1`, reasoning `medium`; raport otrzymany od operatora 2026-10-14: PASS, brak P0/P1, cztery P2. [Rzeczywisty raport](../../quality/TASK-1015_AUDIT_claude-fable-5-1.md). Ustalenia audytora zachowane; bez nowego audytu lub domniemanego PASS aplikacji.
 - Następny krok: lead sprawdza indeks, dokładny zakres plików i staged diff; tworzy v1.7.363, wpisuje pełny hash do Outcome i CURRENT_STATE. Potem uruchamia TASK-1010 ze zleconego planu. Integracja pozostaje końcową osobną bramką.
+
+- Commit wykonany: v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Po commicie sprawdzono statystykę i czysty worktree. Zapis własnego hasha wejdzie do następnego commita zgodnie z AGENTS; nie wykonano amend ani scalenia.
 
 ### Changed
 

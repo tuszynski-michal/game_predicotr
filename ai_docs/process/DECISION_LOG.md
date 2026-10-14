@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 549 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (192 wierszy); starsze (357 wierszy) są w
+- Indeks obejmuje 550 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (193 wiersze); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-553](decisions/DECISION_LOG_2026.md#d-553--diagnostyka-pokrycia-v3-i-izolowany-odczyt-liczników) | Diagnostyka pokrycia V3 i izolowany odczyt liczników | accepted | 2026-10-14 | Opt-in spójny odczyt READ ONLY/RLS oraz odrzucony slot jako przyczyna braku; bez zmian danych. |
 | [D-552](decisions/DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | proposed | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
 | [D-551](decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | proposed | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |
 | [D-550](decisions/DECISION_LOG_2026.md#d-550--akceptacja-silnika-v3-i-statusowy-backfill) | Akceptacja silnika V3 i statusowy backfill | proposed | 2026-10-14 | Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. |
@@ -233,12 +234,22 @@ Reguły:
 
 Pełne kopie pięciu najnowszych propozycji (D-552–D-548), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
 
+## D-553 — Diagnostyka pokrycia V3 i izolowany odczyt liczników
+
+- **Date:** 2026-10-14.
+- **Status:** accepted; techniczne doprecyzowanie realizacji zatwierdzonej rewizji 6, TASK-1010. Nie upoważnia do zmiany danych operatora.
+- **Context:** raport pokrycia rozlicza unikalne sekwencje, a geometrię i symbole opisują nakładające się populacje. D-437 i D-543 wymagają rozpoznania odrzucenia także wtedy, gdy slot nie utworzył planszy. Równoległe zapisy workera mogą zniekształcić porównanie agregatów z wielu zapytań.
+- **Decision:** istniejący GET pokrycia otrzymuje opt-in `includeDiagnostics`, domyślnie false. Odrzucony slot bez planszy daje sygnał `rejected`; istniejąca kolejność priorytetów przyczyn i predykat dodanej sekwencji pozostają bez zmian. Tylko odczyt diagnostyki otwiera osobne połączenie w REPEATABLE READ READ ONLY, przypina READ/RLS konkretnej gry przed tabelami gry i ustawia limit 30 s dla zapytania. Zwykła sesja żądania zachowuje swoje zasady. Awaria agregatu nie daje pozornego kompletnego raportu. Panel odczytuje diagnostykę na przycisk i zachowuje jej własny czas pomiaru; paginacja nie ponawia agregatów.
+- **Alternatives:** mieszanie agregatów READ COMMITTED może dać niespójny obraz; zmiana izolacji już rozpoczętej sesji żądania albo jej trybu READ ONLY może wpłynąć na inne działania. Osobny endpoint, cache i nowe tabele nie są potrzebne.
+- **Consequences:** diagnostyka zużywa dodatkowe połączenie tylko podczas jawnego odczytu. Testy PostgreSQL muszą sprawdzić odrzucony slot, priorytety przyczyn, unikalność sekwencji i zakres gry w odczycie snapshotu. Snapshot danych do pomiaru jest transakcją odczytu; nie jest backupem bazy ani kohortą treningową. Żadna akceptacja geometrii ani kwalifikacja treningowa nie wynika z tego raportu.
+- **Source:** polecenie implementacji całego planu rewizji 6 i zatwierdzony koszt, sekcje 2.2 i TASK-1010; audyt TASK-1010 P2-2. Rozszerza dokumentowanie D-437/D-543 bez zmiany własności, cropów lub etykiet.
+
 ## D-552 — Baza i wznowienie planu doszkalania V3
 
 - **Date:** 2026-10-14.
 - **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; pierwszy commit bootstrapu będzie v1.7.363. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie tej propozycji należy zapisać osobno zgodnie z planem. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
+- **Proposal:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; bootstrap zapisano jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Operator upoważnił automatyczny przydział kolejnych wolnych patchy i kolidujących tasków po sprawdzeniu lokalnych gałęzi oraz zapisie mapowania; TASK-1007 → 1016 → 1017. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie tej propozycji należy zapisać osobno zgodnie z planem. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
 - **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
@@ -266,14 +277,5 @@ Pełne kopie pięciu najnowszych propozycji (D-552–D-548), identyczne z `decis
 - **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
 - **Proposal:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
-- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
-- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
-
-## D-548 — Doszkalanie geometrii z ręcznych korekt V3
-
-- **Date:** 2026-10-14.
-- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
-- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. Korekta i sprawdzenie bez zmiany mają osobne pochodzenie; automatyczna akceptacja nie tworzy etykiety. Grid-only dopuszcza pełną planszę niekompletnego zdjęcia, screen+grid wymaga pełnej anotacji. Podziały, aliasy i holdouty przodków pozostają chronione. Historyczne eksperymenty zachowują swoje reguły.
 - **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.

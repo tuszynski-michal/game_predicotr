@@ -1442,6 +1442,7 @@ export type {
   GridCorrectionCellSymbolPayload,
   GridCorrectionCellSymbolSuggestionResponse,
   GridCorrectionSymbolsResponse,
+  GridDiagnosticsResponse,
   GridEndToEndGateReportCommand,
   GridEndToEndGateSource,
   GridEngineModelFileResponse,

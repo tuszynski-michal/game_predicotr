@@ -23,9 +23,9 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
+- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 todo po commicie. D-548–D-552 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; następny TASK-1017 todo. D-548–D-552 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -70,7 +70,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Obowiązkowa kolejność dla `apply` manifestu Arbuz < 60%** (sha256 `1e4be8ce…`, 2 703 plansze): nie uruchamiać równolegle z weryfikacją w Adminie ani z jobem przeliczania predykcji. W chwili wpisu nic nie zapisano w bazie. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-464 — biblioteka wzorców symboli, etap A (w toku)”.
 - **Operacje destrukcyjne na danych.** Implementacja mechanizmu destrukcyjnego (GC, cleanup, legacy deletion, `db:reset:local`) nie jest zgodą na jego wykonanie; wymaga osobnego preview i jawnego potwierdzenia. TASK-0517: baza starej gry usunięta, częściowy GC zatrzymany; dalsze usuwanie tylko za jawną zgodą. Źródło: sekcja „TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany” w tym pliku.
 - **Rezerwa dysku (D-534, D-530):** twarda rezerwa 5 GiB (domyślnie) dla kopiowania, normalnego pipeline i wznowienia; polityka GC i szacunki przyjęcia bez zmian. Brak migracji ani czyszczenia danych w TASK-0928. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
-- **Gra Mumie jest w statusie `draft`** (profil `grid_profile_mumie_v1`, gra `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`). Operator testuje Wild na drafcie; wyniki planszy w serii są `provisional`, dopóki super symbol nie jest zdefiniowany i generacja serii nie jest świeża (D-537): nie wchodzą do bilansu ani rozpoznanych wypłat. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”; sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.
+- **Mumie / stan odczytu 2026-10-14:** istniejące API zwraca `active` dla `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` (profil `grid_profile_mumie_v1`); wcześniejszy wpis `draft` był historyczny. TASK-1010 nie zmienił statusu. Reguła D-537 dla niegotowego super symbolu lub generacji pozostaje obowiązująca; diagnoza geometrii nie aktywuje reguł ani wypłat. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”; sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.
 - **Modele symboli Mumii:** kandydat V5 odrzucony (10/18 porównań nie przechodzi), etapu TASK-0873 nie uruchamiać z tym kandydatem; obowiązuje baseline R2 RGB. Historycznego CLI `verified_v19` nie uruchamiać (nowy CLI: `scripts/run_mumie_image_import.py`). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”.
 - **Plan symboli premium Mumii** (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`, `proposed`) czeka na decyzje operatora; od 2026-10-04 obowiązuje zakres `MUMIE_TRAINING_RESUME_20261004.md`. Zakres Super jest realizowany osobnym planem `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
 - **Plan Mumie (D-535):** start każdego etapu na jawne polecenie operatora; 2026-10-08 operator zezwolił na przejście do etapu S-B bez pytań. Audyt krzyżowy wykonuje subagent Claude z innej rodziny modeli niż wykonawca do czasu zainstalowania i zalogowania CLI `codex`; zastępstwo odnotowuje `Outcome`. Merge i push tylko za zgodą operatora (merge do gałęzi integracyjnej obejmuje push). Źródło: sekcja „Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)” w tym pliku.
@@ -91,7 +91,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.363: hash pending do zapisu leada. Następny TASK-1010 todo, start po commicie. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; następny TASK-1017 todo. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-548–D-552 pozostają proposed zgodnie z bootstrapem. Ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie zaakceptowanej instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
@@ -185,10 +185,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (todo)
-
-- [1010-grid-diagnostics-and-counters.md](../tasks/1010-grid-diagnostics-and-counters.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (todo)
 
@@ -949,11 +945,22 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (done)
+
+- [Task](../tasks/completed/1010-grid-diagnostics-and-counters.md); gałąź codex/v3-grid-fine-tuning. Commit przygotowany: v1.7.368, hash po utworzeniu. Bez scalenia.
+- Istniejący GET ma opt-in diagnostykę w osobnym READ ONLY/REPEATABLE READ/RLS; zwykły odczyt/paginacja pozostają lekkie. Jednostki, przecięcia, symbole i status akceptacji są rozdzielone. D-553 przyjęta; bez zmian danych operatora.
+- [Raport](../quality/V3_GRID_DIAGNOSTICS_20261014.md): Mumie 8 031 brakujących sekwencji (259 geometria, 7 772 no_source); 777a2 373 odroczone i 98 zgłoszonych siatek. Niepotwierdzenie nie jest oceną modelu; nierozstrzygnięte źródła/90 błędów bez zakresu/94 historyczne stany opisane.
+- PASS: 120 testów backendu, 2 UI, transport, lint/types/OpenAPI/map/docs; po [audytowym REVISE](../quality/TASK-1010_AUDIT_claude-fable-5-1.md) jedna runda poprawek: 2 PG, 12 SQL/API, Ruff/mypy/docs/map. [Rozliczenie](../quality/TASK-1010_AUDIT_RESPONSE_CODEX.md): P1 zamknięte, bez nowego PASS audytu i bez zmiany zachowania produkcyjnego P1. Bazy/role fixture usunięte.
+- Następny TASK-1017; brak usług, migracji operatora, backfillu, treningu lub aktywacji.
+
 ### TASK-1015 — Utrwalenie planu i przygotowanie wznowienia (done)
+
+
+- Commit: v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; niezależny Claude PASS, P2 rozliczone, bez scalenia. Hash zapisany po commicie, do włączenia razem z następnym taskiem.
 
 - [Task](../tasks/completed/1015-documentation-bootstrap.md); worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`. Oryginalna baza v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
 - Rewizja 6 i 23 taski utrwalone; pięć decyzji proposed. Nasz silnik acceptance TASK-1017 po zatwierdzonym rozwiązaniu kolizji z historycznym CLI TASK-1007. Audyt Claude PASS, brak P0/P1; P2-1/2/3 zamknięte, P2-4 ryzyko poza zakresem. Kontrole dokumentacji i środowiska PASS, bez zmian kodu/danych/usług.
-- Commit przygotowany: **v1.7.363 / hash pending**, lead wpisze rzeczywisty pełny hash po utworzeniu. Następny TASK-1010 todo; integracja dopiero po całym planie i osobnej akceptacji.
+- Commit bootstrapu: **v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`**. TASK-1010 in_progress; integracja dopiero po całym planie i osobnej akceptacji.
 
 
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
@@ -1020,11 +1027,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
 - Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
 - Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.
-
-### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (done)
-
-- Plik: `ai_docs/tasks/completed/0987-selector-desktop-final-pilot.md`; D-546 i plan finalizacji2026-10-12. Kod/przygotowanie v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`.
-- ZIP0.1.3: out/releases/pilot-0.1.3-0b1ab330,149410942 B, SHA cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761; asar23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2, clean provenance.
-- Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
-- Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
-- Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.

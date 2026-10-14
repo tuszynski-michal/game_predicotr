@@ -1912,6 +1912,16 @@
           "counts": {
             "$ref": "#/components/schemas/BoardImportCoverageCountsResponse"
           },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridDiagnosticsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedLayoutCount": {
             "minimum": 1.0,
             "title": "Expectedlayoutcount",
@@ -9114,6 +9124,173 @@
           "cells"
         ],
         "title": "GridCorrectionSymbolsResponse",
+        "type": "object"
+      },
+      "GridDiagnosticsResponse": {
+        "additionalProperties": false,
+        "description": "Whole-game populations: sequence, review row, source slot, board and cell.\n\nCategories and intersections overlap. Neither unconfirmed geometry nor\nunknown symbols imply a missing sequence or measured pixel correctness.",
+        "properties": {
+          "canonicalReviewOverlap": {
+            "minimum": 0.0,
+            "title": "Canonicalreviewoverlap",
+            "type": "integer"
+          },
+          "canonicalSequences": {
+            "minimum": 0.0,
+            "title": "Canonicalsequences",
+            "type": "integer"
+          },
+          "deferredSlotCoverage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deferredslotcoverage",
+            "type": "object"
+          },
+          "deferredSlotsByReason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deferredslotsbyreason",
+            "type": "object"
+          },
+          "deferredSlotsByStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deferredslotsbystatus",
+            "type": "object"
+          },
+          "duplicateQualifyingReviewRows": {
+            "minimum": 0.0,
+            "title": "Duplicatequalifyingreviewrows",
+            "type": "integer"
+          },
+          "flaggedGridBoards": {
+            "minimum": 0.0,
+            "title": "Flaggedgridboards",
+            "type": "integer"
+          },
+          "flaggedUnconfirmedBoards": {
+            "minimum": 0.0,
+            "title": "Flaggedunconfirmedboards",
+            "type": "integer"
+          },
+          "lowConfidenceThreshold": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Lowconfidencethreshold",
+            "type": "number"
+          },
+          "missingReasonIntersections": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Missingreasonintersections",
+            "type": "object"
+          },
+          "missingReasonSignals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Missingreasonsignals",
+            "type": "object"
+          },
+          "qualifyingReviewRows": {
+            "minimum": 0.0,
+            "title": "Qualifyingreviewrows",
+            "type": "integer"
+          },
+          "qualifyingReviewSequences": {
+            "minimum": 0.0,
+            "title": "Qualifyingreviewsequences",
+            "type": "integer"
+          },
+          "reviewRowsByStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reviewrowsbystatus",
+            "type": "object"
+          },
+          "reviewSequencesByStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reviewsequencesbystatus",
+            "type": "object"
+          },
+          "scope": {
+            "const": "whole_game",
+            "default": "whole_game",
+            "title": "Scope",
+            "type": "string"
+          },
+          "sourceGate": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sourcegate",
+            "type": "object"
+          },
+          "sourceImages": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sourceimages",
+            "type": "object"
+          },
+          "sourcePositions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sourcepositions",
+            "type": "object"
+          },
+          "symbolCellIntersections": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Symbolcellintersections",
+            "type": "object"
+          },
+          "symbolCells": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Symbolcells",
+            "type": "object"
+          },
+          "unconfirmedGeometryBoards": {
+            "minimum": 0.0,
+            "title": "Unconfirmedgeometryboards",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewRowsByStatus",
+          "reviewSequencesByStatus",
+          "qualifyingReviewRows",
+          "qualifyingReviewSequences",
+          "canonicalSequences",
+          "canonicalReviewOverlap",
+          "duplicateQualifyingReviewRows",
+          "deferredSlotsByStatus",
+          "deferredSlotsByReason",
+          "deferredSlotCoverage",
+          "flaggedGridBoards",
+          "unconfirmedGeometryBoards",
+          "flaggedUnconfirmedBoards",
+          "symbolCells",
+          "symbolCellIntersections",
+          "missingReasonSignals",
+          "missingReasonIntersections",
+          "sourceImages",
+          "sourcePositions",
+          "sourceGate",
+          "lowConfidenceThreshold"
+        ],
+        "title": "GridDiagnosticsResponse",
         "type": "object"
       },
       "GridEndToEndGateReportCommand": {
@@ -48049,6 +48226,16 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "includeDiagnostics",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Includediagnostics",
+              "type": "boolean"
             }
           }
         ],

@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-14
 ---
 
 # Wymagania modułu administracyjnego
@@ -299,6 +299,18 @@ przepisania dokładnego identyfikatora importu oraz osobnego kliknięcia
 potwierdzającego. Operacja usuwa surowe i wszystkie znormalizowane wiersze tego
 importu, ale zachowuje joby jako audyt. Backend blokuje odrzucenie, gdy staging
 jest używany przez dataset albo przez aktywną walidację.
+
+### Diagnostyka liczników plansz i geometrii — TASK-1010
+
+Sekcja brakujących plansz udostępnia przycisk „Uzgodnij liczniki gry”. Odczyt
+jest jawny i pokazuje własny czas pomiaru oraz zakres całej gry; paginacja,
+filtry i zwykły polling pokrycia nie odczytują go ponownie. Zmiana gry usuwa
+poprzedni snapshot i ignoruje spóźnione odpowiedzi. UI rozdziela unikalne
+brakujące sekwencje, sloty odroczone, zgłoszone błędne siatki, brak akceptacji
+geometrii i problemy komórek symboli. Wyjaśnia przecięcia i nie sumuje ich jako
+niezależnych braków. Stan zapisany bramki oraz bieżąca klasyfikacja zdjęć są
+opisane osobno. Zatwierdzenie symboli nie jest warunkiem istnienia planszy;
+automatyczne cięcie lub brak ręcznej akceptacji nie dowodzą jakości pikseli.
 
 ### Jobs
 

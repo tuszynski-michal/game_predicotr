@@ -85,6 +85,11 @@ does not establish production render compatibility. The sample is purposeful,
 not a statistical estimate of the complete library. 777 a2 had no eligible
 sources under the explicit geometry-approval criterion.
 
+### Commit
+
+Task documentation commit: **v1.7.361 / `063f259048080e94cffc79cce5eb0da335a69863`** on
+`codex/photo-crop-p1`; integration merge awaits operator approval.
+
 ### Documentation updates
 
 Added this task and the evidence report; updated CURRENT_STATE rolling window

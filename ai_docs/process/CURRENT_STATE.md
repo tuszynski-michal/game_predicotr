@@ -883,6 +883,9 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-1007 — P1: galeria przycięcia zdjęć (done)
 
+- Commit dokumentacji: **v1.7.361 / `063f259048080e94cffc79cce5eb0da335a69863`**, gałąź
+  `codex/photo-crop-p1`; bez scalenia do gałęzi integracyjnej.
+
 - Galeria 40 zdjęć / 360 zatwierdzonych siatek: 36 z 777 a1 i 4 z Mumie a1,
   margines 50 px, jeden kadr obejmuje wszystkie siatki źródła.
 - Pomiar JPEG: 10 992 053 B → 7 845 699 B, redukcja 3 146 354 B (28,6239%).

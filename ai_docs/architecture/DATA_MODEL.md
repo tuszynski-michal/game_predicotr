@@ -1196,6 +1196,26 @@ oraz `image_symbol_review_cells.source_geometry_revision_id` i
 Piksele, specyfikacje renderu, tożsamości cropów, decyzje i zdarzenia zostają
 bez zmian; plansza z innym wpisem zostaje i trafia do raportu z kodem powodu.
 
+### Historyczna akceptacja geometrii V3 (TASK-1008, migracja 0155)
+
+Manifest v8 dodaje trzy tabele należące do gry, partycjonowane po `game_id`
+i chronione FORCE RLS. `historical_grid_acceptance_operations` zapisuje klucz
+utworzenia i hash komendy, fazę, kotwicę czasu, kursor podglądu i przebiegu,
+przyrostowe liczniki zdjęć/rewizji/powodów oraz osobny klucz i hash jawnego
+potwierdzenia. `historical_grid_acceptance_targets` utrwala uporządkowany
+zakres źródeł, oczekiwaną rewizję/status, fingerprint i powody kwalifikacji.
+`historical_grid_acceptance_receipts` ma jeden wiersz na target i unikalny
+klucz transportowy per gra. Wiersz stanowi także zdarzenie akceptacji: wynik,
+powody, rewizja, autor i czas pozostają audytowalne bez zmiany `created_by`
+historycznej geometrii. Obce operationId nie daje dostępu poza grą.
+
+Status i receipt powstają atomowo z przeliczeniem kompletności bez nowej
+materializacji oraz synchronizacją istniejących dokumentów. Klucze, hashe
+i kursor odróżniają replay od konfliktu. Nie ma pól bitmap ani kopii payloadu
+geometrii. Downgrade odmawia utraty jakiejkolwiek historii operacji.
+Reguły kwalifikacji, ochrony danych i wznawialnego indeksu oryginalnego dowodu
+opisuje [schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md#historyczna-akceptacja-statusów-v3--task-1008).
+
 ### image_source_geometry_revisions i image_geometry_rollout_states
 
 `image_source_geometry_revisions` jest append-only historią geometrii całej

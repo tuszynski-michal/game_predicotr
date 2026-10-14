@@ -25,7 +25,8 @@ from game_predictor_api.storage.game_data_v2_manifest_v5 import (
 from game_predictor_api.storage.game_data_v2_manifest_v6 import (
     GAME_TABLES as V6_GAME_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v7 import (
+from game_predictor_api.storage.game_data_v2_manifest_v7 import GAME_TABLES as V7_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v8 import (
     ADDED_GAME_TABLES,
     CATALOG,
     CONTROL_TABLES,
@@ -63,12 +64,13 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v7"
+    assert VERSION == "game-data-v2-manifest-v8"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
     assert len(V6_GAME_TABLES) == 68
-    assert len(GAME_TABLES) == 70
+    assert len(V7_GAME_TABLES) == 70
+    assert len(GAME_TABLES) == 73
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
@@ -76,6 +78,8 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "super_game_series",
         "super_game_series_audit_events",
         "super_game_series_generation_rows",
+        "image_board_geometry_pending_events",
+        "image_geometry_correction_reverts",
         *ADDED_GAME_TABLES,
     }
     # TASK-0933: v6 is v5 plus exactly the four super game series tables.
@@ -87,10 +91,11 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
     }
     # TASK-0966/0970: v7 is v6 plus exactly the geometry correction revert audit
     # and the durable events of deferred-slot rejections.
-    assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {
+    assert set(V7_GAME_TABLES) - set(V6_GAME_TABLES) == {
         "image_board_geometry_pending_events",
         "image_geometry_correction_reverts",
     }
+    assert set(GAME_TABLES) - set(V7_GAME_TABLES) == set(ADDED_GAME_TABLES)
     assert {ownership(name) for name in ADDED_GAME_TABLES} == {"game"}
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES

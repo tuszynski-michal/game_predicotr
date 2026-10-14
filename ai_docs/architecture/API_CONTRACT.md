@@ -4764,3 +4764,33 @@ może przejść do adopcji. Fingerprint inwentarza reportu obejmuje bezpiecznie
 rozwiązany fizyczny korzeń korpusu oraz pełny inwentarz; identyczne pliki w
 innym katalogu są driftem. Registry publikuje rekord razem z receiptem pod
 wspólną blokadą procesu/pliku, a obiekt bez receipt pozostaje niewidoczny.
+
+### Historyczna akceptacja siatek V3 — TASK-1008
+
+Istniejący router `image-review-items` udostępnia pion pod bazą
+`/api/v1/admin/image-review-items/geometry-completeness/{gameId}/historical-acceptance`:
+
+- `POST` z `idempotencyKey` tworzy operację podglądu tej gry.
+- `POST /{operationId}/preview-next` z `expectedCursor` przygotowuje dowód
+  albo kwalifikuje jedno źródło. Powtórzony zużyty kursor odczytuje stan;
+  kursor przyszły jest konfliktem. `previewed` zamyka zamrożony zakres.
+- `POST /{operationId}/confirm` wymaga `confirmed=true` i osobnego
+  `idempotencyKey`. Niedokończony podgląd nie może zostać potwierdzony.
+- `POST /{operationId}/run-next` wymaga klucza i `expectedCursor`.
+  Jedno źródło jest pojedynczą transakcją; receipt odtwarza ten sam klucz,
+  zmienione polecenie albo nowy klucz ze starym kursorem daje 409.
+- `GET /{operationId}?afterOrdinal=N` odczytuje trwały raport i maksymalnie
+  25 targetów z następnym kursorem szczegółów.
+
+Raport zawiera `statusOnly=true`, `materializesNewCells=false`, fazę i
+`preparationState`, kotwicę czasu, oba kursory oraz osobne liczniki źródeł,
+rewizji, kwalifikacji, akceptacji i skip. Powody podglądu i przebiegu są
+oddzielne i mogą dotyczyć tego samego zdjęcia. Nieukończony indeks nie
+przesuwa kursora ani nie daje akceptacji. Limit pełnego SHA zatrzymuje pętlę
+UI z jawnym stanem przygotowania; wznowienie korzysta z tego samego operationId.
+Klient jest generowany z OpenAPI; wrapper zachowuje komendy bez własnych typów.
+
+Nowe mutacje nie należą do zdalnej allowlisty Reviewera. Historyczna 777,
+kod `7`, jest wyłączona. Brak źródła/modelu, konflikt rewizji/właściciela,
+zgłoszenie lub mieszane rewizje jest jawnie pomijane. Run nie uruchamia
+modelu, recropu ani tworzenia komórek i nie nadaje human approval.

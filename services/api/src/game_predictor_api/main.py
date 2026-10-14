@@ -79,6 +79,7 @@ from game_predictor_api.application.grid_audit_symbol_suggestions import (
     FileGridAuditSymbolSuggestionStore,
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
 from game_predictor_api.application.grid_shadow import GridShadowService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
@@ -370,6 +371,9 @@ from game_predictor_api.storage.global_shape_geometry_readiness import (
 from game_predictor_api.storage.grid_audit_board_reader import SqlAlchemyGridAuditBoardReader
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
+)
+from game_predictor_api.storage.grid_engine_acceptance_repository import (
+    SqlAlchemyHistoricalAcceptanceRepository,
 )
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
@@ -1463,6 +1467,11 @@ def create_app(
                 # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
+                    historical_acceptance=HistoricalAcceptanceService(
+                        SqlAlchemyHistoricalAcceptanceRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
                     virtual_geometry=VirtualGridGeometryService(
                         SqlAlchemyVirtualGridGeometryRepository(session),
                         resolved_settings.artifact_root,

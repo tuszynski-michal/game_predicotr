@@ -1,4 +1,25 @@
 import {
+  createHistoricalGridAcceptance as createGeneratedHistoricalGridAcceptance,
+  previewHistoricalGridAcceptanceNext as previewGeneratedHistoricalGridAcceptanceNext,
+  confirmHistoricalGridAcceptance as confirmGeneratedHistoricalGridAcceptance,
+  runHistoricalGridAcceptanceNext as runGeneratedHistoricalGridAcceptanceNext,
+  getHistoricalGridAcceptance as getGeneratedHistoricalGridAcceptance,
+} from './generated/sdk.gen';
+import type {
+  HistoricalAcceptanceCreateCommand,
+  HistoricalAcceptancePreviewCommand,
+  HistoricalAcceptanceConfirmCommand,
+  HistoricalAcceptanceRunCommand,
+} from './generated/types.gen';
+export type {
+  HistoricalAcceptanceCreateCommand,
+  HistoricalAcceptancePreviewCommand,
+  HistoricalAcceptanceConfirmCommand,
+  HistoricalAcceptanceRunCommand,
+  HistoricalAcceptanceResponse,
+  HistoricalAcceptanceItemResponse,
+} from './generated/types.gen';
+import {
   getManagementSnapshot,
   listManagementStakes,
   getManagementStake,
@@ -2543,6 +2564,55 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           cell_review_id: cellReviewId,
           game_id: gameId,
         },
+      }),
+    createHistoricalGridAcceptance: (
+      gameId: string,
+      body: HistoricalAcceptanceCreateCommand,
+    ) =>
+      createGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    previewHistoricalGridAcceptanceNext: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptancePreviewCommand,
+    ) =>
+      previewGeneratedHistoricalGridAcceptanceNext({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    confirmHistoricalGridAcceptance: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptanceConfirmCommand,
+    ) =>
+      confirmGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    runHistoricalGridAcceptanceNext: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptanceRunCommand,
+    ) =>
+      runGeneratedHistoricalGridAcceptanceNext({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    getHistoricalGridAcceptance: (
+      gameId: string,
+      operationId: string,
+      afterOrdinal?: number,
+    ) =>
+      getGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        query: afterOrdinal === undefined ? {} : { afterOrdinal },
       }),
     getImageDatasetCompleteness: (gameId: string) =>
       getGeneratedImageDatasetCompleteness({

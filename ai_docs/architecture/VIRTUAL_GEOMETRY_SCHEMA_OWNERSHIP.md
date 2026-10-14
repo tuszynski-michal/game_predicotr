@@ -6,6 +6,69 @@ last_updated: 2026-10-14
 
 # Virtual geometry schema ownership
 
+## Historyczna akceptacja statusów V3 — TASK-1008
+
+Historyczna operacja jest oddzielna od finalizatora nowych importów TASK-1017.
+`application/grid_engine_acceptance.py` definiuje komendy i raport, a
+`storage/grid_engine_acceptance_repository.py` kwalifikuje oryginalny snapshot
+joba przez `NeuralGridSnapshot.from_payload`, bez wyboru dzisiejszej wersji
+aktywnej. Dowód pochodzi z niezmiennego `v3EngineAcceptance` albo z manifestu
+`page_geometry_manifest` przypiętego do oryginalnego joba. Nie jest odtwarzany
+przez inferencję. Obsługiwane są zarejestrowane historyczne wersje obu profili.
+Nieznany model, brak dowodu, odroczenie, częściowa plansza, konflikt właściciela,
+zgłoszenie błędnej siatki, ręczna geometria albo mieszane rewizje mają jawny
+powód pominięcia. Wyjątek operatora pozostaje zachowany i wyklucza operację.
+
+Operacja najpierw zapisuje kotwicę czasu z zegara bazy. Podgląd czyta tylko
+źródła utworzone przed tą kotwicą, w porządku UUID, pojedynczymi krokami. Każdy
+zakwalifikowany target zawiera identyfikator, numer i status aktualnej rewizji
+oraz fingerprint chronionych danych i oryginalnego inputu joba. Zamknięty
+podgląd jest zamrożonym zestawem targetów; jawne potwierdzenie nie może dodać
+nowego źródła. Stan, kursor, liczniki i receipty są trwałe. Liczniki powodów
+mogą się przecinać; źródła i rewizje są osobnymi jednostkami. Ich aktualizacja
+jest przyrostowa, bez ponownego agregowania całej operacji przy każdym źródle.
+
+Porządek blokad przebiegu to advisory lock operacji, ownership lock gry,
+wiersz gry, wiersz operacji, rosnące sequence locks i source lock. Ponowna
+kwalifikacja pod blokadami wymaga zgodnego fingerprintu zamrożonego targetu.
+Status source revision, recompute z `materialize=False`, synchronizacja
+wyłącznie istniejących projekcji oraz receipt/zdarzenie akceptacji należą do
+jednej transakcji źródła. Wyjątek cofa także kursor i liczniki. Receipt zapisuje
+pochodzenie `system:historical-v3-status-only-v1`, klucz i hash polecenia;
+powtórzenie tego samego klucza odczytuje wynik. Zmienione polecenie lub nowy
+klucz ze zużytym kursorem zwraca konflikt. Payloady, checksumy, render manifests,
+cropy, komórki, approval, decyzje i właściciele kanoniczni pozostają identyczne.
+
+`storage/historical_grid_evidence.py` tworzy odtwarzalny artefakt pomocniczy
+`historical-neural-evidence-index-v1` w
+`data/historical-grid-acceptance-index/<manifest-sha>.sqlite`. Nie jest on
+nowym źródłem prawdy. Strumieniowe indeksowanie utrwala offset bajtowy na
+granicy całego wpisu, nagłówki i fazę w `.building.sqlite`. Krok ma limit
+1000 wpisów lub 15 s, a pojedynczy wpis maksymalnie 2 MiB. Przerwany krok
+wycofuje swoją partię; nowy proces wznawia ostatni zatwierdzony offset.
+Gotowy uszkodzony indeks jest odtwarzany przez preview. Częściowy indeks
+nigdy nie jest publikowany. Oddzielna pełna weryfikacja SHA oryginalnego pliku
+ma limit 30 s i poprzedza atomowe opublikowanie indeksu. Zmiana sygnatury pliku
+wymaga ponownej weryfikacji; sam mtime nie stanowi dowodu modelu. Kwalifikacja
+sprawdza checksumę proposal/binding, snapshot modelu i bieżące hashe/revisions.
+Run nie buduje indeksu pod blokadą źródła.
+
+Przygotowanie pozostawia kursor źródła nieruchomy i stan `preparing` widoczny
+w raporcie. Przekroczenie pełnego SHA zapisuje
+`HISTORICAL_EVIDENCE_VERIFICATION_TIME_LIMIT`; automatyczna pętla UI zatrzymuje
+się i umożliwia jawne wznowienie. Nie powstaje skip, akceptacja ani PASS dla
+nieukończonego dowodu. Nie ma potwierdzonego limitu rozmiaru oryginalnych
+manifestów ani benchmarku tego kroku. Mała próba stat z 2026-10-14 objęła dwa
+joby na każdą grę: Mumie 28 898 319 i 74 772 916 B, 777a2 277 108 530 i
+329 146 197 B. Jest to pomiar rozmiaru, nie czasu weryfikacji SHA.
+
+Migracja `0155_historical_grid_acceptance` dodaje trzy parenty partycjonowane
+per gra pod FORCE RLS i przenosi bieżący manifest do v8. Historyczne manifesty
+v7 i migracje pozostają zamrożone. Downgrade odmawia usunięcia historii operacji.
+Nie zawiera backfillu ani zmiany istniejących statusów. Stara gra 777, kod `7`,
+nie może utworzyć operacji. Migracja operatora i rzeczywisty run wymagają
+osobnych działań operatora; implementacja nie uruchamia usług.
+
 ## Akceptacja nowych wyników V3 — TASK-1017
 
 Wersjonowana kwalifikacja `domain/v3_engine_acceptance.py` jest czysta.

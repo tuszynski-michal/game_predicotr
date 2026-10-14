@@ -7,6 +7,11 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 
 import {
+  HistoricalGridAcceptanceControl,
+  type HistoricalAcceptanceClient,
+} from './historical-grid-acceptance';
+
+import {
   geometryImageStateLabel,
   geometryPositionStateLabel,
   geometryReasonLabel,
@@ -29,7 +34,8 @@ const INTERSECTION_LABELS: Readonly<Record<string, string>> = {
 type DiagnosticsClient = Pick<
   ReturnType<typeof createAdminApiClient>,
   'getBoardImportCoverage'
->;
+> &
+  Partial<HistoricalAcceptanceClient>;
 
 export function GridDiagnosticsControl({
   api,
@@ -97,6 +103,17 @@ export function GridDiagnosticsControl({
         </p>
       ) : null}
       {report ? <GridDiagnosticsPanel report={report} /> : null}
+      {api.createHistoricalGridAcceptance &&
+      api.getHistoricalGridAcceptance &&
+      api.previewHistoricalGridAcceptanceNext &&
+      api.confirmHistoricalGridAcceptance &&
+      api.runHistoricalGridAcceptanceNext ? (
+        <HistoricalGridAcceptanceControl
+          key={gameId}
+          api={api as HistoricalAcceptanceClient}
+          gameId={gameId}
+        />
+      ) : null}
     </div>
   );
 }

@@ -66,6 +66,9 @@ import type {
   ConfirmBrowserPageGeometrySourceReplacementData,
   ConfirmBrowserPageGeometrySourceReplacementErrors,
   ConfirmBrowserPageGeometrySourceReplacementResponses,
+  ConfirmHistoricalGridAcceptanceData,
+  ConfirmHistoricalGridAcceptanceErrors,
+  ConfirmHistoricalGridAcceptanceResponses,
   ConfirmImageSelectionGroupRangeData,
   ConfirmImageSelectionGroupRangeErrors,
   ConfirmImageSelectionGroupRangeResponses,
@@ -96,6 +99,9 @@ import type {
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
+  CreateHistoricalGridAcceptanceData,
+  CreateHistoricalGridAcceptanceErrors,
+  CreateHistoricalGridAcceptanceResponses,
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
@@ -332,6 +338,9 @@ import type {
   GetGridShadowResultResponses,
   GetHealthData,
   GetHealthResponses,
+  GetHistoricalGridAcceptanceData,
+  GetHistoricalGridAcceptanceErrors,
+  GetHistoricalGridAcceptanceResponses,
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
@@ -801,6 +810,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewHistoricalGridAcceptanceNextData,
+  PreviewHistoricalGridAcceptanceNextErrors,
+  PreviewHistoricalGridAcceptanceNextResponses,
   PreviewImageGeometryGuardDecisionData,
   PreviewImageGeometryGuardDecisionErrors,
   PreviewImageGeometryGuardDecisionResponses,
@@ -978,6 +990,9 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  RunHistoricalGridAcceptanceNextData,
+  RunHistoricalGridAcceptanceNextErrors,
+  RunHistoricalGridAcceptanceNextResponses,
   SaveManagementStakeData,
   SaveManagementStakeErrors,
   SaveManagementStakeResponses,
@@ -4464,6 +4479,131 @@ export const getImageGeometryCompleteness = <
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
     ...options,
+  });
+
+/**
+ * Create Historical Grid Acceptance
+ */
+export const createHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  CreateHistoricalGridAcceptanceResponses,
+  CreateHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateHistoricalGridAcceptanceResponses,
+    CreateHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Historical Grid Acceptance
+ */
+export const getHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  GetHistoricalGridAcceptanceResponses,
+  GetHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetHistoricalGridAcceptanceResponses,
+    GetHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Confirm Historical Grid Acceptance
+ */
+export const confirmHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ConfirmHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  ConfirmHistoricalGridAcceptanceResponses,
+  ConfirmHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ConfirmHistoricalGridAcceptanceResponses,
+    ConfirmHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/confirm',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Historical Grid Acceptance Next
+ */
+export const previewHistoricalGridAcceptanceNext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewHistoricalGridAcceptanceNextData, ThrowOnError>,
+): RequestResult<
+  PreviewHistoricalGridAcceptanceNextResponses,
+  PreviewHistoricalGridAcceptanceNextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewHistoricalGridAcceptanceNextResponses,
+    PreviewHistoricalGridAcceptanceNextErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/preview-next',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Run Historical Grid Acceptance Next
+ */
+export const runHistoricalGridAcceptanceNext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RunHistoricalGridAcceptanceNextData, ThrowOnError>,
+): RequestResult<
+  RunHistoricalGridAcceptanceNextResponses,
+  RunHistoricalGridAcceptanceNextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RunHistoricalGridAcceptanceNextResponses,
+    RunHistoricalGridAcceptanceNextErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/run-next',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

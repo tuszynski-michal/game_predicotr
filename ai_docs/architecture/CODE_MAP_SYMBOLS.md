@@ -78,6 +78,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_audit_symbol_suggestions.py: class GridAuditCellSymbolSuggestion, class GridAuditSymbolSuggestions, class FileGridAuditSymbolSuggestionStore
 - application/grid_calibration.py: class GridCalibrationRepository, class GridCalibrationService
 - application/grid_diagnostics.py: class GridDiagnostics, missing_reason_diagnostics
+- application/grid_engine_acceptance.py: class HistoricalAcceptanceItem, class HistoricalAcceptanceReport, class HistoricalAcceptanceRepository, class HistoricalAcceptanceService
 - application/grid_engine_profiles.py: class GridEngineModelInspector, class GridEngineProfileView, class GridEngineProfileService
 - application/grid_shadow.py: class GridShadowModelStore, class GridShadowRepository, class GridShadowService
 - application/image_geometry_rollout.py: class ImageGeometryRolloutStatus, class ImageGeometryRolloutStart, class ImageGeometryRolloutRepository, class ImageGeometryRolloutService
@@ -228,6 +229,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/geometry_qualification.py: class GridCorrectionCellSymbolPayload, class GridCorrectionCellSymbolSuggestionResponse, class GridCorrectionSymbolsResponse, to_grid_correction_symbols_response, class ManualSourceGeometryPoint, class GeometryQualificationPayload, class AutomaticPartialGeometryProposalPayload, class AutomaticFrameGeometryProposalPayload
 - schemas/grid_audit_proposals.py: class GridAuditQueueCountsResponse, class GridAuditQueueItemResponse, class GridAuditQueuePageResponse, class GridAuditNodeResponse, class GridAuditProposalGridResponse, class GridAuditSymbolSuggestionsResponse, class GridAuditProposalResponse, to_grid_audit_queue_item_response, to_grid_audit_queue_page_response, to_grid_audit_proposal_response
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
+- schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
 - schemas/grid_shadow.py: class GridShadowJobCreate, class GridShadowPointResponse, class GridShadowSlotResponse, class GridShadowUnassignedDetectionResponse, class GridShadowOutputResponse, class GridShadowResultSummaryResponse, class GridShadowResultResponse, class GridShadowResultPageResponse, class GridShadowJobPayloadResponse, to_grid_shadow_summary, to_grid_shadow_result, to_grid_shadow_page
 - schemas/health.py: class HealthResponse
@@ -290,6 +292,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v5.py: ownership
 - storage/game_data_v2_manifest_v6.py: ownership
 - storage/game_data_v2_manifest_v7.py: ownership
+- storage/game_data_v2_manifest_v8.py: ownership
 - storage/game_deletion_archive.py: verify_database_archive
 - storage/game_deletion_policy_v1.py: class DeletionError, quote, digest, owner_chain, policy_digest, owner_sql, class ForeignKey, deletion_order
 - storage/game_deletion_repository.py: class Table, class Schema, catalog_digest, transaction_limits, load_schema, validate_identity, select_owned_batch, class GameDeletionRepository
@@ -305,9 +308,12 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_audit_board_reader.py: class SqlAlchemyGridAuditBoardReader
 - storage/grid_calibration_repository.py: class SqlAlchemyGridCalibrationRepository
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
+- storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
+- storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
 - storage/grid_engine_model_store.py: file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
 - storage/grid_profile_snapshot_resolver.py: class SqlAlchemyGridProfileSnapshotResolver
 - storage/grid_shadow.py: class SqlAlchemyGridShadowRepository
+- storage/historical_grid_evidence.py: class HistoricalEvidenceUnavailable, original_neural_evidence
 - storage/image_geometry_completeness_repository.py: class GeometryImageCounts, class GeometryImageSourceStatusCount, class GeometryPositionCount, class GeometryGateCounts, class ImportSequenceOwnership, class GeometryCompletenessReport, class GeometryImagePosition, class IncompleteGeometryImage, class IncompleteGeometryImagePage, class GeometrySourceImageAsset, class LowQualityBoard, class LowQualityBoardsReport, class SqlAlchemyImageGeometryCompletenessRepository, geometry_completeness_filter_conflict, classify_source_images
 - storage/image_geometry_completeness_state_repository.py: class SourceImageGeometryRecompute, class BoardRepointDecision, class SourceImageGeometryException, recompute_source_image_geometry_completeness, lock_source_images, start_deferred_gate_materializations, finish_deferred_gate_materializations, deferred_gate_materializations, materialize_deferred_source_images, recompute_source_images, recompute_source_images_of_boards, recompute_source_images_of_review_items, active_review_item_ids, materialize_admitted_source_image, withheld_review_item_ids, plan_board_repoint, apply_board_repoint, repoint_live_boards_to_newest_source_revision, class SqlAlchemyImageGeometryCompletenessStateRepository, status_key, class GeometryCompletenessBackfillBatch, class GeometryCompletenessGameSummary, class SourceImageGeometryCompletenessBackfill
 - storage/image_geometry_rollout_backfill_repository.py: class ImageGeometryRolloutBackfillError, class ImageGeometryRolloutBackfillStep, class SqlAlchemyImageGeometryRolloutBackfillRepository
@@ -743,6 +749,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/imports/geometry-guard-resolution-panel.tsx: GeometryGuardResolutionPanel
 - features/imports/geometry-guard-resolution-state.ts: GuardQuad, guardQuadFromUnknown, initialGuardQuad, guardGridLines, toggleUnavailableCell, toggleUnavailableGroup
 - features/imports/grid-diagnostics-panel.tsx: GridDiagnosticsControl, GridDiagnosticsPanel
+- features/imports/historical-grid-acceptance.tsx: HistoricalAcceptanceClient, HistoricalGridAcceptanceControl
 - features/imports/image-folder-import-actions.ts: ImageFolderImportClient, PageRegistrationVariant, LATERAL_PARTIAL_VARIANT, SELECTIVE_BOARD_VARIANT, CONTRAST_FRAME_GRID_V12_VARIANT, DEFAULT_GEOMETRY_ENGINE_VARIANT, canRetryPageGeometryPreflight, replayGeometryPreflightProgress, geometryPreflightMatchesReport, PersistedGuardContextIdentity, ActiveGuardReportIdentity, persistedGuardContextIdentityStatusFromLatest, persistedGuardContextIdentityStatus, pageRegistrationVariantFromJob, imageImportJobMatchesReportIdentity, symbolSnapshotMatchesReport, filterImageFolderImportFiles, BoardCellProcessingMode, uploadImageFolder, listReadyBrowserImageSelections, previewReadyBrowserImageImport, startReadyBrowserImageImport, startBrowserPageGeometryPreflight, retryBrowserPageGeometryPreflight, reprocessImageFolderImport, findManagedV4GeometryPreflight, reprocessManagedV4OrPrepare
 - features/imports/image-folder-import-panel.tsx: ImageFolderImportPanel
 - features/imports/image-folder-import-state.ts: readyBoardImportHasImport, readyBoardImportGeometryVariant, readyBoardImportLifecycleLabel, canStartReadyImport, pageGeometryPreflightOutcomeLabel, sortReadyBoardImports

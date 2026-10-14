@@ -5986,6 +5986,166 @@ export type HealthResponse = {
 };
 
 /**
+ * HistoricalAcceptanceConfirmCommand
+ */
+export type HistoricalAcceptanceConfirmCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * HistoricalAcceptanceCreateCommand
+ */
+export type HistoricalAcceptanceCreateCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * HistoricalAcceptanceItemResponse
+ */
+export type HistoricalAcceptanceItemResponse = {
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Outcome
+   */
+  outcome: 'accepted' | 'skipped' | null;
+  /**
+   * Previousstatus
+   */
+  previousStatus: string | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Revisionid
+   */
+  revisionId: string | null;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * HistoricalAcceptancePreviewCommand
+ */
+export type HistoricalAcceptancePreviewCommand = {
+  /**
+   * Expectedcursor
+   */
+  expectedCursor: number;
+};
+
+/**
+ * HistoricalAcceptanceResponse
+ */
+export type HistoricalAcceptanceResponse = {
+  /**
+   * Acceptedcount
+   */
+  acceptedCount: number;
+  /**
+   * Eligiblecount
+   */
+  eligibleCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<HistoricalAcceptanceItemResponse>;
+  /**
+   * Materializesnewcells
+   */
+  materializesNewCells?: false;
+  /**
+   * Nextitemcursor
+   */
+  nextItemCursor: number | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Phase
+   */
+  phase: 'previewing' | 'previewed' | 'running' | 'done';
+  /**
+   * Preparationstate
+   */
+  preparationState: string | null;
+  /**
+   * Previewcursor
+   */
+  previewCursor: number;
+  /**
+   * Previewreasons
+   */
+  previewReasons: {
+    [key: string]: number;
+  };
+  /**
+   * Revisioncount
+   */
+  revisionCount: number;
+  /**
+   * Runcursor
+   */
+  runCursor: number;
+  /**
+   * Runreasons
+   */
+  runReasons: {
+    [key: string]: number;
+  };
+  /**
+   * Skippedcount
+   */
+  skippedCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Startedat
+   */
+  startedAt: string;
+  /**
+   * Statusonly
+   */
+  statusOnly?: true;
+};
+
+/**
+ * HistoricalAcceptanceRunCommand
+ */
+export type HistoricalAcceptanceRunCommand = {
+  /**
+   * Expectedcursor
+   */
+  expectedCursor: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
  * ImageDatasetCompletenessResponse
  */
 export type ImageDatasetCompletenessResponse = {
@@ -26600,6 +26760,243 @@ export type GetImageGeometryCompletenessResponses = {
 
 export type GetImageGeometryCompletenessResponse =
   GetImageGeometryCompletenessResponses[keyof GetImageGeometryCompletenessResponses];
+
+export type CreateHistoricalGridAcceptanceData = {
+  body: HistoricalAcceptanceCreateCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance';
+};
+
+export type CreateHistoricalGridAcceptanceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateHistoricalGridAcceptanceError =
+  CreateHistoricalGridAcceptanceErrors[keyof CreateHistoricalGridAcceptanceErrors];
+
+export type CreateHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type CreateHistoricalGridAcceptanceResponse =
+  CreateHistoricalGridAcceptanceResponses[keyof CreateHistoricalGridAcceptanceResponses];
+
+export type GetHistoricalGridAcceptanceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: {
+    /**
+     * Afterordinal
+     */
+    afterOrdinal?: number;
+  };
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}';
+};
+
+export type GetHistoricalGridAcceptanceErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetHistoricalGridAcceptanceError =
+  GetHistoricalGridAcceptanceErrors[keyof GetHistoricalGridAcceptanceErrors];
+
+export type GetHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type GetHistoricalGridAcceptanceResponse =
+  GetHistoricalGridAcceptanceResponses[keyof GetHistoricalGridAcceptanceResponses];
+
+export type ConfirmHistoricalGridAcceptanceData = {
+  body: HistoricalAcceptanceConfirmCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/confirm';
+};
+
+export type ConfirmHistoricalGridAcceptanceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ConfirmHistoricalGridAcceptanceError =
+  ConfirmHistoricalGridAcceptanceErrors[keyof ConfirmHistoricalGridAcceptanceErrors];
+
+export type ConfirmHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type ConfirmHistoricalGridAcceptanceResponse =
+  ConfirmHistoricalGridAcceptanceResponses[keyof ConfirmHistoricalGridAcceptanceResponses];
+
+export type PreviewHistoricalGridAcceptanceNextData = {
+  body: HistoricalAcceptancePreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/preview-next';
+};
+
+export type PreviewHistoricalGridAcceptanceNextErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewHistoricalGridAcceptanceNextError =
+  PreviewHistoricalGridAcceptanceNextErrors[keyof PreviewHistoricalGridAcceptanceNextErrors];
+
+export type PreviewHistoricalGridAcceptanceNextResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type PreviewHistoricalGridAcceptanceNextResponse =
+  PreviewHistoricalGridAcceptanceNextResponses[keyof PreviewHistoricalGridAcceptanceNextResponses];
+
+export type RunHistoricalGridAcceptanceNextData = {
+  body: HistoricalAcceptanceRunCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/run-next';
+};
+
+export type RunHistoricalGridAcceptanceNextErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RunHistoricalGridAcceptanceNextError =
+  RunHistoricalGridAcceptanceNextErrors[keyof RunHistoricalGridAcceptanceNextErrors];
+
+export type RunHistoricalGridAcceptanceNextResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type RunHistoricalGridAcceptanceNextResponse =
+  RunHistoricalGridAcceptanceNextResponses[keyof RunHistoricalGridAcceptanceNextResponses];
 
 export type WithdrawSourceImageGeometryExceptionData = {
   body?: never;

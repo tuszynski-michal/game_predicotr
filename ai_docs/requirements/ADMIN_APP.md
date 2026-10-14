@@ -1377,6 +1377,20 @@ niezależnie od innych slotów zdjęcia. Niekompletność całego zdjęcia nie
 oznacza niedostępności wszystkich jego cropów. Przeniesienie UI nie zmienia
 kwalifikacji kolejki, danych ani kontraktu API. Zmiana gry resetuje diagnostykę.
 
+Od TASK-1008 diagnostyka udostępnia osobną „Historyczną akceptację siatek”.
+Operator przygotowuje podgląd tylko wybranej gry. Panel rozdziela zdjęcia,
+rewizje, kwalifikujące się zdjęcia, akceptacje i pominięcia; wyjaśnia, że
+powody mogą się przecinać. Zamrożony podgląd wymaga zaznaczenia jawnego
+potwierdzenia przed przebiegiem. Podgląd nie zmienia statusów geometrii.
+Po potwierdzeniu panel automatycznie przetwarza kolejne krótkie kroki;
+operationId, kursor i klucze ponowień umożliwiają wznowienie po reload albo
+utraconej odpowiedzi bez utworzenia nowego zakresu. Przerwanie oczekiwania
+nie cofa już zatwierdzonych transakcji. Przygotowanie dowodu ma widoczny
+stan; przekroczenie limitu SHA zatrzymuje automatyczną pętlę i daje możliwość
+jawnego wznowienia. Panel deklaruje zmianę wyłącznie statusów, bez modelu,
+ponownego cięcia, nowych komórek lub ręcznych zatwierdzeń. Stara 777 jest
+wyłączona przez backend.
+
 Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
 ten sam przepis liczy SQL raportu):
 

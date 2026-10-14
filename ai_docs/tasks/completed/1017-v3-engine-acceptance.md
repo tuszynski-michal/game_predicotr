@@ -119,7 +119,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: nie utworzono; następny patch ustalić z rzeczywistej historii gałęzi.
+- Commit: v1.7.369 / `5451da2ea2df923a7e8788731ceb58c6ba2915b3`; zapis po utworzeniu, do następnego commita dokumentacyjnego. Bez scalenia.
 - Audit: uruchomiony `claude-fable-5-1`, reasoning `high`, Read/Glob/Grep; timeout480 s bez stdout/stderr i bez werdyktu. [Dowód i ograniczenie](../../quality/TASK-1017_AUDIT_TIMEOUT_CODEX.md). To nie jest PASS. Nie ponawiano; wyjątek AGENTS.md nie zatrzymuje taska z powodu braku odpowiedzi.
 - Następny krok: lead tworzy osobny commit, zapisuje pełny hash po jego utworzeniu i uruchamia TASK-1008. Integracja pozostaje niezatwierdzona.
 
@@ -146,6 +146,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Not completed
 
+- Po commicie porównano launcher z oficjalnym skryptem i jawnie zamknięto stdin dla kolejnych audytów; otwarte wejście było możliwą przyczyną oczekiwania, nie dowodem. TASK-1017 nie był ponownie audytowany. Uzupełnienie znajduje się w dowodzie timeoutu.
 - Niezależny werdykt nie został otrzymany w limicie audytu480 s; brak PASS pozostaje ograniczeniem opisanym powyżej. Commit i integracja nie były wykonane przez wykonawcę. Bez merge i push.
 - Nie uruchamiano/restartowano usług, treningu, aktywacji, produkcyjnej migracji ani historycznego backfillu. Nie zmieniano danych operatora i nie tworzono nowego backupu/snapshotu bazy.
 - Pełne kontrole projektu i live odbiór na danych operatora nie były potrzebne do tego pionu i nie zostały wykonane. Ograniczenie: obecny writer świeżego importu nie zastępuje przyszłego ponownego rozpoznania/propozycji z planu.

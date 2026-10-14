@@ -27,13 +27,14 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage import (
     game_data_v2_manifest_v5,
     game_data_v2_manifest_v6,
+    game_data_v2_manifest_v7,
     game_partition_lifecycle,
 )
 from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v8 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -118,7 +119,7 @@ def application_role_database(
     schema below the head builds it at that revision here instead of
     downgrading from head. Revisions before the series branch provision historical
     manifest v5 (0142 or later), descendants of that branch below
-    0154_geometry_correction_revert manifest v6, and later revisions current v7.
+    0154_geometry_correction_revert manifest v6, that revision v7, and 0155 current v8.
     """
 
     suffix = uuid4().hex[:12]
@@ -154,6 +155,8 @@ def application_role_database(
             historical = game_data_v2_manifest_v5
         elif "0154_geometry_correction_revert" not in ancestors:
             historical = game_data_v2_manifest_v6
+        elif "0155_historical_grid_acceptance" not in ancestors:
+            historical = game_data_v2_manifest_v7
         if historical is not None:
             with patch.multiple(
                 game_partition_lifecycle,

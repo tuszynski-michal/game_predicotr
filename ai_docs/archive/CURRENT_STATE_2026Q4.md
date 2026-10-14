@@ -6,6 +6,11 @@ last_updated: 2026-10-14
 
 # Current State — archiwum 2026Q4
 
+### TASK-0988 — Brak limitu liczby zdjęć (done)
+
+- Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
+- Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
+- Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.
 ### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
 
 - Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.

@@ -25,7 +25,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 todo. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 todo. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -91,7 +91,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 todo. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 todo. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-548–D-552 pozostają proposed zgodnie z bootstrapem. Ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie zaakceptowanej instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
@@ -185,10 +185,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (todo)
-
-- [1008-historical-grid-acceptance-backfill.md](../tasks/1008-historical-grid-acceptance-backfill.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-0993 — Edytor czterech rogów i 24 punktów (todo)
 
@@ -941,9 +937,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (done)
+
+- [Task](../tasks/completed/1008-historical-grid-acceptance-backfill.md); codex/v3-grid-fine-tuning, bez scalenia. Commit zostanie zapisany po utworzeniu.
+- Status-only operacja, frozen targety, potwierdzenie/CAS, receipty i rollback statusu/projekcji/kursora; backend/OpenAPI/klient/UI. Migracja0155 i manifestv8 sprawdzone wyłącznie w izolowanej bazie. Historyczne v7 zachowane, legacy7 wykluczona z operacji.
+- PASS: PG7+skoncentrowane3, schema/storage40, domain85, API40 w grupach, Admin733+interakcje12, transport/router, Ruff/mypy15, docs/map/OpenAPI/client. Nieudane timeoutowe zestawy nie są PASS; własne procesy/bazy/role sprzątnięte.
+- Wznawialny indeks artefaktu ma ograniczone partie i pełną kontrolę SHA przed publikacją; limit SHA30 s jest ograniczeniem, po nim przygotowanie blokuje freeze bez pozornego skip/PASS. Stat4 plików29–329 MB nie dowodzi szybkości SHA. [Audyt](../quality/TASK-1008_AUDIT_TIMEOUT_CODEX.md): rzeczywisty Claude high pracował do480 s, bez końcowego werdyktu; wyjątek AGENTS.md, brak PASS i brak ponawiania. Bez operatorowych migracji, backfillu, usług, treningu, aktywacji i nowego backupu. Następny TASK-0993.
+
 ### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (done)
 
-- [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit zostanie zapisany po utworzeniu.
+- [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.369 / `5451da2ea2df923a7e8788731ceb58c6ba2915b3`; hash dopisany po commicie, do włączenia z następnym taskiem.
 - Nowe joby przypinają wersjonowaną politykę; engine acceptance po zapisie aktualnych plansz/właścicieli w transakcji bramki i projekcji. Bez human approval, nowych etykiet TRAIN, zmiany hashów/payloadów i starych snapshotów. Aktualny grid_issue blokuje kwalifikację.
 - Kontrole PASS: domena/crop33, regresje167, PG9+skoncentrowane3+3, rzeczywisty HTTP/replay1, Ruff/format10, mypy7, mapa/docs/diff; OpenAPI/client i izolowana część VisionLab PASS. Szczegóły i cleanup w Outcome.
 - [Próba audytu](../quality/TASK-1017_AUDIT_TIMEOUT_CODEX.md): Claude claude-fable-5-1/high przekroczył480 s bez raportu. Brak PASS; jawny wyjątek AGENTS.md pozwala kontynuować bez pętli. Brak usług, backfillu, migracji operatora, treningu, aktywacji i zmian danych operatora. Następny TASK-1008.
@@ -1016,9 +1019,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md`; D-547. Commity: v1.7.341 / a9cb2fed291077419c1b67fab546deafaf98771b.
 - Wyłączono rutynowe komunikaty nawigacji/zapisu, pozostałe informacje są dolnym overlayem. Minimalny natywny fullscreen, zsynchronizowane wyjście F11/Escape/przycisk i centrowanie zdjęcia w obu osiach zachowują przewijanie przy dużym zoomie.
 - UI6/6, lint/typecheck/format, packaged UX i finalZIP0.1.5 full/UX PASS. Świeży finalZIP1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
-
-### TASK-0988 — Brak limitu liczby zdjęć (done)
-
-- Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
-- Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
-- Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.

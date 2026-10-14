@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, Response
 from game_predictor_api.api.reviewer_security import (
     create_optional_reviewer_session_dependency,
 )
+from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
 from game_predictor_api.application.image_review_assets import (
     OperationalReviewAsset,
     resolve_geometry_completeness_source_asset,
@@ -39,6 +40,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
 )
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
+    ImageReviewConflictError,
     ImageReviewGeometryPoint,
     ImageReviewGridIssueView,
     ImageReviewResolutionCell,
@@ -46,6 +48,14 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.grid_engine_acceptance import (
+    HistoricalAcceptanceConfirmCommand,
+    HistoricalAcceptanceCreateCommand,
+    HistoricalAcceptancePreviewCommand,
+    HistoricalAcceptanceResponse,
+    HistoricalAcceptanceRunCommand,
+    historical_acceptance_response,
+)
 from game_predictor_api.schemas.image_geometry_completeness import (
     ImageGeometryCompletenessResponse,
     ImageGeometryLowQualityBoardsResponse,
@@ -126,6 +136,94 @@ def create_image_reviews_router(
 
     reviewer_service_parameter = Depends(reviewer_access_service_dependency)
     job_parameter = None if job_service_dependency is None else Depends(job_service_dependency)
+
+    def historical(service: OperationalImageReviewService) -> HistoricalAcceptanceService:
+        if service.historical_acceptance is None:
+            raise ImageReviewConflictError(
+                "HISTORICAL_ACCEPTANCE_UNAVAILABLE", "Historical acceptance is unavailable."
+            )
+        return service.historical_acceptance
+
+    @router.post(
+        "/geometry-completeness/{game_id}/historical-acceptance",
+        response_model=HistoricalAcceptanceResponse,
+        operation_id="createHistoricalGridAcceptance",
+        responses=ERROR_RESPONSES,
+    )
+    def create_historical_grid_acceptance(
+        game_id: UUID,
+        command: HistoricalAcceptanceCreateCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> HistoricalAcceptanceResponse:
+        return historical_acceptance_response(
+            historical(service).create(game_id, command.idempotency_key)
+        )
+
+    @router.post(
+        "/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/preview-next",
+        response_model=HistoricalAcceptanceResponse,
+        operation_id="previewHistoricalGridAcceptanceNext",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_historical_grid_acceptance_next(
+        game_id: UUID,
+        operation_id: UUID,
+        command: HistoricalAcceptancePreviewCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> HistoricalAcceptanceResponse:
+        return historical_acceptance_response(
+            historical(service).preview_next(game_id, operation_id, command.expected_cursor)
+        )
+
+    @router.post(
+        "/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/confirm",
+        response_model=HistoricalAcceptanceResponse,
+        operation_id="confirmHistoricalGridAcceptance",
+        responses=ERROR_RESPONSES,
+    )
+    def confirm_historical_grid_acceptance(
+        game_id: UUID,
+        operation_id: UUID,
+        command: HistoricalAcceptanceConfirmCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> HistoricalAcceptanceResponse:
+        return historical_acceptance_response(
+            historical(service).confirm(game_id, operation_id, command.idempotency_key)
+        )
+
+    @router.post(
+        "/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/run-next",
+        response_model=HistoricalAcceptanceResponse,
+        operation_id="runHistoricalGridAcceptanceNext",
+        responses=ERROR_RESPONSES,
+    )
+    def run_historical_grid_acceptance_next(
+        game_id: UUID,
+        operation_id: UUID,
+        command: HistoricalAcceptanceRunCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> HistoricalAcceptanceResponse:
+        return historical_acceptance_response(
+            historical(service).run_next(
+                game_id, operation_id, command.expected_cursor, command.idempotency_key
+            )
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}/historical-acceptance/{operation_id}",
+        response_model=HistoricalAcceptanceResponse,
+        operation_id="getHistoricalGridAcceptance",
+        responses=ERROR_RESPONSES,
+    )
+    def get_historical_grid_acceptance(
+        game_id: UUID,
+        operation_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        after_ordinal: Annotated[int, Query(alias="afterOrdinal", ge=0)] = 0,
+    ) -> HistoricalAcceptanceResponse:
+        return historical_acceptance_response(
+            historical(service).report(game_id, operation_id, after_ordinal)
+        )
 
     @router.get(
         "/dataset-completeness/{game_id}",

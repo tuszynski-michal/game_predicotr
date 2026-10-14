@@ -23,6 +23,11 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **P1 / TASK-1007 (2026-10-14):** galeria przycięcia 40 zdjęć przygotowana
+  wyłącznie na kopiach. Oryginały i dane bazy bez zmian. Odbiór wizualny
+  oczekuje; nie traktować pomiaru JPEG jako zgody na podmianę/usunięcie źródeł
+  ani jako prognozy oszczędności całej biblioteki. P2–P4 nie uruchomione.
+
 - **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
 
 - **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
@@ -876,6 +881,20 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1007 — P1: galeria przycięcia zdjęć (done)
+
+- Galeria 40 zdjęć / 360 zatwierdzonych siatek: 36 z 777 a1 i 4 z Mumie a1,
+  margines 50 px, jeden kadr obejmuje wszystkie siatki źródła.
+- Pomiar JPEG: 10 992 053 B → 7 845 699 B, redukcja 3 146 354 B (28,6239%).
+  To próbka celowa i ponowny zapis JPEG; brak ekstrapolacji na całą bibliotekę.
+- SHA, rozmiary i mtimes oryginałów bez zmian; PostgreSQL READ ONLY;
+  obwiednie, dokładne piksele WebP i desktop/mobile galerii zweryfikowane.
+- Raport: `quality/PHOTO_CROP_PREVIEW_20261014.md`; task:
+  `tasks/completed/1007-photo-crop-preview.md`. Artefakty w
+  `D:/game_predicotr/artifacts/photo-crop-preview-20261014/gallery/` i ZIP obok.
+- Odbiór wizualny operatora i scalenie oczekują. P2–P4 nie uruchomione;
+  bez zmian aplikacji, bazy, oryginałów, usług ani instalacji rozszerzeń.
+
 ### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
 
 - Commit zweryfikowanego zamknięcia operacyjnego: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, na main. Do scalenia dokumentacji wymagana jest końcowa akceptacja operatora; bez automatycznego merge.
@@ -949,11 +968,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
 - 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
 - Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.
-
-### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
-
-- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wykonanie v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`.
-- Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
-- Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
-- 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
-- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; Historyczny blocker0979 zamknięto decyzją D-547.

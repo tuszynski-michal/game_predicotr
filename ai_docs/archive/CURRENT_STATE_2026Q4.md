@@ -6,6 +6,14 @@ last_updated: 2026-10-14
 
 # Current State — archiwum 2026Q4
 
+### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
+
+- Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wykonanie v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`.
+- Head2, journal3, lustrzane niezmienne inventory/baseline i append-only ledger; bez limitu receiptów, stare ID/fingerprinty zachowane. Logical state1 i outputv2 bez zmian.
+- Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
+- 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
+- Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; Historyczny blocker0979 zamknięto decyzją D-547.
+
 ### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (done)
 
 - Plik: `ai_docs/tasks/completed/0984-selector-desktop-final-ux.md`; plan finalizacji20261012, D-546. Przygotowanie v1.7.333 /9434446b39e23044e9d7198e205dce8ff9a6aaeb; wykonanie v1.7.334 /c52518a8ece7c79f88b31224d4d90a84f0779b4c.

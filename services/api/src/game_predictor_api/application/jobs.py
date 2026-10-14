@@ -94,6 +94,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     bootstrap_symbol_model_snapshot,
 )
+from game_predictor_api.domain.v3_engine_acceptance import pin_v3_engine_acceptance_policy
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 
 PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
@@ -851,6 +852,9 @@ class JobService:
         effective_pipeline_fingerprint = pin_neural_crop_policy(
             input_payload, effective_pipeline_fingerprint
         )
+        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
+            input_payload, effective_pipeline_fingerprint
+        )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
@@ -1454,6 +1458,9 @@ class JobService:
             geometry_engine_variant=geometry_engine_variant,
         )
         effective_pipeline_fingerprint = pin_neural_crop_policy(
+            payload, effective_pipeline_fingerprint
+        )
+        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
             payload, effective_pipeline_fingerprint
         )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint

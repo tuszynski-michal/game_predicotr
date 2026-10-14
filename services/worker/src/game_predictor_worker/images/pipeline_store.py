@@ -19,6 +19,11 @@ from game_predictor_api.domain.geometry_correction_reverts import (
 )
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
+from game_predictor_api.domain.v3_engine_acceptance import (
+    V3_ENGINE_ACCEPTANCE_ACTOR,
+    V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
+    V3_ENGINE_ACCEPTANCE_POLICY,
+)
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     v2_render_identity_from_spec,
 )
@@ -341,7 +346,11 @@ class SqlAlchemyImagePipelineStore:
                             {"reasonCode": value}
                             for value in cast(Sequence[object], structured["reasonCodes"])
                         ),
-                        created_by="system:image-pipeline-v0.10",
+                        created_by=V3_ENGINE_ACCEPTANCE_ACTOR
+                        if job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY)
+                        == V3_ENGINE_ACCEPTANCE_POLICY
+                        and structured.get("engineKind") == "neural_grid_v1"
+                        else "system:image-pipeline-v0.10",
                     )
                 )
             except ImageGeometryPersistenceError as error:
@@ -720,6 +729,20 @@ class SqlAlchemyImagePipelineStore:
             )
             source.processed_at = executed_at
             session.flush()
+            from game_predictor_api.storage.v3_engine_acceptance_repository import (
+                finalize_v3_engine_acceptance,
+            )
+
+            geometry_stage = stage_results.get("board_cell_geometry")
+            finalize_v3_engine_acceptance(
+                session,
+                job=job,
+                source=source,
+                revision=source_geometry,
+                structured=None
+                if geometry_stage is None
+                else geometry_stage.payload.get("structuredGeometry"),
+            )
             # D-484 (TASK-0807): the gate status of the image is recomputed in
             # this transaction before any board is cut or projected. Boards of
             # an incomplete image are withheld by the write-through below; an

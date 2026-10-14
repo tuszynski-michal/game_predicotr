@@ -210,6 +210,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/symbol_model_snapshots.py: class SymbolModelStorageRoot, class SymbolModelJobSnapshot, bootstrap_symbol_model_snapshot, cold_start_unclassified_symbol_snapshot
 - domain/symbol_references.py: class ApprovedSymbolReferenceCandidate, class ApprovedSymbolReferenceCandidatePage, class SymbolReferenceImage, encode_approved_symbol_reference_cursor, decode_approved_symbol_reference_cursor, validate_reference_checksum
 - domain/symbol_verification_outcomes.py: class SymbolVerificationOutcome, class SymbolVerificationOutcomeError, class SymbolCellVerification, project_legacy_verification
+- domain/v3_engine_acceptance.py: pin_v3_engine_acceptance_policy, class V3EnginePosition, qualify_v3_engine_acceptance
 - domain/v7_pilot_acceptance.py: validate_pilot_acceptance, receipt_matches_gate
 - domain/v7_selection_delivery.py: class V7DeliveryConflict, payload_fingerprint, require_sha256, class V7PilotSnapshot, class V7PilotGate, class V7OutputDecision, class V7OutputOperation
 - domain/v7_selection_feedback.py: capture_feedback_snapshot, class V7FeedbackOwner, build_feedback_manifest, relative_source_path
@@ -370,6 +371,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/symbol_references_repository.py: class SqlAlchemyApprovedSymbolReferenceRepository
 - storage/symbol_review_statistics.py: class SymbolReviewStatisticsRefreshError, refresh_symbol_review_query_statistics
 - storage/training_dataset_catalog_repository.py: class SqlAlchemyTrainingDatasetCatalogRepository
+- storage/v3_engine_acceptance_repository.py: finalize_v3_engine_acceptance
 - storage/v7_pilot_acceptances.py: class V7PilotAcceptanceExecution, apply_v7_pilot_acceptance, execute_v7_pilot_acceptance
 - storage/v7_selection_feedback.py: verify_feedback_source, read_feedback_manifest
 - storage/verified_training_cohort_repository.py: class SqlAlchemyVerifiedTrainingCohortRepository

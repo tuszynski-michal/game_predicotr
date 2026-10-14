@@ -685,7 +685,7 @@ Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżel
 
 Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Jego commit v1.7.368 jest przygotowany; hash zapisze lead po utworzeniu. Następny TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 todo; D-550/D-552 przyjęte przed jego implementacją. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
 
 ## 8. Przypisanie modeli do zadań
 

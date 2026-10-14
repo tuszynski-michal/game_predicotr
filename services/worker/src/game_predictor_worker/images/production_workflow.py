@@ -633,6 +633,9 @@ class ProductionImageImportWorkflow:
             neural_execution_policy=cast(
                 str | None, job.input_payload.get("neural_grid_execution_policy_version")
             ),
+            engine_acceptance_policy=cast(
+                str | None, job.input_payload.get("v3_engine_acceptance_policy_version")
+            ),
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
@@ -886,6 +889,7 @@ class ProductionImageStageAdapterSuite:
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
         manual_geometry_import: bool = False,
         neural_execution_policy: str | None = None,
+        engine_acceptance_policy: str | None = None,
         geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
@@ -926,6 +930,13 @@ class ProductionImageStageAdapterSuite:
                 "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unsupported neural crop policy."
             )
         self._neural_automatic_crops = neural_execution_policy == NEURAL_AUTO_CROP_POLICY
+        from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
+
+        if engine_acceptance_policy not in (None, V3_ENGINE_ACCEPTANCE_POLICY):
+            raise ImagePipelineExecutionError(
+                "V3_ENGINE_ACCEPTANCE_POLICY_UNSUPPORTED", "Unsupported engine acceptance policy."
+            )
+        self._engine_acceptance_policy = engine_acceptance_policy
         self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -1136,7 +1147,10 @@ class ProductionImageStageAdapterSuite:
                 from .neural_pending_geometry import neural_pending_payload
 
                 return neural_pending_payload(
-                    structured, entry, automatic_crops=self._neural_automatic_crops
+                    structured,
+                    entry,
+                    automatic_crops=self._neural_automatic_crops,
+                    engine_acceptance_policy=self._engine_acceptance_policy,
                 )
             return {
                 "manualGeometryRequired": True,

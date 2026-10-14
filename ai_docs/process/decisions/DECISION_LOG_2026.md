@@ -27,10 +27,10 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 ## D-552 — Baza i wznowienie planu doszkalania V3
 
 - **Date:** 2026-10-14.
-- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Status:** accepted; udokumentowane przyjęcie 2026-10-14 na podstawie jawnego polecenia implementacji rewizji 6, zgody na cały koszt i późniejszych decyzji operatora. TASK-1015 zachowuje historię wcześniejszej propozycji.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; bootstrap zapisano jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Operator upoważnił automatyczny przydział kolejnych wolnych patchy i kolidujących tasków po sprawdzeniu lokalnych gałęzi oraz zapisie mapowania; TASK-1007 → 1016 → 1017. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie tej propozycji należy zapisać osobno zgodnie z planem. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
-- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Decision:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; bootstrap zapisano jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Operator upoważnił automatyczny przydział kolejnych wolnych patchy i kolidujących tasków po sprawdzeniu lokalnych gałęzi oraz zapisie mapowania; TASK-1007 → 1016 → 1017. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie zostało teraz udokumentowane przed zależną implementacją TASK-1017. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
+- **Consequences:** dopuszcza implementację mechanizmu w zatwierdzonym zakresie. Historyczny backfill, operacje danych, trening, aktywacja i integracja nadal wymagają swoich odrębnych bramek; brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
 ## D-551 — Propozycje dla błędnej siatki V3
@@ -45,10 +45,10 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 ## D-550 — Akceptacja silnika V3 i statusowy backfill
 
 - **Date:** 2026-10-14.
-- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Status:** accepted; udokumentowane przyjęcie 2026-10-14 na podstawie jawnego polecenia implementacji rewizji 6, zgody na cały koszt i późniejszych decyzji operatora. TASK-1015 zachowuje historię wcześniejszej propozycji.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. Engine approval wynika z kompletu pozycji, geometrii, sekwencji i pochodzenia; nie jest human approval. Historyczny podgląd i osobno potwierdzony backfill zapisują status, zdarzenie i projekcje w transakcji źródła z materialize=False. Payloady, cropy, hashe, decyzje i właściciele pozostają niezmienione; niejednoznaczność blokuje akceptację.
-- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Decision:** Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. Engine approval wynika z kompletu pozycji, geometrii, sekwencji i pochodzenia; nie jest human approval. Historyczny podgląd i osobno potwierdzony backfill zapisują status, zdarzenie i projekcje w transakcji źródła z materialize=False. Payloady, cropy, hashe, decyzje i właściciele pozostają niezmienione; niejednoznaczność blokuje akceptację.
+- **Consequences:** dopuszcza implementację mechanizmu w zatwierdzonym zakresie. Historyczny backfill, operacje danych, trening, aktywacja i integracja nadal wymagają swoich odrębnych bramek; brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
 ## D-549 — Wspólna geometria V3 i domyślna wersja

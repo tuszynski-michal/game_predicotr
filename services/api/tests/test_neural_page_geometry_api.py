@@ -651,6 +651,19 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
     assert frozen.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
     assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
+    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == "v3-engine-acceptance-v1"
+    assert "v3EngineAcceptancePolicyVersion" not in started.json()["job"]["inputPayload"]
+    assert "v3_engine_acceptance_policy_version" not in started.json()["job"]["inputPayload"]
+    from game_predictor_api.schemas.jobs import JobResponse
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        JobResponse.from_domain(
+            replace(
+                frozen,
+                input_payload={**frozen.input_payload, "unexpected_execution_field": "forbidden"},
+            )
+        )
     assert (
         started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
         == "neural-auto-crop-v1"
@@ -659,6 +672,8 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]
+    replayed = repository.get_job(UUID(replay.json()["job"]["id"]))
+    assert replayed.input_payload == frozen.input_payload
     assert len([job for job in repository.items.values() if job.job_type is JobType.IMPORT]) == 1
     # A new immutable binding descriptor must not race an active sibling run.
     content["entries"][source_sha]["neuralProposalBinding"] = binding(value)

@@ -1,10 +1,29 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-14
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Akceptacja silnika V3 — D-550 (TASK-1017)
+
+Nowy import neuronowy przypina politykę `v3-engine-acceptance-v1` razem
+z fingerprintem. Propozycja pozostaje `needs_review` do zapisania i kontroli
+wszystkich oczekiwanych plansz. Dopiero komplet pełnych, jednoznacznie
+przypisanych pozycji z aktualnej rewizji i zgodnego przypiętego modelu może
+otrzymać stan `accepted` źródłowej geometrii. Brak pozycji, odroczenie,
+częściowość, niezgodność źródła/modelu/geometrii, obcy właściciel sekwencji
+lub aktualne zgłoszenie `grid_issue` blokuje akceptację. Zgłoszenie dotyczy
+bieżącej geometrii i rewizji źródła komórki; historia zgłoszeń nie jest usuwana.
+
+Akceptacja silnika nie ustawia pól zatwierdzenia człowieka, nie zatwierdza
+symboli i nie tworzy etykiety treningowej. Diagnostyka
+`NEURAL_GRID_GATE_UNCALIBRATED` oraz wyjątek D-523 dla pełnych slotów pozostają
+zachowane. Status, przeliczenie kompletności i projekcje zapisują się w jednej
+transakcji rozpoznania. Błąd projekcji wycofuje także akceptację. Stary job bez
+tej polityki zachowuje wcześniejszy wynik przy retry. Historyczny backfill
+pozostaje oddzielną, wymagającą podglądu i potwierdzenia operacją TASK-1008.
 
 ## Profil 777 v2 importuje przez V3 — D-544 (TASK-0974)
 

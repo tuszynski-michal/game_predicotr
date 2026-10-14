@@ -133,7 +133,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: przygotowany v1.7.368; numer wybrano po sprawdzeniu lokalnych refs zgodnie ze zgodą operatora. Hash zostanie zapisany po commicie.
+- Commit: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. Hash zapisany po commicie; wchodzi do następnego commita zgodnie z AGENTS, bez amend.
 - Audit: `claude-fable-5-1`, reasoning `medium`, runda 1: REVISE; [niezależny raport](../../quality/TASK-1010_AUDIT_claude-fable-5-1.md) pozostaje niezmieniony. Wykonano jedną rundę poprawek; rozliczenie znalezisk poniżej. Lead rozliczył P1-1 i P2-1–5; brak otwartych P0/P1. [Odpowiedź](../../quality/TASK-1010_AUDIT_RESPONSE_CODEX.md).
 - Następny krok: osobny commit i zapis hasha, następnie TASK-1017. Oryginalny audyt REVISE pozostaje zachowany; nie deklarujemy nowego PASS audytu. Brak zgody na automatyczne scalenie lub push.
 
@@ -155,7 +155,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Not completed
 
-- Commit przygotowany po końcowej kontroli indeksu; integracja i push nie zostały zlecone. Nie wdrożono API do działającej usługi.
+- Commit utworzono i sprawdzono; integracja i push nie zostały zlecone. Nie wdrożono API do działającej usługi.
 - Nie wykonano migracji bazy operatora, treningu, reinferencji, backfillu, aktywacji, odtworzenia kopii ani nowego snapshotu bazy. Nie uruchomiono ani nie restartowano usług. Alembic `head` wykonano wyłącznie na losowych, izolowanych bazach fixture `_test`, następnie usuniętych.
 - Przyczyny konkretnych numerów no_source, wpływ 90 błędów plików bez zakresu Mumii i historia przejść 94 zdjęć między zapisaną bramką a bieżącą klasyfikacją pozostają jawnie nierozstrzygnięte. Nie są traktowane jako zmierzone błędy siatki. Pełny build i szeroka bramka quality nie były potrzebne do tej zmiany odczytu.
 

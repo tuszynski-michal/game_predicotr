@@ -1,10 +1,44 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-09-22
+last_updated: 2026-10-14
 ---
 
 # Virtual geometry schema ownership
+
+## Akceptacja nowych wyników V3 — TASK-1017
+
+Wersjonowana kwalifikacja `domain/v3_engine_acceptance.py` jest czysta.
+`application/jobs.py` przypina jej politykę i fingerprint wyłącznie przy
+utworzeniu nowego importu neuronowego. Worker odczytuje zapisany pin, bez
+domyślnego podniesienia historycznych jobów. Nowy payload przed pierwszym
+zapisem zawiera w `globalInitialization.v3EngineAcceptance` niezmienny dowód
+proposal/binding/model; jego hash powstaje raz z całym structured payloadem.
+Historyczna postać globalInitialization nadal jest czytelna; jej konsumenci
+przechowują obiekt jako metadane, nie odtwarzają z niego domyślnej polityki.
+Retry korzysta z checkpointu i nie przepisuje dowodu, board payloadu ani hashy.
+`schemas/jobs.py::_payload_from_domain` wyłącza tylko wewnętrzny pin polityki
+z publicznej projekcji wejścia joba; wszystkie inne pola nadal podlegają
+dotychczasowej strict validation. Nie rozszerza to OpenAPI ani klienta.
+
+`storage/v3_engine_acceptance_repository.py::finalize_v3_engine_acceptance`
+działa po zapisie plansz i właścicieli w `project_recognition`, pod istniejącymi
+blokadami sequence/source i trasą WRITE konkretnej gry. Kontroluje najnowszą
+nierecofaną rewizję, source/model/checksum binding, pełny zbiór slotów,
+identyczność geometrii planszy i source ownera, brak odroczeń oraz aktualnych
+zgłoszeń. Zakres writer'a to pierwotna geometria planszy (`geometry_revision=0`)
+z właścicielem tego samego joba, bez zatwierdzenia geometrii przez człowieka.
+Nie jest to ogólny writer późniejszych reinferencji ani propozycji TASK-0999.
+
+Pochodzenie rozróżniają istniejące `geometry_source=auto`,
+`engine_kind=neural_grid_v1`, niezmieniony engine crop version oraz nowy
+`created_by=system:v3-engine-acceptance-v1`; status `accepted` oznacza wynik
+silnika. Finalizacja zmienia tylko status. Nie modyfikuje payloadu, hashy,
+cropów, decyzji i właścicieli; starej rewizji po nowszym zapisie nie zmienia.
+Następnie w tej samej transakcji działa recompute bramki i istniejące
+projekcje. Żaden schemat/API nie został rozszerzony. Exact neural lattice
+w eksporcie `vision_lab_geometry_export` nadal wymaga aktualnego approval
+i ludzkiego autora; sam nowy status silnika nie staje się prawdą treningową.
 
 ## Aktualna geometria uzupełnienia pozycji — TASK-0711
 

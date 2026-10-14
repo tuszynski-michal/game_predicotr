@@ -1269,19 +1269,30 @@ def _image_selection_counters(value: object) -> dict[str, int] | None:
 def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMPORT:
         if job.input_payload.get("import_kind") == "image_directory":
+            # Engine acceptance is an internal execution pin, not a new public
+            # request/response field. Keep strict validation of every other key.
+            from game_predictor_api.domain.v3_engine_acceptance import (
+                V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
+            )
+
+            payload = {
+                key: value
+                for key, value in job.input_payload.items()
+                if key != V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY
+            }
             if job.input_payload.get("schema_version") == 1:
-                return LegacyImageImportJobPayload.model_validate(job.input_payload)
+                return LegacyImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 3:
-                return CuratedImageImportJobPayload.model_validate(job.input_payload)
+                return CuratedImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 4:
-                return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
+                return ManagedImageReprocessJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 5:
-                return BrowserImageImportJobPayload.model_validate(job.input_payload)
+                return BrowserImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 6:
-                return PinnedManagedImageReprocessJobPayload.model_validate(job.input_payload)
+                return PinnedManagedImageReprocessJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 7:
-                return ResolvedBrowserImageImportJobPayload.model_validate(job.input_payload)
-            return ImageImportJobPayload.model_validate(job.input_payload)
+                return ResolvedBrowserImageImportJobPayload.model_validate(payload)
+            return ImageImportJobPayload.model_validate(payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
         return ImageSelectionJobPayload.model_validate(job.input_payload)

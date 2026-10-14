@@ -25,7 +25,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; następny TASK-1017 todo. D-548–D-552 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 todo. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -91,11 +91,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; następny TASK-1017 todo. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 todo. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-548–D-552 pozostają proposed zgodnie z bootstrapem. Ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie zaakceptowanej instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
-- TASK-1014 zabezpiecza checkpointy na D przed cleanup TASK-0957. Bez usuwania C. Rzeczywista liczba brakujących plansz Mumii nieustalona do TASK-1010.
+- TASK-1014 zabezpiecza checkpointy na D przed cleanup TASK-0957. Bez usuwania C. TASK-1010 potwierdził 8031 brakujących sekwencji Mumii (259 oczekuje na geometrię, 7772 bez znanego numerowanego źródła); szczegóły i ograniczenia w raporcie diagnostycznym.
 - Raporty Claude rund 1–3 pozostają historyczne, bez zmiany werdyktów. [Rozliczenie Codex](../quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md) wskazuje rewizję 6. Audyt planu nie jest audytem implementacji.
 - Końcowa integracja dopiero po wykonaniu całego zakresu, akceptacji wyniku i osobnej zgodzie. Bez automatycznego push, restartu, migracji operatora, treningu, historycznego backfillu i masowego przetwarzania.
 
@@ -185,10 +185,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (todo)
-
-- [1017-v3-engine-acceptance.md](../tasks/1017-v3-engine-acceptance.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (todo)
 
@@ -945,9 +941,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (done)
+
+- [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit zostanie zapisany po utworzeniu.
+- Nowe joby przypinają wersjonowaną politykę; engine acceptance po zapisie aktualnych plansz/właścicieli w transakcji bramki i projekcji. Bez human approval, nowych etykiet TRAIN, zmiany hashów/payloadów i starych snapshotów. Aktualny grid_issue blokuje kwalifikację.
+- Kontrole PASS: domena/crop33, regresje167, PG9+skoncentrowane3+3, rzeczywisty HTTP/replay1, Ruff/format10, mypy7, mapa/docs/diff; OpenAPI/client i izolowana część VisionLab PASS. Szczegóły i cleanup w Outcome.
+- [Próba audytu](../quality/TASK-1017_AUDIT_TIMEOUT_CODEX.md): Claude claude-fable-5-1/high przekroczył480 s bez raportu. Brak PASS; jawny wyjątek AGENTS.md pozwala kontynuować bez pętli. Brak usług, backfillu, migracji operatora, treningu, aktywacji i zmian danych operatora. Następny TASK-1008.
+
 ### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (done)
 
-- [Task](../tasks/completed/1010-grid-diagnostics-and-counters.md); gałąź codex/v3-grid-fine-tuning. Commit przygotowany: v1.7.368, hash po utworzeniu. Bez scalenia.
+- [Task](../tasks/completed/1010-grid-diagnostics-and-counters.md); gałąź codex/v3-grid-fine-tuning. Commit: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`; hash zapisany po utworzeniu, do następnego commita. Bez scalenia.
 - Istniejący GET ma opt-in diagnostykę w osobnym READ ONLY/REPEATABLE READ/RLS; zwykły odczyt/paginacja pozostają lekkie. Jednostki, przecięcia, symbole i status akceptacji są rozdzielone. D-553 przyjęta; bez zmian danych operatora.
 - [Raport](../quality/V3_GRID_DIAGNOSTICS_20261014.md): Mumie 8 031 brakujących sekwencji (259 geometria, 7 772 no_source); 777a2 373 odroczone i 98 zgłoszonych siatek. Niepotwierdzenie nie jest oceną modelu; nierozstrzygnięte źródła/90 błędów bez zakresu/94 historyczne stany opisane.
 - PASS: 120 testów backendu, 2 UI, transport, lint/types/OpenAPI/map/docs; po [audytowym REVISE](../quality/TASK-1010_AUDIT_claude-fable-5-1.md) jedna runda poprawek: 2 PG, 12 SQL/API, Ruff/mypy/docs/map. [Rozliczenie](../quality/TASK-1010_AUDIT_RESPONSE_CODEX.md): P1 zamknięte, bez nowego PASS audytu i bez zmiany zachowania produkcyjnego P1. Bazy/role fixture usunięte.
@@ -1019,11 +1022,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
 - Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
 - Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.
-
-### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
-
-- Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
-
-- Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
-- Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
-- Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.

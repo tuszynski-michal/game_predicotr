@@ -96,6 +96,7 @@ On 2026-10-14 the operator provided V3 fine-tuning plan revision 6, reserving
 TASK-0993 through TASK-1015. Its TASK-1007 conflicts with the original P1
 identifier. The current gallery record is TASK-1016; the previous identifier
 TASK-1007 in v1.7.361/362 remains historical. No commit history is rewritten.
+Numbering correction commit: **v1.7.363 / `c36087bcfa22f32d432d32fe6baa3a33237ad24e`**.
 Future photo-storage tasks must avoid the reserved V3 range and recheck
 availability before assigning any new identifier.
 

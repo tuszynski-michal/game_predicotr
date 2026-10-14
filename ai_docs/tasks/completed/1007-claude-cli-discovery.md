@@ -64,6 +64,8 @@ Successful discovery is not proof of login or model availability. A future vendo
 
 ## Outcome
 
+Implementation commit: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**.
+
 ### Changed
 
 - Resolve-AuditorCli preserves PATH precedence, discovers native and Windows-packaged Claude Code, and selects numeric versions without a pinned executable path.

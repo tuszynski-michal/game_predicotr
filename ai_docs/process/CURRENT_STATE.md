@@ -166,6 +166,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ### TASK-0991 — Wznowienie rozpoznawania symboli i jednorazowy zakres <80% (in_progress)
 
+- Commit naprawy: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. Kod zapisany; task pozostaje otwarty do zakończenia przebiegu operacyjnego.
 - Task: `ai_docs/tasks/0991-symbol-reinference-resume.md`. Operator zatwierdził naprawę oraz jednorazowe przeliczenie bez dodawania filtra API/UI.
 - Job `2f807266…` gry `777a2` zatrzymał się na 6824/341461 z `JOB_PROGRESS_REGRESSION`; handler ignorował checkpoint i zerował liczniki. Nowy checkpoint przechowuje stabilny klucz wznowienia; historyczny jest odtwarzany idempotentnie z zachowaniem trwałych liczników.
 - Manifest operacyjny: 35122 pending komórki <0.80, 24309 plansz, osiem klas, model `747c21d5…`; SHA-256 `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Runner, manifest i receipty: `artifacts/symbol-reinference-20261014/`. Przebieg trwa; nie jest jeszcze ukończony. Bez restartu usług, treningu, aktywacji, migracji ani zmian API.

@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Integracja po tasku (2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`; ukończoną i zacommitowaną pracę scala się lokalnie bez dodatkowej zgody, po wymaganych kontrolach i z zachowaniem cudzych zmian. Push, restart usług i wymagane migracje nadal mają osobne bramki. Reguła w `AGENTS.md`, TASK-0992.
+
 - **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
 - **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.
@@ -164,14 +166,9 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0992 — Gałąź integracyjna i reguła końcowego scalania (in_progress)
-
-- Task: `ai_docs/tasks/0992-integration-branch-merge-policy.md`. Operator zlecił scalenie naprawy symboli i dodanie obowiązku lokalnej integracji po ukończonej pracy.
-- Gałąź `v1.1-vision-lab-hybrid-geometry` w `worktrees/multi-game-share` ma cudze niezacommitowane zmiany. Zabezpieczono 53 zmienione/nowe pliki; tylko `CURRENT_STATE.md` koliduje z zakresem scalenia. Odtworzenie bez utraty danych i kontrola hashy są warunkiem zakończenia. Bez push, migracji i restartu usług.
-
 ### TASK-0991 — Wznowienie rozpoznawania symboli i jednorazowy zakres <80% (in_progress)
 
-- Commit naprawy: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. Kod zapisany; task pozostaje otwarty do zakończenia przebiegu operacyjnego.
+- Commit naprawy: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. Kod zapisany; task pozostaje otwarty do zakończenia przebiegu operacyjnego. Naprawa jest już na `v1.1-vision-lab-hybrid-geometry` (fast-forward przez v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`).
 - Task: `ai_docs/tasks/0991-symbol-reinference-resume.md`. Operator zatwierdził naprawę oraz jednorazowe przeliczenie bez dodawania filtra API/UI.
 - Job `2f807266…` gry `777a2` zatrzymał się na 6824/341461 z `JOB_PROGRESS_REGRESSION`; handler ignorował checkpoint i zerował liczniki. Nowy checkpoint przechowuje stabilny klucz wznowienia; historyczny jest odtwarzany idempotentnie z zachowaniem trwałych liczników.
 - Manifest operacyjny: 35122 pending komórki <0.80, 24309 plansz, osiem klas, model `747c21d5…`; SHA-256 `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Runner, manifest i receipty: `artifacts/symbol-reinference-20261014/`. Przebieg trwa; nie jest jeszcze ukończony. Bez restartu usług, treningu, aktywacji, migracji ani zmian API.
@@ -852,6 +849,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
+
+- Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
+- `AGENTS.md` wymaga lokalnego scalenia ukończonej pracy do `v1.1-vision-lab-hybrid-geometry` po weryfikacji, wymaganym audycie i commicie. Zachowuje bramki migracji, operacji danych, restartów i push; usunięto sprzeczny ogólny zakaz merge.
+- Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
+- Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.
+
 ### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
 
 - Commit zamknięcia dokumentacji i sprzątania: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**. Usunięto36 plików, 1 346 463 654 B; SHA-256 bieżącego ZIP1.0.0 bez zmian. docs:check/diff PASS. Brak otwartego zadania Word.
@@ -923,12 +927,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Repeat accept/skip/undo ignorowany; arrow repeat działa. Close unknown/lost lock bez unlink. Dwa realne EXE podczas close dają jeden relaunch i nowe okno.
 -151/151 desktop PASS, lint/typecheck/format/package, UX i full packaged smoke, docs/mapy/diff PASS. Początkowe pięć starych kodów testów i błędne założenie skoku w nowym smoke poprawione; powtórki PASS.
 - Finalny ZIP i pomiar15000 w0987. Audyt operatora na końcu, fizyczny0979 nadal blocked. Nieanulowany open/create może zamknąć poprzedni store przed błędem; postęp trwały pozostaje.
-
-### TASK-0983 — Start od zdjęć, etykieta gry i wznowienie (done)
-
-- Plik: `ai_docs/tasks/completed/0983-selector-desktop-source-first-start.md`; plan start2026-10-12, D-545.
-- Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f; historia po relink v1.7.329 /c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f. Końcowy zapis dowodów v1.7.330.
-- Jeden picker zdjęć, automatyczne sibling folders, gameName w schema1 i dropdown10 projektów. Auto-resume sprawdza source/id pod lockiem przed recovery; cache loss/stare projekty/konflikty bez resetu. Po relink historia wskazuje nowy sourceRoot.
--122 unikalne testy PASS; lint/typecheck/format/docs/mapy PASS. Sześć realnych smoke finalnego ZIP, oba kierunki po procesie, moved-source reselect i aktualizacja0.1.0→0.1.2 PASS. Screenshots formularza/historii obejrzane.
-- ZIP0.1.2 w out/releases/pilot-0.1.2-c4181f7d, 149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27; dirty=false/applicationSourceDirty=false. Starsze paczki i oryginalny audyt REVISE zachowane z identycznymi sumami.
-- Dowody wykonawcy: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Późniejszy audyt operatora quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md: PASS,140 testów, otwarte P2/P3 i niewyjaśnione pierwsze błędy dwóch smoke. Fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, push/merge i transferu.

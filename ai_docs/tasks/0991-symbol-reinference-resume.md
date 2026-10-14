@@ -77,6 +77,8 @@ The exact lease-loss trigger of the historical job is unproven. A cursorless leg
 
 Repair commit: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. This commits the tested code; the task remains in progress until the supervised operational run and verification finish.
 
+Operator-requested integration completed on 2026-10-14: `v1.1-vision-lab-hybrid-geometry` fast-forwarded through policy commit v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`, including the repair and its v1.7.352 documentation record. Unrelated dirty multi-game work was preserved. No push or service restart. Subsequent completion commits must follow the new `AGENTS.md` integration rule.
+
 The handler persists a stable cursor and resumes with durable counters. Historical cursorless retries replay idempotently while keeping the durable progress floor; an empty or shortened eligible set retains prior totals. Cursor timestamps require a timezone. The domain regression guard is unchanged. No API, generated client, UI or migration changes.
 
 ### Verification results

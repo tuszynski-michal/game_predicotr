@@ -1,10 +1,19 @@
 ---
 title: Current state archive 2026Q4
 status: archive
-last_updated: 2026-10-12
+last_updated: 2026-10-14
 ---
 
 # Current State — archiwum 2026Q4
+
+### TASK-0983 — Start od zdjęć, etykieta gry i wznowienie (done)
+
+- Plik: `ai_docs/tasks/completed/0983-selector-desktop-source-first-start.md`; plan start2026-10-12, D-545.
+- Kod v1.7.328 /9ade6a8596cd316d214cf25339eae40e8789be9f; historia po relink v1.7.329 /c4181f7ddc8fca2518c2d9abc363ce3bcd307d5f. Końcowy zapis dowodów v1.7.330.
+- Jeden picker zdjęć, automatyczne sibling folders, gameName w schema1 i dropdown10 projektów. Auto-resume sprawdza source/id pod lockiem przed recovery; cache loss/stare projekty/konflikty bez resetu. Po relink historia wskazuje nowy sourceRoot.
+-122 unikalne testy PASS; lint/typecheck/format/docs/mapy PASS. Sześć realnych smoke finalnego ZIP, oba kierunki po procesie, moved-source reselect i aktualizacja0.1.0→0.1.2 PASS. Screenshots formularza/historii obejrzane.
+- ZIP0.1.2 w out/releases/pilot-0.1.2-c4181f7d, 149402003 bajtów, SHA9426704949dd8ab7d16f9d9743e2254257805a8ed1cc5dce38eecd2c37442e27; dirty=false/applicationSourceDirty=false. Starsze paczki i oryginalny audyt REVISE zachowane z identycznymi sumami.
+- Dowody wykonawcy: quality/OFFLINE_PHOTO_SELECTOR_START_VERIFICATION_20261012.md. Późniejszy audyt operatora quality/OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md: PASS,140 testów, otwarte P2/P3 i niewyjaśnione pierwsze błędy dwóch smoke. Fizyczny odbiór0979 nadal pending. Bez usług, danych użytkownika, push/merge i transferu.
 
 ### TASK-0982 — Poprawiony pilotaż 0.1.1 i dowody odbioru (done)
 

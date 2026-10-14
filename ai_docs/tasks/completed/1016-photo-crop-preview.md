@@ -1,10 +1,10 @@
 ---
-title: TASK-1007 — P1 photo crop preview gallery
+title: TASK-1016 — P1 photo crop preview gallery
 status: done
 last_updated: 2026-10-14
 ---
 
-# TASK-1007 — P1 photo crop preview gallery
+# TASK-1016 — P1 photo crop preview gallery
 
 ## Status
 
@@ -89,6 +89,15 @@ sources under the explicit geometry-approval criterion.
 
 Task documentation commit: **v1.7.361 / `063f259048080e94cffc79cce5eb0da335a69863`** on
 `codex/photo-crop-p1`; integration merge awaits operator approval.
+
+### Numbering correction
+
+On 2026-10-14 the operator provided V3 fine-tuning plan revision 6, reserving
+TASK-0993 through TASK-1015. Its TASK-1007 conflicts with the original P1
+identifier. The current gallery record is TASK-1016; the previous identifier
+TASK-1007 in v1.7.361/362 remains historical. No commit history is rewritten.
+Future photo-storage tasks must avoid the reserved V3 range and recheck
+availability before assigning any new identifier.
 
 ### Documentation updates
 

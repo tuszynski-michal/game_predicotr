@@ -23,7 +23,13 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **P1 / TASK-1007 (2026-10-14):** galeria przycięcia 40 zdjęć przygotowana
+- **Rezerwacja numerów V3 (rewizja 6, operator 2026-10-14):** `TASK-0993–1015`
+  należą do planu doszkalania geometrii V3 przekazanego przez operatora.
+  Galeria przycięcia zdjęć ma bieżący identyfikator `TASK-1016`; jej wcześniejszy
+  `TASK-1007` w commitach v1.7.361/362 jest historyczną kolizją, bez przepisywania
+  historii. Przed nadaniem numerów P2–P4 sprawdzić aktualne plany, taski i historię.
+
+- **P1 / TASK-1016 (2026-10-14):** galeria przycięcia 40 zdjęć przygotowana
   wyłącznie na kopiach. Oryginały i dane bazy bez zmian. Odbiór wizualny
   oczekuje; nie traktować pomiaru JPEG jako zgody na podmianę/usunięcie źródeł
   ani jako prognozy oszczędności całej biblioteki. P2–P4 nie uruchomione.
@@ -881,7 +887,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
-### TASK-1007 — P1: galeria przycięcia zdjęć (done)
+### TASK-1016 — P1: galeria przycięcia zdjęć (done)
 
 - Commit dokumentacji: **v1.7.361 / `063f259048080e94cffc79cce5eb0da335a69863`**, gałąź
   `codex/photo-crop-p1`; bez scalenia do gałęzi integracyjnej.
@@ -893,7 +899,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - SHA, rozmiary i mtimes oryginałów bez zmian; PostgreSQL READ ONLY;
   obwiednie, dokładne piksele WebP i desktop/mobile galerii zweryfikowane.
 - Raport: `quality/PHOTO_CROP_PREVIEW_20261014.md`; task:
-  `tasks/completed/1007-photo-crop-preview.md`. Artefakty w
+  `tasks/completed/1016-photo-crop-preview.md`. Artefakty w
   `D:/game_predicotr/artifacts/photo-crop-preview-20261014/gallery/` i ZIP obok.
 - Odbiór wizualny operatora i scalenie oczekują. P2–P4 nie uruchomione;
   bez zmian aplikacji, bazy, oryginałów, usług ani instalacji rozszerzeń.

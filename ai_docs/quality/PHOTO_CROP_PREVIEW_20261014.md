@@ -6,6 +6,14 @@ last_updated: 2026-10-14
 
 # P1 — galeria przycięcia zdjęć zatwierdzonych siatek
 
+## Numeracja
+
+Bieżący task galerii to `TASK-1016`. Wcześniejszy identyfikator `TASK-1007`
+z commitów v1.7.361/362 pozostaje w historii; numer zajmuje teraz przekazany
+plan doszkalania V3 (rewizja 6, zakres `TASK-0993–1015`). Nie przepisano
+historii commitów. Kolejne taski przycinania otrzymają numery po sprawdzeniu
+aktualnych rezerwacji.
+
 ## Zlecony zakres i wynik
 
 Operator zlecił wyłącznie P1 planu przedstawionego w rozmowie: lokalna galeria

@@ -83,3 +83,5 @@ The operator subsequently requested a final question after the complete commissi
 This correction is prepared locally and checked as documentation only. It is not merged to the integration branch until the operator accepts the concrete result and confirms that merge. The earlier authorized integration remains unchanged.
 
 Correction verification: decision-link and rolling-window documentation checks passed; whitespace checked for the changed scope. No application code or behavior changed, so no code tests or new model audit were run. Concurrent V3 plan changes remain excluded from staging, including their separate CURRENT_STATE hunk.
+
+Approval-policy correction commit: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, committed on main. The integration branch remains at v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` pending the operator's final acceptance and explicit merge confirmation. The documentation record follows in a separate commit; neither is automatically integrated.

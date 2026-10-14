@@ -83,7 +83,7 @@ Implementation commit: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**
 ### Not completed
 
 - No model request, authentication test, independent cross-family audit, reboot, installation or user PATH change. CLI discovery is verified; authenticated audit execution is not.
-- Integration awaits operator acceptance on branch codex/claude-cli-discovery. No merge or push.
+- Operator accepted the result and explicitly requested main on 2026-10-14. Fast-forward merge from codex/claude-cli-discovery into main completed at v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`; implementation commit ancestry verified. Existing unrelated worktree changes preserved. No push.
 
 ### Documentation updates
 

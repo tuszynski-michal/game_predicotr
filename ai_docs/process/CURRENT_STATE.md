@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
+- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Operator zaakceptował wynik i wskazał `main`: scalenie fast-forward wykonane do v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`; bez push.
 
 - **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
 
@@ -883,7 +883,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
 - Skrypt audytu zachowuje PATH jako pierwszy wybór; wykrywa także natywną i pakietową instalację Claude Code, wybierając wersję liczbowo. Reguła w AGENTS.md oraz skillu audytu.
 - Osiem regresji PASS w nowym Windows PowerShell 5.1; rzeczywiste CLI 2.1.295 startuje w nowym procesie (exit 0). Bez testu logowania/modelu, reinstalacji, zmiany PATH i restartu usług.
-- Gałąź `codex/claude-cli-discovery`; oczekuje akceptacji i scalenia, bez push. Commit implementacji: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**.
+- Za zgodą operatora scalono `codex/claude-cli-discovery` do wskazanego `main` przez fast-forward: v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Potwierdzono obecność commita implementacji; cudze zmiany worktree zachowane, bez push. Commit implementacji: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**.
 
 ### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
 

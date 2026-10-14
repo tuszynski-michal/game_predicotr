@@ -6,6 +6,25 @@ last_updated: 2026-10-14
 
 # Odpowiedź na audyt planu doszkalania siatek V3
 
+## Aktualny stan — rewizja 6, TASK-1015
+
+Operator zaakceptował rewizję 6, zlecił cały plan i jawnie potwierdził orientacyjny koszt 12–28 dni roboczych 2026-10-14. Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, baza main v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
+
+- P1-7: plan zapisano w repo, utworzono 23 osobne taski i stan wznowienia z aktywnym TASK-1015 oraz następnym TASK-1010.
+- P1-8: taski mają pełne sekcje TASK_TEMPLATE, rozwinięte wskazania plików F1–F24, zależności, modele/reasoning i Outcome.
+- P2-11: TASK-0999 działa aktualną przypisaną bazą bez zależności od treningu; TASK-1013 chroni zgłoszenie i cropy do decyzji człowieka.
+- P2-12: D-548 pozostaje proposed i jawnie rozszerza D-480 dla ręcznych korekt. Auto-accept nie jest etykietą.
+- P2-13: liczba brakujących plansz Mumii pozostaje nieustalona do pomiaru TASK-1010; historyczne liczby poniżej nie są nowym pomiarem.
+- P2-14: przypięto uzgodnioną bazę v1.7.360; cudze worktree i gitlinki są poza zakresem.
+- P2-15: raport rundy 3 potwierdza wcześniejszą sesję audytora. Obecnie brak CLI Claude w środowisku Codex; wymagany raport TASK-1015 z zewnętrznej sesji jest oczekiwany. Nie ogłoszono PASS.
+- D-548–D-552 zapisano jako proposed zgodnie z planem, bez nadpisania accepted decyzji. Checkpointy zabezpiecza TASK-1014 przed cleanup TASK-0957.
+
+Audyt planu i bootstrap dokumentacyjny nie dowodzą jakości aplikacji, rzeczywistych danych ani wspólnego modelu. Kontrole TASK-1015 są w jego Outcome. Raportów Claude nie edytowano.
+
+## Historyczne rozliczenie rewizji 2
+
+Poniższy tekst opisuje wcześniejszą rewizję i jej ówczesne kontrole. Statusy, liczby i przypisania tasków w tej części są historyczne; bieżącym źródłem jest rewizja 6.
+
 Zakres: rewizja 2 `ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`,
 indeks i stan projektu, rejestr potrzeb V3 oraz warunek bezpieczeństwa
 TASK-0957. Raport Claude pierwszej wersji pozostaje **REVISE**, bez zmian.

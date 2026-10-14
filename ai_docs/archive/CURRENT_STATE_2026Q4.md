@@ -6,6 +6,13 @@ last_updated: 2026-10-14
 
 # Current State — archiwum 2026Q4
 
+### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
+
+- Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wykonanie v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
+- Identity ma najwyżej dwie świeże próby tylko po timeout, unknown failclosed; bounded telemetry bez identity/PID/path. Obcy lock po dwóch timeoutach bajtowo zachowany.
+- Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
+- 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
+- Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.
 ### TASK-0985 — Trwały zapis bez przepisywania inwentarza i historii (done)
 
 - Plik: `ai_docs/tasks/completed/0985-selector-desktop-compact-persistence.md`; D-546 i plan finalizacji20261012. Wykonanie v1.7.335 /`d82fbcb576ef138b8b6049102212b85f97d0a803`.

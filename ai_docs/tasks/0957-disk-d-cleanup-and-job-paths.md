@@ -30,7 +30,7 @@ Implementacja podglądu nie jest zgodą na wykonanie.
   `C:\Users\tuszy\Documents\game_predictor_vision_data` ani jego runów,
   checkpointów, manifestów i potrzebnych źródeł kontrolnych przed
   zarejestrowaniem zweryfikowanej kopii potrzebnych artefaktów na D w
-  TASK-0994 planu `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`.
+  TASK-1014 planu `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`.
   Checkpoint 777 v2 `2cd19738367121e6…` jest obecnie jedynym zweryfikowanym
   źródłem pełnego stanu bazowego na C. Usunięcie wymaga wcześniejszego
   receipt kopii z SHA zgodnym z rejestrem oraz odczytu/treningowego preflightu

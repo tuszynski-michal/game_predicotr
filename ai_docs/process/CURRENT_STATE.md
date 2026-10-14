@@ -25,6 +25,10 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 todo po commicie. D-548–D-552 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+
+- **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
+
 - **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
 
 - **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
@@ -83,38 +87,17 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Doszkalanie siatek V3 z korekt w aplikacji (proposed, 2026-10-14)
+### Doszkalanie siatek V3 z korekt w aplikacji (accepted, 2026-10-14)
 
-- Plan: `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`,
-  rewizja 2, proponowane TASK-0993–1006 w etapach A–D i faza operatora O.
-  Taski opisano w planie;
-  pliki aktywne powstaną dopiero po jego akceptacji i ponownej kontroli numerów.
-- Zakres: edytor czterech rogów z opcjonalnymi 24 punktami, dane z aktualnych
-  ręcznych korekt także pojedynczej planszy niekompletnego zdjęcia, niezależna
-  ocena, trwały trening V3, wersje/aktywacja/powrót i ponowne rozpoznanie
-  wybranych siatek z ochroną decyzji człowieka i sekwencji. Domyślnie
-  uncertain/deferred oraz próba do 100 zdjęć; szeroki zakres jest opt-in.
-- Audyt Claude pierwszej wersji: REVISE, raport zachowany w quality.
-  P1/P2 uwzględniono w rewizji 2; odpowiedź w
-  `quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md`, bez deklaracji
-  nowego niezależnego PASS. Dane audytu: 777a2 ma 0 ręcznych korekt i 0 complete
-  zdjęć; Mumie 44 korekty i 4 complete. Pierwszy run zależy od fazy etykiet.
-- TASK-0994 zabezpiecza bazowe checkpointy z C na D; TASK-0957 ma warunek
-  ochrony źródła przed sprzątaniem. Trener produkcyjny czyta ścieżki z registry.
-- Kierunek operatora: nowa gra wybiera opublikowaną zgodną wersję; wspólna
-  geometria Mumii/777 jest kandydatem TASK-1006 z bramką osobno dla każdej gry.
-  Rozdział rodzin geometrii D-527 wymaga nowej decyzji przy akceptacji planu;
-  nie łączymy modeli symboli ani nie przełączamy istniejących gier teraz.
-- Polecenie operatora: usunięcie globalnego bloku „Ulepszanie geometrii /
-  Cięcie siatki” obejmuje planowaną zmianę UI. Nie usuwać historycznych danych
-  ani klasycznych profili. Doprecyzowanie operatora: sekcja w każdej grze,
-  historyczna `777` (kod `7`) pozostaje archiwalna, bez przejścia na V3.
-- To nie jest zgoda na implementację, koszt wielodniowej pracy, trening,
-  migrację, aktywację lub masową inferencję. Nowa policy feedback TRAIN wymaga
-  decyzji rozszerzającej D-480 przy akceptacji. Operator wybrał: Codex wykonuje,
-  Claude Code audytuje (`claude-fable-5-1`, medium/high zgodnie z tabelą).
-  Istniejąca sesja Claude może audytować bez instalacji CLI w środowisku Codex.
-- TASK-0991 oraz jego operacyjny przebieg symboli pozostają niezależne.
+- [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
+- Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.363: hash pending do zapisu leada. Następny TASK-1010 todo, start po commicie. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
+- D-548–D-552 pozostają proposed zgodnie z bootstrapem. Ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie zaakceptowanej instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
+- Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
+- TASK-1014 zabezpiecza checkpointy na D przed cleanup TASK-0957. Bez usuwania C. Rzeczywista liczba brakujących plansz Mumii nieustalona do TASK-1010.
+- Raporty Claude rund 1–3 pozostają historyczne, bez zmiany werdyktów. [Rozliczenie Codex](../quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md) wskazuje rewizję 6. Audyt planu nie jest audytem implementacji.
+- Końcowa integracja dopiero po wykonaniu całego zakresu, akceptacji wyniku i osobnej zgodzie. Bez automatycznego push, restartu, migracji operatora, treningu, historycznego backfillu i masowego przetwarzania.
 
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
@@ -202,6 +185,94 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (todo)
+
+- [1010-grid-diagnostics-and-counters.md](../tasks/1010-grid-diagnostics-and-counters.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (todo)
+
+- [1017-v3-engine-acceptance.md](../tasks/1017-v3-engine-acceptance.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (todo)
+
+- [1008-historical-grid-acceptance-backfill.md](../tasks/1008-historical-grid-acceptance-backfill.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0993 — Edytor czterech rogów i 24 punktów (todo)
+
+- [0993-four-corner-grid-editor.md](../tasks/0993-four-corner-grid-editor.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1014 — Zarządzane checkpointy na D (todo)
+
+- [1014-managed-grid-checkpoints-on-d.md](../tasks/1014-managed-grid-checkpoints-on-d.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0994 — Rejestr rodzin, wersji i przypisań (todo)
+
+- [0994-grid-model-registry.md](../tasks/0994-grid-model-registry.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (todo)
+
+- [1012-dynamic-grid-snapshots.md](../tasks/1012-dynamic-grid-snapshots.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0998 — Publikacja, aktywacja, domyślna wersja i rollback (todo)
+
+- [0998-grid-model-publication-and-activation.md](../tasks/0998-grid-model-publication-and-activation.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1004 — Tworzenie gry z domyślną geometrią V3 (todo)
+
+- [1004-new-game-default-v3-geometry.md](../tasks/1004-new-game-default-v3-geometry.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1011 — Usunięcie zatwierdzonych pozostałości V1.1 z V3 (todo)
+
+- [1011-v3-classical-ui-removal.md](../tasks/1011-v3-classical-ui-removal.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0999 — Backend ponownego rozpoznania wybranego zakresu (todo)
+
+- [0999-grid-reinference-backend.md](../tasks/0999-grid-reinference-backend.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1013 — Trwałe propozycje dla „Złej siatki” (todo)
+
+- [1013-grid-geometry-proposals.md](../tasks/1013-grid-geometry-proposals.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1003 — Podgląd i raport ponownego rozpoznania (todo)
+
+- [1003-grid-reinference-preview-and-report.md](../tasks/1003-grid-reinference-preview-and-report.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1002 — Nagrania, aliasy i role kontrolne (todo)
+
+- [1002-source-recording-groups.md](../tasks/1002-source-recording-groups.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1009 — Losowa kontrola Mumii i 777a2 (todo)
+
+- [1009-grid-quality-measurement.md](../tasks/1009-grid-quality-measurement.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot (todo)
+
+- [0995-grid-training-cohort-snapshot.md](../tasks/0995-grid-training-cohort-snapshot.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1005 — Preset i dopuszczenie zasobów (todo)
+
+- [1005-grid-training-resource-admission.md](../tasks/1005-grid-training-resource-admission.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0996 — Trwały trening V3 w aplikacji (todo)
+
+- [0996-durable-v3-grid-training.md](../tasks/0996-durable-v3-grid-training.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-0997 — Ocena per gra i bramka kandydata (todo)
+
+- [0997-grid-model-evaluation.md](../tasks/0997-grid-model-evaluation.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2 (todo)
+
+- [1006-shared-grid-model-candidate.md](../tasks/1006-shared-grid-model-candidate.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1000 — Pełna sekcja „Geometria V3” (todo)
+
+- [1000-v3-grid-model-workspace.md](../tasks/1000-v3-grid-model-workspace.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
+
+### TASK-1001 — Odbiór procesu i instrukcja operatora (todo)
+
+- [1001-v3-grid-fine-tuning-acceptance.md](../tasks/1001-v3-grid-fine-tuning-acceptance.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -878,6 +949,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1015 — Utrwalenie planu i przygotowanie wznowienia (done)
+
+- [Task](../tasks/completed/1015-documentation-bootstrap.md); worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`. Oryginalna baza v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
+- Rewizja 6 i 23 taski utrwalone; pięć decyzji proposed. Nasz silnik acceptance TASK-1017 po zatwierdzonym rozwiązaniu kolizji z historycznym CLI TASK-1007. Audyt Claude PASS, brak P0/P1; P2-1/2/3 zamknięte, P2-4 ryzyko poza zakresem. Kontrole dokumentacji i środowiska PASS, bez zmian kodu/danych/usług.
+- Commit przygotowany: **v1.7.363 / hash pending**, lead wpisze rzeczywisty pełny hash po utworzeniu. Następny TASK-1010 todo; integracja dopiero po całym planie i osobnej akceptacji.
+
+
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
 
 - Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
@@ -950,11 +1028,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
 - Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
 - Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.
-
-### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
-
-- Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wykonanie v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
-- Identity ma najwyżej dwie świeże próby tylko po timeout, unknown failclosed; bounded telemetry bez identity/PID/path. Obcy lock po dwóch timeoutach bajtowo zachowany.
-- Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
-- 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
-- Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.

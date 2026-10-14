@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 541 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (183 wiersze); starsze (357 wierszy) są w
+- Indeks obejmuje 549 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (192 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,11 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-552](decisions/DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | proposed | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
+| [D-551](decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | proposed | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |
+| [D-550](decisions/DECISION_LOG_2026.md#d-550--akceptacja-silnika-v3-i-statusowy-backfill) | Akceptacja silnika V3 i statusowy backfill | proposed | 2026-10-14 | Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. |
+| [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | proposed | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. |
+| [D-548](decisions/DECISION_LOG_2026.md#d-548--doszkalanie-geometrii-z-ręcznych-korekt-v3) | Doszkalanie geometrii z ręcznych korekt V3 | proposed | 2026-10-14 | Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. |
 | [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
@@ -226,229 +231,49 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-547, D-546, D-545, D-544, D-543), identyczne z `decisions/DECISION_LOG_2026.md`.
-Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+Pełne kopie pięciu najnowszych propozycji (D-552–D-548), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
 
-## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
+## D-552 — Baza i wznowienie planu doszkalania V3
 
-- **Date:** 2026-10-13.
-- **Status:** accepted by explicit operator instructions in this conversation.
-- **Decision:** remove the imposed 15 000-photo and directory-entry limits without replacing them with another configured cap. Path, checksum, ownership, journal and lock validation remain. This supersedes the scale restriction in D-545/D-546; their historical 15 000 measurement remains evidence only, without guarantees for larger real collections.
-- **Interface:** routine navigation/save messages are silent, necessary feedback is a bottom overlay, native fullscreen retains position/count, step, zoom and exit. The photo is centered horizontally and vertically; its sequence range is a separate centered row immediately above it. Late view events during close cannot replace the final flushed view.
-- **Release and acceptance:** generate Windows ZIP 1.0.0 and close TASK-0979 by the operator's explicit approval on 2026-10-13. No physical second-PC/reboot/protection PASS is asserted without evidence. This changes the previous requirement that physical evidence must block task closure; automated checks and operator decision are recorded separately. No new independent Claude audit is asserted.
-- **Integration:** local merge into literal main must preserve the newer primary-checkout changes. The user authorizes removal of the selector worktree after preserving release, historical ZIPs and needed ignored materials outside it. Other worktrees and user photo data are untouched. No push or migration.
-- **Source:** user requests in this conversation; release record ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md; TASK-0988–0990 implementation records and TASK-0979.
+- **Date:** 2026-10-14.
+- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
+- **Proposal:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; pierwszy commit bootstrapu będzie v1.7.363. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie tej propozycji należy zapisać osobno zgodnie z planem. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
+- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
-## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
+## D-551 — Propozycje dla błędnej siatki V3
 
-- **Date:** 2026-10-12.
-- **Status:** accepted by operator instruction to complete all remaining work
-  and explicit approval of the3–5 hour full P2/P3 round, compatible persistence
-  redesign, controlled15000-image measurement and final ZIP. Recipient
-  acceptance takes place at the end.
-- **Scope:** TASK-0984→0985→0986→0987 in
-  `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
-  New pilot0.1.3; source/output stay local and untouched except owned selection
-  transactions. No API/Admin/Reviewer/database/cloud/service changes.
-- **Start and UX:** missing cached project never silently resets. A new batch
-  requires explicit confirmation; only stale cache metadata is forgotten.
-  Preflight both target directories before creating either; no lock in a foreign
-  directory without project markers. Desktop ignores key repeat for decisions.
-  Close with unknown ownership does not remove another owner's lock.
-- **Persistence:** supersedes D-545's temporary retention of full per-operation
-  state serialization. Logical ProjectState1 and operator-local manifest2 remain.
-  Disk head2 at existing primary/backup names points to mirrored immutable
-  inventory/baseline and two append-only checksummed operation ledgers.
-  All previous receipts and operationIds remain valid indefinitely.
-- **Commit and recovery:** journal3 holds compact before/after heads and exact
-  pending record, copy/removals and phase. JPEG/lease rules stay unchanged.
-  Ledger records are synchronized in both mirrors before primary head commit;
-  manifest and backup finish before acknowledgement. Partial exact pending
-  suffix can be completed; unknown bytes and unproved ownership fail closed.
-  Root bindings are in heads/journal, so pending relink does not rewrite ledger
-  bytes. Healthy matching copies recover corruption; two damaged copies block.
-- **Upgrade:** under project lock verify source/project identity, recover
-  journal1/2, write upgrade journal3 containing verified old state, publish
-  mirrored sidecars/ledger then both head2 files, remove descriptor last.
-  Old readers reject journal3/head2 and cannot fall back to a writable old
-  backup. Each interrupted step resumes; no JPEG/manifest change during upgrade.
-- **Safety and performance:** no receipt trimming or weakened checksum/path
-  checks. Full open validation uses a path Set; hot writes validate only delta.
-  UI projection omits internal receipt history. Remaining full manifest O(D)
-  and open checks are explicit. The operator authorizes bounded measurement
-  of15000 synthetic JPEGs; this is not a guarantee for every disk/large photo.
-- **Diagnostics and release:** bounded process-identity retry never proves a
-  timed-out owner dead. Preserve failed smoke logs; verify asar contents and
-  build-info automatically. Explain manual JPEG restoration via manifest path
-  and checksum. Preserve prior reports and ZIPs byte for byte.
-- **Execution gates:** D-545's operator audit at the end and CLI/per-task review
-  exception remain. Internal Codex review is not cross-family audit. Physical
-  TASK-0979 acceptance cannot be asserted from local process smoke or this
-  approval. No push, merge, signing, user-data deletion or protection disabling.
-- **Source:** operator's full-scope approval in this conversation2026-10-12;
-  audit `OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md` and finalization plan.
+- **Date:** 2026-10-14.
+- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
+- **Proposal:** W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. Przyjęcie kontroluje źródło, rewizję i właściciela oraz używa VirtualGridGeometryService.save_review_item w tej samej transakcji. Dopiero człowiek zatwierdza i zamyka właściwy problem. Odrzucenie pozostawia zgłoszenie otwarte; nieaktualny wynik daje konflikt.
+- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
-## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
+## D-550 — Akceptacja silnika V3 i statusowy backfill
 
-- **Date:** 2026-10-11.
-- **Status:** accepted by explicit operator instruction to implement the revised
-  plan; implementation is authorized, with operator audit after all five tasks.
-- **Decision:** standalone Electron/React/TypeScript workspace
-  `apps/selector-desktop`, Windows 11 x64 ZIP built with Electron Forge.
-  The recipient keeps source images, project state and output on their device;
-  Proton Drive delivery is manual and outside the application.
-- **Domain and boundary:** reuse the manual-image-selection core, own desktop UI,
-  no refactor of Admin/Reviewer and no production API/OpenAPI/database changes.
-  Preserve the Reviewer's serialized commits, natural source traversal and
-  rangeForStart semantics (nine boards or the terminal shortened range).
-- **Output:** original JPEG bytes named `seq_<start>-<end>.jpg`, operator-local
-  schema v2 under `manual-image-selection-output-v1.json`; not the different
-  core-items format. The project is authoritative; output is a projection.
-  Project and output folders are separate and proposed beside the source.
-- **Durability:** local disk project outside sync/network shares; versioned
-  state, backup, synchronized temporary replacement, operation journal,
-  idempotency and recovery before writes. Exclusive project lock; stale
-  heartbeat alone never authorizes takeover. A transient exclusive output
-  lease also prevents two different projects from claiming one output; it
-  uses the same owner/process checks and is removed before confirmation.
-  Missing folders require relink,
-  never an automatic reset. Only ready output is manually shared.
-- **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
-  The later instruction to implement five tasks also authorizes TASK-0978
-  legacy adoption after the implementation portion of TASK-0979.
-  Initial pilot is unsigned; real Windows blocking stops acceptance without
-  advising the recipient to disable protection. No upload, generated links,
-  cloud integration, repair or training trace.
-- **Remediation2026-10-12:** operator approved an additional2–4 hour round
-  after the REVISE implementation audit. A controlled, hidden PowerShell
-  worker runs fresh typed drive/reparse/process checks. Reuse a verified
-  native source index; preserve output SHA, ProjectState1/journal1/2,
-  serialized durable cursor writes and receipt retention. Correct close
-  after LOCK_LOST and skipped-range compatibility. TASK-0980/0981/0982
-  produce pilot0.1.1; operator review and recipient acceptance stay separate.
-  No recovery-guard takeover without owner evidence or weaker file checks.
-- **Source-first UX2026-10-12:** operator accepted a separate1–2 h budget:
-  choose only source, auto-create sibling project/output, resume the same
-  source without reconfiguration, persist optional gameName as display label
-  and use a recent-project dropdown. Older unnamed projects remain valid;
-  source/project identity is verified under lock before automatic recovery.
-- **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
-  tests, packaging and audits, without a reliable package-percentage estimate.
-  The later operator instruction defers review until all five tasks are
-  implemented, explicitly replacing per-task review and the CLI entry gate.
-  Physical recipient-machine acceptance is
-  recorded separately and cannot be replaced by the agent's local smoke test.
-- **Source:** operator instructions and answers in this conversation of
-  2026-10-11; `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`.
+- **Date:** 2026-10-14.
+- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
+- **Proposal:** Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. Engine approval wynika z kompletu pozycji, geometrii, sekwencji i pochodzenia; nie jest human approval. Historyczny podgląd i osobno potwierdzony backfill zapisują status, zdarzenie i projekcje w transakcji źródła z materialize=False. Payloady, cropy, hashe, decyzje i właściciele pozostają niezmienione; niejednoznaczność blokuje akceptację.
+- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
-## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
+## D-549 — Wspólna geometria V3 i domyślna wersja
 
-- **Date:** 2026-10-11.
-- **Status:** accepted explicit operator decision; implemented by TASK-0974.
-- **Decision:** every registered grid engine profile imports image folders
-  through the existing neural proposal path (the D-521 pilot route,
-  `neural-auto-crop-v1` of D-523) with the frozen model of its own profile.
-  `grid_profile_777_v2` uses the lab-trained 777 model (run `43933ac8…`,
-  preset A, export `2cd19738367121e6-round3`, snapshot `286f2e37…`);
-  `grid_profile_mumie_v1` keeps the Mumie fine-tune. The first 777 game on this
-  route is `777a2` ("777 a2"). V1.1 stays only for games without a grid engine
-  profile, i.e. the historical 777 (code `7`).
-- **Operator rationale:** "V1.1 zostaje tylko i wyłącznie ze względu na starą
-  grę 777"; the V3 engine draws grids without the classical engine's errors and
-  the 777 model already exists from the vision lab, so no training is needed.
-- **Consistency:** a preflight frozen for one profile never serves a game whose
-  current profile differs (reuse skips it, import start returns
-  `NEURAL_GRID_PREFLIGHT_INVALID`). The persisted policy identifier
-  `page-geometry-preflight-v13-neural-mumie-pilot` keeps its historical name
-  because completed Mumie jobs pin it. No migration: the `games` CHECK from
-  `0140` already allows both profiles.
-- **Boundary:** does not change the historical 777 game, its V1.1 imports, the
-  grid shadow path, the symbol model registry or the D-527 shared model
-  families. Switching a game to another game's profile is not a substitute for
-  wiring its own profile.
-- **Changes:** D-521 scope of the neural folder route (Mumie only) for the
-  geometry engine; the D-521 symbol-model pilot scope is unchanged.
-- **Source:** operator instructions in the conversation of 2026-10-11;
-  ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md.
+- **Date:** 2026-10-14.
+- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
+- **Proposal:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
+- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
-## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
+## D-548 — Doszkalanie geometrii z ręcznych korekt V3
 
-- **Date:** 2026-10-10 (decyzje operatora W7–W9 z 2026-10-09; implementacja TASK-0970, TASK-0971).
-- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
-  (v1.7.295–v1.7.296), wymaga migracji `0154_geometry_correction_revert` wykonanej
-  przez operatora. **Zmienia D-238.**
-- **Odrzucenie slotu odroczonego:** operator odrzuca w Reviewerze („Korekta cięcia
-  siatki” → „Odrzuć planszę”) slot `pending` z powodem `cropped` („Plansza
-  przycięta”), `blurred` albo `other` (z wymaganym opisem). Slot dostaje status
-  `rejected` (`rejection_reason`, `rejection_note`, `rejected_at`, `rejected_by`,
-  CHECK cyklu życia) i znika z kolejki korekty; nie jest cięty na symbole.
-- **Trwałe zdarzenia odrzuceń slotów:** każde odrzucenie, jego cofnięcie i
-  zastąpienie przez zamiennik zapisuje append-only wiersz tabeli gry
-  `image_board_geometry_pending_events` (klucz idempotencji, suma kontrolna
-  polecenia, `rejection_revision`, aktor, akcje `rejected` / `rejection_reverted` /
-  `superseded` z `successor_review_item_id`). Slot po cofnięciu zapomina
-  odrzucenie (CHECK), zdarzenia je pamiętają: ten sam klucz i polecenie odtwarza
-  zapisany wynik także po cofnięciu, inny klucz dla odrzuconego slotu daje 409
-  `IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`, a stare żądanie cofnięcia nie
-  cofa nowszego odrzucenia (`GEOMETRY_REVERT_NOT_LATEST`).
-- **Odrzucenie istniejącej planszy:** istniejące rozstrzygnięcie `rejected` z
-  powodem (`cropped` / `blurred` / `other: <opis>`); kanoniczny właściciel
-  sekwencji zawsze dostaje 409 `BOARD_REJECT_CANONICAL` (przejęcie kanonu to
-  TASK-0305). Odrzucona pozycja wypada z weryfikacji symboli, liczników,
-  operacji zbiorczych i wyszukiwarki (predykat widoczności wyklucza komórki
-  pozycji `rejected`; wiersze i zdarzenia zostają jako historia; liczniki są
-  zwalniane przy wejściu w `rejected` i przywracane przy każdym wyjściu).
-- **Bramka bez zmian (W8):** odrzucona pozycja liczy się jak brak planszy (D-484);
-  całe zdjęcie czeka na zamiennik albo wyjątek operatora.
-- **Cofnięcie odrzucenia:** odrzucenia są na liście „Ostatnie korekty” i można je
-  cofnąć (slot wraca do `pending`, pozycja wraca do `pending` zdarzeniem
-  `reopened`), dopóki sekwencja nie ma żywej pozycji innego zdjęcia
-  (`GEOMETRY_REVERT_REPLACED`).
-- **Reguła własności sekwencji (zmienia D-238 „najnowszy import zastępuje
-  nierozwiązaną planszę”):** nowa plansza przejmuje sekwencję, gdy ta nie ma
-  żywego właściciela albo właściciel jest odrzucony (pozycja `rejected` lub slot
-  `rejected`). Gdy właścicielem jest żywa pozycja `pending` innego zdjęcia (inna
-  checksuma źródła), nowa plansza dostaje `superseded` i alternatywę
-  `superseded_existing_owner_kept`. Kanoniczny właściciel wygrywa jak dotąd
-  (first-save-wins z alternatywą). Ta sama checksuma zdjęcia (ponowne
-  przetworzenie) zachowuje porządek D-238. Reguła jest jedną czystą funkcją
-  (`domain/sequence_takeover.py`) stosowaną w jednym miejscu
-  (`storage/pending_sequence_ownership.create_owned_pending_review_item`) przez API
-  i workera.
-- **Ochrona lateralna:** `has_protected_lateral_owner` nadal chroni właściciela.
-  Gdy ochronę dają wyłącznie wiersze innego zdjęcia, a zachowywany właściciel
-  jest pewny (kanoniczny albo wszystkie chronione wiersze `pending`), worker nie
-  pomija pliku, tylko przechodzi przez wspólną regułę (kanon → first-save-wins,
-  żywa pozycja → nowa plansza `superseded` z alternatywą i licznikiem
-  „Pominięte”). Ochrona tego samego zdjęcia — pominięcie jak dotąd.
-- **Sprzątanie po przejęciu (ta sama transakcja):** odrzucony slot starego
-  zdjęcia przechodzi do `superseded` (pola odrzucenia zostają jako historia) ze
-  zdarzeniem `superseded`; bramki zdjęć z odrzuconą pozycją/slotem tej sekwencji
-  i zdjęć `geometry_incomplete`, których rewizja źródła obejmuje numer, są
-  przeliczane, a dopuszczone zdjęcia cięte istniejącą ścieżką (w workerze na
-  końcu transakcji). Przejmowane komórki pociętej, odrzuconej planszy przechodzą
-  do nowej planszy jako sugestie (reguła recropu D-462 bez kontroli ciągłości
-  rewizji); zatwierdzenie przechodzi tylko przy tej samej tożsamości cropa.
-  Raport importu pokazuje „Zastąpione sekwencje” i „Pominięte — sekwencja ma
-  właściciela” (`sequenceOwnership`).
-- **Blokada własności gry i globalna kolejność blokad:** transakcyjna blokada
-  doradcza `(game_id, 'sequence-ownership')` w trybie czytelnik/pisarz
-  (`storage/sequence_ownership_lock.py`): `EXCLUSIVE` bierze każdy zapis, który
-  może przejąć sekwencję albo przeliczyć bramkę innego zdjęcia (projekcja i
-  `resolve_board` workera, zapis siatki zdjęcia i planszy, konwersja legacy,
-  odrzucenie slotu, cofnięcia, bezpośrednie rozstrzygnięcie, operacje zbiorcze,
-  wyjątek geometrii); `SHARED` — decyzje komórek (`EXCLUSIVE`, gdy możliwe jest
-  zastąpienie cudzej pozycji). Brak podnoszenia trybu: `EXCLUSIVE` przy trzymanym
-  `SHARED` → 409 `SEQUENCE_OWNERSHIP_LOCK_UPGRADE`. Kolejność dla wszystkich
-  uczestników: klucz idempotencji albo dzierżawa joba (`FOR NO KEY UPDATE`) →
-  własność → wiersz gry → sekwencje → `source_images` (rosnąco, jednym
-  zapytaniem) → plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
-  `image_symbol_review_states` → komórki. Odstępstwa są opisane w
-  `DATA_MODEL.md` i działają wyłącznie pod `EXCLUSIVE`.
-- **Konsekwencje:** ponowny import innego zdjęcia nie zastępuje już żywej
-  pozycji `pending`; operator musi ją najpierw odrzucić (raport importu to
-  pokazuje). Ryzyka przyjęte w audycie zastępczym TASK-0971 (5 × P2) czekają na
-  ponowny audyt Codex.
-- **Source:** decyzje operatora W7–W9 (2026-10-09) w
-  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
-  TASK-0970 i TASK-0971.
+- **Date:** 2026-10-14.
+- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
+- **Proposal:** Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. Korekta i sprawdzenie bez zmiany mają osobne pochodzenie; automatyczna akceptacja nie tworzy etykiety. Grid-only dopuszcza pełną planszę niekompletnego zdjęcia, screen+grid wymaga pełnej anotacji. Podziały, aliasy i holdouty przodków pozostają chronione. Historyczne eksperymenty zachowują swoje reguły.
+- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.

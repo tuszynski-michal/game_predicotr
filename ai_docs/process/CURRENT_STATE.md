@@ -845,6 +845,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
 
+- Commit zweryfikowanego zamknięcia operacyjnego: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, na main. Do scalenia dokumentacji wymagana jest końcowa akceptacja operatora; bez automatycznego merge.
 - Task: `ai_docs/tasks/completed/0991-symbol-reinference-resume.md`; wynik: `ai_docs/quality/SYMBOL_REINFERENCE_777A2_20261014.md`. Naprawa: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**, już scalona do gałęzi integracyjnej po wcześniejszej zgodzie.
 - Nowy checkpoint zapisuje stabilny kursor; stare checkpointy odtwarza idempotentnie z zachowaniem trwałych liczników. Regresje, 43 testy worker/domain, ruff i targeted mypy PASS; niezależny Claude audit niewykonany (brak CLI), brief zachowany bez deklarowania PASS.
 - Zamrożone 35122 pending komórki <0.80, wszystkie osiem klas gry `777a2`; model `747c21d5…`, manifest SHA `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Całość zakończona: 24309 unikalnych receiptów, zero braków; 34726 komórek przeliczono teraz, 396 miało już wynik tego samego modelu dla tych samych cropów. Po operacji 31290 komórek ma confidence >=0.80, 3832 nadal <0.80; wszystkie 35122 pozostają pending.

@@ -77,6 +77,8 @@ The exact lease-loss trigger of the historical job is unproven. A cursorless leg
 
 Repair commit: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. The supervised operational run and fresh-process result verification are now complete; final closure documentation awaits operator acceptance before integration.
 
+Verified operational closure commit: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, on main. The report, done task and rolling-window update are committed; acceptance and integration of this closure are still pending. The full hash is recorded by the following documentation-only commit.
+
 Operator-requested integration completed on 2026-10-14: `v1.1-vision-lab-hybrid-geometry` fast-forwarded through policy commit v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`, including the repair and its v1.7.352 documentation record. Unrelated dirty multi-game work was preserved. No push or service restart. Subsequent completion commits must follow the new `AGENTS.md` integration rule.
 
 The handler persists a stable cursor and resumes with durable counters. Historical cursorless retries replay idempotently while keeping the durable progress floor; an empty or shortened eligible set retains prior totals. Cursor timestamps require a timezone. The domain regression guard is unchanged. No API, generated client, UI or migration changes.
@@ -94,7 +96,7 @@ The handler persists a stable cursor and resumes with durable counters. Historic
 
 ### Not completed
 
-No operational work remains in the approved scope. Final closure documentation is prepared for a local versioned commit and requires operator acceptance before integration. Existing poll worker has not been restarted; future jobs need the operator to reload its code. The one-off runner used fresh processes directly. No push, new merge during this closure, API/Admin restart, training, activation, schema migration or destructive data operations. No further training or accuracy evaluation was performed for the 3832 remaining low-confidence cells.
+No operational work remains in the approved scope. Final closure documentation is committed locally and requires operator acceptance before integration. Existing poll worker has not been restarted; future jobs need the operator to reload its code. The one-off runner used fresh processes directly. No push, new merge during this closure, API/Admin restart, training, activation, schema migration or destructive data operations. No further training or accuracy evaluation was performed for the 3832 remaining low-confidence cells.
 
 ### Operational recovery
 

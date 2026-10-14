@@ -1,6 +1,6 @@
 ---
 title: Resume pending symbol reinference without progress regression
-status: in_progress
+status: done
 last_updated: 2026-10-14
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-14
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -48,8 +48,8 @@ The operator approved repair and the previously disclosed 1–2 hour work budget
 - [x] A committed prediction with a lost checkpoint remains idempotent on replay.
 - [x] Invalid cursor is refused before inference/writes.
 - [x] Focused regression tests, lint, format, typecheck and docs checks pass, or limitations are explicit.
-- [ ] Operational manifest freezes only pending cells with confidence strictly below 0.80 in game `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`; all eight classes are covered. Revalidate identity/state before write and preserve all non-target predictions and human decisions.
-- [ ] Operational result and any remaining work are recorded without claiming completion from process launch alone.
+- [x] Operational manifest freezes only pending cells with confidence strictly below 0.80 in game `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`; all eight classes are covered. Revalidate identity/state before write and preserve all non-target predictions and human decisions.
+- [x] Operational result and any remaining work are recorded without claiming completion from process launch alone.
 
 ## Technical notes
 
@@ -75,7 +75,7 @@ The exact lease-loss trigger of the historical job is unproven. A cursorless leg
 
 ### Changed
 
-Repair commit: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. This commits the tested code; the task remains in progress until the supervised operational run and verification finish.
+Repair commit: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. The supervised operational run and fresh-process result verification are now complete; final closure documentation awaits operator acceptance before integration.
 
 Operator-requested integration completed on 2026-10-14: `v1.1-vision-lab-hybrid-geometry` fast-forwarded through policy commit v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`, including the repair and its v1.7.352 documentation record. Unrelated dirty multi-game work was preserved. No push or service restart. Subsequent completion commits must follow the new `AGENTS.md` integration rule.
 
@@ -89,10 +89,12 @@ The handler persists a stable cursor and resumes with durable counters. Historic
 - Ruff format and lint passed for both changed Python files. Targeted mypy (`--follow-imports=silent` on the changed handler) passed: one source file, no issues. Documentation checks and code-map freshness passed; no module/public symbol changed.
 - `claude-audit`: brief created at `artifacts/audits/TASK-0991_BRIEF_claude.md`; Claude CLI was not installed, so no independent cross-family audit occurred. This is an explicit review limitation, not a PASS verdict.
 - Operational manifest: 35122 cells on 24309 boards, SHA-256 `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Three separate processes resumed the same receipts. Previously inferred exact model/crop pairs are recorded as already processed; only remaining target pixels enter inference. Mixed board revisions retain original values and origin revision IDs for other cells; transactions assert their full prediction/human fields are preserved, excluding system revision references. No result is declared complete before all receipts are verified.
+- Fresh-process read-only verification after all runner processes exited: complete 24309 unique board receipts, zero missing, every receipt revision pins the expected model; all 35122 frozen cell IDs remain present and pending. Exactly 34726 cells were inferred in 24054 boards; 396 cells on 255 boards already had the same model/crop result. Final confidence: 31290 cells at least 0.80, 3832 still below 0.80. All eight classes and strict initial threshold were confirmed from the checksum-bound manifest. Evidence and full limitations: `ai_docs/quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
+- All seven acceptance criteria and applicable Definition of Done points were compared: code regressions/checks, scope/identity protection, durable recovery and fresh-process operational result are satisfied. No separate accepted execution plan applies. Schema/API/UI requirements were not changed. Cross-family audit absence remains explicit.
 
 ### Not completed
 
-Operational completion, commit and final closure remain pending. Existing poll worker has not been restarted; future jobs need the operator to reload its code. The one-off runner uses the fresh process directly. No push, merge, API/Admin restart, training, activation, schema migration or destructive data operations.
+No operational work remains in the approved scope. Final closure documentation is prepared for a local versioned commit and requires operator acceptance before integration. Existing poll worker has not been restarted; future jobs need the operator to reload its code. The one-off runner used fresh processes directly. No push, new merge during this closure, API/Admin restart, training, activation, schema migration or destructive data operations. No further training or accuracy evaluation was performed for the 3832 remaining low-confidence cells.
 
 ### Operational recovery
 
@@ -101,6 +103,10 @@ The first long runner stopped when Windows briefly refused atomic replacement of
 ### Continued supervision
 
 At 2584/24309 boards, the resumed process had inferred 3383 target cells and recorded 255 boards previously inferred by the exact same model/crop snapshot. No new stderr or protection assertion failures. The operator requested supervision; a five-minute heartbeat in this same chat was created as `doko-cz-rozpoznawanie-777-a2-poni-ej-80`. It remains quiet during normal progress, verifies completion from a fresh read-only process, resumes only after the previous bounded process has exited, and stops for a new failure or when the operational time budget is exhausted. The heartbeat must complete the task documentation and final result commit after verification, then disable itself. Current runner parent PID 43444 / actual PID 35388; authoritative live state is in `status.json`, not this historical PID record.
+
+Scheduled limit recovery on 2026-10-14 at approximately 08:27 UTC: the second bounded run reached `paused_at_limit` at 17929/24309 boards (25542 inferred cells, 255 previously inferred boards), with empty stderr. Both previous PIDs were confirmed absent. A third controlled process resumed the same frozen manifest/receipts: parent PID 42980 (`process3-id.txt`), actual PID 36160, logs `run3.stdout.log` / `run3.stderr.log`. Its explicit limit is 2986 seconds, ending no later than 09:17 UTC, before the 09:18 UTC supervision boundary. Readiness check: 18045 boards done, 25699 inferred cells, empty stderr. Future monitor checks must use the newest status PID and third-run logs. No service lifecycle change and no duplicate runner.
+
+Completion: the third run reached 24309/24309 boards; its final segment took 1262.0 seconds. New-process verification and local evidence checks passed around 08:51 UTC. The heartbeat `doko-cz-rozpoznawanie-777-a2-poni-ej-80` was set to PAUSED after verification. No background runner remains and no further automatic processing is scheduled by this monitor.
 
 ### Operator reload for future normal jobs
 

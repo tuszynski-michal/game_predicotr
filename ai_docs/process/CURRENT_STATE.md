@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
+
 - **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
 
 - **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
@@ -165,14 +167,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0991 — Wznowienie rozpoznawania symboli i jednorazowy zakres <80% (in_progress)
-
-- Commit naprawy: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**. Kod zapisany; task pozostaje otwarty do zakończenia przebiegu operacyjnego. Naprawa jest już na `v1.1-vision-lab-hybrid-geometry` (fast-forward przez v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`).
-- Task: `ai_docs/tasks/0991-symbol-reinference-resume.md`. Operator zatwierdził naprawę oraz jednorazowe przeliczenie bez dodawania filtra API/UI.
-- Job `2f807266…` gry `777a2` zatrzymał się na 6824/341461 z `JOB_PROGRESS_REGRESSION`; handler ignorował checkpoint i zerował liczniki. Nowy checkpoint przechowuje stabilny klucz wznowienia; historyczny jest odtwarzany idempotentnie z zachowaniem trwałych liczników.
-- Manifest operacyjny: 35122 pending komórki <0.80, 24309 plansz, osiem klas, model `747c21d5…`; SHA-256 `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Runner, manifest i receipty: `artifacts/symbol-reinference-20261014/`. Przebieg trwa; nie jest jeszcze ukończony. Bez restartu usług, treningu, aktywacji, migracji ani zmian API.
-- 43 testy worker/domain, ruff i targeted mypy PASS; docs i mapa aktualne. Claude CLI niedostępny: brief zapisano, niezależnego audytu nie wykonano. Ostatni odczyt: 2584/24309 plansz, 3383 nowo przeliczone komórki, 255 plansz miało wynik tego samego modelu. Po chwilowej blokadzie pliku statusu Windows proces wznowił trwałe receipty; ograniczone ponowienie podmiany usuwa tę przyczynę. Pięciominutowy heartbeat `doko-cz-rozpoznawanie-777-a2-poni-ej-80` w tym czacie dopilnuje weryfikacji, domknięcia taska i commita wyniku; bez rutynowych powiadomień. Poll worker nie jest przeładowany; instrukcja tylko dla operatora w tasku.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -849,6 +843,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
+
+- Task: `ai_docs/tasks/completed/0991-symbol-reinference-resume.md`; wynik: `ai_docs/quality/SYMBOL_REINFERENCE_777A2_20261014.md`. Naprawa: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**, już scalona do gałęzi integracyjnej po wcześniejszej zgodzie.
+- Nowy checkpoint zapisuje stabilny kursor; stare checkpointy odtwarza idempotentnie z zachowaniem trwałych liczników. Regresje, 43 testy worker/domain, ruff i targeted mypy PASS; niezależny Claude audit niewykonany (brak CLI), brief zachowany bez deklarowania PASS.
+- Zamrożone 35122 pending komórki <0.80, wszystkie osiem klas gry `777a2`; model `747c21d5…`, manifest SHA `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Całość zakończona: 24309 unikalnych receiptów, zero braków; 34726 komórek przeliczono teraz, 396 miało już wynik tego samego modelu dla tych samych cropów. Po operacji 31290 komórek ma confidence >=0.80, 3832 nadal <0.80; wszystkie 35122 pozostają pending.
+- Weryfikacja z nowego procesu potwierdziła każdą rewizję/model i obecność wszystkich komórek. Ochrona pozostałych predykcji i decyzji człowieka przechodziła w każdej transakcji. Wznowienie po blokadzie statusu Windows i planowym limicie procesu zachowało receipty. Runner zakończony, monitor PAUSED.
+- Bez nowego filtra API/UI, treningu, aktywacji, migracji, cleanupu, restartu usług, push i nowego merge. Instrukcja przeładowania starego poll workera pozostaje dla operatora. Dokumentacja zamknięcia oczekuje końcowej akceptacji i zgody na scalenie.
+
 ### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
 
 - Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
@@ -921,11 +923,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Migracja/recovery każdej fazy, mirrory/suffix/foreign data, stary reader, pending relink i prawdziwy exit/reopen objęte testami. UI nie klonuje całej historii, zwykły krok nie przepisuje inventory/receiptów.
 - 233/233 desktop PASS, 110,605 s; lint/typecheck/format/map PASS. Review Codex gpt-6-astra/high: REVISE2P1 → jedna runda poprawek → ograniczony PASS, oba P1 zamknięte. Formalny Claude audit operatora na końcu.
 - Manifest O(D), open SHA i pamięć O(N+R+D) pozostają jawnymi kosztami. Pomiar15000 i finalny ZIP0987; Historyczny blocker0979 zamknięto decyzją D-547.
-
-### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (done)
-
-- Plik: `ai_docs/tasks/completed/0984-selector-desktop-final-ux.md`; plan finalizacji20261012, D-546. Przygotowanie v1.7.333 /9434446b39e23044e9d7198e205dce8ff9a6aaeb; wykonanie v1.7.334 /c52518a8ece7c79f88b31224d4d90a84f0779b4c.
-- Martwa historia z jawną nową partią, newest projectRoot, preflight obu folderów bez zapisów w obcych; źródło tylko do odczytu. Cancel zachowuje aktywny projekt.
-- Repeat accept/skip/undo ignorowany; arrow repeat działa. Close unknown/lost lock bez unlink. Dwa realne EXE podczas close dają jeden relaunch i nowe okno.
--151/151 desktop PASS, lint/typecheck/format/package, UX i full packaged smoke, docs/mapy/diff PASS. Początkowe pięć starych kodów testów i błędne założenie skoku w nowym smoke poprawione; powtórki PASS.
-- Finalny ZIP i pomiar15000 w0987. Audyt operatora na końcu, fizyczny0979 nadal blocked. Nieanulowany open/create może zamknąć poprzedni store przed błędem; postęp trwały pozostaje.

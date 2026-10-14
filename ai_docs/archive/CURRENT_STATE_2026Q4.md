@@ -6,6 +6,14 @@ last_updated: 2026-10-14
 
 # Current State — archiwum 2026Q4
 
+### TASK-0984 — Bezpieczny start, klawiatura i zamykanie (done)
+
+- Plik: `ai_docs/tasks/completed/0984-selector-desktop-final-ux.md`; plan finalizacji20261012, D-546. Przygotowanie v1.7.333 /9434446b39e23044e9d7198e205dce8ff9a6aaeb; wykonanie v1.7.334 /c52518a8ece7c79f88b31224d4d90a84f0779b4c.
+- Martwa historia z jawną nową partią, newest projectRoot, preflight obu folderów bez zapisów w obcych; źródło tylko do odczytu. Cancel zachowuje aktywny projekt.
+- Repeat accept/skip/undo ignorowany; arrow repeat działa. Close unknown/lost lock bez unlink. Dwa realne EXE podczas close dają jeden relaunch i nowe okno.
+-151/151 desktop PASS, lint/typecheck/format/package, UX i full packaged smoke, docs/mapy/diff PASS. Początkowe pięć starych kodów testów i błędne założenie skoku w nowym smoke poprawione; powtórki PASS.
+- Finalny ZIP i pomiar15000 w0987. Audyt operatora na końcu, fizyczny0979 nadal blocked. Nieanulowany open/create może zamknąć poprzedni store przed błędem; postęp trwały pozostaje.
+
 ### TASK-0983 — Start od zdjęć, etykieta gry i wznowienie (done)
 
 - Plik: `ai_docs/tasks/completed/0983-selector-desktop-source-first-start.md`; plan start2026-10-12, D-545.

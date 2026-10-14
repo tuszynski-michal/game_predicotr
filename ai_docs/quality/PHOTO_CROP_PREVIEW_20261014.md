@@ -118,5 +118,9 @@ Test regresyjny wykonuje rzeczywistą funkcję SVG z pliku HTML: sprawdza
 wymiary viewportu oraz współrzędne wszystkich 45 016 punktów cropów z 40
 zdjęć, a także przypadek `[100,50,600,450]` wymagający viewportu `500×400`.
 Test przeszedł; poprzednia funkcja nie spełnia tej asercji. Ponowiono kontrolę
-wizualną, powiększenie i widok mobilny; nakładki uwzględniają wyłącznie
-przesunięcie początku kadru. Zaktualizowano ZIP i zrzuty galerii.
+wizualną galerii. Nakładki w kartach i powiększeniu używają tej samej poprawionej
+funkcji; mechanizm powiększenia i układ mobilny nie były zmieniane. Zaktualizowano
+ZIP oraz zrzuty desktop/Mumii, a wcześniejsze zrzuty mobilne i powiększenia
+zachowano poza paczką jako dowody sprzed poprawki. Automatyczne otwarcie
+`file://` w przeglądarce aplikacji zostało zablokowane przez jej politykę URL;
+operator musi odświeżyć otwartą galerię ręcznie.

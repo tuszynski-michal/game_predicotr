@@ -84,7 +84,8 @@ incorrectly used as SVG viewport width/height. The prior visual review missed
 this issue. Fixed the actual HTML and generator to use right-left/bottom-top,
 retaining the coordinate translation by left/top. Regression checks passed
 for all 40 images and 45 016 cropped points, plus a nonzero-offset fixture.
-Original and cropped image SHA-256 values are unchanged. Updated screenshots
+Original and cropped image SHA-256 values are unchanged.
+Overlay correction record: **v1.7.365 / `b094215284e0db441432d1f05d68c790801a202c`**. Updated screenshots
 and ZIP; no database or production geometry changes.
 
 ### Not completed

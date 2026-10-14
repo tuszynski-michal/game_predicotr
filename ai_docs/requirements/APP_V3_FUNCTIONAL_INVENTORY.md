@@ -1,7 +1,7 @@
 ---
 title: Aplikacja V3 — rejestr ekranów i potrzebnych funkcji
 status: draft
-last_updated: 2026-10-07
+last_updated: 2026-10-14
 ---
 
 # Aplikacja V3 — rejestr przeglądu funkcjonalności
@@ -55,13 +55,19 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | MODEL-03 | Zła siatka → Korekta cięcia siatki | Kolejka korekty, odroczone geometrie i diagnostyka zdjęć w jednym miejscu. Zmieniamy cięcie tylko przy błędzie pikseli. Dobrze wycięty zły symbol poprawiamy bez ruszania siatki. | działa / diagnostyka przeniesiona | D-525, TASK-0890, instrukcja |
 | MODEL-04 | Weryfikacja symbolu na planszy | Zachować jako wyjątek dla nieczytelnych pojedynczych cropów. To nie obowiązkowe zatwierdzanie wszystkich plansz. | działa | do przeglądu położenia |
 | MODEL-05 | Jakość rozpoznawania → Ulepsz rozpoznawanie | Zachować wspólną pulę zatwierdzeń z wielu uploadów, trening kandydata, raport, osobną aktywację i przeliczenie pending. | działa | istniejący pion uczenia |
-| MODEL-06 | Ulepsz cięcie siatki | Obecnie kalibracja klasycznego profilu, nie trening sieci V3. Potrzebna osobna czytelna obsługa snapshotu 24 punktów, treningu i oceny sieci z panelu. Nie udawać, że obecny przycisk to wykonuje. | brak funkcji V3 w panelu | przyszły osobny plan/task |
-| MODEL-07 | Różne foldery z różnych filmów | Potrzebny trwały identyfikator nagrania i kontrola niezależnego testu. Obecny trening DB dzieli całe zdjęcia; nie gwarantuje podziału po filmach. | potrzebne | przyszły task |
+| MODEL-06 | Ulepsz cięcie siatki | Zastąpić klasyczny panel doszkalaniem V3: korekty 4/24, kohorta z brakami pokrycia, trwały trening, ocena, aktywacja i ponowne rozpoznanie wybranych slotów. Domyślnie uncertain/deferred z pierwszą próbą 100 zdjęć; wszystkie automatyczne wymagają opt-in. Archiwalna 777 zachowuje tylko odczyt klasycznego profilu. | wymaganie użytkownika 2026-10-14; plan proposed, rewizja 2 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-0993–1006 |
+| MODEL-07 | Różne foldery z różnych filmów | Trwałe nagrania, aliasy i niezależne role kontroli, także w linii bazowych/wspólnych modeli. Nazwa folderu nie dowodzi niezależnego filmu. | potrzebne; plan proposed | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-1002/0995 |
 | MODEL-08 | Złota ramka i supergra Mumii | Oddzielić bazowy symbol, flagę złotej ramki i symbol wybrany na serię darmowych gier. Ręczny wybór symbolu serii po ≥3 mumiach jest kierunkiem użytkownika; licznik/retrigger wymagają osobnego dopracowania. | potrzebne, poza dzisiejszym zakresem | osobny plan |
 | MODEL-09 | Osobne Laboratorium w głównej aplikacji | Zakładka dla rodzin modeli i przypisanych gier: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Zgodne gry mogą wspólnie dostarczać zatwierdzenia. Udany trening zapisuje kandydata w głównej bazie. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526, D-527; osobny pion integracji |
-| MODEL-10 | Wybór profilu Mumie / 777 v2 przy tworzeniu gry | Rozwinąć w katalog ocenionych i jawnie opublikowanych modeli. 777 v3 i 777 v4 mogą używać jednej rodziny i tych samych wag, wspólnie rozwijając kolejne wersje. Dane plansz i reguły gier pozostają osobne. | zaakceptowany kierunek; katalog modeli i wspólne uczenie niewdrożone | D-527, TASK-0892; wymagania i architektura uczenia |
+| MODEL-10 | Wybór modelu przy tworzeniu gry | Katalog opublikowanych wersji osobno od formatu strony. Nowa gra może korzystać z zgodnej bazy bez własnych korekt; join rodziny albo świadomy fork, bez kopiowania wag. Kierunek operatora 2026-10-14: sprawdzić wspólną geometrię Mumii/777 z oceną każdej gry. Modele symboli i zasady pozostają osobne. | katalog niewdrożony; wspólna geometria proposed do decyzji rozszerzającej D-527 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-1004/1006 |
 
 ### Laboratorium — zaakceptowany kierunek, jeszcze bez implementacji
+
+Rozdział Mumie/777 opisany poniżej odpowiada dotychczasowej D-527.
+Operator 2026-10-14 wskazał możliwość wspólnego modelu **geometrii** obu gier.
+Rewizja2 planu V3 obejmuje takiego kandydata i bramkę osobno dla każdej gry;
+zmiana D-527 zostanie zapisana po akceptacji planu. To nie jest połączenie
+modeli symboli ani zmiana aktywnych przypisań.
 
 Operator wybiera rodzinę modelu oraz **cięcie siatek** albo **rozpoznawanie
 symboli**. Rodzina może obsługiwać wiele zgodnych gier, np. 777 v3 i 777 v4.

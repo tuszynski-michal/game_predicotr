@@ -1,7 +1,7 @@
 ---
 title: TASK-0957 — Sprzątanie po przeniesieniu i rozliczenie zależności od C
 status: todo
-last_updated: 2026-10-10
+last_updated: 2026-10-14
 ---
 
 # TASK-0957 — Sprzątanie po przeniesieniu i rozliczenie zależności od C
@@ -25,6 +25,18 @@ podgląd → jawna zgoda na tę jedną operację → wykonanie → raport.
 Implementacja podglądu nie jest zgodą na wykonanie.
 
 ## Dependencies / entry conditions
+
+- **Ochrona bazowych modeli V3 (2026-10-14):** nie usuwać
+  `C:\Users\tuszy\Documents\game_predictor_vision_data` ani jego runów,
+  checkpointów, manifestów i potrzebnych źródeł kontrolnych przed
+  zarejestrowaniem zweryfikowanej kopii potrzebnych artefaktów na D w
+  TASK-0994 planu `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`.
+  Checkpoint 777 v2 `2cd19738367121e6…` jest obecnie jedynym zweryfikowanym
+  źródłem pełnego stanu bazowego na C. Usunięcie wymaga wcześniejszego
+  receipt kopii z SHA zgodnym z rejestrem oraz odczytu/treningowego preflightu
+  z nowego procesu używającego wyłącznie D. Samo istnienie plików ONNX na D
+  nie spełnia tego warunku. Dalsze losy całego katalogu pozostają osobną
+  decyzją operatora; plan nie upoważnia do jego usunięcia.
 
 - TASK-0956 `done`, odbiór powtórzony po restarcie Windows, co najmniej
   jeden pełny dzień pracy z D bez incydentu.

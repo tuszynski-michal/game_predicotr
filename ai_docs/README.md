@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 ---
 
 # Dokumentacja AI Driven Development
@@ -88,6 +88,12 @@ domyślnym kontekstem implementacyjnym.
   między planszami); prototyp TASK-0648, status `proposed`.
 
 ### Dostarczanie
+
+- [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
+  — proposed, rewizja 2, TASK-0993–1006: edytor 4/24 punktów, dane i trening,
+  nowe gry z katalogu modeli, kandydat wspólnej geometrii Mumii/777 oraz
+  bezpieczne ponowne rozpoznanie wybranych siatek. Uwzględnia audyt Claude.
+  Zastępuje stary panel klasycznej kalibracji w UI; historyczna 777 pozostaje archiwalna.
 
 - [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
   — wszystkie zadania wykonane i zamknięte, wersja **1.0.0** scalona do lokalnego main;

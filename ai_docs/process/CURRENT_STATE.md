@@ -81,6 +81,39 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
+### Doszkalanie siatek V3 z korekt w aplikacji (proposed, 2026-10-14)
+
+- Plan: `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`,
+  rewizja 2, proponowane TASK-0993–1006 w etapach A–D i faza operatora O.
+  Taski opisano w planie;
+  pliki aktywne powstaną dopiero po jego akceptacji i ponownej kontroli numerów.
+- Zakres: edytor czterech rogów z opcjonalnymi 24 punktami, dane z aktualnych
+  ręcznych korekt także pojedynczej planszy niekompletnego zdjęcia, niezależna
+  ocena, trwały trening V3, wersje/aktywacja/powrót i ponowne rozpoznanie
+  wybranych siatek z ochroną decyzji człowieka i sekwencji. Domyślnie
+  uncertain/deferred oraz próba do 100 zdjęć; szeroki zakres jest opt-in.
+- Audyt Claude pierwszej wersji: REVISE, raport zachowany w quality.
+  P1/P2 uwzględniono w rewizji 2; odpowiedź w
+  `quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md`, bez deklaracji
+  nowego niezależnego PASS. Dane audytu: 777a2 ma 0 ręcznych korekt i 0 complete
+  zdjęć; Mumie 44 korekty i 4 complete. Pierwszy run zależy od fazy etykiet.
+- TASK-0994 zabezpiecza bazowe checkpointy z C na D; TASK-0957 ma warunek
+  ochrony źródła przed sprzątaniem. Trener produkcyjny czyta ścieżki z registry.
+- Kierunek operatora: nowa gra wybiera opublikowaną zgodną wersję; wspólna
+  geometria Mumii/777 jest kandydatem TASK-1006 z bramką osobno dla każdej gry.
+  Rozdział rodzin geometrii D-527 wymaga nowej decyzji przy akceptacji planu;
+  nie łączymy modeli symboli ani nie przełączamy istniejących gier teraz.
+- Polecenie operatora: usunięcie globalnego bloku „Ulepszanie geometrii /
+  Cięcie siatki” obejmuje planowaną zmianę UI. Nie usuwać historycznych danych
+  ani klasycznych profili. Doprecyzowanie operatora: sekcja w każdej grze,
+  historyczna `777` (kod `7`) pozostaje archiwalna, bez przejścia na V3.
+- To nie jest zgoda na implementację, koszt wielodniowej pracy, trening,
+  migrację, aktywację lub masową inferencję. Nowa policy feedback TRAIN wymaga
+  decyzji rozszerzającej D-480 przy akceptacji. Operator wybrał: Codex wykonuje,
+  Claude Code audytuje (`claude-fable-5-1`, medium/high zgodnie z tabelą).
+  Istniejąca sesja Claude może audytować bez instalacji CLI w środowisku Codex.
+- TASK-0991 oraz jego operacyjny przebieg symboli pozostają niezależne.
+
 ### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
 - `delivery/DISK_D_MIGRATION_PLAN_20261009.md`, TASK-0952–0955 `done`,

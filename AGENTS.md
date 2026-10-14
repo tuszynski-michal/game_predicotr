@@ -197,10 +197,20 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
 
 - Domyślną gałęzią integracyjną repozytorium jest
   `v1.1-vision-lab-hybrid-geometry`, chyba że użytkownik jawnie wskaże inną.
-- Po zakończeniu pracy, wymaganej weryfikacji i audycie oraz osobnym commicie
-  taska scal zmianę lokalnie do gałęzi integracyjnej. Jest to domyślny etap
-  ukończenia zadania i nie wymaga ponownej zgody użytkownika. Gdy pracujesz
-  bezpośrednio na gałęzi integracyjnej, wystarcza commit na tej gałęzi.
+- Najpierw wykonaj cały zlecony zakres: pojedyncze zadanie, wskazany etap albo
+  cały plan, wraz z wymaganą weryfikacją, audytami, dokumentacją i osobnymi
+  commitami tasków. Dopiero po jego zakończeniu przedstaw konkretny wynik
+  i zapytaj użytkownika o akceptację wykonanej pracy oraz zgodę na scalenie
+  do gałęzi integracyjnej.
+- Gdy użytkownik zlecił cały plan lub etap, nie przerywaj go pytaniami
+  o scalenie po każdym wewnętrznym tasku. Jedno końcowe pytanie dotyczy całego
+  zleconego zakresu. Niezależne blokery i zgody na koszt lub operacje danych
+  nadal zgłaszaj zgodnie z pozostałymi regułami.
+- Scalaj dopiero po wyraźnej akceptacji wyniku i potwierdzeniu scalenia przez
+  użytkownika. Akceptacja planu lub polecenie rozpoczęcia implementacji nie
+  zastępują tej końcowej zgody. Brak odpowiedzi nie oznacza zgody.
+  Nowe prace wykonuj na gałęzi roboczej, aby nie omijać akceptacji commitem
+  bezpośrednio na gałęzi integracyjnej.
 - Przed scaleniem sprawdź historię, zakres commitów i stan obu worktree.
   Preferuj fast-forward, gdy zachowuje pełną historię. Nie nadpisuj ani nie
   dołączaj do commita cudzych niezacommitowanych zmian; kolidującą pracę
@@ -212,8 +222,9 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
   API. Nie wykonuj automatycznego push, restartu usług ani wdrożenia.
 - Po scaleniu potwierdź, że gałąź integracyjna zawiera commit taska, sprawdź
   pozostały stan worktree i zapisz wynik oraz pełny hash w `Outcome` i
-  `CURRENT_STATE.md`. Raport końcowy podaje nazwę gałęzi i wynik scalenia;
-  niezintegrowanej zmiany nie przedstawiaj jako w pełni przekazanej.
+  `CURRENT_STATE.md`. Raport końcowy rozróżnia wynik gotowy do akceptacji od
+  wyniku już scalonego i podaje nazwę gałęzi. Oczekującego scalenia nie
+  przedstawiaj jako wykonanego.
 
 ### Przed kodowaniem
 

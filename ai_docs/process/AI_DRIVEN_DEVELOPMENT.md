@@ -68,6 +68,10 @@ Zaktualizuj:
 ### 7. Handoff
 
 Raport końcowy ma umożliwić nowej sesji rozpoczęcie bez odtwarzania historii czatu.
+Po ukończeniu całego zleconego zadania, etapu albo planu przedstaw wynik
+i zapytaj o jego akceptację oraz scalenie, zgodnie z sekcją „Scalanie do
+gałęzi integracyjnej” w `AGENTS.md`. Przy zleceniu całego planu lub etapu
+nie zadawaj tego pytania po każdym wewnętrznym tasku.
 
 ## Praca z niejasnościami
 

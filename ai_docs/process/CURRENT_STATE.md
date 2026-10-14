@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Integracja po tasku (2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`; ukończoną i zacommitowaną pracę scala się lokalnie bez dodatkowej zgody, po wymaganych kontrolach i z zachowaniem cudzych zmian. Push, restart usług i wymagane migracje nadal mają osobne bramki. Reguła w `AGENTS.md`, TASK-0992.
+- **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; korekta oczekuje na końcowe potwierdzenie scalenia.
 
 - **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
@@ -852,7 +852,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 ### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
 
 - Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
-- `AGENTS.md` wymaga lokalnego scalenia ukończonej pracy do `v1.1-vision-lab-hybrid-geometry` po weryfikacji, wymaganym audycie i commicie. Zachowuje bramki migracji, operacji danych, restartów i push; usunięto sprzeczny ogólny zakaz merge.
+- Pierwotna reguła z v1.7.353 wymagała automatycznej integracji. Późniejsza korekta operatora wymaga pytania o akceptację i scalenie dopiero po ukończeniu całego zleconego taska, etapu albo planu; bez pytań po każdym wewnętrznym tasku. Scalanie następuje po wyraźnej zgodzie. Korekta jest przygotowana lokalnie, do końcowej akceptacji; wcześniejsze autoryzowane scalenie pozostaje w historii.
 - Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
 - Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.
 

@@ -12,7 +12,7 @@ last_updated: 2026-10-14
 
 ## Goal
 
-Make the committed symbol reinference repair available on `v1.1-vision-lab-hybrid-geometry` and require local integration after future completed tasks.
+Make the committed symbol reinference repair available on `v1.1-vision-lab-hybrid-geometry` and define final operator acceptance before future integration.
 
 ## Context
 
@@ -30,15 +30,15 @@ The operator explicitly requested integration of v1.7.351/v1.7.352 and an `AGENT
 
 ## Scope
 
-- Add the default integration branch and the post-verification/commit local merge rule to `AGENTS.md`; remove the contradictory blanket ban on automatic merge.
+- Add the default integration branch and the post-verification/commit local merge rule to `AGENTS.md`. The operator's subsequent correction requires a final result acceptance and merge confirmation after the entire commissioned task, stage or plan, rather than automatic integration.
 - Preserve all existing migration, data-operation, review and service lifecycle gates; no push or service restart.
 - Record this task and integrate the repair plus this policy with a fast-forward in the existing integration worktree.
 - Snapshot unrelated dirty files and temporarily protect only colliding `CURRENT_STATE.md` changes if necessary. Restore that work without committing it.
 
 ## Acceptance criteria
 
-- [x] The integration branch contains repair commit `6e84a1b1d4a9546e1ff9545b039512f6691ec15d` and the new policy commit.
-- [x] `AGENTS.md` names the branch, requires local integration and no longer contradicts itself about automatic merge.
+- [x] The integration branch contains repair commit `6e84a1b1d4a9546e1ff9545b039512f6691ec15d` and the initial policy commit. Integration of the amended approval policy awaits the operator's final confirmation.
+- [x] `AGENTS.md` names the branch and requires final approval after the whole commissioned scope, without per-task merge questions inside a commissioned plan or stage.
 - [x] All unrelated modified/untracked files remain preserved; unrelated work is not staged or committed.
 - [x] Documentation and whitespace checks pass; previous 43 passing code tests are reused because code is unchanged.
 - [x] Full commit and integration evidence is recorded. TASK-0991 remains in progress until its separately supervised operational run finishes.
@@ -46,6 +46,7 @@ The operator explicitly requested integration of v1.7.351/v1.7.352 and an `AGENT
 ## Expected files
 
 - `AGENTS.md`
+- `ai_docs/process/AI_DRIVEN_DEVELOPMENT.md` (final handoff wording).
 - This task, moved to `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md` on completion.
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/archive/CURRENT_STATE_2026Q4.md` (oldest done section, unchanged).
@@ -59,7 +60,7 @@ Use bounded Git commands (15–30 seconds), documentation checks (30 seconds eac
 
 ### Changed
 
-Policy commit: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**. `AGENTS.md` now requires local integration into `v1.1-vision-lab-hybrid-geometry` after required verification, review and the task commit. It preserves migration, data, service and push gates and removes the contradictory blanket merge ban.
+Initial policy commit: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**. This initially required automatic local integration after checks and commit. The later operator correction below supersedes that automatic-merge rule. Migration, data, service and push gates remain in place.
 
 The integration worktree fast-forwarded from v1.7.350 / `6fa5577802738f3614fc21e4abc2873990f8536d` to this policy commit, also incorporating the two symbol-repair commits. No migration-dependent changes from the unrelated multi-game feature were committed or merged from its dirty working tree.
 
@@ -74,3 +75,11 @@ The integration worktree fast-forwarded from v1.7.350 / `6fa5577802738f3614fc21e
 ### Not completed
 
 No push, migrations, data writes or service lifecycle changes. No new model audit or broad tests for this documentation-only change. The independent symbol-inference operation remains active under TASK-0991 and its existing heartbeat; this policy task does not declare that run complete.
+
+### Operator correction: final acceptance before integration
+
+The operator subsequently requested a final question after the complete commissioned task or plan. The amended policy requires all implementation, required tests/review, documentation and per-task commits first, followed by one result-acceptance and merge-confirmation question. A commissioned multi-task plan/stage continues without a merge question after each internal task. Plan acceptance and implementation authorization are not final result approval. New work stays on a working branch so direct integration-branch commits cannot bypass this gate.
+
+This correction is prepared locally and checked as documentation only. It is not merged to the integration branch until the operator accepts the concrete result and confirms that merge. The earlier authorized integration remains unchanged.
+
+Correction verification: decision-link and rolling-window documentation checks passed; whitespace checked for the changed scope. No application code or behavior changed, so no code tests or new model audit were run. Concurrent V3 plan changes remain excluded from staging, including their separate CURRENT_STATE hunk.

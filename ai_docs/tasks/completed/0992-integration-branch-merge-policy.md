@@ -37,7 +37,7 @@ The operator explicitly requested integration of v1.7.351/v1.7.352 and an `AGENT
 
 ## Acceptance criteria
 
-- [x] The integration branch contains repair commit `6e84a1b1d4a9546e1ff9545b039512f6691ec15d` and the initial policy commit. Integration of the amended approval policy awaits the operator's final confirmation.
+- [x] The integration branch contains repair commit `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`, the initial policy and the amended approval policy. The operator explicitly accepted the amendment and authorized its merge on 2026-10-14.
 - [x] `AGENTS.md` names the branch and requires final approval after the whole commissioned scope, without per-task merge questions inside a commissioned plan or stage.
 - [x] All unrelated modified/untracked files remain preserved; unrelated work is not staged or committed.
 - [x] Documentation and whitespace checks pass; previous 43 passing code tests are reused because code is unchanged.
@@ -80,8 +80,12 @@ No push, migrations, data writes or service lifecycle changes. No new model audi
 
 The operator subsequently requested a final question after the complete commissioned task or plan. The amended policy requires all implementation, required tests/review, documentation and per-task commits first, followed by one result-acceptance and merge-confirmation question. A commissioned multi-task plan/stage continues without a merge question after each internal task. Plan acceptance and implementation authorization are not final result approval. New work stays on a working branch so direct integration-branch commits cannot bypass this gate.
 
-This correction is prepared locally and checked as documentation only. It is not merged to the integration branch until the operator accepts the concrete result and confirms that merge. The earlier authorized integration remains unchanged.
+The correction was prepared locally and checked as documentation only, then held for final acceptance. After the operator explicitly accepted the concrete result and requested the merge, it was integrated as recorded below. The earlier authorized integration remains unchanged.
 
 Correction verification: decision-link and rolling-window documentation checks passed; whitespace checked for the changed scope. No application code or behavior changed, so no code tests or new model audit were run. Concurrent V3 plan changes remain excluded from staging, including their separate CURRENT_STATE hunk.
 
-Approval-policy correction commit: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, committed on main. The integration branch remains at v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` pending the operator's final acceptance and explicit merge confirmation. The documentation record follows in a separate commit; neither is automatically integrated.
+Approval-policy correction commit: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, committed on main. At that point the integration branch remained at v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` while awaiting acceptance. The documentation record followed in v1.7.356; neither was integrated before confirmation.
+
+### Accepted correction integration
+
+The operator explicitly stated: “Tak, akceptuję nową regułę. Scal ją do v1.1-vision-lab-hybrid-geometry.” The integration branch then fast-forwarded to **v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`**, containing the approval-policy correction and its documentation record. All 52 other dirty/untracked files retained their hashes, all foreign CURRENT_STATE additions remained present, and foreign staging stayed empty. Protective snapshots and the state-only stash are under `artifacts/integration-20261014/acceptance/`. No push or service lifecycle action. This integration acknowledgement is committed separately and included under the same explicit merge authorization.

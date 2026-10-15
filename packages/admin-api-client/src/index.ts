@@ -1,4 +1,16 @@
 import {
+  listGridModelVersions as listGeneratedGridModelVersions,
+  registerGridModelVersion as registerGeneratedGridModelVersion,
+  getGameGridModelAssignment as getGeneratedGameGridModelAssignment,
+} from './generated/sdk.gen';
+import type { GridModelRegisterRequest } from './generated/types.gen';
+export type {
+  GridModelManifest,
+  GridModelRegisterRequest,
+  GridModelVersionResponse,
+  GameGridModelAssignmentResponse,
+} from './generated/types.gen';
+import {
   createHistoricalGridAcceptance as createGeneratedHistoricalGridAcceptance,
   previewHistoricalGridAcceptanceNext as previewGeneratedHistoricalGridAcceptanceNext,
   confirmHistoricalGridAcceptance as confirmGeneratedHistoricalGridAcceptance,
@@ -3826,6 +3838,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     updateGame: (gameId: string, body: GameUpdate) =>
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
     listGridEngineProfiles: () => listGeneratedGridEngineProfiles({ client }),
+    listGridModelVersions: () => listGeneratedGridModelVersions({ client }),
+    registerGridModelVersion: (body: GridModelRegisterRequest) =>
+      registerGeneratedGridModelVersion({ body, client }),
+    getGameGridModelAssignment: (gameId: string) =>
+      getGeneratedGameGridModelAssignment({
+        client,
+        path: { game_id: gameId },
+      }),
     listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
     // TASK-0933: published super game series of a game (D-535).
     listSuperGameSeries: (

@@ -617,13 +617,13 @@ function GameEditor({
             }
             value={draft.shapeGeometryConfiguration}
           >
-            {Object.entries(SHAPE_GEOMETRY_CONFIGURATION_LABELS).map(
-              ([value, label]) => (
+            {Object.entries(SHAPE_GEOMETRY_CONFIGURATION_LABELS)
+              .filter(([configuration]) => configuration !== 'neural_grid_v3')
+              .map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
-              ),
-            )}
+              ))}
           </select>
           <small>
             Wybór określa wspólny format strony. Pierwszy import nadal wymaga

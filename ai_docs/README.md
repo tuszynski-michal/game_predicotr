@@ -90,7 +90,7 @@ domyślnym kontekstem implementacyjnym.
 ### Dostarczanie
 
 - [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
-  — accepted, rewizja 6, TASK-0993–1015 (bez TASK-1007) oraz TASK-1017 (23 taski), cały plan i orientacyjny koszt 12–28 dni roboczych zlecone 2026-10-14. Bootstrap TASK-1015 done; audyt PASS i P2 rozliczone, commit v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; TASK-1010 done po jednej rundzie poprawek; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. Liczniki, akceptacja, edytor, wersje, nowe gry, ponowne rozpoznanie aktualną bazą bez treningu oraz doszkalanie mają odrębne piony. Historyczna 777 pozostaje archiwalna, symbole per gra. Wznowienie i bramki operacyjne: CURRENT_STATE i sekcja 3 planu; D-550/D-552 accepted; D-548/D-549/D-551 pozostają proposed.
+  — accepted, rewizja 6, TASK-0993–1015 (bez TASK-1007) oraz TASK-1017 (23 taski), cały plan i orientacyjny koszt 12–28 dni roboczych zlecone 2026-10-14. Bootstrap TASK-1015 done; audyt PASS i P2 rozliczone, commit v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; TASK-1010 done po jednej rundzie poprawek; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (audyt timeout, bez PASS). Liczniki, akceptacja, edytor, wersje, nowe gry, ponowne rozpoznanie aktualną bazą bez treningu oraz doszkalanie mają odrębne piony. Historyczna 777 pozostaje archiwalna, symbole per gra. Wznowienie i bramki operacyjne: CURRENT_STATE i sekcja 3 planu; D-549/D-550/D-552 accepted; D-548/D-551 pozostają proposed.
 
 - [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
   — wszystkie zadania wykonane i zamknięte, wersja **1.0.0** scalona do lokalnego main;

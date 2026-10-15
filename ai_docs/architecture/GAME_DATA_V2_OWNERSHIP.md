@@ -312,3 +312,15 @@ zapis domyślnej polityki geometrii do partycji gry przełączają location na
 Brak location dla istniejącej gry jest dryfem i blokuje data-plane. Nie wolno
 już tworzyć produkcyjnego registry `public` ani kierować nowej gry do legacy.
 Puste historyczne tabele i migracje pozostają do osobnego planu ich usunięcia.
+
+## Public catalogue version9 — TASK-0994
+
+Frozen `game_data_v2_manifest_v9.py` inherits the exact game-table and partition
+lists from v8. It adds four shared geometry catalogue tables and two public
+catalogue assignment tables. Migration0156 changes control registry version
+and revision, and does not create, alter, copy or drop game partitions.
+Assignments contain no game-owned image/sequence/symbol data. Their explicit
+`game_id` predicates and public schema qualification remain mandatory even
+with the NOBYPASSRLS application role. Existing legal game deletion cascades
+only its assignment/events; shared immutable model history survives. Details:
+[DATA_MODEL](DATA_MODEL.md#trwały-rejestr-geometrii-v3--task-0994).

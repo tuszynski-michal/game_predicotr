@@ -1670,3 +1670,19 @@ Nie uruchamiać go z nową ścieżką raportu jako sposobu na obejście review.
 Nie wykonywać historycznego `run_v20_layout_import.py` z polityką `verified_v19`.
 
 Pełny odbiór i checksumy: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.
+
+## Rejestr modeli geometrii V3 — TASK-0994
+
+Kod TASK-0994 wymaga Alembic `0156_grid_model_registry` i ownership manifestv9.
+Migracja jest addytywna: zachowuje formaty gier i game-owned partycje/dane,
+rejestruje dwie bazy historyczne oraz dotychczasowe przypisania V3. Historyczna
+777 (code7) pozostaje unassigned. Migracja nie uruchamia modelu, treningu ani
+nowej aktywacji/default. Brak plików daje niedostępność, nigdy inną wersję.
+
+Migrację operatora wykonuje operator osobno, w istniejącej kolejności
+stop usług → zatwierdzona integracja → `npm run db:migrate` → start usług.
+Testowe zastosowanie migracji w disposable DB nie jest migracją operatora.
+`db:migrate` zachowuje istniejące provisionowanie roli aplikacyjnej; nowe
+immutable guards kontrolują jej zapisy. Nie ma bezstratnego downgrade0156.
+Rejestracja API wymaga zgodnego inference manifestu oraz training-base receipt
+z plikami i pinned SHA/size. Katalog GET/POST nie ładuje Torch/ONNX ani GPU.

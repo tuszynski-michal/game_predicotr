@@ -42,6 +42,7 @@ class GameShapeGeometryConfiguration(StrEnum):
     REQUIRES_CLARIFICATION = "requires_clarification"
     GRID_PROFILE_777_V2 = "grid_profile_777_v2"
     GRID_PROFILE_MUMIE_V1 = "grid_profile_mumie_v1"
+    NEURAL_GRID_V3 = "neural_grid_v3"
 
 
 # Values that declare the framed full-page format for the shared geometry

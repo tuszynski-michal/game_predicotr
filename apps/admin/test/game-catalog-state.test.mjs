@@ -24,6 +24,7 @@ test('page format offers the old values unchanged and both grid engine profiles'
     requires_clarification: 'Format wymaga doprecyzowania',
     grid_profile_777_v2: '777 v2',
     grid_profile_mumie_v1: 'Mumie',
+    neural_grid_v3: 'Geometria V3',
   });
   assert.equal(isGridEngineProfileConfiguration('grid_profile_777_v2'), true);
   assert.equal(isGridEngineProfileConfiguration('grid_profile_mumie_v1'), true);
@@ -33,6 +34,11 @@ test('page format offers the old values unchanged and both grid engine profiles'
     false,
   );
   assert.equal(isGridEngineProfileConfiguration(null), false);
+  assert.equal(isGridEngineProfileConfiguration('neural_grid_v3'), false);
+  assert.equal(
+    shapeGeometryConfigurationLabel('neural_grid_v3'),
+    'Geometria V3',
+  );
   assert.equal(
     shapeGeometryConfigurationLabel('grid_profile_777_v2'),
     '777 v2',

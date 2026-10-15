@@ -24,6 +24,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/grid_audit_proposals.py: create_grid_audit_proposals_router
 - api/grid_calibration.py: create_grid_calibration_router
 - api/grid_engine_profiles.py: create_grid_engine_profiles_router
+- api/grid_model_registry.py: create_grid_model_registry_router
 - api/grid_shadow.py: create_grid_shadow_router
 - api/health.py: create_health_router
 - api/image_grid_reviews.py: create_image_grid_reviews_router
@@ -80,6 +81,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_diagnostics.py: class GridDiagnostics, missing_reason_diagnostics
 - application/grid_engine_acceptance.py: class HistoricalAcceptanceItem, class HistoricalAcceptanceReport, class HistoricalAcceptanceRepository, class HistoricalAcceptanceService
 - application/grid_engine_profiles.py: class GridEngineModelInspector, class GridEngineProfileView, class GridEngineProfileService
+- application/grid_model_registry.py: class GridModelRecord, class GridModelReceipt, class GridModelAssignment, class GridModelRegistryRepository, class GridModelInspector, class GridModelRegistryService
 - application/grid_shadow.py: class GridShadowModelStore, class GridShadowRepository, class GridShadowService
 - application/image_geometry_rollout.py: class ImageGeometryRolloutStatus, class ImageGeometryRolloutStart, class ImageGeometryRolloutRepository, class ImageGeometryRolloutService
 - application/image_grid_reviews.py: class ImageGridReviewListSlice, class ImageGridReviewRepository, class ImageGridReviewService
@@ -165,6 +167,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_audit_proposals.py: class GridAuditProposalError, class GridAuditImportStatus, class GridAuditQueueStatus, class GridAuditPoint, class GridAuditProposalGrid, class GridAuditProposalItem, class GridAuditProposalArtifact, class GridAuditBoardState, derive_grid_audit_queue_status, proposal_grid_from_nodes, parse_grid_audit_proposal_document, grid_audit_proposal_item_document
 - domain/grid_calibration.py: class GridProfileStatus, class GridProfileActivationAction, class VerifiedGeometrySample, class GeometryCohort, class GridCalibrationProfile, class GridProfileActivation, class GridProfileActivationPreview, class GeometryCohortDiagnostics, build_geometry_manifest, train_grid_profile, profile_checksum, grid_profile_end_to_end_gate_is_current, activation_command_sha256
 - domain/grid_engine_profiles.py: class GridEngineModelStatus, class GridEngineModelError, class GridEngineModelFile, class GridEngineReportResult, class GridEngineModelVersion, class GridEngineProfile, class GridEngineModelFileState, class GridEngineModelState, grid_engine_profile_for, neural_import_profile, grid_engine_manifest
+- domain/grid_model_registry.py: class GridModelRegistryError, canonical_json, descriptor_sha256, catalogue_id, validate_manifest, historical_catalogue
 - domain/grid_shadow.py: class GridShadowError, shadow_digest, request_fingerprint, validate_shadow_output, class GridShadowResult, class GridShadowResultView, class GridShadowResultPage
 - domain/image_geometry_completeness.py: class GeometryPositionState, class GeometryImageState, class GeometryPositionFacts, class GeometryPositionClassification, classify_position, classify_image, expected_sequence_number, class SourceImageGeometryStatus, persisted_status_for, recomputed_status, is_admitted_status, geometry_gate_withholds_board, require_geometry_exception_reason, extract_position_quad, class GeometryImageCursor, encode_geometry_image_cursor, decode_geometry_image_cursor, class LowQualityThresholds
 - domain/image_geometry_cutover.py: class GeometryCutoverEvidence, class GeometryCutoverAssessment, assess_geometry_cutover
@@ -231,6 +234,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
+- schemas/grid_model_registry.py: class GridModelTopology, class GridModelArtifact, class GridModelProvenance, class GridModelHistoricalReport, class GridInferenceManifest, class GridModelManifest, class GridModelRegisterRequest, class GridModelVersionResponse, class GameGridModelAssignmentResponse
 - schemas/grid_shadow.py: class GridShadowJobCreate, class GridShadowPointResponse, class GridShadowSlotResponse, class GridShadowUnassignedDetectionResponse, class GridShadowOutputResponse, class GridShadowResultSummaryResponse, class GridShadowResultResponse, class GridShadowResultPageResponse, class GridShadowJobPayloadResponse, to_grid_shadow_summary, to_grid_shadow_result, to_grid_shadow_page
 - schemas/health.py: class HealthResponse
 - schemas/image_geometry_completeness.py: class GeometryCompletenessPointResponse, class GeometryCompletenessImageCountsResponse, class GeometryCompletenessPositionCountResponse, class GeometryCompletenessSourceStatusCountResponse, class GeometryGateCountsResponse, class ImportSequenceOwnershipResponse, class ImageGeometryCompletenessResponse, class GeometryCompletenessPositionResponse, class IncompleteGeometryImageResponse, class IncompleteGeometryImagePageResponse, class SourceImageGeometryExceptionCommand, class SourceImageGeometryExceptionResponse, class GeometryLowQualityBoardResponse, class ImageGeometryLowQualityBoardsResponse, to_geometry_completeness_response, to_incomplete_geometry_image_page_response, to_source_image_geometry_exception_response, to_geometry_low_quality_boards_response
@@ -293,6 +297,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v6.py: ownership
 - storage/game_data_v2_manifest_v7.py: ownership
 - storage/game_data_v2_manifest_v8.py: ownership
+- storage/game_data_v2_manifest_v9.py: ownership
 - storage/game_deletion_archive.py: verify_database_archive
 - storage/game_deletion_policy_v1.py: class DeletionError, quote, digest, owner_chain, policy_digest, owner_sql, class ForeignKey, deletion_order
 - storage/game_deletion_repository.py: class Table, class Schema, catalog_digest, transaction_limits, load_schema, validate_identity, select_owned_batch, class GameDeletionRepository
@@ -311,6 +316,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
 - storage/grid_engine_model_store.py: training_base_files, training_base_identity, receipt_bytes, require_training_directory, file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
+- storage/grid_model_registry.py: class GridModelArtifactInspector, class SqlAlchemyGridModelRegistryRepository
+- storage/grid_model_registry_models.py: class GridModelFamilyModel, class GridModelVersionModel, class GridModelRegistrationReceiptModel, class GridModelVersionEventModel, class GameGridModelAssignmentModel, class GameGridModelAssignmentEventModel
 - storage/grid_profile_snapshot_resolver.py: class SqlAlchemyGridProfileSnapshotResolver
 - storage/grid_shadow.py: class SqlAlchemyGridShadowRepository
 - storage/historical_grid_evidence.py: class HistoricalEvidenceUnavailable, original_neural_evidence

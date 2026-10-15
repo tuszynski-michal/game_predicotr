@@ -108,13 +108,13 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Execution phase
 
-- Faza: gotowe do commita; base HEAD v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`.
+- Faza: oczekiwanie na końcową akceptację i integrację całego planu; base HEAD v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`.
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14).
 - Worktree: `D:/game_predicotr/worktrees/v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: przygotowany v1.7.372; sprawdzono wszystkie lokalne referencje i HEAD-y worktree, bez kolizji. Receipt w `artifacts/audits/TASK-1014_COMMIT_ALLOCATION.json`. Pełny hash dopisać po utworzeniu, bez amend.
+- Commit: v1.7.372 / `b11cdb19d81711fa801157c8effb3fc78863e46c`;17 plików, bez scalenia. Numer sprawdzono na lokalnych referencjach i HEAD-ach worktree, bez kolizji. Pełny hash dopisano po utworzeniu; zapis wejdzie z następnym taskiem, bez amend.
 - Audit: `claude-fable-5-1`, reasoning `medium`, [raport](../../quality/TASK-1014_AUDIT_claude-fable-5-1.md): PASS, brak P0/P1; przegląd statyczny, bez uruchamiania kontroli i bez niezależnej weryfikacji realcopy receipts. Jedna runda audytu i jedna runda korekt P2. Raport zachowano bez zmian.
-- Następny krok: lead tworzy osobny commit po sprawdzeniu staged zakresu; potem TASK-0994. Końcowa integracja całego planu wymaga akceptacji operatora.
+- Następny krok: TASK-0994. Końcowa integracja całego planu wymaga akceptacji operatora.
 
 ### Changed
 

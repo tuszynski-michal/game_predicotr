@@ -6,6 +6,35 @@ last_updated: 2026-10-11
 
 # Kontrakty API i danych mobilnych
 
+## Trwały rejestr modeli geometrii V3 — TASK-0994
+
+- `GET /api/v1/admin/grid-model-versions` (`listGridModelVersions`) zwraca
+  immutable katalog wersji z family, topology/capabilities, base/provenance,
+  inference/training manifests i SHA, `available`, `reasonCode`, `published=false`.
+- `POST /api/v1/admin/grid-model-versions` (`registerGridModelVersion`) przyjmuje
+  UUID `idempotencyKey` oraz zamknięty typed `GridModelManifest`. Zgodna nowa
+  rodzina i niezmienna wersja są dozwolone. BaseVersionId jest obowiązkowe dla
+  not_evaluated; historical_baseline dotyczy tylko dwóch frozen baz.
+  Polecenie atomowo zapisuje family/version/event/receipt. Ten sam key/command
+  odzyskuje wynik po utracie odpowiedzi; zmieniony payload/key lub immutable
+  version identity daje409. Missing/mismatch plików lub manifestu/receipt
+  blokuje zapis i retry409; wszystkie pliki wymagają pinned SHA oraz size.
+- `GET /api/v1/admin/games/{gameId}/grid-model-assignment`
+  (`getGameGridModelAssignment`) zwraca wyłącznie assignment tej gry:
+  `gameId`, nullable `revision`, nullable `version`, `eventCount`. Brak gry404;
+  obca gra sesji409 GRID_MODEL_GAME_SCOPE_CONFLICT. Globalny GET nie zwraca
+  game assignments. Catalogue public schema jest odrębny od game data plane.
+
+Manifest pinuje kontrakty neural-grid-v1/bundle-v1, preprocessing-v1 i
+ decoding-v1, inferenceManifest oraz trainingArtifacts. InferenceManifest jest
+zamknięty i zachowuje pełny dotychczasowy manifest obu profili. Katalog nie
+zapisuje publikacji/default/aktywacji ani nowego PASS; te operacje należą do
+TASK-0998. Read availability jest liczona z aktualnych plików i nie oznacza
+wyniku bramki. Istniejący statyczny GET grid-engine-profiles pozostaje bez DB.
+Enum/CHECK games addytywnie dopuszcza neural_grid_v3. Do TASK-1012 neutralny
+format daje kontrolowany GRID_MODEL_DYNAMIC_ROUTING_REQUIRED zamiast
+klasycznego importu. Stare snapshoty i profile zachowują kontrakt.
+
 ## Shadow siatek V3 — TASK-0805
 
 Addytywny zasób Admina dla odrębnych wyników inferencji na zmaterializowanych

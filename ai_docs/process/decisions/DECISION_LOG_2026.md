@@ -54,10 +54,10 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 ## D-549 — Wspólna geometria V3 i domyślna wersja
 
 - **Date:** 2026-10-14.
-- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Status:** accepted; udokumentowane przyjęcie 2026-10-15 przed TASK-0994 na podstawie polecenia implementacji rewizji 6 oraz wcześniejszych wyborów operatora. Nie upoważnia do aktywacji modeli ani migracji bazy operatora.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
-- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Decision:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
+- **Consequences:** dopuszcza implementację rejestru, przypisań i wspólnej geometrii w zleconym zakresie. Historyczna 777 pozostaje archiwalna. Publikacja, aktywacja, default, rzeczywisty trening, migracja operatora i integracja zachowują osobne bramki. Brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.
 
 ## D-548 — Doszkalanie geometrii z ręcznych korekt V3

@@ -326,4 +326,5 @@ def test_openapi_exposes_the_read_only_profile_operation() -> None:
         "requires_clarification",
         "grid_profile_777_v2",
         "grid_profile_mumie_v1",
+        "neural_grid_v3",
     ]

@@ -4496,3 +4496,35 @@ test('generated client rejects a deferred slot and a board with their reasons', 
   assert.equal(resolutionBody.action, 'rejected');
   assert.equal(resolutionBody.rejectionReason, 'cropped');
 });
+
+test('grid catalogue wrapper keeps command and game scope in generated requests', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(JSON.stringify({}), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+  const command = {
+    idempotencyKey: '00000000-0000-0000-0000-000000000001',
+    manifest: { version: 'v2', familyCode: 'third_geometry' },
+  };
+  await client.registerGridModelVersion(command);
+  await client.listGridModelVersions();
+  await client.getGameGridModelAssignment('own-game-id');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(await requests[0].json(), command);
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/grid-model-versions',
+  );
+  assert.equal(requests[1].method, 'GET');
+  assert.equal(
+    requests[2].url,
+    'http://127.0.0.1:8000/api/v1/admin/games/own-game-id/grid-model-assignment',
+  );
+});

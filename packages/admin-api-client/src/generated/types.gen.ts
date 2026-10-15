@@ -4002,6 +4002,25 @@ export type GameCreate = {
 };
 
 /**
+ * GameGridModelAssignmentResponse
+ */
+export type GameGridModelAssignmentResponse = {
+  /**
+   * Eventcount
+   */
+  eventCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Revision
+   */
+  revision: number | null;
+  version: GridModelVersionResponse | null;
+};
+
+/**
  * GameResponse
  */
 export type GameResponse = {
@@ -4072,7 +4091,8 @@ export type GameShapeGeometryConfiguration =
   | 'framed_full_page_v2'
   | 'requires_clarification'
   | 'grid_profile_777_v2'
-  | 'grid_profile_mumie_v1';
+  | 'grid_profile_mumie_v1'
+  | 'neural_grid_v3';
 
 /**
  * GameStatus
@@ -5358,6 +5378,302 @@ export type GridEngineReportResultResponse = {
    * Result
    */
   result: string;
+};
+
+/**
+ * GridInferenceManifest
+ */
+export type GridInferenceManifest = {
+  /**
+   * Bundleformat
+   */
+  bundleFormat: string;
+  /**
+   * Checkpointsha256
+   */
+  checkpointSha256: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Files
+   */
+  files: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Frozenon
+   */
+  frozenOn: string;
+  /**
+   * Modelkind
+   */
+  modelKind: 'neural_grid';
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preset
+   */
+  preset: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Profile
+   */
+  profile: string;
+  /**
+   * Report
+   */
+  report: string;
+  /**
+   * Reportresults
+   */
+  reportResults: Array<GridModelHistoricalReport>;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-engine-model-manifest-v1';
+  /**
+   * Selectionreason
+   */
+  selectionReason: string;
+  /**
+   * Snapshotid
+   */
+  snapshotId: string;
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridModelArtifact
+ */
+export type GridModelArtifact = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+};
+
+/**
+ * GridModelHistoricalReport
+ */
+export type GridModelHistoricalReport = {
+  /**
+   * Dataset
+   */
+  dataset: string;
+  /**
+   * Result
+   */
+  result: string;
+};
+
+/**
+ * GridModelManifest
+ */
+export type GridModelManifest = {
+  /**
+   * Admission
+   */
+  admission: 'historical_baseline' | 'not_evaluated';
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string | null;
+  /**
+   * Bundleformat
+   */
+  bundleFormat: string;
+  /**
+   * Capabilities
+   */
+  capabilities: Array<'screen_detector' | 'grid_detector'>;
+  /**
+   * Cohortid
+   */
+  cohortId: string | null;
+  /**
+   * Decodingpolicyversion
+   */
+  decodingPolicyVersion: string;
+  /**
+   * Familycode
+   */
+  familyCode: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Familylabel
+   */
+  familyLabel: string;
+  /**
+   * Files
+   */
+  files: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Historicalreports
+   */
+  historicalReports: Array<GridModelHistoricalReport>;
+  inferenceManifest: GridInferenceManifest;
+  /**
+   * Manageddirectory
+   */
+  managedDirectory: string;
+  /**
+   * Modelkind
+   */
+  modelKind: 'neural_grid';
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preprocessingversion
+   */
+  preprocessingVersion: string;
+  provenance: GridModelProvenance;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-catalogue-v1';
+  topology: GridModelTopology;
+  /**
+   * Trainingartifacts
+   */
+  trainingArtifacts: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelProvenance
+ */
+export type GridModelProvenance = {
+  /**
+   * Checkpointsha256
+   */
+  checkpointSha256: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Snapshotid
+   */
+  snapshotId: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridModelRegisterRequest
+ */
+export type GridModelRegisterRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  manifest: GridModelManifest;
+};
+
+/**
+ * GridModelTopology
+ */
+export type GridModelTopology = {
+  /**
+   * Boardcolumns
+   */
+  boardColumns: number;
+  /**
+   * Boardrows
+   */
+  boardRows: number;
+  /**
+   * Screencolumns
+   */
+  screenColumns: number;
+  /**
+   * Screenrows
+   */
+  screenRows: number;
+};
+
+/**
+ * GridModelVersionResponse
+ */
+export type GridModelVersionResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  manifest: GridModelManifest;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Published
+   */
+  published?: false;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
 };
 
 /**
@@ -21243,6 +21559,46 @@ export type RollbackGridProfileResponses = {
 export type RollbackGridProfileResponse =
   RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
 
+export type GetGameGridModelAssignmentData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment';
+};
+
+export type GetGameGridModelAssignmentErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGameGridModelAssignmentError =
+  GetGameGridModelAssignmentErrors[keyof GetGameGridModelAssignmentErrors];
+
+export type GetGameGridModelAssignmentResponses = {
+  /**
+   * Successful Response
+   */
+  200: GameGridModelAssignmentResponse;
+};
+
+export type GetGameGridModelAssignmentResponse =
+  GetGameGridModelAssignmentResponses[keyof GetGameGridModelAssignmentResponses];
+
 export type ListImageGridReviewsData = {
   body?: never;
   path: {
@@ -24865,6 +25221,82 @@ export type ListGridEngineProfilesResponses = {
 
 export type ListGridEngineProfilesResponse =
   ListGridEngineProfilesResponses[keyof ListGridEngineProfilesResponses];
+
+export type ListGridModelVersionsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions';
+};
+
+export type ListGridModelVersionsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridModelVersionsError =
+  ListGridModelVersionsErrors[keyof ListGridModelVersionsErrors];
+
+export type ListGridModelVersionsResponses = {
+  /**
+   * Response Listgridmodelversions
+   *
+   * Successful Response
+   */
+  200: Array<GridModelVersionResponse>;
+};
+
+export type ListGridModelVersionsResponse =
+  ListGridModelVersionsResponses[keyof ListGridModelVersionsResponses];
+
+export type RegisterGridModelVersionData = {
+  body: GridModelRegisterRequest;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions';
+};
+
+export type RegisterGridModelVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RegisterGridModelVersionError =
+  RegisterGridModelVersionErrors[keyof RegisterGridModelVersionErrors];
+
+export type RegisterGridModelVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelVersionResponse;
+};
+
+export type RegisterGridModelVersionResponse =
+  RegisterGridModelVersionResponses[keyof RegisterGridModelVersionResponses];
 
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;

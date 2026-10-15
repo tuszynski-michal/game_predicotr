@@ -7299,6 +7299,49 @@
         "title": "GameCreate",
         "type": "object"
       },
+      "GameGridModelAssignmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "eventCount": {
+            "title": "Eventcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridModelVersionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "gameId",
+          "revision",
+          "version",
+          "eventCount"
+        ],
+        "title": "GameGridModelAssignmentResponse",
+        "type": "object"
+      },
       "GameResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7396,7 +7439,8 @@
           "framed_full_page_v2",
           "requires_clarification",
           "grid_profile_777_v2",
-          "grid_profile_mumie_v1"
+          "grid_profile_mumie_v1",
+          "neural_grid_v3"
         ],
         "title": "GameShapeGeometryConfiguration",
         "type": "string"
@@ -9600,6 +9644,504 @@
           "result"
         ],
         "title": "GridEngineReportResultResponse",
+        "type": "object"
+      },
+      "GridInferenceManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "bundleFormat": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Bundleformat",
+            "type": "string"
+          },
+          "checkpointSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checkpointsha256",
+            "type": "string"
+          },
+          "exportId": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Exportid",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelArtifact"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Files",
+            "type": "array"
+          },
+          "frozenOn": {
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "title": "Frozenon",
+            "type": "string"
+          },
+          "modelKind": {
+            "const": "neural_grid",
+            "title": "Modelkind",
+            "type": "string"
+          },
+          "modelVersion": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "preset": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Preset",
+            "type": "string"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "profile": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Profile",
+            "type": "string"
+          },
+          "report": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Report",
+            "type": "string"
+          },
+          "reportResults": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelHistoricalReport"
+            },
+            "maxItems": 20,
+            "title": "Reportresults",
+            "type": "array"
+          },
+          "runId": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-engine-model-manifest-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "selectionReason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Selectionreason",
+            "type": "string"
+          },
+          "snapshotId": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          },
+          "weightsSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Weightssha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "profile",
+          "version",
+          "modelKind",
+          "modelVersion",
+          "bundleFormat",
+          "runId",
+          "exportId",
+          "preset",
+          "presetFingerprint",
+          "weightsSha256",
+          "checkpointSha256",
+          "snapshotId",
+          "frozenOn",
+          "selectionReason",
+          "report",
+          "reportResults",
+          "files"
+        ],
+        "title": "GridInferenceManifest",
+        "type": "object"
+      },
+      "GridModelArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sha256",
+          "sizeBytes"
+        ],
+        "title": "GridModelArtifact",
+        "type": "object"
+      },
+      "GridModelHistoricalReport": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Dataset",
+            "type": "string"
+          },
+          "result": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset",
+          "result"
+        ],
+        "title": "GridModelHistoricalReport",
+        "type": "object"
+      },
+      "GridModelManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "admission": {
+            "enum": [
+              "historical_baseline",
+              "not_evaluated"
+            ],
+            "title": "Admission",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseversionid"
+          },
+          "bundleFormat": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Bundleformat",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "enum": [
+                "screen_detector",
+                "grid_detector"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "cohortId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohortid"
+          },
+          "decodingPolicyVersion": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Decodingpolicyversion",
+            "type": "string"
+          },
+          "familyCode": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Familycode",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "familyLabel": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Familylabel",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelArtifact"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Files",
+            "type": "array"
+          },
+          "historicalReports": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelHistoricalReport"
+            },
+            "maxItems": 20,
+            "title": "Historicalreports",
+            "type": "array"
+          },
+          "inferenceManifest": {
+            "$ref": "#/components/schemas/GridInferenceManifest"
+          },
+          "managedDirectory": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Manageddirectory",
+            "type": "string"
+          },
+          "modelKind": {
+            "const": "neural_grid",
+            "title": "Modelkind",
+            "type": "string"
+          },
+          "modelVersion": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "preprocessingVersion": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Preprocessingversion",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/GridModelProvenance"
+          },
+          "schemaVersion": {
+            "const": "grid-model-catalogue-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/GridModelTopology"
+          },
+          "trainingArtifacts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelArtifact"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Trainingartifacts",
+            "type": "array"
+          },
+          "version": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$",
+            "title": "Version",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "familyId",
+          "familyCode",
+          "familyLabel",
+          "versionId",
+          "version",
+          "modelKind",
+          "modelVersion",
+          "bundleFormat",
+          "preprocessingVersion",
+          "decodingPolicyVersion",
+          "topology",
+          "capabilities",
+          "baseVersionId",
+          "cohortId",
+          "admission",
+          "provenance",
+          "historicalReports",
+          "managedDirectory",
+          "inferenceManifest",
+          "files",
+          "trainingArtifacts"
+        ],
+        "title": "GridModelManifest",
+        "type": "object"
+      },
+      "GridModelProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpointSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checkpointsha256",
+            "type": "string"
+          },
+          "exportId": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Exportid",
+            "type": "string"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "runId": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          },
+          "snapshotId": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "weightsSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Weightssha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "exportId",
+          "presetFingerprint",
+          "weightsSha256",
+          "checkpointSha256",
+          "snapshotId"
+        ],
+        "title": "GridModelProvenance",
+        "type": "object"
+      },
+      "GridModelRegisterRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/GridModelManifest"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "manifest"
+        ],
+        "title": "GridModelRegisterRequest",
+        "type": "object"
+      },
+      "GridModelTopology": {
+        "additionalProperties": false,
+        "properties": {
+          "boardColumns": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Boardcolumns",
+            "type": "integer"
+          },
+          "boardRows": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Boardrows",
+            "type": "integer"
+          },
+          "screenColumns": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Screencolumns",
+            "type": "integer"
+          },
+          "screenRows": {
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Screenrows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "screenRows",
+          "screenColumns",
+          "boardRows",
+          "boardColumns"
+        ],
+        "title": "GridModelTopology",
+        "type": "object"
+      },
+      "GridModelVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/GridModelManifest"
+          },
+          "manifestSha256": {
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "published": {
+            "const": false,
+            "default": false,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "reasonCode": {
+            "title": "Reasoncode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "manifestSha256",
+          "available",
+          "reasonCode"
+        ],
+        "title": "GridModelVersionResponse",
         "type": "object"
       },
       "GridProfileActivationAction": {
@@ -38081,6 +38623,69 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-model-assignment": {
+      "get": {
+        "operationId": "getGameGridModelAssignment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameGridModelAssignmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Game Assignment",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-reviews": {
       "get": {
         "operationId": "listImageGridReviews",
@@ -45167,6 +45772,136 @@
         "summary": "List grid engine profiles and the state of their models",
         "tags": [
           "grid-engine-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-versions": {
+      "get": {
+        "operationId": "listGridModelVersions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridModelVersionResponse"
+                  },
+                  "title": "Response Listgridmodelversions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Versions",
+        "tags": [
+          "grid-model-registry"
+        ]
+      },
+      "post": {
+        "operationId": "registerGridModelVersion",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Register Version",
+        "tags": [
+          "grid-model-registry"
         ]
       }
     },

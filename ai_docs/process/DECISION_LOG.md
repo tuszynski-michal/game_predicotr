@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # Decision Log
@@ -38,7 +38,7 @@ Reguły:
 | [D-552](decisions/DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | accepted | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
 | [D-551](decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | proposed | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |
 | [D-550](decisions/DECISION_LOG_2026.md#d-550--akceptacja-silnika-v3-i-statusowy-backfill) | Akceptacja silnika V3 i statusowy backfill | accepted | 2026-10-14 | Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. |
-| [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | proposed | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. |
+| [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | accepted | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. |
 | [D-548](decisions/DECISION_LOG_2026.md#d-548--doszkalanie-geometrii-z-ręcznych-korekt-v3) | Doszkalanie geometrii z ręcznych korekt V3 | proposed | 2026-10-14 | Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. |
 | [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
@@ -232,7 +232,7 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Pełne kopie pięciu najnowszych propozycji (D-552–D-548), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
+Pełne kopie pięciu najnowszych wpisów (D-553–D-549), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
 
 ## D-553 — Diagnostyka pokrycia V3 i izolowany odczyt liczników
 
@@ -274,8 +274,8 @@ Pełne kopie pięciu najnowszych propozycji (D-552–D-548), identyczne z `decis
 ## D-549 — Wspólna geometria V3 i domyślna wersja
 
 - **Date:** 2026-10-14.
-- **Status:** proposed; propozycja utrwalona przez TASK-1015, bez promocji do accepted.
+- **Status:** accepted; udokumentowane przyjęcie 2026-10-15 przed TASK-0994 na podstawie polecenia implementacji rewizji 6 oraz wcześniejszych wyborów operatora. Nie upoważnia do aktywacji modeli ani migracji bazy operatora.
 - **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Proposal:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
-- **Consequences:** zależny task rozpoczyna zmianę zachowania dopiero po udokumentowaniu przyjęcia zgodnie z instrukcją operatora. Brak kontroli lub danych nie daje PASS.
+- **Decision:** Rozszerzenie D-527 obejmuje wspólną geometrię Mumii/777a2 i katalog niezmiennych wersji. Nowa gra przypina opublikowany default, zaawansowany wybór/fork kontroluje zgodność. Zmiana default nie przełącza istniejących gier i jobów. Wspólny kandydat powstaje przez fine-tuning jednej bazy, bez uśredniania wag; bramka obowiązuje osobno per gra. Modele, etykiety i aktywacje symboli pozostają per gra.
+- **Consequences:** dopuszcza implementację rejestru, przypisań i wspólnej geometrii w zleconym zakresie. Historyczna 777 pozostaje archiwalna. Publikacja, aktywacja, default, rzeczywisty trening, migracja operatora i integracja zachowują osobne bramki. Brak kontroli lub danych nie daje PASS.
 - **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.

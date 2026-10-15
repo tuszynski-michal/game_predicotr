@@ -326,6 +326,9 @@ import type {
   GetDatasetVersionResponses,
   GetGameData,
   GetGameErrors,
+  GetGameGridModelAssignmentData,
+  GetGameGridModelAssignmentErrors,
+  GetGameGridModelAssignmentResponses,
   GetGameResponses,
   GetGridAuditProposalData,
   GetGridAuditProposalErrors,
@@ -628,6 +631,9 @@ import type {
   ListGridCalibrationProfilesResponses,
   ListGridEngineProfilesData,
   ListGridEngineProfilesResponses,
+  ListGridModelVersionsData,
+  ListGridModelVersionsErrors,
+  ListGridModelVersionsResponses,
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
@@ -915,6 +921,9 @@ import type {
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
+  RegisterGridModelVersionData,
+  RegisterGridModelVersionErrors,
+  RegisterGridModelVersionResponses,
   RegisterRemoteManualSelectionSourceItemsData,
   RegisterRemoteManualSelectionSourceItemsErrors,
   RegisterRemoteManualSelectionSourceItemsResponses,
@@ -1914,6 +1923,24 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Game Assignment
+ */
+export const getGameGridModelAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGameGridModelAssignmentData, ThrowOnError>,
+): RequestResult<
+  GetGameGridModelAssignmentResponses,
+  GetGameGridModelAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGameGridModelAssignmentResponses,
+    GetGameGridModelAssignmentErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-model-assignment', ...options });
 
 /**
  * List current game-wide board geometries with bounded keyset pagination
@@ -3546,6 +3573,46 @@ export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
+
+/**
+ * List Versions
+ */
+export const listGridModelVersions = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGridModelVersionsData, ThrowOnError>,
+): RequestResult<
+  ListGridModelVersionsResponses,
+  ListGridModelVersionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListGridModelVersionsResponses,
+    ListGridModelVersionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-versions', ...options });
+
+/**
+ * Register Version
+ */
+export const registerGridModelVersion = <ThrowOnError extends boolean = false>(
+  options: Options<RegisterGridModelVersionData, ThrowOnError>,
+): RequestResult<
+  RegisterGridModelVersionResponses,
+  RegisterGridModelVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterGridModelVersionResponses,
+    RegisterGridModelVersionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * List finalized browser staging folders ready for layout import

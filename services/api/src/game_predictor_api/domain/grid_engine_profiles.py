@@ -276,6 +276,13 @@ GRID_ENGINE_PROFILES: Final[tuple[GridEngineProfile, ...]] = (
 def grid_engine_profile_for(
     configuration: GameShapeGeometryConfiguration | None,
 ) -> GridEngineProfile | None:
+    if configuration == GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError(
+            "GRID_MODEL_DYNAMIC_ROUTING_REQUIRED",
+            "Neutral V3 requires the pinned catalogue resolver.",
+        )
     for profile in GRID_ENGINE_PROFILES:
         if profile.configuration is configuration:
             return profile
@@ -289,6 +296,13 @@ def neural_import_profile(configuration: str | None) -> GridEngineProfile | None
     model; the pilot started with Mumie (D-521). Other games stay classical.
     """
 
+    if configuration == GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError(
+            "GRID_MODEL_DYNAMIC_ROUTING_REQUIRED",
+            "Neutral V3 requires the pinned catalogue resolver.",
+        )
     for profile in GRID_ENGINE_PROFILES:
         if profile.configuration.value == configuration:
             return profile

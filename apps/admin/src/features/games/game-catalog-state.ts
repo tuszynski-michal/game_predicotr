@@ -91,6 +91,7 @@ export const SHAPE_GEOMETRY_CONFIGURATION_LABELS: Record<
   requires_clarification: 'Format wymaga doprecyzowania',
   grid_profile_777_v2: '777 v2',
   grid_profile_mumie_v1: 'Mumie',
+  neural_grid_v3: 'Geometria V3',
 };
 
 // TASK-0830: page formats that also select a grid engine profile (a frozen

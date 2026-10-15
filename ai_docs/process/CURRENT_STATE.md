@@ -25,7 +25,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done. D-549/D-550/D-552 accepted; D-548/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -91,9 +91,9 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
-- D-550/D-552 przyjęto przed TASK-1017 na podstawie zleconej rewizji 6. D-548/D-549/D-551 pozostają proposed zgodnie z bootstrapem; ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
+- D-550/D-552 przyjęto przed TASK-1017; D-549 przed TASK-0994 na podstawie zleconej rewizji6. D-548/D-551 pozostają proposed zgodnie z bootstrapem; ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
 - TASK-1014 zabezpiecza checkpointy na D przed cleanup TASK-0957. Bez usuwania C. TASK-1010 potwierdził 8031 brakujących sekwencji Mumii (259 oczekuje na geometrię, 7772 bez znanego numerowanego źródła); szczegóły i ograniczenia w raporcie diagnostycznym.
 - Raporty Claude rund 1–3 pozostają historyczne, bez zmiany werdyktów. [Rozliczenie Codex](../quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md) wskazuje rewizję 6. Audyt planu nie jest audytem implementacji.
@@ -185,10 +185,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0994 — Rejestr rodzin, wersji i przypisań (todo)
-
-- [0994-grid-model-registry.md](../tasks/0994-grid-model-registry.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (todo)
 
@@ -929,9 +925,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0994 — Rejestr rodzin, wersji i przypisań (done)
+
+- [Task](../tasks/completed/0994-grid-model-registry.md); codex/v3-grid-fine-tuning, bez scalenia. Commit przygotowywany po skanie numeracji; hash zostanie zapisany po utworzeniu.
+- Public immutable catalogue/receipts/events i assignment historycznych V3 bez old7; enum/CHECK neural_grid_v3, migracja0156 i manifestv9 bez zmiany game partitions/danych. Zamknięte typed manifesty, fail-closed hashe/receipt, retry/conflict/rollback, existing game deletion i izolacja symboli.
+- PASS: API19+catalog/schema25+focused2+2, PG NOBYPASSRLS/lifecycle/retry/rollback i pełny hash schematu, oba managed baselines AVAILABLE, Ruff/mypy8+1, klient/request/UI/types/lint, oddzielne OpenAPI kontrole, docs/map/diff. Izolowane DB/role/PID sprzątnięte. Szerszy mypy poza zakresem i sandbox próby opisane w Outcome.
+- [Audyt Claude high](../quality/TASK-0994_AUDIT_TIMEOUT_CODEX.md): po wznowieniu na polecenie operatora wall-clock480s bez końcowego raportu; jawny wyjątek AGENTS, bez PASS i kolejnej próby. [Poprzedni limit](../quality/TASK-0994_AUDIT_UNAVAILABLE_CODEX.md) zachowany. Bez operator migration, usług, treningu/inference/GPU, aktywacji/default i integracji. Następny TASK-1012.
+
 ### TASK-1014 — Zarządzane checkpointy na D (done)
 
-- [Task](../tasks/completed/1014-managed-grid-checkpoints-on-d.md); codex/v3-grid-fine-tuning, bez scalenia. Przygotowany commit v1.7.372, bez kolizji na lokalnych referencjach i HEAD-ach worktree; hash dopisać po zapisie.
+- [Task](../tasks/completed/1014-managed-grid-checkpoints-on-d.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.372 / `b11cdb19d81711fa801157c8effb3fc78863e46c`; hash dopisany po utworzeniu, do następnego commita.
 - Opt-in training-base, registry-pinned SHA/rozmiary i receipt lineage, OS lock, staging, atomowa publikacja i retry per zweryfikowany plik. Checkpointy777/Mumii oraz weights rzeczywiście skopiowano do `D:/game_predicotr/artifacts/models/grid-engine/<profile>/v1/training-base`. Inferencyjne manifesty identyczne przed/po. [Raport](../quality/MANAGED_GRID_BASES_20261015.md), [instrukcja](../guides/MANAGED_GRID_TRAINING_BASES.md).
 - Nowy proces CPU odczytał oba checkpointy v2 i weights, z blokadą otwierania źródłowego labu na C. PASS:22 scoped testy,27 proposal/training-core, Ruff/format/mypy3/docs/map/diff. Endpoint ASGI miał timeout120 s, nie PASS; potwierdzono brak własnych procesów. Naprawiono błąd kodowania dokumentów bez utraty root metadata.
 - [Claude medium](../quality/TASK-1014_AUDIT_claude-fable-5-1.md): PASS bez P0/P1; jedna korekta dokumentacyjna P2-3/P2-4, P2-1/P2-2/P2-5/P2-6 przyjęte z uzasadnieniem w Outcome. Technical notes zapisano późno, jawne odstępstwo. Bez cleanupu C, korpusu, nowego backupu, DB, usług, treningu, inference/GPU, aktywacji i integracji. Następny TASK-0994.
@@ -999,17 +1002,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Operator następnie zaakceptował nową regułę i jawnie zlecił merge. Korektę v1.7.355 i zapis v1.7.356 scalono do `v1.1-vision-lab-hybrid-geometry` przez fast-forward do **`45923355dee60a433471465bba8aeeb62106c04d`**. Kontrola zachowania 52 cudzych plików, dodatków CURRENT_STATE i pustego stagingu PASS. Bez push i restartu usług.
 - Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
 - Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.
-
-### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
-
-- Commit zamknięcia dokumentacji i sprzątania: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**. Usunięto36 plików, 1 346 463 654 B; SHA-256 bieżącego ZIP1.0.0 bez zmian. docs:check/diff PASS. Brak otwartego zadania Word.
-
-- Zamknięcie dokumentacji i sprzątanie2026-10-13: operator nie wymaga obecnie nowej instrukcji. Zachowano1.0.0, istniejący Word/PDF, screenshoty i dowody; usunięto stare ZIP-y oraz pomocnicze pliki robocze według zweryfikowanego manifestu. Bez zmian aplikacji i nowych testów runtime.
-
-- Commit zamknięcia v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`. Lokalny `main` w `D:\game_predicotr` zawiera cały selektor oraz dotychczasowy checkout `667f5d712486adee1c5f895b65690da73b023eb0`. Worktree selektora usunięty po zachowaniu 180 zweryfikowanych plików i ZIP1.0.0 poza nim; `v3-777-profile` nietknięty. Bez push. docs:check/code-map:check PASS z nowego procesu w głównym katalogu.
-
-- Poprawka synchronizacji harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c; initial/repeat smoke FAIL zachowane. Końcowy PASS wymaga dokładnego scroll120/100 po restarcie; runtime bez zmian.
-
-- Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
-- ZIP1.0.0 149411351 B, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, app.asar `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`, dirty=false/applicationSourceDirty=false. Zachowany poza usuwanym worktree.
-- Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Bez nowej instrukcji Word na tym etapie; bez push/migracji.

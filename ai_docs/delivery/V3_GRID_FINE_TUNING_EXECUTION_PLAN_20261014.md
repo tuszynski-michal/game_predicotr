@@ -10,7 +10,7 @@ last_updated: 2026-10-15
 
 Plan obejmuje geometrię Mumii, 777a2 i przyszłych gier V3: czytelne liczniki, edytor 4/24 punktów, uczenie na zatwierdzonych korektach, wspólny model geometrii oraz kontrolowane ponowne rozpoznanie. Modele symboli pozostają osobne dla każdej gry.
 
-**Status: accepted; implementation authorized.** Operator 2026-10-14 zaakceptował rewizję 6 i zlecił realizację całego planu, wraz z kosztem orientacyjnym 12–28 dni roboczych. Zgoda obejmuje wykonanie i audyty według tabeli, nie automatyczne scalenie, push, migracje operatora, trening ani masowe operacje danych. Pięć decyzji D-548–D-552 pozostaje `proposed` zgodnie z TASK-1015; przed zależnym taskiem lead zapisze ich przyjęcie na podstawie zaakceptowanej instrukcji operatora, bez domniemania wyników jakości.
+**Status: accepted; implementation authorized.** Operator 2026-10-14 zaakceptował rewizję 6 i zlecił realizację całego planu, wraz z kosztem orientacyjnym 12–28 dni roboczych. Zgoda obejmuje wykonanie i audyty według tabeli, nie automatyczne scalenie, push, migracje operatora, trening ani masowe operacje danych. TASK-1015 utrwalił pięć propozycji D-548–D-552; D-549/D-550/D-552 przyjęto przed zależnymi taskami na podstawie zaakceptowanej instrukcji operatora. D-548/D-551 pozostają proposed do odpowiedniego etapu, bez domniemania wyników jakości.
 
 Uwzględnione uwagi rundy 3:
 
@@ -685,7 +685,7 @@ Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżel
 
 Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (audyt timeout, bez PASS). D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
 
 ## 8. Przypisanie modeli do zadań
 

@@ -62,6 +62,7 @@ test('page format shows the grid engine profile, its model state and the 777 not
   assert.match(source, /loadGridEngineProfiles\(api\)/);
   assert.match(source, /className="gamePageFormat"/);
   assert.match(source, /Format strony:/);
+  assert.match(source, /filter\(\(\[configuration\]\) => configuration !== 'neural_grid_v3'\)/);
 });
 
 test('TASK-0931: create and edit forms select the super game kind from the API registry', () => {

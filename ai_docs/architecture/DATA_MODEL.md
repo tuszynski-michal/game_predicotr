@@ -163,14 +163,56 @@ ręcznej korekty pierwszego importu.
 
 Migracja 0140 rozszerza CHECK `ck_games_shape_geometry_configuration` o
 `grid_profile_777_v2` i `grid_profile_mumie_v1`; nie zmienia żadnego wiersza.
-Wybór profilu jest jedyną informacją w bazie: model profilu (zamrożony eksport
+Historycznie wybór profilu był jedyną informacją modelu w bazie: model profilu (zamrożony eksport
 `neural_grid`) jest plikiem w
 `<ARTIFACT_ROOT>/models/grid-engine/<profil>/<wersja>/` z `manifest.json`, a
 rejestr w kodzie (`domain/grid_engine_profiles.py`) mapuje profil → bieżąca
 wersja → SHA-256 i rozmiar każdego pliku oraz metadane (run, preset,
-fingerprint, wyniki V3-C). Nie ma tabeli modeli. Kolejny model tej samej gry
-to nowa wersja rejestru, nie nowa wartość kolumny. Downgrade odmawia
+fingerprint, wyniki V3-C). TASK-0994 dodaje trwały katalog opisany poniżej. Do integracji runtime w
+TASK-1012 stare importy nadal korzystają z tego zamrożonego rejestru kodu.
+Kolejny model jest nową immutable wersją rodziny, nie nową wartością formatu. Downgrade odmawia
 (`GRID_ENGINE_PROFILE_IN_USE`), dopóki gra używa profilu.
+
+## Trwały rejestr geometrii V3 — TASK-0994
+
+Migracja `0156_grid_model_registry` dodaje do `public` shared control tables
+`grid_model_families`, `grid_model_versions`, `grid_model_registration_receipts`
+i `grid_model_version_events`; game catalog tables
+`game_grid_model_assignments` i `game_grid_model_assignment_events` przechowują
+wyłącznie game ID, immutable version ID, revision oraz zdarzenie przypisania.
+Nie zawierają danych obrazu, sekwencji, symboli ani etykiet. Mają jawny zakres
+gry i FK; catalogue reads używają kwalifikowanego public schema, bez routera
+danych gry. Nie wolno przypiąć sesji innej gry do odczytu assignment.
+
+Wersja ma UNIQUE(family_id,version), nullable FK bazy, canonical manifest JSON
+oraz SHA256. Manifest pinuje capabilities, topology 3x3/5x3, preprocessing,
+decoding, pochodzenie, inferenceManifest i inference/trainingArtifacts z
+rozmiarami/SHA. Training receipt jest sprawdzany względem tej samej tożsamości.
+Pliki pozostają w managed artifacts; żadnych wag lub obrazów w domenowych
+tabelach. Globalne GET nie ujawnia przypisań gier ani źródłowych ścieżek C.
+
+Rejestracja jest atomowa i idempotentna pod wspólną advisory lock (limit5s).
+Receipt utrwala command SHA i version ID; konflikt treści nie zmienia wersji.
+Immutable family/version/receipt/events mają SQL trigger UPDATE/DELETE guard.
+Assignment ma revision dla przyszłego CAS; jego zdarzenia są niezmienne.
+Wyłącznie istniejące usunięcie gry usuwa assignment/events przez FK CASCADE;
+globalne modele i ich historia pozostają zachowane. Downgrade odmawia utraty
+historii zamiast usuwać immutable rejestr.
+
+Frozen migration descriptors rejestrują dwie historyczne bazy z faktycznymi
+raportami, bez kohorty i bez nowego PASS. Istniejące V3 otrzymują dokładnie
+swoją dotychczasową wersję; code `7` nie otrzymuje assignment. Migracja CHECK
+addytywnie dopuszcza `neural_grid_v3`, zachowuje NULL i cztery stare wartości,
+nie przepisuje formatu żadnej gry. Manifest ownership v9 dziedziczy całą
+listę game tables/partycji z v8 i dodaje tylko public catalogue classification;
+locations aktualizują wersję/revision, dane oraz definicje partycji pozostają.
+
+Dostępność artefaktów nie jest publikacją, aktywacją, default ani wynikiem
+bramki. Kandydat ma not_evaluated i przypiętą bazę; zgodna trzecia rodzina jest
+dozwolona. Missing/mismatch/unsafe path blokuje rejestrację/udostępnienie bez
+fallbacku. Przed TASK-1012 neutralny format odmawia importu kontrolowanym
+GRID_MODEL_DYNAMIC_ROUTING_REQUIRED; statyczne profile/snapshoty zachowują
+stary kontrakt. Publikacja/aktywacja/default należą do TASK-0998.
 
 ## Globalna biblioteka geometrii shape v2 — TASK-0605
 

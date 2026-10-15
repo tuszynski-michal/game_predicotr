@@ -60,15 +60,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (46 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (88 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (73 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (49 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (120 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/api/` (47 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/application/` (89 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/domain/` (74 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/schemas/` (50 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (123 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (160 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (161 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (343 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (86 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (345 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (87 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

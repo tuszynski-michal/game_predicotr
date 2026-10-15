@@ -21,6 +21,7 @@ from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration impor
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from game_predictor_api.api.grid_model_registry import create_grid_model_registry_router
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.management import create_management_router
 from game_predictor_api.api.management_public import (
@@ -80,6 +81,7 @@ from game_predictor_api.application.grid_audit_symbol_suggestions import (
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
+from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_shadow import GridShadowService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
@@ -233,6 +235,7 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_shadow import GridShadowError
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_import_engine_policy import (
@@ -376,6 +379,10 @@ from game_predictor_api.storage.grid_engine_acceptance_repository import (
     SqlAlchemyHistoricalAcceptanceRepository,
 )
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
+from game_predictor_api.storage.grid_model_registry import (
+    GridModelArtifactInspector,
+    SqlAlchemyGridModelRegistryRepository,
+)
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
@@ -608,6 +615,7 @@ def create_app(
     image_review_service_dependency: Callable[..., object] | None = None,
     image_grid_review_service_dependency: Callable[..., object] | None = None,
     grid_shadow_service_dependency: Callable[..., object] | None = None,
+    grid_model_registry_service_dependency: Callable[..., object] | None = None,
     image_geometry_rollout_service_dependency: Callable[..., object] | None = None,
     virtual_grid_geometry_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -669,6 +677,7 @@ def create_app(
             image_review_service_dependency,
             image_grid_review_service_dependency,
             grid_shadow_service_dependency,
+            grid_model_registry_service_dependency,
             image_geometry_rollout_service_dependency,
             virtual_grid_geometry_service_dependency,
             image_review_cohort_service_dependency,
@@ -2271,6 +2280,34 @@ def create_app(
         application.router.add_event_handler(
             "startup",
             reconcile_remote_manual_selection_on_startup,
+        )
+
+    def default_grid_model_registry_dependency() -> Iterator[GridModelRegistryService]:
+        # Public catalogue has no game payload and must not enter GameStorageRouter.
+        with Session(database_engine) as session:
+            try:
+                yield GridModelRegistryService(
+                    SqlAlchemyGridModelRegistryRepository(session),
+                    GridModelArtifactInspector(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_grid_model_registry_router(
+            grid_model_registry_service_dependency or default_grid_model_registry_dependency
+        )
+    )
+
+    @application.exception_handler(GridModelRegistryError)
+    async def grid_model_registry_error_handler(
+        request: Request, error: GridModelRegistryError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
         )
 
     @application.exception_handler(CatalogError)

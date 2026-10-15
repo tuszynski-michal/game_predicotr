@@ -253,3 +253,7 @@ Pięć implementacyjnych kryteriów spełniono: enum/CHECK, historyczne przypisa
 
 - Połączenie poprawki centralnej rejestracji z kodem1012 w primary:45 PASS,15,48s, nowy proces z oficjalnym PYTHONPATH. Testy obejmują schema+registry+dynamic snapshot+worker replay. Bez nowej inferencji i bez operacji bazy operatora.
 - P2-4 zamknięte: w docelowym drzewie jeden task, przeniesiony do completed; izolowane dokumenty nie były kopiowane w całości. Raporty obu rund zachowane. Osobny commit korekty po skanie wolnej wersji; pełny hash zostanie dopisany po utworzeniu bez amend.
+
+### Commit poprawki audytu
+
+- Korekta i formalne raporty: v1.7.374 / `27ff986a873559330cd75aad3ee47081a41758d5`, branch codex/v3-grid-fine-tuning, bez scalenia. Staged check/list/stat oraz post-commit show/status sprawdzone; w indeksie wyłącznie0994 i właściwe hunki dokumentacyjne. Kod i wyniki1012 pozostały poza commitem. Hash zapisany po utworzeniu, do następnego commita bez amend.

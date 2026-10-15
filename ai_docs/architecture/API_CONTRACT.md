@@ -1,10 +1,33 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-15
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Dynamiczny snapshot geometrii V3 — TASK-1012
+
+Istniejące pola `neuralGridProposal` jobów oraz `engineSnapshot` propozycji
+źródła akceptują addytywną, dyskryminowaną unię:
+
+- `neural-grid-proposal-snapshot-v1`: zachowane `expectedLayoutCount` i dokładny
+  `model` historycznego profilu. Odczyt nadal porównuje zamrożony rejestr.
+- `neural-grid-proposal-snapshot-v2`: `expectedLayoutCount`, `gameId`,
+  `gameConfiguration`, typed `catalogueManifest: GridModelManifest` oraz
+  `catalogueManifestSha256`. Descriptor zawiera versionId/familyId, topologię,
+  capabilities, manifest/pliki, managedDirectory, preprocessing i decoder.
+
+Nowy preflight rozwiązuje jawny assignment publicznego katalogu także dla
+dotychczasowych formatów V3. Sprawdza scope, version identity, kanoniczny
+descriptor/SHA, zgodność możliwości oraz pliki. Brak przypisania zwraca HTTP 409
+`GRID_MODEL_ASSIGNMENT_REQUIRED`; brak/drift artefaktów pozostaje kontrolowanym
+błędem bez fallbacku. Neutralny format nie wpada już do klasycznego importu.
+Preflight, start, reuse oraz worker korzystają ze wspólnej polityki możliwości
+i przypiętego kontraktu. Snapshot v2 musi należeć do tej samej gry i formatu.
+Start/reuse/wznowienie nie odczytuje aktualnej wersji assignment zamiast pinu.
+Nie ma nowego endpointu, migracji ani przepisania historycznych payloadów.
+Bramki publikacji/aktywacji/default należą do TASK-0998.
 
 ## Trwały rejestr modeli geometrii V3 — TASK-0994
 
@@ -31,9 +54,9 @@ zamknięty i zachowuje pełny dotychczasowy manifest obu profili. Katalog nie
 zapisuje publikacji/default/aktywacji ani nowego PASS; te operacje należą do
 TASK-0998. Read availability jest liczona z aktualnych plików i nie oznacza
 wyniku bramki. Istniejący statyczny GET grid-engine-profiles pozostaje bez DB.
-Enum/CHECK games addytywnie dopuszcza neural_grid_v3. Do TASK-1012 neutralny
-format daje kontrolowany GRID_MODEL_DYNAMIC_ROUTING_REQUIRED zamiast
-klasycznego importu. Stare snapshoty i profile zachowują kontrakt.
+Enum/CHECK games addytywnie dopuszcza neural_grid_v3. TASK-1012 rozwiązuje
+neutralny format przez jawny assignment i snapshot v2 opisany powyżej.
+Stare snapshoty zachowują kontrakt.
 
 ## Shadow siatek V3 — TASK-0805
 

@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.grid_model_registry import GridModelManifest
 from game_predictor_api.schemas.source_lattice_geometry import (
     SourceLatticeNodesPayload,
     SourceLatticePoint,
@@ -54,6 +55,21 @@ class NeuralGridSnapshotPayload(ApiModel):
     model: NeuralGridModelManifestPayload
 
 
+class CatalogueNeuralGridSnapshotPayload(ApiModel):
+    contract_version: Literal["neural-grid-proposal-snapshot-v2"]
+    expected_layout_count: int = Field(ge=1, le=10000000, strict=True)
+    game_id: UUID
+    game_configuration: Literal["neural_grid_v3", "grid_profile_777_v2", "grid_profile_mumie_v1"]
+    catalogue_manifest: GridModelManifest
+    catalogue_manifest_sha256: Sha256
+
+
+NeuralGridSnapshotContract = Annotated[
+    NeuralGridSnapshotPayload | CatalogueNeuralGridSnapshotPayload,
+    Field(discriminator="contract_version"),
+]
+
+
 class NeuralSourceRangePayload(ApiModel):
     sequence_range_start: int = Field(ge=1, strict=True)
     sequence_range_end: int = Field(ge=1, strict=True)
@@ -81,7 +97,7 @@ class NeuralSourceProposalPayload(ApiModel):
     source_width: int = Field(gt=0, strict=True)
     source_height: int = Field(gt=0, strict=True)
     original_range: NeuralSourceRangePayload
-    engine_snapshot: NeuralGridSnapshotPayload
+    engine_snapshot: NeuralGridSnapshotContract
     detections: tuple[NeuralDetectionPayload, ...] = Field(max_length=256)
     proposal_checksum_sha256: Sha256
 

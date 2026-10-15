@@ -4147,12 +4147,27 @@
           "neuralGridProposal": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                "discriminator": {
+                  "mapping": {
+                    "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                    "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  },
+                  "propertyName": "contractVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Neuralgridproposal"
           },
           "normalizationAdapterVersion": {
             "anyOf": [
@@ -6033,6 +6048,54 @@
           "nextCursor"
         ],
         "title": "CanonicalImageReviewPageResponse",
+        "type": "object"
+      },
+      "CatalogueNeuralGridSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogueManifest": {
+            "$ref": "#/components/schemas/GridModelManifest"
+          },
+          "catalogueManifestSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cataloguemanifestsha256",
+            "type": "string"
+          },
+          "contractVersion": {
+            "const": "neural-grid-proposal-snapshot-v2",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "expectedLayoutCount": {
+            "maximum": 10000000.0,
+            "minimum": 1.0,
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
+          "gameConfiguration": {
+            "enum": [
+              "neural_grid_v3",
+              "grid_profile_777_v2",
+              "grid_profile_mumie_v1"
+            ],
+            "title": "Gameconfiguration",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "expectedLayoutCount",
+          "gameId",
+          "gameConfiguration",
+          "catalogueManifest",
+          "catalogueManifestSha256"
+        ],
+        "title": "CatalogueNeuralGridSnapshotPayload",
         "type": "object"
       },
       "CleanupCommandRequest": {
@@ -14400,12 +14463,27 @@
           "neuralGridProposal": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                "discriminator": {
+                  "mapping": {
+                    "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                    "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  },
+                  "propertyName": "contractVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Neuralgridproposal"
           },
           "normalizationAdapterVersion": {
             "anyOf": [
@@ -21233,7 +21311,22 @@
             "type": "array"
           },
           "engineSnapshot": {
-            "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+            "discriminator": {
+              "mapping": {
+                "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+              },
+              "propertyName": "contractVersion"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+              }
+            ],
+            "title": "Enginesnapshot"
           },
           "gameId": {
             "format": "uuid",
@@ -22436,12 +22529,27 @@
           "neuralGridProposal": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                "discriminator": {
+                  "mapping": {
+                    "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                    "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  },
+                  "propertyName": "contractVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Neuralgridproposal"
           },
           "pageGeometryOverrides": {
             "additionalProperties": true,
@@ -23517,12 +23625,27 @@
           "neuralGridProposal": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                "discriminator": {
+                  "mapping": {
+                    "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                    "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  },
+                  "propertyName": "contractVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Neuralgridproposal"
           },
           "normalizationAdapterVersion": {
             "anyOf": [
@@ -25467,12 +25590,27 @@
           "neuralGridProposal": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                "discriminator": {
+                  "mapping": {
+                    "neural-grid-proposal-snapshot-v1": "#/components/schemas/NeuralGridSnapshotPayload",
+                    "neural-grid-proposal-snapshot-v2": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  },
+                  "propertyName": "contractVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CatalogueNeuralGridSnapshotPayload"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Neuralgridproposal"
           },
           "normalizationAdapterVersion": {
             "anyOf": [

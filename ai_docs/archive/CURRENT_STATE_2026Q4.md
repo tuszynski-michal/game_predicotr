@@ -6,6 +6,14 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
+
+- Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
+- Pierwotna reguła z v1.7.353 wymagała automatycznej integracji. Późniejsza korekta operatora wymaga pytania o akceptację i scalenie dopiero po ukończeniu całego zleconego taska, etapu albo planu; bez pytań po każdym wewnętrznym tasku. Scalanie następuje po wyraźnej zgodzie. Korekta jest przygotowana lokalnie, do końcowej akceptacji; wcześniejsze autoryzowane scalenie pozostaje w historii.
+- Korekta akceptacji: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, na main; gałąź integracyjna pozostaje na v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` do końcowego potwierdzenia operatora. Docs/diff PASS; bez nowych testów kodu, bo zmieniono wyłącznie instrukcje i dokumentację.
+- Operator następnie zaakceptował nową regułę i jawnie zlecił merge. Korektę v1.7.355 i zapis v1.7.356 scalono do `v1.1-vision-lab-hybrid-geometry` przez fast-forward do **`45923355dee60a433471465bba8aeeb62106c04d`**. Kontrola zachowania 52 cudzych plików, dodatków CURRENT_STATE i pustego stagingu PASS. Bez push i restartu usług.
+- Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
+- Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.
 ### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
 
 - Commit zamknięcia dokumentacji i sprzątania: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**. Usunięto36 plików, 1 346 463 654 B; SHA-256 bieżącego ZIP1.0.0 bez zmian. docs:check/diff PASS. Brak otwartego zadania Word.

@@ -130,3 +130,33 @@ test('legacy geometry wrapper keeps its previous body without lattice fields', a
   assert.equal('latticeNodes' in received, false);
   assert.equal('expectedProposalChecksumSha256' in received, false);
 });
+
+test('getJob wrapper preserves the catalogue snapshot and its version pin', async () => {
+  const snapshot = {
+    contractVersion: 'neural-grid-proposal-snapshot-v2',
+    gameId,
+    gameConfiguration: 'neural_grid_v3',
+    expectedLayoutCount: 500000,
+    catalogueManifestSha256: 'a'.repeat(64),
+    catalogueManifest: {
+      versionId: itemId,
+      familyCode: 'third_geometry',
+      preprocessingVersion: 'neural-grid-preprocessing-v1',
+      decodingPolicyVersion: 'neural-grid-decoding-v1',
+    },
+  };
+  let requested;
+  const api = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requested = new URL(request.url);
+      return Response.json({
+        id: itemId,
+        inputPayload: { neuralGridProposal: snapshot },
+      });
+    },
+  });
+  const response = await api.getJob(itemId);
+  assert.equal(requested.pathname, `/api/v1/admin/jobs/${itemId}`);
+  assert.deepEqual(response.data.inputPayload.neuralGridProposal, snapshot);
+});

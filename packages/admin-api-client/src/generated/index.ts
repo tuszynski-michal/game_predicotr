@@ -566,6 +566,7 @@ export type {
   CancelSemiAutomaticImageSelectionResponse,
   CancelSemiAutomaticImageSelectionResponses,
   CanonicalImageReviewPageResponse,
+  CatalogueNeuralGridSnapshotPayload,
   CleanupCommandRequest,
   CleanupCountResponse,
   CleanupPreviewResponse,

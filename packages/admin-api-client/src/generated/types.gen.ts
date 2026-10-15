@@ -2337,7 +2337,17 @@ export type BrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -3247,6 +3257,34 @@ export type CanonicalImageReviewPageResponse = {
    * Previouscursor
    */
   previousCursor: string | null;
+};
+
+/**
+ * CatalogueNeuralGridSnapshotPayload
+ */
+export type CatalogueNeuralGridSnapshotPayload = {
+  catalogueManifest: GridModelManifest;
+  /**
+   * Cataloguemanifestsha256
+   */
+  catalogueManifestSha256: string;
+  /**
+   * Contractversion
+   */
+  contractVersion: 'neural-grid-proposal-snapshot-v2';
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
+   * Gameconfiguration
+   */
+  gameConfiguration:
+    'neural_grid_v3' | 'grid_profile_777_v2' | 'grid_profile_mumie_v1';
+  /**
+   * Gameid
+   */
+  gameId: string;
 };
 
 /**
@@ -8173,7 +8211,17 @@ export type ImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -11953,7 +12001,16 @@ export type NeuralSourceProposalPayload = {
    * Detections
    */
   detections: Array<NeuralDetectionPayload>;
-  engineSnapshot: NeuralGridSnapshotPayload;
+  /**
+   * Enginesnapshot
+   */
+  engineSnapshot:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload);
   /**
    * Gameid
    */
@@ -12690,7 +12747,17 @@ export type PageGeometryPreflightJobPayload = {
    * Managedsourcemanifestchecksumsha256
    */
   managedSourceManifestChecksumSha256?: string | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Pagegeometryoverrides
    */
@@ -13254,7 +13321,17 @@ export type PinnedManagedImageReprocessJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -14353,7 +14430,17 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */

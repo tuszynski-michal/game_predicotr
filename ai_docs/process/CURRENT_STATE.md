@@ -23,9 +23,11 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Test runner / TASK-1012 P2-5 (2026-10-15):** istniejący scripts/run_python_tests.ps1 dla pojedynczej Suite Api/Worker rozbija skalarną ścieżkę na znaki i kończy się przed kolekcją (not found:s). Nie naprawiano poza zakresem. Używać bezpośredniego pytest z jawnymi ścieżkami i ograniczonymi grupami; pełny Worker bezpośrednio zebrał testy i doszedł do50%, potem timeout120s, nie PASS. Raport i czyste PID w Outcome1012.
+
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done. D-549/D-550/D-552 accepted; D-548/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS). D-549/D-550/D-552 accepted; D-548/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -91,7 +93,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS). [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-550/D-552 przyjęto przed TASK-1017; D-549 przed TASK-0994 na podstawie zleconej rewizji6. D-548/D-551 pozostają proposed zgodnie z bootstrapem; ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
@@ -185,10 +187,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (todo)
-
-- [1012-dynamic-grid-snapshots.md](../tasks/1012-dynamic-grid-snapshots.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-0998 — Publikacja, aktywacja, domyślna wersja i rollback (todo)
 
@@ -925,9 +923,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (done)
+
+- [Task](../tasks/completed/1012-dynamic-grid-snapshots.md); baza implementacji373, parent0994 korekta374 / `27ff986a873559330cd75aad3ee47081a41758d5`. Osobny commit1012 przygotowywany, bez scalenia.
+- Addytywny immutable snapshotv2 i legacyv1 reader, assignment zamiast current dla nowych V3; wspólny resolver preflight/import/reuse/worker/canonical. Stare joby zachowują pin po zmianie aktywacji. Obcy właściciel/brak/hashdrift blokują bez fallbacku. Backend/OpenAPI/klient/Admin spójne; D549 doprecyzowane.
+- PASS:90pytest/21TS, Ruff/mypy10+2/typy/lint, oddzielne Admin+VisionLabOpenAPI, map/docs/diff. Po poprawce28API+standaloneWorker1; po parent ORM45 wspólnych+1 standalone PASS. Pełny Worker timeout120s nie PASS; launcher P2-5 opisany w ograniczeniach.
+- [R1 REVISE](../quality/TASK-1012_AUDIT_claude-fable-5-1_round1.md), jedna korekta, [R2 PASS](../quality/TASK-1012_AUDIT_claude-fable-5-1.md), bez P0/P1. P2-1..4 zamknięte; P2-5 wcześniejszy runner poza zakresem. Bez operator migration/DB, usług, inference/GPU/treningu, aktywacji/default i integracji. Następny0998.
+
 ### TASK-0994 — Rejestr rodzin, wersji i przypisań (done)
 
-- [Task](../tasks/completed/0994-grid-model-registry.md); oryginalny commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`. Po dłuższym audycie operatora jedna korekta; osobny commit poprawki przygotowywany, bez scalenia.
+- [Task](../tasks/completed/0994-grid-model-registry.md); oryginalny commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`. Po dłuższym audycie operatora jedna korekta: v1.7.374 / `27ff986a873559330cd75aad3ee47081a41758d5`; hash dopisany po utworzeniu do następnego commita, bez scalenia.
 - Katalog i historyczne przypisania bez zmiany danych gier. Korekta centralnie rejestruje6 mapowań ORM; test manifestu v9 obejmuje public.* i oba porządki importów. Frozen JSON/deskriptory/SHA mają regresję; migracje bez zmian.
 - [Runda1 REVISE](../quality/TASK-0994_AUDIT_claude-fable-5-1_round1.md); [Runda2 PASS](../quality/TASK-0994_AUDIT_claude-fable-5-1.md), bez P0/P1. P1-1/P2-3 zamknięte; P2-4 izolowany duplikat taska usunięty w docelowym drzewie. P2-1 koszt świeżych SHA i P2-2 nieweryfikowany historyczny cykl downgrade jawnie przyjęte poza zakresem. Wcześniejszy timeout/limit pozostają historyczne.
 - Korekta:19+19+9 PASS, Ruff/format3, mypy2, map/diff; połączenie z1012 w primary45 PASS. Pierwotne PG/counters/klient kontrole w Outcome. Bez nowej bazy operatora, usług, treningu/inference, aktywacji i integracji. Tymczasowy checkout audytu skierowany do archiwizacji po zachowaniu dowodów na D.
@@ -993,12 +998,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Zamrożone 35122 pending komórki <0.80, wszystkie osiem klas gry `777a2`; model `747c21d5…`, manifest SHA `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Całość zakończona: 24309 unikalnych receiptów, zero braków; 34726 komórek przeliczono teraz, 396 miało już wynik tego samego modelu dla tych samych cropów. Po operacji 31290 komórek ma confidence >=0.80, 3832 nadal <0.80; wszystkie 35122 pozostają pending.
 - Weryfikacja z nowego procesu potwierdziła każdą rewizję/model i obecność wszystkich komórek. Ochrona pozostałych predykcji i decyzji człowieka przechodziła w każdej transakcji. Wznowienie po blokadzie statusu Windows i planowym limicie procesu zachowało receipty. Runner zakończony, monitor PAUSED.
 - Bez nowego filtra API/UI, treningu, aktywacji, migracji, cleanupu, restartu usług, push i nowego merge. Instrukcja przeładowania starego poll workera pozostaje dla operatora. Dokumentacja zamknięcia oczekuje końcowej akceptacji i zgody na scalenie.
-
-### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
-
-- Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
-- Pierwotna reguła z v1.7.353 wymagała automatycznej integracji. Późniejsza korekta operatora wymaga pytania o akceptację i scalenie dopiero po ukończeniu całego zleconego taska, etapu albo planu; bez pytań po każdym wewnętrznym tasku. Scalanie następuje po wyraźnej zgodzie. Korekta jest przygotowana lokalnie, do końcowej akceptacji; wcześniejsze autoryzowane scalenie pozostaje w historii.
-- Korekta akceptacji: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, na main; gałąź integracyjna pozostaje na v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` do końcowego potwierdzenia operatora. Docs/diff PASS; bez nowych testów kodu, bo zmieniono wyłącznie instrukcje i dokumentację.
-- Operator następnie zaakceptował nową regułę i jawnie zlecił merge. Korektę v1.7.355 i zapis v1.7.356 scalono do `v1.1-vision-lab-hybrid-geometry` przez fast-forward do **`45923355dee60a433471465bba8aeeb62106c04d`**. Kontrola zachowania 52 cudzych plików, dodatków CURRENT_STATE i pustego stagingu PASS. Bez push i restartu usług.
-- Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
-- Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.

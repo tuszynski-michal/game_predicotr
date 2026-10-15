@@ -1,10 +1,30 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Przypięcie wersji geometrii V3 — TASK-1012
+
+Nowe preflighty V3 odczytują jawne przypisanie gry z katalogu modeli. Dotyczy
+to `neural_grid_v3` oraz istniejących formatów `grid_profile_777_v2` i
+`grid_profile_mumie_v1`. Format określa możliwości silnika; nie wybiera już
+rodziny ani bieżącego checkpointu dla nowego zadania. Brak przypisania blokuje
+nowy preflight kodem `GRID_MODEL_ASSIGNMENT_REQUIRED`, bez klasycznego fallbacku.
+
+Snapshot v2 przypina grę, konfigurację, wersję, pełny manifest katalogu,
+SHA-256, preprocessing i politykę dekodowania. Zmiana przypisania po
+preflighcie nie przełącza startowanego importu, ponownego użycia ani wznowienia.
+Brak lub zmiana przypiętych artefaktów zatrzymuje zadanie. Nowy worker czyta
+również snapshot v1 według historycznego kontraktu własnego profilu.
+
+Historyczna gra 777 (kod `7`) pozostaje klasyczna. Symbole, ich modele i
+aktywacje pozostają per gra. TASK-1012 nie tworzy ani nie przełącza przypisań,
+nie publikuje wersji i nie ustawia domyślnego modelu; te operacje są odrębnym
+pionem TASK-0998. Wcześniejsze opisy przypięcia własnego statycznego modelu
+poniżej dokumentują również zachowanie zachowanych snapshotów v1.
 
 ## Akceptacja silnika V3 — D-550 (TASK-1017)
 

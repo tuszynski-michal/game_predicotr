@@ -2236,6 +2236,11 @@ class JobService:
 
     def _neural_profile_matches_game(self, *, game_id: UUID, snapshot: NeuralGridSnapshot) -> bool:
         """A frozen proposal is reused only by a game that still has its profile (D-544)."""
+        matches = getattr(
+            self._grid_profile_snapshot_resolver, "neural_snapshot_matches_game", None
+        )
+        if callable(matches):
+            return bool(matches(game_id=game_id, snapshot=snapshot))
         resolve = getattr(self._grid_profile_snapshot_resolver, "neural_grid_profile", None)
         if not callable(resolve):
             return True

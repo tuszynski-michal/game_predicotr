@@ -1,21 +1,15 @@
-"""Registry of the frozen grid engine models behind the game's page format (TASK-0830).
+"""Historical frozen grid engines and the worker-compatible version descriptor.
 
-A game's ``shape_geometry_configuration`` may name a grid engine profile
-(``grid_profile_777_v2``, ``grid_profile_mumie_v1``). Each profile points to a
-frozen ``neural_grid`` export (ONNX screen and board stages, the export bundle
-and its preset) copied once into the managed directory
-``<ARTIFACT_ROOT>/models/grid-engine/<profile>/<version>/`` by
-``scripts/install_grid_engine_models.py``. The repository keeps only this
-registry: the SHA-256 and metadata of every file. A missing file, a different
-SHA-256 or a manifest that differs from the registry is an explicit error;
-there is no fallback to another version, profile or engine.
-
-A newer model of the same game is a new ``GridEngineModelVersion`` of the same
-profile (and a new ``current_version``), never a new value of the game field.
+Legacy snapshot v1 keeps the in-code registry and historical profile meanings.
+New imports resolve explicit catalogue assignments and freeze descriptor JSON
+(TASK-1012). A catalogue-backed version uses its pinned managedDirectory and
+inferenceManifest; no current-version or profile lookup occurs during replay.
+Static catalogue/profile endpoints and historical installers remain supported.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -81,9 +75,12 @@ class GridEngineModelVersion:
     files: tuple[GridEngineModelFile, ...]
     checkpoint_size_bytes: int = 0
     weights_size_bytes: int = 0
+    catalogue_manifest_json: str | None = None
 
     @property
     def relative_directory(self) -> PurePosixPath:
+        if self.catalogue_manifest_json is not None:
+            return PurePosixPath(json.loads(self.catalogue_manifest_json)["managedDirectory"])
         return GRID_ENGINE_MODELS_RELATIVE_ROOT / self.profile.value / self.version
 
 
@@ -312,6 +309,8 @@ def neural_import_profile(configuration: str | None) -> GridEngineProfile | None
 def grid_engine_manifest(version: GridEngineModelVersion) -> dict[str, object]:
     """The exact manifest stored next to the files; a pure function of the registry."""
 
+    if version.catalogue_manifest_json is not None:
+        return dict(json.loads(version.catalogue_manifest_json)["inferenceManifest"])
     return {
         "schemaVersion": GRID_ENGINE_MANIFEST_SCHEMA_VERSION,
         "profile": version.profile.value,

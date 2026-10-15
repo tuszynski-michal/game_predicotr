@@ -1,7 +1,7 @@
 """Managed directory of the frozen grid engine models (TASK-0830).
 
 Files live under ``<ARTIFACT_ROOT>/models/grid-engine/<profile>/<version>/``
-and are verified against the in-code registry on every inspection: size and
+and are verified against the frozen registry or catalogue descriptor: size and
 SHA-256 of each file and the exact manifest. ``require`` is the only entry
 point for code that will load a model and raises instead of falling back.
 """
@@ -155,6 +155,17 @@ class ManagedGridEngineModelStore:
     def require(self, version: GridEngineModelVersion) -> Path:
         """Return the verified model directory or raise; there is no fallback."""
 
+        if version.catalogue_manifest_json is not None:
+            directory = self.directory(version)
+            root = (self._artifact_root / "models" / "grid-engine").resolve()
+            targets = (
+                directory / GRID_ENGINE_MANIFEST_FILE_NAME,
+                *(directory / f.name for f in version.files),
+            )
+            if any(not target.resolve().is_relative_to(root) for target in targets):
+                raise GridEngineModelError(
+                    "GRID_MODEL_PATH_INVALID", "Model files escape managed storage.", details={}
+                )
         state = self.inspect(version)
         if state.status is GridEngineModelStatus.AVAILABLE:
             return self.directory(version)

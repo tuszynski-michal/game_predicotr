@@ -9,9 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
-from game_predictor_api.domain.grid_engine_profiles import neural_import_profile
 from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceCanonicalRepository,
+)
+from game_predictor_api.storage.grid_profile_snapshot_resolver import (
+    SqlAlchemyGridProfileSnapshotResolver,
 )
 from game_predictor_api.storage.models import GameModel, ImageSequenceCanonicalModel
 
@@ -58,10 +60,9 @@ class SqlAlchemyImageSequenceCanonicalRepository(ImageSequenceCanonicalRepositor
         return int(value) if value is not None else None
 
     def uses_neural_grid_pilot(self, game_id: UUID) -> bool:
-        game = self._session.get(GameModel, game_id)
-        if game is None:
-            return False
-        return neural_import_profile(game.shape_geometry_configuration) is not None
+        return SqlAlchemyGridProfileSnapshotResolver(self._session).require_neural_grid_assignment(
+            game_id=game_id
+        )
 
 
 __all__ = ["SqlAlchemyImageSequenceCanonicalRepository"]

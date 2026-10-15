@@ -62,7 +62,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 - `services/api/src/game_predictor_api/api/` (47 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (89 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (74 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/domain/` (75 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (50 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
 - `services/api/src/game_predictor_api/storage/` (123 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (345 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (346 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (87 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (250 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (251 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -150,7 +150,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `games/` (3 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+27)
   - `grid-shadow/` (2 plików): GridShadowPanelClient, GridShadowPanel, gridShadowErrorMessage, gridShadowSourceChoices, gridShadowUnknownVisibilityCount, gridShadowMeshLines, gridShadowReviewerUrl, gridShadowRequestId (+2)
   - `image-selection/` (5 plików): ImageSelectionClient, ImageSelectionUploadProgress, ResumableImageSelectionUpload, ImageSelectionOutputSaveResult, isVisibleImageSelectionRun, visibleImageSelectionRuns, orderImageSelectionFiles, uploadPhotoSelectionFolder (+20)
-  - `imports/` (25 plików): VERIFIED_V19_ACTIVATION_VERSION, boardCellProcessingModeLabel, boardCellProcessingJobLabel, jobMatchesBoardCellProcessingMode, GeometryCompletenessClient, GeometryCompletenessSection, GeometryImageStateName, GeometryPositionStateName (+176)
+  - `imports/` (25 plików): VERIFIED_V19_ACTIVATION_VERSION, boardCellProcessingModeLabel, boardCellProcessingJobLabel, jobMatchesBoardCellProcessingMode, GeometryCompletenessClient, GeometryCompletenessSection, GeometryImageStateName, GeometryPositionStateName (+177)
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
@@ -180,7 +180,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Testy
 
 - `apps/admin/test/` (109 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (25 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (26 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy

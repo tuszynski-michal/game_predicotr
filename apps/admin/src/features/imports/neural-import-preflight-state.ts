@@ -3,6 +3,7 @@ import type {
   BrowserReadySelectionResponse,
   JobResponse,
   NeuralGridSnapshotPayload,
+  CatalogueNeuralGridSnapshotPayload,
 } from '@game-predictor/admin-api-client';
 
 // D-544: each grid engine profile pins its own frozen neural model.
@@ -13,9 +14,18 @@ const NEURAL_IMPORT_PROFILES: ReadonlySet<string> = new Set([
 
 export function neuralImportSnapshot(
   job: JobResponse | null | undefined,
-): NeuralGridSnapshotPayload | null {
+): NeuralGridSnapshotPayload | CatalogueNeuralGridSnapshotPayload | null {
   if (!job || !('neuralGridProposal' in job.inputPayload)) return null;
   const snapshot = job.inputPayload.neuralGridProposal;
+  if (snapshot?.contractVersion === 'neural-grid-proposal-snapshot-v2') {
+    return snapshot.gameId === job.gameId &&
+      Number.isSafeInteger(snapshot.expectedLayoutCount) &&
+      snapshot.expectedLayoutCount > 0 &&
+      snapshot.catalogueManifest.modelKind === 'neural_grid' &&
+      snapshot.catalogueManifest.schemaVersion === 'grid-model-catalogue-v1'
+      ? snapshot
+      : null;
+  }
   return snapshot?.contractVersion === 'neural-grid-proposal-snapshot-v1' &&
     Number.isSafeInteger(snapshot.expectedLayoutCount) &&
     snapshot.expectedLayoutCount > 0 &&
@@ -24,6 +34,16 @@ export function neuralImportSnapshot(
     snapshot.model.schemaVersion === 'grid-engine-model-manifest-v1'
     ? snapshot
     : null;
+}
+
+export function neuralImportModelExportId(
+  job: JobResponse | null | undefined,
+): string | null {
+  const snapshot = neuralImportSnapshot(job);
+  if (!snapshot) return null;
+  return snapshot.contractVersion === 'neural-grid-proposal-snapshot-v2'
+    ? snapshot.catalogueManifest.inferenceManifest.exportId
+    : snapshot.model.exportId;
 }
 
 export function isNeuralGeometryPreflight(

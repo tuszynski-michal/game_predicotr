@@ -78,7 +78,7 @@ import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
 import {
   canResumeNeuralImport,
   isNeuralGeometryPreflight,
-  neuralImportSnapshot,
+  neuralImportModelExportId,
   readySelectionHasNeuralImport,
 } from './neural-import-preflight-state';
 
@@ -1771,10 +1771,7 @@ export function ImageFolderImportPanel({
                       <div className="importMetric">
                         <dt>Model siatki — wersja</dt>
                         <dd>
-                          {
-                            neuralImportSnapshot(geometryPreflightJob)?.model
-                              .exportId
-                          }
+                          {neuralImportModelExportId(geometryPreflightJob)}
                         </dd>
                       </div>
                     ) : null}

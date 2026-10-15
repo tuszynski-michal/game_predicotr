@@ -110,6 +110,7 @@ export type {
   SourceLatticePoint,
   NeuralDetectionPayload,
   NeuralGridSnapshotPayload,
+  CatalogueNeuralGridSnapshotPayload,
   NeuralSourceProposalPayload,
   NeuralSourceBindingPayload,
   NeuralSourceAssignmentPayload,

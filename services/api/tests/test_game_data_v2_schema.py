@@ -34,7 +34,10 @@ from game_predictor_api.storage.game_data_v2_manifest_v8 import (
 )
 from game_predictor_api.storage.game_data_v2_manifest_v8 import GAME_TABLES as V8_GAME_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v8 import ownership as v8_ownership
-from game_predictor_api.storage.game_data_v2_manifest_v9 import (
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG as V9_CATALOG
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_SHARED as V9_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ownership as v9_ownership
+from game_predictor_api.storage.game_data_v2_manifest_v10 import (
     ADDED_CATALOG,
     ADDED_SHARED,
     CATALOG,
@@ -64,7 +67,7 @@ def config(output: StringIO) -> Config:
 
 
 def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
-    registry_tables = ADDED_CATALOG | ADDED_SHARED
+    registry_tables = V9_CATALOG | V9_SHARED | ADDED_CATALOG | ADDED_SHARED
     known = (
         ((CATALOG | SHARED | POST_V5_SHARED) - registry_tables)
         | set(GAME_TABLES)
@@ -79,7 +82,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v9"
+    assert VERSION == "game-data-v2-manifest-v10"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
@@ -148,20 +151,37 @@ def test_registry_ownership_is_public_control_without_changing_frozen_v8() -> No
         "grid_model_versions",
         "grid_model_registration_receipts",
         "grid_model_version_events",
-    } == ADDED_SHARED
+    } == V9_SHARED
     assert {
         "game_grid_model_assignments",
         "game_grid_model_assignment_events",
-    } == ADDED_CATALOG
-    assert {ownership(name) for name in ADDED_SHARED} == {"shared"}
-    assert {ownership(name) for name in ADDED_CATALOG} == {"catalog"}
+    } == V9_CATALOG
+    assert {ownership(name) for name in V9_SHARED} == {"shared"}
+    assert {ownership(name) for name in V9_CATALOG} == {"catalog"}
     assert GAME_TABLES == V8_GAME_TABLES
-    for name in ADDED_CATALOG | ADDED_SHARED:
+    for name in V9_CATALOG | V9_SHARED:
         table = Base.metadata.tables[f"public.{name}"]
         assert table.schema == "public"
         assert name not in PARTITIONED_TABLES
         with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
             v8_ownership(name)
+
+
+def test_publication_ownership_preserves_all_frozen_game_partitions() -> None:
+    assert not ADDED_CATALOG
+    assert {
+        "grid_model_evaluation_reports",
+        "grid_model_evaluation_invalidations",
+        "grid_model_publications",
+        "grid_model_control_events",
+        "grid_model_default",
+    } == ADDED_SHARED
+    assert {ownership(name) for name in ADDED_SHARED} == {"shared"}
+    for name in ADDED_SHARED:
+        assert Base.metadata.tables["public." + name].schema == "public"
+        assert name not in PARTITIONED_TABLES
+        with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
+            v9_ownership(name)
 
 
 @pytest.mark.parametrize("first_module", ["models", "grid_model_registry_models"])
@@ -176,11 +196,12 @@ root = Path.cwd()
 importlib.import_module("game_predictor_api.storage." + sys.argv[1])
 models = importlib.import_module("game_predictor_api.storage.models")
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG, ADDED_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as PUBLICATION_SHARED
 
 assert Path(models.__file__).resolve() == (
     root / "services/api/src/game_predictor_api/storage/models.py"
 ).resolve()
-names = ADDED_CATALOG | ADDED_SHARED
+names = ADDED_CATALOG | ADDED_SHARED | PUBLICATION_SHARED
 assert {"public." + name for name in names} <= models.Base.metadata.tables.keys()
 baseline = runpy.run_path(str(root / "services/api/tests/integration/test_postgres_baseline.py"))
 assert names <= baseline["EXPECTED_PUBLIC_TABLES"]

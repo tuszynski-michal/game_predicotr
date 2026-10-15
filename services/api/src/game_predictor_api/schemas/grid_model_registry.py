@@ -1,5 +1,6 @@
 """Closed catalogue transport generated into OpenAPI and the Admin client."""
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -99,7 +100,9 @@ class GridModelVersionResponse(ApiModel):
     manifest_sha256: str
     available: bool
     reason_code: str
-    published: Literal[False] = False
+    published: bool = False
+    eligible: bool = False
+    eligibility_reason_code: str = "GRID_MODEL_NOT_PUBLISHED"
 
 
 class GameGridModelAssignmentResponse(ApiModel):
@@ -107,3 +110,56 @@ class GameGridModelAssignmentResponse(ApiModel):
     revision: int | None
     version: GridModelVersionResponse | None
     event_count: int
+
+
+class GridModelPublishCommand(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+    idempotency_key: UUID
+    expected_revision: int = Field(ge=0)
+    evaluation_id: UUID | None = None
+
+
+class GridModelAssignmentCommand(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+    idempotency_key: UUID
+    expected_revision: int = Field(ge=0)
+    version_id: UUID
+
+
+class GridModelControlReceipt(ApiModel):
+    kind: Literal["publish", "set_default", "activate", "rollback"]
+    idempotency_key: UUID
+    expected_revision: int
+    version_id: UUID
+    game_id: UUID | None
+    evaluation_id: UUID | None
+    actor: str
+    revision: int
+    command_sha256: str
+    manifest_sha256: str
+    evidence_kind: Literal["historical_admission", "evaluated_candidate"]
+    evidence_sha256: str
+
+
+class GridModelDefaultResponse(ApiModel):
+    revision: int
+    version: GridModelVersionResponse | None
+    eligible: bool
+    reason_code: str
+
+
+class GridModelHistoryEvent(ApiModel):
+    kind: Literal["publish", "set_default", "activate", "rollback", "historical_assignment"]
+    game_id: UUID | None
+    version_id: UUID
+    revision: int
+    actor: str
+    created_at: datetime
+    # Historical migration events have no command receipt.
+    idempotency_key: UUID | None = None
+    expected_revision: int | None = None
+    evaluation_id: UUID | None = None
+    command_sha256: str | None = None
+    manifest_sha256: str | None = None
+    evidence_kind: Literal["historical_admission", "evaluated_candidate"] | None = None
+    evidence_sha256: str | None = None

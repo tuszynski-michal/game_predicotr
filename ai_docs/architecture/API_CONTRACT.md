@@ -6,6 +6,72 @@ last_updated: 2026-10-15
 
 # Kontrakty API i danych mobilnych
 
+## Jawne polecenia wersji geometrii V3 — TASK-0998
+
+Istniejący rejestr rozszerzają odrębne operacje Admina:
+
+- `POST /api/v1/admin/grid-model-versions/{versionId}/publish`
+  (`publishGridModelVersion`): `idempotencyKey`, `expectedRevision`, opcjonalne
+  `evaluationId`. Pierwsza publikacja wymaga revision 0; publikacja jest niezmienna.
+- `POST /api/v1/admin/games/{gameId}/grid-model-assignment/activate`
+  (`activateGameGridModel`) oraz `/rollback` (`rollbackGameGridModel`):
+  `idempotencyKey`, `expectedRevision`, `versionId`.
+- `GET /api/v1/admin/grid-model-default` (`getGridModelDefault`) i oddzielny
+  `POST` (`setGridModelDefault`) z takim samym poleceniem jak assignment.
+  Brak default oznacza revision 0 i nullable version. Zapis nie przełącza
+  istniejących gier ani jobów.
+- `GET /api/v1/admin/grid-model-history` (`getGridModelHistory`) i
+  `GET /api/v1/admin/games/{gameId}/grid-model-assignment/history`
+  (`getGameGridModelHistory`) zwracają najwyżej 200 najnowszych zdarzeń.
+  Pełna historia pozostaje w bazie. Historyczne zdarzenie przypisania zachowuje
+  brak dawnego receipt; nowe zdarzenia mają actor, czas i receipt.
+
+Receipt zawiera rodzaj/scope/target, klucz, expectedRevision i wynikową revision,
+kanoniczny commandSha256, manifestSha256, evidenceKind/evidenceSha256 i actor
+`local-owner` ze stałej strażnika Admina. Dokładny retry odtwarza pierwotny
+receipt także po restarcie, utracie odpowiedzi, zmianie head, utracie artefaktu
+lub invalidation dowodu. Nie wykonuje ponownie operacji ani nie oznacza
+aktualnej eligibility. W tych czterech poleceniach klucz ma jawny namespace:
+publish i set-default dzielą
+globalny ledger; activate i rollback dzielą ledger wskazanej gry. Inna gra ma
+osobny namespace. Ten sam UUID może istnieć w globalnym ledgerze i w kilku
+ledgerach gier jako niezależne operacje. Retry wymaga tego samego endpointu,
+game scope i payloadu; klient powinien nadawać nowy UUID dla nowego zamiaru.
+Rejestracja TASK-0994 zachowuje osobny ledger receiptów rejestracyjnych.
+Zmieniona treść pod tym samym kluczem w jednym namespace daje 409
+`GRID_MODEL_IDEMPOTENCY_CONFLICT`; nieaktualna revision daje 409
+`GRID_MODEL_REVISION_CONFLICT`. Event, receipt i head należą do jednej transakcji.
+
+Publikacja kandydata przyjmuje wyłącznie ID istniejącego server-owned raportu.
+Nie istnieje publiczny writer raportów; klient nie przesyła PASS, metryk,
+producenta, actor ani kohorty. Zamknięty read contract wymaga canonical JSON/SHA,
+obsługiwanego server producer/policy/schema, zgodnych pinów candidate/base/cohort
+oraz kompletnego PASS walidacji i regresji dla każdej wymaganej gry. Obliczenia
+miar i rzeczywiste zaufane wyniki dostarczy TASK-0997. Brak dowodu, niezgodność,
+niepełny zakres lub obca oceniana gra daje 409 `GRID_MODEL_EVALUATION_REQUIRED`;
+append-only invalidation daje 409 `GRID_MODEL_EVALUATION_STALE`.
+Zapisany kandydat bez bazy również daje 409 `GRID_MODEL_EVALUATION_REQUIRED`;
+nieobsługiwany kontrakt adaptera daje 409 `GRID_MODEL_CONTRACT_UNSUPPORTED`.
+Odmowa nie zapisuje publication ani receipt.
+
+Historyczna baza wymaga jawnego publish jako `historical_admission`: serwer
+sprawdza exact frozen descriptor oraz odczytuje istniejący raport repozytorium
+i zapisuje jego SHA z historycznymi wynikami. Nie powstaje nowy PASS/kohorta.
+Activate/default/rollback wymagają publikacji, aktualnego dowodu i zgodnych
+artefaktów; rollback dodatkowo wcześniejszego targetu w historii tej samej gry.
+Obcy scope sesji daje 409 `GRID_MODEL_GAME_SCOPE_CONFLICT`; brak gry 404.
+
+Version response addytywnie udostępnia `published: boolean`, `eligible` oraz
+`eligibilityReasonCode`, niezależnie od `available`/`reasonCode` plików.
+Immutable admission nadal ma `not_evaluated` lub `historical_baseline`.
+Invalidation nie zdejmuje istniejącego assignment: nowy preflight istniejącej
+gry zachowuje jego pin; start/reuse/restart zapisanej propozycji zachowuje swój
+snapshot. Istniejące historyczne assignments działają bez automatycznej
+publikacji. Status stale pozostaje jawny; panel TASK-1000 ma go pokazać.
+Read contract `GridModelPublicationService.eligible(versionId)` służy później
+TASK-1004 do bootstrapu zgodnej nowej gry z opublikowanego default/jawnej wersji.
+Nie wymaga UUID przyszłej gry ani nie deklaruje jej pomierzonej jakości.
+
 ## Dynamiczny snapshot geometrii V3 — TASK-1012
 
 Istniejące pola `neuralGridProposal` jobów oraz `engineSnapshot` propozycji
@@ -40,11 +106,11 @@ Bramki publikacji/aktywacji/default należą do TASK-0998.
   not_evaluated; historical_baseline dotyczy tylko dwóch frozen baz.
   Polecenie atomowo zapisuje family/version/event/receipt. Ten sam key/command
   odzyskuje wynik po utracie odpowiedzi; zmieniony payload/key lub immutable
-  version identity daje409. Missing/mismatch plików lub manifestu/receipt
+  version identity daje 409. Missing/mismatch plików lub manifestu/receipt
   blokuje zapis i retry409; wszystkie pliki wymagają pinned SHA oraz size.
 - `GET /api/v1/admin/games/{gameId}/grid-model-assignment`
   (`getGameGridModelAssignment`) zwraca wyłącznie assignment tej gry:
-  `gameId`, nullable `revision`, nullable `version`, `eventCount`. Brak gry404;
+  `gameId`, nullable `revision`, nullable `version`, `eventCount`. Brak gry 404;
   obca gra sesji409 GRID_MODEL_GAME_SCOPE_CONFLICT. Globalny GET nie zwraca
   game assignments. Catalogue public schema jest odrębny od game data plane.
 

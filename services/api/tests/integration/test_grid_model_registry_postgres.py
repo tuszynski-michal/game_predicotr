@@ -75,7 +75,7 @@ def database() -> Iterator[tuple]:
         url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
     )
     receipt = {"database": name, "role": role, "phase": "created", "operatorDatabaseChanged": False}
-    destination = Path("artifacts/audits/TASK-0994_PG_RECEIPT.json")
+    destination = Path("artifacts/audits/TASK-0998_REGISTRY_REGRESSION_PG_RECEIPT.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
@@ -264,6 +264,12 @@ def test_upgrade_keeps_games_partitions_and_pins_historical_models(database, tmp
         provision_application_role(
             connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
         )
+    # Runtime controls require the current head; the frozen0156 assertions above remain.
+    command.upgrade(config, "0157_grid_model_publication")
+    with engine.begin() as connection:
+        provision_application_role(
+            connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
+        )
     factory = sessionmaker(engine)
 
     def assume_role(session, transaction, connection):
@@ -379,8 +385,8 @@ def test_upgrade_keeps_games_partitions_and_pins_historical_models(database, tmp
                 text("SELECT * FROM game_data_v2.image_geometry_rollout_states")
             ).all()
         )
-    with pytest.raises(RuntimeError, match="GRID_MODEL_REGISTRY_DOWNGRADE_REFUSED"):
-        command.downgrade(config, "0155_historical_grid_acceptance")
+    with pytest.raises(RuntimeError, match="GRID_MODEL_PUBLICATION_DOWNGRADE_REFUSED"):
+        command.downgrade(config, "0156_grid_model_registry")
     receipt["verified"] = [
         "0155_to_0156",
         "v8_partition_definitions_unchanged",

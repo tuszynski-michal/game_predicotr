@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-15
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -1686,3 +1686,28 @@ Testowe zastosowanie migracji w disposable DB nie jest migracją operatora.
 immutable guards kontrolują jej zapisy. Nie ma bezstratnego downgrade0156.
 Rejestracja API wymaga zgodnego inference manifestu oraz training-base receipt
 z plikami i pinned SHA/size. Katalog GET/POST nie ładuje Torch/ONNX ani GPU.
+
+
+### Polecenia publikacji i przypisania — TASK-0998
+
+Bieżący kod wymaga teraz Alembic `0157_grid_model_publication` i manifest v10.
+Migracja dodaje control schema/history oraz pola receipt, ale nie publikuje
+modeli i nie ustawia default. Przed integracją i migracją operatora zachowaj
+powyższą ręczną kolejność usług. Test na disposable DB nie jest zgodą na
+migrację operatora. Downgrade 0157 odmawia utraty historii.
+
+Odrębne polecenia publish, activate(game), set-default i rollback(game) mają
+UUID idempotencyKey oraz expectedRevision. Pierwsza revision wynosi 0.
+Powtórzenie tego samego polecenia odtwarza receipt; po utracie odpowiedzi
+użyj tego samego klucza i payloadu. Nowy klucz nie naprawia konfliktu rewizji.
+Najpierw odczytaj bieżący assignment/default i świadomie wybierz target.
+
+Historyczna baza wymaga jawnego publish z istniejącym raportem; nie otrzymuje
+nowego PASS. Kandydat wymaga ID zaufanej oceny serwera TASK-0997. API nie
+przyjmuje PASS/metryk od klienta. Samo published nie oznacza aktualnej
+eligibility: sprawdź eligible/eligibilityReasonCode oraz dostępność plików.
+Invalidation blokuje nowe komendy i wybór default dla nowej gry, ale nie
+zdejmuje istniejącego assignment ani nie zmienia jobów. Rollback wymaga
+wcześniejszej opublikowanej i nadal dopuszczonej wersji w historii tej gry;
+zmienia tylko przypisanie. Rzeczywiste publikacje/aktywacje/default i runy
+wykonuje operator osobno; implementacja i testy nie wykonały ich na jego danych.

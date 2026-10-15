@@ -26,7 +26,7 @@ Uwzględnione uwagi rundy 3:
 
 W trakcie planowania powstał zewnętrzny commit v1.7.360. Zawiera starszy plan, raporty i powiązane wpisy dokumentacyjne. Dlatego TASK-1015 **aktualizuje istniejącą dokumentację w nowym worktree**; nie przenosi już niezacommitowanych dokumentów z głównego checkoutu.
 
-Historyczny przegląd planowania obejmował odczyty dokumentacji, kodu i historii Git bez zmian plików lub danych. TASK-1015 utrwala obecnie dokumentację w niezależnym worktree. Testy aplikacji opisane poniżej pozostają planowane; wyniki faktycznych kontroli dokumentacji zapisuje Outcome TASK-1015.
+Historyczny przegląd planowania obejmował odczyty dokumentacji, kodu i historii Git bez zmian plików lub danych. TASK-1015 utrwalił dokumentację w niezależnym worktree. Opisy kontroli poniżej określają wymagania wykonania; faktyczne wyniki, ograniczenia i raporty audytu zapisuje Outcome każdego taska oraz CURRENT_STATE. Sam opis planu nie jest dowodem zaliczenia testu.
 
 Dla Claude Code: kolejny audyt może skupić się na zmianach procesowych, pełnych opisach tasków, zależnościach ponownego rozpoznania oraz zgodności z decyzją o bazie. Poprzednie raporty pozostają dowodami dotyczącymi swoich rewizji, bez przepisywania ich werdyktów.
 
@@ -296,7 +296,7 @@ Nowe pliki wymienione w taskach są **proponowane**. Ich ścieżki podano wzglę
 
 ## 5. Weryfikacja wspólna dla tasków
 
-W TASK-1015 utworzono 23 osobne pliki według `TASK_TEMPLATE.md`. TASK-1015 ma status `done` (kontrole i audyt zakończone, zapis commita prowadzi lead); pozostałe 22 taski mają `todo`. Kolejność wykonania wyznacza tabela modeli i zależności poniżej.
+W TASK-1015 utworzono 23 osobne pliki według `TASK_TEMPLATE.md`. Aktualne statusy, fazę wykonania i commity prowadzą pliki tasków oraz CURRENT_STATE; opis taska poniżej określa zaakceptowany zakres, a nie bieżący status. Kolejność wykonania wyznacza tabela modeli i zależności poniżej.
 
 Każdy plik zawiera `Outcome`: Changed, Verification results, Not completed, Documentation updates, Recommended next task oraz dane wznowienia z sekcji 3. Wyników nie wpisujemy przed wykonaniem.
 
@@ -685,7 +685,7 @@ Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżel
 
 Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (Claude R2 PASS). D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); następny TASK-1004. D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
 
 ## 8. Przypisanie modeli do zadań
 

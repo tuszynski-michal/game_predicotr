@@ -173,6 +173,49 @@ TASK-1012 stare importy nadal korzystają z tego zamrożonego rejestru kodu.
 Kolejny model jest nową immutable wersją rodziny, nie nową wartością formatu. Downgrade odmawia
 (`GRID_ENGINE_PROFILE_IN_USE`), dopóki gra używa profilu.
 
+## Publikacja i przypisania geometrii V3 — TASK-0998
+
+Migracja `0157_grid_model_publication` dodaje pięć shared tabel w `public`:
+`grid_model_evaluation_reports`, `grid_model_evaluation_invalidations`,
+`grid_model_publications`, `grid_model_control_events` i singleton
+`grid_model_default`. Raport ma server producer, canonical JSON/SHA, version FK
+oraz przypięte tożsamości base/cohort/policy i per-game coverage/outcomes.
+Nie przechowuje obrazów ani wag. Nie ma publicznego writer'a raportów;
+TASK-0997 jest właścicielem obliczeń i zapisu rzeczywistych wyników.
+Currentness wynika z niezmiennych pinów i braku append-only invalidation.
+Przyszły writer zmiany prawdy/kohorty musi zapisać invalidation atomowo pod
+tym samym catalogue lock 9910994. Raportów ani manifest admission nie przepisuje.
+
+Publikacja pinuje FK raportu albo historyczny raport z realnego repozytorium,
+canonical evidence JSON i SHA. Nie jest flagą descriptor'a. Globalne immutable
+events są jednocześnie receiptami z UUID key, canonical command JSON/SHA,
+actor `local-owner`, expected revision, wynikową revision i evidence SHA.
+Default jest jedynym globalnym mutable head. Assignment events pozostają
+catalog per gra; nowe pola są nullable wyłącznie dla zachowanych historycznych
+wierszy. Nowe activate/rollback zapisują pełną proweniencję oraz unikalne
+`(game_id,revision)` i `(game_id,idempotency_key)`.
+
+Namespace idempotencji jest zgodny z tymi kluczami: globalny ledger wspólny dla
+publish/set-default oraz osobny ledger każdej gry dla activate/rollback. Retry
+i konflikt treści obowiązują wewnątrz tego namespace. UUID nie jest globalnie
+unikalnym identyfikatorem zamiaru między ledgerami; API dokumentuje tę granicę.
+
+Wszystkie komendy serializuje transaction advisory lock 9910994 z limitem 5 s.
+Po uzyskaniu locka odczyt mutable head odświeża ORM identity map, nie usuwa
+innych oczekujących zmian sesji. CAS używa aktualnej revision; pierwszy zapis
+ma expected 0. Exact retry odczytuje immutable receipt przed CAS/eligibility,
+bez powrotnego przestawienia head. Zapis event/head/receipt jest atomowy.
+Rollback zmienia assignment i historię, bez zmian geometrii, cropów, sekwencji,
+symboli lub jobów. Usunięcie rodzica gry zachowuje dotychczasowy cascade
+assignment/events; globalna historia wersji i poleceń pozostaje.
+
+Frozen manifest v10 dziedziczy wszystkie partycje i klasyfikacje v9, dodając
+wyłącznie pięć shared tabel. Migracja nie publikuje, nie dopuszcza bazy,
+nie aktywuje i nie ustawia default. Frozen v1–v9 i historyczne JSON/SHA pozostają
+identyczne. Downgrade odmawia utraty historii. Stare assignments/snapshoty
+działają dalej; invalidation blokuje nowe komendy i bootstrap eligibility,
+a istniejącego assignment nie zmienia automatycznie.
+
 ## Trwały rejestr geometrii V3 — TASK-0994
 
 Migracja `0156_grid_model_registry` dodaje do `public` shared control tables

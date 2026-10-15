@@ -10,9 +10,15 @@ from game_predictor_api.application.grid_model_registry import GridModelRegistry
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_model_registry import (
     GameGridModelAssignmentResponse,
+    GridModelAssignmentCommand,
+    GridModelControlReceipt,
+    GridModelDefaultResponse,
+    GridModelHistoryEvent,
+    GridModelPublishCommand,
     GridModelRegisterRequest,
     GridModelVersionResponse,
 )
+from game_predictor_api.security.local_admin import ADMIN_ACTOR
 
 
 def create_grid_model_registry_router(service_dependency: Callable[..., object]) -> APIRouter:
@@ -58,5 +64,127 @@ def create_grid_model_registry_router(service_dependency: Callable[..., object])
         game_id: UUID, service: Annotated[GridModelRegistryService, dependency]
     ) -> GameGridModelAssignmentResponse:
         return GameGridModelAssignmentResponse.model_validate(service.game_assignment(game_id))
+
+    @router.post(
+        "/grid-model-versions/{version_id}/publish",
+        response_model=GridModelControlReceipt,
+        operation_id="publishGridModelVersion",
+        responses=errors,
+    )
+    def publish(
+        version_id: UUID,
+        command: GridModelPublishCommand,
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> GridModelControlReceipt:
+        return GridModelControlReceipt.model_validate(
+            service.control.execute(
+                kind="publish",
+                key=command.idempotency_key,
+                expected_revision=command.expected_revision,
+                version_id=version_id,
+                evaluation_id=command.evaluation_id,
+                actor=ADMIN_ACTOR,
+            )
+        )
+
+    @router.get(
+        "/grid-model-default",
+        response_model=GridModelDefaultResponse,
+        operation_id="getGridModelDefault",
+        responses=errors,
+    )
+    def default(
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> GridModelDefaultResponse:
+        return GridModelDefaultResponse.model_validate(service.control.default_view())
+
+    @router.post(
+        "/grid-model-default",
+        response_model=GridModelControlReceipt,
+        operation_id="setGridModelDefault",
+        responses=errors,
+    )
+    def set_default(
+        command: GridModelAssignmentCommand,
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> GridModelControlReceipt:
+        return GridModelControlReceipt.model_validate(
+            service.control.execute(
+                kind="set_default",
+                key=command.idempotency_key,
+                expected_revision=command.expected_revision,
+                version_id=command.version_id,
+                actor=ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
+        "/games/{game_id}/grid-model-assignment/activate",
+        response_model=GridModelControlReceipt,
+        operation_id="activateGameGridModel",
+        responses=errors,
+    )
+    def activate(
+        game_id: UUID,
+        command: GridModelAssignmentCommand,
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> GridModelControlReceipt:
+        return GridModelControlReceipt.model_validate(
+            service.control.execute(
+                kind="activate",
+                key=command.idempotency_key,
+                expected_revision=command.expected_revision,
+                version_id=command.version_id,
+                game_id=game_id,
+                actor=ADMIN_ACTOR,
+            )
+        )
+
+    @router.post(
+        "/games/{game_id}/grid-model-assignment/rollback",
+        response_model=GridModelControlReceipt,
+        operation_id="rollbackGameGridModel",
+        responses=errors,
+    )
+    def rollback(
+        game_id: UUID,
+        command: GridModelAssignmentCommand,
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> GridModelControlReceipt:
+        return GridModelControlReceipt.model_validate(
+            service.control.execute(
+                kind="rollback",
+                key=command.idempotency_key,
+                expected_revision=command.expected_revision,
+                version_id=command.version_id,
+                game_id=game_id,
+                actor=ADMIN_ACTOR,
+            )
+        )
+
+    @router.get(
+        "/grid-model-history",
+        response_model=list[GridModelHistoryEvent],
+        operation_id="getGridModelHistory",
+        responses=errors,
+    )
+    def history(
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> list[GridModelHistoryEvent]:
+        return [GridModelHistoryEvent.model_validate(row) for row in service.control.history()]
+
+    @router.get(
+        "/games/{game_id}/grid-model-assignment/history",
+        response_model=list[GridModelHistoryEvent],
+        operation_id="getGameGridModelHistory",
+        responses=errors,
+    )
+    def game_history(
+        game_id: UUID,
+        service: Annotated[GridModelRegistryService, dependency],
+    ) -> list[GridModelHistoryEvent]:
+        return [
+            GridModelHistoryEvent.model_validate(row) for row in service.control.history(game_id)
+        ]
 
     return router

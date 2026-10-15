@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-10-09
+last_updated: 2026-10-15
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -68,6 +68,25 @@ historii cofnięć (wiersz audytu, rewizja źródła `reverted`, zdarzenie
 Tabele `management_*` należą do niezależnej kontroli zarządzania
 (`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
 w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
+
+## Public control plane version10 — TASK-0998
+
+`game_data_v2_manifest_v10.py` i Alembic `0157_grid_model_publication` zachowują
+partycjonowane GAME_TABLES/CREATE_TABLES/MIGRATE_TABLES/DELETE_TABLES v9 bez zmian.
+Dodają pięć publicznych tabel klasy shared: `grid_model_evaluation_reports`,
+`grid_model_evaluation_invalidations`, `grid_model_publications`,
+`grid_model_control_events`, `grid_model_default`. Są to dowody/proweniencja
+sterowania wspólną geometrią, bez obrazów, wag, sekwencji i etykiet symboli.
+Per-game IDs w zamkniętym raporcie są wyłącznie zakresem oceny; raport nie jest
+udostępniany przez globalny GET i nie przenosi własności danych gry.
+
+Istniejące `game_grid_model_assignments` i `game_grid_model_assignment_events`
+pozostają catalog w `public`, z jawnymi predykatami i strażnikiem scope sesji.
+Tylko mutable head jest aktualizowany; nowe eventy mają receipt/proweniencję,
+a historyczne eventy pozostają niezmienione. Cascade po usunięciu gry nie
+usuwa shared historii. Bieżący routing/lifecycle/katalog importują v10;
+frozen manifesty v1–v9 pozostają nienaruszone. Migracja aktualizuje wyłącznie
+control manifest/location revision, nie data-plane ani przypisania modeli.
 
 ## Reguły i granice
 

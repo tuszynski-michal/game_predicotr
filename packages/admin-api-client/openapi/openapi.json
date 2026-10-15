@@ -9870,6 +9870,165 @@
         "title": "GridModelArtifact",
         "type": "object"
       },
+      "GridModelAssignmentCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision",
+          "versionId"
+        ],
+        "title": "GridModelAssignmentCommand",
+        "type": "object"
+      },
+      "GridModelControlReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "commandSha256": {
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "evaluationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationid"
+          },
+          "evidenceKind": {
+            "enum": [
+              "historical_admission",
+              "evaluated_candidate"
+            ],
+            "title": "Evidencekind",
+            "type": "string"
+          },
+          "evidenceSha256": {
+            "title": "Evidencesha256",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "publish",
+              "set_default",
+              "activate",
+              "rollback"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "idempotencyKey",
+          "expectedRevision",
+          "versionId",
+          "gameId",
+          "evaluationId",
+          "actor",
+          "revision",
+          "commandSha256",
+          "manifestSha256",
+          "evidenceKind",
+          "evidenceSha256"
+        ],
+        "title": "GridModelControlReceipt",
+        "type": "object"
+      },
+      "GridModelDefaultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "reasonCode": {
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridModelVersionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "version",
+          "eligible",
+          "reasonCode"
+        ],
+        "title": "GridModelDefaultResponse",
+        "type": "object"
+      },
       "GridModelHistoricalReport": {
         "additionalProperties": false,
         "properties": {
@@ -9891,6 +10050,145 @@
           "result"
         ],
         "title": "GridModelHistoricalReport",
+        "type": "object"
+      },
+      "GridModelHistoryEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "commandSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commandsha256"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "evaluationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationid"
+          },
+          "evidenceKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "historical_admission",
+                  "evaluated_candidate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidencekind"
+          },
+          "evidenceSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidencesha256"
+          },
+          "expectedRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedrevision"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "idempotencyKey": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotencykey"
+          },
+          "kind": {
+            "enum": [
+              "publish",
+              "set_default",
+              "activate",
+              "rollback",
+              "historical_assignment"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestsha256"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "gameId",
+          "versionId",
+          "revision",
+          "actor",
+          "createdAt"
+        ],
+        "title": "GridModelHistoryEvent",
         "type": "object"
       },
       "GridModelManifest": {
@@ -10117,6 +10415,39 @@
         "title": "GridModelProvenance",
         "type": "object"
       },
+      "GridModelPublishCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationid"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision"
+        ],
+        "title": "GridModelPublishCommand",
+        "type": "object"
+      },
       "GridModelRegisterRequest": {
         "additionalProperties": false,
         "properties": {
@@ -10180,6 +10511,16 @@
             "title": "Available",
             "type": "boolean"
           },
+          "eligibilityReasonCode": {
+            "default": "GRID_MODEL_NOT_PUBLISHED",
+            "title": "Eligibilityreasoncode",
+            "type": "string"
+          },
+          "eligible": {
+            "default": false,
+            "title": "Eligible",
+            "type": "boolean"
+          },
           "manifest": {
             "$ref": "#/components/schemas/GridModelManifest"
           },
@@ -10188,7 +10529,6 @@
             "type": "string"
           },
           "published": {
-            "const": false,
             "default": false,
             "title": "Published",
             "type": "boolean"
@@ -38824,6 +39164,249 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-model-assignment/activate": {
+      "post": {
+        "operationId": "activateGameGridModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelAssignmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelControlReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Activate",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-model-assignment/history": {
+      "get": {
+        "operationId": "getGameGridModelHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridModelHistoryEvent"
+                  },
+                  "title": "Response Getgamegridmodelhistory",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Game History",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-model-assignment/rollback": {
+      "post": {
+        "operationId": "rollbackGameGridModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelAssignmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelControlReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rollback",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-reviews": {
       "get": {
         "operationId": "listImageGridReviews",
@@ -45913,6 +46496,187 @@
         ]
       }
     },
+    "/api/v1/admin/grid-model-default": {
+      "get": {
+        "operationId": "getGridModelDefault",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelDefaultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Default",
+        "tags": [
+          "grid-model-registry"
+        ]
+      },
+      "post": {
+        "operationId": "setGridModelDefault",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelAssignmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelControlReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Set Default",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-history": {
+      "get": {
+        "operationId": "getGridModelHistory",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridModelHistoryEvent"
+                  },
+                  "title": "Response Getgridmodelhistory",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
     "/api/v1/admin/grid-model-versions": {
       "get": {
         "operationId": "listGridModelVersions",
@@ -46038,6 +46802,94 @@
           }
         ],
         "summary": "Register Version",
+        "tags": [
+          "grid-model-registry"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-versions/{version_id}/publish": {
+      "post": {
+        "operationId": "publishGridModelVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelPublishCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelControlReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Publish",
         "tags": [
           "grid-model-registry"
         ]

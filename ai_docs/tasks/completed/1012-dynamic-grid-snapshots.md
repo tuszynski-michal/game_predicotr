@@ -197,3 +197,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Następny krok: osobny commit1012 po świeżym skanie numeracji oraz staged check/list/stat; pełny hash dopisać po utworzeniu bez amend. Następny funkcjonalny task0998, publikacja i aktywacja.
 
 - Końcowe po zamknięciu: docs:check PASS (57 aktywnych tasków,10 done,96437B), code-map:check i git diff --check PASS. Oryginalne i korekcyjne receipty zachowane. Wybrany kolejny wolny patch po skanie wszystkich refs/worktree HEADs: v1.7.375; ponownie potwierdzić przed commitem.
+
+### Commit i stan wznowienia
+
+- Commit v1.7.375 / `acf9ce4079b3ed176b1d40babb77f4e5a3ac9988`, codex/v3-grid-fine-tuning, bez scalenia. Staged check/list/stat i post-commit show/status PASS; worktree po commicie czysty. Hash dopisany po utworzeniu do następnego commita bez amend. Następny TASK-0998.

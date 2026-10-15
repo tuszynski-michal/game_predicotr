@@ -12,6 +12,9 @@ import type {
   AcknowledgeSemiAutomaticImageSelectionOutputData,
   AcknowledgeSemiAutomaticImageSelectionOutputErrors,
   AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+  ActivateGameGridModelData,
+  ActivateGameGridModelErrors,
+  ActivateGameGridModelResponses,
   ActivateGridProfileData,
   ActivateGridProfileErrors,
   ActivateGridProfileResponses,
@@ -329,6 +332,9 @@ import type {
   GetGameGridModelAssignmentData,
   GetGameGridModelAssignmentErrors,
   GetGameGridModelAssignmentResponses,
+  GetGameGridModelHistoryData,
+  GetGameGridModelHistoryErrors,
+  GetGameGridModelHistoryResponses,
   GetGameResponses,
   GetGridAuditProposalData,
   GetGridAuditProposalErrors,
@@ -336,6 +342,12 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridModelDefaultData,
+  GetGridModelDefaultErrors,
+  GetGridModelDefaultResponses,
+  GetGridModelHistoryData,
+  GetGridModelHistoryErrors,
+  GetGridModelHistoryResponses,
   GetGridShadowResultData,
   GetGridShadowResultErrors,
   GetGridShadowResultResponses,
@@ -891,6 +903,9 @@ import type {
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
+  PublishGridModelVersionData,
+  PublishGridModelVersionErrors,
+  PublishGridModelVersionResponses,
   PublishLayoutImportDatasetData,
   PublishLayoutImportDatasetErrors,
   PublishLayoutImportDatasetResponses,
@@ -993,6 +1008,9 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  RollbackGameGridModelData,
+  RollbackGameGridModelErrors,
+  RollbackGameGridModelResponses,
   RollbackGridProfileData,
   RollbackGridProfileErrors,
   RollbackGridProfileResponses,
@@ -1044,6 +1062,9 @@ import type {
   SelectSymbolReferenceFromCellReviewData,
   SelectSymbolReferenceFromCellReviewErrors,
   SelectSymbolReferenceFromCellReviewResponses,
+  SetGridModelDefaultData,
+  SetGridModelDefaultErrors,
+  SetGridModelDefaultResponses,
   SetSourceImageGeometryExceptionData,
   SetSourceImageGeometryExceptionErrors,
   SetSourceImageGeometryExceptionResponses,
@@ -1941,6 +1962,73 @@ export const getGameGridModelAssignment = <
     GetGameGridModelAssignmentErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-model-assignment', ...options });
+
+/**
+ * Activate
+ */
+export const activateGameGridModel = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateGameGridModelData, ThrowOnError>,
+): RequestResult<
+  ActivateGameGridModelResponses,
+  ActivateGameGridModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateGameGridModelResponses,
+    ActivateGameGridModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Game History
+ */
+export const getGameGridModelHistory = <ThrowOnError extends boolean = false>(
+  options: Options<GetGameGridModelHistoryData, ThrowOnError>,
+): RequestResult<
+  GetGameGridModelHistoryResponses,
+  GetGameGridModelHistoryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGameGridModelHistoryResponses,
+    GetGameGridModelHistoryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/history',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackGameGridModel = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackGameGridModelData, ThrowOnError>,
+): RequestResult<
+  RollbackGameGridModelResponses,
+  RollbackGameGridModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackGameGridModelResponses,
+    RollbackGameGridModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/rollback',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * List current game-wide board geometries with bounded keyset pagination
@@ -3575,6 +3663,62 @@ export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
 
 /**
+ * Default
+ */
+export const getGridModelDefault = <ThrowOnError extends boolean = false>(
+  options?: Options<GetGridModelDefaultData, ThrowOnError>,
+): RequestResult<
+  GetGridModelDefaultResponses,
+  GetGridModelDefaultErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetGridModelDefaultResponses,
+    GetGridModelDefaultErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-default', ...options });
+
+/**
+ * Set Default
+ */
+export const setGridModelDefault = <ThrowOnError extends boolean = false>(
+  options: Options<SetGridModelDefaultData, ThrowOnError>,
+): RequestResult<
+  SetGridModelDefaultResponses,
+  SetGridModelDefaultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetGridModelDefaultResponses,
+    SetGridModelDefaultErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-default',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * History
+ */
+export const getGridModelHistory = <ThrowOnError extends boolean = false>(
+  options?: Options<GetGridModelHistoryData, ThrowOnError>,
+): RequestResult<
+  GetGridModelHistoryResponses,
+  GetGridModelHistoryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetGridModelHistoryResponses,
+    GetGridModelHistoryErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-history', ...options });
+
+/**
  * List Versions
  */
 export const listGridModelVersions = <ThrowOnError extends boolean = false>(
@@ -3607,6 +3751,30 @@ export const registerGridModelVersion = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/grid-model-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Publish
+ */
+export const publishGridModelVersion = <ThrowOnError extends boolean = false>(
+  options: Options<PublishGridModelVersionData, ThrowOnError>,
+): RequestResult<
+  PublishGridModelVersionResponses,
+  PublishGridModelVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PublishGridModelVersionResponses,
+    PublishGridModelVersionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-versions/{version_id}/publish',
     ...options,
     headers: {
       'Content-Type': 'application/json',

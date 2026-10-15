@@ -101,3 +101,77 @@ class GameGridModelAssignmentEventModel(Base):
     revision: Mapped[int] = mapped_column()
     kind: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Nullable only for the immutable historical rows written by migration0156.
+    expected_revision: Mapped[int | None] = mapped_column()
+    command_sha256: Mapped[str | None] = mapped_column(String(64))
+    command_json: Mapped[str | None] = mapped_column(Text)
+    receipt_json: Mapped[str | None] = mapped_column(Text)
+    actor: Mapped[str | None] = mapped_column(String(64))
+    evidence_sha256: Mapped[str | None] = mapped_column(String(64))
+
+
+class GridModelEvaluationReportModel(Base):
+    __tablename__ = "grid_model_evaluation_reports"
+    __table_args__ = ({"schema": "public"},)
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
+    )
+    producer: Mapped[str] = mapped_column(String(64))
+    report_json: Mapped[str] = mapped_column(Text)
+    report_sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelEvaluationInvalidationModel(Base):
+    __tablename__ = "grid_model_evaluation_invalidations"
+    __table_args__ = ({"schema": "public"},)
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    report_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_evaluation_reports.id", ondelete="RESTRICT")
+    )
+    reason: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelPublicationModel(Base):
+    __tablename__ = "grid_model_publications"
+    __table_args__ = ({"schema": "public"},)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT"), primary_key=True
+    )
+    evaluation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("public.grid_model_evaluation_reports.id", ondelete="RESTRICT")
+    )
+    evidence_json: Mapped[str] = mapped_column(Text)
+    evidence_sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelControlEventModel(Base):
+    __tablename__ = "grid_model_control_events"
+    __table_args__ = ({"schema": "public"},)
+    idempotency_key: Mapped[UUID] = mapped_column(primary_key=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
+    )
+    kind: Mapped[str] = mapped_column(String(32))
+    revision: Mapped[int] = mapped_column()
+    expected_revision: Mapped[int] = mapped_column()
+    command_sha256: Mapped[str] = mapped_column(String(64))
+    command_json: Mapped[str] = mapped_column(Text)
+    receipt_json: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(64))
+    evidence_sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelDefaultModel(Base):
+    __tablename__ = "grid_model_default"
+    __table_args__ = (CheckConstraint("id = 'geometry-v3'"), {"schema": "public"})
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
+    )
+    revision: Mapped[int] = mapped_column()

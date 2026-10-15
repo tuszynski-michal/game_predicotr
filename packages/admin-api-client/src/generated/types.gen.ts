@@ -5520,6 +5520,97 @@ export type GridModelArtifact = {
 };
 
 /**
+ * GridModelAssignmentCommand
+ */
+export type GridModelAssignmentCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelControlReceipt
+ */
+export type GridModelControlReceipt = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string | null;
+  /**
+   * Evidencekind
+   */
+  evidenceKind: 'historical_admission' | 'evaluated_candidate';
+  /**
+   * Evidencesha256
+   */
+  evidenceSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'publish' | 'set_default' | 'activate' | 'rollback';
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelDefaultResponse
+ */
+export type GridModelDefaultResponse = {
+  /**
+   * Eligible
+   */
+  eligible: boolean;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  version: GridModelVersionResponse | null;
+};
+
+/**
  * GridModelHistoricalReport
  */
 export type GridModelHistoricalReport = {
@@ -5531,6 +5622,69 @@ export type GridModelHistoricalReport = {
    * Result
    */
   result: string;
+};
+
+/**
+ * GridModelHistoryEvent
+ */
+export type GridModelHistoryEvent = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Commandsha256
+   */
+  commandSha256?: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Evaluationid
+   */
+  evaluationId?: string | null;
+  /**
+   * Evidencekind
+   */
+  evidenceKind?: 'historical_admission' | 'evaluated_candidate' | null;
+  /**
+   * Evidencesha256
+   */
+  evidenceSha256?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number | null;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey?: string | null;
+  /**
+   * Kind
+   */
+  kind:
+    | 'publish'
+    | 'set_default'
+    | 'activate'
+    | 'rollback'
+    | 'historical_assignment';
+  /**
+   * Manifestsha256
+   */
+  manifestSha256?: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Versionid
+   */
+  versionId: string;
 };
 
 /**
@@ -5659,6 +5813,24 @@ export type GridModelProvenance = {
 };
 
 /**
+ * GridModelPublishCommand
+ */
+export type GridModelPublishCommand = {
+  /**
+   * Evaluationid
+   */
+  evaluationId?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
  * GridModelRegisterRequest
  */
 export type GridModelRegisterRequest = {
@@ -5699,6 +5871,14 @@ export type GridModelVersionResponse = {
    * Available
    */
   available: boolean;
+  /**
+   * Eligibilityreasoncode
+   */
+  eligibilityReasonCode?: string;
+  /**
+   * Eligible
+   */
+  eligible?: boolean;
   manifest: GridModelManifest;
   /**
    * Manifestsha256
@@ -5707,7 +5887,7 @@ export type GridModelVersionResponse = {
   /**
    * Published
    */
-  published?: false;
+  published?: boolean;
   /**
    * Reasoncode
    */
@@ -21686,6 +21866,136 @@ export type GetGameGridModelAssignmentResponses = {
 export type GetGameGridModelAssignmentResponse =
   GetGameGridModelAssignmentResponses[keyof GetGameGridModelAssignmentResponses];
 
+export type ActivateGameGridModelData = {
+  body: GridModelAssignmentCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/activate';
+};
+
+export type ActivateGameGridModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ActivateGameGridModelError =
+  ActivateGameGridModelErrors[keyof ActivateGameGridModelErrors];
+
+export type ActivateGameGridModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type ActivateGameGridModelResponse =
+  ActivateGameGridModelResponses[keyof ActivateGameGridModelResponses];
+
+export type GetGameGridModelHistoryData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/history';
+};
+
+export type GetGameGridModelHistoryErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGameGridModelHistoryError =
+  GetGameGridModelHistoryErrors[keyof GetGameGridModelHistoryErrors];
+
+export type GetGameGridModelHistoryResponses = {
+  /**
+   * Response Getgamegridmodelhistory
+   *
+   * Successful Response
+   */
+  200: Array<GridModelHistoryEvent>;
+};
+
+export type GetGameGridModelHistoryResponse =
+  GetGameGridModelHistoryResponses[keyof GetGameGridModelHistoryResponses];
+
+export type RollbackGameGridModelData = {
+  body: GridModelAssignmentCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/rollback';
+};
+
+export type RollbackGameGridModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RollbackGameGridModelError =
+  RollbackGameGridModelErrors[keyof RollbackGameGridModelErrors];
+
+export type RollbackGameGridModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type RollbackGameGridModelResponse =
+  RollbackGameGridModelResponses[keyof RollbackGameGridModelResponses];
+
 export type ListImageGridReviewsData = {
   body?: never;
   path: {
@@ -25309,6 +25619,117 @@ export type ListGridEngineProfilesResponses = {
 export type ListGridEngineProfilesResponse =
   ListGridEngineProfilesResponses[keyof ListGridEngineProfilesResponses];
 
+export type GetGridModelDefaultData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-default';
+};
+
+export type GetGridModelDefaultErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridModelDefaultError =
+  GetGridModelDefaultErrors[keyof GetGridModelDefaultErrors];
+
+export type GetGridModelDefaultResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelDefaultResponse;
+};
+
+export type GetGridModelDefaultResponse =
+  GetGridModelDefaultResponses[keyof GetGridModelDefaultResponses];
+
+export type SetGridModelDefaultData = {
+  body: GridModelAssignmentCommand;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-default';
+};
+
+export type SetGridModelDefaultErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type SetGridModelDefaultError =
+  SetGridModelDefaultErrors[keyof SetGridModelDefaultErrors];
+
+export type SetGridModelDefaultResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type SetGridModelDefaultResponse =
+  SetGridModelDefaultResponses[keyof SetGridModelDefaultResponses];
+
+export type GetGridModelHistoryData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-history';
+};
+
+export type GetGridModelHistoryErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridModelHistoryError =
+  GetGridModelHistoryErrors[keyof GetGridModelHistoryErrors];
+
+export type GetGridModelHistoryResponses = {
+  /**
+   * Response Getgridmodelhistory
+   *
+   * Successful Response
+   */
+  200: Array<GridModelHistoryEvent>;
+};
+
+export type GetGridModelHistoryResponse =
+  GetGridModelHistoryResponses[keyof GetGridModelHistoryResponses];
+
 export type ListGridModelVersionsData = {
   body?: never;
   path?: never;
@@ -25384,6 +25805,50 @@ export type RegisterGridModelVersionResponses = {
 
 export type RegisterGridModelVersionResponse =
   RegisterGridModelVersionResponses[keyof RegisterGridModelVersionResponses];
+
+export type PublishGridModelVersionData = {
+  body: GridModelPublishCommand;
+  path: {
+    /**
+     * Version Id
+     */
+    version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions/{version_id}/publish';
+};
+
+export type PublishGridModelVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type PublishGridModelVersionError =
+  PublishGridModelVersionErrors[keyof PublishGridModelVersionErrors];
+
+export type PublishGridModelVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type PublishGridModelVersionResponse =
+  PublishGridModelVersionResponses[keyof PublishGridModelVersionResponses];
 
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;

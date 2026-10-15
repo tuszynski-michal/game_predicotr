@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from game_predictor_api.domain.grid_model_registry import (
     GridModelRegistryError,
     canonical_json,
     descriptor_sha256,
+    historical_catalogue,
 )
 from game_predictor_api.storage.database import session_game
 from game_predictor_api.storage.game_storage_routing import (
@@ -24,7 +26,12 @@ from game_predictor_api.storage.grid_engine_model_store import file_sha256, rece
 from game_predictor_api.storage.grid_model_registry_models import (
     GameGridModelAssignmentEventModel,
     GameGridModelAssignmentModel,
+    GridModelControlEventModel,
+    GridModelDefaultModel,
+    GridModelEvaluationInvalidationModel,
+    GridModelEvaluationReportModel,
     GridModelFamilyModel,
+    GridModelPublicationModel,
     GridModelRegistrationReceiptModel,
     GridModelVersionEventModel,
     GridModelVersionModel,
@@ -110,6 +117,34 @@ class GridModelArtifactInspector:
         except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             return False, "GRID_MODEL_ARTIFACT_UNREADABLE"
         return True, "GRID_MODEL_ARTIFACT_AVAILABLE"
+
+    def historical_evidence(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if payload not in historical_catalogue():
+            raise GridModelRegistryError(
+                "GRID_MODEL_HISTORICAL_BASE_INVALID", "Only exact frozen historical bases qualify."
+            )
+        root = Path(__file__).resolve().parents[5]
+        relative = payload["inferenceManifest"]["report"]
+        report = (root / relative).resolve()
+        try:
+            if not report.is_relative_to(root / "ai_docs" / "quality"):
+                raise ValueError("Historical report path differs.")
+            if not 0 < report.stat().st_size <= 1024 * 1024:
+                raise ValueError("Historical report size is invalid.")
+            content = report.read_bytes()
+            content.decode("utf-8")
+        except (OSError, UnicodeError, ValueError) as error:
+            raise GridModelRegistryError(
+                "GRID_MODEL_HISTORICAL_REPORT_UNAVAILABLE",
+                "Existing historical report is required.",
+            ) from error
+        return {
+            "kind": "historical_admission",
+            "report": relative,
+            "reportSha256": hashlib.sha256(content).hexdigest(),
+            "historicalResults": payload["historicalReports"],
+            "manifestSha256": descriptor_sha256(payload),
+        }
 
 
 class SqlAlchemyGridModelRegistryRepository:
@@ -238,9 +273,9 @@ class SqlAlchemyGridModelRegistryRepository:
         if exists is None:
             raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game was not found.", 404)
         assignment = self.session.scalar(
-            select(GameGridModelAssignmentModel).where(
-                GameGridModelAssignmentModel.game_id == game_id
-            )
+            select(GameGridModelAssignmentModel)
+            .where(GameGridModelAssignmentModel.game_id == game_id)
+            .execution_options(populate_existing=True)
         )
         count = self.session.scalar(
             select(func.count())
@@ -248,3 +283,164 @@ class SqlAlchemyGridModelRegistryRepository:
             .where(GameGridModelAssignmentEventModel.game_id == game_id)
         )
         return assignment, int(count or 0)
+
+    def publication(self, version_id: UUID) -> GridModelPublicationModel | None:
+        return self.session.get(GridModelPublicationModel, version_id)
+
+    def evaluation(self, report_id: UUID) -> tuple[GridModelEvaluationReportModel | None, bool]:
+        report = self.session.get(GridModelEvaluationReportModel, report_id)
+        invalidated = (
+            self.session.scalar(
+                select(GridModelEvaluationInvalidationModel.id)
+                .where(GridModelEvaluationInvalidationModel.report_id == report_id)
+                .limit(1)
+            )
+            is not None
+        )
+        return report, invalidated
+
+    def default(self) -> GridModelDefaultModel | None:
+        # A caller may have read the head before waiting for the transaction lock.
+        return self.session.get(GridModelDefaultModel, "geometry-v3", populate_existing=True)
+
+    def game(self, game_id: UUID) -> Any:
+        # Explicit predicate and the same session/scope guards as assignment reads.
+        self.assignment(game_id)
+        games = table(
+            "games",
+            column("id", Uuid),
+            column("code"),
+            column("shape_geometry_configuration"),
+            schema="public",
+        )
+        return self.session.execute(
+            select(games).where(games.c.id == game_id).with_for_update()
+        ).one()
+
+    def control_receipt(self, key: UUID, game_id: UUID | None) -> Any:
+        if game_id is None:
+            return self.session.get(GridModelControlEventModel, key)
+        return self.session.scalar(
+            select(GameGridModelAssignmentEventModel).where(
+                GameGridModelAssignmentEventModel.game_id == game_id,
+                GameGridModelAssignmentEventModel.idempotency_key == key,
+            )
+        )
+
+    def previous_assignment(self, game_id: UUID, version_id: UUID) -> bool:
+        head, _ = self.assignment(game_id)
+        return (
+            head is not None
+            and self.session.scalar(
+                select(GameGridModelAssignmentEventModel.id)
+                .where(
+                    GameGridModelAssignmentEventModel.game_id == game_id,
+                    GameGridModelAssignmentEventModel.version_id == version_id,
+                    GameGridModelAssignmentEventModel.revision < head.revision,
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    def apply_control(
+        self, command: dict[str, Any], receipt: dict[str, Any], evidence: dict[str, Any]
+    ) -> None:
+        kind, version_id = command["kind"], UUID(command["versionId"])
+        game_id = None if command["gameId"] is None else UUID(command["gameId"])
+        common = {
+            "version_id": version_id,
+            "kind": kind,
+            "revision": receipt["revision"],
+            "expected_revision": command["expectedRevision"],
+            "command_sha256": receipt["commandSha256"],
+            "command_json": canonical_json(command),
+            "receipt_json": canonical_json(receipt),
+            "actor": command["actor"],
+            "evidence_sha256": receipt["evidenceSha256"],
+        }
+        if kind == "publish":
+            self.session.add(
+                GridModelPublicationModel(
+                    version_id=version_id,
+                    evaluation_id=None
+                    if command["evaluationId"] is None
+                    else UUID(command["evaluationId"]),
+                    evidence_json=canonical_json(evidence),
+                    evidence_sha256=receipt["evidenceSha256"],
+                )
+            )
+        elif kind == "set_default":
+            default = self.default()
+            if default is None:
+                self.session.add(
+                    GridModelDefaultModel(
+                        id="geometry-v3", version_id=version_id, revision=receipt["revision"]
+                    )
+                )
+            else:
+                default.version_id, default.revision = version_id, receipt["revision"]
+        else:
+            assert game_id is not None
+            assignment, _ = self.assignment(game_id)
+            if assignment is None:
+                self.session.add(
+                    GameGridModelAssignmentModel(
+                        game_id=game_id, version_id=version_id, revision=receipt["revision"]
+                    )
+                )
+            else:
+                assignment.version_id, assignment.revision = version_id, receipt["revision"]
+            self.session.flush()
+        if game_id is None:
+            self.session.add(
+                GridModelControlEventModel(
+                    idempotency_key=UUID(command["idempotencyKey"]), **common
+                )
+            )
+        else:
+            self.session.add(
+                GameGridModelAssignmentEventModel(
+                    game_id=game_id,
+                    id=uuid4(),
+                    idempotency_key=UUID(command["idempotencyKey"]),
+                    **common,
+                )
+            )
+        self.session.flush()
+
+    def history(self, game_id: UUID | None) -> list[dict[str, Any]]:
+        if game_id is None:
+            events = self.session.scalars(
+                select(GridModelControlEventModel)
+                .order_by(
+                    GridModelControlEventModel.created_at.desc(),
+                    GridModelControlEventModel.idempotency_key,
+                )
+                .limit(200)
+            )
+        else:
+            self.assignment(game_id)
+            events = self.session.scalars(
+                select(GameGridModelAssignmentEventModel)
+                .where(GameGridModelAssignmentEventModel.game_id == game_id)
+                .order_by(GameGridModelAssignmentEventModel.revision.desc())
+                .limit(200)
+            )
+        return [
+            {
+                **(
+                    json.loads(event.receipt_json)
+                    if event.receipt_json
+                    else {
+                        "kind": event.kind,
+                        "gameId": str(game_id),
+                        "versionId": str(event.version_id),
+                        "revision": event.revision,
+                        "actor": "migration:0156",
+                    }
+                ),
+                "createdAt": event.created_at,
+            }
+            for event in events
+        ]

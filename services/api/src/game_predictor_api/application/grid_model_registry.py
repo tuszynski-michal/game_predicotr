@@ -6,6 +6,10 @@ import json
 from typing import Any, Protocol
 from uuid import UUID
 
+from game_predictor_api.application.grid_model_publication import (
+    GridModelControlRepository,
+    GridModelPublicationService,
+)
 from game_predictor_api.domain.grid_model_registry import (
     GridModelRegistryError,
     descriptor_sha256,
@@ -30,7 +34,7 @@ class GridModelAssignment(Protocol):
     version_id: UUID
 
 
-class GridModelRegistryRepository(Protocol):
+class GridModelRegistryRepository(GridModelControlRepository, Protocol):
     def lock(self) -> None: ...
     def receipt(self, key: UUID) -> GridModelReceipt | None: ...
     def versions(self) -> list[Any]: ...
@@ -43,6 +47,7 @@ class GridModelRegistryRepository(Protocol):
 
 class GridModelInspector(Protocol):
     def inspect(self, payload: dict[str, Any]) -> tuple[bool, str]: ...
+    def historical_evidence(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class GridModelRegistryService:
@@ -50,8 +55,9 @@ class GridModelRegistryService:
         self, repository: GridModelRegistryRepository, inspector: GridModelInspector
     ) -> None:
         self.repository, self.inspector = repository, inspector
+        self.control = GridModelPublicationService(self, repository)
 
-    def view(self, record: GridModelRecord) -> dict[str, Any]:
+    def view(self, record: GridModelRecord, *, include_eligibility: bool = True) -> dict[str, Any]:
         payload = json.loads(record.manifest_json)
         if (
             validate_manifest(payload) != record.manifest_json
@@ -61,13 +67,24 @@ class GridModelRegistryService:
                 "GRID_MODEL_REGISTRY_CORRUPT", "Stored immutable descriptor differs."
             )
         available, reason = self.inspector.inspect(payload)
-        return {
+        view = {
             "manifest": payload,
             "manifestSha256": record.manifest_sha256,
             "available": available,
             "reasonCode": reason,
-            "published": False,
+            "published": self.repository.publication(record.id) is not None,
+            "eligible": False,
+            "eligibilityReasonCode": "GRID_MODEL_NOT_PUBLISHED",
         }
+        if include_eligibility and view["published"]:
+            try:
+                self.control._eligible_inspected(view)
+            except GridModelRegistryError as error:
+                view["eligibilityReasonCode"] = error.code
+            else:
+                view["eligible"] = True
+                view["eligibilityReasonCode"] = "GRID_MODEL_ELIGIBLE"
+        return view
 
     def list_versions(self) -> list[dict[str, Any]]:
         return [self.view(record) for record in self.repository.versions()]

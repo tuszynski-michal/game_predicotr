@@ -36,7 +36,12 @@ from game_predictor_api.storage.grid_model_registry import (
 from game_predictor_api.storage.grid_model_registry_models import (
     GameGridModelAssignmentEventModel,
     GameGridModelAssignmentModel,
+    GridModelControlEventModel,
+    GridModelDefaultModel,
+    GridModelEvaluationInvalidationModel,
+    GridModelEvaluationReportModel,
     GridModelFamilyModel,
+    GridModelPublicationModel,
     GridModelRegistrationReceiptModel,
     GridModelVersionEventModel,
     GridModelVersionModel,
@@ -52,6 +57,11 @@ TABLES = (
     GridModelVersionEventModel,
     GameGridModelAssignmentModel,
     GameGridModelAssignmentEventModel,
+    GridModelEvaluationReportModel,
+    GridModelEvaluationInvalidationModel,
+    GridModelPublicationModel,
+    GridModelControlEventModel,
+    GridModelDefaultModel,
 )
 
 

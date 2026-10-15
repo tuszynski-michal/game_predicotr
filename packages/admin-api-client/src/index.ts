@@ -2,13 +2,29 @@ import {
   listGridModelVersions as listGeneratedGridModelVersions,
   registerGridModelVersion as registerGeneratedGridModelVersion,
   getGameGridModelAssignment as getGeneratedGameGridModelAssignment,
+  publishGridModelVersion as publishGeneratedGridModelVersion,
+  activateGameGridModel as activateGeneratedGameGridModel,
+  rollbackGameGridModel as rollbackGeneratedGameGridModel,
+  getGridModelDefault as getGeneratedGridModelDefault,
+  setGridModelDefault as setGeneratedGridModelDefault,
+  getGridModelHistory as getGeneratedGridModelHistory,
+  getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
-import type { GridModelRegisterRequest } from './generated/types.gen';
+import type {
+  GridModelRegisterRequest,
+  GridModelPublishCommand,
+  GridModelAssignmentCommand,
+} from './generated/types.gen';
 export type {
   GridModelManifest,
   GridModelRegisterRequest,
   GridModelVersionResponse,
   GameGridModelAssignmentResponse,
+  GridModelPublishCommand,
+  GridModelAssignmentCommand,
+  GridModelControlReceipt,
+  GridModelDefaultResponse,
+  GridModelHistoryEvent,
 } from './generated/types.gen';
 import {
   createHistoricalGridAcceptance as createGeneratedHistoricalGridAcceptance,
@@ -3847,6 +3863,33 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId },
       }),
+    publishGridModelVersion: (
+      versionId: string,
+      body: GridModelPublishCommand,
+    ) =>
+      publishGeneratedGridModelVersion({
+        client,
+        path: { version_id: versionId },
+        body,
+      }),
+    activateGameGridModel: (gameId: string, body: GridModelAssignmentCommand) =>
+      activateGeneratedGameGridModel({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    rollbackGameGridModel: (gameId: string, body: GridModelAssignmentCommand) =>
+      rollbackGeneratedGameGridModel({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    getGridModelDefault: () => getGeneratedGridModelDefault({ client }),
+    setGridModelDefault: (body: GridModelAssignmentCommand) =>
+      setGeneratedGridModelDefault({ client, body }),
+    getGridModelHistory: () => getGeneratedGridModelHistory({ client }),
+    getGameGridModelHistory: (gameId: string) =>
+      getGeneratedGameGridModelHistory({ client, path: { game_id: gameId } }),
     listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
     // TASK-0933: published super game series of a game (D-535).
     listSuperGameSeries: (

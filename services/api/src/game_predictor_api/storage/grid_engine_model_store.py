@@ -25,6 +25,97 @@ from game_predictor_api.domain.grid_engine_profiles import (
 )
 
 _CHUNK_BYTES: Final = 1024 * 1024
+TRAINING_RECEIPT: Final = "receipt.json"
+
+
+def training_base_files(version: GridEngineModelVersion) -> tuple[GridEngineModelFile, ...]:
+    """Pinned training state, independent of the unchanged inference manifest."""
+    if version.checkpoint_size_bytes <= 0 or version.weights_size_bytes <= 0:
+        raise GridEngineModelError(
+            "GRID_ENGINE_TRAINING_UNREGISTERED",
+            "Training artifacts lack pinned sizes.",
+            details={"profile": version.profile.value, "version": version.version},
+        )
+    return (
+        GridEngineModelFile(
+            "checkpoint.pt", version.checkpoint_sha256, version.checkpoint_size_bytes
+        ),
+        GridEngineModelFile("weights.pt", version.weights_sha256, version.weights_size_bytes),
+        *(file for file in version.files if file.name in {"bundle.json", "preset.json"}),
+    )
+
+
+def training_base_identity(version: GridEngineModelVersion) -> dict[str, object]:
+    return {
+        "schemaVersion": "grid-engine-training-base-v1",
+        "model": grid_engine_manifest(version),
+        "files": [
+            {"name": file.name, "sha256": file.sha256, "sizeBytes": file.size_bytes}
+            for file in training_base_files(version)
+        ],
+    }
+
+
+def receipt_bytes(payload: dict[str, object]) -> bytes:
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return (
+        json.dumps(
+            {"payload": payload, "sha256": hashlib.sha256(encoded).hexdigest()},
+            sort_keys=True,
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def require_training_directory(version: GridEngineModelVersion, directory: Path) -> Path:
+    """Validate receipt lineage and all bytes without consulting original C sources."""
+    try:
+        if (directory / TRAINING_RECEIPT).is_symlink():
+            raise ValueError("linked receipt")
+        envelope = json.loads((directory / TRAINING_RECEIPT).read_text("utf-8"))
+        payload = envelope["payload"]
+        if not isinstance(payload, dict):
+            raise ValueError("receipt payload")
+        if receipt_bytes(payload) != (directory / TRAINING_RECEIPT).read_bytes():
+            raise ValueError("receipt checksum")
+        identity = training_base_identity(version)
+        if any(payload.get(key) != value for key, value in identity.items()):
+            raise ValueError("receipt lineage")
+        sources = payload.get("sources")
+        names = {file.name for file in training_base_files(version)}
+        if (
+            not isinstance(sources, dict)
+            or sources.keys() != names
+            or any(
+                not isinstance(value, str) or not Path(value).is_absolute()
+                for value in sources.values()
+            )
+        ):
+            raise ValueError("receipt provenance")
+        if directory.is_symlink() or directory.is_junction():
+            raise ValueError("linked training directory")
+        if {path.name for path in directory.iterdir()} != names | {TRAINING_RECEIPT}:
+            raise ValueError("unexpected training artifacts")
+        for file in training_base_files(version):
+            path = directory / file.name
+            if path.is_symlink() or _file_status(path, file) is not GridEngineModelStatus.AVAILABLE:
+                raise ValueError(file.name)
+    except (
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as error:
+        raise GridEngineModelError(
+            "GRID_ENGINE_TRAINING_INVALID",
+            "Training base is missing or differs from registry.",
+            details={"directory": str(directory), "reason": str(error)},
+        ) from error
+    return directory / "checkpoint.pt"
 
 
 def file_sha256(path: Path) -> str:
@@ -46,6 +137,20 @@ class ManagedGridEngineModelStore:
 
     def inspect(self, version: GridEngineModelVersion) -> GridEngineModelState:
         return inspect_model_directory(version, self.directory(version))
+
+    def training_directory(self, version: GridEngineModelVersion) -> Path:
+        return self.directory(version) / "training-base"
+
+    def require_training_base(self, version: GridEngineModelVersion) -> Path:
+        for path in (self.training_directory(version), *self.training_directory(version).parents):
+            if path.is_symlink() or path.is_junction():
+                raise GridEngineModelError(
+                    "GRID_ENGINE_TRAINING_INVALID",
+                    "Linked managed directory refused.",
+                    details={"directory": str(path)},
+                )
+        self.require(version)
+        return require_training_directory(version, self.training_directory(version))
 
     def require(self, version: GridEngineModelVersion) -> Path:
         """Return the verified model directory or raise; there is no fallback."""
@@ -124,4 +229,12 @@ def _manifest_status(path: Path, version: GridEngineModelVersion) -> GridEngineM
     return GridEngineModelStatus.AVAILABLE
 
 
-__all__ = ["ManagedGridEngineModelStore", "file_sha256", "inspect_model_directory"]
+__all__ = [
+    "ManagedGridEngineModelStore",
+    "file_sha256",
+    "inspect_model_directory",
+    "training_base_files",
+    "training_base_identity",
+    "receipt_bytes",
+    "require_training_directory",
+]

@@ -13,6 +13,14 @@ untouched. An existing target that differs from the registry is never
 overwritten: the script stops and names the difference. The exports are only
 read.
 
+Opt-in ``--training-checkpoint <profile>=<path>`` with a matching ``--source``
+also installs ``training-base``: checkpoint, weights, bundle, preset and a
+checksum/lineage receipt. ``--check-training`` verifies these managed bases
+without opening the original lab sources. Training copies use an OS lock and
+verified, resumable staging; the persistent ``.training-base.lock`` file is
+harmless and is not a stale lease. A crash during receipt initialization may
+leave ``.training-base.receipt-*`` directories; cleanup is a separate operation.
+
 The artifact root is resolved like the API does
 (``GAME_PREDICTOR_ARTIFACT_ROOT``, default ``artifacts`` relative to the
 current directory); ``--artifact-root`` overrides it. Run from the repository
@@ -32,12 +40,15 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import shutil
 import sys
+import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,9 +64,14 @@ from game_predictor_api.domain.grid_engine_profiles import (
     grid_engine_profile_for,
 )
 from game_predictor_api.storage.grid_engine_model_store import (
+    TRAINING_RECEIPT,
     ManagedGridEngineModelStore,
     file_sha256,
     inspect_model_directory,
+    receipt_bytes,
+    require_training_directory,
+    training_base_files,
+    training_base_identity,
 )
 
 COPIED_FILES = ("screen.onnx", "board.onnx", "bundle.json")
@@ -160,8 +176,14 @@ def _verify_source(version: GridEngineModelVersion, source: Path) -> bytes:
 
 
 def install_version(
-    version: GridEngineModelVersion, source: Path, artifact_root: Path
+    version: GridEngineModelVersion,
+    source: Path,
+    artifact_root: Path,
+    *,
+    training_checkpoint: Path | None = None,
 ) -> InstallResult:
+    if training_checkpoint is not None:
+        return _install_training_base(version, source, artifact_root, training_checkpoint)
     store = ManagedGridEngineModelStore(artifact_root)
     target = store.directory(version)
     if target.exists():
@@ -213,6 +235,182 @@ def install_version(
     return InstallResult(version.profile.value, version.version, target, "installed")
 
 
+@contextmanager
+def _training_lock(path: Path) -> Iterator[None]:
+    """OS-owned lock: crash releases it; the persistent file is not a stale lease."""
+    if path.is_symlink():
+        raise GridEngineModelError(
+            "GRID_ENGINE_TARGET_CONFLICT", "Linked lock refused.", details={"path": str(path)}
+        )
+    with path.open("a+b") as stream:
+        if stream.seek(0, 2) == 0:
+            stream.write(b"0")
+            stream.flush()
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                stream.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl: Any = importlib.import_module("fcntl")
+
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise GridEngineModelError(
+                        "GRID_ENGINE_TRAINING_BUSY",
+                        "Training base installer is locked.",
+                        details={"path": str(path)},
+                    ) from None
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def _sync_write(path: Path, content: bytes) -> None:
+    with path.open("wb") as stream:
+        stream.write(content)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def _install_training_base(
+    version: GridEngineModelVersion,
+    source: Path,
+    artifact_root: Path,
+    checkpoint: Path,
+) -> InstallResult:
+    store = ManagedGridEngineModelStore(artifact_root)
+    target = store.training_directory(version)
+    # Never follow a directory alias into a foreign store.
+    for path in (target, *target.parents):
+        if path.is_symlink() or path.is_junction():
+            raise GridEngineModelError(
+                "GRID_ENGINE_TARGET_CONFLICT",
+                "Linked target refused.",
+                details={"directory": str(path)},
+            )
+    if target.exists():
+        store.require_training_base(version)
+        return InstallResult(version.profile.value, version.version, target, "already_installed")
+    preset = _verify_source(version, source)
+    files = training_base_files(version)
+    sources = {
+        file.name: (checkpoint if file.name == "checkpoint.pt" else source / file.name)
+        for file in files
+    }
+    sources[PRESET_FILE] = source / "bundle.json"
+    for file in files:
+        if file.name == PRESET_FILE:
+            continue
+        path = sources[file.name]
+        if (
+            not path.is_file()
+            or path.stat().st_size != file.size_bytes
+            or file_sha256(path) != file.sha256
+        ):
+            raise GridEngineModelError(
+                "GRID_ENGINE_SOURCE_CHECKSUM_MISMATCH",
+                "Training artifact differs from registry.",
+                details={"file": str(path), "expectedSha256": file.sha256},
+            )
+    # Optional training installation never silently repairs a differing inference package.
+    existing_parent = next(path for path in target.parents if path.exists())
+    required_space = sum(file.size_bytes for file in files) + 5 * 1024**3
+    if not store.directory(version).exists():
+        required_space += sum(file.size_bytes for file in version.files)
+    if shutil.disk_usage(existing_parent).free < required_space:
+        raise GridEngineModelError(
+            "GRID_ENGINE_SPACE_REQUIRED",
+            "Keep 5 GiB free after copy.",
+            details={"requiredBytes": required_space},
+        )
+    install_version(version, source, artifact_root)
+    receipt = receipt_bytes(
+        {
+            **training_base_identity(version),
+            "sources": {name: str(path.resolve()) for name, path in sources.items()},
+        }
+    )
+    staging = target.with_name(".training-base.installing")
+    with _training_lock(target.with_name(".training-base.lock")):
+        if target.exists():
+            store.require_training_base(version)
+            return InstallResult(
+                version.profile.value, version.version, target, "already_installed"
+            )
+        if staging.exists() and (
+            staging.is_symlink()
+            or staging.is_junction()
+            or not (staging / TRAINING_RECEIPT).is_file()
+            or (staging / TRAINING_RECEIPT).read_bytes() != receipt
+            or any(
+                path.name
+                not in {file.name for file in files}
+                | {TRAINING_RECEIPT, *(file.name + ".partial" for file in files)}
+                or path.is_symlink()
+                or path.is_dir()
+                for path in staging.iterdir()
+            )
+        ):
+            raise GridEngineModelError(
+                "GRID_ENGINE_TARGET_CONFLICT",
+                "Foreign staging directory is not overwritten.",
+                details={"directory": str(staging)},
+            )
+        required_space = sum(file.size_bytes for file in files) + 5 * 1024**3
+        if shutil.disk_usage(target.parent).free < required_space:
+            raise GridEngineModelError(
+                "GRID_ENGINE_SPACE_REQUIRED",
+                "Keep 5 GiB free after copy.",
+                details={"requiredBytes": required_space},
+            )
+        if not staging.exists():
+            initializing = staging.with_name(f".training-base.receipt-{uuid.uuid4().hex}")
+            initializing.mkdir()
+            _sync_write(initializing / TRAINING_RECEIPT, receipt)
+            initializing.rename(staging)
+        for file in files:
+            destination = staging / file.name
+            if (
+                destination.is_file()
+                and destination.stat().st_size == file.size_bytes
+                and file_sha256(destination) == file.sha256
+            ):
+                destination.with_name(destination.name + ".partial").unlink(missing_ok=True)
+                continue
+            partial = destination.with_name(destination.name + ".partial")
+            if file.name == PRESET_FILE:
+                _sync_write(partial, preset)
+            else:
+                shutil.copyfile(sources[file.name], partial)
+                with partial.open("rb+") as stream:
+                    os.fsync(stream.fileno())
+            if partial.stat().st_size != file.size_bytes or file_sha256(partial) != file.sha256:
+                raise GridEngineModelError(
+                    "GRID_ENGINE_SOURCE_CHECKSUM_MISMATCH",
+                    "Copied training artifact changed during copy.",
+                    details={"file": file.name},
+                )
+            os.replace(partial, destination)
+        require_training_directory(version, staging)
+        # Windows rename refuses an existing target. POSIX can replace an empty directory;
+        # the OS lock serializes cooperating installers, not unrelated external writers.
+        staging.rename(target)
+        store.require_training_base(version)
+    return InstallResult(version.profile.value, version.version, target, "installed")
+
+
 def resolve_artifact_root(explicit: str | None) -> Path:
     if explicit is not None:
         return Path(explicit).resolve()
@@ -248,6 +446,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--artifact-root", default=None)
     parser.add_argument(
+        "--training-checkpoint",
+        action="append",
+        default=[],
+        help="<profile>=<checkpoint path>; opt-in training base with --source",
+    )
+    parser.add_argument(
+        "--check-training",
+        action="store_true",
+        help="verify registered training bases without reading original sources",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="only report the state of every registered model; writes nothing",
@@ -256,6 +465,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     artifact_root = resolve_artifact_root(args.artifact_root)
     store = ManagedGridEngineModelStore(artifact_root)
     print(f"artifact root: {artifact_root}")
+    if args.check_training:
+        try:
+            for profile in GRID_ENGINE_PROFILES:
+                print(store.require_training_base(profile.current))
+        except GridEngineModelError as error:
+            print(json.dumps({"code": error.code, "details": error.details}, default=str))
+            return 2
+        return 0
     if args.check:
         failed = False
         for profile in GRID_ENGINE_PROFILES:
@@ -267,13 +484,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         return 1 if failed else 0
     sources = _parse_sources(args.source)
+    checkpoints = _parse_sources(args.training_checkpoint)
+    if checkpoints.keys() - sources.keys():
+        parser.error("every --training-checkpoint requires a matching --source")
     if not sources:
         parser.error("at least one --source is required (or --check)")
     for configuration, source in sources.items():
         selected = grid_engine_profile_for(configuration)
         assert selected is not None
         try:
-            result = install_version(selected.current, source, artifact_root)
+            result = install_version(
+                selected.current,
+                source,
+                artifact_root,
+                training_checkpoint=checkpoints.get(configuration),
+            )
         except GridEngineModelError as error:
             print(json.dumps({"code": error.code, "details": error.details}, default=str))
             return 2

@@ -6,6 +6,11 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-0990 — Zakres pośrodku nad zdjęciem i końcowy zapis widoku (done)
+
+- Plik: `ai_docs/tasks/completed/0990-selector-desktop-centered-range.md`; D-547. Commity: v1.7.342 / c9afef29d4839cc17eee727ca8324832f6b9379b; v1.7.343 / 8a3249fdefc49547cb2d8ed001e8841cdd2867eb.
+- Zakres przeniesiono poza toolbar do osobnego wyśrodkowanego wiersza nad zdjęciem w obu trybach. Semantyka dziewięciu plansz pozostaje. closingProject blokuje spóźnione zmiany widoku podczas close; dodano deterministyczną regresję scrolla po kliknięciu zamknięcia.
+- UI6/6, lint/typecheck, packaged UX po poprawce oraz finalZIP0.1.6 UX PASS. Geometria zakresu: mniej niż1CSSpixel od środka zdjęcia. Pierwszy smoke wykrył utratę widoku przy close; nieudane logi zachowane. Świeży1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
 ### TASK-0989 — Stabilny układ, minimalny fullscreen i centrowanie zdjęcia (done)
 
 - Plik: `ai_docs/tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md`; D-547. Commity: v1.7.341 / a9cb2fed291077419c1b67fab546deafaf98771b.

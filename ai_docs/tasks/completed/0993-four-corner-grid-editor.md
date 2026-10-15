@@ -107,13 +107,13 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Execution phase
 
-- Faza: gotowe do commita; current HEAD v1.7.370 / `f4ff1f4d3b0d49600ffb8fbbdd948d60ff942a65`.
+- Faza: oczekiwanie na końcową akceptację i integrację całego planu; current HEAD v1.7.370 / `f4ff1f4d3b0d49600ffb8fbbdd948d60ff942a65`.
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: przygotowany v1.7.371; przed zapisem sprawdzono wszystkie lokalne referencje i HEAD-y worktree. Nie stwierdzono kolizji; receipt w `artifacts/audits/TASK-0993_COMMIT_ALLOCATION.json`. Hash zostanie wpisany po utworzeniu, bez amend.
+- Commit: v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`; osobny commit18 plików, bez scalenia. Numer sprawdzono na wszystkich lokalnych referencjach i HEAD-ach worktree, bez kolizji. Ten zapis hasha powstał po commicie i wejdzie z następnym taskiem, bez amend.
 - Audit: jedna próba `claude-fable-5-1` / `medium`, bez końcowego werdyktu po wznowieniu sesji. [Ograniczenie audytu](../../quality/TASK-0993_AUDIT_INTERRUPTED_CODEX.md); wyjątek AGENTS.md pozwala kontynuować, bez PASS i bez domniemanej listy znalezisk.
-- Następny krok: lead wybiera kolejny wolny patch, sprawdza dokładny staged zakres, tworzy osobny commit i zapisuje pełny hash. Potem TASK-1014. Integracja czeka na końcową akceptację całego planu.
+- Następny krok: TASK-1014. Integracja czeka na końcową akceptację całego planu.
 
 ### Changed
 
@@ -136,7 +136,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Not completed
 
-- Nie uzyskano niezależnego końcowego werdyktu audytu; próba i wyjątek AGENTS.md zostały jawnie rozliczone. Commit wykonuje lead; integracja wymaga końcowej akceptacji. Nie raportujemy PASS audytu.
+- Nie uzyskano niezależnego końcowego werdyktu audytu; próba i wyjątek AGENTS.md zostały jawnie rozliczone. Commit wykonano; integracja wymaga końcowej akceptacji. Nie raportujemy PASS audytu.
 - Nie uruchamiano API/Admin/workera, nie zapisano geometrii operatora, nie wykonano migracji, backfillu, treningu, aktywacji, push ani nowego backupu.
 - Nie wykonano odbioru na fizycznym Androidzie ani wizualnego odbioru z żywym API. Touch jest sprawdzony przez PointerEvent w jsdom. Nie uruchamiano pytest/OpenAPI: kontrakt HTTP i backend nie zostały zmienione.
 

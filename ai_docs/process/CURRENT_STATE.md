@@ -25,7 +25,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. D-550/D-552 accepted; D-548/D-549/D-551 proposed do udokumentowanego przyjęcia; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -91,7 +91,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-550/D-552 przyjęto przed TASK-1017 na podstawie zleconej rewizji 6. D-548/D-549/D-551 pozostają proposed zgodnie z bootstrapem; ich przyjęcie zapisać przed zależną zmianą zachowania na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
@@ -185,10 +185,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1014 — Zarządzane checkpointy na D (todo)
-
-- [1014-managed-grid-checkpoints-on-d.md](../tasks/1014-managed-grid-checkpoints-on-d.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-0994 — Rejestr rodzin, wersji i przypisań (todo)
 
@@ -933,9 +929,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1014 — Zarządzane checkpointy na D (done)
+
+- [Task](../tasks/completed/1014-managed-grid-checkpoints-on-d.md); codex/v3-grid-fine-tuning, bez scalenia. Przygotowany commit v1.7.372, bez kolizji na lokalnych referencjach i HEAD-ach worktree; hash dopisać po zapisie.
+- Opt-in training-base, registry-pinned SHA/rozmiary i receipt lineage, OS lock, staging, atomowa publikacja i retry per zweryfikowany plik. Checkpointy777/Mumii oraz weights rzeczywiście skopiowano do `D:/game_predicotr/artifacts/models/grid-engine/<profile>/v1/training-base`. Inferencyjne manifesty identyczne przed/po. [Raport](../quality/MANAGED_GRID_BASES_20261015.md), [instrukcja](../guides/MANAGED_GRID_TRAINING_BASES.md).
+- Nowy proces CPU odczytał oba checkpointy v2 i weights, z blokadą otwierania źródłowego labu na C. PASS:22 scoped testy,27 proposal/training-core, Ruff/format/mypy3/docs/map/diff. Endpoint ASGI miał timeout120 s, nie PASS; potwierdzono brak własnych procesów. Naprawiono błąd kodowania dokumentów bez utraty root metadata.
+- [Claude medium](../quality/TASK-1014_AUDIT_claude-fable-5-1.md): PASS bez P0/P1; jedna korekta dokumentacyjna P2-3/P2-4, P2-1/P2-2/P2-5/P2-6 przyjęte z uzasadnieniem w Outcome. Technical notes zapisano późno, jawne odstępstwo. Bez cleanupu C, korpusu, nowego backupu, DB, usług, treningu, inference/GPU, aktywacji i integracji. Następny TASK-0994.
+
 ### TASK-0993 — Edytor czterech rogów i 24 punktów (done)
 
-- [Task](../tasks/completed/0993-four-corner-grid-editor.md); codex/v3-grid-fine-tuning, bez scalenia. Przygotowany commit v1.7.371; sprawdzono wszystkie lokalne referencje i HEAD-y worktree, bez kolizji. Hash dopisać po zapisie.
+- [Task](../tasks/completed/0993-four-corner-grid-editor.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`; hash dopisany po utworzeniu, do następnego commita.
 - Domyślnie4 uchwyty, opcjonalnie24 bez utraty nodes. Homografia wszystkich węzłów, translacja, regularna siatka i undo. Pusty neural szkic z pinem tworzy24 z4 rogów; istniejące nodes bez pinu zachowane; legacy/audit quad-only. Trwały szkic kontroluje źródło i rewizję, konflikt blokuje zapis do resetu.
 - PASS:10 lattice,88 interakcji,54 regresje, lint/typecheck/format/docs/map/diff. Zastany warning share poza taskiem. Dotyk sprawdzono w jsdom; bez fizycznego Androida i żywego odbioru API.
 - [Próba Claude medium](../quality/TASK-0993_AUDIT_INTERRUPTED_CODEX.md): po wznowieniu brak końcowego werdyktu i własnych procesów. Wyjątek AGENTS.md, bez PASS i ponawiania. Bez zapisów geometrii operatora, usług, migracji, treningu, aktywacji i nowego backupu. Następny TASK-1014.
@@ -1010,9 +1013,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
 - ZIP1.0.0 149411351 B, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, app.asar `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`, dirty=false/applicationSourceDirty=false. Zachowany poza usuwanym worktree.
 - Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Bez nowej instrukcji Word na tym etapie; bez push/migracji.
-
-### TASK-0990 — Zakres pośrodku nad zdjęciem i końcowy zapis widoku (done)
-
-- Plik: `ai_docs/tasks/completed/0990-selector-desktop-centered-range.md`; D-547. Commity: v1.7.342 / c9afef29d4839cc17eee727ca8324832f6b9379b; v1.7.343 / 8a3249fdefc49547cb2d8ed001e8841cdd2867eb.
-- Zakres przeniesiono poza toolbar do osobnego wyśrodkowanego wiersza nad zdjęciem w obu trybach. Semantyka dziewięciu plansz pozostaje. closingProject blokuje spóźnione zmiany widoku podczas close; dodano deterministyczną regresję scrolla po kliknięciu zamknięcia.
-- UI6/6, lint/typecheck, packaged UX po poprawce oraz finalZIP0.1.6 UX PASS. Geometria zakresu: mniej niż1CSSpixel od środka zdjęcia. Pierwszy smoke wykrył utratę widoku przy close; nieudane logi zachowane. Świeży1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.

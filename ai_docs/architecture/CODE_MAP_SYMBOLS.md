@@ -310,7 +310,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
-- storage/grid_engine_model_store.py: file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
+- storage/grid_engine_model_store.py: training_base_files, training_base_identity, receipt_bytes, require_training_directory, file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
 - storage/grid_profile_snapshot_resolver.py: class SqlAlchemyGridProfileSnapshotResolver
 - storage/grid_shadow.py: class SqlAlchemyGridShadowRepository
 - storage/historical_grid_evidence.py: class HistoricalEvidenceUnavailable, original_neural_evidence

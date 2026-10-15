@@ -79,6 +79,8 @@ class GridEngineModelVersion:
     selection_reason: str
     report_results: tuple[GridEngineReportResult, ...]
     files: tuple[GridEngineModelFile, ...]
+    checkpoint_size_bytes: int = 0
+    weights_size_bytes: int = 0
 
     @property
     def relative_directory(self) -> PurePosixPath:
@@ -141,6 +143,8 @@ _PROFILE_777_V2_V1: Final = GridEngineModelVersion(
     preset_fingerprint="027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
     weights_sha256="19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9",
     checkpoint_sha256="2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+    checkpoint_size_bytes=106_729_511,
+    weights_size_bytes=26_815_171,
     snapshot_id=_SNAPSHOT_PRODUCTION_GEOMETRY_SPLIT_V2,
     frozen_on="2026-10-04",
     selection_reason=(
@@ -199,6 +203,8 @@ _PROFILE_MUMIE_V1_V1: Final = GridEngineModelVersion(
     preset_fingerprint="b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
     weights_sha256="473d773897aae999f2a86774d77c1139f62f36fc9b8eb80a17f68256016613a1",
     checkpoint_sha256="f896da7196431be2d6dc7b863cfa69f6ec27fd63cb3d3e00ff7acd1f2b745138",
+    checkpoint_size_bytes=53_663_320,
+    weights_size_bytes=26_815_171,
     snapshot_id=_SNAPSHOT_PRODUCTION_GEOMETRY_SPLIT_V2,
     frozen_on="2026-10-04",
     selection_reason=(

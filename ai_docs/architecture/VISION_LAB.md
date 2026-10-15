@@ -355,6 +355,15 @@ Nie zakłada się dziewięciu plansz; nieobecność, zasłonięcie i nieczytelno
 są osobnymi stanami. Bramka kontroluje kolejność, przecięcia, dodatnie pola
 i kompletność bez wymogu konkretnej techniki OpenCV.
 
+TASK-1014 zabezpiecza wymagane bazowe checkpointy i eksportowe wagi obu
+profili w osobnym `training-base` zarządzanej wersji na D. Opt-in instalator
+publikuje staging atomowo i wiąże receipt z niezmiennym rejestrem modelu,
+SHA-256, rozmiarami i historycznymi źródłami. Store weryfikuje komplet plików
+przed zwróceniem bazy, bez odczytu C. Inferencyjny manifest i aktywacja
+pozostają zgodne; retry wznawia tylko zweryfikowane kompletne pliki.
+[Instrukcja i kontrakt bazy](../guides/MANAGED_GRID_TRAINING_BASES.md)
+nie upoważniają do usunięcia źródeł, treningu ani kopiowania korpusu.
+
 T02 przyjmuje również dostarczony przez użytkownika folder zdjęć bez
 powiązania z DB. Importer plikowy tworzy osobno wersjonowany snapshot,
 lokalne identyfikatory, pochodzenie pliku, SHA-256 i zarządzane kopie.

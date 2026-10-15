@@ -135,7 +135,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Execution phase
 
-- Faza: blocked — implementacja i scoped weryfikacja zakończone; wymagany Claude high audit niedostępny z powodu limitu tygodniowego. Bez stage/commita.
+- Faza bieżąca: done, korekta P1 zamknięta przez Claude high PASS w rundzie2; oczekiwanie na osobny commit poprawki i końcową integrację całego planu. Historyczne fazy limitu i timeout zapisano poniżej.
 - Original base v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
 - Baza taska v1.7.372 / `b11cdb19d81711fa801157c8effb3fc78863e46c`; branch `codex/v3-grid-fine-tuning`, worktree `D:/game_predicotr/worktrees/v3-grid-fine-tuning`.
 - Technical notes zapisano przed kodem. Doprecyzowania CASCADE przy istniejącym usuwaniu gry, typed inferenceManifest, trainingArtifacts/receipt i przejściowego filtra UI uzgodniono z leadem w zakresie0994.
@@ -214,3 +214,42 @@ Pięć implementacyjnych kryteriów spełniono: enum/CHECK, historyczne przypisa
 - Nie otrzymano znalezisk do rundy poprawek. Brak znalezisk w nieotrzymanym raporcie nie dowodzi braku ryzyk. Ograniczenie niezależnego audytu pozostaje jawne przy odbiorze końcowym.
 - Kontrole code/API/UI/MIG są rzeczywistymi wynikami z Verification results i Scope. Szerszy mypy ma wcześniejszy niezwiązany błąd, umbrella OpenAPI sandbox EPERM rozliczony oddzielnymi kontrolami; brak szerokiego quality/build i odbioru operatora.
 - Osobny commit otrzyma kolejny wolny patch po świeżym skanie wszystkich lokalnych refs i worktree HEADs. Pełny hash zostanie zapisany po utworzeniu bez amend. Następny TASK-1012.
+
+### Commit i wznowienie
+
+- Commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`; staged check/list/stat i post-commit show/status PASS. Worktree po commicie czysty. Hash zapisany po utworzeniu, do następnego commita bez amend. Audyt timeout pozostaje ograniczeniem, nie PASS. Bez scalenia. Następny TASK-1012.
+
+### Dłuższy audyt na polecenie operatora — 2026-10-15
+
+- Operator polecił zwiększyć czas audytów; lead ustawił limit1200s i wznawia nieukończony audyt0994 na niezmiennym commicie v1.7.373 w osobnym checkout tylko do statycznego przeglądu. Zmiany aktywnego1012 są wykluczone. Historyczny timeout480 pozostaje bez zmian, nie PASS. Wynik i ewentualne P0/P1 zostaną rozliczone przed dalszą integracją; brak amend historycznego commita.
+
+### Uzupełniający audyt — REVISE i jedna runda poprawek
+
+- Dłuższy audyt zakończył się po około12 minutach raportem REVISE. Otwarta P1-1: brak rejestracji sześciu nowych ORM mapowań w models.py i nieaktualny test wyczerpujący manifestu v8. P2-1 koszty świeżego SHA; P2-2 wcześniejszy cykl baseline; P2-3 brak testu zgodności frozen JSON. Formalny raport zachowany bez zmian: TASK-0994_AUDIT_claude-fable-5-1.md.
+- Faza: poprawki audytu; implementacja v1.7.373 pozostaje w historii, dalszy commit zależnego1012 wstrzymany do zamknięcia P1. Naprawa będzie przygotowana i sprawdzona w odizolowanym checkoucie v1.7.373, bez mutowania źródeł aktywnego audytu1012. P1 dotyczy rejestracji i testu schematu; nie zmienia zachowania V3 ani bazy operatora.
+- Technical notes korekty przed kodem: dopisać nowe mapowania do istniejącego końcowego bloku rejestracji models.py; test wyczerpujący przełączyć na manifestv9 i sklasyfikować jawne public.* nowych tabel zgodnie z shared/catalog. Dodać test chroniący równość zamrożonego seeda i deskryptorów (P2-3). Sprawdzić wspólną kolekcję test_game_data_v2_schema.py + test_grid_model_registry.py i wykrywanie public tables niezależnie od kolejności importów. Bez nowego schematu/migracji i bez poszerzania o stare nieodwracalne baseline downgrade. Wyniki i pozostałe P2 zostaną zapisane po wykonaniu.
+
+### Wynik jednej rundy poprawek — izolowany checkout v1.7.373
+
+- Zmieniono wyłącznie trzy pliki kodu/testów. `storage/models.py` rejestruje moduł `grid_model_registry_models` w istniejącym bloku rejestracji. Test wyczerpujący klasyfikuje manifest v9 i wszystkie sześć jawnych kluczy `public.*`; osobny test utrwala cztery shared i dwa catalog oraz niezmienność game tables i odmowy historycznego v8. Nie zmieniono żadnego frozen manifestu ani migracji.
+- Nowe procesy sprawdzają osobno import `models` jako pierwszy i `grid_model_registry_models` jako pierwszy, pochodzenie źródeł z izolowanego checkoutu oraz kompletność obliczanego przy imporcie `EXPECTED_PUBLIC_TABLES` istniejącego baseline. Każdy subprocess ma limit30s i PYTHONPATH wyłącznie izolowanego drzewa; nie wykonuje DDL ani połączeń PostgreSQL.
+- P2-3: nowy test porównuje pełny frozen JSON z `historical_catalogue()`, kanoniczny JSON z migracją0156 i SHA256 `e0816dfc9aff709eb1529306da45443393df5e62fa6ed7618076a49ee6aad76d`. Wczytanie modułu migracji wykonuje również jego przypięty guard integralności, bez wywołania upgrade/downgrade.
+- Weryfikacja: wspólny pytest schema+registry19 PASS (16,15s); odwrotna kolejność19 PASS (13,82s). Po poprawieniu dwóch uwag lint SIM300, końcowe schema+frozen-seed9 PASS (12,91s), Ruff3 pliki PASS, format3 pliki PASS. Mypy `--follow-imports=silent`: models.py1 plik PASS; test_game_data_v2_schema.py1 plik PASS. Code-map --check PASS; diff --check PASS. Każda skończona kontrola ma twardy timeout110s. Dokładne polecenia, czasy i surowe wyjścia: artifacts/audits/TASK-0994_CORRECTION_*.json.
+- P1-1 jest poprawione implementacyjnie i pokryte regresjami. To wynik wykonawcy gotowy do rozliczenia przez leada; historyczny werdykt audytora pozostaje REVISE, bez samodzielnego wystawiania PASS.
+- P2-1 pozostaje świadomym ryzykiem kosztu: GET/POST zachowują świeżą pełną kontrolę SHA plików, zgodnie z kontraktem fail-closed. Nie dodano cache zależnego od mtime ani optymalizacji zmieniającej aktualność kontroli; wymagałaby odrębnej decyzji i pomiaru. Lead przyjął pozostawienie tej uwagi jako ograniczenia.
+- P2-2: centralna rejestracja i świeże procesy usuwają zależność zestawu oczekiwanych tabel od kolejności importów. Sam historyczny cykl baseline nadal zakłada odwracalność ponad0150, choć wcześniejsza0152 oraz obecna0156 celowo odmawiają downgrade. Nie zmieniano tego cyklu, jego komentarzy ani migracji. `db:baseline:verify` i rzeczywisty PostgreSQL nie były uruchamiane; nie raportuje się ich jako PASS. Ograniczenie wymaga osobnego rozliczenia przez leada, zamiast rozszerzenia korekty o starszy workflow.
+- Nie wykonywano pełnego API/quality/build, zmian danych, usług, migracji operatora, treningu, aktywacji, publikacji, default, zmian symboli, stage, commita, push ani scalenia. Nie uruchamiano kolejnego audytu. CURRENT_STATE/README tego historycznego checkoutu nie zostały zmienione i nie mogą być kopiowane do aktywnego drzewa.
+- Kontrola DoD w zakresie korekty: przyczyna braku rejestracji usunięta centralnie; regresja działa w świeżych procesach; kontrola własności pozostaje wyczerpująca i fail-closed; frozen tożsamości chronione pełnym porównaniem; właściwe scoped lint/format/typecheck/testy zielone; pozostałe ograniczenia i P2 jawne. Odbiór audytu oraz metadane aktywnego CURRENT_STATE i commit należą do leada.
+
+### Wynik audytu rundy 2 i rozliczenie leada
+
+- Claude high, runda2: PASS, bez otwartych P0/P1. [Raport rundy2](../../quality/TASK-0994_AUDIT_claude-fable-5-1.md); [historyczny REVISE rundy1](../../quality/TASK-0994_AUDIT_claude-fable-5-1_round1.md) zachowany bez przepisywania.
+- P1-1 i P2-3 zamknięte przez audytora. P2-2 zamknięte w części import-time metadanych; pozostały historyczny cykl downgrade świadomie pozostawiony poza korektą, bez db:baseline:verify i bez deklaracji PASS. P2-1 koszt pełnych świeżych SHA przyjęty dla zachowania fail-closed; brak niezweryfikowanego cache po mtime.
+- P2-4 dotyczyło tymczasowego duplikatu pliku taska w izolowanym checkoucie. Lead nie kopiuje jego drzewa dokumentów; w docelowym drzewie pozostanie jeden task w completed po zamknięciu. Przeniesiono tylko nowe sekcje Outcome, trzy pliki kodu/testów i dowody. Cudze hunki1012 zachowane.
+- Przed kopiowaniem trzech plików do primary sprawdzono zgodność jego blobów z bazą373 i SHA plików izolowanej korekty. Kontrola połączenia z1012 zapisana oddzielnie w artifacts/audits/TASK-0994_1012_PRIMARY_INTEGRATION.json; wynik dopisany po jej zakończeniu.
+- Pełne dowody obu rund i korekty zachowane na D w artifacts/audits/TASK-0994_ISOLATED_EVIDENCE przed archiwizacją tymczasowego worktree. Bez migracji operatora, usług, inference, treningu, aktywacji lub integracji.
+
+### Końcowa kontrola po przeniesieniu poprawki
+
+- Połączenie poprawki centralnej rejestracji z kodem1012 w primary:45 PASS,15,48s, nowy proces z oficjalnym PYTHONPATH. Testy obejmują schema+registry+dynamic snapshot+worker replay. Bez nowej inferencji i bez operacji bazy operatora.
+- P2-4 zamknięte: w docelowym drzewie jeden task, przeniesiony do completed; izolowane dokumenty nie były kopiowane w całości. Raporty obu rund zachowane. Osobny commit korekty po skanie wolnej wersji; pełny hash zostanie dopisany po utworzeniu bez amend.

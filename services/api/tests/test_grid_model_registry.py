@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import runpy
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -167,6 +168,22 @@ def test_historical_descriptors_are_closed_immutable_and_never_new_pass():
         assert validate_manifest(payload) == canonical_json(payload)
         assert payload["admission"] == "historical_baseline"
         assert payload["cohortId"] is None and payload["baseVersionId"] is None
+
+
+def test_historical_descriptors_match_frozen_migration_seed_and_pinned_sha() -> None:
+    migration_root = Path(__file__).resolve().parents[1] / "alembic"
+    frozen = json.loads(
+        (migration_root / "data/grid_model_baselines_v1.json").read_text(encoding="utf-8")
+    )
+    assert frozen == list(historical_catalogue())
+    # Loading the revision also exercises its own pinned integrity guard without DDL.
+    migration = runpy.run_path(str(migration_root / "versions/0156_grid_model_registry.py"))
+    assert migration["BASELINES"] == frozen
+    canonical = canonical_json(frozen)
+    assert migration["BASELINES_CANONICAL"] == canonical
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == (
+        "e0816dfc9aff709eb1529306da45443393df5e62fa6ed7618076a49ee6aad76d"
+    )
 
 
 def test_registration_retry_new_session_conflicts_and_third_family(engine, tmp_path):

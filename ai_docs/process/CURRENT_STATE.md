@@ -927,10 +927,10 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0994 — Rejestr rodzin, wersji i przypisań (done)
 
-- [Task](../tasks/completed/0994-grid-model-registry.md); codex/v3-grid-fine-tuning, bez scalenia. Commit przygotowywany po skanie numeracji; hash zostanie zapisany po utworzeniu.
-- Public immutable catalogue/receipts/events i assignment historycznych V3 bez old7; enum/CHECK neural_grid_v3, migracja0156 i manifestv9 bez zmiany game partitions/danych. Zamknięte typed manifesty, fail-closed hashe/receipt, retry/conflict/rollback, existing game deletion i izolacja symboli.
-- PASS: API19+catalog/schema25+focused2+2, PG NOBYPASSRLS/lifecycle/retry/rollback i pełny hash schematu, oba managed baselines AVAILABLE, Ruff/mypy8+1, klient/request/UI/types/lint, oddzielne OpenAPI kontrole, docs/map/diff. Izolowane DB/role/PID sprzątnięte. Szerszy mypy poza zakresem i sandbox próby opisane w Outcome.
-- [Audyt Claude high](../quality/TASK-0994_AUDIT_TIMEOUT_CODEX.md): po wznowieniu na polecenie operatora wall-clock480s bez końcowego raportu; jawny wyjątek AGENTS, bez PASS i kolejnej próby. [Poprzedni limit](../quality/TASK-0994_AUDIT_UNAVAILABLE_CODEX.md) zachowany. Bez operator migration, usług, treningu/inference/GPU, aktywacji/default i integracji. Następny TASK-1012.
+- [Task](../tasks/completed/0994-grid-model-registry.md); oryginalny commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`. Po dłuższym audycie operatora jedna korekta; osobny commit poprawki przygotowywany, bez scalenia.
+- Katalog i historyczne przypisania bez zmiany danych gier. Korekta centralnie rejestruje6 mapowań ORM; test manifestu v9 obejmuje public.* i oba porządki importów. Frozen JSON/deskriptory/SHA mają regresję; migracje bez zmian.
+- [Runda1 REVISE](../quality/TASK-0994_AUDIT_claude-fable-5-1_round1.md); [Runda2 PASS](../quality/TASK-0994_AUDIT_claude-fable-5-1.md), bez P0/P1. P1-1/P2-3 zamknięte; P2-4 izolowany duplikat taska usunięty w docelowym drzewie. P2-1 koszt świeżych SHA i P2-2 nieweryfikowany historyczny cykl downgrade jawnie przyjęte poza zakresem. Wcześniejszy timeout/limit pozostają historyczne.
+- Korekta:19+19+9 PASS, Ruff/format3, mypy2, map/diff; połączenie z1012 w primary45 PASS. Pierwotne PG/counters/klient kontrole w Outcome. Bez nowej bazy operatora, usług, treningu/inference, aktywacji i integracji. Tymczasowy checkout audytu skierowany do archiwizacji po zachowaniu dowodów na D.
 
 ### TASK-1014 — Zarządzane checkpointy na D (done)
 

@@ -324,3 +324,12 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Uzupełniająca kontrola po R2, bez zmiany kodu i bez nowej rundy audytu: P2-7 zamknięte: pełny test_grid_reinference_stats_postgres.py bez filtra9 PASS/67.84s, wrapper71.73s<120. Pierwsza próba sandbox01 TCP10013 przed CREATE i bez asercji zachowana jako FAIL; jedna środowiskowa próba02 z identycznym zakresem poza sandboxem PASS. Exact owner/DB0/role0/PID[] potwierdzone. Oddzielne TASK-1003_POST_AUDIT_PG_02 log/RUN/PG_RECEIPT/CLEANUP i SHA; frozen R2/RUNS/source bez zmian.
 - Legalny persystowany unknown-comparison path nadal nie został wykazany; dowód helper-only i odmowa niespójnej projekcji są rozdzielone. Brak szerokiego benchmarku, fizycznego Android/browser odbioru i pełnego Admin builda. Każda własna fixture potwierdza owner/DB0/role0/PID cleanup. Quota attempt przed rzeczywistym R1 był bez werdyktu, zachowany oddzielnie; nie jest PASS ani rundą audytu. Harmonogram wznowienia jest wyłączony, audyty odebrano w tej sesji.
 - Bez operatorDB/migracji/backfillu/resetu, nowego backupu, usług, rzeczywistej inferencji/GPU/treningu, publikacji/aktywacji/defaultu, integracji i push. Symbole per gra, stara777 archiwalna. Następny TASK-1002 po osobnym commicie1003 oraz zapisaniu jego kontraktu/nowej decyzji przed kodem; cały plan pozostaje zlecony.
+
+### Commit i wznowienie po utworzeniu
+
+- Commit: **v1.7.381 / `477bf91ae3d3ab81bf6fc8d96cec38bc0dfef192`**, branch `codex/v3-grid-fine-tuning`; staged43 paths/check/stat/list oraz post-show PASS, status po commicie czysty. Hash dopisany z następnym taskiem bez amend. Integracja/push niewykonane.
+- Następny task1002 ma kontrakt D-554, zapisany przed kodem; realizacja całego planu trwa.
+
+### Uzupełnienie P2-8 po commicie, przed integracją
+
+- [Pełny baseline HEAD380](../../quality/TASK-1003_BASELINE_HEAD380.md):215 PASS/10 FAIL/225 testów,12.109s/do120s; po zmianie226 PASS/10 FAIL/236. Te same10 nazw i komunikatów wyjątków w SuperGame; weryfikowane źródła Git/checkout CRLF i internal packages, SHA przed/po. To pełny zestaw interakcji na wyeksportowanych źródłach, nie tylko helper. Jedna pełna próba, PID zakończony; wrapper encoding po zapisie dowodów nie powodował ponowienia. Ograniczenie helper-only uzupełnione; nadal brak pełnego suite PASS. Nowe regresje w1001 nie mogą zostać wyciszone tym baseline. Bez zmian kodu/testów i bez nowego audytu.

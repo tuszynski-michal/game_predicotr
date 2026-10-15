@@ -444,3 +444,26 @@ These decisions have batch_crop_review provenance in a separate store. They
 do not approve the photo, whole geometry or sequence and remain trainable=false
 until a separate qualification task satisfies geometry/split gates. Preserve
 the original lab history, training parts, models and immutable batch evidence.
+
+## V3 source recording qualification (D-554, TASK-1002)
+
+Geometry training uses explicitly declared whole recordings. Folder names,
+sequence ranges and unmatched checksums do not establish independence. Missing
+membership, declarations or ancestor mappings keep qualification unresolved.
+Byte and normalized pixel aliases carry protective roles across games; the
+response reveals only the selected game's groups. Historical game code `7`
+and symbol classifiers retain their separate workflows.
+
+The operator selects an import and registers its recording through one explicit
+action. Registration uses bounded pages, durable receipts, cancellation between
+pages and explicit resume. Reload reads state without resubmitting writes.
+Draft roles can be corrected. A provisional resolution does not consume a split;
+permanent protection begins with actual cohort freeze, evaluation, trusted
+holdout import or inherited use. Final test, unseen game, Reels and Treasure
+never qualify as TRAIN. Existing immutable reports and pins remain historical
+evidence; later relevant alias changes invalidate their eligibility separately.
+
+Laboratory descriptors require trusted deployment installation and explicit
+whole-recording mapping. Photo-only protection remains effective while identity
+is unresolved; a later proven mapping can resolve that state without erasing
+history. The application does not infer recordings or scan images automatically.

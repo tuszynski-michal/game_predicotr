@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.new_game_geometry import NewGameGeometryService
@@ -24,7 +25,7 @@ from game_predictor_api.storage.database_roles import (
     provision_application_role,
 )
 from game_predictor_api.storage.game_create_receipts import SqlAlchemyGameCreateReceiptRepository
-from game_predictor_api.storage.game_data_v2_manifest_v13 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v14 import VERSION
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
@@ -59,11 +60,14 @@ def database():
     }
     destination = Path("artifacts/audits/TASK-1004_PG_RECEIPT.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
+        recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
             "sqlalchemy.url",
@@ -90,7 +94,9 @@ def database():
             receipt.update(ownerBeforeCleanup=owner, pidsBeforeCleanup=pids)
             destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             assert owner == receipt["owner"] and not pids, "Refuse unsafe fixture cleanup"
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
             connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
             receipt["databaseRemaining"] = connection.scalar(
                 text("SELECT count(*) FROM pg_database WHERE datname=:name"), {"name": name}

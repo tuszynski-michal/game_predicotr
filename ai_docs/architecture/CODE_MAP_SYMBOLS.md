@@ -53,6 +53,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/router.py: create_api_router
 - api/rules.py: create_rules_router
 - api/semi_automatic_image_selections.py: create_semi_automatic_image_selections_router
+- api/source_recording_groups.py: create_source_recording_groups_router
 - api/super_game_series.py: create_super_game_series_router
 - api/symbol_model_iterations.py: create_symbol_model_iteration_router
 - api/symbol_references.py: create_symbol_references_router, resolve_symbol_reference_asset
@@ -137,6 +138,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/reviews.py: class ReviewRepository, class ReviewService
 - application/rules.py: class RulesRepository, class RulesService
 - application/semi_automatic_image_selections.py: workflow_mode_for_recognizer_fingerprint, class SemiAutomaticSelectionRepository, class SemiAutomaticImageSelectionService
+- application/source_recording_groups.py: class RecordingRepository, class RecordingProviders, class UnresolvedRecordingProviders, class RecordingManifestStore, class SourceRecordingGroupsService
 - application/storage_capacity.py: class StorageCapacityGuard
 - application/storage_gc.py: class BrowserStagingGcSource, class StorageGcPreview, class StorageGcRun, class StorageGcRepository, class StorageGcScan, class StorageGcArtifactStore, class StorageGcService
 - application/super_game_markers.py: class SuperGameMarkerSource
@@ -213,6 +215,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/semi_automatic_image_selections.py: class SemiAutomaticSelectionDirection, class SemiAutomaticSelectionWorkflowMode, class SemiAutomaticV7SelectionMode, class SemiAutomaticV7BorderStyle, class SemiAutomaticV7SelectionConfiguration, create_v7_selection_configuration, class FilenameRangeVerificationReviewDecision, class FilenameVerificationHistoryDeletion, class SemiAutomaticSelectionRunStatus, class SemiAutomaticSelectionRangeStatus, class FilenameRangeVerificationReview, class SemiAutomaticSelectionError, class SemiAutomaticSelectionNotFoundError, class SemiAutomaticSelectionConflictError, class SemiAutomaticSelectionSourceManifest, class SemiAutomaticSelectionRange, class SemiAutomaticSelectionRun, create_semi_automatic_selection_run, pause_run, resume_run, cancel_run, begin_filename_verification_cleanup, block_filename_verification_cleanup, resume_filename_verification_cleanup, complete_filename_verification_cleanup, acknowledge_output, acknowledge_manual_output, apply_range_status_transition, expected_ranges_fingerprint, run_identity_key, classify_filename_range_verification
 - domain/sequence_mode_projection.py: class SequenceMode, class PositionMode, class SequenceModeProjection
 - domain/sequence_takeover.py: class SequenceClaimOutcome, class ImportOrder, class PendingOwnerFacts, class SequenceClaim, decide_sequence_claim
+- domain/source_recording_groups.py: class RecordingError, canonical_recording_json, recording_sha256, protected_recording_mapping, class AncestorResolution, resolve_ancestor_references
 - domain/storage_capacity.py: class StorageCapacityPolicy, class StorageVolumeCapacity, class StorageCapacityDecision, conservative_image_storage_estimate, evaluate_storage_capacity
 - domain/storage_retention.py: class StorageArtifactClass, class StorageRootKind, class StorageProtectionReason, class BrowserStagingRetentionState, class StorageRetentionPolicy, class StorageArtifactObservation, class StorageRetentionDecision, class StorageGcManifestEntry, is_safe_managed_relative_path, evaluate_storage_retention, manifest_entry_from_decision, canonical_gc_manifest_bytes, gc_manifest_checksum_sha256, gc_preview_token
 - domain/super_game_markers.py: class SuperGameMarkerKind, class SuperGameMarker, marker_for_position, class SuperGameMarkers
@@ -272,6 +275,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/rules.py: class RulesVersionCreate, class RulesVersionUpdate, class RulesVersionResponse, class RulesPublicationIssueResponse, class RulesPublicationReadinessResponse, class PaylineCreate, class PaylineUpdate, class PaylineResponse, class RulesVersionSymbolUpdate, class RulesVersionSymbolResponse, class PayoutRuleCreate, class PayoutRuleUpdate, class PayoutRuleResponse
 - schemas/semi_automatic_image_selections.py: class SemiAutomaticSelectionRecognizerVariantResponse, class SemiAutomaticV7CapabilitiesResponse, class SemiAutomaticV7SelectionCreate, class V7OutputFolderSelectionResponse, class SemiAutomaticV7SelectionConfigurationResponse, class SemiAutomaticSelectionCapabilitiesResponse, class SemiAutomaticSelectionCreate, class SequenceRangeValueResponse, class FilenameRangeVerificationItemResponse, class FilenameRangeVerificationReviewDecisionUpdate, class FilenameRangeVerificationReviewDecisionResponse, class FilenameVerificationHistoryDeletionResponse, class FilenameRangeVerificationPageResponse, class SemiAutomaticSelectionSourceResponse, class SemiAutomaticSelectionSourceItemResponse, class SemiAutomaticSelectionSourcePageResponse, class SemiAutomaticSelectionRunResponse, class SemiAutomaticSelectionCreateResponse, class SemiAutomaticSelectionRunPageResponse, class V7ReviewFolderResponse, class SemiAutomaticSelectionRangeResponse, class SemiAutomaticSelectionRangePageResponse, class SemiAutomaticSelectionDiagnosticsResponse, class SemiAutomaticSelectionOutputAcknowledgement, to_run_response, to_filename_verification_review_response, to_filename_verification_history_deletion_response, to_range_response
 - schemas/source_lattice_geometry.py: class SourceLatticePoint, to_source_lattice_nodes, lattice_nodes_payload
+- schemas/source_recording_groups.py: class RecordingSelection, class SourceRecordingCommandRequest, class SourceRecordingGroupResponse, class SourceRecordingGroupListResponse, class SourceRecordingCommandResponse
 - schemas/super_game_markers.py: class SuperGamePublicMarkerResponse, class SuperGameMarkerResponse, to_super_game_marker_response, marker_response_at, to_super_game_public_marker_response
 - schemas/super_game_series.py: class SuperGameStateResponse, class SuperGameSeriesResponse, class SuperGameSeriesCountsResponse, class SuperGameSeriesListResponse, class SuperGameSeriesBoardResponse, class SuperGameSeriesBoardsResponse, class SuperSymbolUpdate, class SuperGameSeriesDeriveResponse
 - schemas/symbol_model_iterations.py: class SymbolTrainingConfigurationCommand, class CreateSymbolTrainingCommand, class SymbolModelIterationResponse, class CreateSymbolTrainingResponse, class SymbolModelActivationCommand, class LabSymbolCandidateSummaryResponse, class LabSymbolCandidateResponse, class ImportLabSymbolCandidateCommand, class SymbolModelDeactivationCommand, to_lab_candidate_response, class SymbolModelActivationPreviewResponse, class SymbolModelActivationResponse, class SymbolModelActivationCommandResponse, to_iteration_response, to_activation_preview_response, to_activation_response
@@ -306,6 +310,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v11.py: ownership
 - storage/game_data_v2_manifest_v12.py: ownership
 - storage/game_data_v2_manifest_v13.py: ownership
+- storage/game_data_v2_manifest_v14.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
@@ -392,6 +397,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/schema_readiness.py: class AlembicHeadMismatchError, database_alembic_revision, require_alembic_head
 - storage/semi_automatic_image_selection_repository.py: class SqlAlchemySemiAutomaticSelectionRepository
 - storage/sequence_ownership_lock.py: class SequenceOwnershipLockMode, sequence_ownership_lock_key, held_sequence_ownership_lock, acquire_sequence_ownership_lock, ensure_sequence_ownership_lock, require_exclusive_sequence_ownership, cell_decision_lock_mode
+- storage/source_recording_group_models.py: class RecordingGroupModel, class RecordingOccurrenceModel, class RecordingEvidenceModel, class RecordingRoleHeadModel, class RecordingCommandModel
+- storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
+- storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof
+- storage/source_recording_permissions.py: provision_recording_capability, validate_recording_capability, enforce_recording_permissions, grant_recording_capability_dependencies, recording_permission_errors
+- storage/source_recording_providers.py: read_provider, class TrustedRecordingProviders, install_recording_provider
 - storage/storage_gc_repository.py: class SqlAlchemyStorageGcRepository
 - storage/super_game_input_version.py: class SuperGameInputWritePoint, lock_super_game_state, enqueue_super_game_series_derive, record_super_game_input_change
 - storage/super_game_marker_repository.py: class SqlAlchemySuperGameMarkerRepository
@@ -829,6 +839,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/lab-registry-command.ts: PendingLabRegistryCommand, readPendingLabRegistryCommand, saveLabRegistryCommand, clearLabRegistryCommand, reconcileLabRegistryFailure
 - features/model-quality/model-quality-actions.ts: symbolTrainingRejectionDetails, ModelQualityClient, PendingSymbolReinferenceResult, previewPendingSymbolReinference, startPendingSymbolReinference, GridQualityClient, GridQualityLoadResult, GridCandidateResult, GridActivationPreviewResult, GridActivationResult, loadGridQuality, createGridCandidate, previewGridActivation, confirmGridActivation, ModelQualityLoadResult, ModelQualityFreezeResult, ModelActivationPreviewResult, ModelActivationResult, loadModelQuality, prepareModelQualityCohort, previewModelActivation, confirmModelActivation, freezeModelQualityCohort
 - features/model-quality/model-quality-workspace.tsx: ModelQualityWorkspace
+- features/model-quality/recording-groups-command.ts: recordingCommandKey, readRecordingCommand, reserveRecordingCommand, completeRecordingCommand, discardRecordingCommand
+- features/model-quality/recording-groups-panel.tsx: RecordingGroupsPanel
+- features/model-quality/recording-groups-state.ts: recordingSourceIds, recordingImportLabel, recordingGroupLabel, recordingReasonLabel
+- features/model-quality/recording-import-picker.tsx: RecordingImportPicker
+- features/model-quality/recording-registration.ts: RecordingRegistration, recordingRegistrationKey, readRecordingRegistration, saveRecordingRegistration, clearRecordingRegistration, discardRecordingRegistration, nextRecordingMembershipCommand
 - features/releases/release-actions.ts: ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult, createAndStartRelease, RefreshReleaseResult, refreshRelease, RetryReleaseBuildResult, retryReleaseBuild, DownloadReleaseApkResult, downloadReleaseApk
 - features/releases/release-panel.tsx: ReleasePanel
 - features/releases/release-state.ts: ReleaseGameSource, ReleaseGameSelection, ReleaseDraft, ReleaseDraftValidation, releaseStatusLabel, createInitialSelections, selectControlledReleaseGame, publishedDatasets, publishedRules, compatibleRules, compatibleDatasets, hasCompatibleReleasePair, validateReleaseDraft, upsertRelease, formatReleaseTimestamp
@@ -1176,8 +1191,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - generate_m4_import_fixture.py: main
 - hooks/block_large_read.py: threshold, decide, main
 - import_grid_audit_proposals.py: class GridAuditImportError, class WorklistBoard, class CurrentBoard, file_sha256, read_worklist, suspects_by_item, audit_revisions, join_worklist, network_nodes, build_items, summary, document_bytes, write_artifact, read_current_boards, run, main
+- import_recording_lab_provider.py: main
 - install_grid_engine_models.py: class InstallResult, preset_bytes, manifest_bytes, install_version, resolve_artifact_root, main
 - install_mumie_feedback_controls.py: install_controls, main
+- install_recording_provider.py: main
 - m8_gold_frame_pilot.py: class PilotError, class RunExistsError, class GoldRange, class PilotCell, class PrepareSummary, perimeter_mask, gold_mask, perimeter_gold_share, interior_gold_share, expand_quad, class Confusion, confusion, sweep_thresholds, best_threshold, normalize_label, select_cells, render_crops, write_sheet, prepare, class ScoredRow, read_labels, score_rows, visibility_summary, build_report, evaluate, parse_args, main
 - measure_symbol_review_page.py: class Measurement, main
 - migrate_cell_level_verification.py: arguments, write_report, run_preview, run_apply, summary, main

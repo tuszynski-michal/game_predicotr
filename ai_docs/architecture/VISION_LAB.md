@@ -624,3 +624,33 @@ reuses symbolWriteSession, freezes PNGs, updates only receipt-confirmed cases
 and keeps the next selection while a save is pending. Rereads remount PNGs
 and require their load events; image failure blocks approval. The sticky
 desktop panel and mobile layout expose the palette without opening a photo.
+
+## V3 recording registry (D-554, TASK-1002)
+
+`source_recording_groups` separates closed HTTP DTOs, domain qualification,
+managed immutable membership pages and fixed PostgreSQL capabilities. Alembic
+0161 installs five private shared tables: groups, occurrences, evidence,
+role heads and command receipts. MAIN identities use game RLS; LAB_DESCRIPTOR
+identities use opaque pinned references without fabricated game/source rows.
+Indexed byte/pixel identities and explicit alias evidence form bounded closure.
+No source partition query participates in cross-game closure.
+
+A separately provisioned database-specific nonlogin role owns these objects.
+Runtime has only three exact safe function signatures and no direct registry,
+ordinal or internal helper access. Provisioning re-applies exact exclusions
+after existing broad/default grants. Missing capability provisioning blocks
+migration; runtime never falls back to an owner connection.
+
+Commands authenticate scope before receipt replay and recheck replay/CAS under
+catalog9910994 then registry9921002 locks. Advisory receipt lookup takes neither
+global lock during membership file capture. Attach compares SQL-attested source
+identity with the frozen server page inside the writing statement. Related
+closure proofs invalidate only dependent resolutions and future bound reports;
+global revision changes alone do not stale unrelated candidates.
+
+Trusted deployment providers are SHA-pinned by persistent server configuration.
+SQL also requires the matching immutable installation proof; an envelope copy
+does not establish trust. Provisional resolutions store dependency bindings
+without manufacturing future cohort/use or quality PASS evidence. The future
+0995/0997 producers bind actual use and reports through this private boundary.
+See [deployment and operator workflow](../guides/SOURCE_RECORDING_GROUPS.md).

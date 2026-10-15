@@ -9,16 +9,18 @@ import re
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.storage.game_data_v2_manifest_v12 import ADDED_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
-    CREATE_TABLES,
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
     partition_name,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
@@ -68,6 +70,7 @@ def assert_grid_reinference_schema_postgres(engine: Engine, config: Config, role
                     {"name": "game_data_v2." + partition_name(game_id, table)},
                 )
     command.downgrade(config, "0158_new_game_v3_bootstrap")
+    OwnedRecordingCapability.for_engine(engine).provision("head", config)
     command.upgrade(config, "head")
     games = (uuid4(), uuid4())
     operations, sources, targets = {}, {}, {}
@@ -267,7 +270,7 @@ def assert_grid_reinference_schema_postgres(engine: Engine, config: Config, role
     with engine.connect() as connection:
         assert (
             connection.scalar(text("SELECT version_num FROM public.alembic_version"))
-            == "0160_grid_geometry_proposals"
+            == EXPECTED_ALEMBIC_HEAD
         )
     for game_id in games:
         _lifecycle(engine, game_id, GamePartitionLifecycleKind.DELETE)

@@ -18,6 +18,7 @@ from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
@@ -35,7 +36,7 @@ from game_predictor_api.domain.reviewer_work_assignments import (
 )
 from game_predictor_api.storage import management_session_models  # noqa: F401  (registers 0150)
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v13 import CREATE_TABLES, GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES, GAME_TABLES
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
@@ -130,14 +131,18 @@ def isolated_database() -> Iterator[URL]:
     test_database_url = _database_url(TEST_DATABASE_NAME)
     identifier = _quoted_identifier(TEST_DATABASE_NAME)
 
+    recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield test_database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 

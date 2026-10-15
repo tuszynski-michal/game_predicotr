@@ -6990,5 +6990,8 @@ from game_predictor_api.storage import (  # noqa: E402
     management_stake_models as management_stake_models,
 )
 from game_predictor_api.storage import (  # noqa: E402
+    source_recording_group_models as source_recording_group_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
     super_game_series_models as super_game_series_models,
 )

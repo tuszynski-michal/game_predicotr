@@ -35,6 +35,7 @@ from game_predictor_api.api.management_public_structure import (
 from game_predictor_api.api.management_sessions import create_management_sessions_router
 from game_predictor_api.api.management_stakes import create_management_stake_router
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.api.source_recording_groups import create_source_recording_groups_router
 from game_predictor_api.api.super_game_series import create_super_game_series_router
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
@@ -188,6 +189,7 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
 )
+from game_predictor_api.application.source_recording_groups import SourceRecordingGroupsService
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.super_game_series import SuperGameSeriesService
@@ -293,6 +295,7 @@ from game_predictor_api.domain.rules import (
     RulesError,
     RulesNotFoundError,
 )
+from game_predictor_api.domain.source_recording_groups import RecordingError
 from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
 from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.super_game_series import (
@@ -471,6 +474,8 @@ from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepositor
 from game_predictor_api.storage.semi_automatic_image_selection_repository import (
     SqlAlchemySemiAutomaticSelectionRepository,
 )
+from game_predictor_api.storage.source_recording_groups import SqlAlchemySourceRecordingRepository
+from game_predictor_api.storage.source_recording_providers import TrustedRecordingProviders
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.super_game_marker_repository import (
     SqlAlchemySuperGameMarkerRepository,
@@ -2328,6 +2333,33 @@ def create_app(
         return JSONResponse(
             status_code=error.status_code,
             content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    def default_source_recording_dependency() -> Iterator[SourceRecordingGroupsService]:
+        with Session(database_engine) as session:
+            try:
+                yield SourceRecordingGroupsService(
+                    SqlAlchemySourceRecordingRepository(session),
+                    resolved_settings.artifact_root,
+                    TrustedRecordingProviders(
+                        resolved_settings.artifact_root,
+                        resolved_settings.recording_provider_index_sha256,
+                    ),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_source_recording_groups_router(default_source_recording_dependency)
+    )
+
+    @application.exception_handler(RecordingError)
+    async def recording_error_handler(_request: Request, error: RecordingError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(CatalogError)

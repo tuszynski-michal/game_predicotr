@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-0993 — Edytor czterech rogów i 24 punktów (done)
+
+- [Task](../tasks/completed/0993-four-corner-grid-editor.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`; hash dopisany po utworzeniu, do następnego commita.
+- Domyślnie4 uchwyty, opcjonalnie24 bez utraty nodes. Homografia wszystkich węzłów, translacja, regularna siatka i undo. Pusty neural szkic z pinem tworzy24 z4 rogów; istniejące nodes bez pinu zachowane; legacy/audit quad-only. Trwały szkic kontroluje źródło i rewizję, konflikt blokuje zapis do resetu.
+- PASS:10 lattice,88 interakcji,54 regresje, lint/typecheck/format/docs/map/diff. Zastany warning share poza taskiem. Dotyk sprawdzono w jsdom; bez fizycznego Androida i żywego odbioru API.
+- [Próba Claude medium](../quality/TASK-0993_AUDIT_INTERRUPTED_CODEX.md): po wznowieniu brak końcowego werdyktu i własnych procesów. Wyjątek AGENTS.md, bez PASS i ponawiania. Bez zapisów geometrii operatora, usług, migracji, treningu, aktywacji i nowego backupu. Następny TASK-1014.
+
 ### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (done)
 
 - [Task](../tasks/completed/1008-historical-grid-acceptance-backfill.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.370 / `f4ff1f4d3b0d49600ffb8fbbdd948d60ff942a65`; hash zapisany po utworzeniu, do następnego commita.

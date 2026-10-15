@@ -32,7 +32,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_GEOMETRY_MODE,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
-from game_predictor_api.storage.game_data_v2_manifest_v13 import CREATE_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     LOCK_RETRY_ATTEMPTS,
     GamePartitionLifecycleError,

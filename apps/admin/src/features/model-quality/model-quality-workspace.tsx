@@ -18,6 +18,7 @@ import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
 import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
 import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
 import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
+import { RecordingGroupsPanel } from './recording-groups-panel';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -898,6 +899,10 @@ export function ModelQualityWorkspace(props: {
         >
           <h2>Geometria V3</h2>
           <GridModelAssignmentSummary
+            apiBaseUrl={props.apiBaseUrl}
+            gameId={props.gameId}
+          />
+          <RecordingGroupsPanel
             apiBaseUrl={props.apiBaseUrl}
             gameId={props.gameId}
           />

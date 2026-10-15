@@ -9,6 +9,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -60,9 +61,12 @@ def database():
         json.dumps({"database": name, "created_by": "TASK-1008", "cleaned": False}),
         encoding="utf-8",
     )
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "head")
         # A no-history down/up is verified before application-role use.
         command.downgrade(config, "0154_geometry_correction_revert")
@@ -82,7 +86,9 @@ def database():
                 text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"), {"name": name}
             ).scalar_one()
             assert active == 0, "Refusing to drop a database with open connections"
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
         receipt.write_text(
             json.dumps({"database": name, "created_by": "TASK-1008", "cleaned": True}),

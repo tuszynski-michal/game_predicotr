@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
@@ -110,6 +111,7 @@ def test_migration_preserves_legacy_import_recovery_and_deactivation(tmp_path, m
                 {"game": legacy_game, "id": iteration_id},
             )
         # The product code below reads the current ORM columns, so continue at head.
+        OwnedRecordingCapability.for_engine(database.owner_engine).provision("head", config)
         command.upgrade(config, "head")
         model = b"qualified-import-postgres-fixture"
         evidence = {"classes": list(lab.MUMIE_CLASS_LABELS), "eligible": True}

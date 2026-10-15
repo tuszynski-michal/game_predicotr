@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import replace_virtual_geometry
 from alembic import command
 from alembic.config import Config
@@ -70,6 +71,7 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
         "sqlalchemy.url", database.url.render_as_string(hide_password=False).replace("%", "%%")
     )
     # The current code writes the current schema (manifest v4, virtual boards).
+    OwnedRecordingCapability.for_engine(database).provision("head", config)
     command.upgrade(config, "head")
     sessions = create_session_factory(database)
     now = datetime.now(UTC)

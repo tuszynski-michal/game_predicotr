@@ -8,6 +8,7 @@ from threading import Barrier, Event
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
@@ -66,15 +67,20 @@ def locking_database() -> Iterator[Engine]:
     maintenance = create_engine(_database_url("postgres"), isolation_level="AUTOCOMMIT")
     url = _database_url(name)
     engine = create_engine(url, connect_args={"options": "-c statement_timeout=10000"})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text(f'CREATE DATABASE "{name}"'))
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(_migration_config(url), "head")
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.execute(text(f'DROP DATABASE "{name}"'))
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 

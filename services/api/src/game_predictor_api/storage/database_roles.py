@@ -26,6 +26,13 @@ from typing import Final
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from game_predictor_api.storage.source_recording_permissions import (
+    PRIVATE_SEQUENCES,
+    PRIVATE_TABLES,
+    enforce_recording_permissions,
+    recording_permission_errors,
+)
+
 APPLICATION_SCHEMAS: Final = ("public", "game_data_v2")
 _ROLE_NAME: Final = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _SCRAM_ITERATIONS: Final = 4096
@@ -72,6 +79,7 @@ class ApplicationRoleReport:
     writable_read_only_tables: tuple[str, ...]
     sequences_without_usage: tuple[str, ...]
     management_function_errors: tuple[str, ...] = ()
+    recording_permission_errors: tuple[str, ...] = ()
 
     @property
     def compliant(self) -> bool:
@@ -89,6 +97,7 @@ class ApplicationRoleReport:
             and not self.writable_read_only_tables
             and not self.sequences_without_usage
             and not self.management_function_errors
+            and not self.recording_permission_errors
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -110,6 +119,7 @@ class ApplicationRoleReport:
             "writableReadOnlyTables": list(self.writable_read_only_tables),
             "sequencesWithoutUsage": list(self.sequences_without_usage),
             "managementFunctionErrors": list(self.management_function_errors),
+            "recordingPermissionErrors": list(self.recording_permission_errors),
             "compliant": self.compliant,
         }
 
@@ -233,6 +243,8 @@ def provision_application_role(
     connection.exec_driver_sql(f"{default_privileges} USAGE, SELECT ON SEQUENCES TO {quoted_role}")
     connection.exec_driver_sql(f"{default_privileges} EXECUTE ON FUNCTIONS TO {quoted_role}")
     connection.exec_driver_sql(f"{default_privileges} USAGE ON SCHEMAS TO {quoted_role}")
+    # ALL/default grants above must never reopen the private recording registry.
+    enforce_recording_permissions(connection, role)
     report = describe_application_role(connection, role)
     if not report.compliant:
         raise DatabaseRoleError(
@@ -306,6 +318,7 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
                 WHERE n.nspname = ANY(CAST(:schemas AS text[]))
                   AND c.relkind IN ('r', 'p') AND NOT c.relispartition
                   AND format('%I.%I', n.nspname, c.relname) <> ALL(CAST(:read_only AS text[]))
+                  AND format('%I.%I', n.nspname, c.relname) <> ALL(CAST(:private AS text[]))
                   AND NOT (
                     has_table_privilege(:role, c.oid, 'SELECT')
                     AND has_table_privilege(:role, c.oid, 'INSERT')
@@ -313,7 +326,12 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
                     AND has_table_privilege(:role, c.oid, 'DELETE'))
                 ORDER BY 1"""
             ),
-            {"schemas": list(schemas), "role": role, "read_only": list(read_only_tables)},
+            {
+                "schemas": list(schemas),
+                "role": role,
+                "read_only": list(read_only_tables),
+                "private": list(PRIVATE_TABLES),
+            },
         )
     )
     writable_read_only_tables = tuple(
@@ -347,12 +365,13 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
                 """SELECT format('%I.%I', n.nspname, c.relname)
                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = ANY(CAST(:schemas AS text[])) AND c.relkind = 'S'
+                  AND format('%I.%I', n.nspname, c.relname) <> ALL(CAST(:private AS text[]))
                   -- CASE keeps the planner from probing non-sequences first.
                   AND CASE WHEN c.relkind = 'S'
                       THEN NOT has_sequence_privilege(:role, c.oid, 'USAGE') ELSE false END
                 ORDER BY 1"""
             ),
-            {"schemas": list(schemas), "role": role},
+            {"schemas": list(schemas), "role": role, "private": list(PRIVATE_SEQUENCES)},
         )
     )
     return ApplicationRoleReport(
@@ -373,6 +392,7 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
         writable_read_only_tables=writable_read_only_tables,
         sequences_without_usage=sequences_without_usage,
         management_function_errors=_management_function_errors(connection, role),
+        recording_permission_errors=recording_permission_errors(connection, role),
     )
 
 

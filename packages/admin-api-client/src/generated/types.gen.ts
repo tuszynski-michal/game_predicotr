@@ -14419,6 +14419,20 @@ export type ProposalRejectCommand = {
 };
 
 /**
+ * RecordingSelection
+ */
+export type RecordingSelection = {
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Sourceids
+   */
+  sourceIds?: Array<string> | null;
+};
+
+/**
  * RejectionTarget
  *
  * What a ``rejection`` entry rejected.
@@ -17550,6 +17564,184 @@ export type SourceLatticePoint = {
    * Y
    */
   y: number;
+};
+
+/**
+ * SourceRecordingCommandRequest
+ */
+export type SourceRecordingCommandRequest = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number;
+  /**
+   * Familyid
+   */
+  familyId?: string | null;
+  /**
+   * Groupid
+   */
+  groupId?: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Independenceconfirmed
+   */
+  independenceConfirmed?: boolean | null;
+  /**
+   * Kind
+   */
+  kind:
+    | 'prepare'
+    | 'attach'
+    | 'complete'
+    | 'declare'
+    | 'assign_role'
+    | 'retract'
+    | 'alias'
+    | 'freeze';
+  /**
+   * Manifestid
+   */
+  manifestId?: string | null;
+  /**
+   * Othergroupid
+   */
+  otherGroupId?: string | null;
+  /**
+   * Pageindex
+   */
+  pageIndex?: number | null;
+  /**
+   * Role
+   */
+  role?: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
+  selection?: RecordingSelection | null;
+};
+
+/**
+ * SourceRecordingCommandResponse
+ */
+export type SourceRecordingCommandResponse = {
+  /**
+   * Commandkind
+   */
+  commandKind: string;
+  group: SourceRecordingGroupResponse;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Reasoncode
+   */
+  reasonCode?: string | null;
+  /**
+   * Resolutionid
+   */
+  resolutionId?: string | null;
+  /**
+   * Statuscode
+   */
+  statusCode: number;
+};
+
+/**
+ * SourceRecordingGroupListResponse
+ */
+export type SourceRecordingGroupListResponse = {
+  /**
+   * Items
+   */
+  items: Array<SourceRecordingGroupResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor?: string | null;
+};
+
+/**
+ * SourceRecordingGroupResponse
+ */
+export type SourceRecordingGroupResponse = {
+  /**
+   * Createdat
+   */
+  createdAt?: string;
+  /**
+   * Declared
+   */
+  declared: boolean;
+  /**
+   * Expectedsources
+   */
+  expectedSources: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Independent
+   */
+  independent: boolean;
+  /**
+   * Manifestid
+   */
+  manifestId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Membershipcomplete
+   */
+  membershipComplete: boolean;
+  /**
+   * Nextpageindex
+   */
+  nextPageIndex?: number | null;
+  /**
+   * Pagecount
+   */
+  pageCount: number;
+  /**
+   * Qualification
+   */
+  qualification: 'unresolved' | 'blocked' | 'eligible';
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Registeredpages
+   */
+  registeredPages?: number;
+  /**
+   * Registeredsources
+   */
+  registeredSources: number;
+  /**
+   * Resolutionid
+   */
+  resolutionId?: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
 };
 
 /**
@@ -24199,6 +24391,119 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type ListSourceRecordingGroupsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Familyid
+     */
+    familyId?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * After
+     */
+    after?: string | null;
+    /**
+     * Groupid
+     */
+    groupId?: string | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/source-recording-groups';
+};
+
+export type ListSourceRecordingGroupsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListSourceRecordingGroupsError =
+  ListSourceRecordingGroupsErrors[keyof ListSourceRecordingGroupsErrors];
+
+export type ListSourceRecordingGroupsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceRecordingGroupListResponse;
+};
+
+export type ListSourceRecordingGroupsResponse =
+  ListSourceRecordingGroupsResponses[keyof ListSourceRecordingGroupsResponses];
+
+export type CommandSourceRecordingGroupsData = {
+  body: SourceRecordingCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/source-recording-groups/commands';
+};
+
+export type CommandSourceRecordingGroupsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CommandSourceRecordingGroupsError =
+  CommandSourceRecordingGroupsErrors[keyof CommandSourceRecordingGroupsErrors];
+
+export type CommandSourceRecordingGroupsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceRecordingCommandResponse;
+};
+
+export type CommandSourceRecordingGroupsResponse =
+  CommandSourceRecordingGroupsResponses[keyof CommandSourceRecordingGroupsResponses];
 
 export type ListSuperGameSeriesData = {
   body?: never;

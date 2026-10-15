@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.storage.database_roles import describe_application_role
@@ -122,6 +123,7 @@ def test_populated_receipt_preview_and_owner_backfill_preserve_retry_identity(re
         config.set_main_option(
             "sqlalchemy.url", db.owner_url.render_as_string(hide_password=False).replace("%", "%%")
         )
+        OwnedRecordingCapability.for_engine(db.owner_engine).provision("head", config)
         command.upgrade(config, "head")
         with db.owner_engine.begin() as conn:
             # Owner default privileges already grant the new function to the

@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -18,7 +19,7 @@ from game_predictor_api.storage.database import (
     GameStorageSession,
     create_owner_session_factory,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v13 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -54,20 +55,22 @@ def lifecycle_database() -> Iterator[Engine]:
         "sqlalchemy.url",
         url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
     )
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "head")
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            active = connection.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
-                {"name": name},
-            ).scalar_one()
+            active = recording_capability_fixture.wait_for_owned_database_idle(connection)
             assert active == 0
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 

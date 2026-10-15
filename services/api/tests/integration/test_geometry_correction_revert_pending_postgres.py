@@ -597,7 +597,7 @@ def test_migration_0154_downgrade_refuses_revert_history_and_round_trips(
             connection.execute(
                 text("SELECT DISTINCT manifest_version FROM public.game_storage_locations")
             ).scalar_one()
-            == "game-data-v2-manifest-v8"
+            == "game-data-v2-manifest-v14"
         )
         # The provisioned game got its partition of the new audit table back.
         assert (

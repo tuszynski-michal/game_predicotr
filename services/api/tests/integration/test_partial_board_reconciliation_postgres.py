@@ -12,6 +12,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import replace_virtual_geometry
 from alembic import command
 from alembic.config import Config
@@ -67,6 +68,7 @@ def _upgrade(engine: Engine) -> None:
     config.set_main_option(
         "sqlalchemy.url", engine.url.render_as_string(hide_password=False).replace("%", "%%")
     )
+    OwnedRecordingCapability.for_engine(engine).provision("head", config)
     command.upgrade(config, "head")
 
 

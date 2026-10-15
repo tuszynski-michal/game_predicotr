@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -55,10 +56,13 @@ def database() -> Iterator[Engine]:
         connect_args={"connect_timeout": 5},
     )
     engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
         connection.execute(text(f"CREATE DATABASE {_quote(name)}"))
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
             "sqlalchemy.url",
@@ -69,7 +73,9 @@ def database() -> Iterator[Engine]:
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.execute(text(f"DROP DATABASE {_quote(name)}"))
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 
@@ -101,9 +107,7 @@ def test_v2_parents_accept_all_current_qualification_contract_versions(database:
 
 def test_new_v2_partitions_inherit_the_current_qualification_contract(database: Engine) -> None:
     game_id = uuid4()
-    children = {
-        table: f"task0664_{table}_{game_id.hex[:12]}" for table in _CONSTRAINTS
-    }
+    children = {table: f"task0664_{table}_{game_id.hex[:12]}" for table in _CONSTRAINTS}
     with database.begin() as connection:
         for table, child in children.items():
             connection.execute(

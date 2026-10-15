@@ -13,6 +13,7 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -87,11 +88,14 @@ def database():
     assert all(character.isalnum() or character in "-_" for character in evidence_prefix)
     destination = Path("artifacts/audits") / f"{evidence_prefix}_PG_RECEIPT.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "0158_new_game_v3_bootstrap")
         with ExitStack() as stack:
             for field in ("CREATE_TABLES", "DELETE_TABLES", "VERSION"):
@@ -119,7 +123,9 @@ def database():
             receipt.update(ownerBeforeCleanup=owner, pidsBeforeCleanup=pids)
             destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             assert owner == receipt["owner"] and not pids, "Refuse unsafe fixture cleanup"
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
             connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
             receipt.update(
                 databaseRemaining=connection.scalar(
@@ -1192,7 +1198,7 @@ def test_browser_staging_detaches_only_live_link_and_keeps_guards(database, tmp_
 
 
 def test_superseded_preview_knows_exact_live_reference_and_other_foreign_keys(database):
-    from game_predictor_api.storage import game_data_v2_manifest_v12 as v12
+    from game_predictor_api.storage import game_data_v2_manifest_v14 as v14
     from game_predictor_api.storage.database import create_cross_game_owner_session_factory
     from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
     from game_predictor_api.storage.superseded_import_image_removal_repository import (
@@ -1203,8 +1209,8 @@ def test_superseded_preview_knows_exact_live_reference_and_other_foreign_keys(da
     from test_superseded_import_image_removal import _build_world
 
     with (
-        patch("test_superseded_import_image_removal.GAME_TABLES", v12.GAME_TABLES),
-        patch("test_superseded_import_image_removal.VERSION", v12.VERSION),
+        patch("test_superseded_import_image_removal.GAME_TABLES", v14.GAME_TABLES),
+        patch("test_superseded_import_image_removal.VERSION", v14.VERSION),
     ):
         world = _build_world(database.engine)
     owner_factory = create_cross_game_owner_session_factory(database.engine)

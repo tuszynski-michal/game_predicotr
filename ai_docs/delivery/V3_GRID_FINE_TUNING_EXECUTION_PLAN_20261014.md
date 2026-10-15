@@ -1,7 +1,7 @@
 ---
 title: Doszkalanie geometrii V3 - rewizja 6
 status: accepted
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Doszkalanie geometrii V3 — zaakceptowana rewizja 6
@@ -548,17 +548,21 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-1002 — Nagrania, aliasy i role kontrolne
 
-- **Status:** `todo`.
+- **Status:** `done`.
 - **Goal / Context:** Zapobiec przeciekowi między treningiem i oceną.
 - **Dependencies:** TASK-0994.
 - **Recommended execution:** `gpt-6.1-sol`, `high`; pochodzenie danych między grami i rodzinami.
 - **Relevant docs:** VISION_LAB, D-480/D-527, reguły kohorty tego planu.
 - **Scope / Technical notes:** Trwałe grupy nagrań, deklaracje operatora, aliasy, byte/pixel SHA, TRAIN/VALIDATION/REGRESSION i wyłączenia przodków. Folder jest sugestią, nie dowodem niezależności.
+- **Kontrakt przed kodem (2026-10-15):** D-554 oraz pełne Technical notes1002 określają minimalny geometry-only rejestr5 tabel, zaufane aliasy, provisional/permanent role, wąskie capability z exact reprovision compliance, provisioner przed migracją i dependent-only invalidation. Missing lineage/deklaracja/provider blokuje kwalifikację.1002 nie fabrykuje cohort/report producerów0995/0997. Baza wykonawcza v1.7.381 / `477bf91ae3d3ab81bf6fc8d96cec38bc0dfef192`; brak operator runs.
+- **Rozliczenie R1 (2026-10-15):** Claude high zwrócił REVISE: aktualne testy manifestu, historyczne fixture PG oraz kanoniczna kolejność provisioningu wymagają korekty zgodności. Jedna runda poprawek obejmuje te zależności, warunkowy downgrade wyłącznie pustego rejestru i kontrolę całego właściwego zestawu w ograniczonych partiach. Historia ochrony nadal blokuje downgrade; skrypty migracji/resetu nie są wykonywane na bazie operatora. Raport R1 pozostaje niezmieniony; zmiana zachowania P1 wymaga ponownego audytu.
 - **Expected files:** nowe proponowane `domain/source_recording_groups.py`, warstwa application/storage, migracja, API i `recording-groups-panel.tsx`.
 - **Acceptance / Tests:** Alias w innej grze zachowuje rolę. Holdout rodzica nie trafia do TRAIN dziecka. Brak deklaracji nie daje niezależności. Role przeżywają restart.
 - **Verification:** API, MIG, ADMIN, OpenAPI, MAP.
 - **Risks / Out of scope:** Bez przenoszenia plików źródłowych i zmiany sekwencji.
 - **Outcome:** pochodzenie grup, nierozstrzygnięte nagrania i blokady kwalifikacji.
+
+- **Wynik wykonania:** v1.7.382 przygotowany; Claude high R2 PASS789.063s, brak P0/P1. Szersze zestawy mają jawne FAIL i24 niezweryfikowane nodeIDs; rejestr obowiązków wymaga osobnej korekty zgodności wcześniejszych pionów przed1001. Nie wykonano operacji operatora.
 
 ### TASK-1009 — Losowa kontrola Mumii i 777a2
 
@@ -568,6 +572,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Recommended execution:** `gpt-6.1-sol`, `high`; poprawna populacja, próba i interpretacja.
 - **Relevant docs:** VISION_LAB, ADMIN_APP, sekcja pomiaru w tym planie.
 - **Scope / Technical notes:** Zamrożona losowa próba do 100 zdjęć per gra, pełna kontrola oczekiwanych pozycji, osobny zbiór trudnych przypadków. Wyniki zapisane z wersją i pochodzeniem.
+- **Zatwierdzona kontrola symboli:** Decyzja operatora2026-10-15: kontrola geometrii wszystkich9 pozycji obowiązkowa; symbole wyłącznie według istniejących aktualnych ręcznych zatwierdzeń, pozostałe nieocenione. Brak zatwierdzeń symboli nie blokuje kontroli geometrii i nie tworzy fikcyjnej jakości ani etykiety. Modele symboli pozostają per gra.
 - **Expected files:** nowe proponowane `application/grid_quality_measurements.py`, repozytorium i manifest pomiaru, schema/router oraz panel kontroli; F6 dla zapisanych korekt.
 - **Acceptance / Tests:** Ten sam seed i populacja odtwarzają próbę. Trudne przykłady nie zmieniają częstości z próby losowej. Brak pełnej kontroli zdjęcia jest widoczny. Raport rozdziela detekcję, geometrię, symbole i sekwencję.
 - **Verification:** API, ADMIN/REVIEWER, test deterministycznego próbkowania, DOC.
@@ -696,7 +701,7 @@ Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżel
 
 Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 in_progress. D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki.
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379, Claude R3 PASS); TASK-1013 done (v1.7.380, Claude R2 PASS); TASK-1003 done (v1.7.381, Claude R2 PASS); TASK-1002 in_progress (jedna runda poprawek po Claude R1 REVISE; R2 jeszcze niewykonany). D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki. Wcześniejsze regresje wykryte przez kontrole1002 pozostają rozliczone osobno w [rejestrze obowiązków](../quality/V3_BACKEND_REGRESSION_OBLIGATIONS_20261015.md), przed odbiorem1001.
 
 ## 8. Przypisanie modeli do zadań
 

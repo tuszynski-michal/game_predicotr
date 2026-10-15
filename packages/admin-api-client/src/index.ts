@@ -1,4 +1,6 @@
 import {
+  listSourceRecordingGroups as listGeneratedSourceRecordingGroups,
+  commandSourceRecordingGroups as commandGeneratedSourceRecordingGroups,
   listOperationalGridGeometryProposals as listGeneratedOperationalGridGeometryProposals,
   getOperationalGridGeometryProposal as getGeneratedOperationalGridGeometryProposal,
   createOperationalGridGeometryProposal as createGeneratedOperationalGridGeometryProposal,
@@ -25,6 +27,7 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  SourceRecordingCommandRequest,
   ProposalCreateCommand,
   ProposalAcceptCommand,
   ProposalRejectCommand,
@@ -39,6 +42,10 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  SourceRecordingCommandRequest,
+  SourceRecordingCommandResponse,
+  SourceRecordingGroupResponse,
+  SourceRecordingGroupListResponse,
   GridGeometryProposalResponse,
   ProposalCandidatesResponse,
   ProposalCommandResponse,
@@ -4068,6 +4075,33 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedGameGridModelAssignment({
         client,
         path: { game_id: gameId },
+      }),
+    listSourceRecordingGroups: (
+      gameId: string,
+      options: {
+        familyId?: string;
+        groupId?: string;
+        limit?: number;
+        after?: string;
+        signal?: AbortSignal;
+      } = {},
+    ) => {
+      const { signal, ...query } = options;
+      return listGeneratedSourceRecordingGroups({
+        client,
+        path: { game_id: gameId },
+        query,
+        signal,
+      });
+    },
+    commandSourceRecordingGroups: (
+      gameId: string,
+      body: SourceRecordingCommandRequest,
+    ) =>
+      commandGeneratedSourceRecordingGroups({
+        client,
+        path: { game_id: gameId },
+        body,
       }),
     publishGridModelVersion: (
       versionId: string,

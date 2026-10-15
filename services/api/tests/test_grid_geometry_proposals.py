@@ -17,6 +17,7 @@ from game_predictor_api.schemas.grid_geometry_proposals import (
 )
 from game_predictor_api.storage import game_data_v2_manifest_v12 as previous
 from game_predictor_api.storage import game_data_v2_manifest_v13 as current
+from game_predictor_api.storage import game_data_v2_manifest_v14 as runtime
 from game_predictor_api.storage.grid_geometry_proposal_models import (
     GridGeometryProposalEventModel,
     GridGeometryProposalModel,
@@ -73,7 +74,7 @@ def test_migration_adds_composite_rls_and_refuses_history_loss():
     assert "snapshot #>> '{review,id}'" in sql
     assert (
         importlib.import_module("game_predictor_api.storage.game_partition_lifecycle").VERSION
-        == current.VERSION
+        == runtime.VERSION
     )
     output.truncate(0)
     output.seek(0)

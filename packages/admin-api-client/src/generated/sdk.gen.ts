@@ -75,6 +75,9 @@ import type {
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
+  CommandSourceRecordingGroupsData,
+  CommandSourceRecordingGroupsErrors,
+  CommandSourceRecordingGroupsResponses,
   ConfirmBrowserPageGeometrySourceReplacementData,
   ConfirmBrowserPageGeometrySourceReplacementErrors,
   ConfirmBrowserPageGeometrySourceReplacementResponses,
@@ -794,6 +797,9 @@ import type {
   ListSemiAutomaticImageSelectionSourcesErrors,
   ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
+  ListSourceRecordingGroupsData,
+  ListSourceRecordingGroupsErrors,
+  ListSourceRecordingGroupsResponses,
   ListSuperGameKindsData,
   ListSuperGameKindsResponses,
   ListSuperGameSeriesBoardsData,
@@ -2687,6 +2693,51 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/rules-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Groups
+ */
+export const listSourceRecordingGroups = <ThrowOnError extends boolean = false>(
+  options: Options<ListSourceRecordingGroupsData, ThrowOnError>,
+): RequestResult<
+  ListSourceRecordingGroupsResponses,
+  ListSourceRecordingGroupsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSourceRecordingGroupsResponses,
+    ListSourceRecordingGroupsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/source-recording-groups',
+    ...options,
+  });
+
+/**
+ * Command Groups
+ */
+export const commandSourceRecordingGroups = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CommandSourceRecordingGroupsData, ThrowOnError>,
+): RequestResult<
+  CommandSourceRecordingGroupsResponses,
+  CommandSourceRecordingGroupsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CommandSourceRecordingGroupsResponses,
+    CommandSourceRecordingGroupsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/source-recording-groups/commands',
     ...options,
     headers: {
       'Content-Type': 'application/json',

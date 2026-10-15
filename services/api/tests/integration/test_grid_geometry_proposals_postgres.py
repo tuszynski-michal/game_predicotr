@@ -13,6 +13,7 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.grid_reinference import digest
@@ -92,11 +93,14 @@ def database():
     }
     destination = Path("artifacts/audits/TASK-1013_PG_RECEIPT.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "0158_new_game_v3_bootstrap")
         with ExitStack() as stack:
             for field in ("CREATE_TABLES", "DELETE_TABLES", "VERSION"):
@@ -123,7 +127,9 @@ def database():
             receipt.update(ownerBeforeCleanup=owner, pidsBeforeCleanup=pids)
             destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             assert owner == receipt["owner"] and not pids, "Refuse unsafe fixture cleanup"
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
             connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
             receipt.update(
                 databaseRemaining=connection.scalar(

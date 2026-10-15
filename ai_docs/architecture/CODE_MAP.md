@@ -60,15 +60,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (48 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (94 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (77 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (52 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (134 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/api/` (49 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/application/` (95 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/domain/` (78 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/schemas/` (53 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (141 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (165 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (166 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (360 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (93 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (369 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (97 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (173 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (178 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+29)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
@@ -154,7 +154,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
-  - `model-quality/` (9 plików): GridQualityPanel, GridCommand, GridCommandStorage, gridCommandKey, gridViewKey, readGridCommand, saveGridCommand, clearGridCommand (+37)
+  - `model-quality/` (14 plików): GridQualityPanel, GridCommand, GridCommandStorage, gridCommandKey, gridViewKey, readGridCommand, saveGridCommand, clearGridCommand (+55)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)
   - `reviews/` (4 plików): ReviewsClient, LoadReviewBatchesResult, loadReviewBatches, LoadReviewItemsResult, loadReviewItems, LoadReviewItemResult, loadReviewItem, loadReviewSymbols (+15)
@@ -179,8 +179,8 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (112 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (29 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (115 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (30 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -242,7 +242,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (19 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 
@@ -276,7 +276,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (163 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (165 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -291,7 +291,8 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `export_*` (5): `export_admin_openapi.py`, `export_m6_symbol_classifier_onnx.py`, `export_m6_symbol_dataset.py` (+2)
 - `freeze_*` (3): `freeze_shape_geometry_v2_corpus.py`, `freeze_v7_corpus.py`, `freeze_vision_lab_hybrid_protocol.py`
 - `generate_*` (4): `generate_code_map.py`, `generate_m1_snapshot.py`, `generate_m35_benchmark_dataset.py` (+1)
-- `install_*` (2): `install_grid_engine_models.py`, `install_mumie_feedback_controls.py`
+- `import_*` (2): `import_grid_audit_proposals.py`, `import_recording_lab_provider.py`
+- `install_*` (3): `install_grid_engine_models.py`, `install_mumie_feedback_controls.py`, `install_recording_provider.py`
 - `measure_*` (2): `measure_image_import_job.ps1`, `measure_symbol_review_page.py`
 - `mumie_*` (2): `mumie_control_truth_prepare.py`, `mumie_folder_gallery.html`
 - `preflight_*` (2): `preflight_vision_lab_hybrid.ps1`, `preflight_vision_lab_hybrid.py`
@@ -313,7 +314,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `verify_*` (8): `verify_android_apk.ps1`, `verify_artifact_references.py`, `verify_m2_acceptance.ps1` (+5)
 - `vision_*` (5): `vision_lab_assisted_annotation.ps1`, `vision_lab_export.py`, `vision_lab_geometry_export.py` (+2)
 
-Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `diagnose_selected_crop_v11.mjs`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `import_grid_audit_proposals.py`, `inventory_worktrees.ps1`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
+Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `diagnose_selected_crop_v11.mjs`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `inventory_worktrees.ps1`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
 
 npm scripts wg prefiksu (liczba): `admin:`3, `android:`7, `api:`2, `code-map:`1, `data:`1, `db:`10, `docs:`1, `fixture:`1, `format:`2, `image-import:`1, `images:`2, `lint:`1, `m2:`1, `m35:`7, `m4:`2, `m5:`15, `m6:`10, `m7:`10, `openapi:`2, `powershell:`1, `python:`3, `quality:`1, `remote-selection:`3, `repository:`1, `reviewer:`8, `selector:`4, `snapshot:`2, `test:`1, `typecheck:`1, `v01:`3, `v02:`1, `v04:`2, `vision-lab:`4, `windows:`3, `worker:`4, `workers:`4
 

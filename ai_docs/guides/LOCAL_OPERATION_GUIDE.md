@@ -176,6 +176,25 @@ sekwencjach, `EXECUTE` na funkcjach i domyślne uprawnienia dla obiektów,
 które właściciel utworzy później (migracje, partycje nowej gry). Gdy oba URL-e
 mają tego samego użytkownika (konfiguracja wycofania), skrypt nic nie robi.
 
+Od `0161_source_recording_groups` kanoniczne `npm run db:migrate` wykonuje
+trzy kroki w stałej kolejności: `scripts/provision_database_roles.py
+--recording-capability`, `alembic upgrade head`, a następnie domyślny
+`scripts/provision_database_roles.py`. Pierwszy krok provisionuje wyłącznie
+per-database nonlogin capability, nie rolę runtime. Z `--check` ta flaga tylko
+waliduje capability. Migracja nie wykonuje cluster-role DDL i odmawia pracy
+bez prawidłowej capability. Końcowy krok odtwarza zwykłe uprawnienia aplikacji
+oraz exact private deny rejestru po ogólnych/default grantach. `db:reset:local`
+stosuje tę samą kolejność po odtworzeniu schematu; nadal wymaga osobnej zgody
+na usunięcie danych i `-ConfirmReset`. Nie uruchamia się resetu w ramach
+zwykłego sprawdzenia jakości.
+
+Downgrade0161 jest możliwy tylko przy pustych wszystkich pięciu tabelach
+rejestru; dowolna historia lub receipt go blokuje. Restore/rename/clone zmienia
+tożsamość capability i może zablokować zgodność właścicieli. Sam provisioning
+nie naprawia własności obiektów, a narzędzie re-own obecnie nie istnieje.
+Takie wdrożenie wymaga osobnego jawnego rozwiązania; nie stosuj owner fallback
+w runtime rejestru. Szczegóły: [nagrania V3](SOURCE_RECORDING_GROUPS.md).
+
 Cutover (wykonuje orkiestrator; schemat bez zmian, bez migracji):
 
 1. Zaczekaj na koniec aktywnych jobów albo zatrzymaj je bezpiecznie.

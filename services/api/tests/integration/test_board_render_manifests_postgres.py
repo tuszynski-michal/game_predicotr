@@ -20,6 +20,7 @@ from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -27,7 +28,7 @@ from game_predictor_api.domain.board_render_manifests import sha256_canonical_js
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v8 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -81,9 +82,12 @@ def database() -> Iterator[_Database]:
         "sqlalchemy.url",
         url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
     )
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "head")
         yield _Database(engine=engine, config=config)
     finally:
@@ -101,7 +105,9 @@ def database() -> Iterator[_Database]:
                     break
                 time.sleep(0.1)
             assert active == 0, "Refusing DROP while a test connection remains"
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 

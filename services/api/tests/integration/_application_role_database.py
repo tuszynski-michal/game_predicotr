@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import secrets
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +20,10 @@ from types import ModuleType
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
+from _recording_capability_fixture import (
+    OwnedRecordingCapability,
+    RecordingCapabilityReceipt,
+)
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -34,13 +38,12 @@ from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v8 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
 )
 from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import URL, Connection, make_url
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
@@ -57,6 +60,7 @@ class ApplicationRoleDatabase:
     role: str
     owner_role: str
     games: dict[str, UUID]
+    recording_capability: RecordingCapabilityReceipt | None = None
 
     def subprocess_environment(self, **changes: str) -> dict[str, str]:
         """Pin fresh processes to this checkout, even with a shared editable venv."""
@@ -101,17 +105,23 @@ def provision_game(engine: Engine, code: str) -> UUID:
             .start_or_resume(game_id=game_id, kind=GamePartitionLifecycleKind.PROVISION)
             .operation_id
         )
-    for _ in range(len(CREATE_TABLES) + 2):
+    # Read the active module binding: historical fixtures patch this manifest.
+    lifecycle_module: ModuleType = game_partition_lifecycle
+    for _ in range(len(lifecycle_module.CREATE_TABLES) + 2):
         with Session(engine) as session, session.begin():
             receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
         if receipt.status == "done":
             return game_id
-    raise AssertionError("provisioning did not reach done")
+    raise AssertionError(f"provisioning did not reach done; last receipt: {receipt!r}")
 
 
 @contextmanager
 def application_role_database(
-    prefix: str, game_codes: tuple[str, ...], *, revision: str = "head"
+    prefix: str,
+    game_codes: tuple[str, ...],
+    *,
+    revision: str = "head",
+    before_upgrade: Callable[[Connection], None] | None = None,
 ) -> Iterator[ApplicationRoleDatabase]:
     """Create the disposable database migrated to ``revision`` (default: head).
 
@@ -120,6 +130,8 @@ def application_role_database(
     downgrading from head. Revisions before the series branch provision historical
     manifest v5 (0142 or later), descendants of that branch below
     0154_geometry_correction_revert manifest v6, that revision v7, and 0155 current v8.
+    An optional owner-transaction hook runs after capability provisioning and
+    before migration, allowing tests to install unrelated sentinel objects.
     """
 
     suffix = uuid4().hex[:12]
@@ -140,16 +152,24 @@ def application_role_database(
     )
     owner_engine = create_engine(owner_url, poolclass=NullPool, connect_args={"connect_timeout": 5})
     app_engine = create_engine(app_url, poolclass=NullPool, connect_args={"connect_timeout": 5})
+    capability = OwnedRecordingCapability.for_engine(owner_engine)
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        capability.record_created_database(connection)
+    capability_receipt = None
+    database_dropped = False
     try:
         config = Config(str(ALEMBIC_INI))
         config.set_main_option(
             "sqlalchemy.url", owner_url.render_as_string(hide_password=False).replace("%", "%%")
         )
-        command.upgrade(config, revision)
         script = ScriptDirectory.from_config(config)
         ancestors = {entry.revision for entry in script.iterate_revisions(revision, "base")}
+        capability_receipt = capability.provision(revision, config)
+        if before_upgrade is not None:
+            with owner_engine.begin() as connection:
+                before_upgrade(connection)
+        command.upgrade(config, revision)
         historical: ModuleType | None = None
         if "0152_super_game_series" not in ancestors:
             historical = game_data_v2_manifest_v5
@@ -169,6 +189,8 @@ def application_role_database(
             games = {code: provision_game(owner_engine, code) for code in game_codes}
         with owner_engine.begin() as connection:
             owner_role = str(connection.execute(text("SELECT current_user")).scalar_one())
+            connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
+            capability.record_runtime_role(connection, role, created_here=True)
             provision_application_role(
                 connection, ApplicationRoleSpec(role_name=role, password=password)
             )
@@ -177,6 +199,8 @@ def application_role_database(
                 text("SELECT to_char(now() + interval '1 hour', 'YYYY-MM-DD HH24:MI:SSOF')")
             ).scalar_one()
             connection.exec_driver_sql(f"ALTER ROLE \"{role}\" VALID UNTIL '{expires}'")
+        with owner_engine.connect() as connection:
+            capability.record_runtime_role(connection, role, created_here=True, committed=True)
         yield ApplicationRoleDatabase(
             owner_engine=owner_engine,
             app_engine=app_engine,
@@ -185,6 +209,7 @@ def application_role_database(
             role=role,
             owner_role=owner_role,
             games=games,
+            recording_capability=capability_receipt,
         )
     finally:
         app_engine.dispose()
@@ -201,16 +226,22 @@ def application_role_database(
                         break
                     time.sleep(0.1)
                 assert active == 0, "Refusing DROP while a test connection remains"
+                capability.assert_database_identity(connection)
                 connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+                database_dropped = True
         finally:
-            with maintenance.connect() as connection:
-                connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
-            maintenance.dispose()
+            try:
+                with maintenance.connect() as connection:
+                    if database_dropped:
+                        capability.cleanup(connection)
+            finally:
+                maintenance.dispose()
 
 
 __all__ = [
     "ALEMBIC_INI",
     "ApplicationRoleDatabase",
+    "RecordingCapabilityReceipt",
     "application_role_database",
     "provision_game",
 ]

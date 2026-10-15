@@ -11,8 +11,9 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from game_predictor_api.storage.game_data_v2_manifest_v12 import ADDED_GAME_TABLES, CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v12 import ADDED_GAME_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
+    CREATE_TABLES,
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
     partition_name,

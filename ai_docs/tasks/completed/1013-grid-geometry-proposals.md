@@ -343,3 +343,8 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Źródła R1, raporty i dowody R1/R2 zachowane. Dwa live RUNS dostały po jednym późniejszym wpisie odczytowym; dokładne historyczne prefiksy zgodne z SHA zachowano w archiwach bez zmiany live historii. Błąd UTF-8 dokumentu odtworzono wcześniej dokładnie według pre-code SHA. Ograniczenia nie są oznaczane jako fikcyjny PASS.
 - Bez operatorDB, nowego backupu/snapshotu, usług, rzeczywistej inferencji/GPU/treningu, aktywacji, nowych gier operatora, push i integracji. Fizyczny browser/Android oraz wcześniejszy pełny layout-reset FAIL pozostają poza wynikiem. Kod w branchu codex/v3-grid-fine-tuning, nie wdrożony.
 - Następny TASK-1003 po tym commicie, zapisaniu jego kontraktu API/statystyk i uruchomieniu przypisanego wykonawcy medium. Cały plan pozostaje zlecony; bez pytania o scalenie między taskami.
+
+
+### Post-commit record
+
+- Commit: **v1.7.380 / `a688a40108f33ede3a894002a6fc8a8ed53d8141`**. Staged check/stat/list, post-show/status PASS;57 staged ścieżek, worktree czysty bezpośrednio po commicie. Zapis pełnego hasha po utworzeniu bez amend, do następnego commita. Bez scalenia/push.

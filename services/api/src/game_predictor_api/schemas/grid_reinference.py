@@ -63,6 +63,47 @@ class GridReinferenceResume(GridReinferenceCommand):
     expected_phase: Literal["prepare", "infer"]
 
 
+class GridReinferenceScopeStats(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal["grid-reinference-scope-stats-v1"]
+    source_occurrence_count: int = Field(ge=0)
+    selected_slot_count: int = Field(ge=0)
+    existing_board_count: int = Field(ge=0)
+    deferred_slot_count: int = Field(ge=0)
+    existing_cell_count: int = Field(ge=0)
+    available_cell_count: int = Field(ge=0)
+    potential_cell_count: int = Field(ge=0)
+    proposal_only_slot_count: int = Field(ge=0)
+    protected_slot_count: int = Field(ge=0)
+    automatic_candidate_slot_count: int = Field(ge=0)
+
+
+class GridReinferenceEffectStats(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal["grid-reinference-effect-stats-v1"]
+    recorded_target_count: int = Field(ge=0)
+    automatic_written_board_count: int = Field(ge=0)
+    created_board_count: int = Field(ge=0)
+    created_cell_count: int = Field(ge=0)
+    changed_existing_pixel_cell_count: int = Field(ge=0)
+    unchanged_existing_pixel_cell_count: int = Field(ge=0)
+    newly_requires_review_cell_count: int = Field(ge=0)
+    pixel_comparison_unavailable_cell_count: int = Field(ge=0)
+    not_recorded_target_count: int = Field(ge=0)
+
+
+class GridReinferencePilotAcknowledgement(ApiModel):
+    pilot_operation_id: UUID
+    report_sha256: str
+    actor: str
+    at: str
+
+
+class GridReinferenceQuarantine(ApiModel):
+    code: str
+    at: str | None
+
+
 class GridReinferenceResponse(ApiModel):
     game_id: UUID
     operation_id: UUID
@@ -93,6 +134,13 @@ class GridReinferenceResponse(ApiModel):
     membership_captured_at: str | None
     preparation_started_at: str
     preparation_finished_at: str | None
+    execution_scope: Literal["pilot", "broader"] = "pilot"
+    selector: GridReinferenceSelector = Field(default_factory=GridReinferenceSelector)
+    pilot_acknowledgement: GridReinferencePilotAcknowledgement | None = None
+    execution_quarantine: GridReinferenceQuarantine | None = None
+    stats_policy: Literal["grid-reinference-stats-v1"] | None = None
+    scope_stats: GridReinferenceScopeStats | None = None
+    effect_stats: GridReinferenceEffectStats | None = None
     receipt: dict[str, object] | None = None
 
 
@@ -108,4 +156,9 @@ class GridReinferenceTargetResponse(ApiModel):
 
 class GridReinferenceTargetPage(ApiModel):
     items: list[GridReinferenceTargetResponse]
+    next_cursor: str | None
+
+
+class GridReinferenceOperationPage(ApiModel):
+    items: list[GridReinferenceResponse]
     next_cursor: str | None

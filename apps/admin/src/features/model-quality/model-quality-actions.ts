@@ -12,7 +12,6 @@ import type {
   ModelQualityOverviewResponse,
   JobResponse,
   PendingSymbolReinferencePreviewResponse,
-  PendingGridReinferencePreviewResponse,
   SymbolModelActivationAction,
   SymbolModelActivationCommandResponse,
   SymbolModelActivationPreviewResponse,
@@ -181,8 +180,6 @@ export type GridQualityClient = Pick<
   | 'previewGridProfileActivation'
   | 'rollbackGridProfile'
   | 'getGridCalibrationCohortDiagnostics'
-  | 'previewPendingGridReinference'
-  | 'startPendingGridReinference'
 >;
 
 export type GridQualityLoadResult =
@@ -255,64 +252,6 @@ export async function loadGridQuality(
     if (error instanceof DOMException && error.name === 'AbortError') {
       return { error: 'REQUEST_ABORTED', ok: false };
     }
-    return {
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
-      ok: false,
-    };
-  }
-}
-
-export type PendingGridReinferenceResult =
-  | {
-      readonly ok: true;
-      readonly preview: PendingGridReinferencePreviewResponse;
-    }
-  | { readonly error: string; readonly ok: false };
-
-export async function previewPendingGridReinference(
-  api: GridQualityClient,
-  gameId: string,
-): Promise<PendingGridReinferenceResult> {
-  try {
-    const result = await api.previewPendingGridReinference(gameId);
-    if (result.error !== undefined || result.data === undefined) {
-      return {
-        error: apiErrorMessage(
-          result.error,
-          'Nie udało się pobrać oczekującej siatki.',
-        ),
-        ok: false,
-      };
-    }
-    return { ok: true, preview: result.data };
-  } catch {
-    return {
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
-      ok: false,
-    };
-  }
-}
-
-export async function startPendingGridReinference(
-  api: GridQualityClient,
-  gameId: string,
-): Promise<
-  | { readonly error: string; readonly ok: false }
-  | { readonly job: JobResponse; readonly ok: true }
-> {
-  try {
-    const result = await api.startPendingGridReinference(gameId);
-    if (result.error !== undefined || result.data === undefined) {
-      return {
-        error: apiErrorMessage(
-          result.error,
-          'Nie udało się uruchomić odświeżenia siatki.',
-        ),
-        ok: false,
-      };
-    }
-    return { job: result.data, ok: true };
-  } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',
       ok: false,

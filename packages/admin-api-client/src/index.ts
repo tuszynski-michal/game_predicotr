@@ -12,6 +12,7 @@ import {
   startGridReinference as startGeneratedGridReinference,
   resumeGridReinference as resumeGeneratedGridReinference,
   cancelGridReinference as cancelGeneratedGridReinference,
+  listGridReinferenceOperations as listGeneratedGridReinferenceOperations,
   listGridModelVersions as listGeneratedGridModelVersions,
   registerGridModelVersion as registerGeneratedGridModelVersion,
   getGameGridModelAssignment as getGeneratedGameGridModelAssignment,
@@ -53,6 +54,10 @@ export type {
   GridReinferenceResume,
   GridReinferenceCommand,
   GridReinferenceResponse,
+  GridReinferenceSelector,
+  GridReinferenceScopeStats,
+  GridReinferenceEffectStats,
+  GridReinferenceOperationPage,
   GridReinferenceTargetPage,
   GridModelManifest,
   GridModelRegisterRequest,
@@ -3165,6 +3170,27 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    listGridReinferenceOperations: (
+      gameId: string,
+      options: {
+        readonly cursor?: string;
+        readonly limit?: number;
+        readonly compatibleWithOperationId?: string;
+      } = {},
+    ) =>
+      listGeneratedGridReinferenceOperations({
+        client,
+        path: { game_id: gameId },
+        query: {
+          ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.compatibleWithOperationId === undefined
+            ? {}
+            : {
+                compatible_with_operation_id: options.compatibleWithOperationId,
+              }),
+        },
       }),
     prepareGridReinference: (gameId: string, body: GridReinferencePrepare) =>
       prepareGeneratedGridReinference({

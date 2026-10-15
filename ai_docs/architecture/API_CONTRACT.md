@@ -3977,6 +3977,59 @@ guardami. Nie zmienia manifest SHA ani raportu i nie podłącza linku ponownie.
 Resume bez źródła daje `source_missing` i nie odtwarza danych. Pełne usunięcie
 gry korzysta z osobnego lifecycle.
 
+### Podgląd i raport reinferencji (TASK-1003)
+
+`GET /grid-reinference/{gameId}/operations` listuje wyłącznie zapisane metadane
+operacji. Przyjmuje `limit` 1–50 (domyślnie 20), `cursor` i opcjonalne
+`compatible_with_operation_id`. Zwraca `items: GridReinferenceResponse[]` oraz
+`nextCursor`. Keyset `(game_id,id) DESC` jest stabilnym porządkiem UUID, nie
+chronologią. Kursor wiąże grę, filtr, referencyjną operację i jej scopeSignature;
+niedopasowanie daje `GRID_REINFERENCE_CURSOR_INVALID` (409), obca referencja
+scoped `NOT_FOUND`. Odczyt używa READ/RLS i limitu zapytania 30 s; nie skanuje
+źródeł, zdjęć ani celów. Lista zgodnych ukończonych pilotów jest doradcza:
+dotychczasowe pilot-ack nadal ponownie waliduje aktualny raport i podpis.
+
+Detail i history ujawniają zapisane `executionScope`, `selector`,
+`pilotAcknowledgement`, `executionQuarantine` i czasy membership/przygotowania.
+`scopeStats` opisuje wystąpienia zdjęć, wybrane sloty, unikalne istniejące
+plansze i bieżące komórki, dostępne komórki oraz potencjalną pojemność topologii.
+Rozłączne klasy slotów to proposalOnly/protected/automaticCandidate.
+Przygotowanie zbiera liczniki stronami; końcowy operation-scoped JSONB
+`COUNT(DISTINCT)` domyka unikalność board/cell IDs, także przy przesunięciu
+żywej planszy między stronami. Dostępne IDs pozostają podzbiorem istniejących.
+To nie jest atomowy snapshot całej gry. Podczas przygotowania `scopeStats=null`;
+timeout finalizacji cofa manifest i finalne statystyki, zachowując trwałe strony
+do jawnego wznowienia. Wydajność szerokiego zakresu nie została zmierzona.
+
+`effectStats` rozdziela automatycznie zapisane i nowe plansze, nowe komórki,
+istniejące komórki ze zmienionym lub niezmienionym checksumem pikseli,
+porównania niedostępne i komórki nowo wymagające oceny. Ponowna ocena może
+nakładać się na zmienione piksele; tych liczników nie sumujemy. Collector
+obserwuje rzeczywisty stan wyłącznie wybranych komórek przed materializacją
+deferred i po dotychczasowym D-462 write-through, w tej samej transakcji źródła.
+Target result zawiera receipt `effectStats` i ewentualny `protectionReason`;
+agregat, outcome i progress zapisują się raz, atomowo. Nie zmienia to polityki
+geometrii, własności ani ochrony. Proposal-ready i zapis automatyczny nie są
+deklaracją poprawy jakości.
+
+`effectStats.notRecordedTargetCount` to bieżąca różnica frozen `targetCount`
+i `recordedTargetCount`, a nie addytywny efekt celu. Po finalizacji obejmuje
+cały zakres; source transaction i terminalny sync aktualizują ją atomowo,
+przed nowym report SHA. Ujemny lub nadmiarowy recorded count daje STATS_INVALID,
+bez maskowania przez clamp. Per-target receipt ma gap0, agregator nie sumuje
+tego pola. Przed finalnym manifestem nie ma gotowego mianownika; Admin nie
+prezentuje wtedy statystyk zakresu/efektów jako ukończonych, również po failure
+lub cancel przygotowania. Limit30s obowiązuje do końca krótkiej transakcji
+finalizacji, także późniejsze statementy; timeout wycofuje jej całość.
+
+Nowe prepare przypina `statsPolicy=grid-reinference-stats-v1` w dokumencie
+operacji oraz identyczne `stats_policy` w payloadzie joba. Oba absent oznaczają
+legacy, oba znane oznaczają nowy kontrakt; mieszany lub nieznany pin daje
+PAYLOAD_INVALID przed pracą. Replay/resume nie podnosi polityki. Dawne
+snapshoty, manifesty, model i scopeSignature pozostają identyczne. Stare
+raporty zachowują poprzedni algorytm SHA i `scopeStats/effectStats=null`
+(„nie zapisano”). Tylko nowe raporty wiążą SHA z pinem i końcowymi statystykami.
+
 ### Trwałe propozycje błędnej siatki V3 (D-551, TASK-1013)
 
 W istniejącym `/api/v1/admin/image-review-items/{reviewItemId}`:

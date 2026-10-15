@@ -673,6 +673,9 @@ import type {
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
+  ListGridReinferenceOperationsData,
+  ListGridReinferenceOperationsErrors,
+  ListGridReinferenceOperationsResponses,
   ListGridShadowResultsData,
   ListGridShadowResultsErrors,
   ListGridShadowResultsResponses,
@@ -4988,6 +4991,27 @@ export const getImageGeometryLowQualityBoards = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
+    ...options,
+  });
+
+/**
+ * List Operations
+ */
+export const listGridReinferenceOperations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridReinferenceOperationsData, ThrowOnError>,
+): RequestResult<
+  ListGridReinferenceOperationsResponses,
+  ListGridReinferenceOperationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridReinferenceOperationsResponses,
+    ListGridReinferenceOperationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations',
     ...options,
   });
 

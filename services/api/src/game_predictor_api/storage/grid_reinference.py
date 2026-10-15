@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4, uuid5
@@ -23,6 +25,16 @@ from game_predictor_api.application.grid_reinference import (
     digest,
     now_text,
     receipt_replay,
+)
+from game_predictor_api.application.grid_reinference_stats import (
+    SCOPE_FIELDS,
+    STATS_POLICY,
+    add_counts,
+    empty_effect,
+    empty_scope,
+    frozen_target_counts,
+    refresh_effect_gap,
+    stats_enabled,
 )
 from game_predictor_api.domain.jobs import (
     Job,
@@ -119,10 +131,76 @@ class SqlAlchemyGridReinferenceRepository:
                 "preparationStartedAt",
                 "preparationFinishedAt",
             )
-        } | {"receipt": receipt}
+        } | {
+            "receipt": receipt,
+            "executionScope": d.get("executionScope", "pilot"),
+            "selector": d.get("command", {}).get("selector", {}),
+            "pilotAcknowledgement": d.get("pilotAck"),
+            "executionQuarantine": d.get("executionQuarantine"),
+            "statsPolicy": d.get("statsPolicy"),
+            "scopeStats": d.get("scopeStats") if d.get("manifestSha256") else None,
+            "effectStats": d.get("effectStats"),
+        }
 
     def get(self, game_id: UUID, operation_id: UUID) -> dict[str, Any]:
         return self.view(self.record(game_id, operation_id))
+
+    def list_operations(
+        self,
+        game_id: UUID,
+        cursor: str | None,
+        limit: int,
+        compatible_with_operation_id: UUID | None = None,
+    ) -> dict[str, Any]:
+        self.bind(game_id, write=False)
+        if not 1 <= limit <= 50:
+            conflict("CURSOR_INVALID", "Operation pages require a limit between 1 and 50.")
+        signature = None
+        if compatible_with_operation_id is not None:
+            signature = self.record(game_id, compatible_with_operation_id).document[
+                "scopeSignature"
+            ]
+        context = [
+            str(game_id),
+            str(compatible_with_operation_id) if compatible_with_operation_id else None,
+            signature,
+        ]
+        last_id = None
+        if cursor:
+            try:
+                decoded = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+                if decoded["version"] != 1 or decoded["context"] != context:
+                    raise ValueError
+                last_id = UUID(decoded["lastId"])
+            except (ValueError, KeyError, TypeError, UnicodeError):
+                conflict(
+                    "CURSOR_INVALID", "The operation cursor belongs to another game or filter."
+                )
+        query = select(Operation).where(Operation.game_id == game_id)
+        if last_id is not None:
+            query = query.where(Operation.id < last_id)
+        if compatible_with_operation_id is not None:
+            query = query.where(
+                Operation.document["state"].as_string() == "completed",
+                Operation.document["executionScope"].as_string() == "pilot",
+                Operation.document["sourceCount"].as_integer() <= 100,
+                Operation.document["reportSha256"].as_string().is_not(None),
+                Operation.document["scopeSignature"].as_string() == signature,
+            )
+        rows = list(self.session.scalars(query.order_by(Operation.id.desc()).limit(limit + 1)))
+        page = rows[:limit]
+        next_cursor = None
+        if len(rows) > limit:
+            next_cursor = base64.urlsafe_b64encode(
+                canonical(
+                    {
+                        "version": 1,
+                        "context": context,
+                        "lastId": str(page[-1].id),
+                    }
+                ).encode()
+            ).decode()
+        return {"items": [self.view(row) for row in page], "nextCursor": next_cursor}
 
     def model(self, game_id: UUID, version_id: str | None) -> tuple[dict[str, Any], int]:
         game = self.session.get(GameModel, game_id)
@@ -178,6 +256,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "model_snapshot": snapshot,
                 "runtime_policy": RUNTIME_POLICY,
                 "acceptance_policy": ACCEPTANCE_POLICY,
+                "stats_policy": STATS_POLICY,
             },
         )
         signature = digest(
@@ -226,6 +305,9 @@ class SqlAlchemyGridReinferenceRepository:
             "sourceStatusCounts": {},
             "manifestSha256": None,
             "reportSha256": None,
+            "statsPolicy": STATS_POLICY,
+            "scopeStats": empty_scope(),
+            "effectStats": empty_effect(),
         }
         record = Operation(
             game_id=game_id,
@@ -268,6 +350,7 @@ class SqlAlchemyGridReinferenceRepository:
             select(JobModel).where(JobModel.id == initial.job_id).with_for_update(key_share=True)
         )
         assert job_record is not None
+        stats_enabled(initial.document, job_record.input_payload)
         record = self.record(game_id, operation_id, lock=True)
         document = copy.deepcopy(record.document)
         replay = receipt_replay(document, kind, command)
@@ -372,6 +455,7 @@ class SqlAlchemyGridReinferenceRepository:
             or operation.document["acceptancePolicy"] != ACCEPTANCE_POLICY
         ):
             conflict("PAYLOAD_INVALID", "The operation and immutable job pin differ.")
+        stats_enabled(operation.document, job.input_payload)
         return operation
 
     def capture(self, operation: Operation) -> None:
@@ -431,6 +515,8 @@ c.asset_mode='virtual_source')))))
             .select_from(Source)
             .where(Source.game_id == operation.game_id, Source.operation_id == operation.id)
         )
+        if d.get("statsPolicy") == STATS_POLICY:
+            d["scopeStats"]["sourceOccurrenceCount"] = d["sourceCount"]
         d["membershipCapturedAt"] = now_text()
         operation.document = d
         self.session.flush()
@@ -553,6 +639,18 @@ o.sequence_number=:seq
 
     def prepare_page(self, operation: Operation) -> bool:
         d = copy.deepcopy(operation.document)
+        capacity = None
+        if d.get("statsPolicy") == STATS_POLICY:
+            pin = NeuralGridSnapshot.from_payload(d["modelSnapshot"])
+            manifest = d["modelSnapshot"].get("catalogueManifest")
+            # The legacy neural-source contract fixes 3x5. Catalogue pins
+            # explicitly carry their validated topology, parsed once per page.
+            capacity = (
+                15
+                if manifest is None
+                else (manifest["topology"]["boardRows"] * manifest["topology"]["boardColumns"])
+            )
+            assert pin.expected_layout_count > 0
         rows = list(
             self.session.scalars(
                 select(Source)
@@ -585,6 +683,16 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 snapshot["schemaVersion"] = "grid-reinference-target-result-v1"
                 snapshot["acceptancePolicy"] = d["acceptancePolicy"]
                 snapshot["runtimePolicy"] = d["runtimePolicy"]
+                if capacity is not None:
+                    add_counts(
+                        d["scopeStats"],
+                        frozen_target_counts(
+                            snapshot,
+                            cell_capacity=capacity,
+                            protected=target_protection(snapshot) is not None,
+                        ),
+                        SCOPE_FIELDS,
+                    )
                 ordinal = source.ordinal * 10 + snapshot["positionIndex"] + 1
                 self.session.add(
                     Target(
@@ -619,12 +727,44 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             .execution_options(yield_per=PAGE_SIZE)
         ):
             hasher.update((canonical([row.ordinal, row.snapshot]) + "\n").encode())
+        if d.get("statsPolicy") == STATS_POLICY:
+            # Only immutable members of this operation; no current game scan,
+            # Python-wide UUID sets, or repeated per-target existence queries.
+            self.session.execute(text("SET LOCAL statement_timeout='30s'"))
+            totals = (
+                self.session.execute(
+                    text("""
+SELECT count(DISTINCT t.snapshot->'board'->>'id') AS boards,
+ count(DISTINCT c->>'id') FILTER (WHERE
+   c->'geometry_revision' = t.snapshot->'board'->'geometry_revision'
+   AND c->'source_geometry_revision_id' = t.snapshot->'board'->'source_geometry_revision_id'
+ ) AS cells,
+ count(DISTINCT c->>'id') FILTER (WHERE
+   c->'geometry_revision' = t.snapshot->'board'->'geometry_revision'
+   AND c->'source_geometry_revision_id' = t.snapshot->'board'->'source_geometry_revision_id'
+   AND c->>'source_available' = 'true'
+ ) AS available
+FROM grid_reinference_targets t
+LEFT JOIN LATERAL jsonb_array_elements(t.snapshot->'cells') c ON true
+WHERE t.game_id=:game AND t.operation_id=:operation
+            """),
+                    {"game": operation.game_id, "operation": operation.id},
+                )
+                .mappings()
+                .one()
+            )
+            d["scopeStats"].update(
+                existingBoardCount=totals["boards"],
+                existingCellCount=totals["cells"],
+                availableCellCount=totals["available"],
+            )
         d.update(
             state="prepared",
             manifestSha256=hasher.hexdigest(),
             preparationFinishedAt=now_text(),
             revision=d["revision"] + 1,
         )
+        refresh_effect_gap(d)
         operation.document = d
         self.session.flush()
 
@@ -814,6 +954,18 @@ def synchronize_grid_job(session: Session, job: Job) -> None:
     if record is None:
         conflict("NOT_FOUND", "The reinference operation is missing.")
     d = copy.deepcopy(record.document)
+    # Invalid pins must reject execution/success, while failure and cancel
+    # still release the job lease instead of rolling terminal cleanup back.
+    new_stats = (
+        stats_enabled(d, job.input_payload)
+        if job.status in {JobStatus.WAITING_FOR_REVIEW, JobStatus.COMPLETED, JobStatus.CREATED}
+        else False
+    )
+    if (
+        d.get("statsPolicy") == STATS_POLICY
+        and job.input_payload.get("stats_policy") == STATS_POLICY
+    ):
+        refresh_effect_gap(d)
     if job.status is JobStatus.WAITING_FOR_REVIEW:
         SqlAlchemyGridReinferenceRepository(session, Path(".")).finalize_preparation(record)
         return
@@ -829,6 +981,18 @@ def synchronize_grid_job(session: Session, job: Job) -> None:
                 "sourceStatusCounts": d.get("sourceStatusCounts", {}),
             }
         )
+        if new_stats:
+            d["reportSha256"] = digest(
+                {
+                    "manifest": d["manifestSha256"],
+                    "outcomes": d["outcomes"],
+                    "processed": d["processedSources"],
+                    "sourceStatusCounts": d.get("sourceStatusCounts", {}),
+                    "statsPolicy": d["statsPolicy"],
+                    "scopeStats": d["scopeStats"],
+                    "effectStats": d["effectStats"],
+                }
+            )
     elif job.status in {JobStatus.FAILED, JobStatus.CANCELLED}:
         d["state"] = job.status.value
         if job.status is JobStatus.FAILED and job.error_code == "GRID_REINFERENCE_START_REQUIRED":

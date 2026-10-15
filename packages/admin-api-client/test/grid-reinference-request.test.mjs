@@ -66,3 +66,42 @@ test('grid reinference preserves exact commands, game scope and confirmation tar
   assert.equal(requests[5].body.broadScopeConfirmed, true);
   assert.equal(requests[6].body.expectedPhase, 'infer');
 });
+
+test('grid operation history uses bounded game-scoped GET and generated statistics response', async () => {
+  const requests = [];
+  const response = {
+    items: [
+      {
+        operationId: 'operation',
+        statsPolicy: null,
+        scopeStats: null,
+        effectStats: null,
+      },
+    ],
+    nextCursor: 'next',
+  };
+  const api = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push({ url: new URL(request.url), method: request.method });
+      return Response.json(response);
+    },
+  });
+  const result = await api.listGridReinferenceOperations('game', {
+    cursor: 'bound-cursor',
+    limit: 50,
+    compatibleWithOperationId: 'broad-operation',
+  });
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    requests[0].url.pathname,
+    '/api/v1/admin/image-review-items/grid-reinference/game/operations',
+  );
+  assert.equal(requests[0].url.searchParams.get('limit'), '50');
+  assert.equal(requests[0].url.searchParams.get('cursor'), 'bound-cursor');
+  assert.equal(
+    requests[0].url.searchParams.get('compatible_with_operation_id'),
+    'broad-operation',
+  );
+  assert.deepEqual(result.data, response);
+});

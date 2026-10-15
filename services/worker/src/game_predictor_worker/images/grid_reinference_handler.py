@@ -19,6 +19,13 @@ from game_predictor_api.application.grid_reinference import (
     digest,
     now_text,
 )
+from game_predictor_api.application.grid_reinference_stats import (
+    EFFECT_FIELDS,
+    STATS_POLICY,
+    add_counts,
+    empty_effect,
+    refresh_effect_gap,
+)
 from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometryService,
     VirtualGridGeometrySourceCommand,
@@ -312,6 +319,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                         good.append(position)
                     outcomes[position] = outcome
                 acceptance = {"status": "not_evaluated", "blockers": ["NO_AUTOMATIC_WRITE"]}
+                effect_collector: dict[UUID, dict[str, Any]] = {}
                 if good:
                     if prepared is None:
                         for position in good:
@@ -344,6 +352,11 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                                 binding=checkpoint_payload["binding"],
                                 model_snapshot=operation.document["modelSnapshot"],
                                 acceptance_policy=operation.document["acceptancePolicy"],
+                                **(
+                                    {"effect_collector": effect_collector}
+                                    if operation.document.get("statsPolicy") == STATS_POLICY
+                                    else {}
+                                ),
                             )
                             acceptance = {
                                 "status": "needs_review" if blockers else "accepted",
@@ -376,8 +389,27 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                         "actor": "system:grid-reinference",
                         "at": now_text(),
                     }
+                    if d.get("statsPolicy") == STATS_POLICY:
+                        target.result["protectionReason"] = (
+                            target_protection(target.snapshot)
+                            if target.outcome == "protected"
+                            else None
+                        )
+                        target_id = (target.snapshot["pending"] or target.snapshot["review"])["id"]
+                        effect = effect_collector.get(UUID(target_id))
+                        if target.outcome == "automatic_written" and effect is None:
+                            raise JobHandlerError(
+                                "GRID_REINFERENCE_STATS_MISSING",
+                                "The automatic writer returned no effect receipt.",
+                            )
+                        if effect is None:
+                            effect = empty_effect()
+                            effect["recordedTargetCount"] = 1
+                        target.result["effectStats"] = effect
+                        add_counts(d["effectStats"], effect, EFFECT_FIELDS)
                     d["outcomes"][target.outcome] = d["outcomes"].get(target.outcome, 0) + 1
                 d.update(state="running", processedSources=ordinal)
+                refresh_effect_gap(d)
                 operation.document = d
                 self.progress(session, job, d, "infer")
 

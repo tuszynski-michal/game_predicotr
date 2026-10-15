@@ -133,6 +133,13 @@ def command_transition(
 
 
 class GridReinferenceRepository(Protocol):
+    def list_operations(
+        self,
+        game_id: UUID,
+        cursor: str | None,
+        limit: int,
+        compatible_with_operation_id: UUID | None,
+    ) -> dict[str, Any]: ...
     def prepare(self, game_id: UUID, command: dict[str, Any], actor: str) -> dict[str, Any]: ...
     def get(self, game_id: UUID, operation_id: UUID) -> dict[str, Any]: ...
     def execute(
@@ -152,6 +159,15 @@ class GridReinferenceService:
 
     def get(self, game_id: UUID, operation_id: UUID) -> dict[str, Any]:
         return self.repository.get(game_id, operation_id)
+
+    def list_operations(
+        self,
+        game_id: UUID,
+        cursor: str | None,
+        limit: int = 20,
+        compatible_with_operation_id: UUID | None = None,
+    ) -> dict[str, Any]:
+        return self.repository.list_operations(game_id, cursor, limit, compatible_with_operation_id)
 
     def execute(
         self, game_id: UUID, operation_id: UUID, kind: str, command: dict[str, Any], actor: str

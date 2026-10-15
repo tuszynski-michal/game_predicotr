@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1008 — Historyczna akceptacja bez ponownego cięcia (done)
+
+- [Task](../tasks/completed/1008-historical-grid-acceptance-backfill.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.370 / `f4ff1f4d3b0d49600ffb8fbbdd948d60ff942a65`; hash zapisany po utworzeniu, do następnego commita.
+- Status-only operacja, frozen targety, potwierdzenie/CAS, receipty i rollback statusu/projekcji/kursora; backend/OpenAPI/klient/UI. Migracja0155 i manifestv8 sprawdzone wyłącznie w izolowanej bazie. Historyczne v7 zachowane, legacy7 wykluczona z operacji.
+- PASS: PG7+skoncentrowane3, schema/storage40, domain85, API40 w grupach, Admin733+interakcje12, transport/router, Ruff/mypy15, docs/map/OpenAPI/client. Nieudane timeoutowe zestawy nie są PASS; własne procesy/bazy/role sprzątnięte.
+- Wznawialny indeks artefaktu ma ograniczone partie i pełną kontrolę SHA przed publikacją; limit SHA30 s jest ograniczeniem, po nim przygotowanie blokuje freeze bez pozornego skip/PASS. Stat4 plików29–329 MB nie dowodzi szybkości SHA. [Audyt](../quality/TASK-1008_AUDIT_TIMEOUT_CODEX.md): rzeczywisty Claude high pracował do480 s, bez końcowego werdyktu; wyjątek AGENTS.md, brak PASS i brak ponawiania. Bez operatorowych migracji, backfillu, usług, treningu, aktywacji i nowego backupu. Następny TASK-0993.
+
 ### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (done)
 
 - [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.369 / `5451da2ea2df923a7e8788731ceb58c6ba2915b3`; hash dopisany po commicie, do włączenia z następnym taskiem.

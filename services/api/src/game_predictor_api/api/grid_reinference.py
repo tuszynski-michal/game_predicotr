@@ -12,6 +12,7 @@ from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.schemas.grid_reinference import (
     GridReinferenceCommand,
     GridReinferenceFreeze,
+    GridReinferenceOperationPage,
     GridReinferencePilotAck,
     GridReinferencePrepare,
     GridReinferenceResponse,
@@ -64,6 +65,22 @@ def register_grid_reinference_routes(router: APIRouter, dependency: Callable[...
                 command.model_dump(mode="json", by_alias=True),
                 "local-admin",
             )
+        )
+
+    @router.get(
+        "/grid-reinference/{game_id}/operations",
+        response_model=GridReinferenceOperationPage,
+        operation_id="listGridReinferenceOperations",
+    )
+    def list_operations(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, parameter],
+        cursor: str | None = None,
+        limit: int = Query(default=20, ge=1, le=50),
+        compatible_with_operation_id: UUID | None = None,
+    ) -> GridReinferenceOperationPage:
+        return GridReinferenceOperationPage.model_validate(
+            available(service).list_operations(game_id, cursor, limit, compatible_with_operation_id)
         )
 
     @router.get(

@@ -83,7 +83,9 @@ def database():
         "pythonPid": os.getpid(),
         "operatorDatabaseChanged": False,
     }
-    destination = Path("artifacts/audits/TASK-0999_PG_RECEIPT.json")
+    evidence_prefix = os.environ.get("GAME_PREDICTOR_GRID_TEST_EVIDENCE_PREFIX", "TASK-0999")
+    assert all(character.isalnum() or character in "-_" for character in evidence_prefix)
+    destination = Path("artifacts/audits") / f"{evidence_prefix}_PG_RECEIPT.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
@@ -150,6 +152,8 @@ def database():
         "cancel_prepare",
         "late_source",
         "foreign_pending_deferred",
+        "deferred_stats",
+        "inconsistent_partial_stats",
     ],
 )
 def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path, scenario):
@@ -164,7 +168,9 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         return factory
 
     with patch("test_v3_engine_acceptance_postgres._factory", application_factory):
-        game, factory, seed, candidate, stages = execution(database, tmp_path)
+        game, factory, seed, candidate, stages = execution(
+            database, tmp_path, missing=scenario == "deferred_stats"
+        )
     root = tmp_path / "artifacts"
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
@@ -220,16 +226,27 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         def recognize(self, source_document, frozen, pin, operation_id, ordinal, runner, context):
             self.calls += 1
             source, geometry = source_document["source"], source_document["geometryContext"]
-            if frozen[0]["board"] is None:
+            if frozen[0]["board"] is None and scenario != "deferred_stats":
                 return self.save_checkpoint(
                     operation_id, ordinal, {"outcome": "unchanged", "byPosition": {}}
                 )
             detections = []
             for index, item in enumerate(frozen):
-                nodes = [
-                    {"x": node["x"] + (0.0 if scenario == "unchanged" else 1.0), "y": node["y"]}
-                    for node in item["board"]["board_geometry"]["latticeNodes"]
-                ]
+                nodes = (
+                    [
+                        {
+                            "x": float(61 + column * 80),
+                            "y": float(25 + item["positionIndex"] * 190 + row * 50),
+                        }
+                        for row in range(4)
+                        for column in range(6)
+                    ]
+                    if item["board"] is None
+                    else [
+                        {"x": node["x"] + (0.0 if scenario == "unchanged" else 1.0), "y": node["y"]}
+                        for node in item["board"]["board_geometry"]["latticeNodes"]
+                    ]
+                )
                 from game_predictor_api.domain.neural_grid_proposal import (
                     NeuralGridSnapshot,
                     lattice_cell_quads,
@@ -286,6 +303,51 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 ),
             )
 
+    if scenario == "inconsistent_partial_stats":
+        # Deliberately inconsistent current projection: its no-pixels mask
+        # differs from the retained render manifest. Production validation must
+        # reject it and roll back all source effects, including statistics.
+        with game_storage_scope(game), factory.begin() as session:
+            cell = session.scalar(
+                select(ImageSymbolReviewCellModel)
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .limit(1)
+            )
+            board = session.get(RecognizedBoardModel, cell.recognized_board_id)
+            cell.asset_mode = "none"
+            cell.source_visibility = "outside"
+            cell.source_available = False
+            from game_predictor_api.domain.geometry_qualification import (
+                GEOMETRY_QUALIFICATION_VERSION_V3,
+                GeometryQualification,
+            )
+
+            board.geometry_qualification = GeometryQualification(
+                completeness_status="pending_partial",
+                unavailable_cell_indices=(cell.cell_index,),
+                exclude_from_geometry_training=True,
+                exclusion_reason="missing_pixels",
+                version=GEOMETRY_QUALIFICATION_VERSION_V3,
+                fully_unavailable_cell_indices=(cell.cell_index,),
+            ).to_dict()
+            board.completeness_status = "pending_partial"
+            board.unavailable_cell_indices = [cell.cell_index]
+            for attribute in (
+                "crop_sample_id",
+                "crop_checksum_sha256",
+                "crop_relative_path",
+                "render_spec_checksum_sha256",
+                "rendered_pixel_checksum_sha256",
+                "render_identity_v2_sha256",
+                "logical_cell_key",
+                "logical_cell_key_v2",
+                "extractor_version",
+                "prediction_symbol_code",
+                "prediction_confidence",
+                "verification_outcome",
+                "verified_symbol_id_v2",
+            ):
+                setattr(cell, attribute, None)
     if scenario == "grid_issue":
         with game_storage_scope(game), factory.begin() as session:
             cell = session.scalar(
@@ -370,10 +432,13 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
 
         page_patch = nullcontext()
 
+    observed_errors = []
+
     def debug_handler(context, job):
         try:
             handler(context, job)
-        except Exception:
+        except Exception as error:
+            observed_errors.append(error)
             import traceback
 
             traceback.print_exc()
@@ -458,6 +523,16 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         repository = FixtureRepository(session, root)
         view = repository.get(game, operation_id)
         assert view["state"] == "prepared"
+        baseline_source_revision_id = session.scalar(
+            select(ImageSourceGeometryRevisionModel.id)
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+        )
+        assert view["scopeStats"]["sourceOccurrenceCount"] == view["sourceCount"]
+        assert view["scopeStats"]["selectedSlotCount"] == view["targetCount"]
+        assert view["scopeStats"]["availableCellCount"] <= view["scopeStats"]["existingCellCount"]
+        assert view["effectStats"]["notRecordedTargetCount"] == view["targetCount"]
+        prepared_effect_stats = copy.deepcopy(view["effectStats"])
         assert view["targetCount"] == (
             1
             if scenario in {"manual_sibling", "foreign_pending_deferred"}
@@ -619,6 +694,9 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 )
                 repository = FixtureRepository(session, root)
                 failed_view = repository.get(game, operation_id)
+                assert failed_view["effectStats"]["recordedTargetCount"] == 0
+                assert failed_view["effectStats"]["automaticWrittenBoardCount"] == 0
+                assert failed_view["effectStats"] == prepared_effect_stats
                 repository.execute(
                     game,
                     operation_id,
@@ -637,6 +715,8 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 repository = FixtureRepository(session, root)
                 paused = repository.get(game, operation_id)
                 assert paused["state"] == "cancelled" and paused["processedSources"] == 1
+                assert paused["effectStats"]["recordedTargetCount"] == 2
+                assert paused["effectStats"]["notRecordedTargetCount"] == 1
                 rows = list(
                     session.scalars(
                         select(Target)
@@ -666,6 +746,39 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         outcome = worker.run_once()
         with factory() as session:
             failed = session.get(JobModel, UUID(view["jobId"]))
+            if scenario == "inconsistent_partial_stats":
+                assert outcome is JobExecutionResult.FAILED
+                assert failed.error_code == "JOB_EXECUTION_FAILED"
+                assert observed_errors[-1].code == "SYMBOL_CELL_REVIEW_CROP_INVALID"
+                assert "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID" in str(observed_errors[-1])
+                with game_storage_scope(game), factory.begin() as checked:
+                    current = FixtureRepository(checked, root).get(game, operation_id)
+                    assert current["state"] == "failed" and current["processedSources"] == 0
+                    assert current["effectStats"]["recordedTargetCount"] == 0
+                    assert current["effectStats"]["automaticWrittenBoardCount"] == 0
+                    assert (
+                        current["effectStats"]["notRecordedTargetCount"] == current["targetCount"]
+                    )
+                    assert current["outcomes"] == {} and current["sourceStatusCounts"] == {}
+                    assert all(
+                        row.result is None
+                        for row in checked.scalars(
+                            select(Target).where(Target.operation_id == operation_id)
+                        )
+                    )
+                    assert all(
+                        row.geometry_revision == 0
+                        for row in checked.scalars(select(RecognizedBoardModel))
+                    )
+                    assert (
+                        checked.scalar(
+                            select(ImageSourceGeometryRevisionModel.id)
+                            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+                            .limit(1)
+                        )
+                        == baseline_source_revision_id
+                    )
+                return
             assert outcome is JobExecutionResult.COMPLETED, (
                 failed.error_code,
                 failed.error_message,
@@ -673,6 +786,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
     if scenario in {"cancel_between_sources", "foreign_pending_deferred"}:
         with game_storage_scope(game), factory.begin() as session:
             done = FixtureRepository(session, root).get(game, operation_id)
+            assert done["effectStats"]["notRecordedTargetCount"] == 0
             rows = list(session.scalars(select(Target).where(Target.operation_id == operation_id)))
             if scenario == "cancel_between_sources":
                 assert done["outcomes"] == {"automatic_written": 2, "unchanged": 1}
@@ -722,9 +836,23 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
             else {"automatic_written": 2}
         )
         assert replay["outcomes"] == expected
+        effect = replay["effectStats"]
+        assert effect["notRecordedTargetCount"] == 0
+        assert effect["recordedTargetCount"] == sum(expected.values())
+        assert effect["automaticWrittenBoardCount"] == expected.get("automatic_written", 0)
+        assert effect == before["effectStats"]
         assert replay["modelSnapshot"] == snapshot
         assert before["reportSha256"] == replay["reportSha256"]
         rows = list(session.scalars(select(Target).where(Target.operation_id == operation_id)))
+        for field in effect:
+            if field != "schemaVersion":
+                assert effect[field] == sum(row.result["effectStats"][field] for row in rows)
+        if scenario == "accepted":
+            assert effect["changedExistingPixelCellCount"] > 0
+        if scenario == "deferred_stats":
+            assert effect["createdBoardCount"] == 1 and effect["createdCellCount"] == 15
+        if scenario == "unchanged":
+            assert effect["changedExistingPixelCellCount"] == 0
         acceptance = (
             "not_evaluated"
             if scenario in {"source_deleted", "unchanged", "global_source_conflict"}

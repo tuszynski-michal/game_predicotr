@@ -11252,6 +11252,75 @@
         "title": "GridReinferenceCommand",
         "type": "object"
       },
+      "GridReinferenceEffectStats": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticWrittenBoardCount": {
+            "minimum": 0.0,
+            "title": "Automaticwrittenboardcount",
+            "type": "integer"
+          },
+          "changedExistingPixelCellCount": {
+            "minimum": 0.0,
+            "title": "Changedexistingpixelcellcount",
+            "type": "integer"
+          },
+          "createdBoardCount": {
+            "minimum": 0.0,
+            "title": "Createdboardcount",
+            "type": "integer"
+          },
+          "createdCellCount": {
+            "minimum": 0.0,
+            "title": "Createdcellcount",
+            "type": "integer"
+          },
+          "newlyRequiresReviewCellCount": {
+            "minimum": 0.0,
+            "title": "Newlyrequiresreviewcellcount",
+            "type": "integer"
+          },
+          "notRecordedTargetCount": {
+            "minimum": 0.0,
+            "title": "Notrecordedtargetcount",
+            "type": "integer"
+          },
+          "pixelComparisonUnavailableCellCount": {
+            "minimum": 0.0,
+            "title": "Pixelcomparisonunavailablecellcount",
+            "type": "integer"
+          },
+          "recordedTargetCount": {
+            "minimum": 0.0,
+            "title": "Recordedtargetcount",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": "grid-reinference-effect-stats-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "unchangedExistingPixelCellCount": {
+            "minimum": 0.0,
+            "title": "Unchangedexistingpixelcellcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "recordedTargetCount",
+          "automaticWrittenBoardCount",
+          "createdBoardCount",
+          "createdCellCount",
+          "changedExistingPixelCellCount",
+          "unchangedExistingPixelCellCount",
+          "newlyRequiresReviewCellCount",
+          "pixelComparisonUnavailableCellCount",
+          "notRecordedTargetCount"
+        ],
+        "title": "GridReinferenceEffectStats",
+        "type": "object"
+      },
       "GridReinferenceFreeze": {
         "additionalProperties": false,
         "properties": {
@@ -11324,6 +11393,35 @@
         "title": "GridReinferenceJobPayload",
         "type": "object"
       },
+      "GridReinferenceOperationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridReinferenceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "GridReinferenceOperationPage",
+        "type": "object"
+      },
       "GridReinferencePilotAck": {
         "additionalProperties": false,
         "properties": {
@@ -11355,6 +11453,36 @@
           "pilotReportSha256"
         ],
         "title": "GridReinferencePilotAck",
+        "type": "object"
+      },
+      "GridReinferencePilotAcknowledgement": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "pilotOperationId": {
+            "format": "uuid",
+            "title": "Pilotoperationid",
+            "type": "string"
+          },
+          "reportSha256": {
+            "title": "Reportsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pilotOperationId",
+          "reportSha256",
+          "actor",
+          "at"
+        ],
+        "title": "GridReinferencePilotAcknowledgement",
         "type": "object"
       },
       "GridReinferencePrepare": {
@@ -11396,11 +11524,66 @@
         "title": "GridReinferencePrepare",
         "type": "object"
       },
+      "GridReinferenceQuarantine": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "at"
+        ],
+        "title": "GridReinferenceQuarantine",
+        "type": "object"
+      },
       "GridReinferenceResponse": {
         "additionalProperties": false,
         "properties": {
           "acceptancePolicy": {
             "title": "Acceptancepolicy",
+            "type": "string"
+          },
+          "effectStats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridReinferenceEffectStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "executionQuarantine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridReinferenceQuarantine"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "executionScope": {
+            "default": "pilot",
+            "enum": [
+              "pilot",
+              "broader"
+            ],
+            "title": "Executionscope",
             "type": "string"
           },
           "gameId": {
@@ -11460,6 +11643,16 @@
             "title": "Phase",
             "type": "string"
           },
+          "pilotAcknowledgement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridReinferencePilotAcknowledgement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "preparationFinishedAt": {
             "anyOf": [
               {
@@ -11510,6 +11703,19 @@
             "title": "Runtimepolicy",
             "type": "string"
           },
+          "scopeStats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridReinferenceScopeStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selector": {
+            "$ref": "#/components/schemas/GridReinferenceSelector"
+          },
           "sourceCount": {
             "title": "Sourcecount",
             "type": "integer"
@@ -11535,6 +11741,18 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "statsPolicy": {
+            "anyOf": [
+              {
+                "const": "grid-reinference-stats-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statspolicy"
           },
           "targetCount": {
             "title": "Targetcount",
@@ -11592,6 +11810,81 @@
           "expectedPhase"
         ],
         "title": "GridReinferenceResume",
+        "type": "object"
+      },
+      "GridReinferenceScopeStats": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticCandidateSlotCount": {
+            "minimum": 0.0,
+            "title": "Automaticcandidateslotcount",
+            "type": "integer"
+          },
+          "availableCellCount": {
+            "minimum": 0.0,
+            "title": "Availablecellcount",
+            "type": "integer"
+          },
+          "deferredSlotCount": {
+            "minimum": 0.0,
+            "title": "Deferredslotcount",
+            "type": "integer"
+          },
+          "existingBoardCount": {
+            "minimum": 0.0,
+            "title": "Existingboardcount",
+            "type": "integer"
+          },
+          "existingCellCount": {
+            "minimum": 0.0,
+            "title": "Existingcellcount",
+            "type": "integer"
+          },
+          "potentialCellCount": {
+            "minimum": 0.0,
+            "title": "Potentialcellcount",
+            "type": "integer"
+          },
+          "proposalOnlySlotCount": {
+            "minimum": 0.0,
+            "title": "Proposalonlyslotcount",
+            "type": "integer"
+          },
+          "protectedSlotCount": {
+            "minimum": 0.0,
+            "title": "Protectedslotcount",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "const": "grid-reinference-scope-stats-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "selectedSlotCount": {
+            "minimum": 0.0,
+            "title": "Selectedslotcount",
+            "type": "integer"
+          },
+          "sourceOccurrenceCount": {
+            "minimum": 0.0,
+            "title": "Sourceoccurrencecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "sourceOccurrenceCount",
+          "selectedSlotCount",
+          "existingBoardCount",
+          "deferredSlotCount",
+          "existingCellCount",
+          "availableCellCount",
+          "potentialCellCount",
+          "proposalOnlySlotCount",
+          "protectedSlotCount",
+          "automaticCandidateSlotCount"
+        ],
+        "title": "GridReinferenceScopeStats",
         "type": "object"
       },
       "GridReinferenceSelector": {
@@ -52773,6 +53066,94 @@
           }
         },
         "summary": "List boards with many unreviewed low-confidence symbol cells",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations": {
+      "get": {
+        "operationId": "listGridReinferenceOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compatible_with_operation_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compatible With Operation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridReinferenceOperationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Operations",
         "tags": [
           "image-reviews"
         ]

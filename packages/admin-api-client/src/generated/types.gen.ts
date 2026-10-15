@@ -6273,6 +6273,52 @@ export type GridReinferenceCommand = {
 };
 
 /**
+ * GridReinferenceEffectStats
+ */
+export type GridReinferenceEffectStats = {
+  /**
+   * Automaticwrittenboardcount
+   */
+  automaticWrittenBoardCount: number;
+  /**
+   * Changedexistingpixelcellcount
+   */
+  changedExistingPixelCellCount: number;
+  /**
+   * Createdboardcount
+   */
+  createdBoardCount: number;
+  /**
+   * Createdcellcount
+   */
+  createdCellCount: number;
+  /**
+   * Newlyrequiresreviewcellcount
+   */
+  newlyRequiresReviewCellCount: number;
+  /**
+   * Notrecordedtargetcount
+   */
+  notRecordedTargetCount: number;
+  /**
+   * Pixelcomparisonunavailablecellcount
+   */
+  pixelComparisonUnavailableCellCount: number;
+  /**
+   * Recordedtargetcount
+   */
+  recordedTargetCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-reinference-effect-stats-v1';
+  /**
+   * Unchangedexistingpixelcellcount
+   */
+  unchangedExistingPixelCellCount: number;
+};
+
+/**
  * GridReinferenceFreeze
  */
 export type GridReinferenceFreeze = {
@@ -6323,6 +6369,20 @@ export type GridReinferenceJobPayload = {
 };
 
 /**
+ * GridReinferenceOperationPage
+ */
+export type GridReinferenceOperationPage = {
+  /**
+   * Items
+   */
+  items: Array<GridReinferenceResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
  * GridReinferencePilotAck
  */
 export type GridReinferencePilotAck = {
@@ -6345,6 +6405,28 @@ export type GridReinferencePilotAck = {
 };
 
 /**
+ * GridReinferencePilotAcknowledgement
+ */
+export type GridReinferencePilotAcknowledgement = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * At
+   */
+  at: string;
+  /**
+   * Pilotoperationid
+   */
+  pilotOperationId: string;
+  /**
+   * Reportsha256
+   */
+  reportSha256: string;
+};
+
+/**
  * GridReinferencePrepare
  */
 export type GridReinferencePrepare = {
@@ -6364,6 +6446,20 @@ export type GridReinferencePrepare = {
 };
 
 /**
+ * GridReinferenceQuarantine
+ */
+export type GridReinferenceQuarantine = {
+  /**
+   * At
+   */
+  at: string | null;
+  /**
+   * Code
+   */
+  code: string;
+};
+
+/**
  * GridReinferenceResponse
  */
 export type GridReinferenceResponse = {
@@ -6371,6 +6467,12 @@ export type GridReinferenceResponse = {
    * Acceptancepolicy
    */
   acceptancePolicy: string;
+  effectStats?: GridReinferenceEffectStats | null;
+  executionQuarantine?: GridReinferenceQuarantine | null;
+  /**
+   * Executionscope
+   */
+  executionScope?: 'pilot' | 'broader';
   /**
    * Gameid
    */
@@ -6407,6 +6509,7 @@ export type GridReinferenceResponse = {
    * Phase
    */
   phase: 'prepare' | 'infer';
+  pilotAcknowledgement?: GridReinferencePilotAcknowledgement | null;
   /**
    * Preparationfinishedat
    */
@@ -6437,6 +6540,8 @@ export type GridReinferenceResponse = {
    * Runtimepolicy
    */
   runtimePolicy: string;
+  scopeStats?: GridReinferenceScopeStats | null;
+  selector?: GridReinferenceSelector;
   /**
    * Sourcecount
    */
@@ -6461,6 +6566,10 @@ export type GridReinferenceResponse = {
     | 'failed'
     | 'completed';
   /**
+   * Statspolicy
+   */
+  statsPolicy?: 'grid-reinference-stats-v1' | null;
+  /**
    * Targetcount
    */
   targetCount: number;
@@ -6482,6 +6591,56 @@ export type GridReinferenceResume = {
    * Idempotencykey
    */
   idempotencyKey: string;
+};
+
+/**
+ * GridReinferenceScopeStats
+ */
+export type GridReinferenceScopeStats = {
+  /**
+   * Automaticcandidateslotcount
+   */
+  automaticCandidateSlotCount: number;
+  /**
+   * Availablecellcount
+   */
+  availableCellCount: number;
+  /**
+   * Deferredslotcount
+   */
+  deferredSlotCount: number;
+  /**
+   * Existingboardcount
+   */
+  existingBoardCount: number;
+  /**
+   * Existingcellcount
+   */
+  existingCellCount: number;
+  /**
+   * Potentialcellcount
+   */
+  potentialCellCount: number;
+  /**
+   * Proposalonlyslotcount
+   */
+  proposalOnlySlotCount: number;
+  /**
+   * Protectedslotcount
+   */
+  protectedSlotCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-reinference-scope-stats-v1';
+  /**
+   * Selectedslotcount
+   */
+  selectedSlotCount: number;
+  /**
+   * Sourceoccurrencecount
+   */
+  sourceOccurrenceCount: number;
 };
 
 /**
@@ -28961,6 +29120,51 @@ export type GetImageGeometryLowQualityBoardsResponses = {
 
 export type GetImageGeometryLowQualityBoardsResponse =
   GetImageGeometryLowQualityBoardsResponses[keyof GetImageGeometryLowQualityBoardsResponses];
+
+export type ListGridReinferenceOperationsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Compatible With Operation Id
+     */
+    compatible_with_operation_id?: string | null;
+  };
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations';
+};
+
+export type ListGridReinferenceOperationsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridReinferenceOperationsError =
+  ListGridReinferenceOperationsErrors[keyof ListGridReinferenceOperationsErrors];
+
+export type ListGridReinferenceOperationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceOperationPage;
+};
+
+export type ListGridReinferenceOperationsResponse =
+  ListGridReinferenceOperationsResponses[keyof ListGridReinferenceOperationsResponses];
 
 export type GetGridReinferenceData = {
   body?: never;

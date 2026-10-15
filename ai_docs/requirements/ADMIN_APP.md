@@ -1994,3 +1994,53 @@ wymaga osobnego potwierdzenia i ostrzega, że gra lub przypisanie mogły zostać
 zapisane. Najpierw zachowuje surowy wpis z namespace/czasem w trwałym archiwum
 przeglądarki, następnie usuwa lokalne pending. Awaria archiwum zachowuje pending.
 Dotyczy też uszkodzonego wpisu. Nie usuwa rezerwacji serwera ani dawnych archiwów.
+
+
+## Ponowne rozpoznanie wybranego zakresu V3 (TASK-1003)
+
+Jeden panel zastępuje dawny pending-preview/start. Wejście i ponowne otwarcie
+odczytują wyłącznie historię, wybraną operację i gotowe strony wyników.
+Przygotowanie i każda kolejna mutacja wymagają jawnej akcji. Domyślny zakres
+to zgłoszenia Złej siatki i odroczone sloty; niepotwierdzone i wszystkie
+automatyczne pozostają osobnymi opt-in. Przygotowany zakres rozdziela zdjęcia
+(wystąpienia źródeł), sloty, istniejące plansze i komórki. Potencjalna pojemność
+nie oznacza liczby zapisów ani zmienionych pikseli. Okno przygotowania i czas
+utrwalenia członkostwa są widoczne; operacja nie obiecuje jednego snapshotu
+żywej gry ani czasu wykonania szerokiego zakresu.
+
+Pilot obejmuje do 100 wystąpień zdjęć. Operator jawnie przygotowuje zakres,
+zamraża manifest i uruchamia przebieg. Szerszy zakres ma osobną operację i
+manifest, wybór zgodnego ukończonego pilota z historii, potwierdzenie jego SHA
+raportu przez aktora oraz oddzielne potwierdzenie szerokiego startu. Raport
+pilota nie oznacza PASS jakości. Historia przechodzi stabilnie po UUID;
+kolejność nie jest chronologią. Ostateczną zgodność pilota sprawdza backend.
+
+Panel zapisuje dokładne body i UUID przed POST, w zakresie API/gry/operacji
+i rodzaju komendy. Utrata odpowiedzi, 5xx, reload i 409 zachowują polecenie;
+ponowienie jest jawne. Potwierdzone porzucenie najpierw trwale archiwizuje
+surowy wpis i dostępne metadane, następnie usuwa pending. Błąd archiwizacji
+zachowuje pending, również uszkodzony JSON. Porzucenie nie usuwa operacji
+serwera. Zmiana gry lub operacji unieważnia spóźnione odpowiedzi. Konflikt
+komendy 409 jest odrębny od późniejszego konfliktu celu w raporcie.
+
+Odświeżenie pokazuje postęp i liczniki należące do operacji; job jest linkiem
+kontekstowym. Dostępne są anulowanie oraz wznowienie przerwanej, dopuszczonej
+przez backend fazy. Kwarantanna wymaga nowej operacji i ukrywa wznowienie.
+Wyniki rozdzielają propozycje, zapisy automatyczne, ochronę, brak zmiany,
+konflikty i brak źródła. Szczegóły zachowują przyczyny i provenance. Link do
+istniejącej lokalnej Korekty cięcia siatki pozwala ocenić trwałe propozycje;
+dopiero jej decyzja człowieka stosuje korektę.
+
+Statystyki efektów pochodzą z atomowych receiptów backendu. Nowe komórki,
+rzeczywiście zmienione piksele, niezmienione piksele i niedostępne porównanie
+są odrębne. Ponowna ocena może obejmować te same komórki co zmienione piksele;
+nie sumujemy tych liczb. Starsze operacje bez statystyk pokazują „nie zapisano”,
+nigdy domyślne zero. Propozycja ani automatyczny zapis nie są nazwane naprawą
+lub dowodem poprawy jakości.
+
+
+**Doprecyzowanie po audycie TASK-1003:** liczba pozycji bez zapisanych statystyk
+jest bieżącym brakiem receiptów w zamrożonym zakresie, nie sumą efektów celów.
+Przed ukończeniem przygotowania panel pokazuje niedostępne statystyki zakresu
+i efektów także po błędzie albo anulowaniu przygotowania. Historyczne „nie
+zapisano” pozostaje odrębną informacją dla starszych operacji.

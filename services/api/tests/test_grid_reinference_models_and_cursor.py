@@ -363,6 +363,91 @@ def test_real_start_replay_and_resume_keep_pins_after_later_assignment_change(
     assert context.registry.calls == calls
 
 
+def test_legacy_prepare_replay_and_resume_never_add_stats_pin(context: SimpleNamespace) -> None:
+    record = _prepared(context)
+    record.document = {
+        key: value
+        for key, value in record.document.items()
+        if key not in {"statsPolicy", "scopeStats", "effectStats"}
+    }
+    context.session.job.input_payload = {
+        key: value
+        for key, value in context.session.job.input_payload.items()
+        if key != "stats_policy"
+    }
+    original = copy.deepcopy(record.document)
+    replay = context.repository.prepare(context.game.id, record.document["command"], "operator")
+    assert replay["scopeStats"] is None and replay["statsPolicy"] is None
+    assert record.document == original
+    started = context.repository.execute(
+        context.game.id,
+        record.id,
+        "start",
+        {
+            "idempotencyKey": str(uuid4()),
+            "expectedRevision": record.document["revision"],
+            "manifestSha256": record.document["manifestSha256"],
+        },
+        "operator",
+    )
+    record.document = {**record.document, "state": "failed"}
+    context.session.job.status = JobStatus.FAILED
+    context.repository.execute(
+        context.game.id,
+        record.id,
+        "resume",
+        {
+            "idempotencyKey": str(uuid4()),
+            "expectedRevision": record.document["revision"],
+            "expectedPhase": "infer",
+        },
+        "operator",
+    )
+    assert started["manifestSha256"] == original["manifestSha256"]
+    assert "statsPolicy" not in record.document
+    assert "stats_policy" not in context.session.job.input_payload
+
+
+@pytest.mark.parametrize("side", ["operation", "job", "both_unknown"])
+def test_real_resume_fails_closed_on_mixed_or_unknown_stats_pins(
+    context: SimpleNamespace, side: str
+) -> None:
+    record = _prepared(context)
+    if side == "operation":
+        record.document = {
+            key: value for key, value in record.document.items() if key != "statsPolicy"
+        }
+    elif side == "job":
+        context.session.job.input_payload = {
+            key: value
+            for key, value in context.session.job.input_payload.items()
+            if key != "stats_policy"
+        }
+    else:
+        record.document = {**record.document, "statsPolicy": "future"}
+        context.session.job.input_payload = {
+            **context.session.job.input_payload,
+            "stats_policy": "future",
+        }
+    record.document = {**record.document, "state": "failed"}
+    context.session.job.status = JobStatus.FAILED
+    before = copy.deepcopy(record.document)
+    with pytest.raises(JobConflictError) as error:
+        context.repository.execute(
+            context.game.id,
+            record.id,
+            "resume",
+            {
+                "idempotencyKey": str(uuid4()),
+                "expectedRevision": record.document["revision"],
+                "expectedPhase": "prepare",
+            },
+            "operator",
+        )
+    assert error.value.code == "GRID_REINFERENCE_PAYLOAD_INVALID"
+    assert record.document == before
+
+
 @pytest.fixture
 def target_pages(monkeypatch: pytest.MonkeyPatch) -> Any:
     engine = create_engine("sqlite://")

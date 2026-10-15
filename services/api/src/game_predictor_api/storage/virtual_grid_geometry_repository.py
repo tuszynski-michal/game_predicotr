@@ -12,6 +12,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from game_predictor_api.application.grid_reinference_stats import cell_effects, cell_observation
 from game_predictor_api.application.legacy_board_conversion import (
     LegacyConversionBoardPlan,
     LegacyConversionBoardResult,
@@ -147,6 +148,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         binding: Mapping[str, Any],
         model_snapshot: Mapping[str, Any],
         acceptance_policy: str,
+        effect_collector: dict[UUID, dict[str, Any]] | None = None,
     ) -> tuple[dict[UUID, UUID], tuple[str, ...]]:
         """Write only checked automatic targets; caller owns source fences/receipts.
 
@@ -163,6 +165,23 @@ class SqlAlchemyVirtualGridGeometryRepository:
             game_id=base.game_id,
             sequence_numbers={entry.context.sequence_number for entry in prepared.entries},
         )
+        before_cells = {}
+        if effect_collector is not None:
+            for entry in prepared.entries:
+                item_id = entry.context.review_item_id
+                before_cells[entry.context.target_id] = (
+                    {}
+                    if item_id is None
+                    else {
+                        cell.cell_index: cell_observation(cell)
+                        for cell in self._session.scalars(
+                            select(ImageSymbolReviewCellModel).where(
+                                ImageSymbolReviewCellModel.game_id == base.game_id,
+                                ImageSymbolReviewCellModel.review_item_id == item_id,
+                            )
+                        )
+                    }
+                )
         # The handler locked the source before calling this method. A full
         # source snapshot cannot silently discard a later sibling correction.
         latest = self._session.scalar(
@@ -311,6 +330,23 @@ class SqlAlchemyVirtualGridGeometryRepository:
         projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
         for item_id in result.values():
             projection.sync_review_item(item_id)
+        if effect_collector is not None:
+            for entry in prepared.entries:
+                after = {
+                    cell.cell_index: cell_observation(cell)
+                    for cell in self._session.scalars(
+                        select(ImageSymbolReviewCellModel).where(
+                            ImageSymbolReviewCellModel.game_id == base.game_id,
+                            ImageSymbolReviewCellModel.review_item_id
+                            == result[entry.context.target_id],
+                        )
+                    )
+                }
+                effect_collector[entry.context.target_id] = cell_effects(
+                    before_cells[entry.context.target_id],
+                    after,
+                    created_board=entry.context.pending_geometry_id is not None,
+                )
         return result, reasons
 
     def _qualify_reinference_source(

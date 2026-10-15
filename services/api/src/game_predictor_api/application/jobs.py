@@ -2509,6 +2509,10 @@ class JobService:
         return self._repository.save_job(updated)
 
     def retry_job(self, job_id: UUID) -> Job:
+        before_lock = self._repository.get_job(job_id)
+        guard = getattr(self._repository, "authorize_retry", None)
+        if before_lock is not None and callable(guard):
+            guard(before_lock)
         job = self._repository.get_job_for_update(job_id)
         if job is None:
             raise JobNotFoundError(

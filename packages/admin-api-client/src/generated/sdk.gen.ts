@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  AcknowledgeGridReinferencePilotData,
+  AcknowledgeGridReinferencePilotErrors,
+  AcknowledgeGridReinferencePilotResponses,
   AcknowledgeSemiAutomaticImageSelectionOutputData,
   AcknowledgeSemiAutomaticImageSelectionOutputErrors,
   AcknowledgeSemiAutomaticImageSelectionOutputResponses,
@@ -51,6 +54,9 @@ import type {
   CancelBrowserImageSelectionData,
   CancelBrowserImageSelectionErrors,
   CancelBrowserImageSelectionResponses,
+  CancelGridReinferenceData,
+  CancelGridReinferenceErrors,
+  CancelGridReinferenceResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -267,6 +273,9 @@ import type {
   FinalizeRemoteManualSelectionBatchData,
   FinalizeRemoteManualSelectionBatchErrors,
   FinalizeRemoteManualSelectionBatchResponses,
+  FreezeGridReinferenceData,
+  FreezeGridReinferenceErrors,
+  FreezeGridReinferenceResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -348,6 +357,12 @@ import type {
   GetGridModelHistoryData,
   GetGridModelHistoryErrors,
   GetGridModelHistoryResponses,
+  GetGridReinferenceData,
+  GetGridReinferenceErrors,
+  GetGridReinferenceResponses,
+  GetGridReinferenceTargetsData,
+  GetGridReinferenceTargetsErrors,
+  GetGridReinferenceTargetsResponses,
   GetGridShadowResultData,
   GetGridShadowResultErrors,
   GetGridShadowResultResponses,
@@ -816,6 +831,9 @@ import type {
   PlanBrowserImageSelectionUploadData,
   PlanBrowserImageSelectionUploadErrors,
   PlanBrowserImageSelectionUploadResponses,
+  PrepareGridReinferenceData,
+  PrepareGridReinferenceErrors,
+  PrepareGridReinferenceResponses,
   PreviewBoardSourceCleanupData,
   PreviewBoardSourceCleanupErrors,
   PreviewBoardSourceCleanupResponses,
@@ -981,6 +999,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeGridReinferenceData,
+  ResumeGridReinferenceErrors,
+  ResumeGridReinferenceResponses,
   ResumeSemiAutomaticImageSelectionData,
   ResumeSemiAutomaticImageSelectionErrors,
   ResumeSemiAutomaticImageSelectionResponses,
@@ -1077,6 +1098,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridReinferenceData,
+  StartGridReinferenceErrors,
+  StartGridReinferenceResponses,
   StartGridShadowJobData,
   StartGridShadowJobErrors,
   StartGridShadowJobResponses,
@@ -4950,6 +4974,190 @@ export const getImageGeometryLowQualityBoards = <
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
     ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  GetGridReinferenceResponses,
+  GetGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridReinferenceResponses,
+    GetGridReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  CancelGridReinferenceResponses,
+  CancelGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridReinferenceResponses,
+    CancelGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/cancel',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Freeze
+ */
+export const freezeGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<FreezeGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  FreezeGridReinferenceResponses,
+  FreezeGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeGridReinferenceResponses,
+    FreezeGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/freeze',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Ack
+ */
+export const acknowledgeGridReinferencePilot = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AcknowledgeGridReinferencePilotData, ThrowOnError>,
+): RequestResult<
+  AcknowledgeGridReinferencePilotResponses,
+  AcknowledgeGridReinferencePilotErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcknowledgeGridReinferencePilotResponses,
+    AcknowledgeGridReinferencePilotErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/pilot-ack',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  ResumeGridReinferenceResponses,
+  ResumeGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridReinferenceResponses,
+    ResumeGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/resume',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Start
+ */
+export const startGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<StartGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartGridReinferenceResponses,
+  StartGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartGridReinferenceResponses,
+    StartGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Targets
+ */
+export const getGridReinferenceTargets = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridReinferenceTargetsData, ThrowOnError>,
+): RequestResult<
+  GetGridReinferenceTargetsResponses,
+  GetGridReinferenceTargetsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridReinferenceTargetsResponses,
+    GetGridReinferenceTargetsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/targets',
+    ...options,
+  });
+
+/**
+ * Prepare
+ */
+export const prepareGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<PrepareGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  PrepareGridReinferenceResponses,
+  PrepareGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridReinferenceResponses,
+    PrepareGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

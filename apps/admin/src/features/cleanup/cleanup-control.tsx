@@ -7,6 +7,7 @@ import type {
 import { useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { cleanupCountLabel } from './cleanup-labels';
 import {
   type CleanupClient,
   type CleanupTarget,
@@ -135,7 +136,7 @@ export function CleanupControl({
                 .filter((entry) => entry.count > 0)
                 .map((entry) => (
                   <div key={entry.name}>
-                    <dt>{entry.name}</dt>
+                    <dt>{cleanupCountLabel(entry.name)}</dt>
                     <dd>{entry.count.toLocaleString('pl-PL')}</dd>
                   </div>
                 ))}

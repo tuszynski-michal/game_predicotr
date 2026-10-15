@@ -19,7 +19,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v11 import (
+from game_predictor_api.storage.game_data_v2_manifest_v12 import (
     CREATE_TABLES,
     DELETE_TABLES,
     SCHEMA,
@@ -218,7 +218,12 @@ class GamePartitionLifecycleRepository:
             self._session.execute(
                 text(f"CREATE TABLE {child} PARTITION OF {parent} FOR VALUES IN ('{game_id}')")
             )
-            if table_name == "image_geometry_shadow_results":
+            if table_name in {
+                "image_geometry_shadow_results",
+                "grid_reinference_operations",
+                "grid_reinference_sources",
+                "grid_reinference_targets",
+            }:
                 self._session.execute(text(f"ALTER TABLE {child} ENABLE ROW LEVEL SECURITY"))
                 self._session.execute(text(f"ALTER TABLE {child} FORCE ROW LEVEL SECURITY"))
                 self._session.execute(

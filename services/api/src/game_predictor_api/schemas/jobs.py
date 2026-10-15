@@ -695,6 +695,15 @@ class BoardCellRecropJobSnapshotPayload(ApiModel):
     thresholds_version: str = Field(min_length=1, max_length=150)
 
 
+class GridReinferenceJobPayload(ApiModel):
+    schema_version: Literal[3]
+    inference_kind: Literal["grid-reinference-v1"]
+    operation_id: UUID
+    model_snapshot: dict[str, object]
+    runtime_policy: Literal["grid-reinference-runtime-v1"]
+    acceptance_policy: Literal["v3-engine-acceptance-v1"]
+
+
 class PendingGridReinferenceJobPayload(ApiModel):
     schema_version: Literal[1, 2]
     inference_kind: Literal["pending_grid_only"]
@@ -817,6 +826,7 @@ JobPayloadResponse = (
     | SuperGameSeriesDeriveJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
+    | GridReinferenceJobPayload
 )
 
 
@@ -1335,6 +1345,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
+        if job.input_payload.get("inference_kind") == "grid-reinference-v1":
+            return GridReinferenceJobPayload.model_validate(job.input_payload)
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 

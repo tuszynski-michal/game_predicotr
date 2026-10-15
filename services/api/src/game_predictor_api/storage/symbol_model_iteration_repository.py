@@ -171,6 +171,9 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
                     "The training command key was already used with another configuration.",
                 )
             return _to_domain(previous_iteration), job_from_record(previous_job), False
+        from game_predictor_api.storage.job_admission import acquire_job_admission
+
+        acquire_job_admission(self._session, game_id)
         source_symbol_counts = _cohort_source_symbol_counts(self._session, cohort_id)
         protected_reference: dict[str, object] | None = None
         if str(game_id) == MUMIE_GAME_ID:

@@ -1,4 +1,12 @@
 import {
+  prepareGridReinference as prepareGeneratedGridReinference,
+  getGridReinference as getGeneratedGridReinference,
+  getGridReinferenceTargets as getGeneratedGridReinferenceTargets,
+  freezeGridReinference as freezeGeneratedGridReinference,
+  acknowledgeGridReinferencePilot as acknowledgeGeneratedGridReinferencePilot,
+  startGridReinference as startGeneratedGridReinference,
+  resumeGridReinference as resumeGeneratedGridReinference,
+  cancelGridReinference as cancelGeneratedGridReinference,
   listGridModelVersions as listGeneratedGridModelVersions,
   registerGridModelVersion as registerGeneratedGridModelVersion,
   getGameGridModelAssignment as getGeneratedGameGridModelAssignment,
@@ -11,11 +19,25 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  GridReinferencePrepare,
+  GridReinferenceFreeze,
+  GridReinferencePilotAck,
+  GridReinferenceStart,
+  GridReinferenceResume,
+  GridReinferenceCommand,
   GridModelRegisterRequest,
   GridModelPublishCommand,
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridReinferencePrepare,
+  GridReinferenceFreeze,
+  GridReinferencePilotAck,
+  GridReinferenceStart,
+  GridReinferenceResume,
+  GridReinferenceCommand,
+  GridReinferenceResponse,
+  GridReinferenceTargetPage,
   GridModelManifest,
   GridModelRegisterRequest,
   GridModelVersionResponse,
@@ -3127,6 +3149,94 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    prepareGridReinference: (gameId: string, body: GridReinferencePrepare) =>
+      prepareGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`grid-reinference:${gameId}:prepare`),
+      }),
+    getGridReinference: (gameId: string, operationId: string) =>
+      getGeneratedGridReinference({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+      }),
+    getGridReinferenceTargets: (
+      gameId: string,
+      operationId: string,
+      cursor?: string,
+      limit = 100,
+    ) =>
+      getGeneratedGridReinferenceTargets({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        query: { cursor, limit },
+      }),
+    freezeGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceFreeze,
+    ) =>
+      freezeGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    acknowledgeGridReinferencePilot: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferencePilotAck,
+    ) =>
+      acknowledgeGeneratedGridReinferencePilot({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    startGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceStart,
+    ) =>
+      startGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    resumeGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceResume,
+    ) =>
+      resumeGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    cancelGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceCommand,
+    ) =>
+      cancelGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
       }),
     startPendingGridReinference: (gameId: string) =>
       startGeneratedPendingGridReinference({

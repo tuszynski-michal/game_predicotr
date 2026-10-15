@@ -6,6 +6,14 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (done)
+
+- [Task](../tasks/completed/1010-grid-diagnostics-and-counters.md); gałąź codex/v3-grid-fine-tuning. Commit: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`; hash zapisany po utworzeniu, do następnego commita. Bez scalenia.
+- Istniejący GET ma opt-in diagnostykę w osobnym READ ONLY/REPEATABLE READ/RLS; zwykły odczyt/paginacja pozostają lekkie. Jednostki, przecięcia, symbole i status akceptacji są rozdzielone. D-553 przyjęta; bez zmian danych operatora.
+- [Raport](../quality/V3_GRID_DIAGNOSTICS_20261014.md): Mumie 8 031 brakujących sekwencji (259 geometria, 7 772 no_source); 777a2 373 odroczone i 98 zgłoszonych siatek. Niepotwierdzenie nie jest oceną modelu; nierozstrzygnięte źródła/90 błędów bez zakresu/94 historyczne stany opisane.
+- PASS: 120 testów backendu, 2 UI, transport, lint/types/OpenAPI/map/docs; po [audytowym REVISE](../quality/TASK-1010_AUDIT_claude-fable-5-1.md) jedna runda poprawek: 2 PG, 12 SQL/API, Ruff/mypy/docs/map. [Rozliczenie](../quality/TASK-1010_AUDIT_RESPONSE_CODEX.md): P1 zamknięte, bez nowego PASS audytu i bez zmiany zachowania produkcyjnego P1. Bazy/role fixture usunięte.
+- Następny TASK-1017; brak usług, migracji operatora, backfillu, treningu lub aktywacji.
+
 ### TASK-1015 — Utrwalenie planu i przygotowanie wznowienia (done)
 
 

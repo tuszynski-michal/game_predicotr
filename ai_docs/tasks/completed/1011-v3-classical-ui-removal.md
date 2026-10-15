@@ -118,7 +118,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream bazowy: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: przygotowany v1.7.378; pełny hash po utworzeniu. Bez scalenia/push.
+- Commit: v1.7.378 / `d078938b18abdff5d6e1f99795f9d4aca09716b1`; zapis po utworzeniu, do następnego commita dokumentacyjnego. Bez scalenia/push.
 - Audit: [Claude medium R1 PASS](../../quality/TASK-1011_AUDIT_claude-fable-5-1.md), limit1200s. P2-2/3 zamknięte dokumentacją i pełnym lintem, P2-1/4 jawnie przyjęte poniżej. Bez R2 i bez zmiany kodu po PASS.
 - Następny krok: lead zapisuje osobny commit, następnie pełny hash i rozpoczyna0999. Integracja po całym planie i akceptacji operatora.
 
@@ -142,7 +142,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - P2-2 poprawione doprecyzowaniem własności zmian CURRENT_STATE. P2-3 zamknięte: lead wykonał pełne `npm run lint --workspace @game-predictor/admin`, exit0,0errors/5warnings w plikach niezmienianych przez1011; log `artifacts/audits/TASK-1011/full-admin-lint.log`.
 - P2-4 przyjęte do TASK-1000: pełna sekcja przed odbiorem całego planu otrzyma zrozumiałe etykiety reasonCode i fallback. Surowe kody nie stanowią nowej oceny jakości ani samodzielnej blokady historycznego assignment. Jawny odsyłacz dopisano do taska1000.
 - Nowy dowód niezwiązanych10FAIL: `artifacts/audits/TASK-1011/dependency-proof.json`. Domknięcie literalnych importów i re-exportów izolowanego supergames testu obejmuje46 lokalnych plików, identycznych z bazą377; żaden zmieniony moduł1011 nie jest osiągalny. Nie wykonano historycznego checkoutu/node_modules i nie raportuje się PASS pełnych interakcji.
-- Kontrole zamknięcia DOC/map/diff oraz staged/stat/list i post-commit show/status prowadzi lead; ich receipt i hash zostaną zapisane po wykonaniu.
+- Kontrole zamknięcia DOC/map/diff i staged/stat/list oraz post-commit show/status: PASS. Receipt `TASK-1011_COMMIT.json` potwierdza 21 plików i czysty status; pełny hash zapisano po commicie.
 
 ### Not completed
 

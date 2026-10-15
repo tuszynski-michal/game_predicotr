@@ -707,3 +707,27 @@ Nowy zapis, który pojawił się po przejściu kursora, uniemożliwia `ready` i 
 obsługiwany w następnym idempotentnym przebiegu. TASK-0326 nadal nie przełącza
 publicznych read pathów ani indeksów na v2 i nie wykonuje backfillu na danych
 użytkownika.
+
+
+## Wybrana reinferencja V3 — TASK-0999 / D-551
+
+Nowy automatic writer korzysta z produkcyjnego renderera, a następnie zapisuje
+wyłącznie zamrożone i ponownie sprawdzone cele w jednej transakcji źródła.
+Nie wywołuje manual writer, source-wide repoint ani bezwarunkowego materialize.
+Recompute ma `materialize=False`; selected-only write-through aktualizuje
+render provenance i projekcje D-462 bez zmiany niewybranych/manual siblings.
+Kwalifikacja źródła używa oddzielnego finalizera D-550, niezależnego od
+rev0 finalizera TASK-1017. Status accepted nie oznacza zatwierdzenia człowieka.
+
+Fences źródła obejmują occurrence, piksele/normalizację, poświadczony zakres,
+topologię i globalny source selector; każdy niebezpieczny merge kończy się
+conflict. Fences celu obejmują geometrię, decyzje, właściciela i piksele review.
+Grid issue otrzymuje niezmienny wynik proposal z pinami i fences dla TASK-1013;
+przyszłe ręczne przyjęcie musi ponownie sprawdzić także aktualność zgłoszenia.
+
+MIG-0159 i frozen manifest v12 dodają operations/sources/targets do każdego
+katalogu gry, central ORM, RLS i lifecycle. Frozen source ID nie ma FK do
+usuwalnego zdjęcia. Nullable live source link ma FK RESTRICT i CHECK zgodności;
+cztery istniejące cleanup wejścia odpinają go jawnie i zachowują historię.
+Live link pozostaje poza manifest SHA. Brak źródła kończy się source_missing,
+bez autoreattach i bez odtworzenia usuniętych celów.

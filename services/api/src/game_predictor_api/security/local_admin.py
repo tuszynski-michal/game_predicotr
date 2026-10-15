@@ -240,6 +240,20 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ),
 }
 
+HIGH_IMPACT_OPERATIONS[
+    ("POST", "/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare")
+] = HighImpactOperation("grid-reinference-prepare", "grid-reinference:{game_id}:prepare")
+for _reinference_action in ("freeze", "pilot-ack", "start", "resume", "cancel"):
+    HIGH_IMPACT_OPERATIONS[
+        (
+            "POST",
+            "/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/"
+            + _reinference_action,
+        )
+    ] = HighImpactOperation(
+        "grid-reinference-" + _reinference_action, "grid-reinference:{game_id}:{operation_id}"
+    )
+
 _REVIEWER_MUTATION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (

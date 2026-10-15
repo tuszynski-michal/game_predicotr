@@ -116,11 +116,10 @@ def create_job(
         and job_type is JobType.VALIDATE
         and input_payload.get("validation_kind") == "page_geometry_preflight"
     )
-    supports_pending_grid_reinference_v2 = (
-        schema_version == 2
-        and job_type is JobType.IMAGE_GRID_REINFERENCE
-        and input_payload.get("inference_kind") == "pending_grid_only"
-    )
+    supports_pending_grid_reinference_v2 = job_type is JobType.IMAGE_GRID_REINFERENCE and (
+        schema_version,
+        input_payload.get("inference_kind"),
+    ) in {(2, "pending_grid_only"), (3, "grid-reinference-v1")}
     supports_semi_automatic_selection_v2_v4 = (
         schema_version in {2, 3, 4} and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
     )
@@ -648,6 +647,44 @@ def recover_expired_job(
             job,
             status=JobStatus.CREATED,
             updated_at=now,
+        )
+    )
+
+
+def quarantine_unstarted_grid_job(job: Job, *, checked_at: datetime) -> Job:
+    """Fail closed only a new grid job with caller-proven missing start authorization.
+
+    Recovery validates real expiry; this never pretends an expired lease is active.
+    The locked operation's START_REQUIRED proof belongs to the storage caller.
+    """
+    if (
+        job.job_type is not JobType.IMAGE_GRID_REINFERENCE
+        or job.input_payload.get("schema_version") != 3
+        or job.input_payload.get("inference_kind") != "grid-reinference-v1"
+    ):
+        raise JobConflictError(
+            "JOB_QUARANTINE_INVALID", "Only the selected grid contract can be quarantined."
+        )
+    if job.status is JobStatus.PROCESSING:
+        job = recover_expired_job(job, recovered_at=checked_at)
+    elif job.status is not JobStatus.CREATED:
+        raise JobConflictError(
+            "JOB_QUARANTINE_INVALID", "Only queued or expired work can be quarantined."
+        )
+    if job.status is JobStatus.CANCELLED:
+        return job
+    if job.cancel_requested_at is not None:
+        return _without_lease(
+            replace(job, status=JobStatus.CANCELLED, finished_at=checked_at, updated_at=checked_at)
+        )
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.FAILED,
+            error_code="GRID_REINFERENCE_START_REQUIRED",
+            error_message="Missing explicit start authorization; create a new frozen operation.",
+            updated_at=checked_at,
+            finished_at=checked_at,
         )
     )
 

@@ -114,6 +114,9 @@ def create_image_reviews_router(
     job_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-review-items", tags=["image-reviews"])
+    from game_predictor_api.api.grid_reinference import register_grid_reinference_routes
+
+    register_grid_reinference_routes(router, service_dependency)
     service_parameter = Depends(service_dependency)
     reviewer_parameter = Depends(
         create_optional_reviewer_session_dependency(reviewer_access_service_dependency)

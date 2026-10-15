@@ -6224,6 +6224,330 @@ export type GridProfileJobSnapshotPayload = {
 };
 
 /**
+ * GridReinferenceCommand
+ */
+export type GridReinferenceCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridReinferenceFreeze
+ */
+export type GridReinferenceFreeze = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridReinferenceJobPayload
+ */
+export type GridReinferenceJobPayload = {
+  /**
+   * Acceptancepolicy
+   */
+  acceptancePolicy: 'v3-engine-acceptance-v1';
+  /**
+   * Inferencekind
+   */
+  inferenceKind: 'grid-reinference-v1';
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Runtimepolicy
+   */
+  runtimePolicy: 'grid-reinference-runtime-v1';
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 3;
+};
+
+/**
+ * GridReinferencePilotAck
+ */
+export type GridReinferencePilotAck = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Pilotoperationid
+   */
+  pilotOperationId: string;
+  /**
+   * Pilotreportsha256
+   */
+  pilotReportSha256: string;
+};
+
+/**
+ * GridReinferencePrepare
+ */
+export type GridReinferencePrepare = {
+  /**
+   * Executionscope
+   */
+  executionScope?: 'pilot' | 'broader';
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Modelversionid
+   */
+  modelVersionId?: string | null;
+  selector?: GridReinferenceSelector;
+};
+
+/**
+ * GridReinferenceResponse
+ */
+export type GridReinferenceResponse = {
+  /**
+   * Acceptancepolicy
+   */
+  acceptancePolicy: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Membershipcapturedat
+   */
+  membershipCapturedAt: string | null;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Outcomes
+   */
+  outcomes: {
+    [key: string]: number;
+  };
+  /**
+   * Phase
+   */
+  phase: 'prepare' | 'infer';
+  /**
+   * Preparationfinishedat
+   */
+  preparationFinishedAt: string | null;
+  /**
+   * Preparationstartedat
+   */
+  preparationStartedAt: string;
+  /**
+   * Processedsources
+   */
+  processedSources: number;
+  /**
+   * Receipt
+   */
+  receipt?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Reportsha256
+   */
+  reportSha256: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runtimepolicy
+   */
+  runtimePolicy: string;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcestatuscounts
+   */
+  sourceStatusCounts?: {
+    [key: string]: number;
+  };
+  /**
+   * State
+   */
+  state:
+    | 'preparing'
+    | 'prepared'
+    | 'frozen'
+    | 'queued'
+    | 'running'
+    | 'cancel_requested'
+    | 'cancelled'
+    | 'failed'
+    | 'completed';
+  /**
+   * Targetcount
+   */
+  targetCount: number;
+};
+
+/**
+ * GridReinferenceResume
+ */
+export type GridReinferenceResume = {
+  /**
+   * Expectedphase
+   */
+  expectedPhase: 'prepare' | 'infer';
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridReinferenceSelector
+ */
+export type GridReinferenceSelector = {
+  /**
+   * Categories
+   */
+  categories?: Array<
+    'grid_issue' | 'deferred' | 'unconfirmed' | 'all_automatic'
+  >;
+  /**
+   * Importjobids
+   */
+  importJobIds?: Array<string>;
+  /**
+   * Sequenceend
+   */
+  sequenceEnd?: number | null;
+  /**
+   * Sequencestart
+   */
+  sequenceStart?: number | null;
+};
+
+/**
+ * GridReinferenceStart
+ */
+export type GridReinferenceStart = {
+  /**
+   * Broadscopeconfirmed
+   */
+  broadScopeConfirmed?: boolean;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridReinferenceTargetPage
+ */
+export type GridReinferenceTargetPage = {
+  /**
+   * Items
+   */
+  items: Array<GridReinferenceTargetResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridReinferenceTargetResponse
+ */
+export type GridReinferenceTargetResponse = {
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Outcome
+   */
+  outcome: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Result
+   */
+  result: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Snapshot
+   */
+  snapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
+};
+
+/**
  * GridShadowJobCreate
  */
 export type GridShadowJobCreate = {
@@ -10152,7 +10476,8 @@ export type JobResponse = {
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
     | PendingSymbolReinferenceJobPayload
-    | PendingGridReinferenceJobPayload;
+    | PendingGridReinferenceJobPayload
+    | GridReinferenceJobPayload;
   jobType: JobType;
   /**
    * Leaseexpiresat
@@ -28423,6 +28748,347 @@ export type GetImageGeometryLowQualityBoardsResponses = {
 
 export type GetImageGeometryLowQualityBoardsResponse =
   GetImageGeometryLowQualityBoardsResponses[keyof GetImageGeometryLowQualityBoardsResponses];
+
+export type GetGridReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}';
+};
+
+export type GetGridReinferenceErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridReinferenceError =
+  GetGridReinferenceErrors[keyof GetGridReinferenceErrors];
+
+export type GetGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type GetGridReinferenceResponse =
+  GetGridReinferenceResponses[keyof GetGridReinferenceResponses];
+
+export type CancelGridReinferenceData = {
+  body: GridReinferenceCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/cancel';
+};
+
+export type CancelGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridReinferenceError =
+  CancelGridReinferenceErrors[keyof CancelGridReinferenceErrors];
+
+export type CancelGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type CancelGridReinferenceResponse =
+  CancelGridReinferenceResponses[keyof CancelGridReinferenceResponses];
+
+export type FreezeGridReinferenceData = {
+  body: GridReinferenceFreeze;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/freeze';
+};
+
+export type FreezeGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FreezeGridReinferenceError =
+  FreezeGridReinferenceErrors[keyof FreezeGridReinferenceErrors];
+
+export type FreezeGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type FreezeGridReinferenceResponse =
+  FreezeGridReinferenceResponses[keyof FreezeGridReinferenceResponses];
+
+export type AcknowledgeGridReinferencePilotData = {
+  body: GridReinferencePilotAck;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/pilot-ack';
+};
+
+export type AcknowledgeGridReinferencePilotErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AcknowledgeGridReinferencePilotError =
+  AcknowledgeGridReinferencePilotErrors[keyof AcknowledgeGridReinferencePilotErrors];
+
+export type AcknowledgeGridReinferencePilotResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type AcknowledgeGridReinferencePilotResponse =
+  AcknowledgeGridReinferencePilotResponses[keyof AcknowledgeGridReinferencePilotResponses];
+
+export type ResumeGridReinferenceData = {
+  body: GridReinferenceResume;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/resume';
+};
+
+export type ResumeGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridReinferenceError =
+  ResumeGridReinferenceErrors[keyof ResumeGridReinferenceErrors];
+
+export type ResumeGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type ResumeGridReinferenceResponse =
+  ResumeGridReinferenceResponses[keyof ResumeGridReinferenceResponses];
+
+export type StartGridReinferenceData = {
+  body: GridReinferenceStart;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/start';
+};
+
+export type StartGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartGridReinferenceError =
+  StartGridReinferenceErrors[keyof StartGridReinferenceErrors];
+
+export type StartGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type StartGridReinferenceResponse =
+  StartGridReinferenceResponses[keyof StartGridReinferenceResponses];
+
+export type GetGridReinferenceTargetsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/targets';
+};
+
+export type GetGridReinferenceTargetsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridReinferenceTargetsError =
+  GetGridReinferenceTargetsErrors[keyof GetGridReinferenceTargetsErrors];
+
+export type GetGridReinferenceTargetsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceTargetPage;
+};
+
+export type GetGridReinferenceTargetsResponse =
+  GetGridReinferenceTargetsResponses[keyof GetGridReinferenceTargetsResponses];
+
+export type PrepareGridReinferenceData = {
+  body: GridReinferencePrepare;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare';
+};
+
+export type PrepareGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridReinferenceError =
+  PrepareGridReinferenceErrors[keyof PrepareGridReinferenceErrors];
+
+export type PrepareGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type PrepareGridReinferenceResponse =
+  PrepareGridReinferenceResponses[keyof PrepareGridReinferenceResponses];
 
 export type PreviewPendingGridReinferenceData = {
   body?: never;

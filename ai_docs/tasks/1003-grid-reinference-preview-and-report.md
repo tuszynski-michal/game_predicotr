@@ -60,6 +60,15 @@ Task jest częścią zaakceptowanej rewizji 6. Podgląd zakresu i raport operacj
 
 Oddzielne liczby zdjęć, slotów, plansz i komórek; domyślny zakres, pilot do 100, jawny szeroki wybór, postęp i wznowienie. Raport rozróżnia propozycje, automatyczne zapisy, ochronę, brak zmiany i konflikty.
 
+Doprecyzowanie kontraktu TASK-0999/D-551 przed implementacją tego UI:
+`HTTP 409` oznacza nieaktualną komendę, revision lub manifest, a późniejsza
+zmiana konkretnego celu daje wynik `conflict` w raporcie. Start nie wykonuje
+pozornego atomowego skanu wszystkich żywych celów. UI rozdziela
+`membershipCapturedAt` i okno przygotowania manifestu oraz jawne freeze,
+potwierdzenie raportu pilota i start. Generic retry nie zastępuje jawnego
+startu ani potwierdzenia szerszego zakresu. Aktualny model historyczny może
+działać bez nowego treningu; brak zmiany i propozycja nie są naprawą.
+
 Chronione zachowanie: deterministyczna `sequence_number`, brak obcego przypisania symboli, ochrona ręcznych decyzji i danych kanonicznych. Nowe encje wymagają Alembic; zmiana API obejmuje OpenAPI, wygenerowany klient, wrapper i test żądania. Publikacja, aktywacja i rzeczywisty run pozostają odrębnymi operacjami. Szczegółowe kontrakty, źródła prawdy i błędy obowiązują z sekcji 2 i 4 planu; wyników jakości nie domniemywać.
 
 ## Expected files

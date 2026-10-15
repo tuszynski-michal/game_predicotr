@@ -263,6 +263,15 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 "The game gained protected geometry shadow history.",
                 details={"blockers": ["GRID_SHADOW_HISTORY_PRESENT"]},
             )
+        from game_predictor_api.storage.grid_reinference_retention import detach_grid_source_links
+
+        source_ids = tuple(
+            self._session.scalars(
+                text("SELECT id FROM source_images WHERE game_id=:game"),
+                {"game": snapshot.target_id},
+            )
+        )
+        detach_grid_source_links(self._session, snapshot.target_id, source_ids)
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
@@ -614,8 +623,16 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return blockers
 
     def _board_source_warnings(self, scope: _BoardSourceScope) -> list[str]:
+        from game_predictor_api.storage.grid_reinference_retention import (
+            retained_grid_source_link_count,
+        )
+
+        retained = retained_grid_source_link_count(self._session, scope.game_id, scope.source_ids)
+        history = (
+            ["GRID_REINFERENCE_HISTORY_RETAINED_LIVE_SOURCE_LINKS_DETACHED"] if retained else []
+        )
         if scope.active_model_survives:
-            return []
+            return history
         exclusion = "AND id NOT IN :model_ids" if scope.model_ids else ""
         candidate_parameters: dict[str, object] = {"game_id": scope.game_id}
         if scope.model_ids:
@@ -629,8 +646,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             **candidate_parameters,
         )
         if surviving_candidate_count:
-            return ["SYMBOL_MODEL_ACTIVATION_REQUIRED"]
-        return ["SYMBOL_MODEL_BOOTSTRAP_AVAILABLE"]
+            return [*history, "SYMBOL_MODEL_ACTIVATION_REQUIRED"]
+        return [*history, "SYMBOL_MODEL_BOOTSTRAP_AVAILABLE"]
 
     @staticmethod
     def _board_source_counts(scope: _BoardSourceScope) -> tuple[CleanupCount, ...]:
@@ -888,6 +905,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "DELETE FROM image_source_geometry_revisions WHERE id IN :source_geometry_ids",
             source_geometry_ids=scope.source_geometry_ids,
         )
+        from game_predictor_api.storage.grid_reinference_retention import detach_grid_source_links
+
+        detach_grid_source_links(self._session, scope.game_id, scope.source_ids)
         self._delete(
             "DELETE FROM source_images WHERE id IN :source_ids", source_ids=scope.source_ids
         )
@@ -1165,6 +1185,11 @@ SELECT
   (SELECT count(DISTINCT mobile_release_id) FROM mobile_release_games
     WHERE game_id = :game_id) AS mobile_releases,
   (SELECT count(*) FROM review_batches WHERE game_id = :game_id) AS review_batches,
+  (SELECT count(*) FROM grid_reinference_sources WHERE game_id = :game_id)
+    AS grid_reinference_history_preserved,
+  (SELECT count(*) FROM grid_reinference_sources
+    WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
+    AS grid_reinference_links_detached,
   (SELECT count(*) FROM jobs WHERE game_id = :game_id) AS jobs_preserved
 """
 

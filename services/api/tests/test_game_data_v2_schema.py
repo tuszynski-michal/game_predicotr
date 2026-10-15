@@ -41,6 +41,8 @@ from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as
 from game_predictor_api.storage.game_data_v2_manifest_v11 import (
     ADDED_CATALOG,
     ADDED_SHARED,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v12 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -83,13 +85,13 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v11"
+    assert VERSION == "game-data-v2-manifest-v12"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
     assert len(V6_GAME_TABLES) == 68
     assert len(V7_GAME_TABLES) == 70
-    assert len(GAME_TABLES) == 73
+    assert len(GAME_TABLES) == 76
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
@@ -100,6 +102,9 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "image_board_geometry_pending_events",
         "image_geometry_correction_reverts",
         *ADDED_GAME_TABLES,
+        "grid_reinference_operations",
+        "grid_reinference_sources",
+        "grid_reinference_targets",
     }
     # TASK-0933: v6 is v5 plus exactly the four super game series tables.
     assert set(V6_GAME_TABLES) - set(V5_GAME_TABLES) == {
@@ -114,7 +119,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "image_board_geometry_pending_events",
         "image_geometry_correction_reverts",
     }
-    assert set(GAME_TABLES) - set(V7_GAME_TABLES) == set(ADDED_GAME_TABLES)
+    assert set(V8_GAME_TABLES) - set(V7_GAME_TABLES) == set(ADDED_GAME_TABLES)
     assert {ownership(name) for name in ADDED_GAME_TABLES} == {"game"}
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES
@@ -159,7 +164,7 @@ def test_registry_ownership_is_public_control_without_changing_frozen_v8() -> No
     } == V9_CATALOG
     assert {ownership(name) for name in V9_SHARED} == {"shared"}
     assert {ownership(name) for name in V9_CATALOG} == {"catalog"}
-    assert GAME_TABLES == V8_GAME_TABLES
+    assert set(V8_GAME_TABLES) <= set(GAME_TABLES)
     for name in V9_CATALOG | V9_SHARED:
         table = Base.metadata.tables[f"public.{name}"]
         assert table.schema == "public"

@@ -36,6 +36,7 @@ Task jest częścią zaakceptowanej rewizji 6. Decyzje człowieka i rewizje prop
 - [CURRENT_STATE](../process/CURRENT_STATE.md)
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md) — sekcje 2–5, właściwy opis taska w sekcji 6 i tabela modeli w sekcji 8.
 - [API_CONTRACT](../architecture/API_CONTRACT.md).
+- [D-551](../process/decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) — accepted przed TASK-0999; trwały wynik modelu i świadome przyjęcie propozycji.
 - Zakres odczytu uzupełniający z planu: D-462/D-543, API_CONTRACT, schemat propozycji z sekcji 4.
 
 - [D-462](../process/decisions/DECISION_LOG_2026.md#d-462--weryfikacja-per-komórka-bez-zatwierdzania-planszy-i-siatki) — właściwy pełny wpis; odczyt tylko decyzji wskazanych dla tego taska.
@@ -64,6 +65,30 @@ Task jest częścią zaakceptowanej rewizji 6. Decyzje człowieka i rewizje prop
 ## Technical notes
 
 Wdrożyć tabele propozycji i zdarzeń. Reviewer pokazuje porównanie, przyjęcie, edycję i odrzucenie. Przyjęcie korzysta z `VirtualGridGeometryService.save_review_item`, a nie z usługi samych liczników.
+
+Doprecyzowanie przed implementacją zależnego pionu (2026-10-15): źródłem
+propozycji jest trwały wynik `proposal_ready` TASK-0999, wskazany przez unikalny
+`targetResultId`. Nie wykonujemy kolejnej inferencji. Dokładny schemat wyniku
+i jego fences należy sprawdzić dopiero w ukończonym TASK-0999; kontrakt
+przyszłego taska nie dowodzi istnienia implementacji.
+
+Przyjęcie sprawdza aktualność zgłoszenia i właściwych decyzji komórek oraz
+źródła, pikseli, geometrii i właściciela. Sam CAS geometrii/rozwiązania nie
+zastępuje kontroli zgłoszenia. Zapis korekty i zdarzenia przyjęcia należy
+skomponować w tej samej sesji i transakcji istniejącej ręcznej ścieżki;
+wyjątek nie może pozostawić zastosowanej korekty bez zdarzenia albo odwrotnie.
+Autor pochodzi z istniejącego zaufanego kontekstu `authorize`, nie z body.
+Odrzucenie nie zamyka zgłoszenia, a edycja propozycji zachowuje dotychczasowy
+workflow edytora czterech rogów i dokładnej korekty.
+
+Zachować zgodność cleanup ustaloną w D-551/TASK-0999. Nowe propozycje i zdarzenia
+nie mogą ponownie blokować usunięcia zdjęcia przez FK do żywego źródła/review.
+Niezmienny wynik0999 i jego zamrożona tożsamość pozostają dowodem; odłączona
+referencja live albo brak aktualnego źródła wyklucza przyjęcie i odtworzenie
+danych. Sprawdzić wszystkie cztery wejścia usuwania źródeł: wybrane zakresy,
+superseded import, browser staging retention i layout-data reset. Reset
+zachowuje joby i historię operacji; usunięcie całej gry przez lifecycle ma
+odrębny zakres. Regresja propozycji po usunięciu źródła jest obowiązkowa.
 
 Chronione zachowanie: deterministyczna `sequence_number`, brak obcego przypisania symboli, ochrona ręcznych decyzji i danych kanonicznych. Nowe encje wymagają Alembic; zmiana API obejmuje OpenAPI, wygenerowany klient, wrapper i test żądania. Publikacja, aktywacja i rzeczywisty run pozostają odrębnymi operacjami. Szczegółowe kontrakty, źródła prawdy i błędy obowiązują z sekcji 2 i 4 planu; wyników jakości nie domniemywać.
 

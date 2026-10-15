@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import { cleanupCountLabel } from './cleanup-labels';
 
 type BoardSourceCleanupClient = Pick<
   AdminApiClient,
@@ -37,6 +38,11 @@ function parseSequenceNumbers(value: string): number[] | null {
 }
 
 function warningMessage(warning: string): string {
+  if (
+    warning === 'GRID_REINFERENCE_HISTORY_RETAINED_LIVE_SOURCE_LINKS_DETACHED'
+  ) {
+    return 'Wyniki ponownego rozpoznania zostaną zachowane. Usuwane zdjęcia zostaną od nich odłączone.';
+  }
   if (warning === 'SYMBOL_MODEL_ACTIVATION_REQUIRED') {
     return 'Niezależny model kandydacki pozostanie w bazie. Przed kolejnym importem trzeba go ręcznie aktywować.';
   }
@@ -218,7 +224,7 @@ export function BoardSourceCleanupControl({
                 .filter((entry) => entry.count > 0)
                 .map((entry) => (
                   <div key={entry.name}>
-                    <dt>{entry.name}</dt>
+                    <dt>{cleanupCountLabel(entry.name)}</dt>
                     <dd>{entry.count.toLocaleString('pl-PL')}</dd>
                   </div>
                 ))}
@@ -227,7 +233,7 @@ export function BoardSourceCleanupControl({
 
           {preview.warnings.length > 0 ? (
             <div className="cleanupWarnings" role="status">
-              <strong>Wpływ na model symboli</strong>
+              <strong>Skutki usunięcia</strong>
               <ul>
                 {preview.warnings.map((warning) => (
                   <li key={warning}>{warningMessage(warning)}</li>

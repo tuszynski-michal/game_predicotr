@@ -1005,6 +1005,7 @@ class VirtualGridGeometryService:
         actor: str,
         require_complete_source: bool = True,
         predict: bool = True,
+        automatic: bool = False,
     ) -> tuple[
         PreparedVirtualGridGeometrySource,
         dict[UUID, tuple[VirtualCellRender, ...]],
@@ -1110,16 +1111,20 @@ class VirtualGridGeometryService:
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
                 "Manual source geometry requires every active source slot in row-major order.",
             )
-        if not require_complete_source and (
-            len(prepared_inputs) != 1
-            or prepared_inputs[0][0].pending_geometry_id is None
-            or prepared_inputs[0][0].review_item_id is not None
+        if (
+            not require_complete_source
+            and not automatic
+            and (
+                len(prepared_inputs) != 1
+                or prepared_inputs[0][0].pending_geometry_id is None
+                or prepared_inputs[0][0].review_item_id is not None
+            )
         ):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
                 "A partial source correction may contain only one deferred slot.",
             )
-        return self._render_source_entries(prepared_inputs, predict=predict)
+        return self._render_source_entries(prepared_inputs, predict=predict, automatic=automatic)
 
     def prepare_legacy_conversion(
         self,
@@ -1184,6 +1189,7 @@ class VirtualGridGeometryService:
         ],
         *,
         predict: bool,
+        automatic: bool = False,
     ) -> tuple[
         PreparedVirtualGridGeometrySource,
         dict[UUID, tuple[VirtualCellRender, ...]],
@@ -1235,8 +1241,12 @@ class VirtualGridGeometryService:
                     topology=context.topology,
                     topology_rules_version_id=context.topology_rules_version_id,
                     geometry_revision=context.next_geometry_revision,
-                    geometry_version=VIRTUAL_MANUAL_GEOMETRY_VERSION,
-                    engine_kind=GeometryEngineKind.MANUAL_V1,
+                    geometry_version="grid-reinference-v1"
+                    if automatic
+                    else VIRTUAL_MANUAL_GEOMETRY_VERSION,
+                    engine_kind=GeometryEngineKind.NEURAL_GRID_V1
+                    if automatic
+                    else GeometryEngineKind.MANUAL_V1,
                     symbol_grid_quad=quad,
                     lattice_nodes=command.lattice_nodes,
                     geometry_qualification=command.geometry_qualification,
@@ -1274,13 +1284,23 @@ class VirtualGridGeometryService:
                 for context, command, _quad in prepared_inputs
             },
         )
+        if automatic:
+            positions = {context.position_index for context, _command, _quad in prepared_inputs}
+            board_geometries = tuple(
+                {**value, "geometrySource": "auto"} if index in positions else value
+                for index, value in enumerate(board_geometries)
+            )
         source_geometry_checksum = hashlib.sha256(
             canonical_json_bytes(
                 {
                     "activeBoardSlots": list(base_context.active_board_slots),
                     "boardGeometries": list(board_geometries),
-                    "engineKind": GeometryEngineKind.MANUAL_V1.value,
-                    "engineVersion": VIRTUAL_MANUAL_GEOMETRY_VERSION,
+                    "engineKind": GeometryEngineKind.NEURAL_GRID_V1.value
+                    if automatic
+                    else GeometryEngineKind.MANUAL_V1.value,
+                    "engineVersion": "grid-reinference-v1"
+                    if automatic
+                    else VIRTUAL_MANUAL_GEOMETRY_VERSION,
                     "previousSourceGeometryRevisionId": str(
                         base_context.source_geometry_revision_id
                     ),

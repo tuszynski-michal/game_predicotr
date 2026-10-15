@@ -3882,6 +3882,101 @@ równoległa decyzja człowieka jest raportowana jako pominięta, a nie jako bł
 Niepełna geometria trafia do licznika `needsManualGeometry` bez częściowych
 cropów.
 
+### Wybrana reinferencja V3 (TASK-0999, D-551)
+
+Nowy kontrakt schema v3 działa obok historycznego payloadu v2. Wszystkie
+ścieżki poniżej mają prefix `/api/v1/admin/image-review-items`:
+
+```text
+POST /grid-reinference/{gameId}/prepare
+GET  /grid-reinference/{gameId}/operations/{operationId}
+GET  /grid-reinference/{gameId}/operations/{operationId}/targets
+POST /grid-reinference/{gameId}/operations/{operationId}/freeze
+POST /grid-reinference/{gameId}/operations/{operationId}/pilot-ack
+POST /grid-reinference/{gameId}/operations/{operationId}/start
+POST /grid-reinference/{gameId}/operations/{operationId}/resume
+POST /grid-reinference/{gameId}/operations/{operationId}/cancel
+```
+
+Prepare przyjmuje `idempotencyKey`, zamknięty `selector`, opcjonalne
+`modelVersionId` i `executionScope: pilot | broader` (domyślnie pilot).
+Selector ma `categories` (domyślnie `grid_issue`, `deferred`; `unconfirmed`
+i `all_automatic` są osobnymi opt-in), `importJobIds` do 100 oraz opcjonalne
+obydwie granice `sequenceStart`/`sequenceEnd`. Pilot zamraża do 100 wystąpień
+zdjęć. Current przypina istniejące przypisanie modelu, także historyczne
+unpublished; jawnie inna wersja wymaga publikacji i eligibility tej gry.
+Nie ma treningu, publikacji ani aktywacji modelu. Kod gry `7` jest wykluczony.
+
+Jeden trwały job `image_grid_reinference` (`inference_kind=grid-reinference-v1`)
+przechodzi przygotowanie, `waiting_for_review` bez lease, jawny freeze i start
+oraz fazę infer. Przygotowanie utrwala membership pojedynczym INSERT SELECT
+snapshot, a następnie strony po 100 źródeł i selektory każdego celu. Preview
+pokazuje czas capture oraz przygotowania; nie jest atomowym snapshotem całej
+gry. Finalny manifest SHA i model/polityki są niezmienne. Targets mają stabilny
+kursor `operation:manifestSHA:ordinal`, limit 1–100. Odpowiedź operacji zawiera
+fazę, stan, rewizję, job/operation ID, manifest/report SHA, liczniki oraz receipt.
+
+Każda mutacja wymaga UUID idempotency key; kolejne komendy również
+`expectedRevision`. Freeze/start wymagają finalnego `manifestSha256`. Klucze
+mają namespace prepare per gra oraz rodzaj komendy per operacja. Ten sam
+klucz z identycznym payloadem odtwarza receipt po utracie odpowiedzi; inny
+payload daje 409. Broader tworzy świeży manifest i wymaga `pilotOperationId`,
+`pilotReportSha256`, zgodnego podpisu zakresu/modelu/polityk oraz jawnego
+`broadScopeConfirmed=true`. Potwierdzenie raportu pilota przypina aktora;
+nie jest PASS jakości modelu. Resume przyjmuje `expectedPhase` i wraca do
+już autoryzowanej fazy; generic retry nie zastępuje jawnego startu.
+
+Start 409 obejmuje konflikt rewizji/SHA, modelu/przypisania, admission albo
+brak wymaganych potwierdzeń. Późniejsza zmiana celu daje trwały wynik conflict
+tego celu; nie zmienia zakresu. Gate admission obejmuje oba kierunki startu
+geometrii i symboli oraz retry/recovery; created/processing, także cancellation
+processing, są aktywne. Oczekiwanie na człowieka bez lease nie blokuje gate.
+
+Wspólna kolizja geometrii/importu/symboli ma neutralny kod
+`GAME_JOB_ADMISSION_CONFLICT`. Nowe enqueue/API start/retry/resume sprawdzają
+CREATED i PROCESSING. Claim/recovery już opublikowanego joba sprawdza tylko
+PROCESSING innych ID. Worker rozpatruje najwyżej 100 kandydatów według
+priorytetu/created_at/ID; każdy ma osobną krótką session/transakcję i binding
+RLS gry. Nieblokujący mutex admission poprzedza job row lock; SKIP LOCKED oraz
+kodowane warningi pozwalają przejść do kolejnego kandydata. Globalna unikalność
+slotu wykonania nadal obowiązuje. START_REQUIRED dla uszkodzonego nowego joba
+nie uruchamia inference: queued albo rzeczywiście expired PROCESSING otrzymuje
+FAILED oraz executionQuarantine, ze zwolnionym lease/slotem i zachowanymi
+frozen dowodami. Cancel ma pierwszeństwo i daje CANCELLED. Kwarantanna wymaga
+udowodnionego braku jawnego startu, nigdy zwykłej kolizji lub row lock; blokuje
+generic retry/resume także fazy prepare. Naprawa wymaga nowej jawnej operacji
+freeze/start. Trwałe wyłączenie takich rekordów zapobiega zatorowi za limitem
+100 bez nowej kolejki ani tabeli. Aktywny lease nie może być kwarantannowany.
+
+Anulowanie processing jest potwierdzane istniejącym cancellation checkpoint
+na granicach capture/stron prepare/źródeł infer oraz w heartbeat kontrolowanego
+runnera. Potwierdzenie zamyka runner, zachowuje ukończone receipts/cursor/piny
+i zatrzymuje dalsze zapisy; resume kontynuuje tę samą autoryzowaną fazę.
+Fingerprinty owner/pending zawierają jawne pola domenowe, nie operacyjne
+updated_at/counters. Obcy żywy pending bez canonical daje protected/conflict
+przed mutacją. Cancel dla failed zwraca GRID_REINFERENCE_PHASE_CONFLICT.
+
+Inference deduplikuje plik/model/politykę, a binding i sequence pozostają osobne
+per occurrence import/source/file execution. Runtime CPU korzysta z jednego
+kontrolowanego runnera; wersjonowany limit 30 s na źródło daje jawny timeout,
+nie obietnicę wydajności. Jeden source transaction zapisuje wyłącznie wybrane
+niechronione automatic cele, wybrane projekcje, provenance, receipts i postęp.
+Nie przejmuje obcego kanonu, nie zatwierdza danych człowieka i nie zamyka
+`grid_issue`: wynik `proposal_ready` jest trwałym wejściem TASK-1013.
+
+Oddzielny finalizer przypiętej `v3-engine-acceptance-v1` kwalifikuje wszystkie
+aktywne pozycje przez pure D-550. Pełne zgodne źródło otrzymuje `accepted`;
+subset/mixed bindings/partial/issue/conflict pozostawia `needs_review` oraz
+konkretne blockers w receipt. Żaden status nie oznacza human approval.
+Recompute ma `materialize=False`; niewybrane pointers i decyzje są zachowane.
+
+Frozen identyfikator źródła i wyniki pozostają w trzech tabelach game-owned
+po jawnym usunięciu zdjęcia/importu lub layout-data resecie. Cleanup odpina
+oddzielny nullable live link w tej samej transakcji, z preview i dotychczasowymi
+guardami. Nie zmienia manifest SHA ani raportu i nie podłącza linku ponownie.
+Resume bez źródła daje `source_missing` i nie odtwarza danych. Pełne usunięcie
+gry korzysta z osobnego lifecycle.
+
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
 ani nie zmienia modelu. `POST` przyjmuje wyłącznie `createdBy`, `gameId` i

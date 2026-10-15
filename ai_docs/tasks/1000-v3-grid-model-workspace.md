@@ -32,6 +32,8 @@ Task jest częścią zaakceptowanej rewizji 6. Integracja gotowych funkcji panel
 
 ## Relevant docs
 
+- [Audyt TASK-1011](../quality/TASK-1011_AUDIT_claude-fable-5-1.md), P2-4: przed odbiorem całego planu zastąpić techniczne reasonCode/eligibilityReasonCode zrozumiałymi etykietami i fallbackiem w pełnym panelu/shared summary. Zachować odrębność dostępności i aktualności dowodu; kod nie jest samodzielną oceną jakości.
+
 - `AGENTS.md`
 - [CURRENT_STATE](../process/CURRENT_STATE.md)
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md) — sekcje 2–5, właściwy opis taska w sekcji 6 i tabela modeli w sekcji 8.

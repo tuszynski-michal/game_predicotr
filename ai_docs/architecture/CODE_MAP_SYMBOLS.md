@@ -750,6 +750,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/games/game-catalog-actions.ts: GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity, ArchiveGameResult, archiveGameIdentity, restoreGameIdentity
 - features/games/game-catalog-state.ts: GameDraft, ValidatedGameDraft, EMPTY_GAME_DRAFT, FALLBACK_SUPER_GAME_KINDS, superGameKindOptions, superGameKindLabel, GAME_STATUS_LABELS, GAME_STATUS_FILTERS, GAME_STATUS_FILTER_LABELS, SHAPE_GEOMETRY_CONFIGURATION_LABELS, GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS, GRID_ENGINE_MODEL_STATUS_LABELS, isGridEngineProfileConfiguration, usesNeuralGridConfiguration, findGridEngineProfile, shapeGeometryConfigurationLabel, gridEngineModelSummary, SHAPE_GEOMETRY_READINESS_LABELS, GameStatusCounts, countGamesByStatus, filterGamesByStatus, validateGameDraft, upsertGame, markGameArchived
 - features/games/game-catalog.tsx: GameCatalog
+- features/games/grid-model-assignment-summary.tsx: GridModelAssignmentSummary
 - features/games/new-game-create-command.ts: gameCreateStorageKey, gameCreateCommand, readPendingGameCreate, reserveGameCreate, pendingGameDraft, archivePendingCommand
 - features/games/new-game-geometry-settings.tsx: NewGameGeometrySettings
 - features/games/pending-command-recovery.tsx: PendingCommandRecovery

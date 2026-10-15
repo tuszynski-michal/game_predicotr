@@ -55,7 +55,7 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | MODEL-03 | Zła siatka → Korekta cięcia siatki | Kolejka korekty, odroczone geometrie i diagnostyka zdjęć w jednym miejscu. Zmieniamy cięcie tylko przy błędzie pikseli. Dobrze wycięty zły symbol poprawiamy bez ruszania siatki. | działa / diagnostyka przeniesiona | D-525, TASK-0890, instrukcja |
 | MODEL-04 | Weryfikacja symbolu na planszy | Zachować jako wyjątek dla nieczytelnych pojedynczych cropów. To nie obowiązkowe zatwierdzanie wszystkich plansz. | działa | do przeglądu położenia |
 | MODEL-05 | Jakość rozpoznawania → Ulepsz rozpoznawanie | Zachować wspólną pulę zatwierdzeń z wielu uploadów, trening kandydata, raport, osobną aktywację i przeliczenie pending. | działa | istniejący pion uczenia |
-| MODEL-06 | Ulepsz cięcie siatki | Zastąpić klasyczny panel doszkalaniem V3: korekty 4/24, kohorta z brakami pokrycia, trwały trening, ocena, aktywacja i ponowne rozpoznanie wybranych slotów. Domyślnie zgłoszone błędne siatki i odroczone sloty z pierwszą próbą do 100 zdjęć; wszystkie automatyczne wymagają opt-in. Archiwalna 777 zachowuje tylko odczyt klasycznego profilu. | wymaganie użytkownika 2026-10-14; plan accepted, rewizja 6; cały zakres i koszt zlecone 2026-10-14 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-0993–1016 (bez TASK-1007) |
+| MODEL-06 | Ulepsz cięcie siatki | Zastąpić klasyczny panel doszkalaniem V3: korekty 4/24, kohorta z brakami pokrycia, trwały trening, ocena, aktywacja i ponowne rozpoznanie wybranych slotów. Domyślnie zgłoszone błędne siatki i odroczone sloty z pierwszą próbą do 100 zdjęć; wszystkie automatyczne wymagają opt-in. TASK-1011 zastępuje klasyczny panel V3 odczytem przypisanej wersji; pełny trening V3 pozostaje w TASK-1000. Archiwalna 777 zachowuje dotychczasowy panel i raporty; edycja historycznych wartości jest chroniona. | wymaganie użytkownika 2026-10-14; plan accepted, rewizja 6; cały zakres i koszt zlecone 2026-10-14 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-0993–1016 (bez TASK-1007) |
 | MODEL-07 | Różne foldery z różnych filmów | Trwałe nagrania, aliasy i niezależne role kontroli, także w linii bazowych/wspólnych modeli. Nazwa folderu nie dowodzi niezależnego filmu. | potrzebne; plan accepted, rewizja 6 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-1002/0995 |
 | MODEL-08 | Złota ramka i supergra Mumii | Oddzielić bazowy symbol, flagę złotej ramki i symbol wybrany na serię darmowych gier. Ręczny wybór symbolu serii po ≥3 mumiach jest kierunkiem użytkownika; licznik/retrigger wymagają osobnego dopracowania. | potrzebne, poza dzisiejszym zakresem | osobny plan |
 | MODEL-09 | Osobne Laboratorium w głównej aplikacji | Zakładka dla rodzin modeli i przypisanych gier: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Zgodne gry mogą wspólnie dostarczać zatwierdzenia. Udany trening zapisuje kandydata w głównej bazie. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526, D-527; osobny pion integracji |
@@ -104,7 +104,7 @@ katalogu modeli, wspólnego buildera kohort ani migracji.
 
 | Ekran | Co jest potrzebne / co przejrzeć | Status |
 | --- | --- | --- |
-| Zarządzanie grami | Tożsamość gry, profil V3/V1.1, statusy. Karta Mumii nadal pokazuje gotowość klasycznej wspólnej geometrii i tekst o pierwszej ręcznej korekcie; docelowo oddzielić ten stan od gotowości sieci. | zachować; poprawka prezentacji do przeglądu |
+| Zarządzanie grami | Tożsamość gry, profil V3/V1.1, statusy. Karty V3 pokazują przypisaną wersję, dostępność artefaktów i nieaktualny dowód osobno; preflight pozostaje bramką importu. Klasyczna gotowość i raporty pozostają dla legacy, z wyjątkiem kodu7 przed konfiguracją. | TASK-1011: implementacja, oczekuje audytu |
 | Wyszukaj plansze | Zachować wyszukiwanie po symbolach, sekwencji i wybór źródła; przejrzeć położenie względem weryfikacji. | działa / do przeglądu |
 | Reguły | Zachować wymiary, linie wypłat, payouty i wersjonowanie. Oddzielić konfigurację zasad od procesu uczenia. | działa / do przeglądu |
 | Joby | Zachować postęp, błąd, wznowienie. Propozycja: czytelny stan w głównym przepływie i techniczne szczegóły tutaj. | do przeglądu układu |
@@ -113,6 +113,8 @@ katalogu modeli, wspólnego buildera kohort ani migracji.
 | Pamięć i czyszczenie | Zachować raport, preview, retencję i zgodę. Oddzielić dane treningowe/model od odtwarzalnych wyników i baz testowych. | potrzebne |
 | Wersje Android | Poza bieżącym importem i modelem; przejrzeć po ukończeniu ekranów operatora. | poza tym etapem |
 | Laboratorium na 3102 | Środowisko eksperymentów. Docelowo osobna zakładka w głównej aplikacji zgodnie z MODEL-09; zapisane kandydaty i ich raporty należą do głównej bazy. | integracja wymagana; jeszcze niewdrożona |
+
+Pozostałości poza zakresem TASK-1011: statyczne opisy `GridEngineProfileHint` i `GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS` pozostają dla historycznego odczytu i edycji. Ich dalsze usuwanie lub przebudowa wymaga osobnej decyzji operatora. Formularz create/V3 edit bez pickera jest już wynikiem TASK-1004; TASK-1011 zachowuje tę regresję.
 
 ## Oddzielny panel weryfikacji online — kierunek użytkownika
 

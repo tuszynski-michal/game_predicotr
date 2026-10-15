@@ -574,6 +574,10 @@ export function CatalogWorkspace({
                           <ModelQualityWorkspace
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            gameCode={activeGame.code}
+                            shapeGeometryConfiguration={
+                              activeGame.shapeGeometryConfiguration
+                            }
                             key={activeGame.id}
                           />
                         ) : null}

@@ -51,6 +51,7 @@ import {
 } from '@/features/games/game-catalog-state';
 import { PendingCommandRecovery } from './pending-command-recovery';
 import { NewGameGeometrySettings } from './new-game-geometry-settings';
+import { GridModelAssignmentSummary } from './grid-model-assignment-summary';
 import {
   gameCreateCommand,
   gameCreateStorageKey,
@@ -528,6 +529,8 @@ export function GameCatalog({
               <div className="gamesList">
                 {visibleGames.map((game) => (
                   <GameRow
+                    api={api}
+                    apiBaseUrl={apiBaseUrl}
                     archivePending={archivingId === game.id}
                     confirmArchive={archiveCandidateId === game.id}
                     game={game}
@@ -837,6 +840,8 @@ function GridEngineProfileHint({
 }
 
 interface GameRowProps {
+  readonly api: GamesClient;
+  readonly apiBaseUrl: string;
   readonly archivePending: boolean;
   readonly confirmArchive: boolean;
   readonly game: GameResponse;
@@ -854,6 +859,8 @@ interface GameRowProps {
 }
 
 function GameRow({
+  api,
+  apiBaseUrl,
   archivePending,
   confirmArchive,
   game,
@@ -931,7 +938,11 @@ function GameRow({
           <small className="gamePageFormat">
             Format strony:{' '}
             {shapeGeometryConfigurationLabel(game.shapeGeometryConfiguration)}
-            {isGridEngineProfileConfiguration(game.shapeGeometryConfiguration)
+            {!usesNeuralGridConfiguration(
+              game.shapeGeometryConfiguration,
+              game.code,
+            ) &&
+            isGridEngineProfileConfiguration(game.shapeGeometryConfiguration)
               ? ` · profil silnika siatek${
                   gridEngineProfile
                     ? ` · ${gridEngineModelSummary(gridEngineProfile)}`
@@ -943,13 +954,26 @@ function GameRow({
             Supergra: {superGameKindLabel(superGameKinds, game.superGameKind)}
           </small>
           <small className="gameGeometryState">
-            Geometria: {SHAPE_GEOMETRY_READINESS_LABELS[readinessStatus]}
-            {readiness?.sharedProfile
-              ? ` · profil wspólny #${readiness.sharedProfile.profileNumber}`
-              : ''}
-            <br />
-            {readiness?.message ??
-              'Ustal format strony przed użyciem wspólnej geometrii.'}
+            {usesNeuralGridConfiguration(
+              game.shapeGeometryConfiguration,
+              game.code,
+            ) ? (
+              <GridModelAssignmentSummary
+                apiBaseUrl={apiBaseUrl}
+                client={api}
+                gameId={game.id}
+              />
+            ) : (
+              <>
+                Geometria: {SHAPE_GEOMETRY_READINESS_LABELS[readinessStatus]}
+                {readiness?.sharedProfile
+                  ? ` · profil wspólny #${readiness.sharedProfile.profileNumber}`
+                  : ''}
+                <br />
+                {readiness?.message ??
+                  'Ustal format strony przed użyciem wspólnej geometrii.'}
+              </>
+            )}
           </small>
         </div>
       </button>

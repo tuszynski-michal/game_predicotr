@@ -159,7 +159,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Akceptacja: lead przyjął konkretny kontrakt i zapisał D-549 przed kodem 2026-10-15; task, odpowiedni fragment planu i obie kopie decyzji ponownie odczytano. Dopiski widoczności formularza oraz neutralnego importu odczytano przed zależną zmianą UI.
 - Baza: v1.7.376 / `6d89d079502a128047cfcd183e420ef35382a78c`; branch `codex/v3-grid-fine-tuning`, worktree `D:/game_predicotr/worktrees/v3-grid-fine-tuning`.
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
-- Commit: przygotowany v1.7.377; pełny hash po utworzeniu. Bez scalenia i push. Audyt Claude high R2 PASS po jednej rundzie poprawek; R1 pozostaje historycznym REVISE.
+- Commit: v1.7.377 / `70058ee5b71ec6e7383d7038648bd5c0dc6a2ead`; zapis po utworzeniu commita, do następnego commita dokumentacyjnego. Bez scalenia i push. Audyt Claude high R2 PASS po jednej rundzie poprawek; R1 pozostaje historycznym REVISE.
 
 ### R1 audit and one correction round
 
@@ -189,7 +189,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Mypy worker/src+scripts502 pliki PASS. API397 plików ma wyłącznie dwa wcześniejsze błędy `schemas/source_lattice_geometry.py:36,38`, plik identyczny z bazowym HEAD. Pełna łączna komenda timeout100s nie jest PASS; własny PID43776 i potomkowie nie pozostali. Ograniczenie: `TASK-1004_R1_TYPECHECK_LIMITATION.json`. Bez napraw niezwiązanego kodu i bez deklaracji pełnej quality/build.
 - [Claude R2](../../quality/TASK-1004_AUDIT_claude-fable-5-1.md): PASS, high, limit1200s, wykonany2026-10-15. Wszystkie P1-1/2/3 i P2-1–5 z [R1](../../quality/TASK-1004_AUDIT_claude-fable-5-1_R1.md) zamknięte; raporty pozostają bez zmian. P2-7 uporządkowano tym rozdzieleniem wyników historycznych i końcowych.
 - P2-6 zaakceptowane ryzyko UX: walidacja przed repozytorium nie ma autorytatywnego dowodu braku rezerwacji, więc zachowuje pending zgodnie z D-549. Jawne potwierdzane archiwizowanie/porzucenie daje trwałą drogę odzyskania, bez ręcznego kasowania storage i bez usuwania możliwej rezerwacji. Dodatkowa walidacja pola może być osobnym ulepszeniem; po jednej rundzie poprawek nie rozszerzano kodu.
-- Manifesty/SHA, logi i receipts: `artifacts/audits/TASK-1004_CORRECTION_MANIFEST.json`, `TASK-1004_R2_SCOPE.json`, `TASK-1004_AUDIT_DISPOSITION.json`. Kontrole zamknięcia dokumentów i staged zostaną zapisane przez leada przed commitem.
+- Manifesty/SHA, logi i receipts: `artifacts/audits/TASK-1004_CORRECTION_MANIFEST.json`, `TASK-1004_R2_SCOPE.json`, `TASK-1004_AUDIT_DISPOSITION.json`. Kontrole zamknięcia DOC/map/diff oraz staged check/list/stat PASS; commit i czysty post-status potwierdzono w `TASK-1004_COMMIT.json`.
 
 #### Wyniki historyczne przed poprawkami R1 — nie są wynikiem końcowym
 

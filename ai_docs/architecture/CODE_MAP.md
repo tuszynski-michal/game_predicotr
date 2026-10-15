@@ -142,12 +142,12 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (167 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (168 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+29)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (3 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl
   - `datasets/` (6 plików): DatasetsClient, GenerateMockDatasetResult, generateMockDataset, GetDatasetValidationReportResult, getDatasetValidationReport, ListDatasetLayoutsResult, listDatasetLayouts, DatasetTransitionResult (+13)
-  - `games/` (6 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+36)
+  - `games/` (7 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+37)
   - `grid-shadow/` (2 plików): GridShadowPanelClient, GridShadowPanel, gridShadowErrorMessage, gridShadowSourceChoices, gridShadowUnknownVisibilityCount, gridShadowMeshLines, gridShadowReviewerUrl, gridShadowRequestId (+2)
   - `image-selection/` (5 plików): ImageSelectionClient, ImageSelectionUploadProgress, ResumableImageSelectionUpload, ImageSelectionOutputSaveResult, isVisibleImageSelectionRun, visibleImageSelectionRuns, orderImageSelectionFiles, uploadPhotoSelectionFolder (+20)
   - `imports/` (25 plików): VERIFIED_V19_ACTIVATION_VERSION, boardCellProcessingModeLabel, boardCellProcessingJobLabel, jobMatchesBoardCellProcessingMode, GeometryCompletenessClient, GeometryCompletenessSection, GeometryImageStateName, GeometryPositionStateName (+177)
@@ -180,7 +180,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Testy
 
 - `apps/admin/test/` (110 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (27 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (28 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy

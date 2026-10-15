@@ -97,6 +97,16 @@ gotowości importu. W panelu importu wszystkie trzy formaty V3 korzystają z
 istniejącego sterowania V3. Przełączenie z klasycznej gry nie przenosi wyboru
 V1.1 do nowej neutralnej gry. Wyjątek historycznej777 pozostaje zachowany.
 
+Karty i sekcja jakości V3 pokazują przypisaną rodzinę oraz wersję geometrii
+z istniejącego odczytu assignment, zamiast klasycznej gotowości i panelu
+kalibracji. Loading i błąd nie oznaczają braku przypisania. Brak assignment
+wyjaśnia blokadę importu; brak artefaktów i nieaktualny dowód oceny mają
+niezależne komunikaty. Nieaktualny dowód nie usuwa przypisania, a historyczna
+wersja bez publikacji nie otrzymuje automatycznej blokady. Preflight sprawdza
+gotowość importu. Zmiana gry i ponowne otwarcie widoku odczytują właściwy pin.
+Historyczna777 zachowuje klasyczny panel, raporty i edycję; symbole pozostają
+odrębnym pionem. TASK-1011 nie uruchamia treningu geometrii ani aktywacji.
+
 Formularz tworzenia i edycji gry ma select „Supergra” (TASK-0931, D-535) z
 opcją „Brak” i rodzajami supergry z rejestru w kodzie
 (`GET /api/v1/admin/super-game-kinds`); pierwszym rodzajem jest „Wild super spins”.

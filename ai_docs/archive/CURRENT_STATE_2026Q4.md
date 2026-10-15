@@ -6,6 +6,15 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1015 — Utrwalenie planu i przygotowanie wznowienia (done)
+
+
+- Commit: v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; niezależny Claude PASS, P2 rozliczone, bez scalenia. Hash zapisany po commicie, do włączenia razem z następnym taskiem.
+
+- [Task](../tasks/completed/1015-documentation-bootstrap.md); worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`. Oryginalna baza v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
+- Rewizja 6 i 23 taski utrwalone; pięć decyzji proposed. Nasz silnik acceptance TASK-1017 po zatwierdzonym rozwiązaniu kolizji z historycznym CLI TASK-1007. Audyt Claude PASS, brak P0/P1; P2-1/2/3 zamknięte, P2-4 ryzyko poza zakresem. Kontrole dokumentacji i środowiska PASS, bez zmian kodu/danych/usług.
+- Commit bootstrapu: **v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`**. TASK-1010 in_progress; integracja dopiero po całym planie i osobnej akceptacji.
+
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
 
 - Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.

@@ -2,6 +2,7 @@
 
 import type {
   ModelQualityOverviewResponse,
+  GameShapeGeometryConfiguration,
   ModelQualityResponse,
   PendingSymbolReinferencePreviewResponse,
   SymbolModelActivationAction,
@@ -14,6 +15,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
+import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
+import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
 import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
 import {
   freezeModelQualityCohort,
@@ -879,29 +882,47 @@ export function ModelQualityWorkspace(props: {
   readonly apiBaseUrl: string;
   readonly client?: ModelQualityClient;
   readonly gameId: string;
+  readonly gameCode?: string;
+  readonly shapeGeometryConfiguration?: GameShapeGeometryConfiguration | null;
 }) {
   return (
     <section className="modelQualityWorkspace">
       <SymbolQualityWorkspace key={props.gameId} {...props} />
-      <section
-        className="modelQualityWorkflowGroup"
-        aria-labelledby="grid-quality-workflow-title"
-      >
-        <div className="modelQualityWorkflowDivider" aria-hidden="true" />
-        <header className="modelQualityWorkflowHeader">
-          <span>Ulepszanie geometrii</span>
-          <h2 id="grid-quality-workflow-title">Cięcie siatki</h2>
-          <p>
-            Profil geometrii jest trenowany i aktywowany niezależnie od modelu
-            symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
-          </p>
-        </header>
-        <GridQualityPanel
-          key={props.gameId}
-          apiBaseUrl={props.apiBaseUrl}
-          gameId={props.gameId}
-        />
-      </section>
+      {usesNeuralGridConfiguration(
+        props.shapeGeometryConfiguration,
+        props.gameCode,
+      ) ? (
+        <section
+          className="modelQualityWorkflowGroup"
+          aria-label="Geometria V3"
+        >
+          <h2>Geometria V3</h2>
+          <GridModelAssignmentSummary
+            apiBaseUrl={props.apiBaseUrl}
+            gameId={props.gameId}
+          />
+        </section>
+      ) : (
+        <section
+          className="modelQualityWorkflowGroup"
+          aria-labelledby="grid-quality-workflow-title"
+        >
+          <div className="modelQualityWorkflowDivider" aria-hidden="true" />
+          <header className="modelQualityWorkflowHeader">
+            <span>Ulepszanie geometrii</span>
+            <h2 id="grid-quality-workflow-title">Cięcie siatki</h2>
+            <p>
+              Profil geometrii jest trenowany i aktywowany niezależnie od modelu
+              symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
+            </p>
+          </header>
+          <GridQualityPanel
+            key={props.gameId}
+            apiBaseUrl={props.apiBaseUrl}
+            gameId={props.gameId}
+          />
+        </section>
+      )}
     </section>
   );
 }

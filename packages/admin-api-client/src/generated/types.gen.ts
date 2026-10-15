@@ -5494,6 +5494,41 @@ export type GridEngineReportResultResponse = {
 };
 
 /**
+ * GridGeometryProposalResponse
+ *
+ * Candidate evidence stays separate from human geometry and applicability.
+ */
+export type GridGeometryProposalResponse = {
+  /**
+   * Accepted
+   */
+  accepted: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Applicable
+   */
+  applicable: boolean;
+  candidate: ProposalCandidateResponse;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * State
+   */
+  state: 'pending' | 'accepted' | 'rejected' | 'stale';
+};
+
+/**
  * GridInferenceManifest
  */
 export type GridInferenceManifest = {
@@ -14044,6 +14079,184 @@ export type PinnedManagedImageReprocessJobPayload = {
    */
   sourceSelectionId: string;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ProposalAcceptCommand
+ */
+export type ProposalAcceptCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedproposalrevision
+   */
+  expectedProposalRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  geometry?: OperationalImageReviewGeometryPreviewCommand | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'model' | 'edited';
+  /**
+   * Originalcandidatesha256
+   */
+  originalCandidateSha256: string;
+};
+
+/**
+ * ProposalCandidateResponse
+ */
+export type ProposalCandidateResponse = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Originalcandidatesha256
+   */
+  originalCandidateSha256: string;
+  originalGeometry: OperationalImageReviewGeometryPreviewCommand;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Result
+   */
+  result: {
+    [key: string]: unknown;
+  };
+  /**
+   * Resultsha256
+   */
+  resultSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-geometry-proposal-v1';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Sourcefence
+   */
+  sourceFence: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targetfence
+   */
+  targetFence: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * ProposalCandidatesResponse
+ */
+export type ProposalCandidatesResponse = {
+  /**
+   * Candidates
+   */
+  candidates: Array<ProposalDiscoveryResponse>;
+  /**
+   * Proposals
+   */
+  proposals: Array<GridGeometryProposalResponse>;
+};
+
+/**
+ * ProposalCommandResponse
+ */
+export type ProposalCommandResponse = {
+  current: GridGeometryProposalResponse | null;
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * ProposalCreateCommand
+ */
+export type ProposalCreateCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
+};
+
+/**
+ * ProposalDiscoveryResponse
+ */
+export type ProposalDiscoveryResponse = {
+  /**
+   * Applicable
+   */
+  applicable: boolean;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  originalGeometry: OperationalImageReviewGeometryPreviewCommand;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
+};
+
+/**
+ * ProposalRejectCommand
+ */
+export type ProposalRejectCommand = {
+  /**
+   * Expectedproposalrevision
+   */
+  expectedProposalRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Note
+   */
+  note?: string | null;
 };
 
 /**
@@ -29643,6 +29856,275 @@ export type CreateOperationalImageReviewGeometryRevisionResponses = {
 
 export type CreateOperationalImageReviewGeometryRevisionResponse =
   CreateOperationalImageReviewGeometryRevisionResponses[keyof CreateOperationalImageReviewGeometryRevisionResponses];
+
+export type ListOperationalGridGeometryProposalsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals';
+};
+
+export type ListOperationalGridGeometryProposalsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListOperationalGridGeometryProposalsError =
+  ListOperationalGridGeometryProposalsErrors[keyof ListOperationalGridGeometryProposalsErrors];
+
+export type ListOperationalGridGeometryProposalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCandidatesResponse;
+};
+
+export type ListOperationalGridGeometryProposalsResponse =
+  ListOperationalGridGeometryProposalsResponses[keyof ListOperationalGridGeometryProposalsResponses];
+
+export type CreateOperationalGridGeometryProposalData = {
+  body: ProposalCreateCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals';
+};
+
+export type CreateOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateOperationalGridGeometryProposalError =
+  CreateOperationalGridGeometryProposalErrors[keyof CreateOperationalGridGeometryProposalErrors];
+
+export type CreateOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type CreateOperationalGridGeometryProposalResponse =
+  CreateOperationalGridGeometryProposalResponses[keyof CreateOperationalGridGeometryProposalResponses];
+
+export type GetOperationalGridGeometryProposalData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}';
+};
+
+export type GetOperationalGridGeometryProposalErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalGridGeometryProposalError =
+  GetOperationalGridGeometryProposalErrors[keyof GetOperationalGridGeometryProposalErrors];
+
+export type GetOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridGeometryProposalResponse;
+};
+
+export type GetOperationalGridGeometryProposalResponse =
+  GetOperationalGridGeometryProposalResponses[keyof GetOperationalGridGeometryProposalResponses];
+
+export type AcceptOperationalGridGeometryProposalData = {
+  body: ProposalAcceptCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept';
+};
+
+export type AcceptOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type AcceptOperationalGridGeometryProposalError =
+  AcceptOperationalGridGeometryProposalErrors[keyof AcceptOperationalGridGeometryProposalErrors];
+
+export type AcceptOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type AcceptOperationalGridGeometryProposalResponse =
+  AcceptOperationalGridGeometryProposalResponses[keyof AcceptOperationalGridGeometryProposalResponses];
+
+export type RejectOperationalGridGeometryProposalData = {
+  body: ProposalRejectCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject';
+};
+
+export type RejectOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectOperationalGridGeometryProposalError =
+  RejectOperationalGridGeometryProposalErrors[keyof RejectOperationalGridGeometryProposalErrors];
+
+export type RejectOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type RejectOperationalGridGeometryProposalResponse =
+  RejectOperationalGridGeometryProposalResponses[keyof RejectOperationalGridGeometryProposalResponses];
 
 export type ResolveOperationalImageReviewItemData = {
   body: OperationalImageReviewResolutionCommand;

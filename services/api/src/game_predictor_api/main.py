@@ -1471,7 +1471,13 @@ def create_app(
     )
 
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
+        from game_predictor_api.application.grid_geometry_proposals import (
+            GridGeometryProposalService,
+        )
         from game_predictor_api.application.grid_reinference import GridReinferenceService
+        from game_predictor_api.storage.grid_geometry_proposals import (
+            SqlAlchemyGridGeometryProposalRepository,
+        )
         from game_predictor_api.storage.grid_reinference import SqlAlchemyGridReinferenceRepository
 
         with session_factory() as session:
@@ -1480,6 +1486,11 @@ def create_app(
                 # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
+                    grid_geometry_proposals=GridGeometryProposalService(
+                        SqlAlchemyGridGeometryProposalRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
                     grid_reinference=GridReinferenceService(
                         SqlAlchemyGridReinferenceRepository(
                             session, resolved_settings.artifact_root

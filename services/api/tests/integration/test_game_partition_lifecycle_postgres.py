@@ -18,7 +18,7 @@ from game_predictor_api.storage.database import (
     GameStorageSession,
     create_owner_session_factory,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v12 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v13 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

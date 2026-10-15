@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (done)
+
+- [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.369 / `5451da2ea2df923a7e8788731ceb58c6ba2915b3`; hash dopisany po commicie, do włączenia z następnym taskiem.
+- Nowe joby przypinają wersjonowaną politykę; engine acceptance po zapisie aktualnych plansz/właścicieli w transakcji bramki i projekcji. Bez human approval, nowych etykiet TRAIN, zmiany hashów/payloadów i starych snapshotów. Aktualny grid_issue blokuje kwalifikację.
+- Kontrole PASS: domena/crop33, regresje167, PG9+skoncentrowane3+3, rzeczywisty HTTP/replay1, Ruff/format10, mypy7, mapa/docs/diff; OpenAPI/client i izolowana część VisionLab PASS. Szczegóły i cleanup w Outcome.
+- [Próba audytu](../quality/TASK-1017_AUDIT_TIMEOUT_CODEX.md): Claude claude-fable-5-1/high przekroczył480 s bez raportu. Brak PASS; jawny wyjątek AGENTS.md pozwala kontynuować bez pętli. Brak usług, backfillu, migracji operatora, treningu, aktywacji i zmian danych operatora. Następny TASK-1008.
+
 ### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier (done)
 
 - [Task](../tasks/completed/1010-grid-diagnostics-and-counters.md); gałąź codex/v3-grid-fine-tuning. Commit: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`; hash zapisany po utworzeniu, do następnego commita. Bez scalenia.

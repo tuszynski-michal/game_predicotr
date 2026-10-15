@@ -82,6 +82,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_diagnostics.py: class GridDiagnostics, missing_reason_diagnostics
 - application/grid_engine_acceptance.py: class HistoricalAcceptanceItem, class HistoricalAcceptanceReport, class HistoricalAcceptanceRepository, class HistoricalAcceptanceService
 - application/grid_engine_profiles.py: class GridEngineModelInspector, class GridEngineProfileView, class GridEngineProfileService
+- application/grid_geometry_proposals.py: class ProposalCommandOutcome, class GridGeometryProposalRepository, class GridGeometryProposalService
 - application/grid_model_publication.py: class GridModelControlRepository, class GridModelPublicationService
 - application/grid_model_registry.py: class GridModelRecord, class GridModelReceipt, class GridModelAssignment, class GridModelRegistryRepository, class GridModelInspector, class GridModelRegistryService
 - application/grid_reinference.py: canonical, digest, now_text, conflict, receipt_replay, command_transition, class GridReinferenceRepository, class GridReinferenceService
@@ -241,6 +242,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
+- schemas/grid_geometry_proposals.py: class ProposalCreateCommand, class ProposalAcceptCommand, class ProposalRejectCommand, class ProposalCandidateResponse, class ProposalDiscoveryResponse, class GridGeometryProposalResponse, class ProposalCommandResponse, class ProposalCandidatesResponse
 - schemas/grid_model_registry.py: class GridModelTopology, class GridModelArtifact, class GridModelProvenance, class GridModelHistoricalReport, class GridInferenceManifest, class GridModelManifest, class GridModelRegisterRequest, class GridModelVersionResponse, class GameGridModelAssignmentResponse, class GridModelPublishCommand, class GridModelAssignmentCommand, class GridModelTransferProvenance, class GridModelControlReceipt, class GridModelDefaultResponse, class GridModelHistoryEvent
 - schemas/grid_reinference.py: class GridReinferenceSelector, class GridReinferencePrepare, class GridReinferenceCommand, class GridReinferenceFreeze, class GridReinferenceStart, class GridReinferencePilotAck, class GridReinferenceResume, class GridReinferenceResponse, class GridReinferenceTargetResponse, class GridReinferenceTargetPage
 - schemas/grid_shadow.py: class GridShadowJobCreate, class GridShadowPointResponse, class GridShadowSlotResponse, class GridShadowUnassignedDetectionResponse, class GridShadowOutputResponse, class GridShadowResultSummaryResponse, class GridShadowResultResponse, class GridShadowResultPageResponse, class GridShadowJobPayloadResponse, to_grid_shadow_summary, to_grid_shadow_result, to_grid_shadow_page
@@ -302,6 +304,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v10.py: ownership
 - storage/game_data_v2_manifest_v11.py: ownership
 - storage/game_data_v2_manifest_v12.py: ownership
+- storage/game_data_v2_manifest_v13.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
@@ -328,6 +331,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
 - storage/grid_engine_model_store.py: training_base_files, training_base_identity, receipt_bytes, require_training_directory, file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
+- storage/grid_geometry_proposal_models.py: class GridGeometryProposalModel, class GridGeometryProposalEventModel
+- storage/grid_geometry_proposals.py: proposal_target_fence, error, class SqlAlchemyGridGeometryProposalRepository
 - storage/grid_model_registry.py: class GridModelArtifactInspector, class SqlAlchemyGridModelRegistryRepository
 - storage/grid_model_registry_models.py: class GridModelFamilyModel, class GridModelVersionModel, class GridModelRegistrationReceiptModel, class GridModelVersionEventModel, class GameGridModelAssignmentModel, class GameGridModelAssignmentEventModel, class GridModelEvaluationReportModel, class GridModelEvaluationInvalidationModel, class GridModelPublicationModel, class GridModelControlEventModel, class GridModelDefaultModel, class GameCreateReceiptModel, class GridModelFamilyForkModel
 - storage/grid_profile_snapshot_resolver.py: class SqlAlchemyGridProfileSnapshotResolver
@@ -947,6 +952,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/operational-reviews/geometry-gaps-workspace.tsx: GeometryGapsClient, GeometryGapsWorkspace
 - features/operational-reviews/grid-audit-correction-state.ts: gridAuditPreviewCommandsEqual, gridAuditClassLabel, gridAuditSuggestedCorners, gridAuditProgressText
 - features/operational-reviews/grid-audit-correction-workspace.tsx: GridAuditCorrectionClient, GridAuditCorrectionWorkspace
+- features/operational-reviews/grid-geometry-proposals.tsx: proposalCommandKey, GridGeometryProposals
 - features/operational-reviews/grid-shadow-correction-target.ts: GridShadowCorrectionClient, gridShadowCornerProposal, gridShadowBoardGeometryTarget
 - features/operational-reviews/grid-shadow-correction-workspace.tsx: GridShadowCorrectionWorkspace
 - features/operational-reviews/mutation-outcome.ts: LOST_CONNECTION, MutationResultLike, isDefiniteRefusal, MutationOutcome, MUTATION_TIMEOUT_MS, runMutation

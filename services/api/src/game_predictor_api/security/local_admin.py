@@ -263,6 +263,8 @@ _REVIEWER_MUTATION_PATTERNS = tuple(
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
+        r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals$",
+        r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals/[^/]+/(?:accept|reject)$",
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/geometry-preview$",
@@ -444,6 +446,9 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
             method=method,
             path=path,
         )
+        # A server-validated principal for new human commands. Safe requests and
+        # Bearer bypasses never receive this marker; their session is checked by API.
+        request.state.local_admin_actor = ADMIN_ACTOR
         response = await call_next(request)
         self._audit_log.append(
             action=action,

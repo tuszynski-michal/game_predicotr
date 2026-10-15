@@ -19,7 +19,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v12 import (
+from game_predictor_api.storage.game_data_v2_manifest_v13 import (
     CREATE_TABLES,
     DELETE_TABLES,
     SCHEMA,
@@ -223,6 +223,8 @@ class GamePartitionLifecycleRepository:
                 "grid_reinference_operations",
                 "grid_reinference_sources",
                 "grid_reinference_targets",
+                "grid_geometry_proposals",
+                "grid_geometry_proposal_events",
             }:
                 self._session.execute(text(f"ALTER TABLE {child} ENABLE ROW LEVEL SECURITY"))
                 self._session.execute(text(f"ALTER TABLE {child} FORCE ROW LEVEL SECURITY"))

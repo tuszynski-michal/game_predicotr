@@ -27,7 +27,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (Claude R3 PASS); następny TASK-1013. D-549/D-550/D-551/D-552 accepted; D-548 proposed do etapu treningowego; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (Claude R2 PASS); następny TASK-1003. D-549/D-550/D-551/D-552 accepted; D-548 proposed do etapu treningowego; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -93,7 +93,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md); cały zakres 23 tasków i orientacyjny koszt 12–28 dni roboczych jawnie zlecone przez operatora 2026-10-14. Anotacje i oczekiwanie na rzeczywiste runy są oddzielne.
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
-- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (Claude R3 PASS); następny TASK-1013. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
+- TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 in_progress. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
 - D-550/D-552 przyjęto przed TASK-1017; D-549 przed TASK-0994 na podstawie zleconej rewizji6. D-551 przyjęto2026-10-15 przed TASK-0999; D-548 pozostaje proposed do etapu danych treningowych. Przyjęcie zapisać przed zależną zmianą na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
@@ -189,10 +189,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1013 — Trwałe propozycje dla „Złej siatki” (todo)
-
-- [1013-grid-geometry-proposals.md](../tasks/1013-grid-geometry-proposals.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-1003 — Podgląd i raport ponownego rozpoznania (todo)
 
@@ -909,9 +905,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1013 — Trwałe propozycje dla „Złej siatki” (done)
+
+- [Task](../tasks/completed/1013-grid-geometry-proposals.md); baza379, branch codex/v3-grid-fine-tuning. Przygotowany commit v1.7.380; pełny hash po utworzeniu. Integracja całego planu niewykonana.
+- Immutable propozycje z wyniku0999, osobne przyjęcie/edycja4/24/odrzucenie, trusted actor, trwałe receipts/replay i atomowy manual save. Opt-in current_live_slots zachowuje nowsze rodzeństwo, historia zostaje po cleanup.0160/frozenv13 i wymuszona RLS także nowo provisionowanych partycji; symbole per gra, legacy7 zachowane.
+- [Claude high R2 PASS](../quality/TASK-1013_AUDIT_claude-fable-5-1_R2.md),329.600s/do1200s; R1 REVISE i jedna poprawka, brak P0/P1.52 źródła/119 dowodów SHA sprawdzone po audycie. [Rozliczenie](../quality/TASK-1013_CORRECTION_CODEX.md).
+- R1:11 unikalnych PG,77+9 scoped kontraktów, security/request/UI/shared editor/wrapper i typy/lint/build/OpenAPI. R2:PG4/UI5 z realnym Pydantic/unit5, delta types/lint/format/map/docs/diff PASS, bez sumowania powtórek. Dodatkowe teardown FAIL zachowane; exact owner/PID recovery0resources.
+- Przyjęty dług fixture coupling/async teardown; wymagany Pythonvenv i invalid-candidate omission opisane. Post-PASS tylko3 dokumentacyjne zmiany, bez zachowania. Bez operatorDB/usług/GPU/modelów/backupu/push; wcześniejszy reset FAIL i fizyczny odbiór poza wynikiem. Następny1003 po utrwaleniu kontraktu.
+
 ### TASK-0999 — Backend ponownego rozpoznania wybranego zakresu (done)
 
-- [Task](../tasks/completed/0999-grid-reinference-backend.md); branch `codex/v3-grid-fine-tuning`, baza378. Przygotowany commit v1.7.379; pełny hash po utworzeniu. Integracja całego planu niewykonana.
+- [Task](../tasks/completed/0999-grid-reinference-backend.md); branch `codex/v3-grid-fine-tuning`, baza378. Commit v1.7.379 / `62e9f71986a74d67776eabad6e99154f4d18c0b2`. Integracja całego planu niewykonana.
 - Trwały prepare/freeze/pilot-ack/start/resume/cancel, bounded membership/targety, przypięta aktualna baza bez treningu. Selected-only automatic writer, trwały proposal_ready, ochrona decyzji/właściciela, atomowe receipts/projekcje i kwalifikacja akceptacji. Cleanup odłącza live link i zachowuje historię; schema0159/frozenv12 tylko w izolowanych fixture.
 - R1/R2 REVISE zachowane; dodatkowa poprawka i R3 zatwierdzone przez operatora. [Claude high R3 PASS](../quality/TASK-0999_AUDIT_claude-fable-5-1_R3.md),254.241s/do1200s, brak P0/P1. Lead potwierdził73 źródła/15 dowodów SHA bez driftu.
 - Najnowsze: worker9PASS, rzeczywiste PG cancel2PASS, realny red checkpoint1FAIL/1PASS przed fixem, Ruff/format3/mypy/docs/map/diff PASS. Wcześniej focused48PASS/nowe PG8PASS po poprawkach fixture, registry38 i renderer102 oraz wcześniejsze PG11+2 w swoich zakresach; bez sumowania nakładających się zestawów.
@@ -972,10 +976,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Status-only operacja, frozen targety, potwierdzenie/CAS, receipty i rollback statusu/projekcji/kursora; backend/OpenAPI/klient/UI. Migracja0155 i manifestv8 sprawdzone wyłącznie w izolowanej bazie. Historyczne v7 zachowane, legacy7 wykluczona z operacji.
 - PASS: PG7+skoncentrowane3, schema/storage40, domain85, API40 w grupach, Admin733+interakcje12, transport/router, Ruff/mypy15, docs/map/OpenAPI/client. Nieudane timeoutowe zestawy nie są PASS; własne procesy/bazy/role sprzątnięte.
 - Wznawialny indeks artefaktu ma ograniczone partie i pełną kontrolę SHA przed publikacją; limit SHA30 s jest ograniczeniem, po nim przygotowanie blokuje freeze bez pozornego skip/PASS. Stat4 plików29–329 MB nie dowodzi szybkości SHA. [Audyt](../quality/TASK-1008_AUDIT_TIMEOUT_CODEX.md): rzeczywisty Claude high pracował do480 s, bez końcowego werdyktu; wyjątek AGENTS.md, brak PASS i brak ponawiania. Bez operatorowych migracji, backfillu, usług, treningu, aktywacji i nowego backupu. Następny TASK-0993.
-
-### TASK-1017 — Akceptacja nowych wyników przez silnik V3 (done)
-
-- [Task](../tasks/completed/1017-v3-engine-acceptance.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.369 / `5451da2ea2df923a7e8788731ceb58c6ba2915b3`; hash dopisany po commicie, do włączenia z następnym taskiem.
-- Nowe joby przypinają wersjonowaną politykę; engine acceptance po zapisie aktualnych plansz/właścicieli w transakcji bramki i projekcji. Bez human approval, nowych etykiet TRAIN, zmiany hashów/payloadów i starych snapshotów. Aktualny grid_issue blokuje kwalifikację.
-- Kontrole PASS: domena/crop33, regresje167, PG9+skoncentrowane3+3, rzeczywisty HTTP/replay1, Ruff/format10, mypy7, mapa/docs/diff; OpenAPI/client i izolowana część VisionLab PASS. Szczegóły i cleanup w Outcome.
-- [Próba audytu](../quality/TASK-1017_AUDIT_TIMEOUT_CODEX.md): Claude claude-fable-5-1/high przekroczył480 s bez raportu. Brak PASS; jawny wyjątek AGENTS.md pozwala kontynuować bez pętli. Brak usług, backfillu, migracji operatora, treningu, aktywacji i zmian danych operatora. Następny TASK-1008.

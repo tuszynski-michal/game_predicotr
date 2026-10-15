@@ -6,7 +6,7 @@ import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import and_, func, select
@@ -128,8 +128,14 @@ from game_predictor_api.storage.pending_sequence_ownership import (
 
 
 class SqlAlchemyVirtualGridGeometryRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        *,
+        source_snapshot_policy: Literal["board_revision", "current_live_slots"] = "board_revision",
+    ) -> None:
         self._session = session
+        self._source_snapshot_policy = source_snapshot_policy
 
     def save_automatic_reinference_source(
         self,
@@ -2706,7 +2712,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_DRIFT",
                 "The current virtual cells do not share one pinned render configuration.",
             )
-        return VirtualGridGeometryContext(
+        context = VirtualGridGeometryContext(
             game_id=rollout.game_id,
             import_job_id=source.import_job_id,
             review_item_id=item.id,
@@ -2742,6 +2748,97 @@ class SqlAlchemyVirtualGridGeometryRepository:
             ),
             board_geometries=tuple(dict(value) for value in geometry.board_geometries),
             render_configuration=configurations[0],
+        )
+        return (
+            self._current_live_slot_context(context)
+            if self._source_snapshot_policy == "current_live_slots"
+            else context
+        )
+
+    def _current_live_slot_context(
+        self,
+        context: VirtualGridGeometryContext,
+    ) -> VirtualGridGeometryContext:
+        """Compose current sibling snapshots without repointing or changing any row.
+
+        Proposal rendering and the writer's locked reload use this same policy.
+        A sibling change between them changes the prepared context and fails CAS.
+        The default manual editor retains its historical board-revision policy.
+        """
+        latest = self._session.scalar(
+            select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == context.game_id,
+                ImageSourceGeometryRevisionModel.source_image_id == context.source_image_id,
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
+            )
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+        )
+        if latest is None or (
+            latest.topology_rules_version_id != context.topology_rules_version_id
+            or latest.sequence_range_start != context.sequence_range_start
+            or latest.sequence_range_end != context.sequence_range_end
+            or tuple(latest.active_board_slots) != context.active_board_slots
+            or latest.source_checksum_sha256 != context.source_checksum_sha256
+            or latest.normalized_pixel_checksum_sha256 != context.normalized_pixel_checksum_sha256
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+                "Current source slots cannot be merged safely.",
+            )
+        merged = [dict(value) for value in latest.board_geometries]
+        rows = self._session.execute(
+            select(RecognizedBoardModel, ImageSourceGeometryRevisionModel)
+            .join(
+                ImageReviewItemModel,
+                ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+            )
+            .join(
+                ImageSourceGeometryRevisionModel,
+                ImageSourceGeometryRevisionModel.id
+                == RecognizedBoardModel.source_geometry_revision_id,
+            )
+            .where(
+                ImageReviewItemModel.game_id == context.game_id,
+                RecognizedBoardModel.source_image_id == context.source_image_id,
+                RecognizedBoardModel.status != "rejected",
+                ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
+            )
+            .order_by(RecognizedBoardModel.position_index)
+        ).all()
+        positions = set()
+        for board, revision in rows:
+            position = board.position_index
+            if (
+                position in positions
+                or position not in context.active_board_slots
+                or revision.source_image_id != context.source_image_id
+                or revision.status == REVERTED_SOURCE_GEOMETRY_STATUS
+                or revision.topology_rules_version_id != context.topology_rules_version_id
+                or revision.normalized_pixel_checksum_sha256
+                != context.normalized_pixel_checksum_sha256
+                or board.geometry_checksum_sha256 != revision.geometry_checksum_sha256
+            ):
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+                    "Current sibling provenance cannot be merged safely.",
+                )
+            positions.add(position)
+            slot = dict(revision.board_geometries[position])
+            if slot.get("positionIndex") != position:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_REVISION_CONFLICT", "Sibling slot identity changed."
+                )
+            merged[position] = slot
+        return replace(
+            context,
+            source_geometry_revision_id=latest.id,
+            source_geometry_revision=int(latest.revision),
+            global_initialization=None
+            if latest.global_initialization is None
+            else dict(latest.global_initialization),
+            board_geometries=tuple(merged),
         )
 
 

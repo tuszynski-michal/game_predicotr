@@ -156,6 +156,13 @@ export function reviewerProxyTarget(
   if (!path.startsWith('/api/v1/admin/image-review-items')) {
     return null;
   }
+  const proposal = `^/api/v1/admin/image-review-items/${UUID}/grid-geometry-proposals`;
+  if (
+    (method === 'GET' && new RegExp(`${proposal}(?:/${UUID})?$`).test(path)) ||
+    (method === 'POST' &&
+      new RegExp(`${proposal}(?:/${UUID}/(?:accept|reject))?$`).test(path))
+  )
+    return path;
   if (
     method === 'GET' &&
     new RegExp(

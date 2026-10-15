@@ -20,6 +20,7 @@ from game_predictor_api.storage import (
 from game_predictor_api.storage import (
     game_data_v2_manifest_v12 as current,
 )
+from game_predictor_api.storage import game_data_v2_manifest_v13 as runtime
 
 ROOT = Path(__file__).resolve().parents[3]
 REVISION = "0159_grid_reinference"
@@ -45,9 +46,9 @@ def test_v12_adds_only_three_game_tables_and_runtime_consumers_agree() -> None:
     assert current.CREATE_TABLES == current.DELETE_TABLES == current.MIGRATE_TABLES
     assert current.PARTITIONED_TABLES == current.GAME_TABLES
     for module in (catalog_repository, game_storage_routing, game_partition_lifecycle):
-        assert module.VERSION == current.VERSION
+        assert module.VERSION == runtime.VERSION
     for module in (catalog_repository, game_partition_lifecycle):
-        assert vars(module)["CREATE_TABLES"] == current.GAME_TABLES
+        assert vars(module)["CREATE_TABLES"] == runtime.GAME_TABLES
     for table in current.ADDED_GAME_TABLES:
         assert current.ownership(table) == "game"
         assert table not in previous.GAME_TABLES

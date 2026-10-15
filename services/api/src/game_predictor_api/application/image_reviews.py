@@ -17,6 +17,7 @@ from game_predictor_worker.images.board_cell_geometry_contract import (
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 
 from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
+from game_predictor_api.application.grid_geometry_proposals import GridGeometryProposalService
 from game_predictor_api.application.grid_reinference import GridReinferenceService
 from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometryPreview,
@@ -279,6 +280,7 @@ class OperationalImageReviewService:
         *,
         historical_acceptance: HistoricalAcceptanceService | None = None,
         grid_reinference: GridReinferenceService | None = None,
+        grid_geometry_proposals: GridGeometryProposalService | None = None,
         virtual_geometry: VirtualGridGeometryService | None = None,
         board_import_coverage_repository: BoardImportCoverageRepository | None = None,
         geometry_completeness_repository: ImageGeometryCompletenessRepository | None = None,
@@ -289,6 +291,7 @@ class OperationalImageReviewService:
         self._repository = repository
         self.historical_acceptance = historical_acceptance
         self.grid_reinference = grid_reinference
+        self.grid_geometry_proposals = grid_geometry_proposals
         # D-467 S6 (TASK-0796): manual geometry of a current board is always
         # a ``virtual_source`` revision written by the shared virtual path.
         self._virtual_geometry = virtual_geometry

@@ -671,3 +671,8 @@ Operator polecił: „kontynuuj pracę jak wcześniej zadanie po zadaniu autonom
 - Własne fixture PG cleaned: owner potwierdzony, PID[], DB0/role0. Bez operatorDB, nowego backupu/snapshotu, usług, rzeczywistej inferencji/treningu/GPU, aktywacji, push i integracji.
 - Kontrole staged check/stat/list i post-commit show/status prowadzi lead. Commit v1.7.379 przygotowany; pełny hash zostanie dopisany po utworzeniu, bez amend i bez samoodwołania.
 - Następny task: TASK-1013 po commicie0999 i utrwaleniu kontraktu propozycji. Root odpowiada za README, plan, decyzje, posthash1011 i księgowość okna stanu; wykonawca zmieniał własny pion i sekcję0999.
+
+
+### Post-commit record
+
+- Commit: **v1.7.379 / `62e9f71986a74d67776eabad6e99154f4d18c0b2`**. Staged check/stat/list i post-commit show/status PASS;79 plików, worktree czysty bezpośrednio po commicie. Hash zapisano po utworzeniu, bez amend. Nadal bez scalenia/push; ten zapis dokumentacyjny wejdzie do kolejnego taska.

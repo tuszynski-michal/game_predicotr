@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  AcceptOperationalGridGeometryProposalData,
+  AcceptOperationalGridGeometryProposalErrors,
+  AcceptOperationalGridGeometryProposalResponses,
   AcknowledgeGridReinferencePilotData,
   AcknowledgeGridReinferencePilotErrors,
   AcknowledgeGridReinferencePilotResponses,
@@ -141,6 +144,9 @@ import type {
   CreateNextCuratedImageImportBatchData,
   CreateNextCuratedImageImportBatchErrors,
   CreateNextCuratedImageImportBatchResponses,
+  CreateOperationalGridGeometryProposalData,
+  CreateOperationalGridGeometryProposalErrors,
+  CreateOperationalGridGeometryProposalResponses,
   CreateOperationalImageReviewGeometryRevisionData,
   CreateOperationalImageReviewGeometryRevisionErrors,
   CreateOperationalImageReviewGeometryRevisionResponses,
@@ -455,6 +461,9 @@ import type {
   GetModelQualityData,
   GetModelQualityErrors,
   GetModelQualityResponses,
+  GetOperationalGridGeometryProposalData,
+  GetOperationalGridGeometryProposalErrors,
+  GetOperationalGridGeometryProposalResponses,
   GetOperationalImageReviewBoardAssetData,
   GetOperationalImageReviewBoardAssetErrors,
   GetOperationalImageReviewBoardAssetResponses,
@@ -709,6 +718,9 @@ import type {
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
+  ListOperationalGridGeometryProposalsData,
+  ListOperationalGridGeometryProposalsErrors,
+  ListOperationalGridGeometryProposalsResponses,
   ListOperationalImageReviewItemsData,
   ListOperationalImageReviewItemsErrors,
   ListOperationalImageReviewItemsResponses,
@@ -966,6 +978,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RejectOperationalGridGeometryProposalData,
+  RejectOperationalGridGeometryProposalErrors,
+  RejectOperationalGridGeometryProposalResponses,
   RejectPendingBoardCellGeometryData,
   RejectPendingBoardCellGeometryErrors,
   RejectPendingBoardCellGeometryResponses,
@@ -5427,6 +5442,128 @@ export const createOperationalImageReviewGeometryRevision = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Grid Geometry Proposals
+ */
+export const listOperationalGridGeometryProposals = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListOperationalGridGeometryProposalsData, ThrowOnError>,
+): RequestResult<
+  ListOperationalGridGeometryProposalsResponses,
+  ListOperationalGridGeometryProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListOperationalGridGeometryProposalsResponses,
+    ListOperationalGridGeometryProposalsErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals',
+    ...options,
+  });
+
+/**
+ * Create Grid Geometry Proposal
+ */
+export const createOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  CreateOperationalGridGeometryProposalResponses,
+  CreateOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateOperationalGridGeometryProposalResponses,
+    CreateOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Grid Geometry Proposal
+ */
+export const getOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  GetOperationalGridGeometryProposalResponses,
+  GetOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalGridGeometryProposalResponses,
+    GetOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}',
+    ...options,
+  });
+
+/**
+ * Accept Grid Geometry Proposal
+ */
+export const acceptOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AcceptOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  AcceptOperationalGridGeometryProposalResponses,
+  AcceptOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcceptOperationalGridGeometryProposalResponses,
+    AcceptOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reject Grid Geometry Proposal
+ */
+export const rejectOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  RejectOperationalGridGeometryProposalResponses,
+  RejectOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectOperationalGridGeometryProposalResponses,
+    RejectOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject',
     ...options,
     headers: {
       'Content-Type': 'application/json',

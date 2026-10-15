@@ -42,7 +42,7 @@ from game_predictor_api.storage.game_data_v2_manifest_v11 import (
     ADDED_CATALOG,
     ADDED_SHARED,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v12 import (
+from game_predictor_api.storage.game_data_v2_manifest_v13 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -85,13 +85,13 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v12"
+    assert VERSION == "game-data-v2-manifest-v13"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
     assert len(V6_GAME_TABLES) == 68
     assert len(V7_GAME_TABLES) == 70
-    assert len(GAME_TABLES) == 76
+    assert len(GAME_TABLES) == 78
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
@@ -105,6 +105,8 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "grid_reinference_operations",
         "grid_reinference_sources",
         "grid_reinference_targets",
+        "grid_geometry_proposals",
+        "grid_geometry_proposal_events",
     }
     # TASK-0933: v6 is v5 plus exactly the four super game series tables.
     assert set(V6_GAME_TABLES) - set(V5_GAME_TABLES) == {

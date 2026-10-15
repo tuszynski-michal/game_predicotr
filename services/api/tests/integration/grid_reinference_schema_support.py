@@ -266,7 +266,7 @@ def assert_grid_reinference_schema_postgres(engine: Engine, config: Config, role
     with engine.connect() as connection:
         assert (
             connection.scalar(text("SELECT version_num FROM public.alembic_version"))
-            == "0159_grid_reinference"
+            == "0160_grid_geometry_proposals"
         )
     for game_id in games:
         _lifecycle(engine, game_id, GamePartitionLifecycleKind.DELETE)

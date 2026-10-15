@@ -3977,6 +3977,53 @@ guardami. Nie zmienia manifest SHA ani raportu i nie podłącza linku ponownie.
 Resume bez źródła daje `source_missing` i nie odtwarza danych. Pełne usunięcie
 gry korzysta z osobnego lifecycle.
 
+### Trwałe propozycje błędnej siatki V3 (D-551, TASK-1013)
+
+W istniejącym `/api/v1/admin/image-review-items/{reviewItemId}`:
+
+```text
+GET  /grid-geometry-proposals?gameId=&importJobId=
+POST /grid-geometry-proposals?gameId=&importJobId=
+GET  /grid-geometry-proposals/{proposalId}?gameId=&importJobId=
+POST /grid-geometry-proposals/{proposalId}/accept?gameId=&importJobId=
+POST /grid-geometry-proposals/{proposalId}/reject?gameId=&importJobId=
+```
+
+Kolekcja tylko czyta: zwraca do100 zapisanych propozycji i do100 niezapisanych
+wyników `proposal_ready` konkretnej pozycji/importu, przez indeks review/target.
+Kolekcja pomija strukturalnie niepoprawny wynik; create dla takiego kandydata spotyka się z jawną odmową.
+Wejście na ekran nie tworzy propozycji. Świadoma akcja zapewnia create przez
+`targetResultId` i UUID polecenia, bez dodatkowej inferencji. Create wymaga
+żywego źródła i dokładnych frozen fences; po cleanup zwraca409 bez obiektu.
+
+Accept ma `expectedProposalRevision`, `expectedGeometryRevision`,
+`expectedResolutionRevision`, `originalCandidateSha256`, UUID i `mode`.
+`model` używa dokładnych24 węzłów kandydata; `edited` wymaga `geometry` ze
+schematu podglądu istniejącej ręcznej korekty. Oryginał i pin modelu są
+niezmienne. Osobny accepted zapis przechowuje faktycznie zapisaną geometrię,
+kwalifikację, SHA, autora i manual revision ID. Nie sprawdza nowego assignmentu
+w miejsce przypiętego modelu. Reject ma CAS propozycji i opcjonalną notatkę;
+pozostawia problem siatki otwarty.
+
+Mutacje używają zweryfikowanej sesji Reviewera albo serwerowego `local-owner`
+ustawionego dopiero po pełnych kontrolach middleware lokalnego Admina. Body nie
+wybiera autora. GET zachowuje lokalny odczyt bez unsafe markera oraz sprawdza
+zakres sesji online także dla zachowanej historii. Frozen import/review/game
+pozostają autorytatywne po usunięciu źródła.
+
+Pełne polecenie wiąże path IDs, scope, payload i principal. Ten sam UUID/hash
+odtwarza immutable receipt przed CAS; inna treść daje409. Odpowiedź rozdziela
+historyczny `receipt` i dzisiejszy `current`/`applicable`/`reasons`. Historyczne
+accepted po cofnięciu albo cleanup nie dowodzi aktywności dawnej geometrii.
+Stary CAS komendy nie unieważnia propozycji. Rzeczywisty drift przechodzi do
+`stale`; typed409 z normalnym wyjściem dependency utrwala receipt/event, bez
+commit w routerze. Nieoczekiwany błąd writera/eventu/projekcji cofa całość.
+
+Ręczna akceptacja używa tej samej sesji i `save_review_item`, z osobną opt-in
+polityką bieżących live slotów. Wspólna kolejność ownership/projection/sequence/
+source/rows poprzedza proposal row. Legalne nowsze rodzeństwo jest zachowane;
+globalna historyczna source revision nie zastępuje target/source/pixel fences.
+
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
 ani nie zmienia modelu. `POST` przyjmuje wyłącznie `createdBy`, `gameId` i

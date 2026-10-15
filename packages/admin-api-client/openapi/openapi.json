@@ -9833,6 +9833,67 @@
         "title": "GridEngineReportResultResponse",
         "type": "object"
       },
+      "GridGeometryProposalResponse": {
+        "description": "Candidate evidence stays separate from human geometry and applicability.",
+        "properties": {
+          "accepted": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted"
+          },
+          "applicable": {
+            "title": "Applicable",
+            "type": "boolean"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/ProposalCandidateResponse"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected",
+              "stale"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "state",
+          "candidate",
+          "accepted",
+          "applicable",
+          "reasons"
+        ],
+        "title": "GridGeometryProposalResponse",
+        "type": "object"
+      },
       "GridInferenceManifest": {
         "additionalProperties": false,
         "properties": {
@@ -24955,6 +25016,289 @@
           "boardCellProcessing"
         ],
         "title": "PinnedManagedImageReprocessJobPayload",
+        "type": "object"
+      },
+      "ProposalAcceptCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedProposalRevision": {
+            "minimum": 1.0,
+            "title": "Expectedproposalrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "geometry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPreviewCommand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "model",
+              "edited"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "originalCandidateSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Originalcandidatesha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedProposalRevision",
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "mode",
+          "originalCandidateSha256"
+        ],
+        "title": "ProposalAcceptCommand",
+        "type": "object"
+      },
+      "ProposalCandidateResponse": {
+        "properties": {
+          "expectedGeometryRevision": {
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "modelSnapshot": {
+            "additionalProperties": true,
+            "title": "Modelsnapshot",
+            "type": "object"
+          },
+          "originalCandidateSha256": {
+            "title": "Originalcandidatesha256",
+            "type": "string"
+          },
+          "originalGeometry": {
+            "$ref": "#/components/schemas/OperationalImageReviewGeometryPreviewCommand"
+          },
+          "positionIndex": {
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "result": {
+            "additionalProperties": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "resultSha256": {
+            "title": "Resultsha256",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-geometry-proposal-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "sourceFence": {
+            "additionalProperties": true,
+            "title": "Sourcefence",
+            "type": "object"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "targetFence": {
+            "additionalProperties": true,
+            "title": "Targetfence",
+            "type": "object"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "result",
+          "resultSha256",
+          "originalGeometry",
+          "originalCandidateSha256",
+          "modelSnapshot",
+          "sourceImageId",
+          "positionIndex",
+          "sequenceNumber",
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "targetFence",
+          "sourceFence"
+        ],
+        "title": "ProposalCandidateResponse",
+        "type": "object"
+      },
+      "ProposalCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalDiscoveryResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/GridGeometryProposalResponse"
+            },
+            "title": "Proposals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposals",
+          "candidates"
+        ],
+        "title": "ProposalCandidatesResponse",
+        "type": "object"
+      },
+      "ProposalCommandResponse": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridGeometryProposalResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt": {
+            "additionalProperties": true,
+            "title": "Receipt",
+            "type": "object"
+          }
+        },
+        "required": [
+          "receipt",
+          "current"
+        ],
+        "title": "ProposalCommandResponse",
+        "type": "object"
+      },
+      "ProposalCreateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "targetResultId": {
+            "format": "uuid",
+            "title": "Targetresultid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetResultId",
+          "idempotencyKey"
+        ],
+        "title": "ProposalCreateCommand",
+        "type": "object"
+      },
+      "ProposalDiscoveryResponse": {
+        "properties": {
+          "applicable": {
+            "title": "Applicable",
+            "type": "boolean"
+          },
+          "modelSnapshot": {
+            "additionalProperties": true,
+            "title": "Modelsnapshot",
+            "type": "object"
+          },
+          "originalGeometry": {
+            "$ref": "#/components/schemas/OperationalImageReviewGeometryPreviewCommand"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "targetResultId": {
+            "format": "uuid",
+            "title": "Targetresultid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetResultId",
+          "originalGeometry",
+          "modelSnapshot",
+          "applicable",
+          "reasons"
+        ],
+        "title": "ProposalDiscoveryResponse",
+        "type": "object"
+      },
+      "ProposalRejectCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedProposalRevision": {
+            "minimum": 1.0,
+            "title": "Expectedproposalrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedProposalRevision"
+        ],
+        "title": "ProposalRejectCommand",
         "type": "object"
       },
       "RejectionTarget": {
@@ -54126,6 +54470,534 @@
           }
         ],
         "summary": "Persist a virtual-source geometry revision of one board and reopen review",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals": {
+      "get": {
+        "operationId": "listOperationalGridGeometryProposals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalCandidatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "List Grid Geometry Proposals",
+        "tags": [
+          "image-reviews"
+        ]
+      },
+      "post": {
+        "operationId": "createOperationalGridGeometryProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalCreateCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Grid Geometry Proposal",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}": {
+      "get": {
+        "operationId": "getOperationalGridGeometryProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridGeometryProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "Get Grid Geometry Proposal",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept": {
+      "post": {
+        "operationId": "acceptOperationalGridGeometryProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalAcceptCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Accept Grid Geometry Proposal",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject": {
+      "post": {
+        "operationId": "rejectOperationalGridGeometryProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRejectCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reject Grid Geometry Proposal",
         "tags": [
           "image-reviews"
         ]

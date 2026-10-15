@@ -1,4 +1,5 @@
 'use client';
+import { GridGeometryProposals } from './grid-geometry-proposals';
 
 import type {
   GameResponse,
@@ -660,6 +661,7 @@ export function OperationalReviewWorkspace({
                       apiBaseUrl={apiBaseUrl}
                       counts={counts}
                       game={selectedGame}
+                      gridIssueView={gridIssueView}
                       importJobId={selectedJobId}
                       item={item}
                       jumpValue={jumpValue}
@@ -877,6 +879,7 @@ function OperationalReviewBoard({
   apiBaseUrl,
   counts,
   game,
+  gridIssueView,
   hasNext,
   hasPrevious,
   importJobId,
@@ -895,6 +898,7 @@ function OperationalReviewBoard({
   readonly apiBaseUrl: string;
   readonly counts: OperationalImageReviewCountsResponse;
   readonly game: GameResponse | null;
+  readonly gridIssueView: ImageReviewGridIssueView;
   readonly hasNext: boolean;
   readonly hasPrevious: boolean;
   readonly importJobId: string;
@@ -1128,6 +1132,15 @@ function OperationalReviewBoard({
   return (
     <>
       <article className="operationalReviewStage">
+        {gridIssueView === 'needs_grid_fix' ? (
+          <GridGeometryProposals
+            api={api}
+            apiBaseUrl={apiBaseUrl}
+            importJobId={importJobId}
+            item={item}
+            onChanged={onReload}
+          />
+        ) : null}
         <header className="operationalReviewToolbar">
           <div className="operationalReviewIdentity">
             <p>

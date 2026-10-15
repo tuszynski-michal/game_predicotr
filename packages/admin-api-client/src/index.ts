@@ -1,4 +1,9 @@
 import {
+  listOperationalGridGeometryProposals as listGeneratedOperationalGridGeometryProposals,
+  getOperationalGridGeometryProposal as getGeneratedOperationalGridGeometryProposal,
+  createOperationalGridGeometryProposal as createGeneratedOperationalGridGeometryProposal,
+  acceptOperationalGridGeometryProposal as acceptGeneratedOperationalGridGeometryProposal,
+  rejectOperationalGridGeometryProposal as rejectGeneratedOperationalGridGeometryProposal,
   prepareGridReinference as prepareGeneratedGridReinference,
   getGridReinference as getGeneratedGridReinference,
   getGridReinferenceTargets as getGeneratedGridReinferenceTargets,
@@ -19,6 +24,9 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  ProposalCreateCommand,
+  ProposalAcceptCommand,
+  ProposalRejectCommand,
   GridReinferencePrepare,
   GridReinferenceFreeze,
   GridReinferencePilotAck,
@@ -30,6 +38,14 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridGeometryProposalResponse,
+  ProposalCandidatesResponse,
+  ProposalCommandResponse,
+  ProposalCreateCommand,
+  ProposalAcceptCommand,
+  ProposalRejectCommand,
+  ProposalCandidateResponse,
+  ProposalDiscoveryResponse,
   GridReinferencePrepare,
   GridReinferenceFreeze,
   GridReinferencePilotAck,
@@ -3312,6 +3328,60 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    listOperationalGridGeometryProposals: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      listGeneratedOperationalGridGeometryProposals({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    getOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+      }),
+    createOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalCreateCommand,
+    ) =>
+      createGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+        body,
+      }),
+    acceptOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalAcceptCommand,
+    ) =>
+      acceptGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+        body,
+      }),
+    rejectOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalRejectCommand,
+    ) =>
+      rejectGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+        body,
       }),
     listImageGridReviews: (options: ListImageGridReviewsOptions) =>
       listGeneratedImageGridReviews({

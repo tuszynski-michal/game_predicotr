@@ -1,10 +1,32 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # Model danych
+
+## Trwałe propozycje geometrii V3 — D-551 / TASK-1013
+
+Migracja `0160_grid_geometry_proposals` i frozen manifest v13 dodają dwa
+parenty partycjonowane per gra, z FORCE RLS i composite game FK.
+`grid_geometry_proposals` ma unique targetResultId oraz operation/ordinal,
+niezmienny dokument kandydata/pinu/fences i stan pending|accepted|rejected|stale
+z CAS revision. Faktycznie zaakceptowana geometria, kwalifikacja, SHA, autor
+i manual revision ID są osobne od oryginału modelu.
+
+`grid_geometry_proposal_events` przechowuje append-only zdarzenia i typed
+receipts200/409, monotoniczny ordinal per propozycja, revision, autora/czas
+oraz pełny canonical command/hash. Create ma namespace game/key; accept/reject
+game/proposal/kind/key. Nullable proposal_id jest dozwolone wyłącznie dla
+command_rejected/create przed powstaniem obiektu. Nie istnieje fikcyjny
+kandydat ani trzeci ledger.
+
+Powiązanie wskazuje retained target0999. Frozen source/review/board IDs nie
+mają FK do żywych tabel. Cztery istniejące cleanupy zachowują obie tabele,
+odpinając wyłącznie live link0999; create/accept po detach nie odtwarzają
+danych. Historia jest nadal czytelna. Whole-game lifecycle usuwa eventy przed
+propozycjami i retained targetami. Downgrade z historią odmawia jej utraty.
 
 ## Korekty symboli udostępnionej wyszukiwarki — D-492 / TASK-0845
 

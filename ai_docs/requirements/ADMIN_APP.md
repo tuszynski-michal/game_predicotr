@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # Wymagania modułu administracyjnego
@@ -1647,7 +1647,25 @@ nierozwiązanych plansz.
 
 Pełne zdjęcie źródłowe pozostaje dostępne wyłącznie w kontekście korekty
 geometrii. Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb
-czterech narożników granic siatki symboli na oryginalnym obrazie. Podgląd
+czterech narożników granic siatki symboli na oryginalnym obrazie.
+
+D-551/TASK-1013: przy zgłoszeniu złej siatki Reviewer pokazuje trwały wynik
+ponownego rozpoznania jako „Propozycja modelu”, z przypiętą wersją/SHA i
+porównaniem obecnej oraz proponowanej siatki. Odczyt nie zmienia zgłoszenia.
+„Przyjmij propozycję” zapisuje decyzję człowieka przez dotychczasową korektę;
+„Edytuj propozycję” otwiera ten sam edytor czterech rogów/24 węzłów i zachowuje
+oryginał modelu. „Odrzuć propozycję” pozostawia zgłoszenie otwarte. Szkic i UUID
+polecenia przeżywają przeładowanie oraz utraconą odpowiedź. Konflikt zachowuje
+szkic i wymaga odświeżenia. Historia przyjęcia nie potwierdza bieżącej geometrii
+po jej późniejszym cofnięciu albo usunięciu źródła.
+
+Sekcja propozycji jest montowana w widoku „Do poprawy siatki”; pozostałe
+widoki nie pobierają tej kolekcji. Edycja propozycji uzupełnia brakującą
+kwalifikację planszy kwalifikacją przypiętego kandydata. Oznaczenia niepełnej
+planszy i wykluczenia z treningu wyliczone w edytorze mają pierwszeństwo.
+Zmiana widoku nie usuwa trwałego szkicu ani tożsamości polecenia.
+
+Podgląd
 pokazuje projektową siatkę 5 × 3 oraz wszystkie 15 finalnych cropów bez
 pośredniego rastra planszy. Zapis geometrii tworzy nowe wersje plików
 i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i

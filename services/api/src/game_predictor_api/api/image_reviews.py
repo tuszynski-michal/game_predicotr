@@ -5,13 +5,17 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from game_predictor_api.api.reviewer_security import (
     create_optional_reviewer_session_dependency,
 )
 from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
+from game_predictor_api.application.grid_geometry_proposals import (
+    GridGeometryProposalService,
+    ProposalCommandOutcome,
+)
 from game_predictor_api.application.image_review_assets import (
     OperationalReviewAsset,
     resolve_geometry_completeness_source_asset,
@@ -55,6 +59,14 @@ from game_predictor_api.schemas.grid_engine_acceptance import (
     HistoricalAcceptanceResponse,
     HistoricalAcceptanceRunCommand,
     historical_acceptance_response,
+)
+from game_predictor_api.schemas.grid_geometry_proposals import (
+    GridGeometryProposalResponse,
+    ProposalAcceptCommand,
+    ProposalCandidatesResponse,
+    ProposalCommandResponse,
+    ProposalCreateCommand,
+    ProposalRejectCommand,
 )
 from game_predictor_api.schemas.image_geometry_completeness import (
     ImageGeometryCompletenessResponse,
@@ -916,6 +928,169 @@ def create_image_reviews_router(
             import_job_id=import_job_id,
         )
         return image_response(resolve_operational_cell_asset(item, cell_index, artifact_root))
+
+    def proposals(service: OperationalImageReviewService) -> GridGeometryProposalService:
+        if service.grid_geometry_proposals is None:
+            raise HTTPException(503, "Grid geometry proposals unavailable.")
+        return service.grid_geometry_proposals
+
+    def proposal_actor(
+        request: Request,
+        session: ReviewerAccessSession | None,
+        access: ReviewerAccessService,
+        game: UUID,
+        job: UUID,
+    ) -> str:
+        actor = authorize(session, access, game, job)
+        if actor is not None:
+            return actor
+        actor = getattr(request.state, "local_admin_actor", None)
+        if not isinstance(actor, str) or actor != "local-owner":
+            raise HTTPException(403, "A validated human actor is required.")
+        return actor
+
+    def proposal_result(outcome: ProposalCommandOutcome) -> ProposalCommandResponse | JSONResponse:
+        body = {"receipt": outcome.receipt, "current": outcome.current}
+        if outcome.status == 409:
+            # Do not raise: the normal dependency exit commits this domain receipt.
+            return JSONResponse(status_code=409, content={**outcome.receipt, "details": body})
+        return ProposalCommandResponse.model_validate(body)
+
+    @router.get(
+        "/{review_item_id}/grid-geometry-proposals",
+        response_model=ProposalCandidatesResponse,
+        operation_id="listOperationalGridGeometryProposals",
+        responses=ERROR_RESPONSES,
+    )
+    def list_grid_geometry_proposals(
+        review_item_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[ReviewerAccessService, reviewer_service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ProposalCandidatesResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
+        return ProposalCandidatesResponse.model_validate(
+            proposals(service).repository.list_proposals(game_id, import_job_id, review_item_id)
+        )
+
+    @router.get(
+        "/{review_item_id}/grid-geometry-proposals/{proposal_id}",
+        response_model=GridGeometryProposalResponse,
+        operation_id="getOperationalGridGeometryProposal",
+        responses=ERROR_RESPONSES,
+    )
+    def get_grid_geometry_proposal(
+        review_item_id: UUID,
+        proposal_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[ReviewerAccessService, reviewer_service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> GridGeometryProposalResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
+        return GridGeometryProposalResponse.model_validate(
+            proposals(service).repository.get_proposal(
+                game_id, import_job_id, review_item_id, proposal_id
+            )
+        )
+
+    @router.post(
+        "/{review_item_id}/grid-geometry-proposals",
+        response_model=ProposalCommandResponse,
+        operation_id="createOperationalGridGeometryProposal",
+        responses=ERROR_RESPONSES,
+    )
+    def create_grid_geometry_proposal(
+        request: Request,
+        review_item_id: UUID,
+        payload: ProposalCreateCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[ReviewerAccessService, reviewer_service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ProposalCommandResponse | JSONResponse:
+        actor = proposal_actor(
+            request, reviewer_session, reviewer_access_service, game_id, import_job_id
+        )
+        return proposal_result(
+            proposals(service).command(
+                game_id,
+                import_job_id,
+                review_item_id,
+                None,
+                "create",
+                payload.model_dump(mode="json", by_alias=True),
+                actor,
+            )
+        )
+
+    @router.post(
+        "/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept",
+        response_model=ProposalCommandResponse,
+        operation_id="acceptOperationalGridGeometryProposal",
+        responses=ERROR_RESPONSES,
+    )
+    def accept_grid_geometry_proposal(
+        request: Request,
+        review_item_id: UUID,
+        proposal_id: UUID,
+        payload: ProposalAcceptCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[ReviewerAccessService, reviewer_service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ProposalCommandResponse | JSONResponse:
+        actor = proposal_actor(
+            request, reviewer_session, reviewer_access_service, game_id, import_job_id
+        )
+        return proposal_result(
+            proposals(service).command(
+                game_id,
+                import_job_id,
+                review_item_id,
+                proposal_id,
+                "accept",
+                payload.model_dump(mode="json", by_alias=True),
+                actor,
+            )
+        )
+
+    @router.post(
+        "/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject",
+        response_model=ProposalCommandResponse,
+        operation_id="rejectOperationalGridGeometryProposal",
+        responses=ERROR_RESPONSES,
+    )
+    def reject_grid_geometry_proposal(
+        request: Request,
+        review_item_id: UUID,
+        proposal_id: UUID,
+        payload: ProposalRejectCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[ReviewerAccessService, reviewer_service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> ProposalCommandResponse | JSONResponse:
+        actor = proposal_actor(
+            request, reviewer_session, reviewer_access_service, game_id, import_job_id
+        )
+        return proposal_result(
+            proposals(service).command(
+                game_id,
+                import_job_id,
+                review_item_id,
+                proposal_id,
+                "reject",
+                payload.model_dump(mode="json", by_alias=True),
+                actor,
+            )
+        )
 
     return router
 

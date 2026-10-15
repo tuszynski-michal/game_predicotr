@@ -28,7 +28,8 @@ import { gridCellsWithoutPixels } from './board-geometry-correction-state';
 import {
   boardLatticeCorners,
   boardLatticeViewportExtent,
-  boardLatticeTransportCorners,
+  regularBoardLattice,
+  transformedBoardLattice,
   boardLatticePointInSource,
   boardLatticeUnavailable,
   boardLatticeWithoutPixels,
@@ -187,19 +188,32 @@ export function BoardGeometryCorrectionEditor({
   const [latticeNodes, setLatticeNodes] = useState<BoardLatticeNodes | null>(
     null,
   );
+  const [detailedCorrection, setDetailedCorrection] = useState(false);
+  const [undoGeometry, setUndoGeometry] = useState<{
+    readonly corners: OperationalReviewGeometryCorners;
+    readonly nodes: BoardLatticeNodes | null;
+  } | null>(null);
+  const cornerGestureRef = useRef<{
+    readonly corners: OperationalReviewGeometryCorners;
+    readonly nodes: BoardLatticeNodes;
+  } | null>(null);
   const latestLatticeRef = useRef<BoardLatticeNodes | null>(null);
   const draftLoadedRef = useRef<string | null>(null);
   const latticeDraftScope = useMemo<BoardLatticeDraftScope | null>(
     () =>
-      context?.suggestedLatticeNodes === undefined
+      !(
+        context?.supportsLatticeEditing ??
+        context?.suggestedLatticeNodes !== undefined
+      )
         ? null
         : {
-            targetKey: `${target.key}:${context.draftBindingKey ?? ''}`,
+            targetKey: target.draftKey ?? target.key,
+            revisionKey: `${target.key}:${context.draftBindingKey ?? ''}`,
             sourceUrl: context.sourceUrl,
             width: context.sourceWidth,
             height: context.sourceHeight,
           },
-    [context, target.key],
+    [context, target.key, target.draftKey],
   );
   const [viewport, setViewport] =
     useState<OperationalReviewGeometryViewport | null>(null);
@@ -210,6 +224,7 @@ export function BoardGeometryCorrectionEditor({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [draftError, setDraftError] = useState('');
   const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
   // D-488: symbols the operator assigned, the cell being edited and the
   // read-only suggestions of the previewed cut.
@@ -367,8 +382,12 @@ export function BoardGeometryCorrectionEditor({
     async function load() {
       draftLoadedRef.current = null;
       latestLatticeRef.current = null;
+      setDetailedCorrection(false);
+      setUndoGeometry(null);
+      cornerGestureRef.current = null;
       setContextState('loading');
       setError('');
+      setDraftError('');
       clearPreview();
       if (autoSelectFirstCell) {
         initialCellSelectedRef.current = false;
@@ -419,12 +438,16 @@ export function BoardGeometryCorrectionEditor({
         initialLattice === null
           ? initialCorners
           : boardLatticeCorners(initialLattice);
-      if (result.view.suggestedLatticeNodes !== undefined) {
+      if (
+        result.view.supportsLatticeEditing ??
+        result.view.suggestedLatticeNodes !== undefined
+      ) {
         initialCellSelectedRef.current = false;
         setSelectedCell(null);
         setChosenSymbols({});
         const scope = {
-          targetKey: `${target.key}:${result.view.draftBindingKey ?? ''}`,
+          targetKey: target.draftKey ?? target.key,
+          revisionKey: `${target.key}:${result.view.draftBindingKey ?? ''}`,
           sourceUrl: result.view.sourceUrl,
           width: result.view.sourceWidth,
           height: result.view.sourceHeight,
@@ -443,7 +466,7 @@ export function BoardGeometryCorrectionEditor({
           }
           draftLoadedRef.current = boardLatticeDraftKey(scope);
         } catch {
-          setError(
+          setDraftError(
             'Nie można odtworzyć szkicu siatki. Przywróć sugestię, aby rozpocząć nowy szkic.',
           );
         }
@@ -679,7 +702,7 @@ export function BoardGeometryCorrectionEditor({
           context2d.stroke();
         });
     }
-    (latticeNodes ?? corners)
+    (latticeNodes !== null && detailedCorrection ? latticeNodes : corners)
       .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
       .forEach((point, index) => {
         context2d.beginPath();
@@ -706,6 +729,7 @@ export function BoardGeometryCorrectionEditor({
     sourceImage,
     sourceUrl,
     latticeNodes,
+    detailedCorrection,
   ]);
 
   // A new canvas can mount with unchanged image/geometry dependencies (for
@@ -1040,6 +1064,36 @@ export function BoardGeometryCorrectionEditor({
       context.sourceHeight,
       allowOutsideSource,
     );
+    if (latticeNodes !== null && !detailedCorrection) {
+      const origin = cornerGestureRef.current;
+      if (origin === null) return;
+      const next = [...origin.corners] as OperationalReviewGeometryCorners;
+      next[index] = point;
+      try {
+        const transformed = transformedBoardLattice(origin.nodes, next);
+        if (
+          !allowOutsideSource &&
+          transformed.some(
+            (p) =>
+              p.x < 0 ||
+              p.y < 0 ||
+              p.x > context.sourceWidth - 1 ||
+              p.y > context.sourceHeight - 1,
+          )
+        )
+          throw new Error(
+            'Siatka wychodzi poza zdjęcie. Włącz niepełną planszę.',
+          );
+        replaceLattice(transformed);
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Nieprawidłowy obrys siatki.',
+        );
+      }
+      return;
+    }
     if (latticeNodes !== null) {
       const next = [...latticeNodes];
       next[index] = point;
@@ -1072,7 +1126,9 @@ export function BoardGeometryCorrectionEditor({
       canvas.height,
     );
     const threshold = 44 / pointer.scale;
-    const candidate = (latticeNodes ?? corners)
+    const candidate = (
+      latticeNodes !== null && detailedCorrection ? latticeNodes : corners
+    )
       .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
       .map((point, index) => ({
         distance: Math.hypot(
@@ -1103,6 +1159,17 @@ export function BoardGeometryCorrectionEditor({
         ...(latticeNodes === null ? {} : { latticeNodes }),
       };
     }
+    setUndoGeometry({
+      corners: copyCorners(corners),
+      nodes: latticeNodes === null ? null : latticeNodes.map((p) => ({ ...p })),
+    });
+    cornerGestureRef.current =
+      latticeNodes === null
+        ? null
+        : {
+            corners: copyCorners(corners),
+            nodes: latticeNodes.map((p) => ({ ...p })),
+          };
     event.preventDefault();
     gestureRef.current = { pointerId: event.pointerId, viewport, rect };
     setDragging(true);
@@ -1118,6 +1185,7 @@ export function BoardGeometryCorrectionEditor({
     if (!cancelled) updateCanvasGesture(event);
     dragIndexRef.current = null;
     translateGridRef.current = null;
+    cornerGestureRef.current = null;
     gestureRef.current = null;
     setDragging(false);
     const next = latestCornersRef.current;
@@ -1219,7 +1287,11 @@ export function BoardGeometryCorrectionEditor({
               <h3>Oryginał i edytowalna siatka</h3>
               <p>
                 {latticeNodes !== null ? (
-                  'Przeciągnij jeden z 24 węzłów, aby poprawić podział komórek. Przeciągnięcie wnętrza przesuwa całą siatkę. Zmiana symbolu zachowuje podział i wycinki.'
+                  detailedCorrection ? (
+                    'Przeciągnij jeden z 24 węzłów, aby poprawić podział komórek. Przeciągnięcie wnętrza przesuwa całą siatkę.'
+                  ) : (
+                    'Przeciągnij jeden z czterech rogów, aby przekształcić całą siatkę z zachowaniem dokładnych korekt. Przeciągnięcie wnętrza przesuwa wszystkie węzły.'
+                  )
                 ) : (
                   <>
                     Przeciągnij numerowany narożnik, aby skorygować perspektywę,
@@ -1250,6 +1322,8 @@ export function BoardGeometryCorrectionEditor({
                     boardLatticeDraftKey(latticeDraftScope);
                 }
                 setError('');
+                setDraftError('');
+                setUndoGeometry(null);
                 setChosenSymbols({});
                 setLatticeNodes(original);
                 latestLatticeRef.current = original;
@@ -1266,22 +1340,63 @@ export function BoardGeometryCorrectionEditor({
             >
               Przywróć sugestię
             </button>
-            {latticeNodes !== null ? (
-              <button
-                className="textButton"
-                type="button"
-                disabled={saving || dragging}
-                onClick={() => {
-                  const sketchCorners =
-                    boardLatticeTransportCorners(latticeNodes);
-                  setLatticeNodes(null);
-                  latestLatticeRef.current = null;
-                  replaceCorners(sketchCorners);
-                }}
-              >
-                Zamień na szkic z czterech narożników
-              </button>
+            {(context.supportsLatticeEditing ??
+            context.suggestedLatticeNodes !== undefined) ? (
+              <>
+                <button
+                  className="textButton"
+                  type="button"
+                  aria-pressed={detailedCorrection}
+                  disabled={saving || dragging || latticeNodes === null}
+                  onClick={() => setDetailedCorrection((value) => !value)}
+                >
+                  {detailedCorrection ? 'Cztery rogi' : 'Dokładna korekta'}
+                </button>
+                <button
+                  className="textButton"
+                  type="button"
+                  disabled={saving || dragging || corners === null}
+                  onClick={() => {
+                    if (corners === null) return;
+                    try {
+                      const regular = regularBoardLattice(corners);
+                      setUndoGeometry({
+                        corners: copyCorners(corners),
+                        nodes:
+                          latticeNodes === null
+                            ? null
+                            : latticeNodes.map((p) => ({ ...p })),
+                      });
+                      replaceLattice(regular);
+                    } catch (cause) {
+                      setError(
+                        cause instanceof Error
+                          ? cause.message
+                          : 'Nieprawidłowe narożniki.',
+                      );
+                    }
+                  }}
+                >
+                  Wyznacz regularną siatkę z czterech rogów
+                </button>
+              </>
             ) : null}
+            <button
+              className="textButton"
+              type="button"
+              disabled={undoGeometry === null || saving || dragging}
+              onClick={() => {
+                if (undoGeometry === null) return;
+                latestLatticeRef.current = undoGeometry.nodes;
+                setLatticeNodes(undoGeometry.nodes);
+                replaceCorners(undoGeometry.corners, {
+                  recenterViewport: true,
+                });
+                setUndoGeometry(null);
+              }}
+            >
+              Cofnij zmianę siatki
+            </button>
             <button
               className="textButton"
               disabled={
@@ -1566,9 +1681,9 @@ export function BoardGeometryCorrectionEditor({
         </section>
       </div>
 
-      {error ? (
+      {draftError || error ? (
         <p className="operationalReviewSaveError" role="alert">
-          {error}
+          {draftError || error}
         </p>
       ) : null}
 
@@ -1577,7 +1692,11 @@ export function BoardGeometryCorrectionEditor({
         <button
           className="primaryButton"
           disabled={
-            !previewIsCurrent || saving || loadingPreview || waitingForSymbols
+            !previewIsCurrent ||
+            saving ||
+            loadingPreview ||
+            waitingForSymbols ||
+            Boolean(draftError)
           }
           onClick={() => void saveGeometry()}
           type="button"

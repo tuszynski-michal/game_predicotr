@@ -811,6 +811,21 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
+TASK-0993: dla istniejącej siatki 24 oraz pustego szkicu neural z przypiętą
+checksumą propozycji edytor domyślnie
+pokazuje cztery zewnętrzne uchwyty. „Dokładna korekta” pokazuje wszystkie
+24 węzły; przełączenie uchwytów zachowuje każdą współrzędną bez zaokrąglania.
+Ruch rogu przekształca wszystkie węzły homografią starego i nowego obrysu,
+a ruch wnętrza przesuwa je razem. „Wyznacz regularną siatkę z czterech rogów”
+jest osobną zmianą szkicu z automatycznym podglądem i przyciskiem „Cofnij zmianę
+siatki”. Pozwala także zbudować brakujące 24 węzły z czterech rogów.
+Dokładna korekta staje się dostępna po wyznaczeniu tych węzłów.
+Przecinający się obrys jest odrzucany; nieprawidłowy podział komórek blokuje
+podgląd i zapis. Szkic przechowuje źródło i rewizję. Konflikt lub stary format
+bez jawnej rewizji wymaga „Przywróć sugestię”; szkic nie nadpisuje nowszego
+serwera. Starsze cele quad-only i kolejka audytu zachowują cztery narożniki
+oraz dotychczasowy transport. Symbole nadal należą do jednej gry.
+
 Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0969, D-542): lista ostatnich
 zapisów korekty importu (godzina lokalna, sekwencja, pozycja, rodzaj `slot` /
 `plansza`, autor). `Cofnij` jest dostępne tylko dla korekt oznaczonych przez

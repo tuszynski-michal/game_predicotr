@@ -1,11 +1,16 @@
 ---
 title: Current state archive 2026Q4
 status: archive
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # Current State — archiwum 2026Q4
 
+### TASK-0989 — Stabilny układ, minimalny fullscreen i centrowanie zdjęcia (done)
+
+- Plik: `ai_docs/tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md`; D-547. Commity: v1.7.341 / a9cb2fed291077419c1b67fab546deafaf98771b.
+- Wyłączono rutynowe komunikaty nawigacji/zapisu, pozostałe informacje są dolnym overlayem. Minimalny natywny fullscreen, zsynchronizowane wyjście F11/Escape/przycisk i centrowanie zdjęcia w obu osiach zachowują przewijanie przy dużym zoomie.
+- UI6/6, lint/typecheck/format, packaged UX i finalZIP0.1.5 full/UX PASS. Świeży finalZIP1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
 ### TASK-0988 — Brak limitu liczby zdjęć (done)
 
 - Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.

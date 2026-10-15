@@ -3352,6 +3352,15 @@ pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422)
 symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
 tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
 
+TASK-0993 nie zmienia kontraktu HTTP: istniejące preview i save przenoszą
+`latticeNodes` i `expectedProposalChecksumSha256`. Wewnętrzna capability
+Reviewera `supportsLatticeEditing` zachowuje istniejące pełne lattice, także
+bez pinu; możliwość zbudowania pustej siatki wynika z obecnego pinu neural provenance
+w adapterach deferred/reported/operational, również gdy nodes jeszcze nie ma.
+Regularne24 węzły z czterech rogów i dokładne korekty zachowują ten pin,
+rewizje CAS i obecne reguły renderowania. Adapter audytu pozostaje quad-only.
+
+
 **D-522 (TASK-0885):** ten sam kontrakt zapisu obsługuje bieżącą ręcznie
 zatwierdzoną siatkę 24 punktów z przypiętą checksumą propozycji sieci. Jej
 własna projekcja komórek nie czeka na pozostałe sloty zdjęcia ani historyczny

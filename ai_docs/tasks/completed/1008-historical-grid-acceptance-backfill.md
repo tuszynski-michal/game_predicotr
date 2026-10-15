@@ -157,7 +157,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: nie utworzono; następny patch ustalić z rzeczywistej historii gałęzi.
+- Commit: v1.7.370 / `f4ff1f4d3b0d49600ffb8fbbdd948d60ff942a65`; zapis po utworzeniu, do następnego commita. Bez scalenia.
 - Audit: uruchomiony `claude-fable-5-1`, reasoning `high`, wyłącznie Read/Glob/Grep i stdin zamknięte. Timeout480 s bez końcowego raportu. [Dowód i ograniczenie](../../quality/TASK-1008_AUDIT_TIMEOUT_CODEX.md). Brak PASS; jawny wyjątek AGENTS.md pozwala kontynuować bez ponawiania. Lokalne metadane potwierdziły rzeczywistą pracę modelu aż do limitu.
 - Następny krok: lead odczytuje `artifacts/task1008-scope.json`, wykonuje jeden niezależny audyt Claude high z zamkniętym stdin, rozlicza uwagi, ustala wersję z historii i tworzy commit TASK-1008.
 

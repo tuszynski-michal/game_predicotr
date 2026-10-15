@@ -7,7 +7,10 @@ import {
   type ManualGridFlags,
 } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 import { gridCellPolygonsWithoutPixels } from './board-geometry-correction-state.ts';
-import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
+import {
+  operationalReviewPointInLattice,
+  type OperationalReviewGeometryCorners,
+} from './operational-review-state.ts';
 
 export type BoardLatticeNodes = readonly OperationalImageReviewGeometryPoint[];
 
@@ -48,7 +51,124 @@ export function parseBoardLattice(value: unknown): BoardLatticeNodes | null {
     )
   )
     return null;
+  // A locally convex cell is insufficient: remote folds can cross other cells.
+  const edges: readonly [number, number][] = lattice.flatMap((_, i) => [
+    ...(i % 6 < 5 ? [[i, i + 1] as [number, number]] : []),
+    ...(i < 18 ? [[i, i + 6] as [number, number]] : []),
+  ]);
+  const cross = (a: number, b: number, c: number) =>
+    (lattice[b]!.x - lattice[a]!.x) * (lattice[c]!.y - lattice[a]!.y) -
+    (lattice[b]!.y - lattice[a]!.y) * (lattice[c]!.x - lattice[a]!.x);
+  const onSegment = (a: number, b: number, c: number) =>
+    Math.abs(cross(a, b, c)) <= 1e-8 &&
+    lattice[c]!.x >= Math.min(lattice[a]!.x, lattice[b]!.x) - 1e-8 &&
+    lattice[c]!.x <= Math.max(lattice[a]!.x, lattice[b]!.x) + 1e-8 &&
+    lattice[c]!.y >= Math.min(lattice[a]!.y, lattice[b]!.y) - 1e-8 &&
+    lattice[c]!.y <= Math.max(lattice[a]!.y, lattice[b]!.y) + 1e-8;
+  if (
+    edges.some(([a, b], i) =>
+      edges.slice(i + 1).some(([c, d]) => {
+        if ([a, b].includes(c) || [a, b].includes(d)) return false;
+        return (
+          (cross(a, b, c) * cross(a, b, d) < 0 &&
+            cross(c, d, a) * cross(c, d, b) < 0) ||
+          onSegment(a, b, c) ||
+          onSegment(a, b, d) ||
+          onSegment(c, d, a) ||
+          onSegment(c, d, b)
+        );
+      }),
+    )
+  )
+    return null;
   return lattice;
+}
+
+/** Explicit regularization; never called by changing the handle mode. */
+export function regularBoardLattice(
+  corners: OperationalReviewGeometryCorners,
+): BoardLatticeNodes {
+  if (
+    corners.some((a, i) => {
+      const b = corners[(i + 1) % 4]!,
+        c = corners[(i + 2) % 4]!;
+      return (
+        !Number.isFinite(a.x) ||
+        !Number.isFinite(a.y) ||
+        (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x) <= 1e-8
+      );
+    })
+  )
+    throw new Error(
+      'Narożniki muszą tworzyć wypukłą, nieprzecinającą się siatkę.',
+    );
+  const nodes = Array.from({ length: 24 }, (_, i) =>
+    operationalReviewPointInLattice(
+      corners,
+      (i % 6) / 5,
+      Math.floor(i / 6) / 3,
+    ),
+  );
+  if (parseBoardLattice(nodes) === null)
+    throw new Error('Narożniki nie tworzą poprawnej siatki.');
+  return nodes;
+}
+
+/** Map exact nodes through the old/new outline, retaining internal corrections. */
+export function transformedBoardLattice(
+  nodes: BoardLatticeNodes,
+  corners: OperationalReviewGeometryCorners,
+): BoardLatticeNodes {
+  regularBoardLattice(corners);
+  const old = boardLatticeCorners(nodes);
+  regularBoardLattice(old);
+  // Normalize source coordinates to keep elimination stable for large photos.
+  const x0 = old[0].x,
+    y0 = old[0].y;
+  const scale = Math.max(...old.map((p) => Math.hypot(p.x - x0, p.y - y0)));
+  const rows = old.flatMap((p, i) => {
+    const x = (p.x - x0) / scale,
+      y = (p.y - y0) / scale;
+    const q = corners[i]!;
+    return [
+      [x, y, 1, 0, 0, 0, -q.x * x, -q.x * y, q.x],
+      [0, 0, 0, x, y, 1, -q.y * x, -q.y * y, q.y],
+    ];
+  });
+  for (let i = 0; i < 8; i++) {
+    let pivot = i;
+    for (let j = i + 1; j < 8; j++)
+      if (Math.abs(rows[j]![i]!) > Math.abs(rows[pivot]![i]!)) pivot = j;
+    [rows[i], rows[pivot]] = [rows[pivot]!, rows[i]!];
+    const divisor = rows[i]![i]!;
+    if (Math.abs(divisor) < 1e-12)
+      throw new Error('Nie można wyznaczyć homografii siatki.');
+    for (let k = i; k <= 8; k++) rows[i]![k] = rows[i]![k]! / divisor;
+    for (let j = 0; j < 8; j++)
+      if (j !== i) {
+        const factor = rows[j]![i]!;
+        for (let k = i; k <= 8; k++)
+          rows[j]![k] = rows[j]![k]! - factor * rows[i]![k]!;
+      }
+  }
+  const h = rows.map((row) => row[8]!);
+  const next = nodes.map((p) => {
+    const x = (p.x - x0) / scale,
+      y = (p.y - y0) / scale;
+    const denominator = h[6]! * x + h[7]! * y + 1;
+    if (denominator <= 1e-10) throw new Error('Homografia przecina siatkę.');
+    return {
+      x: (h[0]! * x + h[1]! * y + h[2]!) / denominator,
+      y: (h[3]! * x + h[4]! * y + h[5]!) / denominator,
+    };
+  });
+  // Anchor outer handles exactly to the requested coordinates.
+  [0, 5, 23, 18].forEach((index, i) => {
+    next[index] = { ...corners[i]! };
+  });
+  if (parseBoardLattice(next) === null)
+    throw new Error('Przekształcenie przecina komórki siatki.');
+  return next;
 }
 
 export function boardLatticeCorners(

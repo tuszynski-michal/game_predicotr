@@ -9,6 +9,8 @@ import {
   boardLatticePointInSource,
   parseBoardLattice,
   translatedBoardLattice,
+  transformedBoardLattice,
+  regularBoardLattice,
 } from '../src/features/operational-reviews/board-lattice-state.ts';
 import {
   readBoardLatticeDraft,
@@ -156,6 +158,190 @@ test('restart restores float nodes, symbols and exact idempotency; source drift 
   assert.deepEqual(readBoardLatticeDraft(store, scope), draft);
   assert.throws(
     () => readBoardLatticeDraft(store, { ...scope, sourceUrl: 'source?sha=b' }),
+    /innego źródła/,
+  );
+});
+
+test('corner homography preserves internal correction and maps every node by one projective transform', () => {
+  const adjusted = structuredClone(nodes);
+  adjusted[7].x += 3.125;
+  adjusted[7].y -= 2.375;
+  const project = ({ x, y }) => ({
+    x: (1.2 * x + 0.15 * y + 4) / (1 + 0.001 * x + 0.0005 * y),
+    y: (0.1 * x + 1.1 * y + 9) / (1 + 0.001 * x + 0.0005 * y),
+  });
+  const outline = boardLatticeCorners(adjusted).map(project);
+  const transformed = transformedBoardLattice(adjusted, outline);
+  transformed.forEach((p, i) => {
+    assert.ok(Math.abs(p.x - project(adjusted[i]).x) < 1e-9);
+    assert.ok(Math.abs(p.y - project(adjusted[i]).y) < 1e-9);
+  });
+  assert.notDeepEqual(transformed[7], regularBoardLattice(outline)[7]);
+  const crossed = [outline[0], outline[2], outline[1], outline[3]];
+  assert.throws(() => transformedBoardLattice(adjusted, crossed), /Narożniki/);
+  assert.throws(() => regularBoardLattice(crossed), /Narożniki/);
+  assert.deepEqual(regularBoardLattice(boardLatticeCorners(nodes)), nodes);
+});
+test('locally convex cells cannot overlap distant cells or cross distant edges', () => {
+  const winding = Array.from({ length: 24 }, (_, i) => {
+    const angle = (-(i % 6) * 80 * Math.PI) / 180,
+      radius = 100 + Math.floor(i / 6) * 30;
+    return {
+      x: 300 + radius * Math.cos(angle),
+      y: 300 + radius * Math.sin(angle),
+    };
+  });
+  assert.equal(parseBoardLattice(winding), null);
+});
+test('draft revision drift blocks restoring older geometry into a newer server view', () => {
+  const store = storage(),
+    scope = {
+      targetKey: 'stable-board',
+      revisionKey: 'r1',
+      sourceUrl: 'sha=a',
+      width: 200,
+      height: 200,
+    };
+  writeBoardLatticeDraft(store, scope, {
+    corners: boardLatticeCorners(nodes),
+    latticeNodes: nodes,
+    flags: completeManualGridFlags,
+    symbols: {},
+    idempotency: null,
+  });
+  assert.throws(
+    () => readBoardLatticeDraft(store, { ...scope, revisionKey: 'r2' }),
+    /innego źródła/,
+  );
+});
+
+test('all three real adapters advertise empty neural drafts by provenance pin and preserve exact nodes in requests', async () => {
+  const {
+    deferredBoardGeometryTarget,
+    reportedBoardGeometryTarget,
+    operationalBoardGeometryTarget,
+  } =
+    await import('../src/features/operational-reviews/board-geometry-correction-target.ts');
+  const outline = boardLatticeCorners(nodes);
+  for (const [pin, existingNodes] of [
+    [null, null],
+    ['d'.repeat(64), null],
+    [null, nodes],
+  ]) {
+    const item = {
+      id: 'board',
+      reviewItemId: 'board',
+      slotId: 'slot',
+      gameId: 'game',
+      importJobId: 'job',
+      sourceChecksumSha256: 'a'.repeat(64),
+      sourceWidth: 200,
+      sourceHeight: 200,
+      positionIndex: 0,
+      sequenceNumber: 1,
+      geometryRevision: 2,
+      resolutionRevision: 3,
+      geometryQualification: null,
+      geometry: { latticeBoundsQuad: outline },
+      gridRows: 3,
+      gridColumns: 5,
+      reportedCellIndices: [],
+      expectedProposalChecksumSha256: pin,
+      latticeNodes: existingNodes,
+    };
+    const context = {
+      item: {
+        ...item,
+        expectedGeometryRevision: 2,
+        expectedReviewResolutionRevision: 3,
+        processingManifestChecksumSha256: 'b'.repeat(64),
+      },
+      sourceWidth: 200,
+      sourceHeight: 200,
+      suggestedCorners: outline,
+      expectedProposalChecksumSha256: pin,
+      latticeNodes: existingNodes,
+    };
+    const requests = [];
+    const preview = async (...args) => {
+      requests.push(args.at(-1));
+      return { data: new Blob(['png']) };
+    };
+    const save = async (...args) => {
+      requests.push(args.at(-1));
+      return { data: { reviewItemId: 'board', item } };
+    };
+    const api = {
+      getPendingBoardCellGeometryCorrectionContext: async () => ({
+        data: context,
+      }),
+      previewPendingBoardCellGeometryCorrection: preview,
+      resolvePendingBoardCellGeometryManually: save,
+      imageGridReviewSourceAssetUrl: () => 'source',
+      previewImageGridReviewGeometry: preview,
+      createImageGridReviewGeometryRevision: save,
+      previewOperationalImageReviewGeometry: preview,
+      createOperationalImageReviewGeometryRevision: save,
+    };
+    const targets = [
+      deferredBoardGeometryTarget({
+        api,
+        apiBaseUrl: 'http://localhost',
+        pendingId: 'p',
+        scope: { gameId: 'game', importJobId: 'job' },
+      }),
+      reportedBoardGeometryTarget({ api, item }),
+      operationalBoardGeometryTarget({
+        api,
+        apiBaseUrl: 'http://localhost',
+        importJobId: 'job',
+        item,
+      }),
+    ];
+    for (const target of targets) {
+      const loaded = await target.load();
+      assert.equal(loaded.ok, true);
+      assert.equal(
+        loaded.view.supportsLatticeEditing,
+        pin !== null || existingNodes !== null,
+      );
+      assert.deepEqual(
+        loaded.view.suggestedLatticeNodes,
+        existingNodes ?? undefined,
+      );
+      if (pin !== null || existingNodes !== null) {
+        const regular = regularBoardLattice(loaded.view.suggestedCorners);
+        await target.preview(outline, completeManualGridFlags, regular);
+        await target.save(
+          outline,
+          completeManualGridFlags,
+          'key',
+          undefined,
+          regular,
+        );
+        for (const request of requests.slice(-2)) {
+          assert.deepEqual(request.latticeNodes, regular);
+          assert.equal(
+            request.expectedProposalChecksumSha256,
+            pin ?? undefined,
+          );
+        }
+      }
+    }
+  }
+});
+test('pre-revision draft format is safely rejected when explicit revision is required', () => {
+  const store = storage(),
+    scope = { targetKey: 'same', sourceUrl: 'source', width: 200, height: 200 };
+  writeBoardLatticeDraft(store, scope, {
+    corners: boardLatticeCorners(nodes),
+    latticeNodes: nodes,
+    flags: completeManualGridFlags,
+    symbols: {},
+    idempotency: null,
+  });
+  assert.throws(
+    () => readBoardLatticeDraft(store, { ...scope, revisionKey: 'r1' }),
     /innego źródła/,
   );
 });

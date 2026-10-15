@@ -216,6 +216,35 @@ identyczne. Downgrade odmawia utraty historii. Stare assignments/snapshoty
 działają dalej; invalidation blokuje nowe komendy i bootstrap eligibility,
 a istniejącego assignment nie zmienia automatycznie.
 
+## Atomowa rezerwacja nowej gry — TASK-1004
+
+Migracja `0158_new_game_v3_bootstrap` po0157 dodaje immutable public catalogue
+`game_create_receipts` (UUID key, unique gameId bez FK do kasowanej gry,
+canonical command/SHA, reservation/SHA, actor i czas) oraz shared
+`grid_model_family_forks` (family FK, exact base version/manifest SHA,
+canonical lineage/SHA, actor i czas). Assignment otrzymuje nullable
+`training_family_id`; dawne wiersze pozostają bez backfillu. Bootstrap event
+ma expected0/revision1 oraz pełny receipt transferu. Rodzina forka jest
+pusta, a inference assignment nadal wskazuje oryginalną published wersję.
+
+Jedna transakcja roli aplikacyjnej pod9910994 rezerwuje grę, MIGRATING
+location, lifecycle, fork, assignment/event i create receipt przed pierwszym
+commitem provisioningu. Publiczne rekordy z game_id zapisuje typowany Core
+przez tę samą Session connection: pending ORM flush uruchamiałby poprawną
+blokadę data-plane dla MIGRATING. Nie osłabia to routera/RLS i nie używa
+owner session do zapisów katalogu. Po commicie dotychczasowe partycje mają
+oddzielne owner-DDL transakcje i checkpointy. Retry odczytuje immutable ledger
+przed ponowną kwalifikacją i nigdy nie przestawia nowszego assignment.
+
+`grid-model-family-lineage-v1` pinuje najwyżej64 unikalnych przodków wraz ze
+snapshot/cohort/evaluation/report references. Cykl, brak lub obca baza
+blokują fork/registration; unresolved protected reference nie jest pustym
+wyłączeniem. TASK-1002/0995 rozwiążą referencje do nagrań/aliasów/byte/pixel
+przed TRAIN. Kolejne jawne activate/rollback ustawia rodzinę treningową
+wybranej wersji, zachowując pierwotną linię forka w immutable historii.
+Frozen manifestv11 dodaje tylko dwa rejestry publiczne; listy partycji i
+frozenv1–v10 pozostają identyczne. Downgrade odmawia utraty historii.
+
 ## Trwały rejestr geometrii V3 — TASK-0994
 
 Migracja `0156_grid_model_registry` dodaje do `public` shared control tables

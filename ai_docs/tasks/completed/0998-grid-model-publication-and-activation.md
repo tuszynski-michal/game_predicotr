@@ -132,7 +132,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Zatwierdzony upstream: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14).
 - Worktree: `D:/game_predicotr/worktrees/v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: przygotowany v1.7.376; pełny hash zostanie dopisany po utworzeniu commita. Bez scalenia i push.
+- Commit: **v1.7.376 / `6d89d079502a128047cfcd183e420ef35382a78c`**. Pełny hash zapisano po utworzeniu; te metadane wejdą z następnym taskiem. Bez scalenia i push.
 - Audit: [Claude R1 REVISE](../../quality/TASK-0998_AUDIT_claude-fable-5-1.md), `claude-fable-5-1`/medium, osobny kontekst i tryb tylko do odczytu, limit operatora 20 min. Raport pozostaje bez zmian. [Rozliczenie leada](../../quality/TASK-0998_AUDIT_RESPONSE_CODEX.md) nie jest nowym werdyktem audytora. Procesowe P1-1 zamknięto rozszerzeniem D-549 po audycie; zachowanie objęte P1 nie zmieniło się. Nie uruchamiano automatycznego R2. Pierwotny scope `artifacts/audits/TASK-0998_SCOPE.json` pozostaje dowodem przed poprawkami; nowy `TASK-0998_CORRECTION_SCOPE.json` opisuje poprawki.
 
 ### Changed
@@ -181,7 +181,7 @@ Wszystkie komendy skończone miały jawne limity do 120 s. Nie uruchamiano usłu
 
 ### Not completed
 
-- Integracja i operacje operatora pozostają niewykonane. Task przeniesiono do completed; osobny commit prowadzi lead. Audyt R1 i jedna runda poprawek wykonane; P1-1 zamknięte dokumentacyjnie przez leada, bez nowego werdyktu PASS.
+- Integracja i operacje operatora pozostają niewykonane. Task przeniesiono do completed; commit v1.7.376 zapisany, hash dopisano po utworzeniu. Audyt R1 i jedna runda poprawek wykonane; P1-1 zamknięte dokumentacyjnie przez leada, bez nowego werdyktu PASS.
 - Realny wynik jakości/PASS TASK-0997, UI/panel TASK-1000, nowe gry/formularze TASK-1004/1011. Nie przeprowadzono treningu, inference/GPU, aktywacji, publikacji/default na danych operatora, jego migracji ani restartu/usług.
 - Nie uruchamiano pełnej quality/całego Workera, benchmarków ani masowych fixtures; skupione kontrole pokrywają zmieniony pion. Nie powtarzano szerokich zestawów po zieleni bez nowego powodu.
 

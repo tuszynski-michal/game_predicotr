@@ -91,6 +91,7 @@ def _seed_staging(
     now: datetime,
 ) -> tuple[UUID, UUID]:
     game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+        idempotency_key=uuid4(),
         code=f"browser-retention-{suffix}",
         name=f"Browser retention {suffix}",
         status=GameStatus.ACTIVE,

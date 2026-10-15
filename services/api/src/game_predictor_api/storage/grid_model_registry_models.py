@@ -81,6 +81,9 @@ class GameGridModelAssignmentModel(Base):
         ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
     )
     revision: Mapped[int] = mapped_column()
+    training_family_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("public.grid_model_families.id", ondelete="RESTRICT")
+    )
 
 
 class GameGridModelAssignmentEventModel(Base):
@@ -175,3 +178,34 @@ class GridModelDefaultModel(Base):
         ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
     )
     revision: Mapped[int] = mapped_column()
+
+
+class GameCreateReceiptModel(Base):
+    """A deleted game must never free its original create command key."""
+
+    __tablename__ = "game_create_receipts"
+    __table_args__ = (UniqueConstraint("game_id"), {"schema": "public"})
+    idempotency_key: Mapped[UUID] = mapped_column(primary_key=True)
+    game_id: Mapped[UUID] = mapped_column()
+    command_json: Mapped[str] = mapped_column(Text)
+    command_sha256: Mapped[str] = mapped_column(String(64))
+    reservation_json: Mapped[str] = mapped_column(Text)
+    reservation_sha256: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelFamilyForkModel(Base):
+    __tablename__ = "grid_model_family_forks"
+    __table_args__ = ({"schema": "public"},)
+    family_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_families.id", ondelete="RESTRICT"), primary_key=True
+    )
+    base_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_versions.id", ondelete="RESTRICT")
+    )
+    base_manifest_sha256: Mapped[str] = mapped_column(String(64))
+    lineage_json: Mapped[str] = mapped_column(Text)
+    lineage_sha256: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

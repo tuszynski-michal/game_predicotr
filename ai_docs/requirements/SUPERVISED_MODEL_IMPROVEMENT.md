@@ -79,6 +79,22 @@ nich kohortę, trenuje i aktywuje model, a następnie uruchamia istniejącą
 pending-only reinferencję na tych samych cropach. Niezgodny globalny bootstrap
 nigdy nie zastępuje modelu gry.
 
+## Izolacja nowych wyborów symboli V3 — TASK-1004
+
+Nowy wybór/preflight każdego formatu V3 (777v2, Mumie i neutralny) wymaga
+własnej aktywacji modelu symboli tej gry. Same zgodne classCodes nie
+upoważniają do użycia globalnego klasyfikatora. Własny candidate_ready nadal
+wymaga jawnej aktywacji. Jedynym pierwszym fallbackiem jest opisany wyżej
+unclassified cold-start z kontrolą historii konkretnej gry. Brak resolvera
+produkcji dla znanej V3 jest błędem. Odczyt/replay istniejących snapshotów,
+własne aktywacje oraz klasyczny bootstrap historycznej777 pozostają zachowane.
+Współdzielony model geometrii ani fork rodziny nie kopiuje katalogu symboli,
+etykiet, kohort, wag lub aktywacji symboli.
+Nowa gra zaczyna z pustym katalogiem. Dotychczasowy snapshot unclassified
+wymaga co najmniej dwóch własnych aktywnych kodów; bez nich snapshot/start
+importu jest zablokowany. Po ich zdefiniowaniu działa istniejący cold-start,
+bez zastępczych symboli, obcych wag lub zmiany progu.
+
 ## Docelowe rodziny modeli i katalog przy tworzeniu gry — D-527
 
 To zaakceptowane wymaganie przyszłego Laboratorium w głównej aplikacji,

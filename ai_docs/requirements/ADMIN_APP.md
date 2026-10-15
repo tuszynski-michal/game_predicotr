@@ -72,19 +72,30 @@ lub `blocked` wyświetla jawny tryb tylko do odczytu i blokuje mutacje katalogu;
 wybór gry i bezpieczne odczyty pozostają dostępne. Backend pozostaje źródłem
 prawdy i niezależnie od UI odrzuca zapis objęty maintenance.
 
-Przy tworzeniu i edycji gry panel wybiera format strony: pełną stronę z ramką
-albo format wymagający doprecyzowania. Karta katalogu pokazuje bieżący status
-wspólnej geometrii, konkretną przyczynę i, gdy jest bezpiecznie dostępny,
-numer profilu shared. Panel nie prosi o kolor ramki, lokalną kotwicę ani obraz;
-gotowość do preflightu nadal wymaga ręcznej weryfikacji pierwszego importu.
+Nowa gra korzysta z neutralnego formatu `neural_grid_v3`. Zwykły formularz
+tworzenia i edycji V3 nie pokazuje wyboru formatu ani dawnych profili modelu.
+Backend przypina raz dopuszczoną opublikowaną wersję domyślną. Bez niej gra
+może powstać bez przypisania, z blokadą importu i konkretną przyczyną. Status
+domyślny pozostaje szkicem; jawny status nie jest zmieniany z powodu modelu.
+Nowe klasyczne tworzenie oraz zastrzeżony historyczny kod `7` są odrzucane.
 
-Pole „Format strony” oferuje także profile silnika siatek „777 v2” i „Mumie”
-(TASK-0830). Profil wskazuje zamrożony model `neural_grid` w zarządzanym
-katalogu modeli; dla gotowości geometrii działa jak pełna strona z ramką. Pod
-polem panel opisuje model wybranego profilu, informuje, że profil 777 v2 służy
-także przyszłym wersjom gry 777, i pokazuje stan modelu z API (dostępny, brak
-plików, niezgodny SHA-256). Karta gry na liście pokazuje format strony, a dla
-profilu także stan jego modelu. Brak modelu nie blokuje zapisu gry.
+Zwinięte ustawienia zaawansowane pozwalają wybrać dopuszczoną opublikowaną
+wersję albo nową rodzinę z takiej bazy. Fork zachowuje referencję bazy i
+wyłączenia przodków, bez kopiowania wag, wersji lub etykiet. Wybrana rodzina
+treningowa jest widoczna; jawne późniejsze przypisanie zmienia ją na rodzinę
+wybranej wersji, zachowując historię forka. Pierwsze przypisanie utworzonej
+bez modelu neutralnej gry jest osobną jawną akcją. Przeniesienie bazy nie
+oznacza pomiaru jakości nowej gry; kolejne aktywacje wymagają oceny per gra.
+
+Polecenie tworzenia ma wymagany UUID. Panel zapisuje dokładne polecenie przed
+wysłaniem, zachowuje je przy utracie odpowiedzi i odtwarza po ponownym otwarciu.
+Retry zwraca tę samą grę; podobny kod lub nazwa nie służą do adopcji wyniku.
+Historyczne GET/PATCH zachowują wszystkie dawne wartości i NULL. Edycja
+klasycznej gry, w tym archiwalnej777, nadal ma dawny wybór i etykiety formatu.
+Karta pokazuje zapisany format i stan geometrii; preflight pozostaje bramką
+gotowości importu. W panelu importu wszystkie trzy formaty V3 korzystają z
+istniejącego sterowania V3. Przełączenie z klasycznej gry nie przenosi wyboru
+V1.1 do nowej neutralnej gry. Wyjątek historycznej777 pozostaje zachowany.
 
 Formularz tworzenia i edycji gry ma select „Supergra” (TASK-0931, D-535) z
 opcją „Brak” i rodzajami supergry z rejestru w kodzie
@@ -1947,3 +1958,11 @@ zwykłej planszy, ten sam rozszerzony zakres ±~7%, co przeciąganie
 narożnika, gdy którakolwiek plansza na stronie jest oznaczona „Niepełna”.
 Przeciąganie pojedynczego narożnika (uchwyty renderowane nad planszą)
 działa bez zmian.
+
+Tworzenie po kontrolowanym odrzuceniu wyboru może użyć nowego polecenia tylko
+po serwerowym dowodzie rollback/braku rezerwacji z dokładnie tym samym kluczem.
+Brak dowodu zachowuje retry, także dla422. Działanie „Porzuć zapisane polecenie”
+wymaga osobnego potwierdzenia i ostrzega, że gra lub przypisanie mogły zostać
+zapisane. Najpierw zachowuje surowy wpis z namespace/czasem w trwałym archiwum
+przeglądarki, następnie usuwa lokalne pending. Awaria archiwum zachowuje pending.
+Dotyczy też uszkodzonego wpisu. Nie usuwa rezerwacji serwera ani dawnych archiwów.

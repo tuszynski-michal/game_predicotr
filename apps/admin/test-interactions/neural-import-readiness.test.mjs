@@ -751,3 +751,72 @@ test('finalized upload stays visible and retryable when its report fails', async
     await act(async () => root.unmount());
   }
 });
+
+test('TASK-1004 neutral and both legacy V3 configurations route new selections through V3', async () => {
+  for (const profile of [
+    'neural_grid_v3',
+    'grid_profile_mumie_v1',
+    'grid_profile_777_v2',
+  ]) {
+    const { root, reportCalls } = await mount(null, false, {
+      profile,
+      noGeometry: true,
+    });
+    try {
+      const toolbar = document.querySelector('.importEngineChoice');
+      assert.match(toolbar.textContent, /V3 — sieć neuronowa/);
+      assert.equal(toolbar.querySelectorAll('label').length, 1);
+      assert.equal(reportCalls.at(-1)[2], undefined);
+    } finally {
+      await act(async () => root.unmount());
+    }
+  }
+});
+
+test('TASK-1004 switching a classical selection to neutral V3 drops the old radio and request variant', async () => {
+  const { root, api, reportCalls } = await mount(null, false, {
+    profile: 'framed_full_page_v2',
+    noGeometry: true,
+    openReport: false,
+  });
+  try {
+    assert.match(
+      document.querySelector('.importEngineChoice label').textContent,
+      /v1.1/,
+    );
+    await act(async () =>
+      root.render(
+        React.createElement(ImageFolderImportPanel, {
+          client: api,
+          apiBaseUrl: 'http://localhost',
+          gameId: 'game',
+          gameCode: 'new-game',
+          shapeGeometryConfiguration: 'neural_grid_v3',
+        }),
+      ),
+    );
+    assert.match(
+      document.querySelector('.importEngineChoice label').textContent,
+      /V3 — sieć neuronowa/,
+    );
+    await act(async () => button('Pokaż raport').click());
+    assert.equal(reportCalls.at(-1)[2], undefined);
+    await act(async () =>
+      root.render(
+        React.createElement(ImageFolderImportPanel, {
+          client: api,
+          apiBaseUrl: 'http://localhost',
+          gameId: 'legacy',
+          gameCode: '7',
+          shapeGeometryConfiguration: 'framed_full_page_v2',
+        }),
+      ),
+    );
+    assert.match(
+      document.querySelector('.importEngineChoice label').textContent,
+      /v1.1/,
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

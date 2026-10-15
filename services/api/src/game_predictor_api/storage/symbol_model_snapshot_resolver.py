@@ -8,11 +8,12 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Uuid, column, select, table
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import SymbolModelSnapshotResolver
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.grid_model_snapshots import uses_neural_grid
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import (
     LAB_RGB_SYMBOL_MODEL_VERSION,
@@ -75,6 +76,28 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
                     "SYMBOL_MODEL_ACTIVATION_REQUIRED",
                     "A verified symbol model candidate is ready for this game. "
                     "Activate it before starting a new inference job.",
+                )
+            games = table(
+                "games",
+                column("id", Uuid),
+                column("code"),
+                column("shape_geometry_configuration"),
+                schema="public",
+            )
+            game = self._session.execute(
+                select(games.c.code, games.c.shape_geometry_configuration).where(
+                    games.c.id == game_id
+                )
+            ).one_or_none()
+            if (
+                game is not None
+                and game.code != "7"
+                and uses_neural_grid(game.shape_geometry_configuration)
+            ):
+                raise JobConflictError(
+                    "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED",
+                    "V3 requires this game's active symbol model or an explicit "
+                    "unclassified cold start.",
                 )
             bootstrap = bootstrap_symbol_model_snapshot()
             if tuple(sorted(bootstrap.class_codes)) != active_catalog_codes:

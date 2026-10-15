@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
+from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_model_registry import (
     GameGridModelAssignmentResponse,
@@ -108,6 +109,10 @@ def create_grid_model_registry_router(service_dependency: Callable[..., object])
         command: GridModelAssignmentCommand,
         service: Annotated[GridModelRegistryService, dependency],
     ) -> GridModelControlReceipt:
+        if command.mode != "evaluated":
+            raise GridModelRegistryError(
+                "GRID_MODEL_COMMAND_INVALID", "Initial transfer is game-scoped only."
+            )
         return GridModelControlReceipt.model_validate(
             service.control.execute(
                 kind="set_default",
@@ -129,6 +134,16 @@ def create_grid_model_registry_router(service_dependency: Callable[..., object])
         command: GridModelAssignmentCommand,
         service: Annotated[GridModelRegistryService, dependency],
     ) -> GridModelControlReceipt:
+        if command.mode == "initial_transfer":
+            return GridModelControlReceipt.model_validate(
+                service.initial_transfer(
+                    game_id=game_id,
+                    key=command.idempotency_key,
+                    expected_revision=command.expected_revision,
+                    version_id=command.version_id,
+                    actor=ADMIN_ACTOR,
+                )
+            )
         return GridModelControlReceipt.model_validate(
             service.control.execute(
                 kind="activate",
@@ -151,6 +166,10 @@ def create_grid_model_registry_router(service_dependency: Callable[..., object])
         command: GridModelAssignmentCommand,
         service: Annotated[GridModelRegistryService, dependency],
     ) -> GridModelControlReceipt:
+        if command.mode != "evaluated":
+            raise GridModelRegistryError(
+                "GRID_MODEL_COMMAND_INVALID", "Rollback requires evaluated mode."
+            )
         return GridModelControlReceipt.model_validate(
             service.control.execute(
                 kind="rollback",

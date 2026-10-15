@@ -7,7 +7,7 @@ Runs only with ``GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`` against its own
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from alembic import command
 from game_predictor_api.application.catalog import CatalogService
@@ -103,7 +103,10 @@ def test_rgb_v2_write_filter_and_revert_on_one_board(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
-                code="rgb-v2-writer", name="RGB v2 writer", status=GameStatus.ACTIVE
+                idempotency_key=uuid4(),
+                code="rgb-v2-writer",
+                name="RGB v2 writer",
+                status=GameStatus.ACTIVE,
             )
             symbols = {
                 code: catalog.create_symbol(

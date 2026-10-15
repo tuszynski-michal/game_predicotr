@@ -30,6 +30,7 @@ class GridModelReceipt(Protocol):
 
 
 class GridModelAssignment(Protocol):
+    training_family_id: UUID | None
     revision: int
     version_id: UUID
 
@@ -43,6 +44,8 @@ class GridModelRegistryRepository(GridModelControlRepository, Protocol):
         self, payload: dict[str, Any], manifest_json: str, checksum: str, key: UUID
     ) -> GridModelRecord: ...
     def assignment(self, game_id: UUID) -> tuple[GridModelAssignment | None, int]: ...
+    def family_label(self, family_id: UUID) -> str: ...
+    def initial_transfer_allowed(self, game_id: UUID) -> bool: ...
 
 
 class GridModelInspector(Protocol):
@@ -142,4 +145,30 @@ class GridModelRegistryService:
             "revision": None if assignment is None else assignment.revision,
             "version": view,
             "eventCount": event_count,
+            "trainingFamilyId": None if assignment is None else assignment.training_family_id,
+            "initialTransferAllowed": (
+                assignment is None
+                and event_count == 0
+                and self.repository.initial_transfer_allowed(game_id)
+            ),
+            "trainingFamilyLabel": (
+                self.repository.family_label(assignment.training_family_id)
+                if assignment is not None and assignment.training_family_id
+                else None
+                if view is None
+                else view["manifest"]["familyLabel"]
+            ),
         }
+
+    def initial_transfer(
+        self, *, game_id: UUID, key: UUID, expected_revision: int, version_id: UUID, actor: str
+    ) -> dict[str, Any]:
+        from game_predictor_api.application.new_game_geometry import NewGameGeometryService
+
+        return NewGameGeometryService(None, self.repository, self).initial_transfer(
+            game_id=game_id,
+            key=key,
+            expected_revision=expected_revision,
+            version_id=version_id,
+            actor=actor,
+        )

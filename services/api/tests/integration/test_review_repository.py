@@ -104,6 +104,7 @@ def test_review_repository_persists_idempotent_immutable_batch(
             # of the session is bound to its game_data_v2 store.
             session = stack.enter_context(create_session_factory(engine)())
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="review-game",
                 name="Review game",
                 status=GameStatus.ACTIVE,

@@ -21,6 +21,9 @@ from game_predictor_api.main import create_app
 
 
 class MemoryCatalogRepository(CatalogRepository):
+    def geometry_assignment_available(self, game_id: UUID) -> bool:
+        return False
+
     def __init__(self) -> None:
         self.games: dict[UUID, Game] = {}
         self.symbols: dict[UUID, Symbol] = {}
@@ -44,6 +47,8 @@ class MemoryCatalogRepository(CatalogRepository):
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
         super_game_kind: str = "none",
+        idempotency_key: UUID | None = None,
+        grid_model: dict | None = None,
     ) -> Game:
         if any(game.code == code for game in self.games.values()):
             raise CatalogConflictError(
@@ -206,10 +211,13 @@ def test_game_page_format_accepts_the_grid_engine_profiles_and_keeps_old_values(
         ):
             response = client.post(
                 "/api/v1/admin/games",
-                json={"code": code, "name": code, "shapeGeometryConfiguration": configuration},
+                json={"idempotencyKey": str(uuid4()), "code": code, "name": code},
             )
             assert response.status_code == 201
-            body = response.json()
+            body = client.patch(
+                f"/api/v1/admin/games/{response.json()['id']}",
+                json={"shapeGeometryConfiguration": configuration},
+            ).json()
             assert body["shapeGeometryConfiguration"] == configuration
             assert body["shapeGeometryReadiness"]["configuration"] == configuration
             created[code] = body
@@ -245,7 +253,12 @@ def test_game_page_format_accepts_the_grid_engine_profiles_and_keeps_old_values(
 
         rejected = client.post(
             "/api/v1/admin/games",
-            json={"code": "x", "name": "x", "shapeGeometryConfiguration": "grid_profile_777_v3"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "x",
+                "name": "x",
+                "shapeGeometryConfiguration": "grid_profile_777_v3",
+            },
         )
         assert rejected.status_code == 422
 
@@ -256,7 +269,7 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
     with _client(repository) as client:
         game_response = client.post(
             "/api/v1/admin/games",
-            json={"code": "blazing-hot", "name": " Blazing Hot "},
+            json={"idempotencyKey": str(uuid4()), "code": "blazing-hot", "name": " Blazing Hot "},
         )
         assert game_response.status_code == 201
         game = game_response.json()
@@ -268,13 +281,13 @@ def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols()
         assert game["storageGeneration"] == 2
         assert game["storageStatus"] == "active"
         assert game["storageWriteAvailable"] is True
-        assert game["shapeGeometryConfiguration"] == "requires_clarification"
+        assert game["shapeGeometryConfiguration"] == "neural_grid_v3"
         assert game["shapeGeometryReadiness"] == {
-            "configuration": "requires_clarification",
-            "message": "Ten format strony wymaga doprecyzowania przed użyciem wspólnej geometrii.",
-            "reasonCode": "SHAPE_GEOMETRY_FORMAT_REQUIRES_CLARIFICATION",
+            "configuration": "neural_grid_v3",
+            "message": "Przypisz opublikowaną geometrię V3 przed importem.",
+            "reasonCode": "GRID_MODEL_ASSIGNMENT_REQUIRED",
             "sharedProfile": None,
-            "status": "requires_clarification",
+            "status": "manual_review_required",
         }
 
         game_update = client.patch(
@@ -354,13 +367,13 @@ def test_api_returns_stable_conflict_not_found_and_validation_errors() -> None:
     with _client(repository) as client:
         created = client.post(
             "/api/v1/admin/games",
-            json={"code": "game-1", "name": "Game 1"},
+            json={"idempotencyKey": str(uuid4()), "code": "game-1", "name": "Game 1"},
         )
         game_id = created.json()["id"]
 
         duplicate = client.post(
             "/api/v1/admin/games",
-            json={"code": "game-1", "name": "Duplicate"},
+            json={"idempotencyKey": str(uuid4()), "code": "game-1", "name": "Duplicate"},
         )
         assert duplicate.status_code == 409
         assert duplicate.json() == {
@@ -394,7 +407,7 @@ def test_manual_symbol_creation_assigns_stable_identity_and_resolves_name_collis
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "game-1", "name": "Game 1"},
+            json={"idempotencyKey": str(uuid4()), "code": "game-1", "name": "Game 1"},
         ).json()["id"]
         first = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
@@ -418,7 +431,7 @@ def test_symbol_patch_changes_display_order_and_rejects_invalid_values() -> None
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "game-1", "name": "Game 1"},
+            json={"idempotencyKey": str(uuid4()), "code": "game-1", "name": "Game 1"},
         ).json()["id"]
         star_id = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
@@ -481,7 +494,7 @@ def test_delete_reports_each_durable_usage_blocker() -> None:
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "game-1", "name": "Game 1"},
+            json={"idempotencyKey": str(uuid4()), "code": "game-1", "name": "Game 1"},
         ).json()["id"]
         for index, field_name in enumerate(usage_fields):
             symbol = client.post(
@@ -512,14 +525,27 @@ def test_game_super_game_kind_defaults_to_none_and_is_validated() -> None:
     repository = MemoryCatalogRepository()
 
     with _client(repository) as client:
-        default = client.post("/api/v1/admin/games", json={"code": "777", "name": "777"})
+        default = client.post(
+            "/api/v1/admin/games",
+            json={"idempotencyKey": str(uuid4()), "code": "777", "name": "777"},
+        )
         mumie = client.post(
             "/api/v1/admin/games",
-            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "mumie",
+                "name": "Mumie",
+                "superGameKind": "wild_super_spins",
+            },
         )
         unknown = client.post(
             "/api/v1/admin/games",
-            json={"code": "x", "name": "x", "superGameKind": "free_spins"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "x",
+                "name": "x",
+                "superGameKind": "free_spins",
+            },
         )
         game_id = default.json()["id"]
         switched = client.patch(
@@ -549,9 +575,10 @@ def test_super_game_trigger_role_requires_a_game_super_game_kind() -> None:
     repository = MemoryCatalogRepository()
 
     with _client(repository) as client:
-        game_id = client.post("/api/v1/admin/games", json={"code": "777", "name": "777"}).json()[
-            "id"
-        ]
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"idempotencyKey": str(uuid4()), "code": "777", "name": "777"},
+        ).json()["id"]
         created = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
             json={"name": "Mumia", "isWildcard": True, "superGameTriggerCount": 4},
@@ -584,7 +611,12 @@ def test_super_game_roles_change_on_draft_rules_and_lock_after_publication() -> 
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "mumie",
+                "name": "Mumie",
+                "superGameKind": "wild_super_spins",
+            },
         ).json()["id"]
         mumia = client.post(f"/api/v1/admin/games/{game_id}/symbols", json={"name": "Mumia"})
         mumia_id = mumia.json()["id"]
@@ -638,7 +670,12 @@ def test_super_game_trigger_role_can_be_removed_on_a_draft() -> None:
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "mumie",
+                "name": "Mumie",
+                "superGameKind": "wild_super_spins",
+            },
         ).json()["id"]
         created = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
@@ -672,7 +709,12 @@ def test_super_game_roles_removed_on_a_draft_do_not_restore_the_minimum() -> Non
     with _client(repository) as client:
         game_id = client.post(
             "/api/v1/admin/games",
-            json={"code": "mumie", "name": "Mumie", "superGameKind": "wild_super_spins"},
+            json={
+                "idempotencyKey": str(uuid4()),
+                "code": "mumie",
+                "name": "Mumie",
+                "superGameKind": "wild_super_spins",
+            },
         ).json()["id"]
         symbol_id = client.post(
             f"/api/v1/admin/games/{game_id}/symbols", json={"name": "Mumia"}

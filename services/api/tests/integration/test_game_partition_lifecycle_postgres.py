@@ -329,6 +329,7 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
             partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
         )
         game = CatalogService(repository).create_game(
+            idempotency_key=uuid4(),
             code="greenfield-game",
             name="Greenfield game",
             status=GameStatus.DRAFT,
@@ -418,6 +419,7 @@ def test_catalog_create_retries_while_a_long_reader_holds_the_parent_lock(
                 partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
             )
             game = CatalogService(repository).create_game(
+                idempotency_key=uuid4(),
                 code="blocked-reader-game",
                 name="Blocked reader game",
                 status=GameStatus.DRAFT,

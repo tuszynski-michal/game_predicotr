@@ -1,5 +1,6 @@
 import type {
   GameShapeGeometryConfiguration,
+  GameCreate,
   GameResponse,
   GameStatus,
   GridEngineModelStatus,
@@ -16,6 +17,7 @@ export interface GameDraft {
   readonly shapeGeometryConfiguration: GameShapeGeometryConfiguration;
   /** Code from GET /api/v1/admin/super-game-kinds; 'none' = no super game (D-535). */
   readonly superGameKind: string;
+  readonly gridModel?: GameCreate['gridModel'];
 }
 
 export type ValidatedGameDraft =
@@ -33,7 +35,7 @@ export const EMPTY_GAME_DRAFT: GameDraft = {
   name: '',
   status: 'draft',
   expectedLayoutCount: '500000',
-  shapeGeometryConfiguration: 'requires_clarification',
+  shapeGeometryConfiguration: 'neural_grid_v3',
   superGameKind: 'none',
 };
 
@@ -124,6 +126,19 @@ export function isGridEngineProfileConfiguration(
   );
 }
 
+/** Engine capability is independent of membership in the static model catalogue. */
+export function usesNeuralGridConfiguration(
+  configuration: GameShapeGeometryConfiguration | null | undefined,
+  gameCode?: string,
+): boolean {
+  return (
+    gameCode !== '7' &&
+    (configuration === 'neural_grid_v3' ||
+      configuration === 'grid_profile_777_v2' ||
+      configuration === 'grid_profile_mumie_v1')
+  );
+}
+
 export function findGridEngineProfile(
   profiles: readonly GridEngineProfileResponse[],
   configuration: GameShapeGeometryConfiguration | null | undefined,
@@ -204,6 +219,7 @@ export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
       expectedLayoutCount: String(expectedLayoutCount),
       shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
       superGameKind: draft.superGameKind,
+      ...(draft.gridModel === undefined ? {} : { gridModel: draft.gridModel }),
     },
   };
 }

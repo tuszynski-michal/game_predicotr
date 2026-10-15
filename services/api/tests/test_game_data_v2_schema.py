@@ -37,7 +37,8 @@ from game_predictor_api.storage.game_data_v2_manifest_v8 import ownership as v8_
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG as V9_CATALOG
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_SHARED as V9_SHARED
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ownership as v9_ownership
-from game_predictor_api.storage.game_data_v2_manifest_v10 import (
+from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as V10_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v11 import (
     ADDED_CATALOG,
     ADDED_SHARED,
     CATALOG,
@@ -67,7 +68,7 @@ def config(output: StringIO) -> Config:
 
 
 def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
-    registry_tables = V9_CATALOG | V9_SHARED | ADDED_CATALOG | ADDED_SHARED
+    registry_tables = V9_CATALOG | V9_SHARED | V10_SHARED | ADDED_CATALOG | ADDED_SHARED
     known = (
         ((CATALOG | SHARED | POST_V5_SHARED) - registry_tables)
         | set(GAME_TABLES)
@@ -82,7 +83,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v10"
+    assert VERSION == "game-data-v2-manifest-v11"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
@@ -168,16 +169,18 @@ def test_registry_ownership_is_public_control_without_changing_frozen_v8() -> No
 
 
 def test_publication_ownership_preserves_all_frozen_game_partitions() -> None:
-    assert not ADDED_CATALOG
+    from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_CATALOG as V10_CATALOG
+
+    assert not V10_CATALOG
     assert {
         "grid_model_evaluation_reports",
         "grid_model_evaluation_invalidations",
         "grid_model_publications",
         "grid_model_control_events",
         "grid_model_default",
-    } == ADDED_SHARED
-    assert {ownership(name) for name in ADDED_SHARED} == {"shared"}
-    for name in ADDED_SHARED:
+    } == V10_SHARED
+    assert {ownership(name) for name in V10_SHARED} == {"shared"}
+    for name in V10_SHARED:
         assert Base.metadata.tables["public." + name].schema == "public"
         assert name not in PARTITIONED_TABLES
         with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
@@ -197,11 +200,13 @@ importlib.import_module("game_predictor_api.storage." + sys.argv[1])
 models = importlib.import_module("game_predictor_api.storage.models")
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG, ADDED_SHARED
 from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as PUBLICATION_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v11 import ADDED_CATALOG as CREATE_CATALOG
+from game_predictor_api.storage.game_data_v2_manifest_v11 import ADDED_SHARED as FORK_SHARED
 
 assert Path(models.__file__).resolve() == (
     root / "services/api/src/game_predictor_api/storage/models.py"
 ).resolve()
-names = ADDED_CATALOG | ADDED_SHARED | PUBLICATION_SHARED
+names = ADDED_CATALOG | ADDED_SHARED | PUBLICATION_SHARED | CREATE_CATALOG | FORK_SHARED
 assert {"public." + name for name in names} <= models.Base.metadata.tables.keys()
 baseline = runpy.run_path(str(root / "services/api/tests/integration/test_postgres_baseline.py"))
 assert names <= baseline["EXPECTED_PUBLIC_TABLES"]
@@ -288,3 +293,16 @@ def test_downgrade_locks_checks_and_never_cascades() -> None:
     )
     assert "CASCADE" not in sql
     assert "DROP SCHEMA game_data_v2" in sql
+
+
+def test_v11_only_adds_public_create_receipts_and_shared_fork_lineage():
+    from game_predictor_api.storage import game_data_v2_manifest_v10 as prior
+    from game_predictor_api.storage import game_data_v2_manifest_v11 as current
+
+    assert current.GAME_TABLES == prior.GAME_TABLES
+    assert current.CREATE_TABLES == prior.CREATE_TABLES
+    assert current.DELETE_TABLES == prior.DELETE_TABLES
+    assert {"game_create_receipts"} == current.ADDED_CATALOG
+    assert {"grid_model_family_forks"} == current.ADDED_SHARED
+    assert current.ownership("game_create_receipts") == "catalog"
+    assert current.ownership("grid_model_family_forks") == "shared"

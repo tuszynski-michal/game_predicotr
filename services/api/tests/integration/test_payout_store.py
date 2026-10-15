@@ -95,6 +95,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="payout-game",
                 name="Payout game",
                 status=GameStatus.ACTIVE,
@@ -396,6 +397,7 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
         game_scope.close()
         with session_factory() as session:
             other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="other-payout-game",
                 name="Other payout game",
                 status=GameStatus.ACTIVE,

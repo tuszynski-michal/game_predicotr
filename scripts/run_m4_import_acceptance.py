@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 API_SOURCE = REPOSITORY_ROOT / "services" / "api" / "src"
@@ -296,6 +296,7 @@ def _create_rules(client: TestClient) -> tuple[str, str]:
         client.post(
             "/api/v1/admin/games",
             json={
+                "idempotencyKey": str(uuid4()),
                 "code": "m4-acceptance",
                 "name": "M4 Acceptance Game",
                 "status": "active",

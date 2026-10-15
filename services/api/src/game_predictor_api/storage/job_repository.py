@@ -62,6 +62,16 @@ class SqlAlchemyJobRepository(JobRepository):
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
 
+    def game_uses_neural_grid(self, game_id: UUID) -> bool:
+        from game_predictor_api.domain.grid_model_snapshots import uses_neural_grid
+
+        game = self._session.scalar(select(GameModel).where(GameModel.id == game_id))
+        return (
+            game is not None
+            and game.code != "7"
+            and uses_neural_grid(game.shape_geometry_configuration)
+        )
+
     def get_or_pin_board_topology(
         self,
         game_id: UUID,

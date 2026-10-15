@@ -16,6 +16,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.catalog_repository import (
@@ -527,8 +528,13 @@ def _measure_operation(
 
 def _create_job_and_catalog(engine: Engine, now: datetime) -> Job:
     with Session(engine, expire_on_commit=False) as session:
-        catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+        catalog = CatalogService(
+            SqlAlchemyCatalogRepository(
+                session, artifact_root=ApiSettings.from_environment().artifact_root
+            )
+        )
         game = catalog.create_game(
+            idempotency_key=uuid4(),
             code=f"m7-operations-{uuid4().hex[:10]}",
             name="M7 operations benchmark",
             status=GameStatus.ACTIVE,

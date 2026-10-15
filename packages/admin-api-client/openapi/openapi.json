@@ -7333,6 +7333,33 @@
             "title": "Expectedlayoutcount",
             "type": "integer"
           },
+          "gridModel": {
+            "discriminator": {
+              "mapping": {
+                "default": "#/components/schemas/GameDefaultGridModel",
+                "fork": "#/components/schemas/GameForkGridModel",
+                "published": "#/components/schemas/GamePublishedGridModel"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameDefaultGridModel"
+              },
+              {
+                "$ref": "#/components/schemas/GamePublishedGridModel"
+              },
+              {
+                "$ref": "#/components/schemas/GameForkGridModel"
+              }
+            ],
+            "title": "Gridmodel"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -7341,7 +7368,7 @@
           },
           "shapeGeometryConfiguration": {
             "$ref": "#/components/schemas/GameShapeGeometryConfiguration",
-            "default": "requires_clarification"
+            "default": "neural_grid_v3"
           },
           "status": {
             "$ref": "#/components/schemas/GameStatus",
@@ -7356,10 +7383,58 @@
           }
         },
         "required": [
+          "idempotencyKey",
           "code",
           "name"
         ],
         "title": "GameCreate",
+        "type": "object"
+      },
+      "GameDefaultGridModel": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "const": "default",
+            "default": "default",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "GameDefaultGridModel",
+        "type": "object"
+      },
+      "GameForkGridModel": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "familyCode": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Familycode",
+            "type": "string"
+          },
+          "familyLabel": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Familylabel",
+            "type": "string"
+          },
+          "mode": {
+            "const": "fork",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "baseVersionId",
+          "familyCode",
+          "familyLabel"
+        ],
+        "title": "GameForkGridModel",
         "type": "object"
       },
       "GameGridModelAssignmentResponse": {
@@ -7374,6 +7449,11 @@
             "title": "Gameid",
             "type": "string"
           },
+          "initialTransferAllowed": {
+            "default": false,
+            "title": "Initialtransferallowed",
+            "type": "boolean"
+          },
           "revision": {
             "anyOf": [
               {
@@ -7384,6 +7464,29 @@
               }
             ],
             "title": "Revision"
+          },
+          "trainingFamilyId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingfamilyid"
+          },
+          "trainingFamilyLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingfamilylabel"
           },
           "version": {
             "anyOf": [
@@ -7403,6 +7506,27 @@
           "eventCount"
         ],
         "title": "GameGridModelAssignmentResponse",
+        "type": "object"
+      },
+      "GamePublishedGridModel": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "const": "published",
+            "title": "Mode",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "versionId"
+        ],
+        "title": "GamePublishedGridModel",
         "type": "object"
       },
       "GameResponse": {
@@ -9883,6 +10007,15 @@
             "title": "Idempotencykey",
             "type": "string"
           },
+          "mode": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "initial_transfer"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "versionId": {
             "format": "uuid",
             "title": "Versionid",
@@ -9920,10 +10053,23 @@
             ],
             "title": "Evaluationid"
           },
+          "eventId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventid"
+          },
           "evidenceKind": {
             "enum": [
               "historical_admission",
-              "evaluated_candidate"
+              "evaluated_candidate",
+              "transfer_bootstrap"
             ],
             "title": "Evidencekind",
             "type": "string"
@@ -9958,7 +10104,8 @@
               "publish",
               "set_default",
               "activate",
-              "rollback"
+              "rollback",
+              "bootstrap"
             ],
             "title": "Kind",
             "type": "string"
@@ -9967,9 +10114,55 @@
             "title": "Manifestsha256",
             "type": "string"
           },
+          "mode": {
+            "anyOf": [
+              {
+                "const": "initial_transfer",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "const": "game-create-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
           "revision": {
             "title": "Revision",
             "type": "integer"
+          },
+          "trainingFamilyId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingfamilyid"
+          },
+          "transfer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridModelTransferProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "versionId": {
             "format": "uuid",
@@ -10087,12 +10280,25 @@
             ],
             "title": "Evaluationid"
           },
+          "eventId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eventid"
+          },
           "evidenceKind": {
             "anyOf": [
               {
                 "enum": [
                   "historical_admission",
-                  "evaluated_candidate"
+                  "evaluated_candidate",
+                  "transfer_bootstrap"
                 ],
                 "type": "string"
               },
@@ -10154,7 +10360,8 @@
               "set_default",
               "activate",
               "rollback",
-              "historical_assignment"
+              "historical_assignment",
+              "bootstrap"
             ],
             "title": "Kind",
             "type": "string"
@@ -10170,9 +10377,55 @@
             ],
             "title": "Manifestsha256"
           },
+          "mode": {
+            "anyOf": [
+              {
+                "const": "initial_transfer",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "const": "game-create-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
           "revision": {
             "title": "Revision",
             "type": "integer"
+          },
+          "trainingFamilyId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingfamilyid"
+          },
+          "transfer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridModelTransferProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "versionId": {
             "format": "uuid",
@@ -10502,6 +10755,100 @@
           "boardColumns"
         ],
         "title": "GridModelTopology",
+        "type": "object"
+      },
+      "GridModelTransferProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultrevision"
+          },
+          "evaluationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationid"
+          },
+          "kind": {
+            "const": "transfer_bootstrap",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lineageSha256": {
+            "title": "Lineagesha256",
+            "type": "string"
+          },
+          "qualityScope": {
+            "const": "source-games-only",
+            "title": "Qualityscope",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-model-transfer-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "sourceEvidenceKind": {
+            "enum": [
+              "historical_admission",
+              "evaluated_candidate"
+            ],
+            "title": "Sourceevidencekind",
+            "type": "string"
+          },
+          "sourceEvidenceSha256": {
+            "title": "Sourceevidencesha256",
+            "type": "string"
+          },
+          "sourceFamilyId": {
+            "format": "uuid",
+            "title": "Sourcefamilyid",
+            "type": "string"
+          },
+          "sourceManifestSha256": {
+            "title": "Sourcemanifestsha256",
+            "type": "string"
+          },
+          "sourceVersionId": {
+            "format": "uuid",
+            "title": "Sourceversionid",
+            "type": "string"
+          },
+          "trainingFamilyId": {
+            "format": "uuid",
+            "title": "Trainingfamilyid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "kind",
+          "sourceVersionId",
+          "sourceFamilyId",
+          "sourceManifestSha256",
+          "sourceEvidenceKind",
+          "sourceEvidenceSha256",
+          "evaluationId",
+          "trainingFamilyId",
+          "defaultRevision",
+          "lineageSha256",
+          "qualityScope"
+        ],
+        "title": "GridModelTransferProvenance",
         "type": "object"
       },
       "GridModelVersionResponse": {

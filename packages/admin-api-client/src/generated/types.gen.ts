@@ -4028,6 +4028,23 @@ export type GameCreate = {
    */
   expectedLayoutCount?: number;
   /**
+   * Gridmodel
+   */
+  gridModel?:
+    | ({
+        mode: 'default';
+      } & GameDefaultGridModel)
+    | ({
+        mode: 'published';
+      } & GamePublishedGridModel)
+    | ({
+        mode: 'fork';
+      } & GameForkGridModel);
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
    * Name
    */
   name: string;
@@ -4037,6 +4054,38 @@ export type GameCreate = {
    * Supergamekind
    */
   superGameKind?: string;
+};
+
+/**
+ * GameDefaultGridModel
+ */
+export type GameDefaultGridModel = {
+  /**
+   * Mode
+   */
+  mode?: 'default';
+};
+
+/**
+ * GameForkGridModel
+ */
+export type GameForkGridModel = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Familycode
+   */
+  familyCode: string;
+  /**
+   * Familylabel
+   */
+  familyLabel: string;
+  /**
+   * Mode
+   */
+  mode: 'fork';
 };
 
 /**
@@ -4052,10 +4101,36 @@ export type GameGridModelAssignmentResponse = {
    */
   gameId: string;
   /**
+   * Initialtransferallowed
+   */
+  initialTransferAllowed?: boolean;
+  /**
    * Revision
    */
   revision: number | null;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  /**
+   * Trainingfamilylabel
+   */
+  trainingFamilyLabel?: string | null;
   version: GridModelVersionResponse | null;
+};
+
+/**
+ * GamePublishedGridModel
+ */
+export type GamePublishedGridModel = {
+  /**
+   * Mode
+   */
+  mode: 'published';
+  /**
+   * Versionid
+   */
+  versionId: string;
 };
 
 /**
@@ -5532,6 +5607,10 @@ export type GridModelAssignmentCommand = {
    */
   idempotencyKey: string;
   /**
+   * Mode
+   */
+  mode?: 'evaluated' | 'initial_transfer';
+  /**
    * Versionid
    */
   versionId: string;
@@ -5554,9 +5633,14 @@ export type GridModelControlReceipt = {
    */
   evaluationId: string | null;
   /**
+   * Eventid
+   */
+  eventId?: string | null;
+  /**
    * Evidencekind
    */
-  evidenceKind: 'historical_admission' | 'evaluated_candidate';
+  evidenceKind:
+    'historical_admission' | 'evaluated_candidate' | 'transfer_bootstrap';
   /**
    * Evidencesha256
    */
@@ -5576,15 +5660,28 @@ export type GridModelControlReceipt = {
   /**
    * Kind
    */
-  kind: 'publish' | 'set_default' | 'activate' | 'rollback';
+  kind: 'publish' | 'set_default' | 'activate' | 'rollback' | 'bootstrap';
   /**
    * Manifestsha256
    */
   manifestSha256: string;
   /**
+   * Mode
+   */
+  mode?: 'initial_transfer' | null;
+  /**
+   * Origin
+   */
+  origin?: 'game-create-v1' | null;
+  /**
    * Revision
    */
   revision: number;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  transfer?: GridModelTransferProvenance | null;
   /**
    * Versionid
    */
@@ -5645,9 +5742,17 @@ export type GridModelHistoryEvent = {
    */
   evaluationId?: string | null;
   /**
+   * Eventid
+   */
+  eventId?: string | null;
+  /**
    * Evidencekind
    */
-  evidenceKind?: 'historical_admission' | 'evaluated_candidate' | null;
+  evidenceKind?:
+    | 'historical_admission'
+    | 'evaluated_candidate'
+    | 'transfer_bootstrap'
+    | null;
   /**
    * Evidencesha256
    */
@@ -5672,15 +5777,29 @@ export type GridModelHistoryEvent = {
     | 'set_default'
     | 'activate'
     | 'rollback'
-    | 'historical_assignment';
+    | 'historical_assignment'
+    | 'bootstrap';
   /**
    * Manifestsha256
    */
   manifestSha256?: string | null;
   /**
+   * Mode
+   */
+  mode?: 'initial_transfer' | null;
+  /**
+   * Origin
+   */
+  origin?: 'game-create-v1' | null;
+  /**
    * Revision
    */
   revision: number;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  transfer?: GridModelTransferProvenance | null;
   /**
    * Versionid
    */
@@ -5861,6 +5980,60 @@ export type GridModelTopology = {
    * Screenrows
    */
   screenRows: number;
+};
+
+/**
+ * GridModelTransferProvenance
+ */
+export type GridModelTransferProvenance = {
+  /**
+   * Defaultrevision
+   */
+  defaultRevision: number | null;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'transfer_bootstrap';
+  /**
+   * Lineagesha256
+   */
+  lineageSha256: string;
+  /**
+   * Qualityscope
+   */
+  qualityScope: 'source-games-only';
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-transfer-v1';
+  /**
+   * Sourceevidencekind
+   */
+  sourceEvidenceKind: 'historical_admission' | 'evaluated_candidate';
+  /**
+   * Sourceevidencesha256
+   */
+  sourceEvidenceSha256: string;
+  /**
+   * Sourcefamilyid
+   */
+  sourceFamilyId: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourceversionid
+   */
+  sourceVersionId: string;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId: string;
 };
 
 /**

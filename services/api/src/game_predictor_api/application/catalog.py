@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.catalog import (
@@ -36,6 +36,8 @@ from game_predictor_api.domain.catalog import (
 
 
 class CatalogRepository(Protocol):
+    def geometry_assignment_available(self, game_id: UUID) -> bool: ...
+
     def list_games(self) -> Sequence[Game]: ...
 
     def get_game(self, game_id: UUID) -> Game | None: ...
@@ -49,6 +51,8 @@ class CatalogRepository(Protocol):
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
         super_game_kind: str = NO_SUPER_GAME,
+        idempotency_key: UUID | None = None,
+        grid_model: dict[str, Any] | None = None,
     ) -> Game: ...
 
     def save_game(self, game: Game) -> Game: ...
@@ -171,6 +175,20 @@ class CatalogService:
         return game
 
     def shape_geometry_readiness(self, game: Game) -> ShapeGeometryReadiness:
+        if game.shape_geometry_configuration == GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+            assigned = self._repository.geometry_assignment_available(game.id)
+            return ShapeGeometryReadiness(
+                configuration=GameShapeGeometryConfiguration.NEURAL_GRID_V3,
+                status=ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED,
+                reason_code="GRID_MODEL_PREFLIGHT_REQUIRED"
+                if assigned
+                else "GRID_MODEL_ASSIGNMENT_REQUIRED",
+                message=(
+                    "Przypisana geometria V3 wymaga preflightu importu."
+                    if assigned
+                    else "Przypisz opublikowaną geometrię V3 przed importem."
+                ),
+            )
         return self._shape_geometry_readiness_resolver.resolve(game.shape_geometry_configuration)
 
     def create_game(
@@ -179,13 +197,26 @@ class CatalogService:
         code: str,
         name: str,
         status: GameStatus,
+        idempotency_key: UUID,
         expected_layout_count: int = DEFAULT_EXPECTED_LAYOUT_COUNT,
         shape_geometry_configuration: GameShapeGeometryConfiguration = (
-            GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
+            GameShapeGeometryConfiguration.NEURAL_GRID_V3
         ),
         super_game_kind: str = NO_SUPER_GAME,
+        grid_model: dict[str, Any] | None = None,
     ) -> Game:
+        if code.strip() == "7":
+            raise CatalogConflictError(
+                "GAME_CREATE_HISTORICAL_CODE_RESERVED",
+                "Code 7 is reserved for the historical game.",
+            )
+        if shape_geometry_configuration != GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+            raise CatalogConflictError(
+                "GAME_CREATE_V3_REQUIRED", "New games require neutral V3 geometry."
+            )
         return self._repository.add_game(
+            idempotency_key=idempotency_key,
+            grid_model=grid_model or {"mode": "default"},
             code=validate_stable_code(code, field_name="code"),
             name=validate_name(name),
             status=status,

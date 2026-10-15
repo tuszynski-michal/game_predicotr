@@ -255,6 +255,7 @@ def _seed_pending_board(
     with session_factory() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
+            idempotency_key=uuid4(),
             code="verified-cells",
             name="Verified cells",
             status=GameStatus.ACTIVE,

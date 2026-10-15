@@ -486,7 +486,12 @@ def validate_load_report(
 
 def _create_benchmark_job(engine: Engine) -> UUID:
     with Session(engine, expire_on_commit=False) as session:
-        game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+        game = CatalogService(
+            SqlAlchemyCatalogRepository(
+                session, artifact_root=ApiSettings.from_environment().artifact_root
+            )
+        ).create_game(
+            idempotency_key=uuid4(),
             code=f"m7-load-{uuid4().hex[:12]}",
             name="M7 load benchmark",
             status=GameStatus.ACTIVE,

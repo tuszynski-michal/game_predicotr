@@ -33,7 +33,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { resolveAdminApiBaseUrl } from '@/config/admin-api';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
-  isGridEngineProfileConfiguration,
+  usesNeuralGridConfiguration,
   shapeGeometryConfigurationLabel,
 } from '@/features/games/game-catalog-state';
 import { jobProgressLabel } from '@/features/jobs/job-state';
@@ -86,6 +86,7 @@ interface ImageFolderImportPanelProps {
   readonly apiBaseUrl: string;
   readonly client?: ImageFolderImportClient;
   readonly gameId: string;
+  readonly gameCode?: string;
   readonly shapeGeometryConfiguration?: GameShapeGeometryConfiguration | null;
   readonly initialHandoff?: ImageSelectionHandoffResponse | null;
   readonly onHandoffConsumed?: () => void;
@@ -205,6 +206,7 @@ export function ImageFolderImportPanel({
   apiBaseUrl,
   client,
   gameId,
+  gameCode,
   shapeGeometryConfiguration = null,
   initialHandoff = null,
   onHandoffConsumed,
@@ -285,10 +287,11 @@ export function ImageFolderImportPanel({
     } | null>(null);
   const [pageRegistrationVariant, setPageRegistrationVariant] =
     useState<PageRegistrationVariant>('standard_v0_10');
-  // D-544: every grid engine profile (777 v2, Mumie) imports through V3 with
-  // its own frozen model; V1.1 stays for games without a profile (old 777).
-  const usesNeuralGrid = isGridEngineProfileConfiguration(
+  // D-544/D-549: all three V3 configurations use assigned neural geometry.
+  // Historical code7 keeps its classical controls regardless of configuration.
+  const usesNeuralGrid = usesNeuralGridConfiguration(
     shapeGeometryConfiguration,
+    gameCode,
   );
   const neuralEngineLabel = `V3 — sieć neuronowa (${shapeGeometryConfigurationLabel(
     shapeGeometryConfiguration,
@@ -301,9 +304,27 @@ export function ImageFolderImportPanel({
     preflight.geometryEngineVariant == null &&
     preflight.geometryPreflightJob == null &&
     preflight.existingImportJob == null;
-  const [selectedGeometryEngineVariant, setGeometryEngineVariant] = useState<
-    GeometryEngineVariant | undefined
-  >(DEFAULT_GEOMETRY_ENGINE_VARIANT);
+  const [geometrySelection, setGeometrySelection] = useState<{
+    readonly gameId: string;
+    readonly configuration: typeof shapeGeometryConfiguration;
+    readonly value: GeometryEngineVariant | undefined;
+  }>({
+    gameId,
+    configuration: shapeGeometryConfiguration,
+    value: DEFAULT_GEOMETRY_ENGINE_VARIANT,
+  });
+  const selectedGeometryEngineVariant =
+    geometrySelection.gameId === gameId &&
+    geometrySelection.configuration === shapeGeometryConfiguration
+      ? geometrySelection.value
+      : DEFAULT_GEOMETRY_ENGINE_VARIANT;
+  function setGeometryEngineVariant(value: GeometryEngineVariant | undefined) {
+    setGeometrySelection({
+      gameId,
+      configuration: shapeGeometryConfiguration,
+      value,
+    });
+  }
   // The storage policy's "v3" is not the neural model. Match the game profile
   // used by the API resolver, and omit classical arguments on the neural route.
   const geometryEngineVariant = usesNeuralGrid

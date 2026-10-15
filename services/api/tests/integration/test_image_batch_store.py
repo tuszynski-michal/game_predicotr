@@ -347,6 +347,7 @@ def test_image_batch_store_registers_association_in_v2_store(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="image-batch-v2-store",
                 name="Image batch V2 store",
                 status=GameStatus.ACTIVE,
@@ -405,6 +406,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-backfill",
                 name="Symbol cell backfill",
                 status=GameStatus.ACTIVE,
@@ -716,6 +718,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-write-through",
                 name="Symbol cell write through",
                 status=GameStatus.ACTIVE,
@@ -1033,6 +1036,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-mutations",
                 name="Symbol cell mutations",
                 status=GameStatus.ACTIVE,
@@ -1625,6 +1629,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-bulk",
                 name="Symbol cell bulk",
                 status=GameStatus.ACTIVE,
@@ -1998,6 +2003,7 @@ def test_symbol_cell_backfill_fails_closed_when_an_active_board_has_no_sequence(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-no-sequence",
                 name="Symbol cell no sequence",
                 status=GameStatus.ACTIVE,
@@ -2254,6 +2260,7 @@ def test_image_review_queue_projection_tracks_durable_v2_state(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="review-queue-projection",
                 name="Review queue projection",
                 status=GameStatus.ACTIVE,
@@ -2487,6 +2494,7 @@ def test_review_queue_completes_and_reopens_image_import_job(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="review-job-lifecycle",
                 name="Review job lifecycle",
                 status=GameStatus.ACTIVE,
@@ -2657,6 +2665,7 @@ def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="first-save-wins",
                 name="First save wins",
                 status=GameStatus.ACTIVE,
@@ -2850,6 +2859,7 @@ def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="later-save-loses",
                 name="Later save loses",
                 status=GameStatus.ACTIVE,
@@ -2977,6 +2987,7 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code=f"pending-sequence-owner-{same_photo}",
                 name="Pending sequence owner",
                 status=GameStatus.ACTIVE,
@@ -3132,6 +3143,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-batch-game",
                 name="Image batch game",
                 status=GameStatus.ACTIVE,
@@ -3490,6 +3502,7 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-operations-game",
                 name="Image operations game",
                 status=GameStatus.ACTIVE,
@@ -3582,6 +3595,7 @@ def test_pending_reinference_excludes_cancelled_imports(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="pending-reinference-scope",
                 name="Pending reinference scope",
                 status=GameStatus.ACTIVE,

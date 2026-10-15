@@ -345,10 +345,10 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
 
 test('shows V3 for every grid engine profile and keeps the classical default without deprecated radio choices', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
-  assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
+  assert.match(panelSource, /value: DEFAULT_GEOMETRY_ENGINE_VARIANT/);
   assert.match(
     panelSource,
-    /usesNeuralGrid = isGridEngineProfileConfiguration\(\s*shapeGeometryConfiguration,?\s*\)/,
+    /usesNeuralGrid = usesNeuralGridConfiguration\(\s*shapeGeometryConfiguration,\s*gameCode,?\s*\)/,
   );
   assert.match(
     panelSource,

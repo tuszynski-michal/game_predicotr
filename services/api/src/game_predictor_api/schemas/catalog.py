@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -39,7 +39,24 @@ class ErrorResponse(ApiModel):
     details: dict[str, object]
 
 
+class GameDefaultGridModel(ApiModel):
+    mode: Literal["default"] = "default"
+
+
+class GamePublishedGridModel(ApiModel):
+    mode: Literal["published"]
+    version_id: UUID
+
+
+class GameForkGridModel(ApiModel):
+    mode: Literal["fork"]
+    base_version_id: UUID
+    family_code: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    family_label: str = Field(min_length=1, max_length=200)
+
+
 class GameCreate(ApiModel):
+    idempotency_key: UUID
     code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=200)
     status: GameStatus = GameStatus.DRAFT
@@ -49,8 +66,12 @@ class GameCreate(ApiModel):
         le=MAX_EXPECTED_LAYOUT_COUNT,
     )
     shape_geometry_configuration: GameShapeGeometryConfiguration = (
-        GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
+        GameShapeGeometryConfiguration.NEURAL_GRID_V3
     )
+    grid_model: Annotated[
+        GameDefaultGridModel | GamePublishedGridModel | GameForkGridModel,
+        Field(discriminator="mode"),
+    ] = Field(default_factory=GameDefaultGridModel)
     # D-535: a code from GET /api/v1/admin/super-game-kinds; validated by the domain.
     super_game_kind: str = Field(default=NO_SUPER_GAME, min_length=1, max_length=64)
 

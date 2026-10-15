@@ -871,6 +871,17 @@ class JobService:
             game_already_validated=True,
         )
 
+    def _legacy_symbol_bootstrap(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        known = getattr(self._repository, "game_uses_neural_grid", None)
+        profile = getattr(self._grid_profile_snapshot_resolver, "neural_grid_profile", None)
+        if (callable(known) and known(game_id)) or (
+            callable(profile) and profile(game_id=game_id) is not None
+        ):
+            raise JobConflictError(
+                "SYMBOL_MODEL_RESOLVER_REQUIRED", "V3 requires the game-scoped symbol resolver."
+            )
+        return bootstrap_symbol_model_snapshot()
+
     def _resolve_import_symbol_snapshot(
         self,
         *,
@@ -878,7 +889,7 @@ class JobService:
         allow_unclassified_cold_start: bool,
     ) -> SymbolModelJobSnapshot:
         if self._symbol_model_snapshot_resolver is None:
-            return bootstrap_symbol_model_snapshot()
+            return self._legacy_symbol_bootstrap(game_id=game_id)
         try:
             return self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         except JobConflictError as error:
@@ -1061,7 +1072,7 @@ class JobService:
                 details={"gameId": str(game_id)},
             )
         snapshot = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1086,7 +1097,7 @@ class JobService:
                 details={"gameId": str(game_id)},
             )
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1145,7 +1156,7 @@ class JobService:
                 "The curated image manifest slice is invalid.",
             )
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1361,7 +1372,7 @@ class JobService:
                     raise
                 return existing
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=source.game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=source.game_id)
         )
@@ -1735,7 +1746,7 @@ class JobService:
 
     def current_image_import_model_fingerprints(self, *, game_id: UUID) -> tuple[str, str]:
         symbol = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1763,7 +1774,7 @@ class JobService:
         symbol_snapshot_fingerprint: str | None = None
         try:
             symbol = (
-                bootstrap_symbol_model_snapshot()
+                self._legacy_symbol_bootstrap(game_id=game_id)
                 if self._symbol_model_snapshot_resolver is None
                 else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
             )

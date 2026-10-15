@@ -226,7 +226,12 @@ def seed_jobs(
     engine = create_engine(database_url, pool_pre_ping=True)
     try:
         with Session(engine, expire_on_commit=False) as session:
-            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+            game = CatalogService(
+                SqlAlchemyCatalogRepository(
+                    session, artifact_root=ApiSettings.from_environment().artifact_root
+                )
+            ).create_game(
+                idempotency_key=uuid4(),
                 code=f"lane-acceptance-{uuid4().hex[:8]}",
                 name="Concurrent lane acceptance",
                 status=GameStatus.ACTIVE,

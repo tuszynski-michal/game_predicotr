@@ -83,7 +83,10 @@ def _source(session_factory):
     with session_factory() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
-            code=uuid4().hex, name="Lock regression", status=GameStatus.ACTIVE
+            idempotency_key=uuid4(),
+            code=uuid4().hex,
+            name="Lock regression",
+            status=GameStatus.ACTIVE,
         )
         symbol = catalog.create_symbol(
             game.id,

@@ -104,6 +104,7 @@ def test_symbol_localized_names_survive_real_database_round_trip(
             session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
+                idempotency_key=uuid4(),
                 code="localized-game",
                 name="Localized Game",
                 status=GameStatus.ACTIVE,
@@ -152,9 +153,13 @@ def test_grid_engine_profile_page_format_survives_real_database_round_trip(
         with session_factory() as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
+                idempotency_key=uuid4(),
                 code="mumie",
                 name="Mumie",
                 status=GameStatus.DRAFT,
+            )
+            service.update_game(
+                game.id,
                 shape_geometry_configuration=GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
             )
             session.commit()
@@ -209,6 +214,7 @@ def test_catalog_repository_uses_real_constraints(
             session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
+                idempotency_key=uuid4(),
                 code="game-1",
                 name="Game 1",
                 status=GameStatus.ACTIVE,
@@ -575,6 +581,7 @@ def test_catalog_repository_uses_real_constraints(
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             with pytest.raises(CatalogConflictError) as game_conflict:
                 service.create_game(
+                    idempotency_key=uuid4(),
                     code="game-1",
                     name="Duplicate",
                     status=GameStatus.DRAFT,
@@ -630,7 +637,9 @@ def test_super_game_roles_survive_real_database_round_trip(
         with ExitStack() as stack:
             session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
-            game = service.create_game(code="mumie", name="Mumie", status=GameStatus.DRAFT)
+            game = service.create_game(
+                idempotency_key=uuid4(), code="mumie", name="Mumie", status=GameStatus.DRAFT
+            )
             assert game.super_game_kind == "none"
             stack.enter_context(game_storage_scope(game.id))
             ten = service.create_symbol(

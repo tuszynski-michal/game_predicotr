@@ -38,6 +38,7 @@ import {
   GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS,
   gridEngineModelSummary,
   isGridEngineProfileConfiguration,
+  usesNeuralGridConfiguration,
   SHAPE_GEOMETRY_CONFIGURATION_LABELS,
   SHAPE_GEOMETRY_READINESS_LABELS,
   shapeGeometryConfigurationLabel,
@@ -48,6 +49,15 @@ import {
   upsertGame,
   validateGameDraft,
 } from '@/features/games/game-catalog-state';
+import { PendingCommandRecovery } from './pending-command-recovery';
+import { NewGameGeometrySettings } from './new-game-geometry-settings';
+import {
+  gameCreateCommand,
+  gameCreateStorageKey,
+  pendingGameDraft,
+  readPendingGameCreate,
+  reserveGameCreate,
+} from './new-game-create-command';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -189,8 +199,19 @@ export function GameCatalog({
   }, [api]);
 
   function openCreateEditor() {
-    setDraft(EMPTY_GAME_DRAFT);
     setFormError('');
+    try {
+      const pending = readPendingGameCreate(
+        localStorage,
+        gameCreateStorageKey(apiBaseUrl),
+      );
+      setDraft(pending === null ? EMPTY_GAME_DRAFT : pendingGameDraft(pending));
+    } catch {
+      setFormError(
+        'Nie można odczytać zapisanego polecenia tworzenia gry. Zachowaj lub jawnie porzuć ten wpis.',
+      );
+      setDraft(EMPTY_GAME_DRAFT);
+    }
     setNotice('');
     setEditor({ mode: 'create' });
   }
@@ -243,10 +264,19 @@ export function GameCatalog({
     setNotice('');
 
     try {
+      const namespace = gameCreateStorageKey(apiBaseUrl);
+      const command =
+        editor.mode === 'create'
+          ? reserveGameCreate(
+              localStorage,
+              namespace,
+              gameCreateCommand(validation.value, crypto.randomUUID()),
+            )
+          : null;
       const result = await saveGameIdentity(
         api,
         editor.mode === 'create'
-          ? { mode: 'create' }
+          ? { mode: 'create', command: command! }
           : { gameId: editor.game.id, mode: 'edit' },
         {
           code,
@@ -259,9 +289,12 @@ export function GameCatalog({
       );
 
       if (!result.ok) {
+        if (command !== null && result.rejectedBeforeReservation)
+          localStorage.removeItem(namespace);
         setFormError(result.error);
         return;
       }
+      if (command !== null) localStorage.removeItem(namespace);
 
       const savedGame = result.game;
       const nextGames = upsertGame(games, savedGame);
@@ -277,6 +310,12 @@ export function GameCatalog({
         editor.mode === 'create'
           ? `Utworzono grę „${savedGame.name}”.`
           : `Zapisano zmiany gry „${savedGame.name}”.`,
+      );
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : 'Nie udało się zapisać polecenia tworzenia gry.',
       );
     } finally {
       mutationInProgress.current = false;
@@ -386,6 +425,19 @@ export function GameCatalog({
         </p>
       ) : null}
 
+      {editor.mode === 'create' ? (
+        <PendingCommandRecovery
+          namespace={gameCreateStorageKey(apiBaseUrl)}
+          refreshToken={`${isSubmitting}:${formError}`}
+          onRecovered={() => {
+            setDraft(EMPTY_GAME_DRAFT);
+            setFormError('');
+            setNotice(
+              'Zachowano archiwum polecenia. Sprawdź katalog gier przed nowym tworzeniem.',
+            );
+          }}
+        />
+      ) : null}
       {editor.mode !== 'closed' ? (
         <GameEditor
           draft={draft}
@@ -399,6 +451,29 @@ export function GameCatalog({
           onCancel={closeEditor}
           onChange={setDraft}
           onSubmit={submitGame}
+          geometrySettings={
+            editor.mode === 'create' ||
+            usesNeuralGridConfiguration(
+              editor.game.shapeGeometryConfiguration,
+              editor.game.code,
+            ) ? (
+              <NewGameGeometrySettings
+                api={api}
+                apiBaseUrl={apiBaseUrl}
+                draft={draft}
+                gameId={editor.mode === 'edit' ? editor.game.id : undefined}
+                disabled={isSubmitting}
+                onChange={setDraft}
+              />
+            ) : null
+          }
+          legacyFormatPicker={
+            editor.mode === 'edit' &&
+            !usesNeuralGridConfiguration(
+              editor.game.shapeGeometryConfiguration,
+              editor.game.code,
+            )
+          }
         />
       ) : null}
 
@@ -485,6 +560,8 @@ export function GameCatalog({
 }
 
 interface GameEditorProps {
+  readonly geometrySettings: React.ReactNode;
+  readonly legacyFormatPicker: boolean;
   readonly draft: GameDraft;
   readonly error: string;
   readonly gridEngineProfiles: readonly GridEngineProfileResponse[];
@@ -499,6 +576,8 @@ interface GameEditorProps {
 }
 
 function GameEditor({
+  geometrySettings,
+  legacyFormatPicker,
   draft,
   error,
   gridEngineProfiles,
@@ -603,38 +682,41 @@ function GameEditor({
           </small>
         </label>
 
-        <label>
-          <span>Format strony</span>
-          <select
-            disabled={isSubmitting}
-            name="shapeGeometryConfiguration"
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                shapeGeometryConfiguration: event.currentTarget
-                  .value as GameShapeGeometryConfiguration,
-              })
-            }
-            value={draft.shapeGeometryConfiguration}
-          >
-            {Object.entries(SHAPE_GEOMETRY_CONFIGURATION_LABELS)
-              .filter(([configuration]) => configuration !== 'neural_grid_v3')
-              .map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-          </select>
-          <small>
-            Wybór określa wspólny format strony. Pierwszy import nadal wymaga
-            weryfikacji i ewentualnej korekty.
-          </small>
-          <GridEngineProfileHint
-            configuration={draft.shapeGeometryConfiguration}
-            error={gridEngineProfilesError}
-            profiles={gridEngineProfiles}
-          />
-        </label>
+        {legacyFormatPicker ? (
+          <label>
+            <span>Format strony</span>
+            <select
+              disabled={isSubmitting}
+              name="shapeGeometryConfiguration"
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  shapeGeometryConfiguration: event.currentTarget
+                    .value as GameShapeGeometryConfiguration,
+                })
+              }
+              value={draft.shapeGeometryConfiguration}
+            >
+              {Object.entries(SHAPE_GEOMETRY_CONFIGURATION_LABELS)
+                .filter(([configuration]) => configuration !== 'neural_grid_v3')
+                .map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+            </select>
+            <small>
+              Wybór określa wspólny format strony. Pierwszy import nadal wymaga
+              weryfikacji i ewentualnej korekty.
+            </small>
+            <GridEngineProfileHint
+              configuration={draft.shapeGeometryConfiguration}
+              error={gridEngineProfilesError}
+              profiles={gridEngineProfiles}
+            />
+          </label>
+        ) : null}
+        {geometrySettings}
 
         <label>
           <span>Supergra</span>

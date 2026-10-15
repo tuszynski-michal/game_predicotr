@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Uuid, column, func, select, table, text
+from sqlalchemy import Table, Uuid, column, func, select, table, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_model_registry import (
@@ -39,10 +39,12 @@ from game_predictor_api.storage.grid_model_registry_models import (
 
 
 class GridModelArtifactInspector:
-    def __init__(self, artifact_root: Path) -> None:
-        self.root = artifact_root.resolve()
+    def __init__(self, artifact_root: Path | None) -> None:
+        self.root = None if artifact_root is None else artifact_root.resolve()
 
     def inspect(self, payload: dict[str, Any]) -> tuple[bool, str]:
+        if self.root is None:
+            return False, "GRID_MODEL_STORE_UNCONFIGURED"
         directory = self.root / payload["managedDirectory"]
         try:
             targets = [
@@ -214,6 +216,18 @@ class SqlAlchemyGridModelRegistryRepository:
                     "GRID_MODEL_BASE_INVALID", "Base version is missing or self-referential."
                 )
             base_payload = json.loads(base.manifest_json)
+            fork = self.family_fork(family_id)
+            if fork is not None:
+                lineage = self.lineage(base.id)
+                if not any(
+                    item["versionId"] == str(fork.base_version_id)
+                    and item["manifestSha256"] == fork.base_manifest_sha256
+                    for item in lineage["ancestors"]
+                ):
+                    raise GridModelRegistryError(
+                        "GRID_MODEL_FORK_BASE_CONFLICT",
+                        "Candidate does not descend from the fork base.",
+                    )
             if descriptor_sha256(base_payload) != base.manifest_sha256 or any(
                 base_payload[k] != payload[k]
                 for k in (
@@ -359,6 +373,37 @@ class SqlAlchemyGridModelRegistryRepository:
             "actor": command["actor"],
             "evidence_sha256": receipt["evidenceSha256"],
         }
+        if kind == "bootstrap":
+            assert game_id is not None
+            head, count = self.assignment(game_id)
+            if head is not None or count or command["expectedRevision"] != 0:
+                raise GridModelRegistryError(
+                    "GRID_MODEL_REVISION_CONFLICT", "Initial assignment must be revision zero."
+                )
+            # No game-owned ORM flush while the reserved store is MIGRATING.
+            # Typed public Core writes use exactly the caller's transaction/role.
+            connection = self.session.connection()
+            connection.execute(
+                cast(Table, GameGridModelAssignmentModel.__table__)
+                .insert()
+                .values(
+                    game_id=game_id,
+                    version_id=version_id,
+                    revision=1,
+                    training_family_id=UUID(receipt["trainingFamilyId"]),
+                )
+            )
+            connection.execute(
+                cast(Table, GameGridModelAssignmentEventModel.__table__)
+                .insert()
+                .values(
+                    game_id=game_id,
+                    id=UUID(receipt["eventId"]),
+                    idempotency_key=UUID(command["idempotencyKey"]),
+                    **common,
+                )
+            )
+            return
         if kind == "publish":
             self.session.add(
                 GridModelPublicationModel(
@@ -391,6 +436,11 @@ class SqlAlchemyGridModelRegistryRepository:
                 )
             else:
                 assignment.version_id, assignment.revision = version_id, receipt["revision"]
+            assignment = self.session.get(GameGridModelAssignmentModel, game_id)
+            assert assignment is not None
+            version = self.version(version_id)
+            assert version is not None
+            assignment.training_family_id = version.family_id
             self.session.flush()
         if game_id is None:
             self.session.add(
@@ -407,6 +457,174 @@ class SqlAlchemyGridModelRegistryRepository:
                     **common,
                 )
             )
+        self.session.flush()
+
+    def family_fork(self, family_id: UUID) -> Any:
+        from game_predictor_api.storage.grid_model_registry_models import GridModelFamilyForkModel
+
+        return self.session.get(GridModelFamilyForkModel, family_id)
+
+    def family_label(self, family_id: UUID) -> str:
+        family = self.session.get(GridModelFamilyModel, family_id)
+        if family is None:
+            raise GridModelRegistryError(
+                "GRID_MODEL_REGISTRY_CORRUPT", "Training family is missing."
+            )
+        descriptor = json.loads(family.descriptor_json)
+        return str(descriptor["familyLabel"])
+
+    def initial_transfer_allowed(self, game_id: UUID) -> bool:
+        assignment, events = self.assignment(game_id)
+        if assignment is not None or events:
+            return False
+        created = self.game_receipt(game_id)
+        if created is None:
+            return False
+        from game_predictor_api.domain.new_game_geometry import verified_json
+
+        reservation = verified_json(created.reservation_json, created.reservation_sha256)
+        if reservation.get("gameId") != str(game_id) or reservation.get("assignment") is not None:
+            return False
+        games = table(
+            "games",
+            column("id", Uuid),
+            column("code"),
+            column("shape_geometry_configuration"),
+            schema="public",
+        )
+        game = self.session.execute(select(games).where(games.c.id == game_id)).one_or_none()
+        if game is None:
+            raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game is missing.", 404)
+        return bool(game.code != "7" and game.shape_geometry_configuration == "neural_grid_v3")
+
+    def game_receipt(self, game_id: UUID) -> Any:
+        from game_predictor_api.storage.game_create_receipts import (
+            SqlAlchemyGameCreateReceiptRepository,
+        )
+
+        return SqlAlchemyGameCreateReceiptRepository(self.session).game_receipt(game_id)
+
+    def lineage(self, version_id: UUID) -> dict[str, Any]:
+        """Pin ancestors; unresolved protection never means empty TRAIN exclusions."""
+        from game_predictor_api.domain.new_game_geometry import PROTECTED_ROLES, verified_json
+
+        ancestors: list[dict[str, Any]] = []
+        families: dict[str, str] = {}
+        seen: set[UUID] = set()
+        current: UUID | None = version_id
+        while current is not None:
+            if current in seen or len(seen) >= 64:
+                raise GridModelRegistryError(
+                    "GRID_MODEL_LINEAGE_INVALID", "Ancestry cycles or exceeds 64 versions."
+                )
+            seen.add(current)
+            version = self.version(current)
+            if version is None:
+                raise GridModelRegistryError(
+                    "GRID_MODEL_LINEAGE_INVALID", "An ancestor is missing."
+                )
+            manifest = verified_json(version.manifest_json, version.manifest_sha256)
+            if (
+                manifest["versionId"] != str(current)
+                or manifest["familyId"] != str(version.family_id)
+                or manifest["baseVersionId"]
+                != (None if version.base_version_id is None else str(version.base_version_id))
+            ):
+                raise GridModelRegistryError(
+                    "GRID_MODEL_LINEAGE_INVALID", "Ancestor identity differs."
+                )
+            publication = self.publication(current)
+            evidence = (
+                None
+                if publication is None
+                else verified_json(publication.evidence_json, publication.evidence_sha256)
+            )
+            evaluation = None
+            if publication is not None and publication.evaluation_id is not None:
+                report, _ = self.evaluation(publication.evaluation_id)
+                if report is None:
+                    raise GridModelRegistryError(
+                        "GRID_MODEL_LINEAGE_INVALID", "Ancestor evaluation is missing."
+                    )
+                body = verified_json(report.report_json, report.report_sha256)
+                evaluation = {
+                    "evaluationId": str(report.id),
+                    "evaluationSha256": report.report_sha256,
+                    "cohortSha256": body["cohortSha256"],
+                }
+            ancestors.append(
+                {
+                    "versionId": str(current),
+                    "manifestSha256": version.manifest_sha256,
+                    "snapshotId": manifest["provenance"]["snapshotId"],
+                    "cohortId": manifest["cohortId"],
+                    "publicationEvidenceSha256": None
+                    if publication is None
+                    else publication.evidence_sha256,
+                    "historicalReportSha256": None
+                    if evidence is None
+                    else evidence.get("reportSha256"),
+                    "evaluation": evaluation,
+                }
+            )
+            fork = self.family_fork(version.family_id)
+            if fork is not None:
+                verified_json(fork.lineage_json, fork.lineage_sha256)
+                families[str(version.family_id)] = fork.lineage_sha256
+            current = version.base_version_id
+        return {
+            "schemaVersion": "grid-model-family-lineage-v1",
+            "ancestors": ancestors,
+            "familyForks": families,
+            "protectedRoles": list(PROTECTED_ROLES),
+            "requiresProtectedSourceResolution": True,
+        }
+
+    def create_family_fork(
+        self,
+        *,
+        family_id: UUID,
+        code: str,
+        label: str,
+        view: dict[str, Any],
+        lineage: dict[str, Any],
+        actor: str,
+    ) -> None:
+        from game_predictor_api.storage.grid_model_registry_models import GridModelFamilyForkModel
+
+        existing = self.session.scalar(
+            select(GridModelFamilyModel.id).where(GridModelFamilyModel.code == code)
+        )
+        if existing is not None:
+            raise GridModelRegistryError(
+                "GRID_MODEL_FAMILY_CONFLICT", "The new family code is already in use."
+            )
+        manifest = view["manifest"]
+        self.session.add(
+            GridModelFamilyModel(
+                id=family_id,
+                code=code,
+                descriptor_json=canonical_json(
+                    {
+                        "familyCode": code,
+                        "familyLabel": label,
+                        "topology": manifest["topology"],
+                        "capabilities": manifest["capabilities"],
+                    }
+                ),
+            )
+        )
+        self.session.flush()
+        self.session.add(
+            GridModelFamilyForkModel(
+                family_id=family_id,
+                base_version_id=UUID(manifest["versionId"]),
+                base_manifest_sha256=view["manifestSha256"],
+                lineage_json=canonical_json(lineage),
+                lineage_sha256=descriptor_sha256(lineage),
+                actor=actor,
+            )
+        )
         self.session.flush()
 
     def history(self, game_id: UUID | None) -> list[dict[str, Any]]:

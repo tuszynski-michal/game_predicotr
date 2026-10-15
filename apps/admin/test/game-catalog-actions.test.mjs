@@ -33,11 +33,11 @@ function createClient(overrides = {}) {
   };
 }
 
-test('creates a game with a grid engine profile as its page format', async () => {
+test('creates a neutral game with a separate published model selection', async () => {
   let request;
   const mumieGame = {
     ...savedGame,
-    shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+    shapeGeometryConfiguration: 'neural_grid_v3',
   };
   const client = createClient({
     createGame: async (body) => {
@@ -48,7 +48,17 @@ test('creates a game with a grid engine profile as its page format', async () =>
 
   const result = await saveGameIdentity(
     client,
-    { mode: 'create' },
+    {
+      mode: 'create',
+      command: {
+        idempotencyKey: 'create-key',
+        code: 'mumie',
+        name: 'Mumie',
+        status: 'draft',
+        expectedLayoutCount: 500000,
+        gridModel: { mode: 'published', versionId: 'published-id' },
+      },
+    },
     {
       code: 'mumie',
       expectedLayoutCount: '500000',
@@ -58,7 +68,8 @@ test('creates a game with a grid engine profile as its page format', async () =>
     },
   );
 
-  assert.equal(request.shapeGeometryConfiguration, 'grid_profile_mumie_v1');
+  assert.equal(request.shapeGeometryConfiguration, undefined);
+  assert.equal(request.gridModel.versionId, 'published-id');
   assert.deepEqual(result, { game: mumieGame, ok: true });
 });
 
@@ -103,7 +114,17 @@ test('creates a game with its stable code through the typed client boundary', as
 
   const result = await saveGameIdentity(
     client,
-    { mode: 'create' },
+    {
+      mode: 'create',
+      command: {
+        idempotencyKey: 'create-key',
+        code: 'game-1',
+        name: 'Game 1',
+        status: 'active',
+        expectedLayoutCount: 500000,
+        superGameKind: 'none',
+      },
+    },
     {
       code: 'game-1',
       expectedLayoutCount: '500000',
@@ -118,7 +139,7 @@ test('creates a game with its stable code through the typed client boundary', as
     code: 'game-1',
     expectedLayoutCount: 500000,
     name: 'Game 1',
-    shapeGeometryConfiguration: 'framed_full_page_v2',
+    idempotencyKey: 'create-key',
     status: 'active',
     superGameKind: 'none',
   });

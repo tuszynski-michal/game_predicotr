@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -15,6 +17,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.application.catalog import CatalogRepository
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
+    CatalogError,
     Game,
     GameShapeGeometryConfiguration,
     GameStatus,
@@ -23,12 +26,13 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
+from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
-from game_predictor_api.storage.game_data_v2_manifest_v10 import CREATE_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v11 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     LOCK_RETRY_ATTEMPTS,
     GamePartitionLifecycleError,
@@ -85,6 +89,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         storage_router: GameStorageRouter | None = None,
         *,
         partition_ddl_session_factory: Callable[[], Session] | None = None,
+        artifact_root: Path | None = None,
     ) -> None:
         self._session = session
         # PostgreSQL game creation is never a catalog-only operation: the
@@ -96,6 +101,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         # OF, ANALYZE) then runs in its own schema-owner session. The catalog
         # row and the lifecycle receipt stay in the caller's session.
         self._partition_ddl_session_factory = partition_ddl_session_factory
+        self._artifact_root = artifact_root
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(
@@ -122,6 +128,14 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         return _to_game(record, location)
 
+    def geometry_assignment_available(self, game_id: UUID) -> bool:
+        from game_predictor_api.storage.grid_model_registry import (
+            SqlAlchemyGridModelRegistryRepository,
+        )
+
+        assignment, _ = SqlAlchemyGridModelRegistryRepository(self._session).assignment(game_id)
+        return assignment is not None
+
     def add_game(
         self,
         *,
@@ -131,10 +145,113 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
         super_game_kind: str = "none",
+        idempotency_key: UUID | None = None,
+        grid_model: dict[str, Any] | None = None,
+    ) -> Game:
+        if idempotency_key is None:
+            # Low-level fixture/maintenance adapter; HTTP always requires a command key.
+            return self.reserve_game(
+                code=code,
+                name=name,
+                status=status,
+                expected_layout_count=expected_layout_count,
+                shape_geometry_configuration=shape_geometry_configuration,
+                super_game_kind=super_game_kind,
+            )
+        from game_predictor_api.application.grid_model_registry import GridModelRegistryService
+        from game_predictor_api.application.new_game_geometry import NewGameGeometryService
+        from game_predictor_api.storage.game_create_receipts import (
+            SqlAlchemyGameCreateReceiptRepository,
+        )
+        from game_predictor_api.storage.grid_model_registry import (
+            GridModelArtifactInspector,
+            SqlAlchemyGridModelRegistryRepository,
+        )
+
+        registry = GridModelRegistryService(
+            SqlAlchemyGridModelRegistryRepository(self._session),
+            GridModelArtifactInspector(self._artifact_root),
+        )
+        try:
+            return NewGameGeometryService(
+                self, SqlAlchemyGameCreateReceiptRepository(self._session), registry
+            ).create(
+                key=idempotency_key,
+                selection=grid_model or {"mode": "default"},
+                fields={
+                    "code": code,
+                    "name": name,
+                    "status": status,
+                    "expected_layout_count": expected_layout_count,
+                    "shape_geometry_configuration": shape_geometry_configuration,
+                    "super_game_kind": super_game_kind,
+                },
+            )
+        except (CatalogError, GridModelRegistryError) as error:
+            # A domain rejection is safe to replace only after rollback and a new
+            # catalogue lock prove that no durable reservation exists for this key.
+            try:
+                self._session.rollback()
+                registry.repository.lock()
+                previous = SqlAlchemyGameCreateReceiptRepository(self._session).receipt(
+                    idempotency_key
+                )
+                if (
+                    previous is None
+                    and error.code
+                    not in {
+                        "GAME_CREATE_IDEMPOTENCY_CONFLICT",
+                        "GAME_CREATE_RESULT_REMOVED",
+                        "GAME_CREATE_STORAGE_NOT_READY",
+                    }
+                    and not (isinstance(error, GridModelRegistryError) and error.status_code >= 500)
+                ):
+                    error.details["createRecovery"] = {
+                        "schemaVersion": "game-create-recovery-v1",
+                        "idempotencyKey": str(idempotency_key),
+                        "reservation": "not_created",
+                    }
+                self._session.rollback()
+            except Exception:
+                error.details.pop("createRecovery", None)
+                logging.getLogger(__name__).warning("game_create_recovery_qualification_failed")
+                try:
+                    self._session.rollback()
+                except Exception:
+                    logging.getLogger(__name__).warning("game_create_recovery_rollback_failed")
+            raise
+
+    def resume_game_create(self, game_id: UUID) -> Game:
+        record = self._session.get(GameModel, game_id)
+        if record is None:
+            raise CatalogConflictError(
+                "GAME_CREATE_RESULT_REMOVED", "The original game was removed."
+            )
+        location = self._storage_router.describe(self._session, game_id)
+        if location.status is GameStorageStatus.ACTIVE:
+            # Release the catalogue reservation lock on an already completed replay too.
+            self._session.commit()
+            return _to_game(record, location)
+        if location.status is not GameStorageStatus.MIGRATING:
+            raise CatalogConflictError(
+                "GAME_CREATE_STORAGE_NOT_READY", "The reserved game storage requires review."
+            )
+        return self._provision_v2_game(record)
+
+    def reserve_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+        shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str = "none",
+        initializer: Callable[[UUID], None] | None = None,
     ) -> Game:
         record = self._session.scalar(select(GameModel).where(GameModel.code == code))
         if record is not None:
-            if not self._is_resumable_create(
+            if initializer is not None or not self._is_resumable_create(
                 record,
                 name=name,
                 status=status,
@@ -161,9 +278,11 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             self._storage_router is not None
             and self._session.connection().dialect.name == "postgresql"
         ):
-            return self._provision_v2_game(record)
+            return self._provision_v2_game(record, initializer=initializer)
 
         location = None
+        if initializer is not None:
+            initializer(record.id)
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
@@ -178,7 +297,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         self._session.refresh(record)
         return _to_game(record, location)
 
-    def _provision_v2_game(self, record: GameModel) -> Game:
+    def _provision_v2_game(
+        self, record: GameModel, *, initializer: Callable[[UUID], None] | None = None
+    ) -> Game:
         assert self._storage_router is not None
         lifecycle = GamePartitionLifecycleRepository(self._session)
         receipt = lifecycle.start_or_resume(
@@ -186,6 +307,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             kind=GamePartitionLifecycleKind.PROVISION,
         )
         operation_id = receipt.operation_id
+        if initializer is not None:
+            initializer(record.id)
         self._session.commit()
         for _ in range(len(CREATE_TABLES) + 2):
             receipt = self._run_partition_step(operation_id)

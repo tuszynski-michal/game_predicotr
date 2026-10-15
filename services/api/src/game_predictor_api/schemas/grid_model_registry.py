@@ -110,6 +110,9 @@ class GameGridModelAssignmentResponse(ApiModel):
     revision: int | None
     version: GridModelVersionResponse | None
     event_count: int
+    training_family_id: UUID | None = None
+    training_family_label: str | None = None
+    initial_transfer_allowed: bool = False
 
 
 class GridModelPublishCommand(ApiModel):
@@ -124,10 +127,27 @@ class GridModelAssignmentCommand(ApiModel):
     idempotency_key: UUID
     expected_revision: int = Field(ge=0)
     version_id: UUID
+    mode: Literal["evaluated", "initial_transfer"] = "evaluated"
+
+
+class GridModelTransferProvenance(ApiModel):
+    schema_version: Literal["grid-model-transfer-v1"]
+    kind: Literal["transfer_bootstrap"]
+    source_version_id: UUID
+    source_family_id: UUID
+    source_manifest_sha256: str
+    source_evidence_kind: Literal["historical_admission", "evaluated_candidate"]
+    source_evidence_sha256: str
+    evaluation_id: UUID | None
+    training_family_id: UUID
+    default_revision: int | None
+    lineage_sha256: str
+    quality_scope: Literal["source-games-only"]
 
 
 class GridModelControlReceipt(ApiModel):
-    kind: Literal["publish", "set_default", "activate", "rollback"]
+    event_id: UUID | None = None
+    kind: Literal["publish", "set_default", "activate", "rollback", "bootstrap"]
     idempotency_key: UUID
     expected_revision: int
     version_id: UUID
@@ -137,8 +157,12 @@ class GridModelControlReceipt(ApiModel):
     revision: int
     command_sha256: str
     manifest_sha256: str
-    evidence_kind: Literal["historical_admission", "evaluated_candidate"]
+    evidence_kind: Literal["historical_admission", "evaluated_candidate", "transfer_bootstrap"]
     evidence_sha256: str
+    transfer: GridModelTransferProvenance | None = None
+    training_family_id: UUID | None = None
+    mode: Literal["initial_transfer"] | None = None
+    origin: Literal["game-create-v1"] | None = None
 
 
 class GridModelDefaultResponse(ApiModel):
@@ -149,7 +173,10 @@ class GridModelDefaultResponse(ApiModel):
 
 
 class GridModelHistoryEvent(ApiModel):
-    kind: Literal["publish", "set_default", "activate", "rollback", "historical_assignment"]
+    event_id: UUID | None = None
+    kind: Literal[
+        "publish", "set_default", "activate", "rollback", "historical_assignment", "bootstrap"
+    ]
     game_id: UUID | None
     version_id: UUID
     revision: int
@@ -161,5 +188,11 @@ class GridModelHistoryEvent(ApiModel):
     evaluation_id: UUID | None = None
     command_sha256: str | None = None
     manifest_sha256: str | None = None
-    evidence_kind: Literal["historical_admission", "evaluated_candidate"] | None = None
+    evidence_kind: (
+        Literal["historical_admission", "evaluated_candidate", "transfer_bootstrap"] | None
+    ) = None
     evidence_sha256: str | None = None
+    transfer: GridModelTransferProvenance | None = None
+    training_family_id: UUID | None = None
+    mode: Literal["initial_transfer"] | None = None
+    origin: Literal["game-create-v1"] | None = None

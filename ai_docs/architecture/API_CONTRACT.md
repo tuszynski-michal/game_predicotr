@@ -6,6 +6,40 @@ last_updated: 2026-10-15
 
 # Kontrakty API i danych mobilnych
 
+## Tworzenie i pierwszy transfer geometrii V3 — TASK-1004
+
+Istniejący `POST /api/v1/admin/games` wymaga teraz `idempotencyKey: UUID`.
+To jawna zmiana kontraktu tworzenia; GET/PATCH historycznych gier pozostają
+zgodne ze starymi wartościami. Pominięty format oznacza `neural_grid_v3`;
+znana inna wartość daje409 `GAME_CREATE_V3_REQUIRED`, nieznana422. Kod `7`
+nowej gry daje409 `GAME_CREATE_HISTORICAL_CODE_RESERVED`. Status pominięty
+pozostaje DRAFT, a jawny status jest zachowany.
+
+Opcjonalne `gridModel` ma zamknięte warianty `default`, `published` z
+`versionId` oraz `fork` z `baseVersionId`, `familyCode`, `familyLabel`.
+Default rozwiązuje się raz pod blokadą katalogu. Brak default lub jawnie
+wylistowany błąd aktualności/dostępności pozwala na unassigned ze stabilnym
+blockerem. Uszkodzenie kontraktu, raportu lub infrastruktury przerywa zapis.
+Jawny wybór/fork wymaga zgodnej eligible published wersji i jest atomowy.
+Nowa gra nie potrzebuje fikcyjnego raportu zawierającego jej przyszły UUID.
+
+Create ledger ma odrębny globalny namespace `game-create-v1`. To samo
+polecenie/key odzyskuje tę samą grę i provisioning bez ponownego default.
+Zmiana treści daje409 `GAME_CREATE_IDEMPOTENCY_CONFLICT`; inny key przy
+zajętym code zachowuje `GAME_CODE_ALREADY_EXISTS`. Usunięty wynik daje
+`GAME_CREATE_RESULT_REMOVED`, bez utworzenia zastępstwa. Klient utrwala
+polecenie przed POST i powtarza je po utracie odpowiedzi/reload.
+
+Istniejący `activateGameGridModel` dopuszcza opcjonalne `mode=initial_transfer`.
+Wymaga expectedRevision0, neutralnej gry utworzonej tą ścieżką, pierwotnego
+unassigned receipt oraz braku assignment/historii. Zapisuje bootstrap revision1
+z `transfer_bootstrap`, `grid-model-transfer-v1` i `qualityScope=source-games-only`.
+Ponowienie odczytuje receipt przed CAS/eligibility. Pominięty/evaluated tryb
+zachowuje dotychczasowe canonical command/SHA i wymóg oceny per gra.
+Default i rollback odrzucają initial_transfer. GET przypisania dodaje
+`trainingFamilyId`, czytelną etykietę `trainingFamilyLabel` i `initialTransferAllowed`; historia obejmuje bootstrap
+z jawnym źródłem transferu. Fork nie tworzy wersji ani publikacji.
+
 ## Jawne polecenia wersji geometrii V3 — TASK-0998
 
 Istniejący rejestr rozszerzają odrębne operacje Admina:
@@ -4921,3 +4955,12 @@ Nowe mutacje nie należą do zdalnej allowlisty Reviewera. Historyczna 777,
 kod `7`, jest wyłączona. Brak źródła/modelu, konflikt rewizji/właściciela,
 zgłoszenie lub mieszane rewizje jest jawnie pomijane. Run nie uruchamia
 modelu, recropu ani tworzenia komórek i nie nadaje human approval.
+
+Kontrolowany błąd tworzenia może zawierać `details.createRecovery` z
+`schemaVersion=game-create-recovery-v1`, dokładnym `idempotencyKey` i
+`reservation=not_created`. Dowód wymaga udanego rollback oraz ponownej blokady
+katalogu i potwierdzenia braku public receiptu. Konflikt istniejącego klucza,
+storage-not-ready,5xx i błąd kwalifikacji nie otrzymują dowodu. Klient bez
+dowodu zachowuje polecenie, również przy422. Potwierdzone porzucenie lokalne
+najpierw archiwizuje surowy wpis, namespace i czas, bez usuwania serwerowego
+receiptu; niepowodzenie archiwum zachowuje pending.

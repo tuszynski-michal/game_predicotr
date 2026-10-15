@@ -84,9 +84,29 @@ Istniejące `game_grid_model_assignments` i `game_grid_model_assignment_events`
 pozostają catalog w `public`, z jawnymi predykatami i strażnikiem scope sesji.
 Tylko mutable head jest aktualizowany; nowe eventy mają receipt/proweniencję,
 a historyczne eventy pozostają niezmienione. Cascade po usunięciu gry nie
-usuwa shared historii. Bieżący routing/lifecycle/katalog importują v10;
+usuwa shared historii. Stan TASK-0998 importował v10; bieżący routing/lifecycle/katalog importują v11;
 frozen manifesty v1–v9 pozostają nienaruszone. Migracja aktualizuje wyłącznie
 control manifest/location revision, nie data-plane ani przypisania modeli.
+
+## Public catalogue version11 — TASK-1004
+
+`game_data_v2_manifest_v11.py` zachowuje całe GAME/CREATE/MIGRATE/DELETE/
+PARTITIONED z v10. Dodaje `game_create_receipts` jako catalog i
+`grid_model_family_forks` jako shared. Oba rejestry są jawnie w public,
+bez obrazów, wag, sekwencji lub etykiet. Receipt tworzenia przeżywa fizyczne
+usunięcie gry; nie ma FK uniemożliwiającego dotychczasowy delete.
+Nullable training_family_id i bootstrap events rozszerzają istniejący
+katalog przypisań. Migracja0158 zmienia manifest/location revision i
+startup head, bez przepisywania istniejących assignments lub partycji.
+
+Rezerwacja gry i modelu jest jedną transakcją przed pierwszym commitem
+restartowalnego lifecycle. Publiczne head/event/create receipt używają
+jawnych typowanych Core INSERT na connection tej samej Session i roli
+aplikacyjnej. Pozwala to zapisać katalog przed aktywacją partycji, bez
+uruchamiania game-owned ORM flush w MIGRATING i bez obejścia RLS dla danych
+gry. Owner factory pozostaje wyłącznie granicą partycyjnego DDL. Regresja
+PostgreSQL wymaga rollbacku całości przed pierwszym commitem oraz odzyskania
+rezerwacji z nowego procesu po trwałym checkpointcie partycji.
 
 ## Reguły i granice
 

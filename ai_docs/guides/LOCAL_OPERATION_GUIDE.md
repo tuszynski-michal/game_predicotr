@@ -1690,7 +1690,7 @@ z plikami i pinned SHA/size. Katalog GET/POST nie ładuje Torch/ONNX ani GPU.
 
 ### Polecenia publikacji i przypisania — TASK-0998
 
-Bieżący kod wymaga teraz Alembic `0157_grid_model_publication` i manifest v10.
+Stan TASK-0998 wymagał Alembic `0157_grid_model_publication` i manifest v10.
 Migracja dodaje control schema/history oraz pola receipt, ale nie publikuje
 modeli i nie ustawia default. Przed integracją i migracją operatora zachowaj
 powyższą ręczną kolejność usług. Test na disposable DB nie jest zgodą na
@@ -1711,3 +1711,17 @@ zdejmuje istniejącego assignment ani nie zmienia jobów. Rollback wymaga
 wcześniejszej opublikowanej i nadal dopuszczonej wersji w historii tej gry;
 zmienia tylko przypisanie. Rzeczywiste publikacje/aktywacje/default i runy
 wykonuje operator osobno; implementacja i testy nie wykonały ich na jego danych.
+
+## TASK-1004: rezerwacja nowej gry V3, głowa0158 i manifestv11
+
+Bieżący kod API i workera wymaga Alembic `0158_new_game_v3_bootstrap` oraz
+manifestv11. Migracja dodaje publiczny ledger tworzenia, immutable referencję
+bazy nowej rodziny oraz rodzinę treningową przypisania. Listy partycji danych
+pozostają identyczne jak wv10. Downgrade jest celowo zabroniony, aby nie usuwać
+historii rezerwacji i pochodzenia modeli.
+
+Migrację na bazie operatora wykonuje operator dopiero po świadomej decyzji,
+z uwzględnieniem istniejącej procedury migracji i jej warunków wstępnych.
+TASK-1004 nie wykonuje tej operacji ani restartu API/Admin/workerów.
+Przed migracją nie należy uruchamiać nowego kodu przeciw starej głowie;
+startup poprawnie blokuje niezgodność0157/v10 z wymaganiem0158/v11.

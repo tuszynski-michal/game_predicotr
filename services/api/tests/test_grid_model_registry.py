@@ -34,12 +34,14 @@ from game_predictor_api.storage.grid_model_registry import (
     SqlAlchemyGridModelRegistryRepository,
 )
 from game_predictor_api.storage.grid_model_registry_models import (
+    GameCreateReceiptModel,
     GameGridModelAssignmentEventModel,
     GameGridModelAssignmentModel,
     GridModelControlEventModel,
     GridModelDefaultModel,
     GridModelEvaluationInvalidationModel,
     GridModelEvaluationReportModel,
+    GridModelFamilyForkModel,
     GridModelFamilyModel,
     GridModelPublicationModel,
     GridModelRegistrationReceiptModel,
@@ -51,6 +53,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 TABLES = (
+    GridModelFamilyForkModel,
+    GameCreateReceiptModel,
     GridModelFamilyModel,
     GridModelVersionModel,
     GridModelRegistrationReceiptModel,

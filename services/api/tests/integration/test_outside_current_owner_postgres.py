@@ -76,7 +76,10 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
     with sessions() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
-            code="outside-owner", name="Outside owner", status=GameStatus.ACTIVE
+            idempotency_key=uuid4(),
+            code="outside-owner",
+            name="Outside owner",
+            status=GameStatus.ACTIVE,
         )
         symbol = catalog.create_symbol(
             game.id,

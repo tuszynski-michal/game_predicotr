@@ -101,6 +101,7 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-selection-test",
                 name="Image selection test",
                 status=GameStatus.DRAFT,
@@ -228,6 +229,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="atomic-projection-test",
                 name="Atomic projection test",
                 status=GameStatus.DRAFT,
@@ -346,6 +348,7 @@ def test_proof_first_projection_keeps_review_candidate_eligible(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="proof-first-review-candidate-test",
                 name="Proof-first review candidate test",
                 status=GameStatus.DRAFT,

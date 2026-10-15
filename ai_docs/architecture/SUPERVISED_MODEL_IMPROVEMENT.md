@@ -363,6 +363,18 @@ resolver aktywnego modelu nie może ich zwrócić, ponieważ nie powstało zdarz
 aktywacji. Fingerprint aktywnego modelu pozostał równy
 `19e15e92591a3e1692a329e7c2fc9f4f3fe0f102bf623bebc20184615e48db64`.
 
+## Nowe wybory symboli w V3 — TASK-1004
+
+Przed globalnym bootstrapem resolver odczytuje public.games przez jawny
+predykat gameId. Dla wszystkich formatów uses_neural_grid poza historycznym
+kodem7 brak własnej aktywacji daje SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED.
+Import/preflight może wtedy jawnie wywołać resolve_unclassified_cold_start,
+który sprawdza tylko historię etykiet/kohort/iteracji/aktywacji danej gry.
+Własny aktywny model zachowuje dotychczasowe kontrole pochodzenia i SHA.
+Nie zmienia się reader zapisanych snapshotów ani restart istniejących jobów;
+wybór dotyczy wyłącznie nowych komend. Znana V3 bez produkcyjnego resolvera
+nie może wrócić do globalnych wag. Non-V3 i stara777 zachowują swój kontrakt.
+
 ## Aktywacja, rollback i przypięcie importu
 
 Aktywacja jest osobną, audytowalną komendą i dopisuje zdarzenie pod blokadą
@@ -370,7 +382,8 @@ rekordu gry. Nie istnieje drugi, mutowalny wskaźnik: aktywny model jest projekc
 zdarzenia o najwyższym monotonicznym `activation_number`. Poprzednie wersje
 pozostają niezmienne, więc rollback jest kolejnym zdarzeniem aktywacji.
 
-Jeżeli gra nie ma jeszcze zdarzenia i nie ma gotowego kandydata, resolver zwraca
+Dla gry klasycznej spoza V3, jeżeli nie ma jeszcze zdarzenia ani gotowego kandydata,
+resolver zwraca
 jawny, checksum-bound snapshot kontrolowanego modelu bootstrapowego wyłącznie,
 gdy jego klasy dokładnie odpowiadają aktywnemu katalogowi gry. Niezgodność
 zwraca `SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED` i wymaga treningu oraz jawnej

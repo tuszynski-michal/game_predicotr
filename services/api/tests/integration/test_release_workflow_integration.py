@@ -277,6 +277,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="release-game",
                 name="Release game",
                 status=GameStatus.ACTIVE,

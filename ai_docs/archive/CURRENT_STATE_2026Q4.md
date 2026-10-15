@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
+
+- Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
+- Skrypt audytu zachowuje PATH jako pierwszy wybór; wykrywa także natywną i pakietową instalację Claude Code, wybierając wersję liczbowo. Reguła w AGENTS.md oraz skillu audytu.
+- Osiem regresji PASS w nowym Windows PowerShell 5.1; rzeczywiste CLI 2.1.295 startuje w nowym procesie (exit 0). Bez testu logowania/modelu, reinstalacji, zmiany PATH i restartu usług.
+- Gałąź `codex/claude-cli-discovery`; oczekuje akceptacji i scalenia, bez push. Commit implementacji: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**.
+
 ### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
 
 - Commit zweryfikowanego zamknięcia operacyjnego: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, na main. Do scalenia dokumentacji wymagana jest końcowa akceptacja operatora; bez automatycznego merge.

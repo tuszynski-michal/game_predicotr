@@ -58,6 +58,8 @@ def create_catalog_router(
         service: Annotated[CatalogService, service_parameter],
     ) -> GameResponse:
         game = service.create_game(
+            idempotency_key=payload.idempotency_key,
+            grid_model=payload.grid_model.model_dump(mode="json", by_alias=True),
             code=payload.code,
             name=payload.name,
             status=payload.status,

@@ -731,6 +731,7 @@ def create_app(
                         session,
                         GameStorageRouter(),
                         partition_ddl_session_factory=owner_session_factory,
+                        artifact_root=resolved_settings.artifact_root,
                     ),
                     shape_geometry_readiness_resolver=GlobalShapeGeometryReadinessResolver(
                         SqlAlchemyGlobalGeometryLibraryRepository(session)

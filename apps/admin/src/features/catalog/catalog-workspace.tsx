@@ -496,6 +496,7 @@ export function CatalogWorkspace({
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            gameCode={activeGame.code}
                             shapeGeometryConfiguration={
                               activeGame.shapeGeometryConfiguration
                             }

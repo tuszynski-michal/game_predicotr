@@ -4,6 +4,7 @@ from contextlib import ExitStack
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -110,6 +111,7 @@ def test_postgres_report_has_exact_counts_bounded_groups_and_filtered_rows(
             session = stack.enter_context(session_factory())
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="import-report-game",
                 name="Import report game",
                 status=GameStatus.ACTIVE,

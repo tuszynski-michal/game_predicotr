@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1031 — Skill `merge-to-main` z preflightem scalania (done)
+
+- Plik: `ai_docs/tasks/completed/1031-merge-to-main-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.379**.
+- `scripts/integration_preflight.py` (tylko odczyt: ahead/behind, fast-forward, `main` vs `origin/main`, kolizje TASK/D/`vX.Y.N`/migracji z `main` i niescalonymi gałęziami), skill `merge-to-main` w `.claude/skills/` i `.agents/skills/` z bramkami zgody i bezpiecznym usuwaniem worktree.
+- 28 nowych testów, razem 78 PASS; ruff, mypy --strict, docs:check PASS. Skill nie był jeszcze ćwiczony na prawdziwym scaleniu.
+
 ### TASK-1030 — Skill `task-close` ze skryptem zamykania taska (done)
 
-- Plik: `ai_docs/tasks/completed/1030-task-close-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.378**.
+- Plik: `ai_docs/tasks/completed/1030-task-close-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.378 / `54e011333aafc4aaf5ae6b8e63a5a36e1546f184`**.
 - `scripts/close_task.py` (`close`, `record-hash`, `--dry-run`, wycofanie przy czerwonej kontroli), skill `task-close` w `.claude/skills/` i `.agents/skills/`, `scripts/check_skill_mirrors.py` w `docs:check`. Codex CLI 0.162.0 czyta skille z `.agents/skills/` i `.codex/skills/`.
 - 28 nowych testów, łącznie 50 PASS; ruff, mypy --strict, docs:check PASS. Ten task zamknięto własnym skryptem.
 

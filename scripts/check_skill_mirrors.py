@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # (canonical Claude Code copy, Codex copy), relative to the repository root.
 MIRRORED_PAIRS: tuple[tuple[str, str], ...] = (
     (".claude/skills/task-close/SKILL.md", ".agents/skills/task-close/SKILL.md"),
+    (".claude/skills/merge-to-main/SKILL.md", ".agents/skills/merge-to-main/SKILL.md"),
 )
 
 

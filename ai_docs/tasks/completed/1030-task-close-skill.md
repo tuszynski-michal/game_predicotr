@@ -102,7 +102,7 @@ npm run docs:check
 
 ## Outcome
 
-Commit: v1.7.378 (hash dopisuje kolejny commit).
+Commit: v1.7.378 / `54e011333aafc4aaf5ae6b8e63a5a36e1546f184`.
 
 Wykonawca: claude-sonnet-5-5 (podagent leada). Bez dodatkowego review
 (zgodnie z planem); samokontrola kryteriów poniżej. Status `todo` zostaje do

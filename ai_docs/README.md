@@ -20,10 +20,12 @@ Przed rozpoczęciem pracy czytaj w tej kolejności:
 
 1. ten indeks (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md)),
 2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
-   obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
-   i 10 ostatnich sekcji `done`,
-3. [Decision Log](process/DECISION_LOG.md) — indeks decyzji wraz z pięcioma
-   najnowszymi wpisami w pełnej postaci,
+   (≤ 30 000 B): obowiązujące ograniczenia, tabela planów z niezakończonymi
+   taskami, otwarte decyzje, wskaźniki tasków aktywnych (≤ 1 200 B każdy) i
+   10 jednowierszowych wpisów `done` (pełne sekcje `done` w archiwum),
+3. [Decision Log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji;
+   starsze wyszukuj `rg` w nim i w
+   [archiwum indeksu](process/decisions/DECISION_INDEX_ARCHIVE.md),
 4. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
 5. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
 
@@ -89,6 +91,16 @@ domyślnym kontekstem implementacyjnym.
 
 ### Dostarczanie
 
+- [Odchudzenie obowiązkowego odczytu startowego](delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md)
+  — wykonany 2026-10-16 (TASK-1019–1023): obowiązkowy odczyt 211 → 78 KB,
+  budżety bajtów w `docs:check`, lekki indeks decyzji, krótkie okno stanu,
+  `CLAUDE.md` bez duplikatu `AGENTS.md`.
+
+- [Panel udostępniania wielu gier](delivery/MULTI_GAME_BOARD_SEARCH_SHARE_EXECUTION_PLAN_20261013.md)
+  — completed, TASK-0991; audyt pominięty jawną decyzją operatora 2026-10-16.
+  [Instrukcja uruchomienia](guides/MULTI_GAME_BOARD_SEARCH_SHARE_OPERATOR.md).
+  Migracja 0155 i scalenie do main wykonane 2026-10-16; gałąź/worktree usunięte.
+
 - [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
   — accepted, rewizja 6, TASK-0993–1015 (bez TASK-1007) oraz TASK-1017 (23 taski pierwotne) oraz korekta kompatybilności TASK-1018 (24 łącznie), cały plan i orientacyjny koszt 12–28 dni roboczych zlecone 2026-10-14. Bootstrap TASK-1015 done; audyt PASS i P2 rozliczone, commit v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; TASK-1010 done po jednej rundzie poprawek; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (v1.7.380; Claude R2 PASS); TASK-1003 done (v1.7.381; Claude R2 PASS); TASK-1002 done (v1.7.382; Claude R2 PASS); [TASK-1018](tasks/completed/1018-v3-head-compatibility-regressions.md) done (v1.7.383; Claude R1 PASS), [TASK-1009](tasks/completed/1009-grid-quality-measurement.md) done (v1.7.384; Claude R1 REVISE, P1/P2 zamknięte w jednej rundzie), [TASK-0995](tasks/completed/0995-grid-training-cohort-snapshot.md) done (v1.7.385; Claude R2 PASS); następny1005 dla Claude Code. Liczniki, akceptacja, edytor, wersje, nowe gry, ponowne rozpoznanie aktualną bazą bez treningu oraz doszkalanie mają odrębne piony. Historyczna 777 pozostaje archiwalna, symbole per gra. Wznowienie i bramki operacyjne: CURRENT_STATE i sekcja 3 planu; D-549/D-550/D-551/D-552 accepted; D-548 accepted przed0995 (2026-10-16); aktualne etykiety ludzkie, bez operacyjnego treningu. Operator2026-10-16 polecił dokończyć TASK-0995, potem zamienić role: pozostałe6 zadań Claude Code jako wykonawca, Codex jako audytor; bieżący0995 zachowuje audyt Claude.
 
@@ -106,7 +118,8 @@ domyślnym kontekstem implementacyjnym.
   Raporty testów i audytów pozostają dowodami dla opisanych w nich wersji.
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
-  — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).
+  — zamknięty 2026-10-16 bez dalszej realizacji (TASK-1024); TASK-0947–0949
+  nieaktualne. D-539: punkt otwiera widok, maszyna jest wyborem.
 
 - [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
   — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
@@ -115,10 +128,12 @@ domyślnym kontekstem implementacyjnym.
 - [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
   — accepted T1–T7, TASK-0921–0927.
 - [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
-  — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
+  — zamknięty 2026-10-16 (D-535, TASK-0929–0939; ostatnie 0937 i 0939
+  zamknięte jako nieaktualne w TASK-1024).
 
 - [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
-  — implemented, awaiting operator migration and acceptance; etapy R1–R4,
+  — wykonany, migracja `0154` zastosowana 2026-10-10; odbiór TASK-0972 zamknięty
+  2026-10-16 (TASK-1024); etapy R1–R4,
   TASK-0966–0972 (dawniej TASK-0945–0951), D-542/D-543, migracja `0154`;
   [instrukcja operatora](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
 
@@ -137,9 +152,11 @@ domyślnym kontekstem implementacyjnym.
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
 - [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
-  zaakceptowany plan P00/T01–T13 i punkty STOP A–E.
+  plan P00/T01–T13 i punkty STOP A–E; pozostałe taski (0668, 0671–0678)
+  zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
 - [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
-  zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
+  przejście na V2-only; `0125` zastosowana (D-467), pozostałe taski
+  0687–0691, 0694, 0695 i 0698 zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
 - [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
   — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
 - [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
@@ -150,7 +167,7 @@ domyślnym kontekstem implementacyjnym.
   — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
   i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
-  naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
+  naprawy po `no-go` T08; TASK-0698 zamknięty jako nieaktualny 2026-10-16.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
@@ -162,11 +179,12 @@ domyślnym kontekstem implementacyjnym.
 
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
 - [Definition of Done](process/DEFINITION_OF_DONE.md)
-- [Decision log](process/DECISION_LOG.md) — indeks i najnowsze wpisy; pełne
+- [Decision log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji; pełne
   wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
   starszy indeks w
   [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
-- [Current state](process/CURRENT_STATE.md) — okno kroczące; historia w
+- [Current state](process/CURRENT_STATE.md) — okno kroczące ≤ 30 000 B
+  (wskaźniki aktywnych tasków, wiersze `done`); pełne sekcje i historia w
   [archive/CURRENT_STATE_2026Q4.md](archive/CURRENT_STATE_2026Q4.md) i
   [archive/CURRENT_STATE_2026Q3.md](archive/CURRENT_STATE_2026Q3.md).
 - [Task template](process/TASK_TEMPLATE.md)
@@ -271,10 +289,15 @@ krótkie podsumowanie i link do właściciela reguły.
 Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
 wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
 jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
-indeksu).
+na górze indeksu; wiersze ponad 30 przechodzą do archiwum indeksu).
 
-Przy zamykaniu taska agent dopisuje jego sekcję `done` w `CURRENT_STATE.md`,
-przenosi sekcje `done` ponad limit 10 do najnowszego archiwum
-`archive/CURRENT_STATE_*.md` (tekst bez zmian) i aktualizuje sekcję
-„Obowiązujące ograniczenia”. Spójność oba pliki sprawdza `npm run docs:check`
-(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`).
+Przy zamykaniu taska agent dopisuje jego pełną sekcję `done` na początku
+najnowszego archiwum `archive/CURRENT_STATE_*.md` (tekst bez zmian), w
+`CURRENT_STATE.md` dodaje jednowierszowy wpis na początku „Ostatnie 10
+ukończonych tasków” (format `- **TASK-NNNN** — tytuł — vX.Y.N / hash —
+tasks/completed/<plik>.md`) i usuwa najstarszy wiersz ponad 10 (jego sekcja
+jest już w archiwum), usuwa wskaźnik taska z „Aktywne taski” (wskaźniki
+≤ 1 200 B) oraz aktualizuje „Obowiązujące ograniczenia” i „Plany”. Spójność
+oba pliki sprawdza `npm run docs:check`
+(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`),
+a budżety bajtów obowiązkowego odczytu `scripts/check_startup_read_budget.py`.

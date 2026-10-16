@@ -38,7 +38,7 @@ Git ref the committed diff is taken against (base...HEAD). The default HEAD
 audits uncommitted work before the commit (the committed diff is then empty and
 the work is covered by the uncommitted and untracked sections). For a
 post-commit audit pass the ref before the task, for example
-v1.1-vision-lab-hybrid-geometry or HEAD~1.
+main or HEAD~1.
 
 .PARAMETER Plan
 Optional path to the accepted plan; sections that mention the task are quoted.

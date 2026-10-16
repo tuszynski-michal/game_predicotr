@@ -3,9 +3,12 @@
 Checks:
 1. every active task file ``ai_docs/tasks/NNNN-*.md`` has a heading containing
    ``TASK-NNNN`` (level 2-4) in CURRENT_STATE.md;
-2. at most 10 ``### TASK-... (done...)`` sections;
-3. the section "Obowiązujące ograniczenia" exists and is not empty;
-4. the file is smaller than 100 KB (100 000 bytes).
+2. the section "Ostatnie 10 ukończonych tasków" has at most 10 done entries, each
+   a one-line bullet ``- **TASK-NNNN** — title — vX.Y.N / hash — tasks/completed/<file>.md``;
+3. the section "Obowiązujące ograniczenia" exists and is not empty.
+
+Byte budgets (file, sections, active pointers, done entries) are owned by
+``scripts/check_startup_read_budget.py``.
 
 Exit code 0 when the window is consistent, 1 otherwise.
 """
@@ -20,8 +23,25 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / "ai_docs" / "process" / "CURRENT_STATE.md"
 TASKS = ROOT / "ai_docs" / "tasks"
 MAX_DONE = 10
-MAX_BYTES = 100_000
 CONSTRAINTS_HEADING = "## Obowiązujące ograniczenia"
+DONE_HEADING = "## Ostatnie 10 ukończonych tasków"
+# The commit hash is optional: a closing commit cannot contain its own hash,
+# which the lead adds in the next commit.
+DONE_ENTRY_RE = re.compile(
+    r"^- \*\*TASK-\d{4}\*\* — .+ — v\d+\.\d+\.\d+( / .+)? — tasks/completed/\S+\.md$"
+)
+
+
+def section_lines(lines: list[str], heading: str) -> list[str] | None:
+    """Lines of a ``##`` section (without the heading), or None when missing."""
+    if heading not in lines:
+        return None
+    body: list[str] = []
+    for line in lines[lines.index(heading) + 1 :]:
+        if line.startswith("## "):
+            break
+        body.append(line)
+    return body
 
 
 def main() -> int:
@@ -30,8 +50,6 @@ def main() -> int:
     problems: list[str] = []
     raw = STATE.read_bytes()
     lines = raw.decode("utf-8").splitlines()
-    if len(raw) >= MAX_BYTES:
-        problems.append(f"CURRENT_STATE.md has {len(raw)} bytes, limit is {MAX_BYTES}")
 
     headings = [line for line in lines if re.match(r"#{2,4} ", line)]
     active = sorted(
@@ -42,21 +60,25 @@ def main() -> int:
         if not any(pattern.search(heading) for heading in headings):
             problems.append(f"active task TASK-{task_id} has no section in CURRENT_STATE.md")
 
-    done = [line for line in lines if re.match(r"### TASK-\d+.*\(done", line)]
-    if len(done) > MAX_DONE:
-        problems.append(
-            f"{len(done)} done sections, limit is {MAX_DONE}; move the oldest to the archive"
-        )
+    done_body = section_lines(lines, DONE_HEADING)
+    done: list[str] = []
+    if done_body is None:
+        problems.append(f'missing section "{DONE_HEADING[3:]}"')
+    else:
+        done = [line for line in done_body if line.strip()]
+        for line in done:
+            if not DONE_ENTRY_RE.match(line):
+                problems.append(f"malformed done entry: {line[:80]}")
+        if len(done) > MAX_DONE:
+            problems.append(
+                f"{len(done)} done entries, limit is {MAX_DONE}; delete the oldest "
+                "(its full section is already in the archive)"
+            )
 
-    if CONSTRAINTS_HEADING not in lines:
+    body = section_lines(lines, CONSTRAINTS_HEADING)
+    if body is None:
         problems.append(f'missing section "{CONSTRAINTS_HEADING[3:]}"')
     else:
-        start = lines.index(CONSTRAINTS_HEADING)
-        body = []
-        for line in lines[start + 1 :]:
-            if line.startswith("## "):
-                break
-            body.append(line)
         if not any(line.startswith("- ") for line in body):
             problems.append('section "Obowiązujące ograniczenia" has no bullet points')
 
@@ -67,7 +89,7 @@ def main() -> int:
         return 1
     print(
         f"check_current_state_window: OK ({len(active)} active tasks, "
-        f"{len(done)} done sections, {len(raw)} bytes)"
+        f"{len(done)} done entries, {len(raw)} bytes)"
     )
     return 0
 

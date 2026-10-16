@@ -6846,6 +6846,26 @@ class ImageImportGeometryGuardResolutionManifestModel(Base):
     )
 
 
+class BoardSearchPanelModel(Base):
+    """Immutable grouping of purpose-scoped game sessions."""
+
+    __tablename__ = "board_search_panels"
+    __table_args__ = (
+        CheckConstraint("octet_length(secret_hash) = 32", name="ck_bsp_secret_hash"),
+        CheckConstraint("expires_at > created_at", name="ck_bsp_timestamps"),
+        CheckConstraint(
+            "label IS NULL OR length(btrim(label)) BETWEEN 1 AND 100", name="ck_bsp_label"
+        ),
+        Index("ix_bsp_created", "created_at", "id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    label: Mapped[str | None] = mapped_column(String(100))
+    secret_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class BoardSearchShareSessionModel(Base):
     """Online read-only board-search share session (D-471)."""
 
@@ -6875,11 +6895,21 @@ class BoardSearchShareSessionModel(Base):
         ),
         Index("ix_bss_sessions_game_created", "game_id", "created_at", "id"),
         Index("ix_bss_sessions_expiry", "expires_at", "id"),
+        Index(
+            "uq_bss_panel_game",
+            "panel_id",
+            "game_id",
+            unique=True,
+            postgresql_where=text("panel_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    panel_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("board_search_panels.id", name="fk_bss_panel", ondelete="RESTRICT")
     )
     label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     code_salt: Mapped[bytes] = mapped_column(LargeBinary(16), nullable=False)

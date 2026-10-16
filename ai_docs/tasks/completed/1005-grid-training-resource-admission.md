@@ -125,7 +125,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Wykonawca: Claude Code `claude-opus-5-5`/`high` jako jawny zamiennik `claude-fable-5-1`/`medium` na decyzję operatora 2026-10-16 (sekcja 8 planu).
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; baza taska v1.7.385 / `f0cfa9bdf2deaf0e5abdf7970624bd5575f10dc7`.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: v1.7.386 (najwyższy wersjonowany commit lokalnych gałęzi: v1.7.385 tej gałęzi; `main` v1.7.374); pełny hash dopisany w następnym commicie zgodnie z AGENTS.
+- Commit: **v1.7.386** / `0862fbeca1243daad9e84b8bb3a8c6d0dba7e5f8` (najwyższy wersjonowany commit lokalnych gałęzi: v1.7.385 tej gałęzi; `main` v1.7.374); hash dopisany w commicie scalenia `main` v1.7.387.
 - Następny krok: audyt, ewentualna jedna runda poprawek, commit, potem scalenie `main` do gałęzi na polecenie operatora i TASK-0996.
 
 ### Changed

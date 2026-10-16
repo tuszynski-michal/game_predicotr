@@ -94,3 +94,9 @@ The minimum remains the documented coverage of every active class in four indepe
 ### Recommended next task
 
 - Run a new symbol-training attempt for the reported game and inspect its candidate gate before explicit activation. Reload the worker manually if its process predates the checkpoint-label change; API/Admin hot reload applies the current checkout's changes.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **TASK-0975:** odrzuconych jobów treningu `79f2a5f6…`, `099ea091…`, `564fbff5…` nie wznawiać jako ukończonych modeli. Uruchomić nową próbę przez „Ulepsz rozpoznawanie”; API/Admin przeładowują kod głównego checkoutu. Nowa etykieta checkpointu workera wymaga jego ręcznego przeładowania przez operatora. Minimalne pokrycie czterech niezależnych zbiorów i jawna aktywacja kandydata pozostają bez zmian.

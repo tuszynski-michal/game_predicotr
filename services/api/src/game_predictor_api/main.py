@@ -21,6 +21,7 @@ from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration impor
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from game_predictor_api.api.board_search_panels import create_board_search_panels_router
 from game_predictor_api.api.grid_model_registry import create_grid_model_registry_router
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.management import create_management_router
@@ -50,6 +51,7 @@ from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardViewCache,
     BoardSearchBoardViewService,
 )
+from game_predictor_api.application.board_search_panels import BoardSearchPanelService
 from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
     assert_board_search_share_ready,
@@ -323,6 +325,7 @@ from game_predictor_api.storage.board_import_coverage_repository import (
 from game_predictor_api.storage.board_search_approximate_win_repository import (
     SqlAlchemyBoardSearchApproximateWinRepository,
 )
+from game_predictor_api.storage.board_search_panels import SqlAlchemyBoardSearchPanelRepository
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -456,6 +459,7 @@ from game_predictor_api.storage.management_stake_repository import (
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
+from game_predictor_api.storage.models import GameModel
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
@@ -605,6 +609,7 @@ def create_app(
     board_search_board_detail_service_dependency: Callable[..., object] | None = None,
     board_search_board_view_service_dependency: Callable[..., object] | None = None,
     board_search_share_access_service_dependency: Callable[..., object] | None = None,
+    board_search_panel_service_dependency: Callable[..., object] | None = None,
     board_search_share_query_log: BoardSearchShareQueryLog | None = None,
     board_search_share_query_log_service_dependency: Callable[..., object] | None = None,
     board_search_share_correction_service_dependency: Callable[..., object] | None = None,
@@ -670,6 +675,7 @@ def create_app(
             board_search_board_detail_service_dependency,
             board_search_board_view_service_dependency,
             board_search_share_access_service_dependency,
+            board_search_panel_service_dependency,
             board_search_share_correction_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
@@ -845,6 +851,43 @@ def create_app(
     resolved_board_search_share_access_dependency = (
         board_search_share_access_service_dependency
         or default_board_search_share_access_service_dependency
+    )
+
+    def panel_game_readiness(game_id: UUID) -> None:
+        # Match the Admin's available-games catalog; each game-data readiness
+        # read still owns a separate transaction and storage scope.
+        with session_factory() as session:
+            game = session.get(GameModel, game_id)
+            if game is None or game.status == "archived":
+                raise BoardSearchShareError(
+                    "BOARD_SEARCH_PANEL_GAME_UNAVAILABLE", "The selected game is unavailable."
+                )
+            game_name = game.name
+        try:
+            board_search_share_readiness(game_id)
+        except (BoardSearchError, GameStorageRoutingError) as error:
+            raise BoardSearchShareConflictError(
+                "BOARD_SEARCH_PANEL_GAME_NOT_READY",
+                "A selected game is not ready to share.",
+                {"gameName": game_name, "reasonCode": error.code},
+            ) from error
+
+    def default_board_search_panel_service_dependency() -> Iterator[BoardSearchPanelService]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchPanelService(
+                    SqlAlchemyBoardSearchPanelRepository(session),
+                    SqlAlchemyBoardSearchShareRepository(session),
+                    readiness=panel_game_readiness,
+                    enabled=resolved_settings.board_search_share_enabled,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_panel_dependency = (
+        board_search_panel_service_dependency or default_board_search_panel_service_dependency
     )
 
     def default_board_search_share_query_log_service_dependency() -> Iterator[
@@ -2254,6 +2297,12 @@ def create_app(
             content={"code": error.code, "message": error.message, "details": {}},
         )
 
+    application.include_router(
+        create_board_search_panels_router(
+            resolved_board_search_panel_dependency, resolved_reviewer_ingress_dependency
+        ),
+        prefix="/api/v1",
+    )
     application.include_router(
         create_api_router(
             resolved_settings,

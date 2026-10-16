@@ -1524,6 +1524,149 @@ export type BoardSearchLineMatchResponse = {
 };
 
 /**
+ * BoardSearchPanelContextResponse
+ */
+export type BoardSearchPanelContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Games
+   */
+  games: Array<BoardSearchPanelPublicGameResponse>;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Panelid
+   */
+  panelId: string;
+};
+
+/**
+ * BoardSearchPanelCreate
+ */
+export type BoardSearchPanelCreate = {
+  /**
+   * Gameids
+   */
+  gameIds: Array<string>;
+  /**
+   * Label
+   */
+  label?: string | null;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * BoardSearchPanelCreatedResponse
+ */
+export type BoardSearchPanelCreatedResponse = {
+  /**
+   * Linkkey
+   *
+   * Shown once; stored only as a hash on the server.
+   */
+  linkKey: string;
+  panel: BoardSearchPanelResponse;
+};
+
+/**
+ * BoardSearchPanelGameResponse
+ */
+export type BoardSearchPanelGameResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchPanelListResponse
+ */
+export type BoardSearchPanelListResponse = {
+  /**
+   * Panels
+   */
+  panels: Array<BoardSearchPanelResponse>;
+};
+
+/**
+ * BoardSearchPanelOpen
+ */
+export type BoardSearchPanelOpen = {
+  /**
+   * Linkkey
+   */
+  linkKey: string;
+};
+
+/**
+ * BoardSearchPanelPublicGameResponse
+ */
+export type BoardSearchPanelPublicGameResponse = {
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchPanelResponse
+ */
+export type BoardSearchPanelResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Games
+   */
+  games: Array<BoardSearchPanelGameResponse>;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Panelid
+   */
+  panelId: string;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Shareurl
+   */
+  shareUrl: string | null;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
  * BoardSearchResponse
  */
 export type BoardSearchResponse = {
@@ -22340,6 +22483,165 @@ export type WorkerLaneStatusResponse = {
   workerVersion: string | null;
 };
 
+export type ListBoardSearchPanelsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-panels';
+};
+
+export type ListBoardSearchPanelsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchPanelsError =
+  ListBoardSearchPanelsErrors[keyof ListBoardSearchPanelsErrors];
+
+export type ListBoardSearchPanelsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelListResponse;
+};
+
+export type ListBoardSearchPanelsResponse =
+  ListBoardSearchPanelsResponses[keyof ListBoardSearchPanelsResponses];
+
+export type CreateBoardSearchPanelData = {
+  body: BoardSearchPanelCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/board-search-panels';
+};
+
+export type CreateBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CreateBoardSearchPanelError =
+  CreateBoardSearchPanelErrors[keyof CreateBoardSearchPanelErrors];
+
+export type CreateBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  201: BoardSearchPanelCreatedResponse;
+};
+
+export type CreateBoardSearchPanelResponse =
+  CreateBoardSearchPanelResponses[keyof CreateBoardSearchPanelResponses];
+
+export type RevokeBoardSearchPanelData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-panels/{panel_id}/revoke';
+};
+
+export type RevokeBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type RevokeBoardSearchPanelError =
+  RevokeBoardSearchPanelErrors[keyof RevokeBoardSearchPanelErrors];
+
+export type RevokeBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelResponse;
+};
+
+export type RevokeBoardSearchPanelResponse =
+  RevokeBoardSearchPanelResponses[keyof RevokeBoardSearchPanelResponses];
+
 export type DeleteBoardSearchShareQueryData = {
   body?: never;
   headers: {
@@ -39152,6 +39454,122 @@ export type ListWorkerLanesResponses = {
 
 export type ListWorkerLanesResponse =
   ListWorkerLanesResponses[keyof ListWorkerLanesResponses];
+
+export type GetBoardSearchPanelContextData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Panel-Proxy
+     */
+    'X-Board-Search-Panel-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-panels/{panel_id}/context';
+};
+
+export type GetBoardSearchPanelContextErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchPanelContextError =
+  GetBoardSearchPanelContextErrors[keyof GetBoardSearchPanelContextErrors];
+
+export type GetBoardSearchPanelContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelContextResponse;
+};
+
+export type GetBoardSearchPanelContextResponse =
+  GetBoardSearchPanelContextResponses[keyof GetBoardSearchPanelContextResponses];
+
+export type OpenBoardSearchPanelData = {
+  body: BoardSearchPanelOpen;
+  headers?: {
+    /**
+     * X-Board-Search-Panel-Proxy
+     */
+    'X-Board-Search-Panel-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-panels/{panel_id}/open';
+};
+
+export type OpenBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type OpenBoardSearchPanelError =
+  OpenBoardSearchPanelErrors[keyof OpenBoardSearchPanelErrors];
+
+export type OpenBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelContextResponse;
+};
+
+export type OpenBoardSearchPanelResponse =
+  OpenBoardSearchPanelResponses[keyof OpenBoardSearchPanelResponses];
 
 export type GetBoardSearchShareApproximateWinData = {
   body?: never;

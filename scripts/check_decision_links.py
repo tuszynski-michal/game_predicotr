@@ -7,10 +7,11 @@ Checks:
 2. every ``| [D-NNN](file#anchor) |`` row of ``DECISION_LOG.md`` and
    ``decisions/DECISION_INDEX_*.md`` points at an existing heading, and the set
    of (number, anchor) pairs in the indexes equals the set of ``## D-NNN`` /
-   ``### D-NNN`` headings (outside code fences) in ``decisions/DECISION_LOG_*.md``;
-3. the newest full entries kept in ``DECISION_LOG.md`` are indexed too;
-4. the whole ``DECISION_LOG.md`` stays below 100 000 bytes (when it approaches
-   the limit, the oldest index rows move to ``decisions/DECISION_INDEX_ARCHIVE.md``).
+   ``### D-NNN`` headings (outside code fences) in ``decisions/DECISION_LOG_*.md``.
+
+The size of ``DECISION_LOG.md`` and the number of its index rows are budgets of
+``scripts/check_startup_read_budget.py`` (TASK-1020); when they are exceeded,
+the oldest index rows move to ``decisions/DECISION_INDEX_ARCHIVE.md``.
 
 Markdown links must resolve by their exact relative path; textual ``D-NNN``
 references without a path are not checked.
@@ -37,7 +38,6 @@ LINK_RE = re.compile(
 )
 ROW_RE = re.compile(r"^\| \[(?P<num>D-\d+)\]\((?P<path>[^)#]+)#(?P<anchor>[^)]+)\)")
 HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*$")
-MAX_LOG_BYTES = 100_000
 ENTRY_RE = re.compile(r"^#{2,3} (D-\d+)\b")
 
 
@@ -166,36 +166,19 @@ def check_index(problems: list[str]) -> tuple[int, int]:
     return len(entry_pairs), len(index_pairs)
 
 
-def check_size(problems: list[str]) -> int:
-    """Fail when the whole DECISION_LOG.md reaches the size limit.
-
-    When the file approaches MAX_LOG_BYTES, move the oldest index rows to
-    decisions/DECISION_INDEX_ARCHIVE.md.
-    """
-    size = (PROCESS / "DECISION_LOG.md").stat().st_size
-    if size >= MAX_LOG_BYTES:
-        problems.append(
-            f"DECISION_LOG.md has {size} bytes, limit is {MAX_LOG_BYTES}; "
-            "move the oldest index rows to decisions/DECISION_INDEX_ARCHIVE.md"
-        )
-    return size
-
-
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
     problems: list[str] = []
     checked = check_links(problems)
     entries, rows = check_index(problems)
-    size = check_size(problems)
     if problems:
         print(f"check_decision_links: FAIL ({len(problems)} problems)")
         for problem in problems[:100]:
             print(f"  {problem}")
         return 1
     print(
-        f"check_decision_links: OK ({checked} anchor links, {entries} entries, "
-        f"{rows} index rows, DECISION_LOG.md {size} bytes)"
+        f"check_decision_links: OK ({checked} anchor links, {entries} entries, {rows} index rows)"
     )
     return 0
 

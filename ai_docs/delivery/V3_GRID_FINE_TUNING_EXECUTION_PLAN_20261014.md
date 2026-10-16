@@ -159,7 +159,7 @@ Historyczna baza zachowuje historyczny raport i ograniczenia; nie otrzymuje fikc
 - Worktree wykonawczy: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Gałąź robocza: `codex/v3-grid-fine-tuning`.
 - Wybór `main` dotyczy bazy tego planu. Nie zmienia automatycznie globalnej polityki integracji ani nie upoważnia do scalenia.
-- Przed późniejszym scaleniem trzeba przedstawić także odziedziczone różnice względem domyślnej gałęzi integracyjnej `v1.1-vision-lab-hybrid-geometry`.
+- Gałęzią integracyjną jest od 2026-10-16 `main` (decyzja operatora zapisana w `AGENTS.md`); `v1.1-vision-lab-hybrid-geometry` jest w `main`. Na polecenie operatora 2026-10-16 scalono `main` v1.7.374 do gałęzi roboczej, aby końcowa integracja mogła być fast-forwardem `main`. Przed scaleniem trzeba przedstawić zakres commitów gałęzi względem `main`.
 
 Przed utworzeniem worktree sprawdzić, czy wskazana ścieżka i gałąź nie należą już do innej pracy. Nie resetować istniejącego checkoutu.
 

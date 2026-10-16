@@ -36,6 +36,9 @@ spójnej aktualizacji planu i taska.
 
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md`
+- decyzje D-NNN istotne dla taska: link z kotwicą do
+  `ai_docs/process/decisions/DECISION_LOG_2026.md#d-nnn-…` (indeks startowy ma
+  tylko 30 najnowszych; starsze planista wyszukuje `rg`)
 - `...`
 
 ## Scope

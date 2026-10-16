@@ -50,7 +50,6 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def _run(problems: list[str]) -> None:
     checker.check_links(problems)
     checker.check_index(problems)
-    checker.check_size(problems)
 
 
 def test_valid_tree_has_no_problems(tree: Path) -> None:
@@ -78,11 +77,3 @@ def test_missing_anchor_fails(tree: Path) -> None:
     problems: list[str] = []
     _run(problems)
     assert any("not found" in problem for problem in problems)
-
-
-def test_oversized_decision_log_fails(tree: Path) -> None:
-    log = tree / "ai_docs" / "process" / "DECISION_LOG.md"
-    log.write_text(log.read_text(encoding="utf-8") + "x" * checker.MAX_LOG_BYTES, encoding="utf-8")
-    problems: list[str] = []
-    _run(problems)
-    assert any("limit is" in problem for problem in problems)

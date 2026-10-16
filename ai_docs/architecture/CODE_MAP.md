@@ -60,15 +60,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (51 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (101 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/api/` (52 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/application/` (102 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (82 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (55 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (160 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/schemas/` (56 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (161 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (168 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (170 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (390 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (104 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (392 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (105 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (256 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (258 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (186 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (189 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+29)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
@@ -160,6 +160,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `reviews/` (4 plików): ReviewsClient, LoadReviewBatchesResult, loadReviewBatches, LoadReviewItemsResult, loadReviewItems, LoadReviewItemResult, loadReviewItem, loadReviewSymbols (+15)
   - `rules/` (13 plików): PaylinesClient, SavePaylineIntent, SavePaylineResult, savePayline, ArchivePaylineResult, archivePayline, DeletePaylineResult, deletePayline (+73)
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
+  - `sharing/` (3 plików): PanelKey, PanelKeys, loadPanelKeys, storePanelKeys, panelShareUrl, panelErrorMessage, BoardSearchSharingClient, BoardSearchSharingWorkspace
   - `storage/` (1 plików): StorageWorkspace
   - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+72)
   - `symbol-reviews/` (13 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+95)
@@ -179,8 +180,8 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (117 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (33 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (118 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (34 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -196,15 +197,16 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Katalogi
 
-- `apps/reviewer/src/features/` (46 ts/tsx) - funkcje (podkatalogi poniżej)
+- `apps/reviewer/src/features/` (47 ts/tsx) - funkcje (podkatalogi poniżej)
   - `access/` (2 plików): LocalReviewerWorkspace, ReviewerAccessGate
+  - `board-search-panel/` (1 plików): BoardSearchPanelGate
   - `board-search-share/` (3 plików): BOARD_SEARCH_SHARE_API_BASE, BOARD_SEARCH_SHARE_GAME_ID, SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_ENTRIES, BoardSearchShareDataSourceOptions, BoardSearchShareDataSource, createBoardSearchShareDataSource, BoardSearchShareGate (+2)
   - `catalog/` (1 plików): apiErrorMessage
   - `management/` (3 plików): MANAGEMENT_SESSION_ID, managementStorageNamespace, managementAccessMessage, ManagementGate, MANAGEMENT_API_BASE, createManagementPublicAdapter, ManagementPublicAdapter
   - `manual-selection/` (12 plików): OperatorLocalOutputManifestV1, OperatorLocalOutputManifestV2, OperatorLocalOutputManifest, OperatorLocalOutputDirectoryState, OperatorLocalOutputResult, resetOperatorLocalOutputDirectory, writeOperatorLocalSelection, removeOperatorLocalSelection (+85)
   - `operational-reviews/` (25 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+196)
-- `apps/reviewer/src/app/` (9 ts/tsx) - trasy i route handlery
-- `apps/reviewer/src/security/` (4 ts/tsx) - proxy i polityka allowlisty
+- `apps/reviewer/src/app/` (11 ts/tsx) - trasy i route handlery
+- `apps/reviewer/src/security/` (5 ts/tsx) - proxy i polityka allowlisty
 - `apps/reviewer/src/api/` (1 ts/tsx) - wrapper klienta API
 - `apps/reviewer/src/config/` (1 ts/tsx) - konfiguracja
 
@@ -214,8 +216,8 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (34 plików w katalogu testów, rekurencyjnie)
-- `apps/reviewer/test-interactions/` (12 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (35 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test-interactions/` (13 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -242,7 +244,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (23 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (24 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 
@@ -276,7 +278,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (166 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (167 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -285,7 +287,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `audit_*` (3): `audit_board_cell_geometry_v19.py`, `audit_staging_lifecycle.py`, `audit_task.ps1`
 - `benchmark_*` (11): `benchmark_board_search.py`, `benchmark_image_selection_versions.py`, `benchmark_m1_repository.py` (+8)
 - `build_*` (14): `build_android_debug.ps1`, `build_m35_benchmark_apk.py`, `build_m5_complete_local_grid_profiles.py` (+11)
-- `check_*` (12): `check_crop_v11_independent.mjs`, `check_current_state_window.py`, `check_decision_links.py` (+9)
+- `check_*` (13): `check_crop_v11_independent.mjs`, `check_current_state_window.py`, `check_decision_links.py` (+10)
 - `crop_*` (8): `crop_m5_board_cells.py`, `crop_m5_board_cells_calibrated.py`, `crop_m5_board_cells_detector_symbol_aware.py` (+5)
 - `evaluate_*` (16): `evaluate_grid_audit_feedback.py`, `evaluate_lateral_partial_v4.py`, `evaluate_m35_acceptance.py` (+13)
 - `export_*` (5): `export_admin_openapi.py`, `export_m6_symbol_classifier_onnx.py`, `export_m6_symbol_dataset.py` (+2)

@@ -75,9 +75,9 @@ nie twórz nowego backupu bazy. Frozen kohorty są częścią mechanizmu trening
 nie dodatkowym backupem bazy.
 
 Nie wykonuj merge, push ani wdrożenia. Na końcu całego zakresu trzeba przedstawić
-wynik i uzyskać zgodę na integrację. Domyślna gałąź integracyjna pozostaje
-`v1.1-vision-lab-hybrid-geometry`; przed integracją pokaż także odziedziczone
-różnice względem niej. Nowe numery patch i kolidujących tasków przydzielaj
+wynik i uzyskać zgodę na integrację. Gałęzią integracyjną jest od 2026-10-16 `main`;
+`main` v1.7.374 scalono do gałęzi roboczej na polecenie operatora, aby końcowa
+integracja mogła być fast-forwardem. Nowe numery patch i kolidujących tasków przydzielaj
 według istniejącej zgody operatora: sprawdź wszystkie lokalne refs/worktree
 HEADs, wybierz kolejny wolny numer i zapisz mapowanie.
 

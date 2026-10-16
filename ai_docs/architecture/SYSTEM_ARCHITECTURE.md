@@ -32,6 +32,17 @@ otrzymują nowych tras.
 
 ## Aktualizacja granicy zdalnego Reviewera v0.1
 
+TASK-0991 / D-548 dodaje osobny panel odbiorcy na `/board-search-panel` oraz
+wąski proxy `/board-search-panel-api`. Panel grupuje niezmienne sesje gier
+i używa tego samego współdzielonego Quick Tunnel. Surowe API/Admin pozostają
+na loopback. Panel i proxy mają CSP connect-src/img-src self oraz
+Referrer-Policy no-referrer. Osobne cookie mają ścieżkę panelu; pochodny
+credential dziecka trafia do dotychczasowej allowlisty board-search-shares.
+Nie powstaje kopia logiki wyszukiwarki, wypłat ani korekt. Aktywne dzieci
+zachowują istniejącą ochronę wspólnego ingressu przed automatycznym stopem.
+Szczegóły: `API_CONTRACT.md`, sekcja „Panel wielu gier”. Kod wymaga0155 i
+nie jest jeszcze wdrożony na bazie operatora.
+
 Cloudflare Quick Tunnel publikuje wyłącznie origin osobnej aplikacji Reviewer
 na `127.0.0.1:3001`. Reviewer udostępnia same-origin proxy z allowlistą i
 przekazuje uwierzytelnione żądania do FastAPI na `127.0.0.1:8000`. API,

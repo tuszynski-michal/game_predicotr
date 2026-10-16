@@ -40,7 +40,7 @@ numer taska (`/audit-task 0930`). Nie uruchamiaj skilla w pętli.
    pasuje do żadnej zmiany, skrypt kończy się kodem 1 (zamiast pustego briefu).
 
    Inne parametry: `-Base <ref>` dla audytu po commicie (ref sprzed taska, np.
-   `-Base HEAD~1` albo `-Base v1.1-vision-lab-hybrid-geometry`),
+   `-Base HEAD~1` albo `-Base main`),
    `-Model <nazwa>` (np. `gpt-6-astra`; tylko litery, cyfry i `. _ : -`; trafia do
    nazwy raportu), `-Effort low|medium|high` (domyślnie `medium`, szybki audyt;
    `high` tylko gdy tabela planu tego wymaga), `-CodexWindowsSandbox`

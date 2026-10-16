@@ -42,7 +42,7 @@ numer taska (np. 0930). Nie uruchamiaj skilla w pętli.
    pasuje do żadnej zmiany, skrypt kończy się kodem 1 (zamiast pustego briefu).
 
    Inne parametry: `-Base <ref>` dla audytu po commicie (ref sprzed taska, np.
-   `-Base HEAD~1` albo `-Base v1.1-vision-lab-hybrid-geometry`),
+   `-Base HEAD~1` albo `-Base main`),
    `-Model <nazwa>` (np. `claude-opus-5-5`; tylko litery, cyfry i `. _ : -`; trafia do
    nazwy raportu), `-DryRun` (tylko brief).
 3. Odczytaj wynik:

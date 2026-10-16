@@ -101,7 +101,7 @@ npm run docs:check
 
 Wykonawca: claude-opus-5-5 (sesja leada) zamiast przypisanego
 claude-sonnet-5-5 / medium. Bez audytu Codex (decyzja operatora 2026-10-16).
-Commit: v1.7.372 (hash dopisuje kolejny commit).
+Commit: v1.7.372 / `e342fdb63fc1b6c1cc2c427c66ae921418ce830b`. Za zgodą operatora (2026-10-16) gałąź `feat/startup-read-diet` scalona fast-forward do `main` razem z tym zapisem (v1.7.373) i wypchnięta na `origin`.
 
 ### Changed
 

@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1023 — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar (done)
 
-- Plik: `ai_docs/tasks/completed/1023-claude-md-dedupe-final-measurement.md`; zamyka plan odczytu startowego (status `implemented`). Commit v1.7.372.
+- Plik: `ai_docs/tasks/completed/1023-claude-md-dedupe-final-measurement.md`; zamyka plan odczytu startowego (status `implemented`). Commit **v1.7.372 / `e342fdb63fc1b6c1cc2c427c66ae921418ce830b`**; gałąź scalona fast-forward do `main` i wypchnięta (v1.7.373).
 - `CLAUDE.md` 8 392 → 5 974 B (odesłanie do `AGENTS.md` i trzy reguły sprzed jego odczytu). Wymuszone wszystkie 9 budżetów.
 - Wynik planu: obowiązkowy odczyt 211 359 → 77 895 B (−63 %). docs:check i 22 testy PASS. Czeka na zgodę na scalenie do `main`.
 

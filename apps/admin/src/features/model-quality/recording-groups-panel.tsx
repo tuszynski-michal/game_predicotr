@@ -43,6 +43,8 @@ type Props = {
   readonly apiBaseUrl: string;
   readonly gameId: string;
   readonly client?: RecordingClient;
+  /** A confirmed recording change lets later steps re-read (TASK-1000). */
+  readonly onChanged?: () => void;
 };
 const message = (cause: unknown) =>
   cause instanceof Error
@@ -63,7 +65,7 @@ export function RecordingGroupsPanel(props: Props) {
   );
 }
 
-function RecordingWorkspace({ apiBaseUrl, gameId, client }: Props) {
+function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
@@ -264,6 +266,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client }: Props) {
           ? 'Zapisano prowizoryczne rozstrzygnięcie pochodzenia. Nie zamrożono kohorty ani nie uruchomiono treningu.'
           : 'Potwierdzono zapis nagrania.',
       );
+      onChanged?.();
       return receipt.group;
     } catch (cause) {
       if (alive.current && generation === scopeGeneration.current) {

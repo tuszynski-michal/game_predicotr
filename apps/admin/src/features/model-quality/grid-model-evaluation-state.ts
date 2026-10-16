@@ -8,6 +8,9 @@ import type {
 export type GridModelEvaluationClient = Pick<
   AdminApiClient,
   | 'listGridTrainingRuns'
+  | 'listGames'
+  | 'listGridModelVersions'
+  | 'listGridTrainingCohorts'
   | 'createGridModelEvaluation'
   | 'listGridModelEvaluations'
   | 'getGridModelEvaluation'
@@ -81,27 +84,6 @@ export function metricChange(
 export function formatMetric(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return Number.isInteger(value) ? String(value) : value.toFixed(4);
-}
-
-/** Extra games as ``gameId cohortId`` lines; the training cohort is added separately. */
-export function parseExtraCohorts(
-  text: string,
-): readonly { gameId: string; cohortId: string }[] | null {
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-  const result: { gameId: string; cohortId: string }[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/[\s,;]+/);
-    if (
-      parts.length !== 2 ||
-      !uuid.test(parts[0] ?? '') ||
-      !uuid.test(parts[1] ?? '')
-    )
-      return null;
-    result.push({ gameId: parts[0]!, cohortId: parts[1]! });
-  }
-  return result;
 }
 
 export interface PendingEvaluationCommand {

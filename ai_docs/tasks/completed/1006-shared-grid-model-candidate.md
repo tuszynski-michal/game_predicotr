@@ -116,7 +116,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 - Wykonano 2026-10-16: Claude Code `claude-opus-5-5`/`high`, baza v1.7.389 `88b2ab823d466ad5f43f27c2653fc04bb2f6d0b9`, branch `codex/v3-grid-fine-tuning`, worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Kontrakt przed kodem: D-560 (Technical notes). Bez migracji i nowych tabel.
-- Commit: v1.7.390 (poprzedni wersjonowany commit gałęzi v1.7.389); pełny hash w następnym commicie zgodnie z AGENTS.
+- Commit: v1.7.390 / `9bf3a4b9315fecdd7a55e71a857d376e769bf70c` (poprzedni wersjonowany commit gałęzi v1.7.389); hash zapisany w v1.7.392.
 - Audyt R1: [PASS](../../quality/TASK-1006_AUDIT_gpt-6-astra_R1.md) (Codex `gpt-6-astra`/`high`), bez P0/P1. Oba P2 domknięto przed commitem bez kolejnej rundy: plan przypina skrót przypisania źródło → rola → grupa każdej kohorty (`recordingsSha256`), więc zamiana grup przy tych samych liczbach daje `GRID_SHARED_PLAN_DRIFT` (P2-1); test `create` oceny odrzuca pominiętą i podmienioną kohortę treningu i przepuszcza pełny zakres (P2-2).
 
 ### Changed

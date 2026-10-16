@@ -9,6 +9,13 @@ const source = await readFile(
   ),
   'utf8',
 );
+const v3Source = await readFile(
+  new URL(
+    '../src/features/model-quality/grid-model-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const gridSource = await readFile(
   new URL(
     '../src/features/model-quality/grid-quality-panel.tsx',
@@ -42,7 +49,9 @@ test('keeps grid calibration separate, gated and future-batch only', () => {
     source,
     /usesNeuralGridConfiguration\(\s*props\.shapeGeometryConfiguration,\s*props\.gameCode/,
   );
-  assert.match(source, /<GridModelAssignmentSummary/);
+  // TASK-1000: the V3 branch mounts one workspace with every geometry step.
+  assert.match(source, /<GridModelWorkspace/);
+  assert.match(v3Source, /<GridModelAssignmentSummary/);
   assert.match(source, /Rozpoznawanie symboli/);
   assert.match(source, /Cięcie siatki/);
   assert.match(source, /preview\.cellSampleCount/);

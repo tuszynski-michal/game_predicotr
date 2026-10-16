@@ -292,14 +292,17 @@ function MeasurementPanel({ apiBaseUrl, gameId, client }: PanelProps) {
             onChange={(e) => setSampleSize(e.target.value)}
           />
         </label>
-        <label>
-          Trudne przykłady: własne UUID zdjęć, opcjonalnie{' '}
-          <textarea
-            aria-label="Trudne przykłady UUID"
-            value={hard}
-            onChange={(e) => setHard(e.target.value)}
-          />
-        </label>
+        <details>
+          <summary>Zaawansowane: trudne przykłady (opcjonalnie)</summary>
+          <label>
+            Trudne przykłady: własne UUID zdjęć, opcjonalnie{' '}
+            <textarea
+              aria-label="Trudne przykłady UUID"
+              value={hard}
+              onChange={(e) => setHard(e.target.value)}
+            />
+          </label>
+        </details>
         <button type="button" onClick={capture}>
           Zamroź nową próbę
         </button>

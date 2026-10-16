@@ -33,7 +33,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 22/24 done | TASK-1000, 1001 | `codex/v3-grid-fine-tuning` |
+| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 23/24 done | TASK-1001 | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -52,17 +52,14 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1000 — Pełna sekcja „Geometria V3” (todo)
-
-- [1000-v3-grid-model-workspace.md](../tasks/1000-v3-grid-model-workspace.md) na `codex/v3-grid-fine-tuning`; następny po TASK-1006; wybór po nazwach zamiast UUID.
-
 ### TASK-1001 — Odbiór procesu i instrukcja operatora (todo)
 
 - [1001-v3-grid-fine-tuning-acceptance.md](../tasks/1001-v3-grid-fine-tuning-acceptance.md) na `codex/v3-grid-fine-tuning`; ostatni; zawiera przyjęte P2-5 z TASK-0995 i porównanie z baseline HEAD380.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / hash w następnym commicie — tasks/completed/1006-shared-grid-model-candidate.md
+- **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 — tasks/completed/1000-v3-grid-model-workspace.md
+- **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / `9bf3a4b9` — tasks/completed/1006-shared-grid-model-candidate.md
 - **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / 88b2ab82 — tasks/completed/0997-grid-model-evaluation.md
 - **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / 6397bc51 — tasks/completed/0996-durable-v3-grid-training.md
 - **TASK-1033** — `README.md` ≤ 5 000 B i `DOC_INDEX.md` — v1.7.382 / `ed25cd1c` — tasks/completed/1033-readme-doc-index.md
@@ -71,4 +68,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1030** — Skill `task-close` ze skryptem zamykania — v1.7.378 / `54e01133` — tasks/completed/1030-task-close-skill.md
 - **TASK-1005** — Preset i dopuszczenie zasobów — v1.7.386 / `0862fbec` — tasks/completed/1005-grid-training-resource-admission.md
 - **TASK-0995** — Kwalifikacja korekt i niezmienny snapshot — v1.7.385 / `f0cfa9bd` — tasks/completed/0995-grid-training-cohort-snapshot.md
-- **TASK-1009** — Losowa kontrola geometrii Mumii i 777a2 — v1.7.384 / `d2b692db` — tasks/completed/1009-grid-quality-measurement.md

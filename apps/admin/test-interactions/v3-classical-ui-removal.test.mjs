@@ -225,7 +225,8 @@ test('quality uses assignment for three V3 formats and preserves code7 legacy re
             /Ulepszanie geometrii|Cięcie siatki|Historyczne raporty/,
           );
           assert.equal(globalThis.legacyGridMounts, 0);
-          assert.deepEqual(calls, ['one']);
+          // TASK-1000: several V3 steps read the same game's pin, never another game.
+          assert.ok(calls.length >= 1 && calls.every((id) => id === 'one'));
         }
       } finally {
         await act(async () => root.unmount());

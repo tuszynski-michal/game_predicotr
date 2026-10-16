@@ -151,6 +151,12 @@ def test_metadata_reload_and_actor_before_replay_and_bounded_routes(tmp_path):
         lambda b: b.update(recordings=[{"groupId": str(uuid4()), "role": "final_test"}]),
         lambda b: b.update(actor="spoof"),
         lambda b: b["selector"].update(sourceIds=[str(uuid4()) for _ in range(201)]),
+        lambda b: b.update(selector={"importJobIds": [str(uuid4())]}),
+        lambda b: b.update(selector={"importJobIds": [str(uuid4())] * 2}),
+        lambda b: b.update(selector={"importJobIds": [str(uuid4()) for _ in range(51)]}),
+        lambda b: b.update(
+            selector={"importJobId": str(uuid4()), "importJobIds": [str(uuid4()), str(uuid4())]}
+        ),
     ],
 )
 def test_closed_prepare_rejects_ambiguous_or_unbounded_inputs(change):
@@ -158,6 +164,36 @@ def test_closed_prepare_rejects_ambiguous_or_unbounded_inputs(change):
     change(body)
     with pytest.raises(ValidationError):
         GridCohortPrepareCommand.model_validate(body)
+
+
+def test_prepare_accepts_several_named_imports_and_keeps_them_exact(tmp_path):
+    game = uuid4()
+    body = {**prepare_body(), "selector": {"importJobIds": [str(uuid4()), str(uuid4())]}}
+    calls = []
+
+    def prepare(*arguments):
+        calls.append(arguments)
+        raise RuntimeError("stop after the contract")
+
+    app = FastAPI()
+    app.add_middleware(
+        LocalAdminSecurityMiddleware,
+        admin_origin="http://127.0.0.1:3000",
+        reviewer_origin="http://127.0.0.1:3001",
+        audit_log=AppendOnlyAdminAuditLog(tmp_path),
+    )
+    service = SimpleNamespace(prepare=prepare)
+    app.include_router(create_grid_training_cohorts_router(lambda: service), prefix="/api/v1")
+    headers = {"Origin": "http://127.0.0.1:3000", "X-Admin-Intent": "local-owner"}
+    with TestClient(app, client=("127.0.0.1", 12345), raise_server_exceptions=False) as client:
+        client.post(
+            f"/api/v1/admin/games/{game}/grid-training-cohorts/prepare", json=body, headers=headers
+        )
+    assert calls[0][1]["selector"] == {
+        "sourceIds": None,
+        "importJobId": None,
+        "importJobIds": body["selector"]["importJobIds"],
+    }
 
 
 def test_identity_completion_requires_one_to_five_exact_unique_pins():

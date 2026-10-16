@@ -5658,6 +5658,10 @@ export type GridCohortSelector = {
    */
   importJobId?: string | null;
   /**
+   * Importjobids
+   */
+  importJobIds?: Array<string> | null;
+  /**
    * Sourceids
    */
   sourceIds?: Array<string> | null;

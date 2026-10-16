@@ -33,24 +33,37 @@ const uuid = (value: unknown) =>
 const hash = (value: unknown) => typeof value === 'string' && sha.test(value);
 const revision = (value: unknown) =>
   Number.isInteger(value) && Number(value) >= 0;
+const uniqueUuids = (value: unknown, min: number, max: number) =>
+  Array.isArray(value) &&
+  value.length >= min &&
+  value.length <= max &&
+  value.every(uuid) &&
+  new Set(value).size === value.length;
+
+// Exactly one form: exact photos, one import or several imports (TASK-1000).
+function validSelector(selector: GridCohortPrepareCommand['selector']) {
+  if (!selector) return false;
+  const forms = [
+    selector.sourceIds,
+    selector.importJobId,
+    selector.importJobIds,
+  ].filter((value) => value !== undefined && value !== null);
+  if (forms.length !== 1) return false;
+  if (selector.sourceIds) return uniqueUuids(selector.sourceIds, 1, 200);
+  if (selector.importJobIds) return uniqueUuids(selector.importJobIds, 2, 50);
+  return uuid(selector.importJobId);
+}
 
 function valid(command: GridCohortCommand): boolean {
   if (!command || !command.body || !uuid(command.body.idempotencyKey))
     return false;
   if (command.kind === 'prepare') {
     const b = command.body;
-    const ids = b.selector?.sourceIds;
     return (
       uuid(b.familyId) &&
       uuid(b.baseVersionId) &&
       ['grid-only', 'screen+grid'].includes(b.mode) &&
-      ((Array.isArray(ids) &&
-        ids.length > 0 &&
-        ids.length <= 200 &&
-        ids.every(uuid) &&
-        new Set(ids).size === ids.length &&
-        !b.selector.importJobId) ||
-        (!ids && uuid(b.selector?.importJobId))) &&
+      validSelector(b.selector) &&
       Array.isArray(b.recordings) &&
       b.recordings.length <= 200 &&
       b.recordings.every(

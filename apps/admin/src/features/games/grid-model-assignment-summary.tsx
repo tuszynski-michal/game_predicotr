@@ -7,6 +7,7 @@ import type {
 import { useEffect, useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { reasonLabel } from '@/features/model-quality/grid-model-state';
 
 type AssignmentClient = Pick<AdminApiClient, 'getGameGridModelAssignment'>;
 interface Props {
@@ -87,12 +88,13 @@ function AssignmentRead({ apiBaseUrl, client, gameId }: Props) {
       <br />
       {version.available
         ? 'Artefakty przypisanej wersji dostępne.'
-        : `Artefakty przypisanej wersji niedostępne (${version.reasonCode}).`}
+        : `Artefakty przypisanej wersji niedostępne: ${reasonLabel(version.reasonCode)}.`}
       {stale ? (
         <>
           {' '}
-          Dowód oceny jest nieaktualny ({version.eligibilityReasonCode}).
-          Przypisanie pozostaje zachowane.
+          Dowód oceny jest nieaktualny:{' '}
+          {reasonLabel(version.eligibilityReasonCode)}. Przypisanie pozostaje
+          zachowane.
         </>
       ) : null}{' '}
       Gotowość importu sprawdza preflight.

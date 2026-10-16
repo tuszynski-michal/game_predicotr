@@ -57,14 +57,31 @@ def prepare(
         "source_images", column("id", Uuid), column("game_id", Uuid), column("import_job_id", Uuid)
     )
     selector = select(sources_table.c.id).where(sources_table.c.game_id == game)
+    imports = [UUID(value) for value in selection.get("importJobIds") or []]
     if selection.get("sourceIds"):
         selector = selector.where(
             sources_table.c.id.in_([UUID(value) for value in selection["sourceIds"]])
         )
+    elif imports:
+        selector = selector.where(sources_table.c.import_job_id.in_(imports))
     else:
         selector = selector.where(sources_table.c.import_job_id == UUID(selection["importJobId"]))
     count = repo.session.scalar(select(func.count()).select_from(selector.subquery()))
-    if not count or selection.get("sourceIds") and count != len(selection["sourceIds"]):
+    # Every listed import must hold own sources of the game: an exact selection, not a filter.
+    covered = (
+        repo.session.scalar(
+            select(func.count(func.distinct(sources_table.c.import_job_id))).where(
+                sources_table.c.game_id == game, sources_table.c.import_job_id.in_(imports)
+            )
+        )
+        if imports
+        else 0
+    )
+    if (
+        not count
+        or (selection.get("sourceIds") and count != len(selection["sourceIds"]))
+        or (imports and covered != len(imports))
+    ):
         raise GridCohortError(
             "GRID_COHORT_SELECTION_UNAVAILABLE",
             "The exact own source selection is unavailable.",
@@ -87,7 +104,7 @@ def prepare(
         "lineage": lineage,
         "selector": {
             key: selection[key]
-            for key in ("sourceIds", "importJobId")
+            for key in ("sourceIds", "importJobId", "importJobIds")
             if selection.get(key) is not None
         },
         "recordings": body["recordings"],

@@ -684,6 +684,66 @@ def test_exact_owned_application_prepare_page_restart_and_minimum_rejection(monk
                 )
                 frozen = list(s.scalars(text("SELECT frozen FROM grid_training_cohort_members")))
                 assert len(frozen) == 2 and all(member["used"] is False for member in frozen)
+            # TASK-1000: recordings of different roles come from different imports.
+            second, extra = uuid4(), uuid4()
+            with db.owner_engine.begin() as c:
+                c.execute(
+                    text(
+                        "INSERT INTO public.jobs(id,game_id,job_type,status"
+                        ",input_payload,input_key) VALUES(:id,:g,'import','"
+                        "completed','{}',:key)"
+                    ),
+                    {"id": second, "g": game, "key": uuid4().hex},
+                )
+                checksum = extra.hex * 2
+                c.execute(
+                    text(
+                        "INSERT INTO public.image_file_executions(file_exec"
+                        "ution_key,source_checksum_sha256,pipeline_fingerpr"
+                        "int,checkpoint_payload,status) VALUES(:sha,:sha,:s"
+                        "ha,'{}','completed')"
+                    ),
+                    {"sha": checksum},
+                )
+                c.execute(
+                    text(
+                        "INSERT INTO game_data_v2.source_images(game_id,id,"
+                        "import_job_id,file_execution_key,relative_path,che"
+                        "cksum_sha256,width,height,status) VALUES(:g,:id,:j"
+                        ",:sha,'metadata-only-never-open.jpg',:sha,100,100,"
+                        "'completed')"
+                    ),
+                    {"g": game, "id": extra, "j": second, "sha": checksum},
+                )
+            several = {
+                **body,
+                "idempotencyKey": str(uuid4()),
+                "selector": {"importJobIds": [str(job), str(second)]},
+            }
+            with Session(db.app_engine) as s, s.begin():
+                joined = service(s).prepare(game, several, "fixture:1000")
+            with Session(db.app_engine) as s, s.begin():
+                assert service(s).prepare(game, several, "fixture:1000") == joined
+                rows = s.execute(
+                    text("SELECT source_id FROM grid_training_cohort_members WHERE cohort_id=:c"),
+                    {"c": UUID(joined["cohort"]["id"])},
+                ).scalars()
+                assert set(rows) == {*sources, extra}
+            for selector in (
+                {"importJobIds": [str(job), str(uuid4())]},
+                {"importJobIds": [str(second), str(uuid4())]},
+            ):
+                with (
+                    pytest.raises(GridCohortError) as failure,
+                    Session(db.app_engine) as s,
+                    s.begin(),
+                ):
+                    service(s).prepare(
+                        game,
+                        {**body, "idempotencyKey": str(uuid4()), "selector": selector},
+                        "fixture:1000",
+                    )
+                assert failure.value.code == "GRID_COHORT_SELECTION_UNAVAILABLE"
             assert not list(evidence.rglob("*.jpg"))
     finally:
         receipts = [

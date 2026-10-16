@@ -50,6 +50,42 @@ test('corrupt pending body blocks writes and explicit discard archives before re
   assert.equal(s.getItem(key), null);
   assert.equal([...s.values.values()][0], '{broken');
 });
+test('a prepare body names exactly one selection form: photos, one import or several imports', () => {
+  const other = '33333333-3333-4333-8333-333333333333';
+  const prepare = (selector) => ({
+    kind: 'prepare',
+    body: {
+      idempotencyKey: cohort,
+      familyId: game,
+      baseVersionId: game,
+      mode: 'grid-only',
+      selector,
+      recordings: [{ groupId: other, role: 'TRAIN' }],
+    },
+  });
+  for (const selector of [
+    { importJobIds: [game, other] },
+    { importJobId: game },
+    { sourceIds: [game] },
+  ]) {
+    const s = storage();
+    reserveGridCohortCommand(s, api, game, prepare(selector));
+    assert.deepEqual(
+      readGridCohortCommand(s, api, game).body.selector,
+      selector,
+    );
+  }
+  for (const selector of [
+    { importJobIds: [game] },
+    { importJobIds: [game, game] },
+    { importJobIds: [game, other], importJobId: game },
+    { importJobIds: [game, 'not-a-uuid'] },
+    {},
+  ])
+    assert.throws(() =>
+      reserveGridCohortCommand(storage(), api, game, prepare(selector)),
+    );
+});
 test('failed local persistence prevents submission and does not overwrite an unresolved command', () => {
   const s = storage();
   s.setItem = () => {

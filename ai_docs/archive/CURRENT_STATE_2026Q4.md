@@ -6,9 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1000 — Pełna sekcja „Geometria V3” (done)
+
+- Plik: [1000-v3-grid-model-workspace.md](../tasks/completed/1000-v3-grid-model-workspace.md); commit **v1.7.392** na `codex/v3-grid-fine-tuning`, po scaleniu `main` v1.7.385 (v1.7.391 `1b38ae6c`).
+- Wykonawca Claude Code `claude-opus-5-5`/`high`; audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (3×P0, P1, 2×P2), R2 REVISE (P0-2 forki rodzin), druga runda za zgodą operatora, R3 PASS; P2-4 poprawione przed commitem.
+- Wynik: cała sekcja V3 w Adminie w kolejności pracy, bez wpisywania UUID; kohorta z kilku importów nagrań (`selector.importJobIds`, pion API z OpenAPI, klientem i testami), baza i rodzina treningowa po nazwie bez zmiany przypisania, pełne stronicowanie list, trwałe polecenia runu i wersji z jawnym ponowieniem i odmową 4xx, odświeżanie kolejnych kroków i wykrywanie zakończenia runu samym odczytem.
+- Weryfikacja: Admin unit 772/772, interakcje 281/291 (10 starych porażek supergier jak w baseline HEAD380), API i PostgreSQL selektora 14 PASS, klient 129/129, `openapi:check`, `docs:check`, mapa kodu.
+- Ograniczenia: odbiór w przeglądarce na danych operatora po integracji; test migracji 0163 w pliku storage oczekuje jednej głowicy Alembic (stary efekt scalenia v1.7.387, do TASK-1001).
+
 ### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2 (done)
 
-- [Task](../tasks/completed/1006-shared-grid-model-candidate.md); baza v1.7.389 `88b2ab82`, branch `codex/v3-grid-fine-tuning`, commit v1.7.390. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1 PASS bez P0/P1, oba P2 domknięte przed commitem.
+- [Task](../tasks/completed/1006-shared-grid-model-candidate.md); baza v1.7.389 `88b2ab82`, branch `codex/v3-grid-fine-tuning`, commit v1.7.390 / `9bf3a4b9315fecdd7a55e71a857d376e769bf70c`. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1 PASS bez P0/P1, oba P2 domknięte przed commitem.
 - D-560: run `grid-shared-training-run-v1` (kohorta główna + kohorty innych gier tej samej rodziny, bazy i trybu), polityka `grid-shared-candidate-v1` bez aliasów kontrolnych z przypiętym SHA planu (także przypisania nagrań), `BalancedSampler` z równą wagą gier i nagrań, VALIDATION średnio po grach, ocena D-559 na wszystkich kohortach treningu, bez migracji.
 - E2E na GPU z izolowanym PostgreSQL i prawdziwym trenerem PASS na dwóch syntetycznych grach; rzeczywisty eksperyment Mumii i 777a2 wymaga integracji i osobnego polecenia.
 

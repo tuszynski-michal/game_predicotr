@@ -10220,6 +10220,23 @@
             ],
             "title": "Importjobid"
           },
+          "importJobIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobids"
+          },
           "sourceIds": {
             "anyOf": [
               {

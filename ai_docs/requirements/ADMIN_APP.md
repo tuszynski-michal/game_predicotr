@@ -2108,3 +2108,46 @@ Dostępność osobnego zatwierdzenia i powód blokady pochodzą z backendu. Trwa
 pending import nie omija istniejącej kwalifikacji Reviewera. Po korekcie sąsiada
 aplikacja zachowuje oceniany oryginał; techniczny repoint może zachować approval
 tylko przy dodatnim serwerowym dowodzie niezmienionego celu i jego renderów.
+
+## Pełna sekcja „Geometria V3” (TASK-1000)
+
+Gra V3 ma w jakości modelu jeden przebieg w kolejności pracy operatora: przypisana
+wersja, nagrania i role, kontrola jakości (próbka), dane do doszkalania (kohorty),
+trening, porównanie z bazą, wersje (publikacja, aktywacja, wersja domyślna,
+przywrócenie, historia) oraz ponowne rozpoznanie. Korekty geometrii pozostają w
+Reviewerze. Wejście na ekran, zmiana gry i reload wykonują wyłącznie odczyty;
+każda mutacja jest jawnym przyciskiem.
+
+Zwykły przebieg nie wymaga wpisywania identyfikatorów. Baza kohorty domyślnie
+pochodzi z przypisania gry; operator może wybrać po nazwie inną dostępną wersję z
+katalogu jako wspólną bazę kandydata wspólnego, bez zmiany przypisania gry (zgodność
+rodowodu sprawdza backend). Rodzinę treningową wybiera się po nazwie spośród rodziny
+bazy i rodzin treningowych (forków) gier przypisanych do tej bazy; domyślnie dla
+przypisanej bazy jest to rodzina treningowa gry, a dla innej — rodzina bazy. Dzięki
+temu gry z różnymi forkami tej samej bazy przygotują kohorty jednego kandydata
+wspólnego. Zdjęcia kohorty to importy wybranych nagrań — nagrania
+różnych ról zwykle pochodzą z różnych importów, więc jedna kohorta obejmuje kilka
+importów (`selector.importJobIds`, 2–50, każdy z własnymi zdjęciami gry) — plus
+opcjonalny import wybrany po nazwie i dacie. Nagrania z listy nagrań gry mają rolę,
+a kohorty, treningi, wersje, oceny i inne gry wybiera się po czytelnych etykietach.
+Listy kohort i nagrań są czytane w całości, strona po stronie. Dokładne
+identyfikatory zdjęć, trudne przykłady i uzupełnienie tożsamości starszych zdjęć są
+w zwiniętych sekcjach „Zaawansowane”.
+
+Dostępność działań określa backend: start runu tylko bez blokad podglądu (zajęte
+GPU tylko kolejkuje), anulowanie i wznowienie według stanu runu, publikacja tylko
+dla oceny PASS z aktualnymi dowodami wszystkich kohort, aktywacja i domyślna
+wersja tylko dla wersji kwalifikującej się, przywrócenie tylko do wersji z
+historii gry. Każda blokada ma etykietę powodu; nieznany kod ma fallback
+„Inny powód (KOD)”. Dostępność plików, publikacja, kwalifikacja i aktualność
+dowodu są odrębnymi informacjami. Polecenia runu i wersji zapisują klucz i treść
+przed wysłaniem; utracona odpowiedź (brak odpowiedzi albo 5xx) zachowuje polecenie
+do jawnego ponowienia z tym samym kluczem i treścią także po przeładowaniu, a
+odpowiedź odmowna 4xx (np. konflikt rewizji) usuwa je i odczytuje aktualny stan.
+Potwierdzona zmiana jednego kroku (nagranie, kohorta, run, ocena, wersja) odświeża
+listy pozostałych bez przeładowania strony. Zakończenie runu przez worker panel
+wykrywa samym odczytem (co 15 s, tylko gdy run czeka lub trwa, oraz przyciskiem
+„Odśwież stan treningów”), a nowa ocena wybranego kandydata pojawia się bez
+ponownego wyboru. Zmiana wyboru, także na pusty,
+unieważnia spóźnione odpowiedzi. Panel działa z wieloma rodzinami i bazami oraz z
+odrzuconym wspólnym kandydatem.

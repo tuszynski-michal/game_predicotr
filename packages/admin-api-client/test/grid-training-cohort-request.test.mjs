@@ -97,4 +97,12 @@ test('cohort wrapper sends bounded exact bodies and scoped metadata routes', asy
   assert.deepEqual(calls[8].body, prepare);
   assert.deepEqual(calls[9].body, complete);
   assert.ok(calls[9].url.endsWith('/grid-source-identities/complete'));
+  // TASK-1000: recordings of several named imports form one exact selection.
+  const several = {
+    ...prepare,
+    selector: { importJobIds: [cohort, game] },
+  };
+  await client.prepareGridTrainingCohort(game, several);
+  assert.deepEqual(calls[10].body, several);
+  assert.ok(calls[10].url.endsWith('/grid-training-cohorts/prepare'));
 });

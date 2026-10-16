@@ -5,7 +5,6 @@ import {
   evaluationCommand,
   metricChange,
   needsCurrentnessCheck,
-  parseExtraCohorts,
 } from '../src/features/model-quality/grid-model-evaluation-state.ts';
 
 const metrics = (overrides = {}) => ({
@@ -60,16 +59,6 @@ test('comparison direction treats missing quality as the worst value', () => {
   );
 });
 
-test('extra cohorts are exact game and cohort UUID pairs', () => {
-  const game = '11111111-1111-4111-8111-111111111111';
-  const cohort = '22222222-2222-4222-8222-222222222222';
-  assert.deepEqual(parseExtraCohorts(`\n${game} ${cohort}\n`), [
-    { gameId: game, cohortId: cohort },
-  ]);
-  assert.equal(parseExtraCohorts(`${game}`), null);
-  assert.equal(parseExtraCohorts('a b'), null);
-});
-
 test('a retry reuses its key only for exactly the same command', () => {
   let next = 0;
   const key = () => `key-${(next += 1)}`;
@@ -117,7 +106,7 @@ test('the comparison panel never publishes and is part of the V3 workspace', asy
   );
   const workspace = await readFile(
     new URL(
-      '../src/features/model-quality/model-quality-workspace.tsx',
+      '../src/features/model-quality/grid-model-workspace.tsx',
       import.meta.url,
     ),
     'utf8',

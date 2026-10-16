@@ -13,6 +13,12 @@ export type GridCohortClient = Pick<
   | 'freezeGridTrainingCohort'
   | 'cancelGridTrainingCohort'
   | 'completeGridSourceIdentities'
+  // TASK-1000: base, imports and recordings chosen by name.
+  | 'getGameGridModelAssignment'
+  | 'listGridModelVersions'
+  | 'listGames'
+  | 'listSourceRecordingGroups'
+  | 'listJobs'
 >;
 
 export function sendGridCohortCommand(

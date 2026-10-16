@@ -65,8 +65,12 @@ def create_grid_training_cohorts_router(dependency: Callable[..., object]) -> AP
         command: GridCohortPrepareCommand,
         service: Annotated[GridTrainingCohortService, parameter],
     ) -> GridCohortCommandResponse:
+        body = command.model_dump(mode="json", by_alias=True)
+        # Bodies without several imports keep their earlier shape, so replays still match.
+        if body["selector"].get("importJobIds") is None:
+            del body["selector"]["importJobIds"]
         return GridCohortCommandResponse.model_validate(
-            service.prepare(game_id, command.model_dump(mode="json", by_alias=True), actor(request))
+            service.prepare(game_id, body, actor(request))
         )
 
     @router.get(

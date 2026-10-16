@@ -16,13 +16,20 @@ class CohortClosedModel(BaseModel):
 class GridCohortSelector(CohortClosedModel):
     source_ids: list[UUID] | None = Field(None, alias="sourceIds", min_length=1, max_length=200)
     import_job_id: UUID | None = Field(None, alias="importJobId")
+    # Recordings of different roles usually come from different imports (TASK-1000).
+    import_job_ids: list[UUID] | None = Field(
+        None, alias="importJobIds", min_length=2, max_length=50
+    )
 
     @model_validator(mode="after")
     def exact_selection(self) -> "GridCohortSelector":
-        if (self.source_ids is None) == (self.import_job_id is None):
-            raise ValueError("Choose source IDs or one import.")
+        chosen = [self.source_ids, self.import_job_id, self.import_job_ids]
+        if sum(value is not None for value in chosen) != 1:
+            raise ValueError("Choose source IDs, one import or several imports.")
         if self.source_ids and len(set(self.source_ids)) != len(self.source_ids):
             raise ValueError("Source IDs must be unique.")
+        if self.import_job_ids and len(set(self.import_job_ids)) != len(self.import_job_ids):
+            raise ValueError("Imports must be unique.")
         return self
 
 

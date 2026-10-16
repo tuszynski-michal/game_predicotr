@@ -894,7 +894,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-cohort-command-storage.ts: GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand, reserveGridCohortCommand, clearGridCohortCommand, discardGridCohortCommand
 - features/model-quality/grid-cohort-preview.tsx: GridCohortPreview
 - features/model-quality/grid-model-comparison.tsx: GridModelComparison
-- features/model-quality/grid-model-evaluation-state.ts: GridModelEvaluationClient, evaluationVerdictLabels, evaluationDecisionLabels, currentnessLabels, comparisonMetrics, MetricChange, metricChange, formatMetric, parseExtraCohorts, PendingEvaluationCommand, evaluationCommand, needsCurrentnessCheck, evaluationFinished
+- features/model-quality/grid-model-evaluation-state.ts: GridModelEvaluationClient, evaluationVerdictLabels, evaluationDecisionLabels, currentnessLabels, comparisonMetrics, MetricChange, metricChange, formatMetric, PendingEvaluationCommand, evaluationCommand, needsCurrentnessCheck, evaluationFinished
+- features/model-quality/grid-model-state.ts: REASON_LABELS, reasonLabel, reasonList, MODE_LABELS, RUN_STATUS_LABELS, COHORT_STATUS_LABELS, shortDate, versionLabel, versionName, cohortLabel, runLabel, gameLabel, gameName, publishBlocker, PendingModelCommand, modelCommandKey, readModelCommand, saveModelCommand, clearModelCommand, answeredRefusal, readAllPages
+- features/model-quality/grid-model-versions-panel.tsx: GridModelVersionsClient, GridModelVersionsPanel
+- features/model-quality/grid-model-workspace.tsx: GridModelWorkspace
 - features/model-quality/grid-quality-measurement-command.ts: MeasurementCommand, measurementCommandKey, readMeasurementCommand, saveMeasurementCommand, clearMeasurementCommand, discardMeasurementCommand
 - features/model-quality/grid-quality-measurement-member.tsx: GridQualityMeasurementMember
 - features/model-quality/grid-quality-measurement-panel.tsx: GridQualityMeasurementPanel
@@ -905,6 +908,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-reinference-preview.tsx: GridReinferencePreview
 - features/model-quality/grid-reinference-report.tsx: GridReinferenceReport
 - features/model-quality/grid-reinference-state.ts: gridReinferenceStateLabels, GridReinferenceClient, defaultGridSelector, sendGridCommand
+- features/model-quality/grid-training-run-panel.tsx: GridTrainingRunClient, GridTrainingRunPanel
 - features/model-quality/lab-candidate-registry-panel.tsx: LabCandidateRegistryPanel
 - features/model-quality/lab-registry-command.ts: PendingLabRegistryCommand, readPendingLabRegistryCommand, saveLabRegistryCommand, clearLabRegistryCommand, reconcileLabRegistryFailure
 - features/model-quality/model-quality-actions.ts: symbolTrainingRejectionDetails, ModelQualityClient, PendingSymbolReinferenceResult, previewPendingSymbolReinference, startPendingSymbolReinference, GridQualityClient, GridQualityLoadResult, GridCandidateResult, GridActivationPreviewResult, GridActivationResult, loadGridQuality, createGridCandidate, previewGridActivation, confirmGridActivation, ModelQualityLoadResult, ModelQualityFreezeResult, ModelActivationPreviewResult, ModelActivationResult, loadModelQuality, prepareModelQualityCohort, previewModelActivation, confirmModelActivation, freezeModelQualityCohort
@@ -1225,9 +1229,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - check_decision_links.py: github_slug, read_lines, headings, anchors, scan_files, check_links, check_index, main
 - check_image_selection_range_regressions.py: main
 - check_quality_evidence_digests.py: file_sha256, find_mismatches, main
+- check_skill_mirrors.py: check, main
 - check_startup_read_budget.py: class Section, read_lines, file_size, sections, top_section, section_items, class Budget, check, report, main
 - check_vision_lab_hybrid_integration.py: class FixtureEngine, validate
 - check_vision_lab_hybrid_resume.py: step
+- close_task.py: class CloseError, class FileChange, class Plan, split_lines, detect_eol, bare, headings, block_end, find_section, normalise_block, encode, decode, parse_task_id, check_version, active_task_file, active_names, archives_newest_first, newest_archive, read_state, set_task_status_done, move_destination, plan_close, plan_record_hash, git, verify_commit, is_tracked, move_task, move_back, load_script, run_checks, sandbox_checks, apply_plan, print_plan, build_parser, run, main
 - compact_image_pipeline_state.py: main
 - complete_m4_acceptance_apk.py: main
 - convert_legacy_boards_to_virtual.py: main
@@ -1273,6 +1279,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - install_grid_engine_models.py: class InstallResult, preset_bytes, manifest_bytes, install_version, resolve_artifact_root, main
 - install_mumie_feedback_controls.py: install_controls, main
 - install_recording_provider.py: main
+- integration_preflight.py: class GitError, class Collision, class WorktreeState, class KindClaims, git, git_ok, local_branches, current_branch, require_branch, left_right, tree_paths, numbered_files, decision_headings, tree_claims, version_claims, subtract, added_by, occupied_on, find_collisions, worktree_paths, worktree_state, analyse, build_warnings, render_text, build_parser, main
 - m8_gold_frame_pilot.py: class PilotError, class RunExistsError, class GoldRange, class PilotCell, class PrepareSummary, perimeter_mask, gold_mask, perimeter_gold_share, interior_gold_share, expand_quad, class Confusion, confusion, sweep_thresholds, best_threshold, normalize_label, select_cells, render_crops, write_sheet, prepare, class ScoredRow, read_labels, score_rows, visibility_summary, build_report, evaluate, parse_args, main
 - measure_symbol_review_page.py: class Measurement, main
 - migrate_cell_level_verification.py: arguments, write_report, run_preview, run_apply, summary, main

@@ -7,6 +7,7 @@ import {
   gridCohortCommandKey,
   gridCohortSelectionKey,
 } from '../src/features/model-quality/grid-cohort-command-storage.ts';
+import { cohortLabel } from '../src/features/model-quality/grid-model-state.ts';
 
 const bootstrap = new JSDOM('<div></div>');
 globalThis.window = bootstrap.window;
@@ -126,6 +127,25 @@ function fixture(extra = {}) {
       );
       return { error: { code: 'CONFLICT' } };
     },
+    // TASK-1000: family/base come from the assignment, recordings and imports by name.
+    async getGameGridModelAssignment(g) {
+      calls.push(['GET-assignment', g]);
+      return {
+        data: { gameId: g, eventCount: 0, revision: null, version: null },
+      };
+    },
+    async listSourceRecordingGroups(g) {
+      calls.push(['GET-recordings', g]);
+      return { data: { items: [], nextCursor: null } };
+    },
+    async listJobs() {
+      calls.push(['GET-jobs']);
+      return { data: [] };
+    },
+    async listGridModelVersions() {
+      calls.push(['GET-versions']);
+      return { data: [] };
+    },
     ...extra,
   };
   return { api, calls };
@@ -226,7 +246,10 @@ test('reload performs GET only; saved exact body survives conflict and explicit 
   try {
     assert.ok(f.calls.every((c) => c[0].startsWith('GET')));
     assert.match(document.body.textContent, /45 etykiet/);
-    assert.match(document.body.textContent, /SOURCE_RETENTION_POLICY_PENDING/);
+    assert.match(
+      document.body.textContent,
+      /Polityka przechowywania kopii czeka na decyzję/,
+    );
     assert.match(
       document.body.textContent,
       /Cofnięcie ludzkiego zatwierdzenia: nie ustalono/,
@@ -322,10 +345,14 @@ test('late old-game detail cannot replace current game view', async () => {
 
 test('late detail from another selected cohort cannot replace the current cohort', async () => {
   const other = '44444444-4444-4444-8444-444444444444';
+  const later = '2026-10-01T10:00:00Z';
   let resolve;
   const f = fixture({
     listGridTrainingCohorts: async () => ({
-      data: { items: [header(), { ...header(), id: other }], nextCursor: null },
+      data: {
+        items: [header(), { ...header(), id: other, createdAt: later }],
+        nextCursor: null,
+      },
     }),
     getGridTrainingCohort: (g, id) =>
       id === cohort
@@ -338,7 +365,7 @@ test('late detail from another selected cohort cannot replace the current cohort
     [gridCohortSelectionKey(apiBaseUrl, game)]: cohort,
   });
   try {
-    await click(`${other} — Kopiowanie źródeł`);
+    await click(cohortLabel({ ...header(), id: other, createdAt: later }));
     await act(async () => resolve({ data: { ...header(), status: 'frozen' } }));
     assert.doesNotMatch(document.body.textContent, /Zamrożona/);
     assert.equal(
@@ -375,6 +402,350 @@ test('successful command receipt clears the exact durable body and reads current
     );
     assert.match(document.body.textContent, /Polecenie potwierdzone/);
     assert.match(document.body.textContent, /Sprawdzone kopie/);
+  } finally {
+    await view.close();
+  }
+});
+
+const FAMILY_M = '44444444-4444-4444-8444-444444444444',
+  BASE_M = '55555555-5555-4555-8555-555555555555',
+  FAMILY_7 = '66666666-6666-4666-8666-666666666666',
+  BASE_7 = '77777777-7777-4777-8777-777777777777';
+const imports = [
+  '81111111-1111-4111-8111-111111111111',
+  '82222222-2222-4222-8222-222222222222',
+  '83333333-3333-4333-8333-333333333333',
+];
+const manifest = (versionId, familyId, familyLabel) => ({
+  versionId,
+  familyId,
+  familyLabel,
+  version: 'v1',
+  admission: 'historical_baseline',
+});
+const importJob = (id, name) => ({
+  id,
+  gameId: game,
+  jobType: 'import',
+  inputPayload: { importKind: 'image_directory', sourceDisplayName: name },
+  createdAt: '2026-10-01T08:00:00Z',
+  progress: {},
+});
+const recording = (id, role, importJobId) => ({
+  id,
+  revision: 3,
+  membershipComplete: true,
+  expectedSources: 10,
+  registeredSources: 10,
+  manifestId: id,
+  manifestSha256: 'c'.repeat(64),
+  pageCount: 1,
+  createdAt: '2026-10-01T08:00:00Z',
+  importJobId,
+  declared: true,
+  independent: true,
+  role,
+  qualification: 'eligible',
+  reasonCodes: [],
+});
+
+test('a cohort of three named imports on a chosen catalogue base needs no typed identifier', async () => {
+  const sent = [];
+  const pages = [];
+  const f = fixture({
+    async getGameGridModelAssignment(g) {
+      return {
+        data: {
+          gameId: g,
+          eventCount: 1,
+          revision: 1,
+          version: { manifest: manifest(BASE_M, FAMILY_M, 'Mumie') },
+        },
+      };
+    },
+    async listGridModelVersions() {
+      return {
+        data: [
+          {
+            manifest: manifest(BASE_M, FAMILY_M, 'Mumie'),
+            available: true,
+            published: true,
+          },
+          {
+            manifest: manifest(BASE_7, FAMILY_7, '777 v2'),
+            available: true,
+            published: true,
+          },
+        ],
+      };
+    },
+    // The third recording is on the second page of the catalogue.
+    async listSourceRecordingGroups(g, options) {
+      pages.push(options.after ?? null);
+      return options.after
+        ? {
+            data: {
+              items: [
+                recording(
+                  '93333333-3333-4333-8333-333333333333',
+                  'REGRESSION',
+                  imports[2],
+                ),
+              ],
+              nextCursor: null,
+            },
+          }
+        : {
+            data: {
+              items: [
+                recording(
+                  '91111111-1111-4111-8111-111111111111',
+                  'TRAIN',
+                  imports[0],
+                ),
+                recording(
+                  '92222222-2222-4222-8222-222222222222',
+                  'VALIDATION',
+                  imports[1],
+                ),
+              ],
+              nextCursor: '92222222-2222-4222-8222-222222222222',
+            },
+          };
+    },
+    async listJobs() {
+      return {
+        data: [
+          importJob(imports[0], 'Mumie poranek'),
+          importJob(imports[1], 'Mumie wieczór'),
+          importJob(imports[2], 'Mumie kontrola'),
+        ],
+      };
+    },
+    async prepareGridTrainingCohort(g, body) {
+      sent.push([g, structuredClone(body)]);
+      return { error: { code: 'LOST' } };
+    },
+  });
+  const view = await mount(f.api);
+  try {
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    assert.deepEqual(pages, [null, '92222222-2222-4222-8222-222222222222']);
+    for (const name of ['Mumie poranek', 'Mumie wieczór', 'Mumie kontrola']) {
+      const label = [...document.querySelectorAll('label')].find(
+        (item) =>
+          item.textContent.includes(name) && item.querySelector('input'),
+      );
+      assert.ok(label, name);
+      await act(async () => label.querySelector('input').click());
+    }
+    const base = [...document.querySelectorAll('select')].find((item) =>
+      [...item.options].some((option) => option.value === BASE_7),
+    );
+    await act(async () => {
+      base.value = BASE_7;
+      base.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    assert.match(
+      document.body.textContent,
+      /Importy w kohorcie: Mumie poranek.*; Mumie wieczór.*; Mumie kontrola/,
+    );
+    await click('Przygotuj metadane kohorty');
+    assert.equal(sent.length, 1, document.body.textContent);
+    const [target, body] = sent[0];
+    assert.equal(target, game);
+    assert.deepEqual(body, {
+      idempotencyKey: body.idempotencyKey,
+      familyId: FAMILY_7,
+      baseVersionId: BASE_7,
+      mode: 'grid-only',
+      selector: { importJobIds: imports },
+      recordings: [
+        { groupId: '91111111-1111-4111-8111-111111111111', role: 'TRAIN' },
+        { groupId: '92222222-2222-4222-8222-222222222222', role: 'VALIDATION' },
+        { groupId: '93333333-3333-4333-8333-333333333333', role: 'REGRESSION' },
+      ],
+    });
+    assert.equal(
+      [...document.querySelectorAll('textarea')].every((item) => !item.value),
+      true,
+    );
+  } finally {
+    await view.close();
+  }
+});
+
+test('one recording keeps the single-import body; the assigned base stays the default', async () => {
+  const sent = [];
+  const f = fixture({
+    async getGameGridModelAssignment(g) {
+      return {
+        data: {
+          gameId: g,
+          eventCount: 1,
+          revision: 1,
+          trainingFamilyId: FAMILY_7,
+          version: { manifest: manifest(BASE_M, FAMILY_M, 'Mumie') },
+        },
+      };
+    },
+    async listSourceRecordingGroups() {
+      return {
+        data: {
+          items: [
+            recording(
+              '91111111-1111-4111-8111-111111111111',
+              'TRAIN',
+              imports[0],
+            ),
+          ],
+          nextCursor: null,
+        },
+      };
+    },
+    async prepareGridTrainingCohort(g, body) {
+      sent.push(structuredClone(body));
+      return { error: { code: 'LOST' } };
+    },
+  });
+  const view = await mount(f.api);
+  try {
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    const box = [...document.querySelectorAll('input[type="checkbox"]')][0];
+    await act(async () => box.click());
+    await click('Przygotuj metadane kohorty');
+    assert.equal(sent[0].familyId, FAMILY_7);
+    assert.equal(sent[0].baseVersionId, BASE_M);
+    assert.deepEqual(sent[0].selector, { importJobId: imports[0] });
+  } finally {
+    await view.close();
+  }
+});
+
+test('games with different training forks of one base share a named family without reassignment', async () => {
+  const FORK_A = '88888888-8888-4888-8888-888888888888',
+    FORK_B = '99999999-9999-4999-8999-999999999999';
+  const other = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const sent = [];
+  const assignments = {
+    // This game: base Mumie with its own fork; the other game: base 777 with a fork.
+    [game]: {
+      gameId: game,
+      eventCount: 1,
+      revision: 1,
+      trainingFamilyId: FORK_A,
+      trainingFamilyLabel: 'Mumie odbiór',
+      version: { manifest: manifest(BASE_M, FAMILY_M, 'Mumie') },
+    },
+    [other]: {
+      gameId: other,
+      eventCount: 1,
+      revision: 1,
+      trainingFamilyId: FORK_B,
+      trainingFamilyLabel: '777a2 odbiór',
+      version: { manifest: manifest(BASE_7, FAMILY_7, '777 v2') },
+    },
+  };
+  const f = fixture({
+    async getGameGridModelAssignment(g) {
+      return { data: assignments[g] };
+    },
+    async listGames() {
+      return {
+        data: [
+          {
+            id: game,
+            name: 'Mumie',
+            code: 'mumie',
+            shapeGeometryConfiguration: 'neural_grid_v3',
+          },
+          {
+            id: other,
+            name: '777a2',
+            code: '777a2',
+            shapeGeometryConfiguration: 'neural_grid_v3',
+          },
+          {
+            id: 'legacy',
+            name: 'Stara 777',
+            code: '7',
+            shapeGeometryConfiguration: 'grid_profile_777_v2',
+          },
+        ],
+      };
+    },
+    async listGridModelVersions() {
+      return {
+        data: [
+          {
+            manifest: manifest(BASE_M, FAMILY_M, 'Mumie'),
+            available: true,
+            published: true,
+          },
+          {
+            manifest: manifest(BASE_7, FAMILY_7, '777 v2'),
+            available: true,
+            published: true,
+          },
+        ],
+      };
+    },
+    async listSourceRecordingGroups() {
+      return {
+        data: {
+          items: [
+            recording(
+              '91111111-1111-4111-8111-111111111111',
+              'TRAIN',
+              imports[0],
+            ),
+          ],
+          nextCursor: null,
+        },
+      };
+    },
+    async prepareGridTrainingCohort(g, body) {
+      sent.push(structuredClone(body));
+      return { error: { code: 'LOST' } };
+    },
+  });
+  const view = await mount(f.api);
+  try {
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    const selects = () => [...document.querySelectorAll('select')];
+    const base = selects().find((item) =>
+      [...item.options].some((option) => option.value === BASE_7),
+    );
+    await act(async () => {
+      base.value = BASE_7;
+      base.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    const family = selects().find((item) =>
+      [...item.options].some((option) => option.value === FORK_B),
+    );
+    assert.ok(family, 'the fork of the other game is offered by name');
+    assert.deepEqual(
+      [...family.options].map((option) => option.textContent),
+      ['777 v2 (rodzina bazy)', '777a2 odbiór (rodzina treningowa gry 777a2)'],
+    );
+    await act(async () => {
+      family.value = FORK_B;
+      family.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    const box = [...document.querySelectorAll('input[type="checkbox"]')][0];
+    await act(async () => box.click());
+    await click('Przygotuj metadane kohorty');
+    assert.equal(sent[0].familyId, FORK_B);
+    assert.equal(sent[0].baseVersionId, BASE_7);
+    // Back on its own base the game keeps its own fork as the default.
+    await act(async () => {
+      base.value = '';
+      base.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    const own = selects().find((item) =>
+      [...item.options].some((option) => option.value === FORK_A),
+    );
+    assert.equal(own.value, FORK_A);
   } finally {
     await view.close();
   }

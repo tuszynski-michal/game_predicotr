@@ -1,13 +1,18 @@
 'use client';
 
 import type {
+  GameGridModelAssignmentResponse,
   GridCohortHeader,
+  GridModelVersionResponse,
   GridCohortMember,
   GridCohortEligibility,
   GridCohortRecording,
+  JobResponse,
+  SourceRecordingGroupResponse,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
 import {
   sendGridCohortCommand,
   type GridCohortClient,
@@ -21,6 +26,25 @@ import {
   discardGridCohortCommand,
   type GridCohortCommand,
 } from './grid-cohort-command-storage';
+import {
+  cohortLabel,
+  readAllPages,
+  reasonLabel,
+  reasonList,
+  versionLabel,
+} from './grid-model-state';
+import { RecordingImportPicker } from './recording-import-picker';
+import {
+  recordingGroupLabel,
+  recordingImportLabel,
+} from './recording-groups-state';
+
+const qualificationLabels: Record<string, string> = {
+  eligible: 'kwalifikuje się',
+  blocked: 'zablokowana',
+  unresolved: 'nierozstrzygnięta',
+};
+type Role = 'TRAIN' | 'VALIDATION' | 'REGRESSION';
 
 const statuses: Record<GridCohortHeader['status'], string> = {
   preparing: 'Przygotowanie metadanych',
@@ -50,10 +74,15 @@ export function GridCohortPreview({
   apiBaseUrl,
   gameId,
   client,
+  refreshKey = 0,
+  onChanged,
 }: {
   apiBaseUrl: string;
   gameId: string;
   client?: GridCohortClient;
+  /** Changes when another step changed shared data (TASK-1000, P2-1). */
+  refreshKey?: number;
+  onChanged?: () => void;
 }) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -77,15 +106,27 @@ export function GridCohortPreview({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
-  const [family, setFamily] = useState(''),
-    [base, setBase] = useState(''),
+  const [assignment, setAssignment] =
+    useState<GameGridModelAssignmentResponse | null>(null);
+  const [groups, setGroups] = useState<SourceRecordingGroupResponse[]>([]);
+  const [versions, setVersions] = useState<GridModelVersionResponse[]>([]);
+  // Empty: the base of the game's assignment; otherwise a named catalogue version.
+  const [baseChoice, setBaseChoice] = useState('');
+  // Empty: the default family of the chosen base; otherwise a named training family.
+  const [familyChoice, setFamilyChoice] = useState('');
+  // Assignments of the other V3 games: their training families (forks) of a base.
+  const [peers, setPeers] = useState<
+    { name: string; assignment: GameGridModelAssignmentResponse }[]
+  >([]);
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const [chosen, setChosen] = useState<Record<string, Role>>({});
+  const [importJobId, setImportJobId] = useState(''),
     [selection, setSelection] = useState('');
   const [selectorKind, setSelectorKind] = useState<'sources' | 'import'>(
-    'sources',
+    'import',
   );
   const [mode, setMode] = useState<'grid-only' | 'screen+grid'>('grid-only');
-  const [recordings, setRecordings] = useState(''),
-    [completion, setCompletion] = useState('');
+  const [completion, setCompletion] = useState('');
 
   async function list(cursor?: string, currentEpoch = epoch.current) {
     const token = ++listRequest.current;
@@ -151,6 +192,65 @@ export function GridCohortPreview({
     window.localStorage.setItem(gridCohortSelectionKey(apiBaseUrl, gameId), id);
   }
 
+  // A missing read never aborts the other reads of the panel.
+  function readContext(currentEpoch: number) {
+    void Promise.resolve()
+      .then(() =>
+        // Each read starts in its own promise: one failing read never leaves another unhandled.
+        Promise.all([
+          Promise.resolve().then(() => api.getGameGridModelAssignment(gameId)),
+          readAllPages((after) =>
+            api.listSourceRecordingGroups(gameId, { limit: 200, after }),
+          ),
+          Promise.resolve().then(() => api.listGridModelVersions()),
+        ]),
+      )
+      .then(([assigned, recorded, catalogue]) => {
+        if (currentEpoch !== epoch.current) return;
+        if (assigned.data?.gameId === gameId) setAssignment(assigned.data);
+        if (recorded) setGroups(recorded);
+        if (catalogue.data) setVersions(catalogue.data);
+      })
+      .catch(() => {
+        if (currentEpoch === epoch.current)
+          setError('Nie udało się odczytać przypisania lub nagrań gry.');
+      });
+    void Promise.resolve()
+      .then(() => api.listGames())
+      .then(async (catalogue) => {
+        const others = (catalogue.data ?? []).filter(
+          (game) =>
+            game.id !== gameId &&
+            usesNeuralGridConfiguration(
+              game.shapeGeometryConfiguration ?? null,
+              game.code,
+            ),
+        );
+        const read = await Promise.all(
+          others.map((game) =>
+            Promise.resolve()
+              .then(() => api.getGameGridModelAssignment(game.id))
+              .then((result) =>
+                result.data?.gameId === game.id
+                  ? { name: game.name, assignment: result.data }
+                  : null,
+              )
+              .catch(() => null),
+          ),
+        );
+        if (currentEpoch !== epoch.current) return;
+        setPeers(read.filter((item) => item !== null));
+      })
+      .catch(() => undefined);
+  }
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    readContext(epoch.current);
+    // Another step (activation, a new recording) changed the context of the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
   useEffect(() => {
     const currentEpoch = ++epoch.current;
     queueMicrotask(() => {
@@ -168,11 +268,17 @@ export function GridCohortPreview({
       setBusy(false);
       setError('');
       setNotice('');
-      setFamily('');
-      setBase('');
+      setAssignment(null);
+      setGroups([]);
+      setVersions([]);
+      setBaseChoice('');
+      setFamilyChoice('');
+      setPeers([]);
+      setChosen({});
+      setImportJobId('');
       setSelection('');
-      setRecordings('');
       setCompletion('');
+      readContext(currentEpoch);
       try {
         setPending(
           readGridCohortCommand(window.localStorage, apiBaseUrl, gameId),
@@ -251,6 +357,7 @@ export function GridCohortPreview({
       setNotice(
         'Polecenie potwierdzone. To nie jest ocena jakości modelu ani zgoda na trening.',
       );
+      onChanged?.();
       await list();
       if ('cohort' in result.data) await load(result.data.cohort.id);
       else if (selectedRef.current) await load(selectedRef.current);
@@ -264,29 +371,89 @@ export function GridCohortPreview({
     }
   }
 
+  // The base defaults to the game's assignment; another named catalogue version can
+  // be the common base of a shared candidate. The backend checks the lineage.
+  const assignedId = assignment?.version?.manifest.versionId ?? null;
+  const baseManifest = baseChoice
+    ? versions.find((item) => item.manifest.versionId === baseChoice)?.manifest
+    : assignment?.version?.manifest;
+  const baseVersionId = baseManifest?.versionId ?? null;
+  // A shared candidate needs one family and base in every cohort (D-560): besides the
+  // base's own family, the training families (forks) of every game assigned to this base
+  // are offered by name, so games with different forks can share one.
+  const families = new Map<string, string>();
+  if (baseManifest)
+    families.set(
+      baseManifest.familyId,
+      `${baseManifest.familyLabel} (rodzina bazy)`,
+    );
+  for (const peer of [
+    ...(assignment ? [{ name: 'tej gry', assignment }] : []),
+    ...peers.map((item) => ({
+      name: `gry ${item.name}`,
+      assignment: item.assignment,
+    })),
+  ])
+    if (
+      baseVersionId &&
+      peer.assignment.version?.manifest.versionId === baseVersionId &&
+      peer.assignment.trainingFamilyId &&
+      !families.has(peer.assignment.trainingFamilyId)
+    )
+      families.set(
+        peer.assignment.trainingFamilyId,
+        `${peer.assignment.trainingFamilyLabel ?? 'Rodzina treningowa'} (rodzina treningowa ${peer.name})`,
+      );
+  const defaultFamily =
+    baseVersionId && baseVersionId === assignedId
+      ? (assignment?.trainingFamilyId ?? baseManifest?.familyId ?? null)
+      : (baseManifest?.familyId ?? null);
+  const familyId =
+    familyChoice && families.has(familyChoice) ? familyChoice : defaultFamily;
+  const bases = versions.filter(
+    (item) =>
+      item.available &&
+      item.manifest.versionId !== assignedId &&
+      (item.published || item.manifest.admission !== 'not_evaluated'),
+  );
+  // The photos of the chosen recordings: one import per recording, plus an optional
+  // import picked by name. Recordings of different roles usually differ in import.
+  const recordingImports = groups
+    .filter((group) => group.id in chosen && group.importJobId)
+    .map((group) => String(group.importJobId));
+  const imports = [
+    ...new Set(
+      [...recordingImports, importJobId].filter((id) => cohortUuid.test(id)),
+    ),
+  ];
+  const withoutImport = groups.filter(
+    (group) => group.id in chosen && !group.importJobId,
+  );
+
   function prepare() {
     try {
-      const roles = lines(recordings).map((line) => {
-        const [groupId, role] = line.trim().split(/\s+/);
-        if (
-          !cohortUuid.test(groupId ?? '') ||
-          !['TRAIN', 'VALIDATION', 'REGRESSION'].includes(role)
-        )
-          throw new Error(
-            'Podaj identyfikator nagrania i rolę w każdym wierszu.',
-          );
-        return { groupId, role } as GridCohortRecording;
-      });
+      if (!familyId || !baseVersionId)
+        throw new Error(
+          'Gra nie ma przypisanej wersji geometrii; najpierw ją przypisz albo wybierz bazę.',
+        );
+      const roles: GridCohortRecording[] = Object.entries(chosen).map(
+        ([groupId, role]) => ({ groupId, role }),
+      );
+      if (!roles.length) throw new Error('Wybierz nagrania i ich role.');
+      if (selectorKind === 'import' && !imports.length)
+        throw new Error('Wybierz nagrania z importów albo import zdjęć.');
       const selector =
-        selectorKind === 'import'
-          ? { importJobId: selection.trim() }
-          : { sourceIds: selection.split(/[\s,;]+/).filter(Boolean) };
+        selectorKind !== 'import'
+          ? { sourceIds: selection.split(/[\s,;]+/).filter(Boolean) }
+          : imports.length === 1
+            ? { importJobId: imports[0] }
+            : { importJobIds: imports };
       void execute({
         kind: 'prepare',
         body: {
           idempotencyKey: crypto.randomUUID(),
-          familyId: family.trim(),
-          baseVersionId: base.trim(),
+          familyId,
+          baseVersionId,
           mode,
           selector,
           recordings: roles,
@@ -403,7 +570,7 @@ export function GridCohortPreview({
                 void load(item.id).catch((f) => setError(message(f)))
               }
             >
-              {item.id} — {statuses[item.status]}
+              {cohortLabel(item)}
             </button>
           </li>
         ))}
@@ -420,13 +587,48 @@ export function GridCohortPreview({
       <fieldset disabled={locked}>
         <legend>Przygotuj kohortę</legend>
         <label>
-          Rodzina modelu{' '}
-          <input value={family} onChange={(e) => setFamily(e.target.value)} />
+          Baza treningowa{' '}
+          <select
+            value={baseChoice}
+            onChange={(e) => {
+              setBaseChoice(e.target.value);
+              setFamilyChoice('');
+            }}
+          >
+            <option value="">
+              {assignment?.version
+                ? `Z przypisania gry: ${assignment.trainingFamilyLabel ?? assignment.version.manifest.familyLabel} · ${versionLabel(assignment.version.manifest)}`
+                : 'Brak przypisanej wersji — wybierz bazę'}
+            </option>
+            {bases.map((item) => (
+              <option
+                key={item.manifest.versionId}
+                value={item.manifest.versionId}
+              >
+                {versionLabel(item.manifest)}
+              </option>
+            ))}
+          </select>
         </label>
-        <label>
-          Wersja bazowa{' '}
-          <input value={base} onChange={(e) => setBase(e.target.value)} />
-        </label>
+        {families.size > 1 ? (
+          <label>
+            Rodzina treningowa{' '}
+            <select
+              value={familyId ?? ''}
+              onChange={(e) => setFamilyChoice(e.target.value)}
+            >
+              {[...families].map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <p>
+          Wybór bazy i rodziny nie zmienia przypisania gry. Kohorty wspólnego
+          kandydata muszą mieć tę samą rodzinę i bazę.
+        </p>
         <label>
           Tryb{' '}
           <select
@@ -437,30 +639,91 @@ export function GridCohortPreview({
             <option value="screen+grid">Ekran i siatki</option>
           </select>
         </label>
-        <label>
-          Wybór źródeł{' '}
-          <select
-            value={selectorKind}
-            onChange={(e) =>
-              setSelectorKind(e.target.value as typeof selectorKind)
-            }
-          >
-            <option value="sources">Identyfikatory zdjęć (do 200)</option>
-            <option value="import">Jeden import</option>
-          </select>
+        <RecordingImportPicker
+          api={api}
+          gameId={gameId}
+          value={importJobId}
+          disabled={locked || selectorKind !== 'import'}
+          onChange={setImportJobId}
+          onLoaded={setJobs}
+        />
+        <fieldset aria-label="Nagrania kohorty" disabled={locked}>
+          <legend>Nagrania i role</legend>
+          {groups.length === 0 ? (
+            <p>Gra nie ma jeszcze zarejestrowanych nagrań.</p>
+          ) : null}
+          {groups.map((group) => (
+            <div key={group.id}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={group.id in chosen}
+                  onChange={(e) =>
+                    setChosen((current) => {
+                      const next = { ...current };
+                      if (e.target.checked)
+                        next[group.id] = (group.role ?? 'TRAIN') as Role;
+                      else delete next[group.id];
+                      return next;
+                    })
+                  }
+                />{' '}
+                {recordingGroupLabel(group, jobs)}
+              </label>
+              {group.id in chosen ? (
+                <select
+                  aria-label={`Rola: ${recordingGroupLabel(group, jobs)}`}
+                  value={chosen[group.id]}
+                  onChange={(e) =>
+                    setChosen((current) => ({
+                      ...current,
+                      [group.id]: e.target.value as Role,
+                    }))
+                  }
+                >
+                  <option value="TRAIN">TRAIN</option>
+                  <option value="VALIDATION">VALIDATION</option>
+                  <option value="REGRESSION">REGRESSION</option>
+                </select>
+              ) : null}
+            </div>
+          ))}
+        </fieldset>
+        <p>
+          Importy w kohorcie:{' '}
+          {imports.length
+            ? imports
+                .map((id) => {
+                  const job = jobs.find((item) => item.id === id);
+                  return job ? recordingImportLabel(job) : 'import spoza listy';
+                })
+                .join('; ')
+            : 'brak — wybierz nagrania albo import'}
+        </p>
+        {withoutImport.length ? (
+          <p>
+            Nagrania bez importu ({withoutImport.length}): dodaj import z ich
+            zdjęciami albo użyj dokładnego wyboru zdjęć.
+          </p>
+        ) : null}
+        <details>
+          <summary>Zaawansowane: dokładny wybór zdjęć</summary>
+          <label>
+            <input
+              type="checkbox"
+              checked={selectorKind === 'sources'}
+              onChange={(e) =>
+                setSelectorKind(e.target.checked ? 'sources' : 'import')
+              }
+            />{' '}
+            Zamiast importu użyj identyfikatorów zdjęć (do 200)
+          </label>
           <textarea
+            aria-label="Identyfikatory zdjęć"
             value={selection}
             onChange={(e) => setSelection(e.target.value)}
           />
-        </label>
-        <label>
-          Nagrania: UUID i rola TRAIN, VALIDATION albo REGRESSION, po jednym na
-          wiersz (do 200)
-          <textarea
-            value={recordings}
-            onChange={(e) => setRecordings(e.target.value)}
-          />
-        </label>
+        </details>
         <button type="button" onClick={prepare}>
           Przygotuj metadane kohorty
         </button>
@@ -468,16 +731,16 @@ export function GridCohortPreview({
       {header && (
         <div>
           <h4>
-            {statuses[header.status]} — {header.id}
+            {statuses[header.status]} — {cohortLabel(header)}
           </h4>
-          <p>
-            Rewizja: {header.revision}. Baza: {header.baseVersionId}. Tryb:{' '}
-            {header.mode}.
-          </p>
+          <p>Rewizja: {header.revision}.</p>
           <p>
             Kwalifikacja metadanych:{' '}
-            {eligibility?.qualification ?? 'Nie odczytano'}.{' '}
-            {eligibility?.reasons.join(', ')}
+            {eligibility
+              ? (qualificationLabels[eligibility.qualification] ??
+                eligibility.qualification)
+              : 'Nie odczytano'}
+            . {reasonList(eligibility?.reasons)}
           </p>
           <p>
             Cofnięcie ludzkiego zatwierdzenia:{' '}
@@ -546,7 +809,7 @@ export function GridCohortPreview({
             {Object.entries(header.summary.reasonCounts).map(
               ([reason, count]) => (
                 <li key={reason}>
-                  {reason}: {count}
+                  {reasonLabel(reason)}: {count}
                 </li>
               ),
             )}
@@ -629,14 +892,16 @@ export function GridCohortPreview({
           <ul>
             {members.map((member) => (
               <li key={member.sourceId}>
-                {member.sourceId}: {member.role ?? 'Rola nieustalona'},{' '}
-                {member.qualification}. Plansze: {member.boardEligibleCount}.
-                Ekran:{' '}
+                Zdjęcie {member.sourceId.slice(0, 8)}:{' '}
+                {member.role ?? 'Rola nieustalona'},{' '}
+                {qualificationLabels[member.qualification] ??
+                  member.qualification}
+                . Plansze: {member.boardEligibleCount}. Ekran:{' '}
                 {member.screenEligible
                   ? 'kwalifikuje się'
                   : 'nie kwalifikuje się'}
                 . Metadane: {member.metadataMissing ? 'brakujące' : 'obecne'}.{' '}
-                {member.reasons.join(', ')}
+                {reasonList(member.reasons)}
               </li>
             ))}
           </ul>
@@ -655,24 +920,27 @@ export function GridCohortPreview({
           )}
         </div>
       )}
-      <fieldset disabled={locked}>
-        <legend>Jawnie uzupełnij tożsamość wybranych zdjęć</legend>
-        <p>
-          1–5 zdjęć. Każdy wiersz: UUID zdjęcia, oczekiwany SHA zdjęcia, UUID
-          rewizji źródła, SHA geometrii. Odczyt ekranu nie uruchamia tej
-          operacji.
-        </p>
-        <label>
-          Wybrane źródła i oczekiwane wartości
-          <textarea
-            value={completion}
-            onChange={(e) => setCompletion(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={complete}>
-          Uzupełnij wybrane tożsamości
-        </button>
-      </fieldset>
+      <details>
+        <summary>Zaawansowane: uzupełnienie tożsamości starszych zdjęć</summary>
+        <fieldset disabled={locked}>
+          <legend>Jawnie uzupełnij tożsamość wybranych zdjęć</legend>
+          <p>
+            1–5 zdjęć. Każdy wiersz: UUID zdjęcia, oczekiwany SHA zdjęcia, UUID
+            rewizji źródła, SHA geometrii. Odczyt ekranu nie uruchamia tej
+            operacji.
+          </p>
+          <label>
+            Wybrane źródła i oczekiwane wartości
+            <textarea
+              value={completion}
+              onChange={(e) => setCompletion(e.target.value)}
+            />
+          </label>
+          <button type="button" onClick={complete}>
+            Uzupełnij wybrane tożsamości
+          </button>
+        </fieldset>
+      </details>
     </section>
   );
 }

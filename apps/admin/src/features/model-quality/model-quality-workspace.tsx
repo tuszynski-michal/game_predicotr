@@ -15,13 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
-import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
 import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
 import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
-import { RecordingGroupsPanel } from './recording-groups-panel';
-import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
-import { GridCohortPreview } from './grid-cohort-preview';
-import { GridModelComparison } from './grid-model-comparison';
+import { GridModelWorkspace } from './grid-model-workspace';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -896,33 +892,11 @@ export function ModelQualityWorkspace(props: {
         props.shapeGeometryConfiguration,
         props.gameCode,
       ) ? (
-        <section
-          className="modelQualityWorkflowGroup"
-          aria-label="Geometria V3"
-        >
-          <h2>Geometria V3</h2>
-          <GridModelAssignmentSummary
-            apiBaseUrl={props.apiBaseUrl}
-            gameId={props.gameId}
-          />
-          <RecordingGroupsPanel
-            apiBaseUrl={props.apiBaseUrl}
-            gameId={props.gameId}
-          />
-          <GridQualityMeasurementPanel
-            apiBaseUrl={props.apiBaseUrl}
-            gameId={props.gameId}
-          />
-          <GridCohortPreview
-            key={`${props.apiBaseUrl}:${props.gameId}`}
-            apiBaseUrl={props.apiBaseUrl}
-            gameId={props.gameId}
-          />
-          <GridModelComparison
-            apiBaseUrl={props.apiBaseUrl}
-            gameId={props.gameId}
-          />
-        </section>
+        <GridModelWorkspace
+          key={`${props.apiBaseUrl}:${props.gameId}`}
+          apiBaseUrl={props.apiBaseUrl}
+          gameId={props.gameId}
+        />
       ) : (
         <section
           className="modelQualityWorkflowGroup"

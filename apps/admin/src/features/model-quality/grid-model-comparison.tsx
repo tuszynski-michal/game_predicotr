@@ -1,15 +1,29 @@
 'use client';
 
 import type {
+  GameResponse,
+  GridCohortHeader,
   GridModelEvaluationGame,
   GridModelEvaluationRole,
   GridModelEvaluationView,
+  GridModelVersionResponse,
   GridTrainingRunView,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
+import {
+  cohortLabel,
+  gameLabel,
+  gameName,
+  readAllPages,
+  reasonLabel,
+  reasonList,
+  runLabel,
+  shortDate,
+} from './grid-model-state';
 import {
   comparisonMetrics,
   currentnessLabels,
@@ -20,7 +34,6 @@ import {
   formatMetric,
   metricChange,
   needsCurrentnessCheck,
-  parseExtraCohorts,
   type GridModelEvaluationClient,
   type PendingEvaluationCommand,
 } from './grid-model-evaluation-state';
@@ -29,6 +42,9 @@ interface Props {
   readonly apiBaseUrl: string;
   readonly gameId: string;
   readonly client?: GridModelEvaluationClient;
+  /** Changes when another step changed shared data (TASK-1000, P2-1). */
+  readonly refreshKey?: number;
+  readonly onChanged?: () => void;
 }
 
 /** TASK-0997: base versus candidate per game, role and recording; never publishes. */
@@ -36,14 +52,28 @@ export function GridModelComparison(props: Props) {
   return <Comparison key={`${props.apiBaseUrl}:${props.gameId}`} {...props} />;
 }
 
-function Comparison({ apiBaseUrl, gameId, client }: Props) {
+function Comparison({
+  apiBaseUrl,
+  gameId,
+  client,
+  refreshKey = 0,
+  onChanged,
+}: Props) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
   const [runs, setRuns] = useState<readonly GridTrainingRunView[]>([]);
   const [runId, setRunId] = useState('');
-  const [extra, setExtra] = useState('');
+  const [games, setGames] = useState<readonly GameResponse[]>([]);
+  const [versions, setVersions] = useState<readonly GridModelVersionResponse[]>(
+    [],
+  );
+  // Other games of the family: game -> chosen frozen cohort, picked by name and label.
+  const [others, setOthers] = useState<Record<string, string>>({});
+  const [otherCohorts, setOtherCohorts] = useState<
+    Record<string, readonly GridCohortHeader[]>
+  >({});
   const [evaluations, setEvaluations] = useState<
     readonly GridModelEvaluationView[]
   >([]);
@@ -66,8 +96,16 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    void api
-      .listGridTrainingRuns(gameId)
+    void Promise.resolve()
+      .then(() => Promise.all([api.listGames(), api.listGridModelVersions()]))
+      .then(([gameList, versionList]) => {
+        if (cancelled) return;
+        if (gameList.data) setGames(gameList.data);
+        if (versionList.data) setVersions(versionList.data);
+      })
+      .catch(() => !cancelled && setError('Nie udało się pobrać katalogu.'));
+    void Promise.resolve()
+      .then(() => api.listGridTrainingRuns(gameId))
       .then((result) => {
         if (cancelled) return;
         if (result.data === undefined) {
@@ -82,7 +120,8 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [api, gameId]);
+    // refreshKey: a finished run or a new version elsewhere re-reads the lists.
+  }, [api, gameId, refreshKey]);
 
   const refresh = useCallback(async () => {
     if (!versionId) return;
@@ -116,18 +155,48 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
     setSelected(result.data);
   }
 
+  async function toggleOther(other: string, enabled: boolean) {
+    setOthers((current) => {
+      const next = { ...current };
+      if (enabled) next[other] = '';
+      else delete next[other];
+      return next;
+    });
+    if (!enabled || otherCohorts[other]) return;
+    const items = await readAllPages((cursor) =>
+      api.listGridTrainingCohorts(other, { cursor, limit: 100 }),
+    ).catch(() => undefined);
+    if (items === undefined) {
+      setError('Nie udało się pobrać kohort innej gry.');
+      return;
+    }
+    setOtherCohorts((current) => ({
+      ...current,
+      [other]: items.filter(
+        (item) => item.gameId === other && item.status === 'frozen',
+      ),
+    }));
+  }
+
   async function start() {
     if (!run || !versionId) return;
-    const others = parseExtraCohorts(extra);
-    if (others === null) {
-      setError(
-        'Podaj pozostałe gry jako wiersze: identyfikator gry i kohorty.',
-      );
+    if (Object.values(others).some((cohort) => !cohort)) {
+      setError('Wybierz kohortę w każdej zaznaczonej grze.');
       return;
     }
     setBusy(true);
     setError('');
-    const cohorts = [{ gameId, cohortId: run.cohortId }, ...others];
+    // A shared run's other cohorts are always part of its evaluation (D-560).
+    const shared = Object.fromEntries(
+      (run.sharedCohorts ?? []).map((pin) => [pin.gameId, pin.cohortId]),
+    );
+    const cohorts = [
+      { gameId, cohortId: run.cohortId },
+      ...Object.entries({ ...others, ...shared }).map(([other, cohortId]) => ({
+        gameId: other,
+        cohortId,
+      })),
+    ];
     const command = evaluationCommand(
       pending.current,
       { versionId, cohorts },
@@ -153,6 +222,7 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
       pending.current = null;
       setSelected(result.data);
       await refresh();
+      onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -175,10 +245,14 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
       if (result.data.failures.length)
         setError(
           `Bez nowego dowodu: ${result.data.failures
-            .map((item) => `${item.gameId} (${item.code})`)
+            .map(
+              (item) =>
+                `${gameName(games, item.gameId)} (${reasonLabel(item.code)})`,
+            )
             .join(', ')}`,
         );
       await open(selected.evaluationId);
+      onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -206,21 +280,69 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
           <option value="">Wybierz trening</option>
           {runs.map((item) => (
             <option key={item.runId} value={item.runId}>
-              {item.runId} · {item.mode} · {item.candidateVersionId}
+              {runLabel(item, versions)}
             </option>
           ))}
         </select>
       </label>
       {run ? (
         <>
-          <label>
-            Pozostałe gry tej rodziny (wiersz: gra kohorta)
-            <textarea
-              value={extra}
-              rows={3}
-              onChange={(event) => setExtra(event.target.value)}
-            />
-          </label>
+          <fieldset disabled={busy} aria-label="Pozostałe gry rodziny">
+            <legend>Pozostałe gry tej rodziny</legend>
+            {games
+              .filter(
+                (game) =>
+                  game.id !== gameId &&
+                  !(run.sharedCohorts ?? []).some(
+                    (pin) => pin.gameId === game.id,
+                  ) &&
+                  usesNeuralGridConfiguration(
+                    game.shapeGeometryConfiguration ?? null,
+                    game.code,
+                  ),
+              )
+              .map((game) => (
+                <div key={game.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={game.id in others}
+                      onChange={(event) =>
+                        void toggleOther(game.id, event.target.checked)
+                      }
+                    />{' '}
+                    {gameLabel(game)}
+                  </label>
+                  {game.id in others ? (
+                    <select
+                      aria-label={`Kohorta oceny gry ${game.name}`}
+                      value={others[game.id]}
+                      onChange={(event) =>
+                        setOthers((current) => ({
+                          ...current,
+                          [game.id]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Wybierz kohortę</option>
+                      {(otherCohorts[game.id] ?? []).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {cohortLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
+              ))}
+            {(run.sharedCohorts ?? []).length ? (
+              <p>
+                Kohorty wspólnego treningu są oceniane zawsze:{' '}
+                {(run.sharedCohorts ?? [])
+                  .map((pin) => gameName(games, pin.gameId))
+                  .join(', ')}
+              </p>
+            ) : null}
+          </fieldset>
           <button type="button" disabled={busy} onClick={() => void start()}>
             Uruchom ocenę
           </button>
@@ -231,7 +353,7 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
                   type="button"
                   onClick={() => void open(item.evaluationId)}
                 >
-                  {item.createdAt} · {item.status}
+                  {shortDate(item.createdAt)} · {item.status}
                   {item.verdict
                     ? ` · ${evaluationVerdictLabels[item.verdict]}`
                     : ''}
@@ -244,6 +366,7 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
       {selected ? (
         <EvaluationDetail
           view={selected}
+          games={games}
           busy={busy}
           onRefresh={() => void open(selected.evaluationId)}
           onVerify={() => void verify()}
@@ -255,11 +378,13 @@ function Comparison({ apiBaseUrl, gameId, client }: Props) {
 
 function EvaluationDetail({
   view,
+  games,
   busy,
   onRefresh,
   onVerify,
 }: {
   readonly view: GridModelEvaluationView;
+  readonly games: readonly GameResponse[];
   readonly busy: boolean;
   readonly onRefresh: () => void;
   readonly onVerify: () => void;
@@ -287,7 +412,8 @@ function EvaluationDetail({
           <ul aria-label="Aktualność dowodów">
             {view.currentness.map((state) => (
               <li key={state.gameId}>
-                {state.gameId}: {currentnessLabels[state.state]}
+                {gameName(games, state.gameId)}:{' '}
+                {currentnessLabels[state.state]}
               </li>
             ))}
           </ul>
@@ -297,7 +423,7 @@ function EvaluationDetail({
             </button>
           ) : null}
           {report.games.map((game) => (
-            <GameComparison key={game.gameId} game={game} />
+            <GameComparison key={game.gameId} game={game} games={games} />
           ))}
         </>
       ) : null}
@@ -305,17 +431,23 @@ function EvaluationDetail({
   );
 }
 
-function GameComparison({ game }: { readonly game: GridModelEvaluationGame }) {
+function GameComparison({
+  game,
+  games,
+}: {
+  readonly game: GridModelEvaluationGame;
+  readonly games: readonly GameResponse[];
+}) {
   return (
-    <section aria-label={`Gra ${game.gameId}`}>
+    <section aria-label={`Gra ${gameName(games, game.gameId)}`}>
       <h4>
-        Gra {game.gameId} · {game.mode}
+        Gra {gameName(games, game.gameId)} · {game.mode}
       </h4>
       <p>
         Walidacja: {evaluationDecisionLabels[game.validation]} · regresja:{' '}
         {evaluationDecisionLabels[game.regression]} · pokrycie: {game.coverage}
       </p>
-      {game.reasons.length ? <p>Powody: {game.reasons.join(', ')}</p> : null}
+      {game.reasons.length ? <p>Powody: {reasonList(game.reasons)}</p> : null}
       <RoleTable title="VALIDATION" role={game.roles.VALIDATION} />
       <RoleTable
         title="REGRESSION (tylko końcowa kontrola)"

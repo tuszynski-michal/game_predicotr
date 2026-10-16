@@ -127,3 +127,33 @@ powyższy przebieg).
 - Odbioru w przeglądarce na działającej aplikacji: po integracji i restarcie usług.
 - Problemu pominiętych zdjęć importu 777a2 (staging 60a7bc4d, 1962 zdjęć bez
   przypisania plansz): ścieżka importu nie należy do tego planu; osobna propozycja.
+
+## 6. Integracja do `main` i test po migracji (2026-10-16)
+
+Za zgodą operatora (migracja oryginalnej bazy, zatrzymanie i wznowienie usług;
+kopia `D:\game_predictor_backup` jako plan awaryjny):
+
+- Gałąź scaliła `main` v1.7.389 (TASK-1040/1041, v1.7.395); preflight: fast-forward
+  możliwy, `main` = `origin/main`, checkout czysty. Zatrzymano worker `general`
+  (skryptem lane), API, Admin i Reviewer; aktywnych jobów nie było.
+- `main` przesunięto fast-forward do v1.7.395 `660b6415` i wypchnięto; potem
+  poprawka v1.7.396 `b263c738` (niżej). Zależności npm bez zmian (tylko skrypty),
+  więc `npm install` nie był potrzebny; klient API jest używany ze źródeł.
+- `npm run db:migrate`: capability, Alembic `0155_board_search_panels` →
+  `0166_grid_model_evaluation` (13 s), uprawnienia roli aplikacji zgodne. Wszystkie
+  4 lokalizacje gier mają manifest v17; przypisania Mumii, 777a2 i 777v2 zachowane.
+- Restart z `main`: API 8000 (`/api/v1/health` ok), Admin 3000 (`next dev`), build i
+  start Reviewera 3001, worker `general` (7 wątków) i lane `grid-training` z
+  interpreterem `.venv-vision-lab` z checkoutu C (parametr skryptu); oba lane mają
+  aktualny heartbeat w `worker_lane_runtime`, logi bez błędów.
+- Test na `main`: odczyty V3 API (wersje, domyślna, przypisania, kohorty, runy,
+  nagrania, historia, pomiary) dla Mumii i 777a2 — 200; sekcja „Geometria V3” w
+  Adminie renderuje się na danych operatora. Wykryto i naprawiono (v1.7.396):
+  panele prosiły o 100 kohort i 200 nagrań na stronę, ponad maksima API (50 i 100),
+  więc trening pokazywał błąd odczytu, a formularz kohorty brak nagrań; rozmiary
+  stron są stałymi sprawdzanymi testem z maksimami OpenAPI; po przeładowaniu
+  wszystkie odczyty 200. 17 testów worker, które w worktree padały środowiskowo,
+  na `main` przechodzi (17/17).
+- Nie wykonano: rzeczywistego treningu, publikacji ani aktywacji (decyzje operatora),
+  usunięcia worktree i gałęzi roboczej (osobna zgoda), trwałego ustawienia zmiennej
+  `GAME_PREDICTOR_GRID_TRAINING_PYTHON`.

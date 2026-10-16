@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1041 — Zdjęcia V3 bez przypisania plansz są jawne (done)
 
-- Plik: `ai_docs/tasks/completed/1041-v3-import-unbound-photos-visible.md`; zlecenie sesji operatora po imporcie 777a2 (staging `60a7bc4d`: 1962 z 2200 zdjęć `slot_binding_required` pominięte bez śladu). Commit **v1.7.388**.
+- Plik: `ai_docs/tasks/completed/1041-v3-import-unbound-photos-visible.md`; zlecenie sesji operatora po imporcie 777a2 (staging `60a7bc4d`: 1962 z 2200 zdjęć `slot_binding_required` pominięte bez śladu). Commit **v1.7.388 / `c93eb54e9e64c315306defb1d18d64d51a18f959`**.
 - Polityka wiązania bez zmian. Preflight raportu podaje `neuralUnboundSourceCount` i plansze zakresów; start bez potwierdzenia dokładnej liczby → 409 `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED` (także replay). Worker zapisuje raport `data/image-import-unbound-sources/{jobId}.json` i `progress.neuralUnboundSources`. Admin: ostrzeżenie, „Przypisz plansze ręcznie”, checkbox „Importuj bez tych N zdjęć”, wiersz „Pominięte bez przypisania plansz” w liście importów.
 - 207 testów API/workera, 83 klienta, 738 Admina PASS; ruff, mypy --strict, typecheck Admina PASS. Bez migracji; po scaleniu restart API, workera i Admina.
 

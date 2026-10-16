@@ -148,7 +148,7 @@ npm run typecheck --workspace @game-predictor/admin
 
 ## Outcome
 
-Commit: v1.7.388 (hash dopisuje kolejny commit).
+Commit: v1.7.388 / `c93eb54e9e64c315306defb1d18d64d51a18f959`.
 
 Wykonawca: Claude Opus 5.5 (sesja poboczna sesji operatora). Bez audytu
 krzyżowego (task poza planem; audyty zawieszone przez operatora).

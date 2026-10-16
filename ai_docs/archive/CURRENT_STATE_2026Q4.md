@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1001 — Odbiór procesu i instrukcja operatora (done)
 
-- Plik: [1001-v3-grid-fine-tuning-acceptance.md](../tasks/completed/1001-v3-grid-fine-tuning-acceptance.md); commit **v1.7.393** na `codex/v3-grid-fine-tuning`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (P0 status/stop lane GPU, P1 opis zapisów automatycznych ponownego rozpoznania, P2 opis poleceń), jedna runda poprawek, R2 PASS bez uwag.
+- Plik: [1001-v3-grid-fine-tuning-acceptance.md](../tasks/completed/1001-v3-grid-fine-tuning-acceptance.md); commit **v1.7.393 / `161751ec1987256544ee7ea3ce9157ba1c1efcff`** na `codex/v3-grid-fine-tuning`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (P0 status/stop lane GPU, P1 opis zapisów automatycznych ponownego rozpoznania, P2 opis poleceń), jedna runda poprawek, R2 PASS bez uwag.
 - Wynik: test odbioru całego procesu (korekta → kohorta → trening GPU → ocena → publikacja → aktywacja → restart) PASS w 464 s; usterka bramki eksportu ONNX naprawiona (D-561); testy nieaktualne po migracjach V3 poprawione, w tym 16 konsumentów manifestu i 6 testów bramki jobów; lane `grid-training` w `manage_worker_lanes.ps1`; instrukcja operatora i raport odbioru.
 - Weryfikacja: API 3261 PASS, worker 3040 PASS i 17 środowiskowych, Admin 772/772 i 281/291 jak HEAD380, Reviewer 279/279, PostgreSQL po poprawkach 236 PASS i 1 FAIL — znana usterka `reset_game` sprzed V3 (osobne zadanie).
 

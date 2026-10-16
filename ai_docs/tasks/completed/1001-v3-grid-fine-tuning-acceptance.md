@@ -123,7 +123,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 ### Execution phase
 
-- Commit: v1.7.393 (hash dopisuje kolejny commit).
+- Commit: v1.7.393 / `161751ec1987256544ee7ea3ce9157ba1c1efcff`.
 - Wykonano 2026-10-16: Claude Code `claude-opus-5-5`/`high`, baza v1.7.392 / `eb2126294ef4854634c434d46b0573b2bba8c34a` (gałąź po scaleniu `main` v1.7.385 w v1.7.391), branch `codex/v3-grid-fine-tuning`, worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Kontrakt przed kodem w Technical notes. Bez migracji i zmian API; jedna poprawka kodu produkcyjnego (D-561, eksport ONNX), reszta to testy, skrypt lane i dokumentacja.
 - Audyt R1: Codex `gpt-6-astra`/`medium`, limit 2400 s — [raport R1](../../quality/TASK-1001_AUDIT_gpt-6-astra_R1.md), werdykt REVISE: P0-1 (status i stop lane GPU zależne od interpretera bieżącego wywołania), P1-1 (instrukcja: ponowne rozpoznanie także zapisuje automatycznie), P2-1 (opis `workers:start`). Jedna runda poprawek poniżej.

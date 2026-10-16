@@ -54,7 +54,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
+- **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
 - **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md
 - **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / `9bf3a4b9` — tasks/completed/1006-shared-grid-model-candidate.md
 - **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / 88b2ab82 — tasks/completed/0997-grid-model-evaluation.md

@@ -507,6 +507,9 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         ImageSelectionPurpose,
     )
     from game_predictor_api.application.jobs import _baseline_grid_profile_snapshot
+    from game_predictor_api.domain.symbol_model_snapshots import (
+        cold_start_unclassified_symbol_snapshot,
+    )
     from test_managed_reprocess_evidence import NOW
 
     value = proposal(4)
@@ -569,7 +572,28 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         "game_predictor_api.application.jobs.ManagedGridEngineModelStore.require",
         lambda *_: None,
     )
-    jobs = JobService(repository, artifact_root=tmp_path, grid_profile_snapshot_resolver=grid)
+    expected_game_id = game_id
+
+    def unavailable_symbols(*, game_id):
+        assert game_id == expected_game_id
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError("SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED", "Use own-game cold start.")
+
+    symbols = SimpleNamespace(
+        resolve=unavailable_symbols,
+        resolve_unclassified_cold_start=lambda *, game_id: (
+            cold_start_unclassified_symbol_snapshot(("OWN_GAME_FIRST", "OWN_GAME_SECOND"))
+            if game_id == expected_game_id
+            else None
+        ),
+    )
+    jobs = JobService(
+        repository,
+        artifact_root=tmp_path,
+        grid_profile_snapshot_resolver=grid,
+        symbol_model_snapshot_resolver=symbols,
+    )
     assert (
         jobs.get_page_geometry_preflight_by_source_selection(
             game_id=game_id,

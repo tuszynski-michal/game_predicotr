@@ -57,8 +57,7 @@ def lifecycle_database() -> Iterator[Engine]:
     )
     recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
-        recording_capability_fixture.record_created_database(connection)
+        recording_capability_fixture.create_database(connection)
     try:
         recording_capability_fixture.provision()
         command.upgrade(config, "head")
@@ -262,6 +261,38 @@ def test_restartable_provision_and_delete_keep_other_game_isolated(
     assert games == {second}
     assert locations == {second}
     assert second_partition_count == len(CREATE_TABLES)
+
+
+def test_archived_game_preview_is_read_only_on_the_current_runtime_manifest(
+    lifecycle_database: Engine,
+) -> None:
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[4] / "scripts" / "delete_archived_v2_game.py"
+    spec = importlib.util.spec_from_file_location("archive_preview_1018", path)
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    archived, kept = uuid4(), uuid4()
+    for game, code in ((archived, "preview-archived"), (kept, "preview-kept")):
+        _insert_game(lifecycle_database, game, code)
+        _run_to_done(lifecycle_database, game, GamePartitionLifecycleKind.PROVISION)
+    with lifecycle_database.begin() as connection:
+        connection.execute(
+            text("UPDATE public.games SET status='archived' WHERE id=:id"), {"id": archived}
+        )
+    with Session(lifecycle_database) as session, session.begin():
+        session.execute(text("SET TRANSACTION READ ONLY"))
+        before = session.execute(text("SELECT id,status FROM public.games ORDER BY id")).all()
+        preview = script.build_preview(session, archived)
+        assert preview["blockers"] == []
+        assert preview["partitions"]["existing"] == len(CREATE_TABLES)
+        assert preview["confirmation"] == f"DELETE GAME preview-archived {archived}"
+        other = script.build_preview(session, kept)
+        assert [entry["code"] for entry in other["blockers"]] == ["GAME_NOT_ARCHIVED"]
+        assert (
+            session.execute(text("SELECT id,status FROM public.games ORDER BY id")).all() == before
+        )
 
 
 def test_archived_game_deletion_script_previews_and_deletes_only_that_game(

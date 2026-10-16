@@ -10,6 +10,8 @@ bind every data-plane transaction to one game.
 """
 
 import os
+import re
+import sys
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -64,6 +66,7 @@ from sqlalchemy.orm import Session, sessionmaker
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
+LAST_GAME_CREATE_RETENTION_REVISION = "0158_new_game_v3_bootstrap"
 # 0123 (e4c49020) is the first migration whose downgrade always refuses
 # (GAME_DATA_V2_QUALIFICATION_CONSTRAINTS_DOWNGRADE_UNSUPPORTED); everything
 # up to 0122 must still downgrade to an empty database.
@@ -105,7 +108,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _quoted_identifier(identifier: str) -> str:
-    if identifier != TEST_DATABASE_NAME:
+    if not re.fullmatch(r"game_predictor_baseline_[0-9a-f]{12}_test", identifier):
         raise ValueError("Only the dedicated baseline test database may be managed.")
     return f'"{identifier}"'
 
@@ -128,22 +131,28 @@ def isolated_database() -> Iterator[URL]:
         isolation_level="AUTOCOMMIT",
         pool_pre_ping=True,
     )
-    test_database_url = _database_url(TEST_DATABASE_NAME)
-    identifier = _quoted_identifier(TEST_DATABASE_NAME)
+    name = f"game_predictor_baseline_{uuid4().hex[:12]}_test"
+    test_database_url = _database_url(name)
+    _quoted_identifier(name)
 
     recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.create_database(connection)
             recording_capability_fixture.provision()
         yield test_database_url
     finally:
-        with maintenance_engine.connect() as connection:
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-            recording_capability_fixture.cleanup(connection)
-        maintenance_engine.dispose()
+        original_error = sys.exception()
+        try:
+            if recording_capability_fixture.database_oid is not None:
+                with maintenance_engine.connect() as connection:
+                    recording_capability_fixture.drop_database(connection)
+        except Exception as cleanup_error:
+            if original_error is None:
+                raise
+            original_error.add_note(f"Owned baseline cleanup failed: {cleanup_error}")
+        finally:
+            maintenance_engine.dispose()
 
 
 def _current_revision(engine: Engine) -> str | None:
@@ -189,10 +198,26 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
         command.upgrade(config, "head")
         _assert_head_schema(engine)
 
-        # Everything above 0150 is reversible; 0150 and below retain management data.
+        # 0158 retains the game-create receipts even with an otherwise empty store.
         engine.dispose()
-        command.downgrade(config, LAST_MANAGEMENT_RETENTION_REVISION)
-        assert _current_revision(engine) == LAST_MANAGEMENT_RETENTION_REVISION
+        command.downgrade(config, LAST_GAME_CREATE_RETENTION_REVISION)
+        assert _current_revision(engine) == LAST_GAME_CREATE_RETENTION_REVISION
+        with pytest.raises(Exception, match="GAME_CREATE_DOWNGRADE_REFUSED"):
+            command.downgrade(config, "-1")
+        assert _current_revision(engine) == LAST_GAME_CREATE_RETENTION_REVISION
+        command.upgrade(config, "head")
+        _assert_head_schema(engine)
+
+        # The management boundary is tested on a separate historical own database.
+    finally:
+        engine.dispose()
+
+
+def test_management_retention_boundary_and_reupgrade(isolated_database: URL) -> None:
+    config = _migration_config(isolated_database)
+    engine = create_engine(isolated_database, pool_pre_ping=True)
+    try:
+        command.upgrade(config, LAST_MANAGEMENT_RETENTION_REVISION)
         with pytest.raises(Exception, match="Management links and their audit must be retained"):
             command.downgrade(config, "-1")
         engine.dispose()

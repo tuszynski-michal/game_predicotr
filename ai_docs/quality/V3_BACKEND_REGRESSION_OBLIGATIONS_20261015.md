@@ -219,3 +219,66 @@ w instrukcji wdrożenia. R2-P2-3 journals zachowano świadomie jako dowody.
 Literalne pełne db:baseline:verify nadal nie zostało zaliczone; odpowiednik
 partiami nie daje takiego twierdzenia. Dalsze dowody i poprawki mają osobny
 task/audyt/commit przed odbiorem całego planu.
+
+## TASK1018 — rozstrzygnięcie admission przed korektą testu
+
+Własny izolowany PG potwierdził konkretną przyczynę wcześniejszego locking
+kontraktu: pierwszy bulk job pozostaje CREATED, więc nowy command tej samej
+gry do niezależnej komórki otrzymuje `GAME_JOB_ADMISSION_CONFLICT` i wskazuje
+właściwy `existingJobId` przed target INSERT. D-551/0999 świadomie obejmuje
+także bulk→bulk w tej samej grze. Nie zmieniamy tej polityki, aby odtworzyć
+dawne równoległe dopuszczenie. Dowody wykonawcy:
+`artifacts/audits/TASK-1018/pg-locking-red.safe.txt` i
+`pg-locking-cause-green.safe.txt`; oryginalne3 event-wait FAIL zachowane.
+
+Root zatwierdził przed korektą testu następujący kontrakt: przy trzymanym board
+lock drugi nowy command odmawia admission bez deadlock; po zakończeniu pracy
+i rzeczywistym terminalnym pierwszym jobie niezależny start jest dozwolony,
+a stare explicit/filter targets nadal mają właściwe stale rejection.
+Zachować5s, idempotentny replay, brak duplikatów i asercje efektów pierwszego
+workera. Nie oznaczać aktywnego joba jako zakończonego tylko dla testu, nie
+omijać admission i nie wydłużać timeoutów. Test zmienia się ze względu na
+przyjęty kontrakt, a nie dla uzyskania zielonego wyniku. Wyniki korekty i
+niezależnego audytu pozostają do wykonania; obecny wpis ich nie deklaruje.
+
+Analogiczny exact publication fixture po aktywacji próbował utworzyć drugi
+VALIDATE/page_geometry_preflight przy pierwszym nadal PROCESSING. Własny PG
+potwierdził `GAME_JOB_ADMISSION_CONFLICT`. Root zatwierdził przed korektą
+zachowanie dowodu niezmiennego pinu PROCESSING po aktywacji, rzeczywiste
+`store.complete` z prawidłowym lease, a dopiero potem nowy preflight i nowy
+pin. Końcowe bytepin/replay pozostają; pierwszy job ma stan COMPLETED.
+To zgodność ze świadomie zmienionym D-551, bez zmiany aktywacji lub admission.
+Poprawka samego testu nie jest jeszcze zaliczonym nowym wynikiem.
+
+## TASK1018 — weryfikacja techniczna przed niezależnym R1
+
+Zamrożony manifest `artifacts/audits/TASK-1018_IMPLEMENTATION_EVIDENCE.json`,
+SHA `ad548c653c2ade96e5684f5c2d5d3e397350aa919f8da164e5704f7a1d323a85`,
+rozlicza dokładnie24 powyższe nodeIDs jako PASS. Zestawy dodatkowe obejmują
+unit111PASS/1SKIP, engine11PASS, locking5PASS, historyczne acceptance9PASS,
+aktualny helper actualPG, historical guards i preview READ ONLY. Nakładających
+się grup nie sumujemy. Ruff/format39, scoped mypy silent9 oraz DOC/MAP/diff
+zaliczone.44 własne pliki i157 bezpiecznych kopii mają SHA;6 zmian leada
+jest odrębną metadokumentacją. Lead weryfikuje kompletność przed audytem.
+
+Oryginalne FAIL i przerwane próby pozostają, w tym publication bodyPASS z
+teardownERROR, a późniejszy terminalny PASS ma osobny receipt. Odczyt cleanup
+potwierdza39 własnych DB/55 ról nieobecnych oraz0 aktywnych połączeń i własnych
+PID. Dwa najwcześniejsze nieudowodnione TEMP zachowano; ograniczenie w Outcome.
+Destrukcyjnego archive node nie uruchamiano, jego asercji nie usuwano. Nie
+uruchamiano pięciu workloads ani pełnych macierzy614/473. Istniejący niezależny
+reset i SuperGame UI baseline pozostają poza zakresem. Nie jest to pełny PASS
+repozytorium ani jeszcze werdykt niezależnego audytora. R1 i commit pozostają
+do wykonania; historycznych raportów nie zmieniono.
+
+
+## Zamknięcie korekty1018 — 2026-10-16
+
+Claude high R1 PASS678.683s, brak P0/P1. Wszystkie24 wskazane nodeIDs mają
+terminalny PASS we właściwym trybie; historyczne czerwone/przerwane próby
+pozostają zachowane. Engine11/locking5/baseline2 i actual-role kontrole PASS.
+Nowy provisioning helper i runner nie stanowią dowodu rzeczywistych workloadów
+pięciu narzędzi. Korekta P2 cancellation zachowuje pierwotny wyjątek (31PASS).
+Pełne rozliczenie i zachowane ograniczenia: [odpowiedź Codex](TASK-1018_RESPONSE_CODEX.md).
+Stare pełne macierze, reset/SuperGame UI FAIL i niewykonany destrukcyjny archive
+node pozostają jawne. Nie przerabiamy ich historii na pełny PASS.

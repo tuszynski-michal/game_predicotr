@@ -20,6 +20,7 @@ from uuid import UUID, uuid4
 import pytest
 from _application_role_database import application_role_database
 from fastapi.testclient import TestClient
+from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.database import (
@@ -34,6 +35,10 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageRoutingError,
     current_game_storage_scope,
     game_storage_scope,
+)
+from game_predictor_api.storage.grid_model_registry import (
+    GridModelArtifactInspector,
+    SqlAlchemyGridModelRegistryRepository,
 )
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
@@ -432,6 +437,23 @@ def test_api_starts_and_creates_a_game_on_the_application_role(
         import_root=(tmp_path / "imports").resolve(),
     )
     assert settings.uses_separate_owner_role
+    # This owned catalogue uses tiny checksum-valid fixture bytes and real storage.
+    # It proves application-role publication/create wiring, never model quality.
+    from test_grid_model_publication_and_activation import execute, seed_report
+    from test_grid_model_registry import candidate
+
+    payload = candidate(settings.artifact_root)
+    payload["cohortId"] = str(uuid4())
+    with Session(isolated.app_engine) as session:
+        registry = GridModelRegistryService(
+            SqlAlchemyGridModelRegistryRepository(session),
+            GridModelArtifactInspector(settings.artifact_root),
+        )
+        registry.register(uuid4(), payload)
+        report_id = seed_report(session, payload, [isolated.game_a])
+        execute(registry, "publish", payload["versionId"], evaluation=report_id)
+        execute(registry, "set_default", payload["versionId"])
+        session.commit()
     runtime_engine = create_database_engine(settings)
     try:
         require_alembic_head(runtime_engine)
@@ -446,7 +468,12 @@ def test_api_starts_and_creates_a_game_on_the_application_role(
             assert {"t0795-a", "t0795-b"} <= {item["code"] for item in listed.json()}
             created = client.post(
                 "/api/v1/admin/games",
-                json={"code": "t0795-new", "name": "T0795 new", "expectedLayoutCount": 1000},
+                json={
+                    "idempotencyKey": str(uuid4()),
+                    "code": "t0795-new",
+                    "name": "T0795 new",
+                    "expectedLayoutCount": 1000,
+                },
             )
             assert created.status_code == 201, created.text
             body = created.json()
@@ -459,6 +486,18 @@ def test_api_starts_and_creates_a_game_on_the_application_role(
     # The partitions were created by the schema owner, the application role
     # owns nothing, and the default rollout policy row exists.
     with isolated.owner_engine.connect() as connection:
+        assert (
+            str(
+                connection.scalar(
+                    text(
+                        "SELECT version_id FROM public.game_grid_model_assignments "
+                        "WHERE game_id=:game"
+                    ),
+                    {"game": new_game},
+                )
+            )
+            == payload["versionId"]
+        )
         owners = {
             str(owner)
             for (owner,) in connection.execute(

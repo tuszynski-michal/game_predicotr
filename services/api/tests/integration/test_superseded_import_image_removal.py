@@ -101,8 +101,7 @@ def database() -> Iterator[Engine]:
     recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
-        connection.execute(text(f"CREATE DATABASE {_quote(name)}"))
-        recording_capability_fixture.record_created_database(connection)
+        recording_capability_fixture.create_database(connection)
     try:
         recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
@@ -115,9 +114,7 @@ def database() -> Iterator[Engine]:
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.execute(text(f"DROP DATABASE {_quote(name)}"))
-            recording_capability_fixture.cleanup(connection)
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 

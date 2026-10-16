@@ -96,7 +96,19 @@ def execution(database, tmp_path, *, legacy=False, missing=False):
     with game_storage_scope(game), factory.begin() as session:
         job = session.get(JobModel, seed.import_job_id)
         source = session.get(SourceImageModel, seed.source_image_id)
-        revision = session.scalar(select(ImageSourceGeometryRevisionModel))
+        revision = session.scalar(
+            select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game,
+                ImageSourceGeometryRevisionModel.source_image_id == seed.source_image_id,
+            )
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+        )
+        assert revision.game_id == game and revision.source_image_id == seed.source_image_id, (
+            f"Fixture selected game/source {revision.game_id}/{revision.source_image_id}; "
+            f"intended {game}/{seed.source_image_id}"
+        )
         job.status = "processing"
         job.lease_token, job.lease_owner = token, "task1017"
         job.started_at, job.heartbeat_at, job.lease_expires_at = (
@@ -110,7 +122,12 @@ def execution(database, tmp_path, *, legacy=False, missing=False):
             "neural_grid_proposal": snapshot.to_payload(),
             **({} if legacy else {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY: V3_ENGINE_ACCEPTANCE_POLICY}),
         }
-        for pending in session.scalars(select(ImageBoardGeometryPendingModel)):
+        for pending in session.scalars(
+            select(ImageBoardGeometryPendingModel).where(
+                ImageBoardGeometryPendingModel.game_id == game,
+                ImageBoardGeometryPendingModel.source_image_id == seed.source_image_id,
+            )
+        ):
             if not missing or pending.position_index == 0:
                 pending.status = "superseded"
                 pending.superseded_at = now
@@ -210,17 +227,40 @@ def snapshot_state(factory, game, seed):
     with game_storage_scope(game), factory() as session:
         revision = session.scalar(
             select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game,
+                ImageSourceGeometryRevisionModel.source_image_id == seed.source_image_id,
+            )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)
         )
-        boards = session.scalars(select(RecognizedBoardModel)).all()
+        boards = session.scalars(
+            select(RecognizedBoardModel).where(
+                RecognizedBoardModel.source_image_id == seed.source_image_id,
+            )
+        ).all()
         assert all(
             board.approved_geometry_revision is None and board.geometry_approved_by is None
             for board in boards
         )
         cells = session.scalars(
-            select(ImageSymbolReviewCellModel).order_by(ImageSymbolReviewCellModel.id)
+            select(ImageSymbolReviewCellModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
+            )
+            .where(
+                ImageSymbolReviewCellModel.game_id == game,
+                RecognizedBoardModel.source_image_id == seed.source_image_id,
+            )
+            .order_by(ImageSymbolReviewCellModel.id)
         ).all()
+        assert all(
+            cell.game_id == game and cell.import_job_id == seed.import_job_id for cell in cells
+        ), (
+            f"Snapshot intended {game}/{seed.import_job_id}; selected "
+            f"{sorted({(str(cell.game_id), str(cell.import_job_id)) for cell in cells})}"
+        )
         return (
             revision.status,
             revision.created_by,
@@ -271,18 +311,26 @@ def test_persisted_conflicts_block_acceptance_without_changing_payload(database,
         source = session.get(SourceImageModel, seed.source_image_id)
         revision = session.scalar(
             select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game,
+                ImageSourceGeometryRevisionModel.source_image_id == seed.source_image_id,
+            )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)
         )
         board = session.scalar(
-            select(RecognizedBoardModel).order_by(RecognizedBoardModel.position_index).limit(1)
+            select(RecognizedBoardModel)
+            .where(RecognizedBoardModel.source_image_id == seed.source_image_id)
+            .order_by(RecognizedBoardModel.position_index)
+            .limit(1)
         )
         if fault == "model":
             job.input_payload = {**job.input_payload, "neural_grid_proposal": {"drift": True}}
         elif fault == "owner":
             item = session.scalar(
                 select(ImageReviewItemModel).where(
-                    ImageReviewItemModel.recognized_board_id == board.id
+                    ImageReviewItemModel.game_id == game,
+                    ImageReviewItemModel.recognized_board_id == board.id,
                 )
             )
             item.sequence_number = 999
@@ -294,14 +342,20 @@ def test_persisted_conflicts_block_acceptance_without_changing_payload(database,
         elif fault in ("grid_issue", "stale_issue"):
             cell = session.scalar(
                 select(ImageSymbolReviewCellModel)
-                .where(ImageSymbolReviewCellModel.recognized_board_id == board.id)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game,
+                    ImageSymbolReviewCellModel.recognized_board_id == board.id,
+                )
                 .limit(1)
             )
             cell.quality_issue = "grid_issue"
             if fault == "stale_issue":
                 cell.source_geometry_revision_id = session.scalar(
                     select(ImageSourceGeometryRevisionModel.id)
-                    .where(ImageSourceGeometryRevisionModel.source_image_id == source.id)
+                    .where(
+                        ImageSourceGeometryRevisionModel.game_id == game,
+                        ImageSourceGeometryRevisionModel.source_image_id == source.id,
+                    )
                     .order_by(ImageSourceGeometryRevisionModel.revision)
                     .limit(1)
                 )
@@ -323,7 +377,14 @@ def test_current_grid_issue_survives_cold_retry_and_removes_engine_acceptance(da
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
     with game_storage_scope(game), factory.begin() as session:
-        cell = session.scalar(select(ImageSymbolReviewCellModel).limit(1))
+        cell = session.scalar(
+            select(ImageSymbolReviewCellModel)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game,
+                ImageSymbolReviewCellModel.import_job_id == seed.import_job_id,
+            )
+            .limit(1)
+        )
         cell.quality_issue = "grid_issue"
     before = snapshot_state(factory, game, seed)
     with game_storage_scope(game):

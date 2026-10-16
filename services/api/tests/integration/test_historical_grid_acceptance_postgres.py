@@ -17,6 +17,10 @@ from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.storage import game_data_v2_manifest_v7, game_partition_lifecycle
 from game_predictor_api.storage import grid_engine_acceptance_repository as acceptance
+from game_predictor_api.storage.database_roles import (
+    ApplicationRoleSpec,
+    provision_application_role,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.grid_engine_acceptance_models import (
     HistoricalGridAcceptanceOperationModel as Operation,
@@ -35,7 +39,7 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 from game_predictor_worker.images.pipeline_store import SqlAlchemyImagePipelineStore
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import make_url
 from test_v3_engine_acceptance_postgres import execution
 from test_virtual_deferred_resolution_postgres import _provision_game, _seed
@@ -63,11 +67,11 @@ def database():
     )
     recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
-        recording_capability_fixture.record_created_database(connection)
+        recording_capability_fixture.create_database(connection)
     try:
         recording_capability_fixture.provision()
-        command.upgrade(config, "head")
+        # Reach this migration's own reversible empty-history boundary directly.
+        command.upgrade(config, "0155_historical_grid_acceptance")
         # A no-history down/up is verified before application-role use.
         command.downgrade(config, "0154_geometry_correction_revert")
         with patch.multiple(
@@ -78,7 +82,13 @@ def database():
         ):
             _provision_game(engine, "task1008-migration-existing")
         command.upgrade(config, "head")
-        yield SimpleNamespace(engine=engine, config=config, url=rendered)
+        role = "historical_" + uuid4().hex[:12]
+        with engine.begin() as connection:
+            recording_capability_fixture.create_runtime_role(connection, role)
+            provision_application_role(
+                connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
+            )
+        yield SimpleNamespace(engine=engine, config=config, url=rendered, role=role)
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
@@ -86,9 +96,7 @@ def database():
                 text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"), {"name": name}
             ).scalar_one()
             assert active == 0, "Refusing to drop a database with open connections"
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
-            recording_capability_fixture.cleanup(connection)
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
         receipt.write_text(
             json.dumps({"database": name, "created_by": "TASK-1008", "cleaned": True}),
@@ -97,7 +105,19 @@ def database():
 
 
 def historical(database, tmp_path, *, missing=False):
-    game, factory, seed, candidate, stages = execution(database, tmp_path, missing=missing)
+    from test_virtual_deferred_resolution_postgres import _factory
+
+    def application_factory(engine):
+        factory = _factory(engine)
+
+        def use_role(_session, _transaction, connection):
+            connection.exec_driver_sql(f'SET LOCAL ROLE "{database.role}"')
+
+        event.listen(factory, "after_begin", use_role)
+        return factory
+
+    with patch("test_v3_engine_acceptance_postgres._factory", application_factory):
+        game, factory, seed, candidate, stages = execution(database, tmp_path, missing=missing)
     root = tmp_path / "artifacts"
     with game_storage_scope(game), factory.begin() as session:
         job = session.get(JobModel, seed.import_job_id)

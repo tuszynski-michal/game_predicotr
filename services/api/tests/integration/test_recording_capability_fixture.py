@@ -242,6 +242,159 @@ def test_cleanup_without_successful_create_receipt_never_touches_existing_databa
     assert connection.queries == connection.drops == []
 
 
+def test_database_collision_is_rejected_before_create_or_cleanup() -> None:
+    holder = capability_fixture.OwnedRecordingCapability(
+        make_url("postgresql+psycopg://owner@localhost/owned_test")
+    )
+    connection = _Connection(False)
+    with pytest.raises(AssertionError, match="adopt an existing"):
+        holder.create_database(cast(Connection, connection))
+    assert holder.database_oid is None and not connection.drops
+
+
+def test_failed_create_keeps_original_error_without_an_ownership_receipt() -> None:
+    holder = capability_fixture.OwnedRecordingCapability(
+        make_url("postgresql+psycopg://owner@localhost/owned_test")
+    )
+
+    class RefusingConnection(_Connection):
+        def exec_driver_sql(self, statement: str) -> None:
+            assert statement.startswith("CREATE DATABASE")
+            raise RuntimeError("original CREATE refusal")
+
+    connection = RefusingConnection(True)
+    with pytest.raises(RuntimeError, match="original CREATE refusal"):
+        holder.create_database(cast(Connection, connection))
+    assert holder.database_oid is None and not connection.drops
+
+
+@pytest.mark.parametrize(
+    "module_name,fixture_name",
+    [
+        ("test_postgres_baseline", "isolated_database"),
+        ("test_image_batch_store", "isolated_image_batch_database"),
+        ("test_symbol_review_query_cancellation", "_own_empty_database"),
+    ],
+)
+def test_fixture_failed_create_does_not_reconnect_or_mask_original_error(
+    monkeypatch: pytest.MonkeyPatch,
+    module_name: str,
+    fixture_name: str,
+) -> None:
+    import importlib
+
+    module = importlib.import_module(module_name)
+
+    class Engine:
+        connects = 0
+        disposed = False
+
+        def connect(self):
+            self.connects += 1
+            assert self.connects == 1, "Cleanup must not reconnect after failed CREATE"
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def dispose(self):
+            self.disposed = True
+
+    engine = Engine()
+
+    original_error = RuntimeError("original fixture CREATE refusal")
+
+    def failed_create(connection):
+        raise original_error
+
+    owned = SimpleNamespace(database_oid=None, create_database=failed_create)
+    monkeypatch.setattr(module, "create_engine", lambda *args, **kwargs: engine)
+    monkeypatch.setattr(module, "OwnedRecordingCapability", lambda url: owned)
+    monkeypatch.setattr(
+        module,
+        "_database_url",
+        lambda name: make_url("postgresql+psycopg://owner@localhost/owned_test").set(database=name),
+        raising=False,
+    )
+    with pytest.raises(RuntimeError, match="original fixture CREATE refusal") as caught:
+        next(getattr(module, fixture_name).__wrapped__())
+    assert caught.value is original_error
+    assert engine.connects == 1 and engine.disposed
+
+
+@pytest.mark.parametrize("failure_phase", ["create", "body", None])
+@pytest.mark.parametrize("cleanup_stage", ["drop", "dispose"])
+def test_cancellation_fixture_preserves_original_error_when_cleanup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    failure_phase: str | None,
+    cleanup_stage: str,
+) -> None:
+    import test_symbol_review_query_cancellation as cancellation
+
+    original_error = RuntimeError(f"original fixture {failure_phase} failure")
+    cleanup_error = RuntimeError(f"owned {cleanup_stage} refusal")
+    drops: list[object] = []
+
+    class Engine:
+        connects = 0
+        disposed = False
+
+        def connect(self):
+            self.connects += 1
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def dispose(self):
+            self.disposed = True
+            if cleanup_stage == "dispose":
+                raise cleanup_error
+
+    engine = Engine()
+    owned = SimpleNamespace(database_oid=None)
+
+    def create_database(connection):
+        # Setup can fail after successful CREATE has established an ownership receipt.
+        owned.database_oid = 42
+        if failure_phase == "create":
+            raise original_error
+
+    def drop_database(connection):
+        drops.append(connection)
+        if cleanup_stage == "drop":
+            raise cleanup_error
+
+    owned.create_database = create_database
+    owned.drop_database = drop_database
+    monkeypatch.setattr(cancellation, "create_engine", lambda *args, **kwargs: engine)
+    monkeypatch.setattr(cancellation, "OwnedRecordingCapability", lambda url: owned)
+    monkeypatch.setattr(
+        cancellation,
+        "ApiSettings",
+        SimpleNamespace(
+            from_environment=lambda: SimpleNamespace(
+                owner_database_url="postgresql+psycopg://owner@localhost/owned_test"
+            )
+        ),
+    )
+    expected_error = cleanup_error if failure_phase is None else original_error
+    with pytest.raises(RuntimeError) as caught, cancellation._own_empty_database():
+        if failure_phase == "body":
+            raise original_error
+    assert caught.value is expected_error
+    if failure_phase is not None:
+        assert any(str(cleanup_error) in note for note in original_error.__notes__)
+    assert drops == [engine]
+    assert engine.connects == 2 and engine.disposed
+
+
 def test_cleanup_evidence_io_cannot_mask_original_test_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

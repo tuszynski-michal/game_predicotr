@@ -64,7 +64,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/application/` (95 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (78 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (53 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (141 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (142 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (369 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (97 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (372 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (98 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -276,7 +276,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (165 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (166 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -303,7 +303,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `rebuild_*` (2): `rebuild_board_search_projection.py`, `rebuild_symbol_cell_reviews.py`
 - `reconcile_*` (2): `reconcile_followup_777_board_positions.py`, `reconcile_partial_board_symbol_review.py`
 - `review_*` (5): `review_m5_cell_grid.py`, `review_m5_local_grid_calibration.py`, `review_m5_symbol_grid_fallbacks.py` (+2)
-- `run_*` (36): `run_android_device_acceptance.ps1`, `run_board_cell_geometry_shadow_benchmark.py`, `run_concurrent_worker_lane_acceptance.py` (+33)
+- `run_*` (37): `run_android_device_acceptance.ps1`, `run_board_cell_geometry_shadow_benchmark.py`, `run_concurrent_worker_lane_acceptance.py` (+34)
 - `select_*` (2): `select_local_image_folder.ps1`, `select_m6_symbol_model_candidate.py`
 - `setup_*` (3): `setup_android_toolchain.ps1`, `setup_remote_reviewer_tunnel.ps1`, `setup_vision_lab.ps1`
 - `start_*` (8): `start_controlled_api.ps1`, `start_controlled_image_selection.ps1`, `start_controlled_image_selection_rerun.ps1` (+5)

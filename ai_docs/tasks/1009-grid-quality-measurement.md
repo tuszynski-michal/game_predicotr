@@ -20,7 +20,7 @@ Task jest częścią zaakceptowanej rewizji 6. Dobór próby i interpretacja wyn
 
 ## Dependencies / entry conditions
 
-- TASK-1010, TASK-0993, TASK-1002; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
+- TASK-1010, TASK-0993, TASK-1002 i korekta kompatybilności TASK-1018; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
 
 - Zgoda na implementację nie zastępuje zgód operacyjnych wymaganych w tym tasku. Proponowane decyzje D-548–D-552 wymagają udokumentowanego przyjęcia przed zależną zmianą zachowania.
 

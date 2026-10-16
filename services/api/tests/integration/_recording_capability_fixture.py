@@ -7,7 +7,7 @@ import os
 import re
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -41,6 +41,7 @@ class RuntimeRoleReceipt:
     role: str
     role_oid: int
     created_here: bool
+    marker: str | None = None
 
 
 def provision_recording_capability_receipt(connection: Connection) -> RecordingCapabilityReceipt:
@@ -183,6 +184,7 @@ class OwnedRecordingCapability:
                 "name": runtime.role,
                 "oid": runtime.role_oid,
                 "createdHere": runtime.created_here,
+                **({"marker": runtime.marker} if runtime.marker is not None else {}),
             },
         }
         temporary = destination.with_name(destination.name + "." + uuid4().hex + ".pending")
@@ -207,10 +209,49 @@ class OwnedRecordingCapability:
         )
         try:
             self._journal("database_created")
-        except (OSError, ValueError, AssertionError):
-            self.assert_database_identity(maintenance)
-            maintenance.exec_driver_sql(f'DROP DATABASE "{self.database_url.database}"')
+        except (OSError, ValueError, AssertionError) as error:
+            try:
+                self.assert_database_identity(maintenance)
+                maintenance.exec_driver_sql(f'DROP DATABASE "{self.database_url.database}"')
+            except Exception as cleanup_error:
+                error.add_note(f"Own empty fixture database cleanup failed: {cleanup_error}")
+            else:
+                self.database_oid = None
             raise
+
+    def create_database(self, maintenance: Connection) -> None:
+        """Never adopt or remove a colliding database, including failed CREATE."""
+        assert self.database_oid is None, "Fixture already owns a database"
+        assert maintenance.scalar(
+            text("SELECT NOT EXISTS(SELECT 1 FROM pg_database WHERE datname=:name)"),
+            {"name": self.database_url.database},
+        ), "Refusing to adopt an existing fixture database"
+        maintenance.exec_driver_sql(f'CREATE DATABASE "{self.database_url.database}"')
+        self.record_created_database(maintenance)
+
+    def drop_database(self, maintenance: Connection) -> None:
+        """Dispose clients first; retain exact identity and the final idle assertion."""
+        self.assert_database_identity(maintenance)
+        assert self.wait_for_owned_database_idle(maintenance) == 0, (
+            "Refusing DROP while a fixture connection remains"
+        )
+        maintenance.exec_driver_sql(f'DROP DATABASE "{self.database_url.database}"')
+        self.cleanup(maintenance)
+
+    def create_runtime_role(self, connection: Connection, role: str) -> None:
+        """Record a successful own role CREATE with an immutable cleanup marker."""
+        assert re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", role)
+        assert connection.scalar(
+            text("SELECT NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=:role)"),
+            {"role": role},
+        ), "Refusing to adopt an existing runtime role"
+        connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
+        marker = f"owned-fixture:{self.database_oid}:{self._journal_nonce}"
+        connection.exec_driver_sql(f"COMMENT ON ROLE \"{role}\" IS '{marker}'")
+        self.record_runtime_role(connection, role, created_here=True)
+        assert self.runtime_role_receipt is not None
+        self.runtime_role_receipt = replace(self.runtime_role_receipt, marker=marker)
+        self._journal("runtime_precommit")
 
     @classmethod
     def for_engine(cls, engine: Engine) -> OwnedRecordingCapability:
@@ -299,6 +340,17 @@ class OwnedRecordingCapability:
             )
             if oid is not None:
                 assert int(oid) == runtime.role_oid, "Refusing DROP of a replaced runtime role"
+                if runtime.marker is not None:
+                    assert (
+                        maintenance.scalar(
+                            text(
+                                "SELECT pg_catalog.shobj_description(oid,'pg_authid') "
+                                "FROM pg_roles WHERE rolname=:name"
+                            ),
+                            {"name": runtime.role},
+                        )
+                        == runtime.marker
+                    ), "Refusing DROP of a changed runtime role marker"
                 assert not maintenance.scalar(
                     text("""SELECT
                     EXISTS(SELECT 1 FROM pg_shdepend WHERE refclassid='pg_authid'::regclass
@@ -323,7 +375,8 @@ class OwnedRecordingCapability:
                 text("SELECT oid FROM pg_roles WHERE rolname=:name"), {"name": role}
             ).scalar_one()
         )
-        receipt = RuntimeRoleReceipt(role, oid, created_here)
+        marker = None if self.runtime_role_receipt is None else self.runtime_role_receipt.marker
+        receipt = RuntimeRoleReceipt(role, oid, created_here, marker)
         if self.runtime_role_receipt is not None:
             assert self.runtime_role_receipt == receipt, "Runtime role identity changed"
         self.runtime_role_receipt = receipt

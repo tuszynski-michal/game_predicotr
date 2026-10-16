@@ -9,6 +9,27 @@ TASK-1002 udostępnia deklaracje nagrań i prowizoryczną kwalifikację. Nie uru
 treningu, nie publikuje modelu i nie zmienia domyślnego przypisania. Chronione
 źródła laboratoryjne wymagają osobnej instalacji zaufanych metadanych.
 
+## Izolowane narzędzia testowe
+
+Pięć narzędzi tworzących własną bazę (`run_m4_import_acceptance`,
+`prepare_m34_device_candidate`, `run_concurrent_worker_lane_acceptance` oraz
+workerowe `load_benchmark` i `operations_benchmark`) korzysta z
+`OwnedToolDatabase`. Nazwa zawsze otrzymuje UUID. Helper sprawdza brak bazy,
+zapisuje skuteczny CREATE, OID i marker, provisionuje capability przed Alembic,
+a ograniczoną własną rolę aplikacji po migracji. Praca aplikacyjna używa
+runtime URL; owner pozostaje wyłącznie przy DDL i jawnym provisioningu.
+
+Po zamknięciu klientów cleanup wymaga identycznych OID/markerów i zerowej liczby
+połączeń. Usuwa tylko własną bazę oraz potwierdzone własne role bez zależności;
+nie stosuje FORCE, kończenia backendów, DROP OWNED ani REASSIGN. Kolizja lub
+nieudany CREATE nie uprawnia do adopcji istniejącego zasobu. Błąd cleanup nie
+maskuje pierwotnego błędu. Nieukończone receipts pozostają w helperze;
+kontrolowane ponowne `close(retry_cleanup=True)` ponownie weryfikuje te same
+tożsamości, bez automatycznej pętli. Jawne M4 `--keep-database` zachowuje zasób
+do osobnego rozliczenia. Zmiana narzędzi i mały test provisioningu nie oznaczają
+wykonania ani zaliczenia ich acceptance/benchmark workloadów. Uruchomienie
+benchmarku oraz operacje operatora nadal wymagają odrębnego polecenia.
+
 ## Wdrożenie
 
 Obecny profil migracji0161 wymaga połączenia Alembic z uprawnieniami

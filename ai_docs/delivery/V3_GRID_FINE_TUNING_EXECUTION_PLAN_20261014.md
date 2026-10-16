@@ -564,11 +564,24 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 - **Wynik wykonania:** v1.7.382 przygotowany; Claude high R2 PASS789.063s, brak P0/P1. Szersze zestawy mają jawne FAIL i24 niezweryfikowane nodeIDs; rejestr obowiązków wymaga osobnej korekty zgodności wcześniejszych pionów przed1001. Nie wykonano operacji operatora.
 
+### TASK-1018 — Zgodność narzędzi i regresji po zmianach V3
+
+- **Status:** `done`; konieczna korekta wcześniejszych pionów, zlecona w zakresie całego planu, po1002/przed1009. Baza v1.7.382 / `f0e457ea78b825063e460fcd0023b01e2cb27fd2`.
+- **Goal / Context:** Przywrócić zgodność manifestów, admission, historycznych fixture i narzędzi z obecnym head, bez poluzowania ochrony danych.
+- **Dependencies:** TASK-1002 done/Claude high R2 PASS; pełny [task1018](../tasks/completed/1018-v3-head-compatibility-regressions.md) zapisany przed kodem według TASK_TEMPLATE. Numer wolny po kontroli24 refs i fizycznych tasków; zgoda operatora na automatyczną numerację pozostaje.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; niezależny `claude-fable-5-1`, `high`, do1200s, ze względu na role/RLS i dane dowodowe.
+- **Relevant docs:** rejestr obowiązków V3, R2 TASK1002 P2-1/4/5, owner docs wskazane w pełnym tasku.
+- **Scope / Expected files:** Cztery stare unit fixtures, actual-role create/diagnostyka, baseline0158 i przypięte historyczne guardy, aktualny manifest archiwalnego preview, pięć acceptance/benchmark runnerów i24 dokładne wcześniej niezweryfikowane nodeIDs. Pełne ścieżki/symbole, testy i ograniczenia w tasku; hipotetyczne engine/locking przyczyny wymagają dowodu przed zmianą.
+- **Rozstrzygnięcie locking po dowodzie1018:** Własny PG potwierdził odmowę nowego niezależnego bulk command przy pierwszym jobie CREATED (`GAME_JOB_ADMISSION_CONFLICT`, właściwy `existingJobId`). To przyjęte D-551/0999, które zastępuje wcześniejsze założenie równoległego startu w tej samej grze. Przed korektą testów zapisujemy nowy kontrakt: podczas board lock jawna odmowa admission bez deadlock; po rzeczywistym terminalnym pierwszym jobie niezależny start albo dotychczasowe stale explicit/filter rejection. Zachować5s, replay, brak duplikatów i końcowe asercje. Bez zmiany guardu, sztucznego zakończenia aktywnego joba ani testowego obejścia admission udającego pełny workflow. Oryginalne3 FAIL pozostają dowodem wcześniejszego kontraktu, nie nowymi awariami modelu.
+- **Analogiczny publication proof przed korektą1018:** Test dwóch preflightów ma najpierw zachować dowód, że aktywacja nie zmienia pinu pierwszego PROCESSING joba. Następnie kończy ten job przez prawdziwe `store.complete` z ważnym lease i dopiero tworzy drugi job z nowym pinem. Oba piny/replay nadal sprawdzamy; pierwszy job kończy jako COMPLETED. Nie utrzymujemy sprzecznego z D-551 równoległego nowego startu, nie omijamy admission i nie zmieniamy produkcyjnej aktywacji.
+- **Acceptance:** Rzeczywiste201/RLS, zachowane admission/sequence/symbol isolation i historyczne guardy, capability przed head, własny cleanup i trwałe wyniki. Bez zmiany polityki0158, osłabienia asercji, benchmarków lub operatorops.
+- **Verification / Outcome:** Implementacja i scoped kontrole zakończone:24/24 zaległych celów PASS; dokładne nakładające się zestawy, Ruff/mypy/DOC/MAP/diff i ograniczenia w Outcome1018. Freeze44 własnych plików/157 bezpiecznych dowodów, SHA manifestu `ad548c653c2ade96e5684f5c2d5d3e397350aa919f8da164e5704f7a1d323a85`. Brak deklaracji full614/473PASS. Claude high R1 PASS678.683s; brak P0/P1. P2-1 poprawiony (31PASS), P2-2/5 instrukcja uzupełniona, P2-3/4 przyjęte ograniczenia. Przygotowany osobny commit v1.7.383; R2 nie wymagany. Rozliczenie w quality/TASK-1018_RESPONSE_CODEX.md.
+
 ### TASK-1009 — Losowa kontrola Mumii i 777a2
 
 - **Status:** `todo`.
 - **Goal / Context:** Zmierzyć rodzaje błędów zamiast opierać decyzję o treningu na liczniku.
-- **Dependencies:** TASK-1010, TASK-0993, TASK-1002; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
+- **Dependencies:** TASK-1010, TASK-0993, TASK-1002, TASK-1018; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
 - **Recommended execution:** `gpt-6.1-sol`, `high`; poprawna populacja, próba i interpretacja.
 - **Relevant docs:** VISION_LAB, ADMIN_APP, sekcja pomiaru w tym planie.
 - **Scope / Technical notes:** Zamrożona losowa próba do 100 zdjęć per gra, pełna kontrola oczekiwanych pozycji, osobny zbiór trudnych przypadków. Wyniki zapisane z wersją i pochodzeniem.
@@ -724,6 +737,7 @@ Audyt każdego taska: Claude Code w oddzielnym kontekście, zgodnie z ograniczon
 | TASK-1013 | gpt-6.1-sol | high      | Decyzje człowieka i rewizje propozycji.             | claude-fable-5-1, high   |
 | TASK-1003 | gpt-6.1-sol | medium    | Podgląd zakresu i raport operacji.                  | claude-fable-5-1, medium |
 | TASK-1002 | gpt-6.1-sol | high      | Pochodzenie i niezależność nagrań.                  | claude-fable-5-1, high   |
+| TASK-1018 | gpt-6.1-sol | high | Zgodność historycznych kontraktów, rzeczywiste role i narzędzia lifecycle. | claude-fable-5-1, high |
 | TASK-1009 | gpt-6.1-sol | high      | Dobór próby i interpretacja wyników.                | claude-fable-5-1, medium |
 | TASK-0995 | gpt-6.1-sol | high      | Kwalifikacja i niezmienne dane dowodowe.            | claude-fable-5-1, high   |
 | TASK-1005 | gpt-6.1-sol | medium    | Pomiar kosztu i wersjonowany preset.                | claude-fable-5-1, medium |

@@ -21,9 +21,15 @@ from game_predictor_api.domain.image_import_engine_policy import (
 )
 from game_predictor_api.storage.game_data_v2_manifest_v14 import (
     CREATE_TABLES,
-    DELETE_TABLES,
-    SCHEMA,
-    VERSION,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+    DELETE_TABLES as DELETE_TABLES,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+    SCHEMA as SCHEMA,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+    VERSION as VERSION,
 )
 
 _IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]*$")

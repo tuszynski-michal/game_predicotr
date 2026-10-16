@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1014 — Zarządzane checkpointy na D (done)
+
+- [Task](../tasks/completed/1014-managed-grid-checkpoints-on-d.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.372 / `b11cdb19d81711fa801157c8effb3fc78863e46c`; hash dopisany po utworzeniu, do następnego commita.
+- Opt-in training-base, registry-pinned SHA/rozmiary i receipt lineage, OS lock, staging, atomowa publikacja i retry per zweryfikowany plik. Checkpointy777/Mumii oraz weights rzeczywiście skopiowano do `D:/game_predicotr/artifacts/models/grid-engine/<profile>/v1/training-base`. Inferencyjne manifesty identyczne przed/po. [Raport](../quality/MANAGED_GRID_BASES_20261015.md), [instrukcja](../guides/MANAGED_GRID_TRAINING_BASES.md).
+- Nowy proces CPU odczytał oba checkpointy v2 i weights, z blokadą otwierania źródłowego labu na C. PASS:22 scoped testy,27 proposal/training-core, Ruff/format/mypy3/docs/map/diff. Endpoint ASGI miał timeout120 s, nie PASS; potwierdzono brak własnych procesów. Naprawiono błąd kodowania dokumentów bez utraty root metadata.
+- [Claude medium](../quality/TASK-1014_AUDIT_claude-fable-5-1.md): PASS bez P0/P1; jedna korekta dokumentacyjna P2-3/P2-4, P2-1/P2-2/P2-5/P2-6 przyjęte z uzasadnieniem w Outcome. Technical notes zapisano późno, jawne odstępstwo. Bez cleanupu C, korpusu, nowego backupu, DB, usług, treningu, inference/GPU, aktywacji i integracji. Następny TASK-0994.
+
 ### TASK-0993 — Edytor czterech rogów i 24 punktów (done)
 
 - [Task](../tasks/completed/0993-four-corner-grid-editor.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.371 / `7d4b8cd60457650c8695be102399616cb9cf1692`; hash dopisany po utworzeniu, do następnego commita.

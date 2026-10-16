@@ -32,6 +32,10 @@ from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database_roles import (
+    ApplicationRoleSpec,
+    provision_application_role,
+)
 from game_predictor_api.storage.game_data_v2_manifest_v14 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
@@ -78,8 +82,7 @@ def database() -> Iterator[Engine]:
     recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
-        connection.execute(text(f"CREATE DATABASE {_quote(name)}"))
-        recording_capability_fixture.record_created_database(connection)
+        recording_capability_fixture.create_database(connection)
     try:
         recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
@@ -88,13 +91,17 @@ def database() -> Iterator[Engine]:
             url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
         )
         command.upgrade(config, "head")
+        with engine.begin() as connection:
+            role = "coverage_" + uuid4().hex[:12]
+            recording_capability_fixture.create_runtime_role(connection, role)
+            provision_application_role(
+                connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
+            )
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.execute(text(f"DROP DATABASE {_quote(name)}"))
-            recording_capability_fixture.cleanup(connection)
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 
@@ -710,9 +717,10 @@ def test_rejected_slot_default_get_and_waiting_priority(database: Engine) -> Non
 
 
 def test_diagnostics_snapshot_rls_union_and_separate_request_session(
-    database: Engine, application_role_mode, monkeypatch: pytest.MonkeyPatch
+    database: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert application_role_mode is not None, "Run this regression with PG_TEST_ROLE=application"
+    application_role_mode = OwnedRecordingCapability.for_engine(database).runtime_role_receipt
+    assert application_role_mode is not None and application_role_mode.created_here
     game_ids = []
     for index in range(2):
         with Session(database, expire_on_commit=False) as seed, seed.begin():

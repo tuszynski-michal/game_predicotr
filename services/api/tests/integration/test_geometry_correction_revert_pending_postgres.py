@@ -11,11 +11,13 @@ before the save: projections, counters, queue, job, search and the gate.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from game_predictor_api.application.geometry_correction_reverts import (
     GeometryCorrectionRevertService,
 )
@@ -67,6 +69,21 @@ from test_virtual_deferred_resolution_postgres import (
 )
 
 _ACTOR = "task-0966-operator"
+
+
+@pytest.fixture
+def migration_database(monkeypatch):
+    from game_predictor_api.storage import game_data_v2_manifest_v7 as historical
+    from game_predictor_api.storage import game_partition_lifecycle, game_storage_routing
+    from test_virtual_deferred_resolution_postgres import _owned_database
+
+    for name in ("CREATE_TABLES", "DELETE_TABLES", "VERSION"):
+        monkeypatch.setattr(game_partition_lifecycle, name, getattr(historical, name))
+    monkeypatch.setattr(game_storage_routing, "VERSION", historical.VERSION)
+    with contextmanager(_owned_database)("0154_geometry_correction_revert") as value:
+        yield value
+
+
 # Columns that legitimately move forward (clocks, monotonic counters).
 _VOLATILE = (
     "created_at",
@@ -510,10 +527,12 @@ def test_a_correction_that_admitted_the_image_is_not_revertable(
 
 
 def test_migration_0154_downgrade_refuses_revert_history_and_round_trips(
-    database: _Database,  # noqa: F811
+    migration_database: _Database,
     tmp_path: Path,
 ) -> None:
     from alembic import command
+
+    database = migration_database  # noqa: F811 (the physically pinned fixture)
 
     factory, seed, _artifact_root = _seeded(database, tmp_path, "task0945-migration", 1)
     game_id = seed.game_id
@@ -591,6 +610,7 @@ def test_migration_0154_downgrade_refuses_revert_history_and_round_trips(
         ).scalar_one()
         assert unique == "UNIQUE (game_id, source_image_id, geometry_checksum_sha256)"
     database.engine.dispose()
+    OwnedRecordingCapability.for_engine(database.engine).provision()
     command.upgrade(database.config, "head")
     with database.engine.connect() as connection:
         assert (

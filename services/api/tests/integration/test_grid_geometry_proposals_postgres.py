@@ -96,8 +96,7 @@ def database():
     recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
-        recording_capability_fixture.record_created_database(connection)
+        recording_capability_fixture.create_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
         recording_capability_fixture.provision()
@@ -108,6 +107,7 @@ def database():
             _provision_game(engine, "task1013-existing-v11")
         command.upgrade(config, "head")
         with engine.begin() as connection:
+            recording_capability_fixture.create_runtime_role(connection, role)
             provision_application_role(
                 connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
             )
@@ -127,10 +127,7 @@ def database():
             receipt.update(ownerBeforeCleanup=owner, pidsBeforeCleanup=pids)
             destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             assert owner == receipt["owner"] and not pids, "Refuse unsafe fixture cleanup"
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
-            recording_capability_fixture.cleanup(connection)
-            connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
+            recording_capability_fixture.drop_database(connection)
             receipt.update(
                 databaseRemaining=connection.scalar(
                     text("SELECT count(*) FROM pg_database WHERE datname=:name"), {"name": name}

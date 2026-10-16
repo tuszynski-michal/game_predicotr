@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
@@ -31,6 +32,9 @@ from game_predictor_api.storage.database_roles import (
 from game_predictor_api.storage.game_data_v2_manifest_v8 import GAME_TABLES as V8_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v9 import GAME_TABLES as V9_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v9 import ownership
+from game_predictor_api.storage.game_partition_lifecycle import (
+    DELETE_TABLES as CURRENT_DELETE_TABLES,
+)
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -77,10 +81,11 @@ def database() -> Iterator[tuple]:
     receipt = {"database": name, "role": role, "phase": "created", "operatorDatabaseChanged": False}
     destination = Path("artifacts/audits/TASK-0998_REGISTRY_REGRESSION_PG_RECEIPT.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    owned = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
         receipt["maintenancePid"] = connection.scalar(text("SELECT pg_backend_pid()"))
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        owned.create_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
         yield engine, config, role, receipt
@@ -100,8 +105,7 @@ def database() -> Iterator[tuple]:
             assert owner == receipt["owner"] and not pids, (
                 "Refuse cleanup with wrong owner or remaining sessions"
             )
-            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
-            connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
+            owned.drop_database(connection)
             receipt["databaseRemaining"] = connection.scalar(
                 text("SELECT count(*) FROM pg_database WHERE datname=:name"), {"name": name}
             )
@@ -261,11 +265,16 @@ def test_upgrade_keeps_games_partitions_and_pins_historical_models(database, tmp
             ),
             {"id": games["mumie"]},
         )
+        OwnedRecordingCapability.for_engine(engine).create_runtime_role(connection, role)
         provision_application_role(
             connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
         )
     # Runtime controls require the current head; the frozen0156 assertions above remain.
     command.upgrade(config, "0157_grid_model_publication")
+    with pytest.raises(RuntimeError, match="GRID_MODEL_PUBLICATION_DOWNGRADE_REFUSED"):
+        command.downgrade(config, "0156_grid_model_registry")
+    OwnedRecordingCapability.for_engine(engine).provision()
+    command.upgrade(config, "head")
     with engine.begin() as connection:
         provision_application_role(
             connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
@@ -358,7 +367,7 @@ def test_upgrade_keeps_games_partitions_and_pins_historical_models(database, tmp
             game_id=games["mumie"], kind=GamePartitionLifecycleKind.DELETE
         )
         session.commit()
-        for _ in range(len(V9_TABLES) + 1):
+        for _ in range(len(CURRENT_DELETE_TABLES) + 1):
             delete = repository.run_next(delete.operation_id)
             session.commit()
             if delete.status == "done":
@@ -385,8 +394,6 @@ def test_upgrade_keeps_games_partitions_and_pins_historical_models(database, tmp
                 text("SELECT * FROM game_data_v2.image_geometry_rollout_states")
             ).all()
         )
-    with pytest.raises(RuntimeError, match="GRID_MODEL_PUBLICATION_DOWNGRADE_REFUSED"):
-        command.downgrade(config, "0156_grid_model_registry")
     receipt["verified"] = [
         "0155_to_0156",
         "v8_partition_definitions_unchanged",

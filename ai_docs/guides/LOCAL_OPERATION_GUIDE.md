@@ -195,6 +195,44 @@ nie naprawia własności obiektów, a narzędzie re-own obecnie nie istnieje.
 Takie wdrożenie wymaga osobnego jawnego rozwiązania; nie stosuj owner fallback
 w runtime rejestru. Szczegóły: [nagrania V3](SOURCE_RECORDING_GROUPS.md).
 
+Do dokładnych, krótkich kontroli pytest w worktree służy wersjonowany runner:
+
+```powershell
+$taskGitCommonDirectory = git rev-parse --path-format=absolute --git-common-dir
+$taskMainCheckout = Split-Path -Parent $taskGitCommonDirectory
+$taskPython = Join-Path $taskMainCheckout '.venv\Scripts\python.exe'
+& $taskPython scripts/run_scoped_python_tests.py --receipt artifacts/audits/grid-profile-check.json --timeout-seconds 120 -- services/api/tests/test_grid_engine_profiles_migration.py -q
+```
+
+Polecenia wykonuj z katalogu głównego bieżącego worktree. Powyższy przykład
+znajduje istniejący venv głównego checkoutu standardowego repozytorium; nie
+wymaga osobnego venv w worktree. Jeżeli środowisko ma inną lokalizację, jawnie
+ustaw `$taskPython` na jego sprawdzony interpreter. Nie wybieraj przypadkowego
+globalnego Pythona w zastępstwie brakującego środowiska.
+
+Runner ustawia ścieżki źródeł bieżącego worktree i używa nowego własnego UUID
+pod krótkim `artifacts/t` wspólnego repozytorium Git. TEMP/TMP dotyczą wyłącznie
+potomnego procesu testowego; konfiguracja systemu, terminala i PATH nie zmienia
+się. Receipt zapisuje dokładne node IDs, wyniki, limit, własne PID-y i cleanup.
+Log ma redakcję danych logowania URL. Limit wynosi1–120s; przekroczenie limitu
+lub błąd środowiska nie oznacza PASS. Runner kończy wyłącznie swoje drzewo
+procesów i usuwa własny potwierdzony TEMP. Nie uruchamia usług, nie włącza
+samodzielnie opt-in PostgreSQL i nie usuwa baz. Po przerwaniu PG należy sprawdzić
+receipt własności fixture; nie ponawiać testu przed rozliczeniem pozostałych
+własnych zasobów. Sandboxowa odmowa socketpair lub połączenia nie uprawnia do
+nieguardowanej próby na bazie operatora.
+
+`scripts/run_m4_import_acceptance.py` tworzy dla każdego przebiegu nową bazę
+UUID. `--database-name` jest etykietą, nie wskazaniem istniejącej bazy do
+ponownego użycia. Bez `--keep-database` sprzątane są własne zasoby zarówno po
+sukcesie, jak i po błędzie workloadu. Aby zachować bazę do analizy błędu, wybierz
+`--keep-database` przed uruchomieniem; flaga zachowuje także udany przebieg.
+Nie gwarantuje zachowania po błędzie samego provisioningu, który ma własne
+sprzątanie. Historyczne pole raportu `databaseRetainedForRetry` oznacza teraz
+retencję do inspekcji, a nie możliwość retry na tej samej bazie: następny run
+zawsze tworzy nowy UUID. Retencja nie daje zgody na adopcję ani usunięcie zasobu
+bez sprawdzenia jego zapisanej tożsamości.
+
 Cutover (wykonuje orkiestrator; schemat bez zmian, bez migracji):
 
 1. Zaczekaj na koniec aktywnych jobów albo zatrzymaj je bezpiecznie.

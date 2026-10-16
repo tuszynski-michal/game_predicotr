@@ -154,8 +154,7 @@ def application_role_database(
     app_engine = create_engine(app_url, poolclass=NullPool, connect_args={"connect_timeout": 5})
     capability = OwnedRecordingCapability.for_engine(owner_engine)
     with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
-        capability.record_created_database(connection)
+        capability.create_database(connection)
     capability_receipt = None
     database_dropped = False
     try:
@@ -189,8 +188,7 @@ def application_role_database(
             games = {code: provision_game(owner_engine, code) for code in game_codes}
         with owner_engine.begin() as connection:
             owner_role = str(connection.execute(text("SELECT current_user")).scalar_one())
-            connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
-            capability.record_runtime_role(connection, role, created_here=True)
+            capability.create_runtime_role(connection, role)
             provision_application_role(
                 connection, ApplicationRoleSpec(role_name=role, password=password)
             )

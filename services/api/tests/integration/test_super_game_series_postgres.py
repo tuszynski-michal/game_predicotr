@@ -620,14 +620,20 @@ def test_rejection_outcome_type_is_public() -> None:
     assert outcome.inserted == 0 and BoardTrigger(1, True).sequence_number == 1
 
 
-def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
+def test_migration_downgrade_refuses_decisions_and_round_trips(monkeypatch) -> None:
     from pathlib import Path
 
+    from _recording_capability_fixture import OwnedRecordingCapability
     from alembic import command
     from alembic.config import Config
+    from game_predictor_api.storage import game_data_v2_manifest_v6, game_storage_routing
     from game_predictor_api.storage.game_partition_lifecycle import partition_name
 
-    with application_role_database("t0933m", ("mumie-migration",)) as database:
+    monkeypatch.setattr(game_storage_routing, "VERSION", game_data_v2_manifest_v6.VERSION)
+
+    with application_role_database(
+        "t0933m", ("mumie-migration",), revision="0152_super_game_series"
+    ) as database:
         game_id = database.games["mumie-migration"]
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
@@ -661,6 +667,7 @@ def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
                 ).scalar_one()
                 is None
             )
+        OwnedRecordingCapability.for_engine(database.owner_engine).provision()
         command.upgrade(config, "head")
         with database.owner_engine.connect() as connection:
             assert (

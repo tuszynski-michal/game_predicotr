@@ -136,6 +136,9 @@ class _TrainingSession:
     def get(self, _model: object, _identity: object) -> object:
         return SimpleNamespace(game_id=self.game_id, manifest_checksum_sha256="a" * 64)
 
+    def get_bind(self) -> object:
+        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+
     def execute(self, statement: Any) -> Any:
         self.scalar_index = 0
         values = statement.compile().params.values()
@@ -154,6 +157,11 @@ class _TrainingSession:
         return SimpleNamespace(all=lambda: list(reversed(self.iterations)))
 
     def scalar(self, statement: Any) -> Any:
+        if [str(column) for column in statement.selected_columns] == ["jobs.id"]:
+            # Preserve the real admission query boundary without a live DB.
+            return next(
+                (job.id for job in self.jobs if job.status in ("created", "processing")), None
+            )
         index = self.scalar_index
         self.scalar_index += 1
         values = statement.compile().params.values()
@@ -202,6 +210,7 @@ def test_rejected_retry_and_lost_response_replay_survive_new_repository(
     original, original_job, created = run(first_key)
     assert created
     original.status = "rejected"
+    next(job for job in session.jobs if job.id == original_job.id).status = "failed"
     replay, replay_job, created = run(first_key)
     assert not created and replay.id == original.id and replay_job.id == original_job.id
 

@@ -14,6 +14,7 @@ from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -28,6 +29,11 @@ from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
+from game_predictor_api.storage.game_partition_lifecycle import (
+    CREATE_TABLES,
+    GamePartitionLifecycleKind,
+    GamePartitionLifecycleRepository,
+)
 from game_predictor_api.storage.grid_model_registry_models import (
     GameGridModelAssignmentEventModel,
     GridModelEvaluationInvalidationModel,
@@ -37,10 +43,11 @@ from game_predictor_api.storage.grid_profile_snapshot_resolver import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import GameModel
+from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from services.api.tests.integration.test_grid_model_registry_postgres import definition_sha256
@@ -78,15 +85,17 @@ def database() -> Iterator[tuple]:
     receipt = {"database": name, "role": role, "operatorDatabaseChanged": False, "phase": "created"}
     destination = Path("artifacts/audits/TASK-0998_CORRECTION_PG_RECEIPT.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    owned = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         receipt["owner"] = connection.scalar(text("SELECT current_user"))
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        owned.create_database(connection)
     destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     try:
         yield engine, config, role, receipt
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
+            assert owned.wait_for_owned_database_idle(connection) == 0
             owner = connection.scalar(
                 text("SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname=:name"),
                 {"name": name},
@@ -99,8 +108,7 @@ def database() -> Iterator[tuple]:
             receipt.update(ownerBeforeCleanup=owner, pidsBeforeCleanup=pids)
             destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
             assert owner == receipt["owner"] and not pids, "Refuse unsafe disposable cleanup"
-            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
-            connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
+            owned.drop_database(connection)
             receipt["databaseRemaining"] = connection.scalar(
                 text("SELECT count(*) FROM pg_database WHERE datname=:name"), {"name": name}
             )
@@ -173,6 +181,30 @@ VALUES(:game,:key,:key,:version,1,'historical_assignment')"""),
         )
         assert connection.scalar(text("SELECT count(*) FROM public.grid_model_publications")) == 0
         assert connection.scalar(text("SELECT count(*) FROM public.grid_model_default")) == 0
+        OwnedRecordingCapability.for_engine(engine).create_runtime_role(connection, role)
+        provision_application_role(
+            connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
+        )
+    # Exercise the immutable historical boundary before moving runtime to head.
+    with pytest.raises(RuntimeError, match="GRID_MODEL_PUBLICATION_DOWNGRADE_REFUSED"):
+        command.downgrade(config, "0156_grid_model_registry")
+    OwnedRecordingCapability.for_engine(engine).provision()
+    command.upgrade(config, "head")
+    # Real worker completion reconciles the game's storage; provision the owned
+    # catalog-only fixture games before exercising current runtime commands.
+    for game_id in (game, other):
+        with Session(engine) as session, session.begin():
+            operation = GamePartitionLifecycleRepository(session).start_or_resume(
+                game_id=game_id,
+                kind=GamePartitionLifecycleKind.PROVISION,
+            )
+        for _ in range(len(CREATE_TABLES) + 2):
+            with Session(engine) as session, session.begin():
+                state = GamePartitionLifecycleRepository(session).run_next(operation.operation_id)
+            if state.status == "done":
+                break
+        assert state.status == "done"
+    with engine.begin() as connection:
         provision_application_role(
             connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
         )
@@ -255,6 +287,14 @@ VALUES(:game,:key,:key,:version,1,'historical_assignment')"""),
         assert persisted.input_payload["neural_grid_proposal"] == original_pin
         assert original_pin["catalogueManifest"]["versionId"] == baseline["versionId"]
         assert pinned["catalogueManifest"]["versionId"] == payload["versionId"]
+        session.commit()
+        assert started.lease_token is not None
+        started = SqlAlchemyWorkerJobStore(factory).complete(
+            started.id,
+            lease_token=started.lease_token,
+            completed_at=datetime.now(UTC),
+        )
+        assert started.status is JobStatus.COMPLETED
         candidate_job = create_job(
             JobType.VALIDATE,
             game_id=game,
@@ -384,8 +424,6 @@ finally: engine.dispose()
     ):
         with pytest.raises(DBAPIError, match="GRID_MODEL_IMMUTABLE"), engine.begin() as connection:
             connection.execute(text(sql))
-    with pytest.raises(RuntimeError, match="GRID_MODEL_PUBLICATION_DOWNGRADE_REFUSED"):
-        command.downgrade(config, "0156_grid_model_registry")
     receipt.update(
         gameDataDefinitionsBeforeSha256=definitions,
         gameDataDefinitionsAfterSha256=definitions,

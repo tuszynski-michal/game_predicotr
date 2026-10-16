@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -195,21 +196,25 @@ def isolated_image_batch_database() -> Iterator[URL]:
         isolation_level="AUTOCOMMIT",
         pool_pre_ping=True,
     )
-    test_database_url = _database_url(TEST_DATABASE_NAME)
-    identifier = f'"{TEST_DATABASE_NAME}"'
+    test_database_url = _database_url(f"game_predictor_image_batch_{uuid4().hex[:12]}_test")
     recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.create_database(connection)
             recording_capability_fixture.provision()
         yield test_database_url
     finally:
-        with maintenance_engine.connect() as connection:
-            recording_capability_fixture.assert_database_identity(connection)
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-            recording_capability_fixture.cleanup(connection)
-        maintenance_engine.dispose()
+        original_error = sys.exception()
+        try:
+            if recording_capability_fixture.database_oid is not None:
+                with maintenance_engine.connect() as connection:
+                    recording_capability_fixture.drop_database(connection)
+        except Exception as cleanup_error:
+            if original_error is None:
+                raise
+            original_error.add_note(f"Owned image-batch cleanup failed: {cleanup_error}")
+        finally:
+            maintenance_engine.dispose()
 
 
 def _image_job(game_id: UUID, pipeline: str, created_at: datetime) -> Job:

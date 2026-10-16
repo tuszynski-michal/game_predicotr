@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import platform
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,8 +13,6 @@ from time import monotonic, perf_counter, process_time
 from typing import cast
 from uuid import UUID, uuid4
 
-from alembic import command
-from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
@@ -25,10 +24,11 @@ from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
-from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database import create_owner_session_factory, create_session_factory
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.owned_tool_database import OwnedToolDatabase
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import URL, Engine, make_url
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session
 
 from game_predictor_worker.benchmarks.performance import (
@@ -216,41 +216,34 @@ def run_database_load(
     seed: int,
     deadline: BenchmarkDeadline,
 ) -> dict[str, object]:
-    source_url = make_url(database_url)
-    maintenance_url = _benchmark_url(source_url, "postgres")
-    database_name = f"game_predictor_m7_load_{uuid4().hex[:12]}"
-    benchmark_url = _benchmark_url(source_url, database_name)
-    maintenance_engine = create_engine(
-        maintenance_url,
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
+    database = OwnedToolDatabase(
+        make_url(database_url),
+        prefix="game_predictor_m7_load",
+        alembic_ini=repository_root / "alembic.ini",
     )
-    database_created = False
     engine = None
-    identifier = f'"{database_name}"'
     try:
         deadline.check("database creation")
-        with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-        database_created = True
-
         migration_started_at = perf_counter()
-        command.upgrade(
-            _migration_config(repository_root, benchmark_url),
-            "head",
-        )
+        database.create()
         migration_seconds = perf_counter() - migration_started_at
         deadline.check("database migration")
 
         engine = create_engine(
-            benchmark_url,
+            database.runtime_url,
             pool_pre_ping=True,
             connect_args={
                 "options": "-c lock_timeout=3000 -c statement_timeout=30000",
             },
         )
         session_factory = create_session_factory(engine)
-        job_id = _create_benchmark_job(engine)
+        owner_engine = create_engine(database.owner_url, pool_pre_ping=True)
+        try:
+            job_id = _create_benchmark_job(
+                engine, partition_ddl_session_factory=create_owner_session_factory(owner_engine)
+            )
+        finally:
+            owner_engine.dispose()
         store = SqlAlchemyImageBatchStore(session_factory)
         registered_at = datetime(2026, 7, 29, 23, 0, tzinfo=UTC)
 
@@ -398,10 +391,7 @@ def run_database_load(
     finally:
         if engine is not None:
             engine.dispose()
-        if database_created:
-            with maintenance_engine.connect() as connection:
-                connection.exec_driver_sql(f"DROP DATABASE {identifier} WITH (FORCE)")
-        maintenance_engine.dispose()
+        database.close(sys.exception())
 
 
 def build_load_report(
@@ -484,11 +474,15 @@ def validate_load_report(
             raise ImageLoadBenchmarkError("Load report exposes an absolute path.")
 
 
-def _create_benchmark_job(engine: Engine) -> UUID:
+def _create_benchmark_job(
+    engine: Engine, *, partition_ddl_session_factory: Callable[[], Session]
+) -> UUID:
     with Session(engine, expire_on_commit=False) as session:
         game = CatalogService(
             SqlAlchemyCatalogRepository(
-                session, artifact_root=ApiSettings.from_environment().artifact_root
+                session,
+                artifact_root=ApiSettings.from_environment().artifact_root,
+                partition_ddl_session_factory=partition_ddl_session_factory,
             )
         ).create_game(
             idempotency_key=uuid4(),
@@ -510,17 +504,6 @@ def _create_benchmark_job(engine: Engine) -> UUID:
         )
         session.commit()
         return job.id
-
-
-def _benchmark_url(source_url: URL, database_name: str) -> URL:
-    return source_url.set(database=database_name).update_query_dict({"connect_timeout": "3"})
-
-
-def _migration_config(repository_root: Path, database_url: URL) -> Config:
-    config = Config(str(repository_root / "alembic.ini"))
-    rendered = database_url.render_as_string(hide_password=False).replace("%", "%%")
-    config.set_main_option("sqlalchemy.url", rendered)
-    return config
 
 
 def _all_strings(value: object) -> list[str]:

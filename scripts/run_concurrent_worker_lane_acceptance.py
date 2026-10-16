@@ -24,8 +24,6 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from alembic import command
-from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
@@ -36,11 +34,12 @@ from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
-from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database import create_owner_session_factory, create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.owned_tool_database import OwnedToolDatabase
 from game_predictor_api.storage.worker_lane_repository import (
     SqlAlchemyWorkerLaneRepository,
 )
@@ -115,44 +114,6 @@ def parse_arguments() -> argparse.Namespace:
     return values
 
 
-def migration_config(database_url: URL) -> Config:
-    config = Config(str(ALEMBIC_INI))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database_url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    return config
-
-
-def create_database(database_url: URL) -> None:
-    maintenance = create_engine(
-        database_url.set(database="postgres"),
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    identifier = f'"{database_url.database}"'
-    try:
-        with maintenance.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-    finally:
-        maintenance.dispose()
-
-
-def drop_database(database_url: URL) -> None:
-    maintenance = create_engine(
-        database_url.set(database="postgres"),
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    identifier = f'"{database_url.database}"'
-    try:
-        with maintenance.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-    finally:
-        maintenance.dispose()
-
-
 def write_selection_fixture(import_root: Path, file_count: int) -> tuple[UUID, str]:
     selection_id = uuid4()
     source_root = import_root / "browser-selections" / str(selection_id)
@@ -212,6 +173,7 @@ def seed_jobs(
     database_url: URL,
     import_root: Path,
     *,
+    owner_url: URL,
     layout_records: int,
     selection_images: int,
 ) -> tuple[UUID, UUID]:
@@ -224,11 +186,14 @@ def seed_jobs(
     )
     selection_id, manifest_sha256 = write_selection_fixture(import_root, selection_images)
     engine = create_engine(database_url, pool_pre_ping=True)
+    owner_engine = create_engine(owner_url, pool_pre_ping=True)
     try:
         with Session(engine, expire_on_commit=False) as session:
             game = CatalogService(
                 SqlAlchemyCatalogRepository(
-                    session, artifact_root=ApiSettings.from_environment().artifact_root
+                    session,
+                    artifact_root=ApiSettings.from_environment().artifact_root,
+                    partition_ddl_session_factory=create_owner_session_factory(owner_engine),
                 )
             ).create_game(
                 idempotency_key=uuid4(),
@@ -258,6 +223,7 @@ def seed_jobs(
             session.commit()
             return import_job.id, selection_run.job.id
     finally:
+        owner_engine.dispose()
         engine.dispose()
 
 
@@ -326,6 +292,7 @@ def start_worker(
     database_url: URL,
     root: Path,
     *,
+    owner_url: URL,
     lane: str,
     budget: int,
 ) -> tuple[subprocess.Popen[str], UUID, Any, Any]:
@@ -338,8 +305,7 @@ def start_worker(
     environment.update(
         {
             "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(hide_password=False),
-            # The disposable database has only the owner role (TASK-0795).
-            "GAME_PREDICTOR_OWNER_DATABASE_URL": database_url.render_as_string(hide_password=False),
+            "GAME_PREDICTOR_OWNER_DATABASE_URL": owner_url.render_as_string(hide_password=False),
             "GAME_PREDICTOR_IMPORT_ROOT": str(root / "imports"),
             "GAME_PREDICTOR_ARTIFACT_ROOT": str(root / "artifacts"),
             "GAME_PREDICTOR_WORKER_THREAD_BUDGET": str(budget),
@@ -573,9 +539,12 @@ def main() -> int:
     root.mkdir(parents=True)
     import_root = root / "imports"
     import_root.mkdir()
-    database_url = make_url(ApiSettings.from_environment().owner_database_url).set(
-        database=f"game_predictor_concurrent_{run_id}"
+    database = OwnedToolDatabase(
+        make_url(ApiSettings.from_environment().owner_database_url),
+        prefix="game_predictor_concurrent",
+        alembic_ini=ALEMBIC_INI,
     )
+    database_url: URL | None = None
     state = AcceptanceState(started_at=time.monotonic())
     processes: list[subprocess.Popen[str]] = []
     handles: list[Any] = []
@@ -585,20 +554,21 @@ def main() -> int:
     import_job_id: UUID | None = None
     selection_job_id: UUID | None = None
     try:
-        create_database(database_url)
-        command.upgrade(migration_config(database_url), "head")
+        database.create()
+        database_url = database.runtime_url
         import_job_id, selection_job_id = seed_jobs(
             database_url,
             import_root,
+            owner_url=database.owner_url,
             layout_records=options.layout_records,
             selection_images=options.selection_images,
         )
         state.record("fixtures_seeded")
         general, general_token, general_out, general_err = start_worker(
-            database_url, root, lane="general", budget=2
+            database_url, root, owner_url=database.owner_url, lane="general", budget=2
         )
         selection, selection_token, selection_out, selection_err = start_worker(
-            database_url, root, lane="image-selection", budget=4
+            database_url, root, owner_url=database.owner_url, lane="image-selection", budget=4
         )
         processes.extend((general, selection))
         handles.extend((general_out, general_err, selection_out, selection_err))
@@ -709,7 +679,7 @@ def main() -> int:
         for handle in handles:
             handle.close()
         try:
-            if tokens:
+            if tokens and database_url is not None:
                 stop_lane(database_url, WorkerLaneName.GENERAL, tokens["general"])
                 stop_lane(
                     database_url,
@@ -767,7 +737,7 @@ def main() -> int:
             encoding="utf-8",
         )
         try:
-            drop_database(database_url)
+            database.close(sys.exception())
         finally:
             resolved_temp_root = (REPOSITORY_ROOT / ".pytest-tmp").resolve()
             resolved_root = root.resolve()

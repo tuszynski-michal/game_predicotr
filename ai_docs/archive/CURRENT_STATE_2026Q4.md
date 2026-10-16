@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1033 — `README.md` ≤ 5 000 B, `DOC_INDEX.md` i pomiar końcowy (done)
 
-- Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382**.
+- Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382 / `ed25cd1cf867c0a14988d273f3f013e4de8740c3`**.
 - `README.md` 17 931 → 4 092 B (LF); katalog dokumentów w nowym `ai_docs/DOC_INDEX.md` (110 linków, wszystkie rozwiązują się), otwieranym na żądanie.
 - Budżety: `README.md` 5 000 B, suma 45 000 B; 11/11 wymuszonych. Obowiązkowy odczyt startowy 38 413 B (z ok. 65 000 B przed etapem 2).
 

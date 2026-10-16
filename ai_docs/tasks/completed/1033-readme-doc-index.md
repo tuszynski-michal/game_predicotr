@@ -82,7 +82,7 @@ npm run docs:check
 
 ## Outcome
 
-Commit: v1.7.382 (hash dopisuje kolejny commit).
+Commit: v1.7.382 / `ed25cd1cf867c0a14988d273f3f013e4de8740c3`.
 
 Wykonawca: claude-sonnet-5-5 (medium), bez dodatkowego review (samokontrola).
 

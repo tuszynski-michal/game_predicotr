@@ -54,7 +54,7 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1033** — `README.md` ≤ 5 000 B i `DOC_INDEX.md` — v1.7.382 — tasks/completed/1033-readme-doc-index.md
+- **TASK-1033** — `README.md` ≤ 5 000 B i `DOC_INDEX.md` — v1.7.382 / `ed25cd1c` — tasks/completed/1033-readme-doc-index.md
 - **TASK-1032** — `AGENTS.md` ≤ 14 000 B — v1.7.381 / `676f22f4` — tasks/completed/1032-agents-md-slimming.md
 - **TASK-1031** — Skill `merge-to-main` z preflightem — v1.7.379 / `bf0ad43b` — tasks/completed/1031-merge-to-main-skill.md
 - **TASK-1030** — Skill `task-close` ze skryptem zamykania — v1.7.378 / `54e01133` — tasks/completed/1030-task-close-skill.md

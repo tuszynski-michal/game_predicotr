@@ -89,7 +89,7 @@ npm run docs:check
 
 ## Outcome
 
-Commit: v1.7.381 (hash dopisuje kolejny commit).
+Commit: v1.7.381 / `676f22f42b7e28ba82476471247aea828e4ed604`.
 
 Wykonawca: claude-opus-5-5 / high (subagent). Audyt Codex gpt-6.1-sol / medium
 (`scripts/audit_task.ps1`): PASS, bez otwartych P0/P1

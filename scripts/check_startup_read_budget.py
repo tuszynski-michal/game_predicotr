@@ -6,7 +6,8 @@ loads ``CLAUDE.md`` automatically, so it is measured separately.
 
 Budgets come from ``ai_docs/delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md``
 (decision D3) and ``ai_docs/delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md``
-(decision E5: ``AGENTS.md`` 14 000 B, TASK-1032). Every budget has an ``enforced``
+(decision E5: ``AGENTS.md`` 14 000 B, TASK-1032; ``ai_docs/README.md`` 5 000 B and
+the startup total 45 000 B, TASK-1033). Every budget has an ``enforced``
 flag: a budget that is not enforced is only reported; an enforced budget makes
 the script exit 1 when it is exceeded. This script is the single owner of size
 limits for these documents.
@@ -172,6 +173,13 @@ BUDGETS: tuple[Budget, ...] = (
         hint="keep 1-3 binding sentences per procedure; move the procedure into its skill",
     ),
     Budget(
+        "ai_docs/README.md",
+        5_000,
+        True,
+        _file(README),
+        hint="keep the entry points only; the document catalog belongs in ai_docs/DOC_INDEX.md",
+    ),
+    Budget(
         "DECISION_LOG.md",
         12_000,
         True,
@@ -218,7 +226,7 @@ BUDGETS: tuple[Budget, ...] = (
     ),
     Budget(
         "startup total",
-        90_000,
+        45_000,
         True,
         _startup_total,
         hint="shrink the largest file of the mandatory startup read",

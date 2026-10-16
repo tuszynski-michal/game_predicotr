@@ -1,6 +1,6 @@
 ---
 title: Etap 2 odczytu startowego — skille procedur i odchudzenie AGENTS.md oraz README
-status: accepted
+status: implemented
 last_updated: 2026-10-16
 ---
 
@@ -21,6 +21,21 @@ TASK-1024 obowiązkowy odczyt ma ok. 65 000 B:
 | `ai_docs/README.md` | ~17 300 | z tego „Aktywna dokumentacja” ok. 13 000 B (katalog planów i dokumentów) |
 | `ai_docs/process/CURRENT_STATE.md` | ~9 300 | po etapie 1 |
 | `ai_docs/process/DECISION_LOG.md` | ~10 800 | po etapie 1 |
+
+**Wynik (2026-10-16):** pomiar `scripts/check_startup_read_budget.py --report`
+po TASK-1033 (bajty z końcami linii LF; „przed” to wartości tego planu).
+
+| Plik | Przed | Po | Budżet |
+|---|---:|---:|---:|
+| `AGENTS.md` | ~26 800 | 13 942 | 14 000 |
+| `ai_docs/README.md` | ~17 300 | 4 092 | 5 000 |
+| `ai_docs/process/CURRENT_STATE.md` | ~9 300 | 9 537 | 30 000 |
+| `ai_docs/process/DECISION_LOG.md` | ~10 800 | 10 842 | 12 000 |
+| Suma obowiązkowego odczytu | ~65 000 | 38 413 | 45 000 |
+
+Katalog dokumentów przeniesiono do `ai_docs/DOC_INDEX.md` (otwierany na
+żądanie, poza odczytem startowym). Różnice `CURRENT_STATE.md` i `DECISION_LOG.md`
+względem „przed” wynikają z zaokrągleń planu i bieżących wpisów, nie z tego planu.
 
 Sekcje `AGENTS.md`, które opisują procedury używane tylko w jednym momencie
 pracy (pomiar 2026-10-16):

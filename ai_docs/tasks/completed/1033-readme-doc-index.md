@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -82,4 +82,60 @@ npm run docs:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Commit: v1.7.382 (hash dopisuje kolejny commit).
+
+Wykonawca: claude-sonnet-5-5 (medium), bez dodatkowego review (samokontrola).
+
+### Changed
+
+- Nowy `ai_docs/DOC_INDEX.md`: sekcje „Aktywna dokumentacja” (wszystkie
+  podsekcje) i „Historia” przeniesione z `README.md`, wpisy bez zmian poza
+  trzema: baner wydania Selektora Windows 1.0.0 dopisany pod wpisem selektora
+  w „Dostarczanie” (poprawiona literówka „wpisy0.1.x”), wpis planu etapu 2
+  zmieniony z `accepted` na wykonany oraz wstęp (katalog na żądanie, nowe
+  plany dopisuje się tutaj).
+- `ai_docs/README.md` skrócony do cel, wejście do zadania (linki do
+  `DOC_INDEX.md` i `CODE_MAP.md`), zasada źródła prawdy, statusy, reguła
+  aktualizacji (nowe plany i dokumenty do `DOC_INDEX.md`); baner wydania
+  przeniesiony do indeksu.
+- `scripts/check_startup_read_budget.py`: budżet `ai_docs/README.md` 5 000 B
+  (wymuszony, z podpowiedzią) i suma 45 000 B (z 90 000, wymuszona); testy
+  negatywne w `test_check_startup_read_budget_script.py` (README powyżej
+  5 000 B i miara LF, suma powyżej 45 000 B, suma 45 000 B przechodzi).
+- Plan etapu 2: status `implemented`, tabela „Wynik” przed/po.
+- Odwołania: `AGENTS.md`, `CLAUDE.md`, skille, `TOKEN_TOOLING.md` wskazują
+  `README.md` wyłącznie jako wejście odczytu startowego, nie jako katalog,
+  więc bez zmian (`AGENTS.md` ma zapas tylko 58 B do budżetu). `rg
+  "README.md#"` poza archiwami i ukończonymi taskami: brak kotwic.
+
+### Verification
+
+| Pomiar | Przed | Po | Budżet |
+|---|---:|---:|---:|
+| `ai_docs/README.md` | 17 931 B | 4 092 B | 5 000 B |
+| `AGENTS.md` | 13 942 B | 13 942 B | 14 000 B |
+| `CLAUDE.md` (poza sumą) | 5 974 B | 5 974 B | 6 000 B |
+| suma obowiązkowego odczytu | 52 252 B | 38 413 B | 45 000 B |
+
+Wartości „przed” to stan po TASK-1032; pomiar wyjściowy planu (~65 000 B) jest
+w tabeli „Wynik” planu etapu 2.
+
+- Linki: 110 linków dawnej sekcji „Aktywna dokumentacja” (109 unikalnych)
+  jest w `DOC_INDEX.md`, wszystkie 112 linków indeksu rozwiązuje się do
+  istniejących plików.
+- `check_startup_read_budget.py`: OK, 11/11 budżetów wymuszonych.
+- pytest `test_check_startup_read_budget_script.py`: 17 passed.
+- `ruff check`, `ruff format --check`, `mypy --strict` skryptu budżetu: PASS.
+- `npx prettier --check` README, DOC_INDEX, AGENTS, plan: PASS.
+- `npm run docs:check` (decision links, okno stanu, budżety, lustra skilli): PASS; `git diff --check`: PASS.
+
+### Not completed
+
+- Brak. `CURRENT_STATE.md` i przeniesienie taska do `completed/` zostają dla
+  zamykającego.
+
+### Recommended next task
+
+- Etap 3 (skille domenowe: diagnostyka pipeline siatek, migracje) po pomiarze
+  etapu 2, według planu; osobno uporządkować stare plany milestone w
+  `DOC_INDEX.md`.

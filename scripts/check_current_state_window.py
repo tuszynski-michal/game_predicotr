@@ -52,6 +52,10 @@ def main(root: Path | None = None) -> int:
     tasks = TASKS if root is None else root / "ai_docs" / "tasks"
     problems: list[str] = []
     raw = state.read_bytes()
+    if raw.replace(b"\r\n", b"").count(b"\r"):
+        # a bare CR (e.g. a tool that dropped the LF) still splits into lines below,
+        # so the window would look valid while the file is one line for git
+        problems.append("CURRENT_STATE.md contains bare CR line endings; use LF or CRLF")
     lines = raw.decode("utf-8").splitlines()
 
     headings = [line for line in lines if re.match(r"#{2,4} ", line)]

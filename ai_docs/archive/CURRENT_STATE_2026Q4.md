@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1033 — `README.md` ≤ 5 000 B, `DOC_INDEX.md` i pomiar końcowy (done)
+
+- Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382**.
+- `README.md` 17 931 → 4 092 B (LF); katalog dokumentów w nowym `ai_docs/DOC_INDEX.md` (110 linków, wszystkie rozwiązują się), otwieranym na żądanie.
+- Budżety: `README.md` 5 000 B, suma 45 000 B; 11/11 wymuszonych. Obowiązkowy odczyt startowy 38 413 B (z ok. 65 000 B przed etapem 2).
+
 ### TASK-1032 — `AGENTS.md` ≤ 14 000 B: procedury do skilli (done)
 
-- Plik: `ai_docs/tasks/completed/1032-agents-md-slimming.md`; plan etapu 2 odczytu startowego, etap B. Commit **v1.7.381**.
+- Plik: `ai_docs/tasks/completed/1032-agents-md-slimming.md`; plan etapu 2 odczytu startowego, etap B. Commit **v1.7.381 / `676f22f42b7e28ba82476471247aea828e4ed604`**.
 - `AGENTS.md` 26 404 → 13 942 B (LF): procedury audytu, scalania, wersjonowania i zamykania w skillach `audit-task`/`claude-audit`, `merge-to-main`, `task-close`; nagłówki i reguły wiążące zostały (mapa 174 reguł, żadna bez miejsca). Zgoda na scalenie obejmuje push; audyt tylko, gdy wymaga go plan.
 - Budżet `AGENTS.md` 14 000 B wymuszony (10/10). Audyt Codex gpt-6.1-sol: PASS.
 

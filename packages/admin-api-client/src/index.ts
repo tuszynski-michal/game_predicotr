@@ -1,4 +1,7 @@
 import {
+  createBoardSearchPanel as createGeneratedBoardSearchPanel,
+  listBoardSearchPanels as listGeneratedBoardSearchPanels,
+  revokeBoardSearchPanel as revokeGeneratedBoardSearchPanel,
   getManagementSnapshot,
   listManagementStakes,
   getManagementStake,
@@ -23,6 +26,7 @@ import {
   previewManagementMachineUpdate,
 } from './generated/sdk.gen';
 import type {
+  BoardSearchPanelCreate,
   ManagementStake,
   ManagementSearchCommand,
   ManagementSaveCommand,
@@ -31,6 +35,11 @@ import type {
   ManagementCorrectionCommand,
 } from './generated/types.gen';
 export type {
+  BoardSearchPanelCreate,
+  BoardSearchPanelResponse,
+  BoardSearchPanelCreatedResponse,
+  BoardSearchPanelListResponse,
+  BoardSearchPanelContextResponse,
   ManagementStake,
   ManagementSearchCommand,
   ManagementSaveCommand,
@@ -1711,6 +1720,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId },
       }),
     /** Create one online board-search share link (D-492). */
+    createBoardSearchPanel: (body: BoardSearchPanelCreate) =>
+      createGeneratedBoardSearchPanel({
+        body,
+        client,
+        headers: confirmedTargetHeaders('board-search-panel:new'),
+      }),
+    listBoardSearchPanels: () => listGeneratedBoardSearchPanels({ client }),
+    revokeBoardSearchPanel: (panelId: string) =>
+      revokeGeneratedBoardSearchPanel({
+        client,
+        path: { panel_id: panelId },
+        headers: confirmedTargetHeaders(`board-search-panel:${panelId}`),
+      }),
     createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
       createGeneratedBoardSearchShareSession({
         body,

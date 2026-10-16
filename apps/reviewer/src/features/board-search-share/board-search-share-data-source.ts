@@ -29,6 +29,8 @@ export const SEARCH_CACHE_MAX_ENTRIES = 50;
 type Result<T> = { readonly data?: T; readonly error?: unknown };
 
 export type BoardSearchShareDataSourceOptions = {
+  /** Optional scoped proxy base; the ordinary single-game share keeps its default. */
+  readonly apiBase?: string;
   readonly sessionId?: string;
   readonly storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   readonly fetchImplementation?: typeof globalThis.fetch;
@@ -47,6 +49,7 @@ export function createBoardSearchShareDataSource(
   options: BoardSearchShareDataSourceOptions = {},
 ): BoardSearchShareDataSource {
   const fetchImplementation = options.fetchImplementation ?? globalThis.fetch;
+  const apiBase = options.apiBase ?? BOARD_SEARCH_SHARE_API_BASE;
   const now = options.now ?? (() => Date.now());
   const searchCache = new Map<
     string,
@@ -106,7 +109,7 @@ export function createBoardSearchShareDataSource(
     inFlight = true;
     try {
       const response = await fetchImplementation(
-        `${BOARD_SEARCH_SHARE_API_BASE}/boards/${operation.sequenceNumber}/cells/${operation.cellIndex}/decision`,
+        `${apiBase}/boards/${operation.sequenceNumber}/cells/${operation.cellIndex}/decision`,
         {
           method: 'POST',
           cache: 'no-store',
@@ -161,14 +164,11 @@ export function createBoardSearchShareDataSource(
   const imageRevisions = new Map<string, string>();
 
   async function get<T>(path: string): Promise<Result<T>> {
-    const response = await fetchImplementation(
-      `${BOARD_SEARCH_SHARE_API_BASE}${path}`,
-      {
-        cache: 'no-store',
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      },
-    );
+    const response = await fetchImplementation(`${apiBase}${path}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
     if (response.ok) return { data: (await response.json()) as T };
     if (response.status === 401) {
       clearData();
@@ -208,7 +208,7 @@ export function createBoardSearchShareDataSource(
     },
 
     symbolImageAssetUrl: (_gameId, symbolId) =>
-      `${BOARD_SEARCH_SHARE_API_BASE}/symbols/${encodeURIComponent(symbolId)}/image?revision=${
+      `${apiBase}/symbols/${encodeURIComponent(symbolId)}/image?revision=${
         imageRevisions.get(symbolId) ?? ''
       }`,
 
@@ -363,7 +363,7 @@ export function createBoardSearchShareDataSource(
       });
       if (viewRevision !== undefined)
         parameters.set('viewRevision', viewRevision);
-      return `${BOARD_SEARCH_SHARE_API_BASE}/boards/${sequenceNumber}/view?${parameters}`;
+      return `${apiBase}/boards/${sequenceNumber}/view?${parameters}`;
     },
   };
 }

@@ -36,6 +36,42 @@ const json = (body, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+test('panel game scopes keep lost-response receipts separate and reuse the exact command after reload', async () => {
+  const durable = storage();
+  const paths = [],
+    bodies = [];
+  const make = (sessionId, fail) =>
+    createBoardSearchShareDataSource({
+      sessionId,
+      storage: durable,
+      apiBase: `/board-search-panel-api/panels/panel/games/${sessionId}/api/v1/board-search-shares`,
+      fetchImplementation: async (url, init) => {
+        paths.push(String(url));
+        bodies.push(JSON.parse(init.body));
+        if (fail) throw new Error('Lost response');
+        return json(receipt);
+      },
+    });
+  await assert.rejects(
+    make('game-A', true).correctBoardSearchCell('shared', 20, 3, request),
+  );
+  assert.equal(
+    make('game-B', false).hasPendingBoardSearchCell('shared', 20),
+    false,
+  );
+  assert.equal(
+    make('game-A', false).hasPendingBoardSearchCell('shared', 20),
+    true,
+  );
+  assert.equal(
+    (await make('game-A', false).retryBoardSearchCell('shared', 20)).data.saved,
+    true,
+  );
+  assert.deepEqual(bodies[0], bodies[1]);
+  assert.ok(paths.every((path) => path.includes('/games/game-A/')));
+  assert.equal(durable.values.size, 0);
+});
+
 test('a lost response survives a new adapter and retries the exact saved operation', async () => {
   const durable = storage();
   const writes = [];

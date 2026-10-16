@@ -50,10 +50,12 @@ const FORBIDDEN_RESPONSE_KEYS = new Set([
   'imagerelativepath',
   'importjobid',
   'jobid',
+  'linkkey',
   'recognizedboardid',
   'relativepath',
   'reviewitemid',
   'secret',
+  'secrethash',
   'token',
   'tokenhash',
 ]);

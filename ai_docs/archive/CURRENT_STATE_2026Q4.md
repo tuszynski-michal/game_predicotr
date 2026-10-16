@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-0991 — Panel udostępniania wielu gier (done, 2026-10-16)
+
+- Task: `ai_docs/tasks/completed/0991-multi-game-board-search-share.md` (odrębny od naprawy symboli o tym samym numerze). Zakładka Udostępnianie, wybór wielu gier, link bez kodu do 72 h, obecne wyszukiwanie/poprawki/logi, wspólny tunel.
+- Operator jawnie pominął audyt oraz zatwierdził migrację 0155, main merge i usunięcie gałęzi/worktree. Brak audytu PASS. Migracja wykonana: 24 stare sesje identyczne; FK i indeks valid. Backup schematu i zmienianych tabel oraz dowody poza worktree: `artifacts/branch-integration/multi-game-share-20261016-4e7f3eb0/`. Nie jest to pełna kopia 124 GiB danych.
+- Weryfikacja pierwotna: 84 Python, 44 Node, 10 interakcji, lint/typecheck/build/OpenAPI/docs/mapa PASS. Na aktualnej bazie main ponowiono 27 testów panelu/schematu PASS. Scalenie fast-forward do literalnego main wykonane: **v1.7.364 / `cb87d269128996eecc0ddd1321bf7ccf8f41fcbb`**. Buildy obu aplikacji w main i kontrola app-role/schema 0155 PASS. Gałąź v1.1-vision-lab-hybrid-geometry, pomocnicze gałęzie panelu i worktree usunięte po zabezpieczeniu; pozostałe worktree i główne środowisko zachowane. Usługi nieuruchamiane przez agenta; Reviewer 3001 wymaga ręcznego restartu po buildzie. Bez push i fizycznego odbioru sieci zewnętrznej.
+
+- **Panel wielu gier / TASK-0991 (2026-10-16):** operator jawnie pominął audyt, zatwierdził migrację 0155, scalenie do literalnego main i usunięcie gałęzi/worktree po zabezpieczeniu dowodów. Usługi zatrzymuje operator. Migracja 0155, fast-forward do main (v1.7.364) i cleanup wykonane; dowody w sekcji done. Poprzednie oczekiwanie na Claude zostało uchylone. Kolizja numeru TASK-0991 z naprawą symboli: identyfikować pełną ścieżką taska.
+
 ### TASK-1023 — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar (done)
 
 - Plik: `ai_docs/tasks/completed/1023-claude-md-dedupe-final-measurement.md`; zamyka plan odczytu startowego (status `implemented`). Commit **v1.7.372 / `e342fdb63fc1b6c1cc2c427c66ae921418ce830b`**; gałąź scalona fast-forward do `main` i wypchnięta (v1.7.373).

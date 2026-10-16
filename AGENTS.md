@@ -200,9 +200,9 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
 
 - Gałęzią integracyjną repozytorium jest `main` (decyzja operatora
   2026-10-16), chyba że użytkownik jawnie wskaże inną. Dawna gałąź
-  `v1.1-vision-lab-hybrid-geometry` jest w całości zawarta w `main` i
-  przeznaczona do usunięcia; nie scalaj do niej ani nie zakładaj od niej
-  nowych gałęzi.
+  `v1.1-vision-lab-hybrid-geometry` jest w całości zawarta w `main` i została
+  usunięta lokalnie; nie scalaj do niej ani nie zakładaj od niej nowych
+  gałęzi.
 - Najpierw wykonaj cały zlecony zakres: pojedyncze zadanie, wskazany etap albo
   cały plan, wraz z wymaganą weryfikacją, audytami, dokumentacją i osobnymi
   commitami tasków. Dopiero po jego zakończeniu przedstaw konkretny wynik

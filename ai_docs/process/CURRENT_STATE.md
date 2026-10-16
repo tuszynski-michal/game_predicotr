@@ -14,7 +14,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zweryfikuj odczytem, bez zmian w systemie. Pełne, niezmienione teksty dawnych punktów (także skróconych poniżej) są na początku archiwum Q4, sekcja „Przeniesione z okna 2026-10-16 (TASK-1022)”.
 
-- **Gałąź integracyjna = `main`** (operator, 2026-10-16): nowe gałęzie od `main`, scalanie do `main`. `v1.1-vision-lab-hybrid-geometry` jest w `main`; usuwa ją operator albo agent za osobną zgodą (wskazuje ją worktree `multi-game-share`). Starsze wzmianki o „gałęzi integracyjnej” dotyczą tamtej gałęzi. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
+- **Gałąź integracyjna = `main`** (operator, 2026-10-16): nowe gałęzie od `main`, scalanie do `main`. `v1.1-vision-lab-hybrid-geometry` jest w `main` i usunięta lokalnie (TASK-0991 panelu); na `origin` zostaje do decyzji operatora. Starsze wzmianki o „gałęzi integracyjnej” dotyczą tamtej gałęzi. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
+- **Panel wielu gier / TASK-0991 (2026-10-16):** migracja `0155`, scalenie do `main` (v1.7.364) i cleanup wykonane bez audytu (decyzja operatora); Reviewer 3001 wymaga ręcznego restartu. Numer TASK-0991 koliduje z naprawą symboli: identyfikuj pełną ścieżką. Źródło: archiwum Q4, „TASK-0991 — Panel udostępniania wielu gier”.
 - **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Push, restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. Źródło: archiwum Q3/Q4.
 - **Cykl życia usług:** API, Admin, Reviewer i workery uruchamia, zatrzymuje i restartuje wyłącznie operator; zgoda na restart dotyczy jednego zadania. Usługi działają z `D:\game_predicotr` (API z `--reload`). Z katalogu `C:\Users\tuszy\Documents\game_predicotr` nie uruchamiać usług do etapu C (TASK-0957). Źródło: `AGENTS.md`, „Kontrola lokalnych usług API i Admin”.
@@ -181,6 +182,7 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
 - **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md
 - **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md
@@ -190,4 +192,3 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
 - **TASK-0991** — Wznowienie symboli i pełny przebieg 777 a2 <80% — v1.7.358 / `17a1012e` (naprawa v1.7.351 / `6e84a1b1`) — tasks/completed/0991-symbol-reinference-resume.md
 - **TASK-0992** — Scalenie naprawy i obowiązek integracji — v1.7.353 / `14aeb0c0` (korekta v1.7.355 / `be7ecff1`) — tasks/completed/0992-integration-branch-merge-policy.md
 - **TASK-0979** — Wydanie 1.0.0 i odbiór operatora — v1.7.349 / `8ac68f5f` — tasks/completed/0979-selector-desktop-release-acceptance.md
-- **TASK-0990** — Zakres pośrodku nad zdjęciem i końcowy zapis widoku — v1.7.343 / `8a3249fd` — tasks/completed/0990-selector-desktop-centered-range.md

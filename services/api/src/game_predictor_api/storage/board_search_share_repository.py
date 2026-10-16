@@ -48,6 +48,7 @@ class SqlAlchemyBoardSearchShareRepository(BoardSearchShareRepository):
             BoardSearchShareSessionModel(
                 id=record.id,
                 game_id=record.game_id,
+                panel_id=record.panel_id,
                 label=record.label,
                 code_salt=record.code_salt,
                 code_hash=record.code_hash,
@@ -109,7 +110,9 @@ class SqlAlchemyBoardSearchShareRepository(BoardSearchShareRepository):
         game_id: UUID | None,
         limit: int,
     ) -> Sequence[BoardSearchShareRecord]:
-        statement = select(BoardSearchShareSessionModel)
+        statement = select(BoardSearchShareSessionModel).where(
+            BoardSearchShareSessionModel.panel_id.is_(None)
+        )
         if game_id is not None:
             statement = statement.where(BoardSearchShareSessionModel.game_id == game_id)
         statement = statement.order_by(
@@ -120,7 +123,15 @@ class SqlAlchemyBoardSearchShareRepository(BoardSearchShareRepository):
 
     def count_active_sessions(self, now: datetime) -> int:
         count = self._session.scalar(
-            select(func.count(BoardSearchShareSessionModel.id)).where(
+            select(
+                func.count(
+                    func.distinct(
+                        func.coalesce(
+                            BoardSearchShareSessionModel.panel_id, BoardSearchShareSessionModel.id
+                        )
+                    )
+                )
+            ).where(
                 BoardSearchShareSessionModel.revoked_at.is_(None),
                 BoardSearchShareSessionModel.locked_at.is_(None),
                 BoardSearchShareSessionModel.expires_at > now,
@@ -204,7 +215,7 @@ class InMemoryBoardSearchShareRepository(BoardSearchShareRepository):
             records = [
                 record
                 for record in self.records.values()
-                if game_id is None or record.game_id == game_id
+                if record.panel_id is None and (game_id is None or record.game_id == game_id)
             ]
             records.sort(key=lambda record: (record.created_at, record.id), reverse=True)
             return tuple(records[:limit])
@@ -214,12 +225,14 @@ class InMemoryBoardSearchShareRepository(BoardSearchShareRepository):
 
     def count_active_sessions(self, now: datetime) -> int:
         with self._lock:
-            return sum(
-                1
-                for record in self.records.values()
-                if record.revoked_at is None
-                and record.locked_at is None
-                and record.expires_at > now
+            return len(
+                {
+                    record.panel_id or record.id
+                    for record in self.records.values()
+                    if record.revoked_at is None
+                    and record.locked_at is None
+                    and record.expires_at > now
+                }
             )
 
     def append_audit_event(
@@ -248,6 +261,7 @@ def _from_model(model: BoardSearchShareSessionModel) -> BoardSearchShareRecord:
     return BoardSearchShareRecord(
         id=model.id,
         game_id=model.game_id,
+        panel_id=model.panel_id,
         label=model.label,
         code_salt=model.code_salt,
         code_hash=model.code_hash,

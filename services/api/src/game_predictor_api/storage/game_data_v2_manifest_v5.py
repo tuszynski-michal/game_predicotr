@@ -20,6 +20,7 @@ ADDED_GAME_TABLES = ("image_geometry_shadow_results",)
 # the frozen v2 set it derives from) must keep the tables that existed then.
 POST_V5_SHARED = frozenset(
     {
+        "board_search_panels",
         "semi_automatic_selection_v7_output_operations",
         "semi_automatic_selection_v7_pilot_acceptances",
         "semi_automatic_selection_v7_source_observations",

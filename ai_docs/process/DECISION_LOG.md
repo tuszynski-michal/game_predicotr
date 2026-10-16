@@ -31,6 +31,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-548](decisions/DECISION_LOG_2026.md#d-548--panel-wyszukiwarki-wielu-gier-przez-link-bez-kodu) | Panel wyszukiwarki wielu gier przez link bez kodu | accepted | 2026-10-13 | Immutable chosen games, full search/corrections, capability link max 72h, shared tunnel; audit omitted and migration/main integration/cleanup explicitly approved 2026-10-16. |
 | [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
@@ -60,4 +61,3 @@ Reguły:
 | [D-521](decisions/DECISION_LOG_2026.md#d-521--explicit-mumie-rgb-and-neural-folder-pilot) | explicit Mumie RGB and neural folder pilot | accepted | 2026-10-06 | selection of the recommended earlier RGB and request to connect the engine to main-app folder uploads,… |
 | [D-520](decisions/DECISION_LOG_2026.md#d-520--rgb-v2-jako-źródło-nowej-wersji-predykcji-oczekujących-komórek) | RGB v2 jako źródło nowej wersji predykcji oczekujących komórek | accepted | 2026-10-05 | oczekujące komórki z przypisaniem od modelu dostają symbol wybrany metodą RGB v2 z D-494 (argmax zamrożonej… |
 | [D-506](decisions/DECISION_LOG_2026.md#d-506--explicit-larger-local-rgb-experiment) | explicit larger local RGB experiment | accepted | 2026-10-06 | autonomous larger-training instruction and accepted TASK-0871–0873 plan. |
-| [D-505](decisions/DECISION_LOG_2026.md#d-505--explicitly-authorized-isolated-ai-symbol-experiment) | explicitly authorized isolated AI symbol experiment | accepted | 2026-10-06 | request to continue training autonomously and use internal AI to inspect graphics. |

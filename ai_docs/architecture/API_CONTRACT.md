@@ -613,6 +613,65 @@ reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
 `409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych
 parametrów.
 
+### Panel wielu gier (D-548, TASK-0991; przed wdrożeniem0155)
+
+Addytywna rodzina control-plane:
+
+```text
+POST /api/v1/admin/board-search-panels
+body: { gameIds: UUID[1..100], label?: string|null, lifetimeMinutes: 5..4320 = 480 }
+201: { panel: <metadane i gry>, linkKey: <losowy sekret zwracany raz> }
+GET /api/v1/admin/board-search-panels?limit=1..100
+200: { panels: [<metadane i gry bez sekretów>] }
+POST /api/v1/admin/board-search-panels/{panel_id}/revoke
+200: <metadane zatrzymanego panelu>; idempotentne
+POST /api/v1/board-search-panels/{panel_id}/open { linkKey }
+GET /api/v1/board-search-panels/{panel_id}/context
+200 public: { panelId, label, expiresAt, games: [{ sessionId, gameName }] }
+```
+
+Adminowe metadane zawierają panelId, label, status, createdAt, expiresAt,
+ready, shareUrl bez sekretu i games z gameId/gameName/sessionId. Lista nie
+zwraca linkKey ani hashów. Wrapper dodaje dotychczasowe nagłówki intencji
+i potwierdzenia z celem `board-search-panel:new` / `board-search-panel:{id}`.
+Opublikowany backendowy OpenAPI i generowany klient pozostają źródłem typów.
+
+Publiczne open/context wymagają `X-Board-Search-Panel-Proxy` o wartości
+`reviewer-board-search-panel-v1`. Open wydaje cookie `gp_board_search_panel`
+o wartości `panelId.secret`; proxy nadaje mu Secure, HttpOnly, SameSite=Strict
+i ścieżkę `/board-search-panel-api/panels/{panelId}`. Rodziny cookie są
+niezależne od dotychczasowej wyszukiwarki, Management i Reviewera.
+
+Panel nie dodaje drugiej implementacji wyszukiwania ani korekt. Proxy
+`/board-search-panel-api/panels/{panelId}/games/{sessionId}/api/v1/board-search-shares/...`
+wyprowadza HMAC-SHA256 credential konkretnego dziecka i deleguje do
+dotychczasowej allowlisty (bez unlock). Wiadomość HMAC jest dokładnie
+`board-search-panel-v1\n{panelId}\n{sessionId}`, z kanonicznymi UUID i kluczem
+ASCII secret. Hash credentialu jest zapisany w istniejącej sesji jednej gry;
+obce dziecko lub panel nie daje poprawnego tokenu. API dalej bierze game_id
+wyłącznie z uwierzytelnionej sesji. Dowolne gameId i draftowe rulesVersionId
+pozostają niedozwolone. Wielokrotne open nie rotują credentialów.
+
+Migracja0155 dodaje public.board_search_panels oraz nullable panel_id z FK
+RESTRICT i częściową unikalnością(panel_id, game_id) w dotychczasowych
+sesjach. Stare sesje pozostają NULL. Kontrola limitu liczy DISTINCT
+COALESCE(panel_id,id) pod dotychczasową blokadą tworzenia. Revoke blokuje
+parent, następnie dzieci według session_id i atomowo czyści wszystkie tokeny;
+serializuje się z korektami na wierszu dziecka. Legacy unlock i osobny
+revoke dziecka są odrzucane. Audyt i zdarzenia zachowują session_id/game_id.
+
+Walidacja całego wyboru poprzedza start ingress i jest powtórzona przed
+zapisem. Każdy odczyt gotowości gry ma osobną transakcję; tworzenie panelu
+jest jedną transakcją control-plane. Błędy wyboru:
+`BOARD_SEARCH_PANEL_GAMES_INVALID`, `_GAME_UNAVAILABLE`, `_GAME_NOT_READY`
+(409 z gameName/reasonCode). Pozostałe ograniczenia sesji, flagi, rate limit,
+wygaśnięcie i błędy korekt dziedziczą istniejący kontrakt.
+
+Zastosowanie0155 na bazie operatora i uruchomienie kodu wymagają osobnego
+przejścia. Downgrade nie usuwa historii; odtworzenie z backupu jest osobną
+operacją operatorską. Link ma postać `/board-search-panel?share={id}#key={secret}`;
+przy nowym origin przeglądarka Admina dokłada zachowaną lokalnie kopię sekretu.
+
 ### Sesje udostępniania wyszukiwarki online (D-471, TASK-0766)
 
 ```text

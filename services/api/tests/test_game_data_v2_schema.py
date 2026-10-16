@@ -107,6 +107,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
             ownership(table)
     assert {ownership(name) for name in CONTROL_TABLES} == {"shared"}
+    assert ownership("board_search_panels") == "shared"
     assert {
         "semi_automatic_selection_v7_activation_gate",
         "global_geometry_profile_versions",

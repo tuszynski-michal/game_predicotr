@@ -4,13 +4,14 @@ status: active
 last_updated: 2026-10-16
 ---
 
-# Indeks starszych decyzji (D-1..D-504)
+# Indeks starszych decyzji (D-1..D-505)
 
 Ciąg dalszy indeksu z [DECISION_LOG.md](../DECISION_LOG.md): wpisy o numerach
-poniżej D-505 (514 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
+poniżej D-506 (515 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-505](DECISION_LOG_2026.md#d-505--explicitly-authorized-isolated-ai-symbol-experiment) | explicitly authorized isolated AI symbol experiment | accepted | 2026-10-06 | request to continue training autonomously and use internal AI to inspect graphics. |
 | [D-504](DECISION_LOG_2026.md#d-504--qualified-feedback-inference-and-case-scoped-review-provenance) | qualified feedback inference and case-scoped review provenance | accepted | 2026-10-06 | operator-authorized third-recording diagnosis and existing exact crop review. |
 | [D-503](DECISION_LOG_2026.md#d-503--exact-source-relocation-and-recording-declarations) | exact source relocation and recording declarations | accepted | 2026-10-06 | C:\Users\tuszy\Documents\mumie and instruction to continue with its cut folders. |
 | [D-502](DECISION_LOG_2026.md#d-502--qualification-of-exact-reviewed-symbol-rasters) | qualification of exact reviewed symbol rasters | accepted | 2026-10-05 | freeze separate symbol_crop_feedback inputs from actual latest batch_crop_review approve decisions and exact… |

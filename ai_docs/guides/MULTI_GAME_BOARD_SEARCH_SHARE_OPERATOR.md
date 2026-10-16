@@ -1,12 +1,14 @@
 ---
 title: Panel udostępniania wielu gier — odbiór i uruchomienie
 status: active
-last_updated: 2026-10-13
+last_updated: 2026-10-16
 ---
 
 # Panel udostępniania wielu gier
 
-TASK-0991 został zaakceptowany do scalenia na literalny main. Operator
+TASK-0991 jest scalony do literalnego main: v1.7.364 /
+cb87d269128996eecc0ddd1321bf7ccf8f41fcbb. Gałąź panelu i worktree usunięto.
+Operator
 2026-10-16 jawnie pominął audyt i zatwierdził migrację 0155 oraz usunięcie
 gałęzi/worktree. Nie uruchamiano Claude Code ani nie nadawano audytu PASS.
 
@@ -19,6 +21,7 @@ To nie jest pełny backup danych bazy 124 GiB. Wynik integracji i commity:
 
 ## Uruchomienie po scaleniu
 
+Buildy Admin i Reviewer w main są już przygotowane i zweryfikowane.
 Operator uruchamia API, Admin i worker swoimi dotychczasowymi komendami.
 Reviewer na porcie 3001 pozostał uruchomiony podczas przejścia; wymaga
 ręcznego zatrzymania i ponownego startu po nowym buildzie. Agent nie
@@ -27,8 +30,6 @@ uruchamia, nie zatrzymuje ani nie restartuje tych usług.
 ```powershell
 Set-Location D:\game_predicotr
 npm run db:current
-npm run admin:build
-npm run reviewer:build
 ```
 
 Oczekiwany head: `0155_board_search_panels`. Nie wykonywać downgrade,

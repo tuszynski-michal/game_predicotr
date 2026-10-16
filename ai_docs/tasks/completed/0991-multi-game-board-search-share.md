@@ -10,7 +10,7 @@ status: done
 `done` — implementacja i weryfikacja zakończone. Operator 2026-10-16
 jawnie polecił pominąć audyt, wykonać migrację 0155, scalić do main
 oraz usunąć gałąź i worktree. Migracja bazy operatora wykonana i sprawdzona;
-scalenie i sprzątanie rozlicza końcowy zapis integracji.
+scalenie do main i usunięcie gałęzi/worktree zakończone (dowody poniżej).
 
 ## Goal
 
@@ -225,8 +225,9 @@ dokumentacyjne. Nie powstał commit taska ani merge commit. Przed aktualizacją
 metadanych potwierdzono SHA-256 wszystkich 53 zmienionych plików:
 identyczne bajty po przełączeniu. Kod i jego wyniki testów są niezmienione.
 Zaktualizowano nazwę gałęzi w planie, stanie i instrukcji oraz brief audytu.
-Commit TASK-0991 nadal czeka na audyt Claude operatora; main i jego usługi,
-baza operatora oraz zdalne gałęzie nie zostały zmienione.
+W tamtym momencie commit TASK-0991 czekał na audyt operatora; main,
+baza i zdalne gałęzie pozostawały bez zmian. Instrukcja z 2026-10-16
+zastąpiła tę bramkę i zatwierdziła opisane poniżej przejście.
 
 ### Integracja zatwierdzona 2026-10-16
 
@@ -256,8 +257,37 @@ Na aktualnej bazie main ponowiono focused testy panelu i schematu:
 (właściwy runner tsx dla wrappera). Porównano 41 plików aplikacji/testów
 z zabezpieczoną wersją: identyczna zawartość po normalizacji CRLF. Kod aplikacji main od bazy pierwotnych testów nie zmienił się;
 wcześniejsze wyniki 84 Python, 44 Node i 10 interakcji pozostają dowodami
-tego samego pionu. Kontrole finalnego drzewa oraz commity/merge/cleanup
-są dopisywane po ich wykonaniu.
+tego samego pionu. Kontrole finalnego drzewa i wynik integracji zapisano poniżej.
+
+### Końcowy wynik integracji
+
+Commit implementacji: **v1.7.364 / cb87d269128996eecc0ddd1321bf7ccf8f41fcbb**.
+Scalenie fast-forward do literalnego **main** wykonane; ancestry potwierdza,
+że main zawiera cały commit taska. Zachowano wcześniejszą historię main
+oraz cudze niezacommitowane worktree. Produkcyjne buildy Admin i Reviewer
+w głównym katalogu PASS; nowe trasy /board-search-panel i proxy są w buildzie.
+Nowy proces z runtime rolą app: require_alembic_head PASS dla 0155;
+provision_database_roles --check compliant (brak luk uprawnień).
+OpenAPI artifact, docs:check, wygenerowana mapa i diff checks PASS.
+
+Usunięto D:/game_predicotr/worktrees/multi-game-share oraz lokalne gałęzie
+v1.1-vision-lab-hybrid-geometry, codex/multi-game-share-main i pierwotną
+pomocniczą codex/multi-game-share. Każdy ich tip był przodkiem main.
+Usunięto wyłącznie własny stash bd89be3dc458af7ec1666def16b580281b1b35d4
+po zabezpieczeniu. Przed rekursywnym usunięciem odpięto 8 samych reparse
+points; .venv i biblioteki głównego repozytorium zachowały swoje SHA-256.
+Pozostałe worktree są zachowane. Własny gitlink worktree usunięto z indeksu,
+aby main nie wskazywał nieistniejącego checkoutu.
+
+Dowody: artifacts/branch-integration/multi-game-share-20261016-4e7f3eb0/:
+cleanup-result.json, database-0154/migration-result.json, admin-build.log,
+reviewer-build.log, final-evidence (brief, zrzuty i narzędzia weryfikacji),
+ignored-preserved (wszystkie nieregenerowalne ignorowane pliki tego taska).
+Kod po przeniesieniu był zgodny w 41 plikach z wcześniejszym backupem.
+Audyt pominięty — jawna decyzja operatora, bez audytu PASS. Usług nie
+uruchamiano i nie restartowano; brak push. Reviewer 3001 wymaga ręcznego
+restartu, API/Admin/worker ręcznego uruchomienia. Odbiór telefonu i sieci
+zewnętrznej nadal nie jest deklarowany jako wykonany.
 
 ### Recommended next task
 

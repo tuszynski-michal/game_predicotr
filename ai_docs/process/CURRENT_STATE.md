@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Panel wielu gier / TASK-0991 (2026-10-16):** operator jawnie pominął audyt, zatwierdził migrację 0155, scalenie do literalnego main i usunięcie gałęzi/worktree po zabezpieczeniu dowodów. Usługi zatrzymuje operator. Migracja 0155 wykonana; integrację i cleanup rozlicza sekcja done. Poprzednie oczekiwanie na Claude zostało uchylone. Kolizja numeru TASK-0991 z naprawą symboli: identyfikować pełną ścieżką taska.
+- **Panel wielu gier / TASK-0991 (2026-10-16):** operator jawnie pominął audyt, zatwierdził migrację 0155, scalenie do literalnego main i usunięcie gałęzi/worktree po zabezpieczeniu dowodów. Usługi zatrzymuje operator. Migracja 0155, fast-forward do main (v1.7.364) i cleanup wykonane; dowody w sekcji done. Poprzednie oczekiwanie na Claude zostało uchylone. Kolizja numeru TASK-0991 z naprawą symboli: identyfikować pełną ścieżką taska.
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Operator zaakceptował wynik i wskazał `main`: scalenie fast-forward wykonane do v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`; bez push.
 
@@ -884,7 +884,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Task: `ai_docs/tasks/completed/0991-multi-game-board-search-share.md` (odrębny od naprawy symboli o tym samym numerze). Zakładka Udostępnianie, wybór wielu gier, link bez kodu do 72 h, obecne wyszukiwanie/poprawki/logi, wspólny tunel.
 - Operator jawnie pominął audyt oraz zatwierdził migrację 0155, main merge i usunięcie gałęzi/worktree. Brak audytu PASS. Migracja wykonana: 24 stare sesje identyczne; FK i indeks valid. Backup schematu i zmienianych tabel oraz dowody poza worktree: `artifacts/branch-integration/multi-game-share-20261016-4e7f3eb0/`. Nie jest to pełna kopia 124 GiB danych.
-- Weryfikacja pierwotna: 84 Python, 44 Node, 10 interakcji, lint/typecheck/build/OpenAPI/docs/mapa PASS. Na aktualnej bazie main ponowiono 27 testów panelu/schematu PASS. Integracja, hash commita i cleanup są rozliczane po wykonaniu. Usługi nieuruchamiane przez agenta; Reviewer 3001 wymaga ręcznego restartu po buildzie. Bez push i fizycznego odbioru sieci zewnętrznej.
+- Weryfikacja pierwotna: 84 Python, 44 Node, 10 interakcji, lint/typecheck/build/OpenAPI/docs/mapa PASS. Na aktualnej bazie main ponowiono 27 testów panelu/schematu PASS. Scalenie fast-forward do literalnego main wykonane: **v1.7.364 / `cb87d269128996eecc0ddd1321bf7ccf8f41fcbb`**. Buildy obu aplikacji w main i kontrola app-role/schema 0155 PASS. Gałąź v1.1-vision-lab-hybrid-geometry, pomocnicze gałęzie panelu i worktree usunięte po zabezpieczeniu; pozostałe worktree i główne środowisko zachowane. Usługi nieuruchamiane przez agenta; Reviewer 3001 wymaga ręcznego restartu po buildzie. Bez push i fizycznego odbioru sieci zewnętrznej.
 
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
 

@@ -1,7 +1,7 @@
 ---
 title: Panel udostępniania wyszukiwarki dla wybranych gier
 status: completed
-last_updated: 2026-10-13
+last_updated: 2026-10-16
 ---
 
 # Panel udostępniania wielu gier
@@ -14,6 +14,8 @@ Najnowsza jawna instrukcja 2026-10-16 pomija audyt i zatwierdza migrację
 v1.1-vision-lab-hybrid-geometry i worktree po zabezpieczeniu dowodów.
 Nie wolno uruchamiać Claude Code dla tego taska. Migracja i integracja
 są rozliczone w completed/0991-multi-game-board-search-share.md.
+Main zawiera v1.7.364 / cb87d269128996eecc0ddd1321bf7ccf8f41fcbb;
+gałąź i worktree panelu usunięte po zabezpieczeniu dowodów.
 
 Bazowy commit main: v1.7.350, 6fa5577802738f3614fc21e4abc2873990f8536d.
 Izolowany worktree: D:/game_predicotr/worktrees/multi-game-share,

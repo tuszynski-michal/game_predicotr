@@ -92,7 +92,7 @@ domyślnym kontekstem implementacyjnym.
 - [Panel udostępniania wielu gier](delivery/MULTI_GAME_BOARD_SEARCH_SHARE_EXECUTION_PLAN_20261013.md)
   — completed, TASK-0991; audyt pominięty jawną decyzją operatora 2026-10-16.
   [Instrukcja uruchomienia](guides/MULTI_GAME_BOARD_SEARCH_SHARE_OPERATOR.md).
-  Migracja 0155 i scalenie do main zatwierdzone 2026-10-16.
+  Migracja 0155 i scalenie do main wykonane 2026-10-16; gałąź/worktree usunięte.
 
 - [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
   — proposed, rewizja 2, TASK-0993–1006: edytor 4/24 punktów, dane i trening,

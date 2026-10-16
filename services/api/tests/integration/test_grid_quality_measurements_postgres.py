@@ -346,10 +346,13 @@ finally:
         session.rollback()
     with pytest.raises(Exception, match="GRID_QUALITY_DOWNGRADE_HAS_HISTORY"):
         command.downgrade(database.config, "0161_source_recording_groups")
+    # The refused walk rolls back as one transaction: the database stays on the current head.
+    from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
+
     with database.engine.connect() as connection:
         assert (
             connection.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0162_grid_quality_measurements"
+            == EXPECTED_ALEMBIC_HEAD
         )
 
 

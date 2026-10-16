@@ -59,9 +59,24 @@ def test_duplicate_frozen_id_across_pages_is_unique_and_legacy_skips_aggregation
         with game_storage_scope(game), Session(database.engine) as session:
             repository = SqlAlchemyGridReinferenceRepository(session, Path.cwd())
             repository.bind(game, write=False)
-            target = session.scalar(select(Target).where(Target.game_id == game).limit(1))
-            if target is not None and target.snapshot["board"] is not None:
-                found = game, target.operation_id, target.ordinal
+            # Game ids are random: never pick the single-board deferred scenario by order
+            # (TASK-1001). The expectation below needs an operation with two boards.
+            boards: dict[object, set[str]] = {}
+            first: dict[object, Target] = {}
+            for candidate in session.scalars(
+                select(Target)
+                .where(Target.game_id == game)
+                .order_by(Target.operation_id, Target.ordinal)
+            ):
+                if candidate.snapshot["board"] is None:
+                    continue
+                boards.setdefault(candidate.operation_id, set()).add(
+                    candidate.snapshot["board"]["id"]
+                )
+                first.setdefault(candidate.operation_id, candidate)
+            chosen = next((key for key, ids in boards.items() if len(ids) == 2), None)
+            if chosen is not None:
+                found = game, chosen, first[chosen].ordinal
                 break
     assert found is not None
     game, operation_id, ordinal = found

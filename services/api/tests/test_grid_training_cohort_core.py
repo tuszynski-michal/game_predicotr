@@ -413,10 +413,22 @@ def test_excluded_and_unknown_members_never_count_even_with_apparent_labels():
 def test_immutable_publish_survives_new_store_and_lost_response(tmp_path):
     game, cohort = uuid4(), uuid4()
     first = GridCohortArtifactStore(tmp_path).publish_json(game, cohort, {"nodes": lattice()})
+    # The writer stages ``.tmp-<hex>.part`` next to the target (TASK-1001, P2-5 of 0995).
+    assert not list(tmp_path.rglob(".tmp-*.part")), "no staging leftover after success"
     restarted = GridCohortArtifactStore(tmp_path)
     assert restarted.publish_json(game, cohort, {"nodes": lattice()}) == first
+    assert not list(tmp_path.rglob(".tmp-*.part")), "no staging leftover after replay"
     assert restarted.read_json(first["path"], first["sha256"])["nodes"] == lattice()
-    assert not list(tmp_path.rglob("*.staged"))
+
+    def interrupted():
+        yield b'{"nodes":'
+        assert list(tmp_path.rglob(".tmp-*.part")), "the staging file exists while writing"
+        raise OSError("lost response while writing")
+
+    directory = first["path"].rsplit("/", 1)[0]
+    with pytest.raises(OSError, match="lost response"):
+        restarted._publish(directory, "json", interrupted())
+    assert not list(tmp_path.rglob(".tmp-*.part")), "no staging leftover after a failure"
     restarted.safe(first["path"]).write_bytes(b"changed")
     with pytest.raises(GridCohortError, match="changed"):
         restarted.read_json(first["path"], first["sha256"])

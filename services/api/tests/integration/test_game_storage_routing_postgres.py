@@ -33,7 +33,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v15 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v17 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -160,7 +160,16 @@ def test_v2_parents_have_scope_default_rls_and_runtime_triggers(database: Engine
         )
     assert guarded == set(GAME_TABLES)
     assert defaults == set(GAME_TABLES)
-    assert len(triggers) == 7
+    # Seven routing triggers plus the V3 immutability and currentness triggers of the
+    # quality measurements (0162), training cohorts (0163) and evaluation notices (0166).
+    v3 = {
+        "grid_quality_immutable",
+        "grid_cohort_immutable",
+        "grid_cohort_currentness",
+        "grid_cohort_notice_mark",
+    }
+    assert v3 <= triggers
+    assert len(triggers - v3) == 7
 
 
 def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> None:

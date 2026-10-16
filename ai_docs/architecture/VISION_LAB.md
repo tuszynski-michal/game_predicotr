@@ -789,7 +789,9 @@ and seeds of an uninterrupted run; checkpoints are immutable, re-read before the
 candidate. Grid-only trains only the board stage with the detector and BatchNorm frozen and
 the visibility loss masked; screen+grid trains the whole network.
 
-The best checkpoint is exported with ONNX parity, installed under
+The best checkpoint is exported with ONNX parity (D-561: every torch/ONNX output difference
+divided by max(1, |torch|) stays within 1e-4, so pixel-space node coordinates are not
+rejected for fp32 rounding; a failed check leaves `parity-failed.json` in the run), installed under
 `models/grid-engine/<profile>/<version>` with its `training-base` receipt and registered
 `not_evaluated` with an identifier derived from the job and checkpoint, so a retry after a
 crash restores the same version. Budget, attempt, checkpoint pointer, export and candidate

@@ -25,7 +25,7 @@ from game_predictor_api.storage.database_roles import (
     provision_application_role,
 )
 from game_predictor_api.storage.game_create_receipts import SqlAlchemyGameCreateReceiptRepository
-from game_predictor_api.storage.game_data_v2_manifest_v15 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v17 import VERSION
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker

@@ -217,6 +217,16 @@ def isolated_image_batch_database() -> Iterator[URL]:
             maintenance_engine.dispose()
 
 
+@pytest.fixture
+def no_job_admission(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fixture rows only: these tests model several imports or bulk operations of one game
+    at once, which the V3 game admission gate (TASK-0999, API_CONTRACT
+    ``GAME_JOB_ADMISSION_CONFLICT``) refuses by design and its own tests cover."""
+    from game_predictor_api.storage import job_admission
+
+    monkeypatch.setattr(job_admission, "admit_job", lambda *_args, **_kwargs: None)
+
+
 def _image_job(game_id: UUID, pipeline: str, created_at: datetime) -> Job:
     return create_job(
         JobType.IMPORT,
@@ -1625,6 +1635,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
     isolated_image_batch_database: URL,
     monkeypatch: pytest.MonkeyPatch,
@@ -2655,6 +2666,7 @@ def test_review_job_completion_migration_backfills_resolved_import(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -2850,6 +2862,7 @@ def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -2978,6 +2991,7 @@ def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save
 
 
 @pytest.mark.parametrize("same_photo", [True, False], ids=["same-photo", "other-photos"])
+@pytest.mark.usefixtures("no_job_admission")
 def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     isolated_image_batch_database: URL,
     same_photo: bool,
@@ -3140,6 +3154,7 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_image_batch_store_reuses_execution_and_fences_checkpoint(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -3593,6 +3608,7 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_pending_reinference_excludes_cancelled_imports(
     isolated_image_batch_database: URL,
     tmp_path: Path,

@@ -128,7 +128,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 - Wykonano 2026-10-16: Claude Code `claude-opus-5-5`/`high`, baza v1.7.390 `9bf3a4b9315fecdd7a55e71a857d376e769bf70c`; przed audytem gałąź scaliła `main` v1.7.385 (v1.7.391 `1b38ae6c`, skille `task-close`/`merge-to-main`). Branch `codex/v3-grid-fine-tuning`, worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Kontrakt przed kodem w Technical notes. Bez migracji; runda poprawek rozszerzyła kontrakt API selektora kohorty (pion: backend, OpenAPI, klient, test żądania).
-- Commit: v1.7.392 (hash dopisuje kolejny commit).
+- Commit: v1.7.392 / `eb2126294ef4854634c434d46b0573b2bba8c34a`.
 - Audyt R1: Codex `gpt-6-astra`/`medium`, limit 1200 s — [raport R1](../../quality/TASK-1000_AUDIT_gpt-6-astra_R1.md), werdykt REVISE: P0-1, P0-2, P0-3, P1-1, P2-1, P2-2. Jedna runda poprawek poniżej.
 - Audyt R2: [raport R2](../../quality/TASK-1000_AUDIT_gpt-6-astra_R2.md), werdykt REVISE: zamknięte P0-1, P0-3, P1-1, P2-2; otwarte P0-2 (forki rodzin), P2-1 (zakończenie runu, nowe oceny), P2-3 (nieaktualny wpis). Operator 2026-10-16 wybrał drugą rundę poprawek; audyt R3 po niej.
 - Audyt R3: [raport R3](../../quality/TASK-1000_AUDIT_gpt-6-astra_R3.md), werdykt **PASS**, brak P0/P1; zamknięte P0-2, P2-1, P2-3. Jedyne P2-4 (szczegóły wybranej oceny po sprawdzeniu aktualności w innym kroku) poprawione przed commitem: odświeżenie panelu wersji czyta ponownie wybraną ocenę z ochroną przed spóźnioną odpowiedzią; test interakcji dopisany.

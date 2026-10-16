@@ -4,6 +4,7 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from _recording_capability_fixture import OwnedRecordingCapability
@@ -83,6 +84,8 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                 client.post(
                     "/api/v1/admin/games",
                     json={
+                        # TASK-1004: game creation is idempotent and needs its key.
+                        "idempotencyKey": str(uuid4()),
                         "code": "m2-game",
                         "name": "M2 Acceptance Game",
                         "status": "active",

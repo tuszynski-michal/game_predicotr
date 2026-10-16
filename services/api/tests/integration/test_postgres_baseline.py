@@ -38,12 +38,17 @@ from game_predictor_api.domain.reviewer_work_assignments import (
 )
 from game_predictor_api.storage import management_session_models  # noqa: F401  (registers 0150)
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v15 import CREATE_TABLES, GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v17 import (
+    CREATE_TABLES,
+    GAME_TABLES,
+    VERSION,
+)
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
 )
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -100,6 +105,9 @@ EXPECTED_PUBLIC_TABLES = {
     name.removeprefix("public.") for name in Base.metadata.tables if name not in GAME_TABLES
 } | STORAGE_CONTROL_TABLES
 EXPECTED_GAME_DATA_V2_TABLES = set(GAME_TABLES)
+# TASK-1001: the expectation follows the manifest the application routes with; a new
+# manifest must update this import instead of failing on a table-set difference.
+assert VERSION == ROUTED_MANIFEST_VERSION, "baseline uses a stale game manifest"
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
@@ -155,9 +163,17 @@ def isolated_database() -> Iterator[URL]:
             maintenance_engine.dispose()
 
 
+# Below the merge revision 0164 the history has two heads: the V3 line and main's
+# 0155_board_search_panels, which stays applied while the V3 line is walked down.
+MAIN_BRANCH_HEAD = "0155_board_search_panels"
+
+
 def _current_revision(engine: Engine) -> str | None:
     with engine.connect() as connection:
-        return MigrationContext.configure(connection).get_current_revision()
+        heads = set(MigrationContext.configure(connection).get_current_heads())
+    own = heads - {MAIN_BRANCH_HEAD} if len(heads) > 1 else heads
+    assert len(own) <= 1, heads
+    return next(iter(own), None)
 
 
 def _assert_head_schema(engine: Engine) -> None:
@@ -203,7 +219,7 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
         command.downgrade(config, LAST_GAME_CREATE_RETENTION_REVISION)
         assert _current_revision(engine) == LAST_GAME_CREATE_RETENTION_REVISION
         with pytest.raises(Exception, match="GAME_CREATE_DOWNGRADE_REFUSED"):
-            command.downgrade(config, "-1")
+            command.downgrade(config, "0157_grid_model_publication")
         assert _current_revision(engine) == LAST_GAME_CREATE_RETENTION_REVISION
         command.upgrade(config, "head")
         _assert_head_schema(engine)

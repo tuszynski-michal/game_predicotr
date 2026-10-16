@@ -12,6 +12,7 @@ from game_predictor_api.storage.database_roles import (
     describe_application_role,
     provision_application_role,
 )
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from sqlalchemy import text
 
@@ -56,7 +57,7 @@ def test_existing_compact_branch_upgrades_to_combined_head(revision):
                     ),
                     {"game": db.games["merge"]},
                 ).scalar_one()
-                == "game-data-v2-manifest-v14"
+                == ROUTED_MANIFEST_VERSION
             )
             protected = set(
                 connection.execute(

@@ -36,7 +36,7 @@ from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v15 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v17 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,

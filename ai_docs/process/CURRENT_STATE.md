@@ -27,13 +27,13 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Narzędzia tokenowe:** hook blokuje `Read` pliku > 200 KB bez `offset`/`limit`; task zmieniający moduły regeneruje mapę kodu (`scripts/generate_code_map.py`, kontrola `npm run code-map:check`). Serena i Graphify nie są stałym narzędziem (pilot TASK-0939 zamknięty bez pomiaru). Źródło: `guides/TOKEN_TOOLING.md`.
 - **Plan V3 rewizja 6** (`codex/v3-grid-fine-tuning`, accepted 2026-10-14): cały zakres i koszt zlecone; od TASK-1005 wykonuje Claude Code `claude-opus-5-5`/`high` (zamiennik `claude-fable-5-1` wybrany przez wykonawcę po sugestii operatora 2026-10-16; 0997 na `xhigh`), audytuje Codex `gpt-6-astra`. GPU smoke, trening, publikacja, aktywacja, migracje i operacje danych operatora oraz scalenie do `main` mają osobne zgody; kopia `D:\game_predictor_backup` wystarcza, bez nowego backupu. Źródło: plan sekcje 1, 3 i 8; D-552.
 - **Migracje gałęzi V3:** `0155_historical_grid_acceptance`–`0163`, scalająca `0164_merge_main_board_search_panels`, `0165_grid_training_lane` (TASK-0996, lane `grid_training`) i `0166_grid_model_evaluation` (TASK-0997, manifest v17) sprawdzane tylko na bazach `*_test`; baza operatora jest na `0155_board_search_panels`. Integracja wymaga przejścia operatora i provisioningu capability przed `0161` (D-554). Źródło: archiwum Q4, „Przeniesione z okna gałęzi `codex/v3-grid-fine-tuning`…”.
-- **Regresje V3:** [rejestr obowiązków](../quality/V3_BACKEND_REGRESSION_OBLIGATIONS_20261015.md) i [baseline HEAD380](../quality/TASK-1003_BASELINE_HEAD380.md) (215 PASS/10 FAIL) zachowują jawne FAIL; TASK-1001 porównuje wynik końcowy. `scripts/run_python_tests.ps1 -Suite` dla jednej ścieżki psuje kolekcję: używać bezpośredniego `pytest`. Źródło: archiwum Q4, jak wyżej.
+- **Regresje V3:** odbiór TASK-1001 w [raporcie](../quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md): Admin ma te same 10 porażek co [HEAD380](../quality/TASK-1003_BASELINE_HEAD380.md), worker 17 środowiskowych w worktree, PostgreSQL tylko znana usterka `reset_game` sprzed V3 (osobne zadanie). `scripts/run_python_tests.ps1 -Suite` dla jednej ścieżki psuje kolekcję: używać bezpośredniego `pytest`. Źródło: archiwum Q4, jak wyżej.
 
 ## Plany z niezakończonymi taskami
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 23/24 done | TASK-1001 | `codex/v3-grid-fine-tuning` |
+| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, czeka na integrację | — | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -52,13 +52,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1001 — Odbiór procesu i instrukcja operatora (todo)
-
-- [1001-v3-grid-fine-tuning-acceptance.md](../tasks/1001-v3-grid-fine-tuning-acceptance.md) na `codex/v3-grid-fine-tuning`; ostatni; zawiera przyjęte P2-5 z TASK-0995 i porównanie z baseline HEAD380.
-
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 — tasks/completed/1000-v3-grid-model-workspace.md
+- **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
+- **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md
 - **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / `9bf3a4b9` — tasks/completed/1006-shared-grid-model-candidate.md
 - **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / 88b2ab82 — tasks/completed/0997-grid-model-evaluation.md
 - **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / 6397bc51 — tasks/completed/0996-durable-v3-grid-training.md
@@ -67,4 +64,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1031** — Skill `merge-to-main` z preflightem — v1.7.379 / `bf0ad43b` — tasks/completed/1031-merge-to-main-skill.md
 - **TASK-1030** — Skill `task-close` ze skryptem zamykania — v1.7.378 / `54e01133` — tasks/completed/1030-task-close-skill.md
 - **TASK-1005** — Preset i dopuszczenie zasobów — v1.7.386 / `0862fbec` — tasks/completed/1005-grid-training-resource-admission.md
-- **TASK-0995** — Kwalifikacja korekt i niezmienny snapshot — v1.7.385 / `f0cfa9bd` — tasks/completed/0995-grid-training-cohort-snapshot.md

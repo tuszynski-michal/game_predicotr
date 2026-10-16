@@ -1,7 +1,7 @@
 ---
 title: V3 — obowiązki regresyjne ujawnione w kontroli TASK-1002
-status: open
-last_updated: 2026-10-15
+status: closed
+last_updated: 2026-10-16
 ---
 
 # Regresje wcześniejszych części planu
@@ -282,3 +282,14 @@ pięciu narzędzi. Korekta P2 cancellation zachowuje pierwotny wyjątek (31PASS)
 Pełne rozliczenie i zachowane ograniczenia: [odpowiedź Codex](TASK-1018_RESPONSE_CODEX.md).
 Stare pełne macierze, reset/SuperGame UI FAIL i niewykonany destrukcyjny archive
 node pozostają jawne. Nie przerabiamy ich historii na pełny PASS.
+
+## Zamknięcie (TASK-1001, 2026-10-16)
+
+Obie pozycje rozliczono: konsument manifestu w teście izolacji zaktualizowano w
+TASK-1002/1018, a granicę 0158 zarejestrowano w TASK-1018 (v1.7.383 /
+`ea9a27b29be948c9328da2670dc2b4159675ac4e`). Po migracjach 0163–0166 test izolacji
+ponownie wskazywał nieaktualny manifest (v15); TASK-1001 przestawił go na v17 z
+kontrolą zgodności z wersją routingu. Wynik w przebiegu sekwencyjnym:
+`test_per_game_isolation_new_game.py` i
+`test_postgres_baseline.py::test_upgrade_downgrade_upgrade_cycle_on_postgres` PASS
+(raport [odbioru](V3_GRID_FINE_TUNING_ACCEPTANCE.md)).

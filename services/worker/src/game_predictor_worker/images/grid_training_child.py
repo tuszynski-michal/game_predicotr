@@ -531,6 +531,8 @@ def _export(
         board, pixels = parity_inputs(crops, photos, recipe)
         parity = raw_parity(network, staging, board, pixels)
         if not parity["passed"]:
+            # The measured deltas stay with the run for diagnosis; the result keeps its code.
+            write_json_atomic(run_dir / "parity-failed.json", parity)
             raise ChildError("GRID_TRAINING_ONNX_PARITY_FAILED")
         files = {
             name: sha256_file(staging / name)

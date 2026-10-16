@@ -33,6 +33,7 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewView,
 )
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.geometry_correction_revert_models import (
     ImageGeometryCorrectionRevertModel,
@@ -617,7 +618,7 @@ def test_migration_0154_downgrade_refuses_revert_history_and_round_trips(
             connection.execute(
                 text("SELECT DISTINCT manifest_version FROM public.game_storage_locations")
             ).scalar_one()
-            == "game-data-v2-manifest-v14"
+            == ROUTED_MANIFEST_VERSION
         )
         # The provisioned game got its partition of the new audit table back.
         assert (

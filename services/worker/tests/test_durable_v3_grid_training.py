@@ -18,6 +18,7 @@ from game_predictor_worker.training_core.grid_training import (
     board_correct,
     learning_rate,
     namespace,
+    parity_verdict,
     photo_complete_correct,
     step_rng,
     train,
@@ -366,3 +367,21 @@ def test_lab_training_item_is_unchanged_by_the_shared_builder() -> None:
     assert indices == [0] * preset.board.boards_per_image
     for key in lab:
         assert np.array_equal(lab[key], shared[key]), key
+
+
+def test_export_parity_is_relative_to_the_output_magnitude():
+    # D-561 (TASK-1001): node coordinates of ~286 px differ by fp32 rounding alone.
+    nodes = np.full((8, 24, 2), 286.1952, np.float32)
+    rounded = nodes + np.float32(1.53e-4)
+    unit = np.full((8, 24), 0.55, np.float32)
+    verdict = parity_verdict([("board.nodes", nodes, rounded), ("board.peak", unit, unit)])
+    assert verdict["passed"] and verdict["maxDelta"]["board.nodes"] > 1e-4
+    assert verdict["maxScaledDelta"]["board.nodes"] < 1e-6
+    assert verdict["toleranceScale"] == "max(1,|torch|)"
+    # A real export error stays a failure: 0.05 px at 286 px and 2e-4 on unit outputs.
+    assert not parity_verdict([("board.nodes", nodes, nodes + np.float32(0.05))])["passed"]
+    assert not parity_verdict([("board.peak", unit, unit + np.float32(2e-4))])["passed"]
+    broken = unit.copy()
+    broken[0, 0] = np.nan
+    assert not parity_verdict([("board.peak", unit, broken)])["passed"]
+    assert parity_verdict([("board.peak", unit[:0], unit[:0])])["passed"]

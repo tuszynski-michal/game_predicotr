@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -51,8 +52,10 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
             "options": "-c statement_timeout=15000 -c lock_timeout=5000",
         },
     )
+    # The upgrade to head crosses 0161, which needs the explicitly owned capability (D-554).
+    capability = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.execute(text(f'CREATE DATABASE "{name}"'))
+        capability.create_database(connection)
     try:
         config = Config(str(ROOT / "alembic.ini"))
         test_url = url.set(database=name).render_as_string(hide_password=False)
@@ -85,6 +88,7 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
                 },
             )
             session.commit()
+        capability.provision(config=config)
         command.upgrade(config, "head")
 
         class NeverIngress:
@@ -202,5 +206,5 @@ print('fresh-process-auth PASS')
         engine.dispose()
         with maintenance.connect() as connection:
             connection.execute(text("SET statement_timeout='10s'"))
-            connection.execute(text(f'DROP DATABASE "{name}"'))
+            capability.drop_database(connection)
         maintenance.dispose()

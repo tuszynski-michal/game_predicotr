@@ -15,6 +15,7 @@ from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
+from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from game_predictor_api.storage.source_recording_permissions import (
     PRIVATE_SEQUENCES,
     PRIVATE_TABLES,
@@ -168,8 +169,9 @@ def test_any_independent_registry_history_refuses_downgrade(table):
         with pytest.raises(DBAPIError, match="RECORDING_DOWNGRADE_REFUSED"):
             command.downgrade(_config(db), "0160_grid_geometry_proposals")
         with db.owner_engine.connect() as connection:
+            # The refused walk rolls back as one transaction: the current head stays.
             assert connection.scalar(text("SELECT version_num FROM public.alembic_version")) == (
-                "0161_source_recording_groups"
+                EXPECTED_ALEMBIC_HEAD
             )
             for name in PRIVATE_TABLES:
                 assert connection.scalar(text("SELECT to_regclass(:name)"), {"name": name})

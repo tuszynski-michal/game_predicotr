@@ -3,8 +3,12 @@ param(
     [ValidateSet('Start', 'Status', 'Stop')]
     [string]$Action = 'Status',
 
-    [ValidateSet('all', 'general', 'image-selection')]
+    [ValidateSet('all', 'general', 'image-selection', 'grid-training')]
     [string]$Lane = 'all',
+
+    # CUDA interpreter of the grid-training trainer child (TASK-0996). Default: the
+    # GAME_PREDICTOR_GRID_TRAINING_PYTHON variable, else .venv-vision-lab of this checkout.
+    [string]$GridTrainingPython = '',
 
     [switch]$Json,
 
@@ -125,10 +129,38 @@ $laneDefinitions = [ordered]@{
         threadBudget = $ImageSelectionThreadBudget
         nativeThreadBudget = 1
     }
+    'grid-training' = [ordered]@{
+        argument = 'grid-training'
+        displayName = 'Grid-training worker (GPU)'
+        threadBudget = 1
+        nativeThreadBudget = 1
+    }
+}
+
+function Resolve-GridTrainingPython {
+    $candidates = @(
+        $GridTrainingPython,
+        [Environment]::GetEnvironmentVariable('GAME_PREDICTOR_GRID_TRAINING_PYTHON', 'Process'),
+        [Environment]::GetEnvironmentVariable('GAME_PREDICTOR_GRID_TRAINING_PYTHON', 'User'),
+        (Join-Path $projectRoot '.venv-vision-lab\Scripts\python.exe')
+    )
+    foreach ($candidate in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and
+            (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    return $null
 }
 
 function Get-TargetLaneNames {
     if ($Lane -eq 'all') {
+        # Only Start skips the GPU lane without a CUDA interpreter (every run would end with
+        # GRID_TRAINING_PYTHON_UNSET). Status and Stop always cover every lane and every
+        # recorded process, whatever interpreter this invocation can find.
+        if ($Action -eq 'Start' -and $null -eq (Resolve-GridTrainingPython)) {
+            return @($laneDefinitions.Keys | Where-Object { $_ -ne 'grid-training' })
+        }
         return @($laneDefinitions.Keys)
     }
     return @($Lane)
@@ -363,6 +395,14 @@ function New-WorkerProcess {
     $previousThreadEnvironment = @{}
     $threadBudget = [string]$laneDefinitions[$LaneName].threadBudget
     $threadEnvironmentNames = @('GAME_PREDICTOR_WORKER_THREAD_BUDGET') + $nativeThreadEnvironmentNames
+    $trainerPython = $null
+    if ($LaneName -eq 'grid-training') {
+        $trainerPython = Resolve-GridTrainingPython
+        if ($null -eq $trainerPython) {
+            throw 'Grid-training lane needs a CUDA interpreter: pass -GridTrainingPython or set GAME_PREDICTOR_GRID_TRAINING_PYTHON.'
+        }
+        $threadEnvironmentNames += 'GAME_PREDICTOR_GRID_TRAINING_PYTHON'
+    }
     foreach ($variableName in $threadEnvironmentNames) {
         $previousThreadEnvironment[$variableName] = [Environment]::GetEnvironmentVariable(
             $variableName,
@@ -372,6 +412,8 @@ function New-WorkerProcess {
             $variableName,
             $(if ($variableName -eq 'GAME_PREDICTOR_WORKER_THREAD_BUDGET') {
                 $threadBudget
+            } elseif ($variableName -eq 'GAME_PREDICTOR_GRID_TRAINING_PYTHON') {
+                $trainerPython
             } else {
                 [string]$laneDefinitions[$LaneName].nativeThreadBudget
             }),

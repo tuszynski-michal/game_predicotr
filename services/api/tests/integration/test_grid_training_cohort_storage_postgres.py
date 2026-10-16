@@ -99,10 +99,10 @@ def test_exact_owned_v3_migration_privileges_use_and_read_only_validation(monkey
                     connection, ApplicationRoleSpec(db.role, db.app_url.password)
                 )
                 assert recording_permission_errors(connection, db.role) == ()
-                assert (
-                    connection.scalar(text("SELECT version_num FROM public.alembic_version"))
-                    == "0163_grid_training_cohorts"
-                )
+                # Below the merge revision 0164 main's board-search head stays applied too.
+                assert set(
+                    connection.scalars(text("SELECT version_num FROM public.alembic_version"))
+                ) == {"0163_grid_training_cohorts", "0155_board_search_panels"}
                 for table, columns in CAPABILITY_COLUMNS.items():
                     assert not connection.scalar(
                         text("SELECT has_table_privilege(:r,:t,'SELECT')"),
@@ -145,6 +145,12 @@ def test_exact_owned_v3_migration_privileges_use_and_read_only_validation(monkey
                         text("SELECT has_function_privilege(:r,:f,'EXECUTE')"),
                         {"r": db.role, "f": signature},
                     )
+            # 0163 is no longer head: the use checks below run on the current schema.
+            command.upgrade(config, "heads")
+            with db.owner_engine.begin() as connection:
+                provision_application_role(
+                    connection, ApplicationRoleSpec(db.role, db.app_url.password)
+                )
             stage("empty_down_up_and_reprovision_passed")
             game, foreign = db.games.values()
             cohort, family, version, job = (uuid4() for _ in range(4))

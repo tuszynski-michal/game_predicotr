@@ -36,6 +36,9 @@ from game_predictor_api.storage.game_partition_lifecycle import (
     partition_name,
 )
 from game_predictor_api.storage.game_storage_routing import (
+    VERSION as ROUTED_MANIFEST_VERSION,  # cohort tables are v16, the location is current
+)
+from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
     game_storage_scope,
@@ -481,7 +484,7 @@ def test_real_source_and_layout_cleanup_retain_refs_until_completed_game_deletio
                 )
                 assert (
                     actual["status"] == "done"
-                    and actual["manifest_version"] == "game-data-v2-manifest-v16"
+                    and actual["manifest_version"] == ROUTED_MANIFEST_VERSION
                 )
                 assert actual["next_table_index"] == len(GAME_TABLES)
                 assert set(actual["completed_tables"]) == set(GAME_TABLES)
@@ -689,7 +692,7 @@ def test_completed_game_deletion_releases_actual_canceled_cohort_references(tmp_
                 )
                 assert (
                     actual["status"] == "done"
-                    and actual["manifest_version"] == "game-data-v2-manifest-v16"
+                    and actual["manifest_version"] == ROUTED_MANIFEST_VERSION
                 )
                 assert actual["next_table_index"] == len(GAME_TABLES)
                 assert len(actual["completed_tables"]) == len(GAME_TABLES)

@@ -14,6 +14,15 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-561 — Parity eksportu ONNX względna do wielkości wyjścia
+
+- **Date:** 2026-10-16.
+- **Status:** accepted; poprawka techniczna bramki eksportu D-558 znaleziona w odbiorze TASK-1001 zleconej rewizji 6. Nie zmienia bramki jakości D-559 ani polityki publikacji.
+- **Context:** trener eksportuje kandydata do ONNX i porównuje surowe wyjścia fp32 torch i ONNX Runtime CPU. Tolerancja była bezwzględna (1e-4) dla wszystkich wyjść, także `board.nodes`, czyli współrzędnych węzłów w pikselach płótna (~300 px). Run odbioru (1200 kroków) zakończył się `GRID_TRAINING_ONNX_PARITY_FAILED` przy różnicach 1,07e-4–1,53e-4 px, co przy tych wartościach jest kilkoma ULP fp32 (względnie ok. 8e-7). Wynik zależał od wag, więc rzeczywisty run mógł losowo przepaść po kilku minutach GPU.
+- **Decision:** różnica każdego wyjścia jest dzielona przez max(1, |wyjście torch|) i porównywana z tą samą tolerancją 1e-4 (`toleranceScale = "max(1,|torch|)"`). Dla wyjść w zakresie jednostkowym (peak, visibility, heat) kryterium jest bez zmian; dla współrzędnych dopuszcza 1e-4 względnie (0,03 px przy 300 px, poniżej 0,1 px tolerancji źródła laboratorium). Wartość nieskończona lub NaN zawsze odrzuca. Dokument parity kandydata zapisuje też różnice bezwzględne (`maxDelta`) i względne (`maxScaledDelta`); nieudane parity zostawia w katalogu runu `parity-failed.json` z pomiarem, a wynik runu zachowuje kod.
+- **Consequences:** wcześniejsze bundle z bezwzględnym parity pozostają ważne (`parity.passed`); laboratoryjny eksport `vision_lab/neural_grid_onnx.py` jest bez zmian. Ewaluacja D-559 nadal wymaga `parity.passed` kandydata.
+- **Source:** TASK-1001 (odbiór), D-558, D-559.
+
 ## D-560 — Wspólny kandydat geometrii V3 kilku gier
 
 - **Date:** 2026-10-16.

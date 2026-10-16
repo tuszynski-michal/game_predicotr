@@ -62,6 +62,7 @@ from game_predictor_api.storage.database import (
     create_cross_game_owner_session_factory,
     create_session_factory,
 )
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.geometry_correction_revert_repository import (
     SqlAlchemyGeometryCorrectionRevertRepository,
@@ -674,7 +675,7 @@ def test_migration_downgrade_refuses_decisions_and_round_trips(monkeypatch) -> N
                 connection.execute(
                     text("SELECT manifest_version FROM public.game_storage_locations")
                 ).scalar_one()
-                == "game-data-v2-manifest-v14"
+                == ROUTED_MANIFEST_VERSION
             )
             for table in (
                 "super_game_series",

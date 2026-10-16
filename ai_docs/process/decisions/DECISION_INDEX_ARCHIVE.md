@@ -11,6 +11,7 @@ poniżej D-530 (526 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-532](DECISION_LOG_2026.md#d-532--integrate-the-complete-v7-code-into-the-main-vision-lab-branch) | Integrate the complete V7 code into the main vision lab branch | accepted | 2026-10-07 | transplant the V7 product and tests from calibration HEAD b087ad08b62992c54f5e26191e6408d287b64273 onto… |
 | [D-531](DECISION_LOG_2026.md#d-531--main-admin-offers-a-local-entry-to-the-approved-v7-test-panel) | Main Admin offers a local entry to the approved V7 test panel | accepted | 2026-10-07 | when main V7 remains blocked and selection is enabled, offer ordinary local navigation to the separate V7… |
 | [D-530](DECISION_LOG_2026.md#d-530--managed-image-operations-retain-five-gib-after-estimation) | managed image operations retain five GiB after estimation | accepted | 2026-10-07 | the default hard reserve for managed image writes is 5 GiB, measured after the existing conservative… |
 | [D-529](DECISION_LOG_2026.md#d-529--metadata-overview-precedes-exact-training-cohort-preparation) | metadata overview precedes exact training cohort preparation | accepted | 2026-10-07 | page entry reads current-owner logical symbol approvals and registry metadata through the existing… |

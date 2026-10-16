@@ -545,6 +545,39 @@ def photo_complete_correct(predicted: Sequence[np.ndarray], labels: Sequence[np.
 
 OPSET = 18
 RAW_TOLERANCE = 1e-4
+# D-561 (TASK-1001): raw outputs include source-pixel node coordinates of a few hundred
+# pixels, where fp32 rounding alone reaches 1e-4. The tolerance is therefore relative to the
+# torch output with a floor of one: unchanged for unit-range outputs, 1e-4 relative above.
+PARITY_SCALE = "max(1,|torch|)"
+
+
+def scaled_delta(expected: np.ndarray, actual: np.ndarray) -> float:
+    """Largest torch/ONNX difference relative to max(1, |torch|); NaN stays NaN."""
+    if not expected.size:
+        return 0.0
+    difference = np.abs(expected.astype(np.float64) - actual.astype(np.float64))
+    return float(np.max(difference / np.maximum(1.0, np.abs(expected.astype(np.float64)))))
+
+
+def parity_verdict(
+    outputs: Sequence[tuple[str, np.ndarray, np.ndarray]],
+) -> dict[str, Any]:
+    """Parity document of named (torch, ONNX) output pairs."""
+    absolute = {
+        name: float(np.max(np.abs(left - right))) if left.size else 0.0
+        for name, left, right in outputs
+    }
+    scaled = {name: scaled_delta(left, right) for name, left, right in outputs}
+    passed = all(math.isfinite(v) and v <= RAW_TOLERANCE for v in scaled.values()) and all(
+        math.isfinite(v) for v in absolute.values()
+    )
+    return {
+        "tolerance": RAW_TOLERANCE,
+        "toleranceScale": PARITY_SCALE,
+        "maxDelta": absolute,
+        "maxScaledDelta": scaled,
+        "passed": passed,
+    }
 
 
 def export_graphs(network: NeuralGridNetwork, preset: Any, directory: Path) -> None:
@@ -595,7 +628,7 @@ def raw_parity(
     from .neural_grid_network import BoardExport, ScreenExport
 
     network = network.cpu().eval()
-    deltas: dict[str, float] = {}
+    outputs: list[tuple[str, np.ndarray, np.ndarray]] = []
     session = onnxruntime.InferenceSession(
         str(directory / "board.onnx"), providers=["CPUExecutionProvider"]
     )
@@ -603,7 +636,7 @@ def raw_parity(
         expected = [t.numpy() for t in BoardExport(network.board)(torch.from_numpy(crops))]
     actual = session.run(None, {"crops": crops})
     for name, left, right in zip(("nodes", "peak", "visibility"), expected, actual, strict=True):
-        deltas[f"board.{name}"] = float(np.max(np.abs(left - right))) if left.size else 0.0
+        outputs.append((f"board.{name}", left, right))
     if pixels is not None:
         session = onnxruntime.InferenceSession(
             str(directory / "screen.onnx"), providers=["CPUExecutionProvider"]
@@ -612,9 +645,8 @@ def raw_parity(
             expected = [t.numpy() for t in ScreenExport(network.screen)(torch.from_numpy(pixels))]
         actual = session.run(None, {"pixels": pixels})
         for name, left, right in zip(("heat", "offsets"), expected, actual, strict=True):
-            deltas[f"screen.{name}"] = float(np.max(np.abs(left - right))) if left.size else 0.0
-    passed = all(math.isfinite(v) and v <= RAW_TOLERANCE for v in deltas.values())
-    return {"tolerance": RAW_TOLERANCE, "maxDelta": deltas, "passed": passed}
+            outputs.append((f"screen.{name}", left, right))
+    return parity_verdict(outputs)
 
 
 def weights_bytes(state: Mapping[str, torch.Tensor]) -> bytes:
@@ -667,9 +699,11 @@ __all__ = [
     "learning_rate",
     "namespace",
     "node_errors",
+    "parity_verdict",
     "photo_complete_correct",
     "quad_iou",
     "raw_parity",
+    "scaled_delta",
     "screen_grid_losses",
     "step_rng",
     "train",

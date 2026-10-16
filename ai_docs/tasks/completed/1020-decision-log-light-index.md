@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -139,4 +139,62 @@ npm run docs:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Wykonawca: claude-opus-5-5 (sesja leada) zamiast przypisanego
+claude-sonnet-5-5 / medium. Bez audytu Codex (decyzja operatora 2026-10-16).
+Commit: v1.7.367 (hash dopisuje kolejny commit). Gałąź zsynchronizowana z
+`main` (czubek `main` bez zmian od bazy v1.7.363); wiersze D-548..D-555 z
+`codex/v3-grid-fine-tuning` trafią do indeksu przy scaleniu tamtej gałęzi.
+
+### Changed
+
+- `ai_docs/process/DECISION_LOG.md`: 77 628 B → 10 755 B. Nowy nagłówek z
+  regułami (wyszukiwanie `rg`, dopisywanie, przenoszenie ponad 30), 30
+  najnowszych wierszy (D-547..D-505), usunięta sekcja pięciu pełnych kopii.
+- `ai_docs/process/decisions/DECISION_INDEX_ARCHIVE.md`: 157 wierszy
+  (D-504..D-359) dopisanych na początku tabeli, z treścią bez zmian i ścieżką
+  linku skróconą z `decisions/DECISION_LOG_2026.md#` do `DECISION_LOG_2026.md#`
+  (plik archiwum leży w `decisions/`); nagłówek: zakres D-1..D-504, 514 wierszy.
+- `scripts/check_decision_links.py`: usunięty limit 100 000 B (`check_size`,
+  `MAX_LOG_BYTES`) i nieaktualny punkt o pełnych kopiach w docstringu;
+  kontrola linków i zgodności indeksów bez zmian.
+- `scripts/check_startup_read_budget.py`: włączone budżety
+  `DECISION_LOG.md` 12 000 B i 30 wierszy indeksu.
+- Testy: usunięty test limitu 100 000 B; `_enforce` w teście budżetów włącza
+  tylko wskazany budżet (inne wyłączone), żeby testy nie zależały od flag
+  repozytorium.
+- Reguły: `AGENTS.md` (kolejność czytania pkt 3, „Przed kodowaniem” pkt 5),
+  `ai_docs/README.md` (wejście do zadania, spis procesu, reguła aktualizacji),
+  `ai_docs/process/TASK_TEMPLATE.md` (`Relevant docs`: decyzje z kotwicą),
+  `CURRENT_STATE.md` („Otwarte decyzje i pytania”). W dokumentach procesu i
+  skillach audytu nie było innych wzmianek o pięciu pełnych kopiach.
+
+### Verification results
+
+- Dowód (skrypt poza repo, `scratchpad/task1020_split.py`): multizbiór
+  wierszy indeksu przed (`DECISION_LOG.md` + archiwum) = po, 544 = 544, z
+  normalizacją wyłącznie prefiksu ścieżki linku; pięć usuniętych kopii
+  (D-547..D-543) jest identycznych z wpisami w `DECISION_LOG_2026.md`.
+- Pierwsza próba bez poprawki ścieżki dała w `check_decision_links.py` 314
+  błędów „link path … does not exist”; przywrócono pliki i powtórzono z
+  poprawką ścieżki.
+- `npm run docs:check`: PASS (`544 anchor links, 544 entries, 544 index rows`;
+  budżety 2/9 włączone, odczyt startowy 145 776 B).
+- pytest (testy obu skryptów): 9 passed; `ruff check`, `ruff format --check`,
+  `mypy --strict`: PASS; `prettier --check` dla `AGENTS.md`, `README.md`,
+  `TASK_TEMPLATE.md`: PASS.
+- Raport przed: `DECISION_LOG.md` 77 628 B / 187 wierszy, suma 212 195 B;
+  po: 10 755 B / 30 wierszy, suma 145 776 B.
+- Samokontrola kryteriów akceptacji: wszystkie sześć spełnione.
+
+### Not completed
+
+- Ryzyko przeoczenia starszej decyzji (nie ma jej w kontekście startowym)
+  ocenia TASK-1023.
+
+### Documentation updates
+
+- Jak w „Changed”; bez wpisu `DECISION_LOG.md` (D8 planu).
+
+### Recommended next task
+
+- TASK-1021 (etap B).

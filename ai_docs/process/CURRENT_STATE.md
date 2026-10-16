@@ -201,18 +201,14 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   transakcji routingu V2 (TASK-0698), osobna decyzja o wznowieniu reweryfikacji
   777 (TASK-0645–0647), decyzja D-463 dla odroczonego snapshotu mobilnego oraz
   status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`).
-- Decyzje architektoniczne: indeks i najnowsze pełne wpisy w
-  `ai_docs/process/DECISION_LOG.md`; wszystkie wpisy mają status `accepted`
+- Decyzje architektoniczne: indeks 30 najnowszych w
+  `ai_docs/process/DECISION_LOG.md` (starsze w archiwum indeksu); wszystkie wpisy mają status `accepted`
   albo `superseded`, brak wpisów `proposed`.
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (todo)
-
-- `ai_docs/tasks/1020-decision-log-light-index.md`; etap A, po TASK-1019.
 
 ### TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` (todo)
 
@@ -901,9 +897,15 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (done)
+
+- Plik: `ai_docs/tasks/completed/1020-decision-log-light-index.md`; plan odczytu startowego, etap A. Commit v1.7.367 (hash w kolejnym commicie).
+- `DECISION_LOG.md` 77 628 → 10 755 B: 30 najnowszych wierszy, bez pełnych kopii; 157 starszych wierszy w `decisions/DECISION_INDEX_ARCHIVE.md` (tylko ścieżka linku skrócona). Decyzji spoza indeksu szukać `rg`; reguły w `AGENTS.md`, `README.md`, `TASK_TEMPLATE.md`.
+- Budżety `DECISION_LOG.md` (12 000 B, 30 wierszy) włączone; limit 100 000 B usunięty z `check_decision_links.py`. Dowód multizbioru 544 = 544, docs:check PASS. Odczyt startowy 145 776 B.
+
 ### TASK-1019 — Skrypt pomiaru i budżetów odczytu startowego (done)
 
-- Plik: `ai_docs/tasks/completed/1019-startup-read-budget-script.md`; plan `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, etap A. Commit v1.7.366 (hash w kolejnym commicie).
+- Plik: `ai_docs/tasks/completed/1019-startup-read-budget-script.md`; plan `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, etap A. Commit **v1.7.366 / `d117430487f8b4fd401ecb94d7796bcfc209c0ec`**.
 - `scripts/check_startup_read_budget.py` w `docs:check`: raport plików, sumy, sekcji `CURRENT_STATE.md` i wierszy indeksu; 9 budżetów z D3, na razie tylko raport. Bazowo 213 899 B obowiązkowego odczytu.
 - 6 nowych testów + testy linków decyzji: 10 passed; ruff, mypy --strict, docs:check PASS. Bez audytu Codex (decyzja operatora).
 
@@ -971,11 +973,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
 - Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
 - Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.
-
-### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (done)
-
-- Plik: `ai_docs/tasks/completed/0987-selector-desktop-final-pilot.md`; D-546 i plan finalizacji2026-10-12. Kod/przygotowanie v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`.
-- ZIP0.1.3: out/releases/pilot-0.1.3-0b1ab330,149410942 B, SHA cfb078b5f86a57cd781d99210ff699849485031a1ac173b6acb1861c1a145761; asar23e0fa358455e6796fa01fd6951e695a6d6b9e9312730c86ec3382a8bad0e3a2, clean provenance.
-- Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
-- Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
-- Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.

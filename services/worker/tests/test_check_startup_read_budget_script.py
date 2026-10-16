@@ -63,10 +63,7 @@ def tree(tmp_path: Path) -> Path:
 
 
 def _enforce(name: str) -> tuple[Any, ...]:
-    return tuple(
-        dataclasses.replace(item, enforced=True) if item.name == name else item
-        for item in budget.BUDGETS
-    )
+    return tuple(dataclasses.replace(item, enforced=item.name == name) for item in budget.BUDGETS)
 
 
 def test_repository_passes_with_current_flags() -> None:

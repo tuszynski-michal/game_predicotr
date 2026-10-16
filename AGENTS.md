@@ -12,8 +12,10 @@ Przed rozpoczęciem każdego zadania przeczytaj:
 2. `ai_docs/process/CURRENT_STATE.md` (okno kroczące: obowiązujące
    ograniczenia, plany z niezakończonymi taskami, taski aktywne, 10 ostatnich
    sekcji `done`),
-3. `ai_docs/process/DECISION_LOG.md` (indeks decyzji i pięć najnowszych wpisów
-   w pełnej postaci),
+3. `ai_docs/process/DECISION_LOG.md` (indeks 30 najnowszych decyzji; starszych
+   szukaj przez `rg` w nim i w
+   `ai_docs/process/decisions/DECISION_INDEX_ARCHIVE.md`, a pełny wpis
+   otwieraj przez kotwicę),
 4. dokument wymagań dotyczący zmienianego obszaru,
 5. dokument architektury dotyczący zmienianego obszaru,
 6. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
@@ -237,8 +239,9 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
 4. Jeżeli można bezpiecznie przyjąć założenie, zapisz je w zadaniu i `CURRENT_STATE.md`.
 5. Jeżeli założenie zmienia model domenowy albo architekturę, dodaj wpis do `DECISION_LOG.md`
    (pełny wpis na początku `ai_docs/process/decisions/DECISION_LOG_2026.md`,
-   wiersz w indeksie `DECISION_LOG.md`, najstarszą z pięciu pełnych kopii w
-   `DECISION_LOG.md` zastąp nową).
+   wiersz na górze indeksu `DECISION_LOG.md`; wiersze ponad 30 przenieś bez
+   zmian treści na początek `ai_docs/process/decisions/DECISION_INDEX_ARCHIVE.md`,
+   poprawiając tylko ścieżkę linku na `DECISION_LOG_2026.md#…`).
 
 ### W czasie kodowania
 

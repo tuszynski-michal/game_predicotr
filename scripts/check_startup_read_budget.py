@@ -160,14 +160,14 @@ BUDGETS: tuple[Budget, ...] = (
     Budget(
         "DECISION_LOG.md",
         12_000,
-        False,
+        True,
         _file(DECISION_LOG),
         hint="move the oldest index rows to decisions/DECISION_INDEX_ARCHIVE.md",
     ),
     Budget(
         "DECISION_LOG.md index rows",
         30,
-        False,
+        True,
         _index_rows,
         unit="rows",
         hint="move the oldest index rows to decisions/DECISION_INDEX_ARCHIVE.md",

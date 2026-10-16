@@ -22,8 +22,9 @@ Przed rozpoczęciem pracy czytaj w tej kolejności:
 2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
    obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
    i 10 ostatnich sekcji `done`,
-3. [Decision Log](process/DECISION_LOG.md) — indeks decyzji wraz z pięcioma
-   najnowszymi wpisami w pełnej postaci,
+3. [Decision Log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji;
+   starsze wyszukuj `rg` w nim i w
+   [archiwum indeksu](process/decisions/DECISION_INDEX_ARCHIVE.md),
 4. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
 5. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
 
@@ -166,7 +167,7 @@ domyślnym kontekstem implementacyjnym.
 
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
 - [Definition of Done](process/DEFINITION_OF_DONE.md)
-- [Decision log](process/DECISION_LOG.md) — indeks i najnowsze wpisy; pełne
+- [Decision log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji; pełne
   wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
   starszy indeks w
   [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
@@ -275,10 +276,11 @@ krótkie podsumowanie i link do właściciela reguły.
 Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
 wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
 jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
-indeksu).
+na górze indeksu; wiersze ponad 30 przechodzą do archiwum indeksu).
 
 Przy zamykaniu taska agent dopisuje jego sekcję `done` w `CURRENT_STATE.md`,
 przenosi sekcje `done` ponad limit 10 do najnowszego archiwum
 `archive/CURRENT_STATE_*.md` (tekst bez zmian) i aktualizuje sekcję
 „Obowiązujące ograniczenia”. Spójność oba pliki sprawdza `npm run docs:check`
-(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`).
+(`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`),
+a budżety bajtów obowiązkowego odczytu `scripts/check_startup_read_budget.py`.

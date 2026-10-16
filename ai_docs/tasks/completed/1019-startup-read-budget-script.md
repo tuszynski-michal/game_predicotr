@@ -110,7 +110,7 @@ npm run docs:check
 
 Wykonawca: claude-opus-5-5 (sesja leada) zamiast przypisanego
 claude-sonnet-5-5 / medium; odstępstwo bez wpływu na zakres. Bez audytu Codex
-(decyzja operatora 2026-10-16). Commit: v1.7.366 (hash dopisuje kolejny commit).
+(decyzja operatora 2026-10-16). Commit: v1.7.366 / `d117430487f8b4fd401ecb94d7796bcfc209c0ec`.
 
 ### Changed
 

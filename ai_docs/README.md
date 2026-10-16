@@ -118,7 +118,8 @@ domyślnym kontekstem implementacyjnym.
   Raporty testów i audytów pozostają dowodami dla opisanych w nich wersji.
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
-  — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).
+  — zamknięty 2026-10-16 bez dalszej realizacji (TASK-1024); TASK-0947–0949
+  nieaktualne. D-539: punkt otwiera widok, maszyna jest wyborem.
 
 - [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
   — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
@@ -127,10 +128,12 @@ domyślnym kontekstem implementacyjnym.
 - [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
   — accepted T1–T7, TASK-0921–0927.
 - [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
-  — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
+  — zamknięty 2026-10-16 (D-535, TASK-0929–0939; ostatnie 0937 i 0939
+  zamknięte jako nieaktualne w TASK-1024).
 
 - [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
-  — implemented, awaiting operator migration and acceptance; etapy R1–R4,
+  — wykonany, migracja `0154` zastosowana 2026-10-10; odbiór TASK-0972 zamknięty
+  2026-10-16 (TASK-1024); etapy R1–R4,
   TASK-0966–0972 (dawniej TASK-0945–0951), D-542/D-543, migracja `0154`;
   [instrukcja operatora](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
 
@@ -149,9 +152,11 @@ domyślnym kontekstem implementacyjnym.
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
 - [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
-  zaakceptowany plan P00/T01–T13 i punkty STOP A–E.
+  plan P00/T01–T13 i punkty STOP A–E; pozostałe taski (0668, 0671–0678)
+  zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
 - [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
-  zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
+  przejście na V2-only; `0125` zastosowana (D-467), pozostałe taski
+  0687–0691, 0694, 0695 i 0698 zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
 - [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
   — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
 - [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
@@ -162,7 +167,7 @@ domyślnym kontekstem implementacyjnym.
   — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
   i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
-  naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
+  naprawy po `no-go` T08; TASK-0698 zamknięty jako nieaktualny 2026-10-16.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)

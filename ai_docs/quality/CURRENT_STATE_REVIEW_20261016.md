@@ -1,6 +1,6 @@
 ---
 title: Przegląd ograniczeń i sekcji CURRENT_STATE.md (TASK-1021)
-status: proposed
+status: accepted
 last_updated: 2026-10-16
 ---
 
@@ -296,4 +296,6 @@ sekcje od razu trzymają D6/D7.
 
 ## 7. Decyzja operatora
 
-oczekuje
+2026-10-16: operator zatwierdził propozycję w całości (sekcje 1–4 i 6).
+Pytania z sekcji 5 „Rozbieżności” pozostają otwarte, bez napraw w TASK-1022;
+trafiają do „Otwartych decyzji i pytań” w `CURRENT_STATE.md`.

@@ -2,7 +2,7 @@
 
 ## Status
 
-`blocked` (raport gotowy; czeka na decyzję operatora)
+`done`
 
 ## Goal
 
@@ -106,7 +106,9 @@ git status --short  # tylko nowy raport i plik taska
 Wykonawca: subagent claude-opus-5-5 (zgodnie z planem), sprawdzenie leada:
 struktura raportu i próbka dowodów (D-467 o migracji `0125`, liniowy łańcuch
 `0150`–`0154`). Bez audytu Codex (decyzja operatora 2026-10-16). Commit raportu:
-v1.7.368 (hash dopisuje kolejny commit).
+v1.7.368 / `a8ed5dcceafefd0a18410e590b5d938d0eb21457`. Decyzja operatora
+2026-10-16: propozycja zatwierdzona w całości, pytania z sekcji 5 otwarte
+(zapis w sekcji 7 raportu, commit v1.7.369).
 
 ### Changed
 
@@ -121,13 +123,12 @@ v1.7.368 (hash dopisuje kolejny commit).
 
 - `git status`: jedyny nowy plik to raport; bez zmian w oknie, archiwach i
   plikach tasków.
-- Samokontrola: kryteria 1–2 spełnione; kryterium 3 (decyzja operatora)
-  otwarte.
+- Samokontrola: wszystkie trzy kryteria spełnione.
 
 ### Not completed
 
-- Decyzja operatora w sekcji 7 raportu; do tego czasu TASK-1022 nie startuje.
+- Pytania z sekcji 5 raportu pozostają otwarte decyzją operatora.
 
 ### Recommended next task
 
-- Decyzja operatora, potem TASK-1022.
+- TASK-1022.

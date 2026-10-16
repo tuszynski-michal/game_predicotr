@@ -6,6 +6,14 @@ last_updated: 2026-10-14
 
 # Current State — archiwum 2026Q4
 
+### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
+
+- Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
+
+- Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
+- Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
+- Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.
+
 ### TASK-0987 — Finalny pilot0.1.3 i dowody kompletnej rundy (done)
 
 - Plik: `ai_docs/tasks/completed/0987-selector-desktop-final-pilot.md`; D-546 i plan finalizacji2026-10-12. Kod/przygotowanie v1.7.337 /`0b1ab3302df2119efb2519661e2f82b8bdf545df`; zamknięcie v1.7.338 /`525af074136910fd0744dfe0f2f71196d5d4fe17`.

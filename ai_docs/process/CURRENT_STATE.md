@@ -210,10 +210,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` (blocked)
-
-- `ai_docs/tasks/1021-current-state-constraints-review.md`; etap B. Raport `quality/CURRENT_STATE_REVIEW_20261016.md` gotowy (commit v1.7.368); czeka na decyzję operatora (sekcja 7 raportu). Bez niej TASK-1022 nie startuje.
-
 ### TASK-1022 — zastosowanie budżetów `CURRENT_STATE.md` (todo)
 
 - `ai_docs/tasks/1022-current-state-budgets.md`; etap C, po decyzji z TASK-1021.
@@ -897,6 +893,11 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1021 — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` (done)
+
+- Plik: `ai_docs/tasks/completed/1021-current-state-constraints-review.md`; etap B. Raport `quality/CURRENT_STATE_REVIEW_20261016.md` (v1.7.368 / `a8ed5dcc`): 40 ograniczeń (13 zostaje, 9 do task, 13 archiwum, 5 operator), 50 sekcji aktywnych do 24 wskaźników, prognoza ok. 22 500 B.
+- Operator zatwierdził propozycję w całości 2026-10-16; pytania z sekcji „Rozbieżności” otwarte. Zapis decyzji: commit v1.7.369.
+
 ### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (done)
 
 - Plik: `ai_docs/tasks/completed/1020-decision-log-light-index.md`; plan odczytu startowego, etap A. Commit **v1.7.367 / `d803c27c21b1e69fcad6287d9f5e8350d263d60e`**.
@@ -965,11 +966,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
 - Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
 - Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.
-
-### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
-
-- Commit implementacji: **v1.7.317**, `28d48445a16500e3172d38874b8acd6eafc98a3c`.
-
-- Plik: `ai_docs/tasks/completed/0975-symbol-training-rejected-split-recovery.md`. Repozytorium pomija terminalne podziały bez ukończonej epoki; zachowuje kotwice faktycznie trenowanych modeli. Nowa próba po odrzuceniu ma osobną iterację, a odtworzenie klucza polecenia zwraca pierwotny wynik także po zakończeniu. Worker i monitor jawnie pokazują odrzucenie przed nauką; panel jakości wskazuje brakujące symbole i wymagane źródła.
-- Bieżąca kohorta gry `6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf`: 235 wycinków / 27 zdjęć, nowy podział 17/4/3/3 z pełnym pokryciem klas. Neural CNN (`SpatialSymbolCnn`) jest wspólna architektonicznie z RGB Mumii, ale dane, klasy, wagi i aktywacje są osobne per gra. Bez migracji, treningu operatora, restartów, aktywacji i push; operator uruchamia nową próbę przez „Ulepsz rozpoznawanie”.
-- Testy: API/worker 20, Admin 33; format/lint i tsc PASS; mypy ograniczony do trzech modułów PASS (pełny odczyt importów przerwany). Mapa kodu zregenerowana. Claude audit niedostępny (brak CLI/modelu), brief zapisany; niezależny audyt nie został wykonany.

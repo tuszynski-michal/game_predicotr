@@ -654,3 +654,22 @@ does not establish trust. Provisional resolutions store dependency bindings
 without manufacturing future cohort/use or quality PASS evidence. The future
 0995/0997 producers bind actual use and reports through this private boundary.
 See [deployment and operator workflow](../guides/SOURCE_RECORDING_GROUPS.md).
+
+## Production descriptive measurement boundary (D-555, TASK-1009)
+
+`grid_quality_measurements` captures on a separate restricted runtime connection
+in REPEATABLE READ READ WRITE with explicit WRITE/game/RLS routing. UUID keyset
+metadata pages contain at most500 occurrences. A 100-element SHA-ranked heap
+uses policy/seed/source occurrence key; full ordered metadata contributes to the
+population digest. The capture deadline is60s, each statement at most30s and
+locks5s. Timeout rolls back the complete sample. There is no image corpus sweep,
+inference or implicit training qualification.
+
+Selected evidence freezes all nine positions and exact producing source/job/model
+references or a coverage gap. Current board pointers prove an automatic result;
+manual ancestry requires explicit consistent cell before/after source links and
+board/review/revision identity. Chronology and node resemblance are insufficient.
+A canonical JSON manifest is fsynced and atomically published under its SHA before
+committing its reference and receipt. Cold replay verifies the same file and SHA.
+The recording six-argument resolver adds an indexed own-source membership lookup;
+SQL/permissions_v2 preserve the frozen0161/v1 boundary and exact old signature.

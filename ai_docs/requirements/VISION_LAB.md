@@ -467,3 +467,14 @@ Laboratory descriptors require trusted deployment installation and explicit
 whole-recording mapping. Photo-only protection remains effective while identity
 is unresolved; a later proven mapping can resolve that state without erasing
 history. The application does not infer recordings or scan images automatically.
+
+## Descriptive production grid measurements (D-555, TASK-1009)
+
+Production measurements are independent of training split qualification. Missing
+recording identity remains unresolved for later cohort eligibility and does not
+remove difficult sources from descriptive sampling. Frozen original observations
+require exact source/target/producer lineage. A current human correction is not
+a model prediction. Mixed producers are reported separately; missing provenance
+does not become active-model accuracy. All nine positions require explicit
+geometry review. Symbol information uses only existing current human decisions
+from the same game, without assigning labels or sharing classifiers.

@@ -219,6 +219,13 @@ Operator2026-10-15 po R2 TASK-0999 polecił dalszą autonomiczną realizację za
 
 Po commicie wykonawca wpisuje pełny hash do taska i CURRENT_STATE. Zgodnie z AGENTS zapis własnego hasha może wejść do następnego commita; do tego czasu te dwie zmiany dokumentacyjne pozostają jawnie opisane. Nie wykonujemy amend tylko po to, aby próbować zapisać hash commita w nim samym.
 
+Dokumenty czytamy i zapisujemy z jawnym UTF-8. W Windows PowerShell 5.1 nie
+stosujemy domyślnego `Get-Content` do tekstu, który będzie ponownie zapisany;
+używamy `-Encoding UTF8` albo jawnego `encoding="utf-8"` w Pythonie. Po zmianie
+taska odczytujemy go w nowym procesie z UTF-8 i sprawdzamy tytuł, polskie znaki,
+kryteria oraz Outcome. Sam `docs:check` nie wykrywa poprawnego UTF-8 zawierającego
+wcześniej uszkodzony tekst. Regułę dopisano po P1-1 audytu TASK-1009.
+
 ### 3.4. Wersjonowanie
 
 Po zatwierdzonym włączeniu upstream v1.7.362 bootstrap utrwalono jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Oryginalna propozycja v1.7.361 została jawnie zastąpiona decyzją operatora; istniejących commitów nie renumerujemy. Przed każdym commitem:
@@ -579,7 +586,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-1009 — Losowa kontrola Mumii i 777a2
 
-- **Status:** `todo`.
+- **Status:** `done`.
 - **Goal / Context:** Zmierzyć rodzaje błędów zamiast opierać decyzję o treningu na liczniku.
 - **Dependencies:** TASK-1010, TASK-0993, TASK-1002, TASK-1018; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
 - **Recommended execution:** `gpt-6.1-sol`, `high`; poprawna populacja, próba i interpretacja.
@@ -591,6 +598,16 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Verification:** API, ADMIN/REVIEWER, test deterministycznego próbkowania, DOC.
 - **Risks / Out of scope:** Nie deklarować niezależności filmów bez dowodów ani jakości całej gry na podstawie celowo trudnych przykładów.
 - **Outcome:** wynik pomiaru albo jawny stan oczekiwania na anotacje.
+
+- **Kontrakt przed kodem (D-555,2026-10-16):** pełne Technical notes1009 na bazie383 rozdzielają opisowy frozen random/hard pomiar, original producer/coverage gap i aktualne canonical approval-only bez recropu. RR capture do60s/statement30s/strony500/O100, all9 obowiązkowe, symbols manual-only. Pięć game-owned tabel0162/currentv15, zachowanie source cleanup/retained history. Own-sourceId selector wymaga forward-only SQL/perms_v2 bez zmiany0161/v1 i exact grants. Wymagany Claude **high** dla schematu/dowodów, do1200s; to zgodne techniczne rozwinięcie całego planu, bez operatorops. Szczegółowe źródła prawdy, transakcje, błędy, pliki i testy w tasku.
+
+- **Baseline uściślony przed odczytem:** własny exact auto producent aktualnego celu albo najnowszy udowodniony automatyczny przodek przed korektą człowieka; nie arbitralnie pierwsza rewizja zdjęcia. Brak lineage daje coverage gap, bez podstawienia starszego importu za nowszą reinferencję. Raport zachowuje producer/coverage i nie myli mieszanej populacji z jakością aktywnego modelu. Szczegóły i regresja dwóch auto wersji w Technical notes1009/D-555.
+
+- **Baseline approval-only uściślony przed poprawką guardu:** osobne jawne zatwierdzenie obejmuje pokazaną frozen current geometrię, również current-only przy braku historycznego producer. Original model quality nadal ma coverage gap. Backend porównuje exact live/frozen current i zachowuje wszystkie source/revision/owner/issue/checksum guards; nie przyjmuje zmienionego targetu, nie recropuje i nie zmienia symboli/kanonu. To realizacja zaakceptowanego checked-unchanged label, nie utożsamienie z oceną modelu.
+
+- **Real-writer sibling repoint:** zachowanie niezmienionych sąsiadów wymaga dodatniego server-only old/new source identity/render/decision proof i canonical manual save innego targetu; nie globalnego ignorowania aggregate checksum/pointer. Nowy capture bez exact producenta daje gap. Obowiązkowy test real save_review_item i szczegóły D-555/Technical notes1009 zapisano przed poprawką fence.
+
+- **Zamknięcie:** przygotowany v1.7.384; Claude high R1 REVISE719.665858s. P1-1 kodowania/checklist zamknięty, wszystkie P2 poprawione i sprawdzone, brak otwartychP0/P1. Jedna runda; R2 nie wymagany dla dokumentowego P1 i poprawek P2. Rzeczywiste anotacje/pomiar oczekują. Pełne rozliczenie i ograniczenia w Outcome oraz quality/TASK-1009_RESPONSE_CODEX.md.
 
 ### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot
 
@@ -738,7 +755,7 @@ Audyt każdego taska: Claude Code w oddzielnym kontekście, zgodnie z ograniczon
 | TASK-1003 | gpt-6.1-sol | medium    | Podgląd zakresu i raport operacji.                  | claude-fable-5-1, medium |
 | TASK-1002 | gpt-6.1-sol | high      | Pochodzenie i niezależność nagrań.                  | claude-fable-5-1, high   |
 | TASK-1018 | gpt-6.1-sol | high | Zgodność historycznych kontraktów, rzeczywiste role i narzędzia lifecycle. | claude-fable-5-1, high |
-| TASK-1009 | gpt-6.1-sol | high      | Dobór próby i interpretacja wyników.                | claude-fable-5-1, medium |
+| TASK-1009 | gpt-6.1-sol | high      | Dobór próby i interpretacja wyników.                | claude-fable-5-1, high |
 | TASK-0995 | gpt-6.1-sol | high      | Kwalifikacja i niezmienne dane dowodowe.            | claude-fable-5-1, high   |
 | TASK-1005 | gpt-6.1-sol | medium    | Pomiar kosztu i wersjonowany preset.                | claude-fable-5-1, medium |
 | TASK-0996 | gpt-6.1-sol | high      | Trener, checkpoint i wznowienie.                    | claude-fable-5-1, medium |

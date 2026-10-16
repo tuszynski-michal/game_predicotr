@@ -25,6 +25,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/grid_calibration.py: create_grid_calibration_router
 - api/grid_engine_profiles.py: create_grid_engine_profiles_router
 - api/grid_model_registry.py: create_grid_model_registry_router
+- api/grid_quality_measurements.py: create_grid_quality_measurements_router
 - api/grid_reinference.py: register_grid_reinference_routes
 - api/grid_shadow.py: create_grid_shadow_router
 - api/health.py: create_health_router
@@ -83,9 +84,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_diagnostics.py: class GridDiagnostics, missing_reason_diagnostics
 - application/grid_engine_acceptance.py: class HistoricalAcceptanceItem, class HistoricalAcceptanceReport, class HistoricalAcceptanceRepository, class HistoricalAcceptanceService
 - application/grid_engine_profiles.py: class GridEngineModelInspector, class GridEngineProfileView, class GridEngineProfileService
+- application/grid_geometry_approvals.py: class GeometryApprovalRepository, class GridGeometryApprovalService
 - application/grid_geometry_proposals.py: class ProposalCommandOutcome, class GridGeometryProposalRepository, class GridGeometryProposalService
 - application/grid_model_publication.py: class GridModelControlRepository, class GridModelPublicationService
 - application/grid_model_registry.py: class GridModelRecord, class GridModelReceipt, class GridModelAssignment, class GridModelRegistryRepository, class GridModelInspector, class GridModelRegistryService
+- application/grid_quality_measurements.py: class GridQualityRepository, class GridQualityMeasurementService
 - application/grid_reinference.py: canonical, digest, now_text, conflict, receipt_replay, command_transition, class GridReinferenceRepository, class GridReinferenceService
 - application/grid_reinference_stats.py: stats_enabled, empty_scope, empty_effect, refresh_effect_gap, add_counts, frozen_target_counts, cell_observation, cell_effects
 - application/grid_shadow.py: class GridShadowModelStore, class GridShadowRepository, class GridShadowService
@@ -178,6 +181,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_model_publication.py: class GridEvaluationEvidence, require_evaluation_evidence
 - domain/grid_model_registry.py: class GridModelRegistryError, canonical_json, descriptor_sha256, catalogue_id, validate_manifest, historical_catalogue
 - domain/grid_model_snapshots.py: uses_neural_grid, catalogue_model_version
+- domain/grid_quality_measurements.py: canonical, digest, class PopulationSampler, empty_judgments, measurement_report
 - domain/grid_shadow.py: class GridShadowError, shadow_digest, request_fingerprint, validate_shadow_output, class GridShadowResult, class GridShadowResultView, class GridShadowResultPage
 - domain/image_geometry_completeness.py: class GeometryPositionState, class GeometryImageState, class GeometryPositionFacts, class GeometryPositionClassification, classify_position, classify_image, expected_sequence_number, class SourceImageGeometryStatus, persisted_status_for, recomputed_status, is_admitted_status, geometry_gate_withholds_board, require_geometry_exception_reason, extract_position_quad, class GeometryImageCursor, encode_geometry_image_cursor, decode_geometry_image_cursor, class LowQualityThresholds
 - domain/image_geometry_cutover.py: class GeometryCutoverEvidence, class GeometryCutoverAssessment, assess_geometry_cutover
@@ -248,6 +252,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
 - schemas/grid_geometry_proposals.py: class ProposalCreateCommand, class ProposalAcceptCommand, class ProposalRejectCommand, class ProposalCandidateResponse, class ProposalDiscoveryResponse, class GridGeometryProposalResponse, class ProposalCommandResponse, class ProposalCandidatesResponse
 - schemas/grid_model_registry.py: class GridModelTopology, class GridModelArtifact, class GridModelProvenance, class GridModelHistoricalReport, class GridInferenceManifest, class GridModelManifest, class GridModelRegisterRequest, class GridModelVersionResponse, class GameGridModelAssignmentResponse, class GridModelPublishCommand, class GridModelAssignmentCommand, class GridModelTransferProvenance, class GridModelControlReceipt, class GridModelDefaultResponse, class GridModelHistoryEvent
+- schemas/grid_quality_measurements.py: class QualityCaptureCommand, class QualityPositionJudgment, class QualityUnexpectedJudgment, class QualityAssessCommand, class GeometryApprovalCommand, class QualityPoint, class QualityObservation, class QualityPositionResponse, class QualityMemberResponse, class QualityMeasurementResponse, class QualityMeasurementSummary, class QualityMeasurementPage, class QualityCommandResponse, class GeometryApprovalResponse
 - schemas/grid_reinference.py: class GridReinferenceSelector, class GridReinferencePrepare, class GridReinferenceCommand, class GridReinferenceFreeze, class GridReinferenceStart, class GridReinferencePilotAck, class GridReinferenceResume, class GridReinferenceScopeStats, class GridReinferenceEffectStats, class GridReinferencePilotAcknowledgement, class GridReinferenceQuarantine, class GridReinferenceResponse, class GridReinferenceTargetResponse, class GridReinferenceTargetPage, class GridReinferenceOperationPage
 - schemas/grid_shadow.py: class GridShadowJobCreate, class GridShadowPointResponse, class GridShadowSlotResponse, class GridShadowUnassignedDetectionResponse, class GridShadowOutputResponse, class GridShadowResultSummaryResponse, class GridShadowResultResponse, class GridShadowResultPageResponse, class GridShadowJobPayloadResponse, to_grid_shadow_summary, to_grid_shadow_result, to_grid_shadow_page
 - schemas/health.py: class HealthResponse
@@ -311,6 +316,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v12.py: ownership
 - storage/game_data_v2_manifest_v13.py: ownership
 - storage/game_data_v2_manifest_v14.py: ownership
+- storage/game_data_v2_manifest_v15.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
@@ -337,11 +343,17 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
 - storage/grid_engine_model_store.py: training_base_files, training_base_identity, receipt_bytes, require_training_directory, file_sha256, class ManagedGridEngineModelStore, inspect_model_directory
+- storage/grid_geometry_approvals.py: class SqlAlchemyGridGeometryApprovalRepository
 - storage/grid_geometry_proposal_models.py: class GridGeometryProposalModel, class GridGeometryProposalEventModel
 - storage/grid_geometry_proposals.py: proposal_target_fence, error, class SqlAlchemyGridGeometryProposalRepository
 - storage/grid_model_registry.py: class GridModelArtifactInspector, class SqlAlchemyGridModelRegistryRepository
 - storage/grid_model_registry_models.py: class GridModelFamilyModel, class GridModelVersionModel, class GridModelRegistrationReceiptModel, class GridModelVersionEventModel, class GameGridModelAssignmentModel, class GameGridModelAssignmentEventModel, class GridModelEvaluationReportModel, class GridModelEvaluationInvalidationModel, class GridModelPublicationModel, class GridModelControlEventModel, class GridModelDefaultModel, class GameCreateReceiptModel, class GridModelFamilyForkModel
 - storage/grid_profile_snapshot_resolver.py: class SqlAlchemyGridProfileSnapshotResolver
+- storage/grid_quality_manifest.py: class GridQualityManifestStore
+- storage/grid_quality_measurement_models.py: class GridQualityMeasurementModel, class GridQualityMeasurementMemberModel, class GridQualityMeasurementJudgmentModel, class GridQualityMeasurementCommandModel, class GridGeometryApprovalCommandModel
+- storage/grid_quality_measurements.py: conflict, now, class CaptureDeadline, class SqlAlchemyGridQualityMeasurementRepository
+- storage/grid_quality_observations.py: observation, geometry_approval_fence, own_target, current_targets, read_source, approval_blocker, original_target, freeze_member, symbol_confirmation_count
+- storage/grid_quality_repoint.py: unchanged_frozen_target
 - storage/grid_reinference.py: is_grid_reinference, class SqlAlchemyGridReinferenceRepository, target_fence, source_fence, target_protection, authorize_generic_retry, require_grid_retry_authorization, synchronize_grid_job
 - storage/grid_reinference_models.py: class GridReinferenceOperationModel, class GridReinferenceSourceModel, class GridReinferenceTargetModel
 - storage/grid_reinference_retention.py: retained_grid_source_link_count, detach_grid_source_links
@@ -402,6 +414,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof
 - storage/source_recording_permissions.py: provision_recording_capability, validate_recording_capability, enforce_recording_permissions, grant_recording_capability_dependencies, recording_permission_errors
+- storage/source_recording_permissions_v2.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_providers.py: read_provider, class TrustedRecordingProviders, install_recording_provider
 - storage/storage_gc_repository.py: class SqlAlchemyStorageGcRepository
 - storage/super_game_input_version.py: class SuperGameInputWritePoint, lock_super_game_state, enqueue_super_game_series_derive, record_super_game_input_change
@@ -831,6 +844,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/manual-image-selection/remote-manual-selection-actions.ts: RemoteManualSelectionHostClient, createRemoteManualSelectionAccess, loadRemoteManualSelectionSessions, loadRemoteManualSelectionMonitor, loadRemoteManualSelectionRecoveryStatus, revokeRemoteManualSelectionAccess, reopenRemoteManualSelectionBatch
 - features/manual-image-selection/remote-manual-selection-host-panel.tsx: RemoteManualSelectionHostPanel
 - features/manual-image-selection/remote-manual-selection-state.ts: REMOTE_SESSION_LIST_POLL_MS, REMOTE_SESSION_MONITOR_POLL_MS, REMOTE_SESSION_LIST_LIMIT, REMOTE_SESSION_FETCH_LIMIT, RemoteManualSelectionSessionFilter, newestRemoteManualSelectionSessions, activeRemoteManualSelectionSessions, filteredRemoteManualSelectionSessions, selectVisibleRemoteManualSelectionSessionId, selectRemoteManualSelectionSessionId, safeRemoteManualSelectionUrl, remoteSessionStatusLabel
+- features/model-quality/grid-quality-measurement-command.ts: MeasurementCommand, measurementCommandKey, readMeasurementCommand, saveMeasurementCommand, clearMeasurementCommand, discardMeasurementCommand
+- features/model-quality/grid-quality-measurement-member.tsx: GridQualityMeasurementMember
+- features/model-quality/grid-quality-measurement-panel.tsx: GridQualityMeasurementPanel
+- features/model-quality/grid-quality-measurement-report.tsx: GridQualityMeasurementReport
+- features/model-quality/grid-quality-measurement-state.ts: GridQualityMeasurementClient, measurementUuid, measurementHardSources, measurementJudgments, measurementMesh, measurementReviewerUrl
 - features/model-quality/grid-quality-panel.tsx: GridQualityPanel
 - features/model-quality/grid-reinference-command.ts: GridCommand, GridCommandStorage, gridCommandKey, gridViewKey, readGridCommand, saveGridCommand, clearGridCommand, discardGridCommand
 - features/model-quality/grid-reinference-preview.tsx: GridReinferencePreview

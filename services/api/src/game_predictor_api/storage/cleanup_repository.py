@@ -1190,6 +1190,11 @@ SELECT
   (SELECT count(*) FROM grid_reinference_sources
     WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
     AS grid_reinference_links_detached,
+  (SELECT count(*) FROM grid_quality_measurements WHERE game_id = :game_id)
+    AS grid_quality_history_preserved,
+  (SELECT count(*) FROM grid_quality_measurement_members
+    WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
+    AS grid_quality_links_detached,
   (SELECT count(*) FROM jobs WHERE game_id = :game_id) AS jobs_preserved
 """
 

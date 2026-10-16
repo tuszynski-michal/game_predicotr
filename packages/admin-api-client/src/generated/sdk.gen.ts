@@ -36,6 +36,9 @@ import type {
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
+  ApproveOperationalGeometryData,
+  ApproveOperationalGeometryErrors,
+  ApproveOperationalGeometryResponses,
   ArchiveDatasetVersionData,
   ArchiveDatasetVersionErrors,
   ArchiveDatasetVersionResponses,
@@ -51,6 +54,9 @@ import type {
   ArchiveRulesVersionData,
   ArchiveRulesVersionErrors,
   ArchiveRulesVersionResponses,
+  AssessGridQualityMeasurementData,
+  AssessGridQualityMeasurementErrors,
+  AssessGridQualityMeasurementResponses,
   BuildMobileReleaseData,
   BuildMobileReleaseErrors,
   BuildMobileReleaseResponses,
@@ -66,6 +72,9 @@ import type {
   CancelSemiAutomaticImageSelectionData,
   CancelSemiAutomaticImageSelectionErrors,
   CancelSemiAutomaticImageSelectionResponses,
+  CaptureGridQualityMeasurementData,
+  CaptureGridQualityMeasurementErrors,
+  CaptureGridQualityMeasurementResponses,
   ClearManagementStakeData,
   ClearManagementStakeErrors,
   ClearManagementStakeResponses,
@@ -366,6 +375,12 @@ import type {
   GetGridModelHistoryData,
   GetGridModelHistoryErrors,
   GetGridModelHistoryResponses,
+  GetGridQualityMeasurementData,
+  GetGridQualityMeasurementErrors,
+  GetGridQualityMeasurementResponses,
+  GetGridQualityMeasurementSourceData,
+  GetGridQualityMeasurementSourceErrors,
+  GetGridQualityMeasurementSourceResponses,
   GetGridReinferenceData,
   GetGridReinferenceErrors,
   GetGridReinferenceResponses,
@@ -676,6 +691,9 @@ import type {
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
+  ListGridQualityMeasurementsData,
+  ListGridQualityMeasurementsErrors,
+  ListGridQualityMeasurementsResponses,
   ListGridReinferenceOperationsData,
   ListGridReinferenceOperationsErrors,
   ListGridReinferenceOperationsResponses,
@@ -2076,6 +2094,119 @@ export const rollbackGameGridModel = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List Measurements
+ */
+export const listGridQualityMeasurements = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridQualityMeasurementsData, ThrowOnError>,
+): RequestResult<
+  ListGridQualityMeasurementsResponses,
+  ListGridQualityMeasurementsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridQualityMeasurementsResponses,
+    ListGridQualityMeasurementsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements',
+    ...options,
+  });
+
+/**
+ * Capture
+ */
+export const captureGridQualityMeasurement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CaptureGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  CaptureGridQualityMeasurementResponses,
+  CaptureGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CaptureGridQualityMeasurementResponses,
+    CaptureGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/capture',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Measurement
+ */
+export const getGridQualityMeasurement = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  GetGridQualityMeasurementResponses,
+  GetGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridQualityMeasurementResponses,
+    GetGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}',
+    ...options,
+  });
+
+/**
+ * Assess
+ */
+export const assessGridQualityMeasurement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AssessGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  AssessGridQualityMeasurementResponses,
+  AssessGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AssessGridQualityMeasurementResponses,
+    AssessGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/assess',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Source Asset
+ */
+export const getGridQualityMeasurementSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridQualityMeasurementSourceData, ThrowOnError>,
+): RequestResult<
+  GetGridQualityMeasurementSourceResponses,
+  GetGridQualityMeasurementSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridQualityMeasurementSourceResponses,
+    GetGridQualityMeasurementSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/sources/{source_id}/asset',
+    ...options,
   });
 
 /**
@@ -5716,6 +5847,32 @@ export const getImageGridReviewCorrectionSymbols = <
   >({
     url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols',
     ...options,
+  });
+
+/**
+ * Approve
+ */
+export const approveOperationalGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveOperationalGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveOperationalGeometryResponses,
+  ApproveOperationalGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveOperationalGeometryResponses,
+    ApproveOperationalGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approvals',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

@@ -41,9 +41,10 @@ def create_source_recording_groups_router(service_dependency: Callable[..., obje
         limit: Annotated[int, Query(ge=1, le=100)] = 100,
         after: UUID | None = None,
         group_id: Annotated[UUID | None, Query(alias="groupId")] = None,
+        source_id: Annotated[UUID | None, Query(alias="sourceId")] = None,
     ) -> SourceRecordingGroupListResponse:
         return SourceRecordingGroupListResponse.model_validate(
-            service.list_groups(game_id, family_id, limit, after, group_id)
+            service.list_groups(game_id, family_id, limit, after, group_id, source_id)
         )
 
     @router.post(

@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 551 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (194 wiersze); starsze (357 wierszy) są w
+- Indeks obejmuje 552 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (195 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-555](decisions/DECISION_LOG_2026.md#d-555--pomiar-jakości-v3-i-jawne-zatwierdzenie-niezmienionej-geometrii) | Pomiar jakości V3 i jawne zatwierdzenie niezmienionej geometrii | accepted | 2026-10-16 | Frozen baseline i9 pozycji, separate canonical approval bez recropu, symbols manual-only i forward permissions. |
 | [D-554](decisions/DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3) | Nagrania i ochrona danych kontrolnych geometrii V3 | accepted | 2026-10-15 | Geometry-only aliasy i role nagrań, prywatne capability, dependent-only invalidation; bez operator runs. |
 | [D-553](decisions/DECISION_LOG_2026.md#d-553--diagnostyka-pokrycia-v3-i-izolowany-odczyt-liczników) | Diagnostyka pokrycia V3 i izolowany odczyt liczników | accepted | 2026-10-14 | Opt-in spójny odczyt READ ONLY/RLS oraz odrzucony slot jako przyczyna braku; bez zmian danych. |
 | [D-552](decisions/DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | accepted | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
@@ -233,7 +234,22 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Pełne kopie pięciu najnowszych wpisów (D-554–D-550), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
+Pełne kopie pięciu najnowszych wpisów (D-555–D-551), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
+
+## D-555 — Pomiar jakości V3 i jawne zatwierdzenie niezmienionej geometrii
+
+- **Date:** 2026-10-16.
+- **Status:** accepted; techniczne doprecyzowanie zaakceptowanej rewizji6/TASK-1009 i odpowiedzi operatora, zapisane przed kodem. Nie jest zgodą na operacje danych operatora, nową kopię DB lub rzeczywiste runy.
+- **Context:** liczniki nie mierzą jakości, bieżąca korekta nie jest historyczną predykcją, a istniejący geometry writer nawet dla tych samych nodes tworzy rewizję i recrop. Plan dopuszcza ludzkie zatwierdzenie geometrii bez jej zmiany; dotąd brak canonical approval-only commandu. Rejestr1002 nie udostępnia own-source reverse membership.
+- **Decision:** pomiar opisowy oddzielony od kwalifikacji niezależnych kohort. Frozen random do100 i hard są odrębne. Pełny digest metadata populacji, O(100) wybór seededSHA, osobne runtime/RLS połączenie RR READ WRITE, deadline60s/statement30s/lock5s, strony500. Wyłączamy tylko całkowicie zastąpione źródła z jawną liczbą; braki/pending/unavailable pozostają. Wszystkie9 pozycji, oryginalny exact model/job/geometry lub coverage gap, bez podszywania się current assignment pod historyczną inferencję. Niezmienny plik/manifest i trwałe polecenia przeżywają restart/utraconą odpowiedź. Oceny nie zmieniają baseline i nie stanowią canonical approval.
+- **Human policy:** wszystkie9 geometrii wymagają jawnej oceny. Symbole wyłącznie istniejące aktualne ręczne zatwierdzenia własnej gry; inne nieocenione. To nie nowa etykieta ani miara classifier accuracy. Missing recording/ancestor proof daje unresolved kwalifikacji0995, nie usuwa diagnostycznego zdjęcia. Każda miara ma jawny mianownik/pokrycie, incomplete nie daje zera.
+- **Canonical approval:** jawna addytywna akcja w istniejącym pionie image-reviews/geometry-approvals. Zaufany aktor, authorization przed replay przed CAS, dokładny key/body receipt i real approved event oraz RecognizedBoard approval projection. Source/owner lock i target-local byte/pixel/revision/producer/binding/owner/issues/nodes fences, bez blanket stale od korekty sąsiada. Zatwierdzenie pokazanej niezmienionej geometrii wymaga exact current/frozen equality. Jedna transakcja event/receipt/projection/completeness materialize=False; geometria, cropy, symbole i właściciel bez zmian. Nie relabelujemy engine manual_v1 i nie zmieniamy D-522 wyjątku materializacji. Rzeczywiste korekty używają dotychczasowego guarded writera. Standalone revoke poza1009;0995 konsumuje aktualne approval/correction/revert/issue i unieważnienie dowodów, bez fabrykowania przyszłych cohort/report bindings.
+- **Storage/compatibility:** pięć nowych game-owned tabel header/members/judgments/measurement commands/canonical approval commands,0162/currentv15, frozen history bez zmian. Immutable IDs i nullable live links zachowują pomiar/receipts przy legalnym source cleanup/reset, bez nowych blocker FK lub resurrection. Downgrade odmawia retained history. Own-sourceId selector rozszerza existing groups GET przez indeks i exact six-argument overload, stary five-argument resolver zachowany. Nowe SQL/perms_v2 i current database_roles wrapper zachowują pełne v1 exclusions, dodając tylko exact signature EXECUTE/owner/DEFINER/search_path/PUBLIC checks. Historical0161 i współdzielone v1 definicje pozostają niezmienione; wymagany reprovision/fresh-install/historical/migration test.
+- **Exact historical baseline (TASK-1009, przed zatwierdzeniem logiki odczytu):** wybór nie jest globalnie najwcześniejszą ani dowolną najnowszą auto rewizją zdjęcia. Dla bieżącego niezmienionego celu jest to jego dokładny automatyczny producent. Dla celu poprawionego ręcznie jest to najnowszy udowodniony automatyczny przodek tego celu sprzed następującego po nim ciągu korekt ręcznych, z zachowaniem board/slot/source/sequence/owner lineage. Sama kolejność dat/revision, bieżący assignment lub podobne nodes nie dowodzą związku. Immutable review.snapshot wolno wykorzystać tylko przy exact source/auto target checksum i producing snapshot proof. Brak takiego łańcucha daje coverage gap, bez podstawienia starszego modelu za późniejszą reinferencję. Raport pokazuje exact producenta i jego pokrycie; mieszanego lub nieznanego pochodzenia nie nazywa jedną miarą jakości aktywnego modelu. Bieżąca ręczna geometria i workflow outcomes pozostają odrębnymi obserwacjami.
+- **Odrębny baseline human approval (TASK1009, przed poprawką guardu):** jawne approval-only dotyczy dokładnej FROZEN CURRENT geometrii pokazanej przy capture, nie historycznej original model observation. Brak exact historycznego producer daje gap dla oceny jakości modelu, lecz nie blokuje sprawdzenia aktualnej pełnej geometrii przez człowieka. Backend wymaga live/frozen current nodes/source/revision/binding/owner/issues/checksum equality, zaufanego aktora i wszystkich pozostałych guards; current-only jest jawnie opisane. Zmieniony po capture target nadal konflikt, bez ukrytego przyjęcia nowszej geometrii. Ocena original nie staje się correct, nie fabrykujemy producer ani geometry revision. Zapis approval nie recropuje i nie zmienia symboli/kanonu. To rozdzielenie już przyjętych ocen pomiaru i checked-unchanged label, nie nowa zgoda na dane lub trening.
+- **Sibling repoint przed korektą fence:** actual manual writer zmienia czasem aggregate pointer/checksum niezmienionego sibling revision0. Wyjątek wymaga serwerowego old/new own-source identity proof, identycznych target/binding/nodes/render/cell/crop/decision/owner/issue oraz rzeczywistego manual save innego targetu powiązanego z nowym source row. Nie pomijamy pointerów globalnie ani nie dopuszczamy nowej auto wersji jako repoint. Frozen original zachowany; nowy capture bez exact producenta daje gap, nie historyczny domysł z rev0/snapshotu. Szczegóły i obowiązkowy real-writer test w Technical notes1009.
+- **Consequences:** pełny pion backend/OpenAPI/generated/wrapper/request/UI, durable UUID/body i GET-only reload, explicit retry/archive-before-discard. Wymagany Claude high/do1200s, małe own UUID fixtures i cleanup proof. Brak symbollabel writes/shared classifier, operatorDB migration/sample/inference/GPU/training/activation/merge/push. Szczegółowe pliki, błędy, granice i testy w Technical notes TASK1009; nie raportujemy jakości bez rzeczywistej kontroli operatora.
+- **Source:** zaakceptowana rewizja6 sekcje2.2/2.4/2.6/TASK1009, zlecenie całego planu i kosztu, odpowiedź „Geometria obowiązkowo; symbole według istniejących zatwierdzeń”, readonly preflight HEAD382 i zgodność HEAD383. Symbole per gra; stara777 archiwalna.
 
 ## D-554 — Nagrania i ochrona danych kontrolnych geometrii V3
 
@@ -292,12 +308,3 @@ Pełne kopie pięciu najnowszych wpisów (D-554–D-550), identyczne z `decision
 - **TASK-1003 / korekta R1 (2026-10-15, przed kodem):** notRecordedTargetCount to bieżąca różnica targetCount minus recordedTargetCount po finalizacji zakresu, nie suma receiptów. Zgodny nowy pin aktualizuje ją po finalizacji, atomowym zapisie źródła i przed terminalnym reportSHA. Legacy zachowuje stare SHA/null; niezgodny pin nadal nie blokuje failure/cancel cleanup ani nie publikuje nowych statystyk. Przed finalnym manifestem UI opisuje nieukończony zakres zamiast pozornego zera.
 - **Consequences:** implementacja wymaga testów restartu/utraconej odpowiedzi, pilota, symetrii admission, manual rodzeństwa, sekwencji, rollback i izolacji dwóch gier. Dopuszcza małe izolowane fixture testy, nie operator migration/backfill, nowy backup, rzeczywiste inference/training/GPU, usługi, aktywację ani integrację. Symbole pozostają per gra, archiwalna 777 poza zakresem. Brak wykonanej kontroli nie jest PASS.
 - **Source:** zaakceptowana rewizja6 sekcje2.5/4.2 i TASK-0999/1013; zlecenie całego planu/kosztu 2026-10-14; Technical notes TASK-0999 uzgodnione przez leada 2026-10-15 przed implementacją.
-
-## D-550 — Akceptacja silnika V3 i statusowy backfill
-
-- **Date:** 2026-10-14.
-- **Status:** accepted; udokumentowane przyjęcie 2026-10-14 na podstawie jawnego polecenia implementacji rewizji 6, zgody na cały koszt i późniejszych decyzji operatora. TASK-1015 zachowuje historię wcześniejszej propozycji.
-- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Decision:** Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. Engine approval wynika z kompletu pozycji, geometrii, sekwencji i pochodzenia; nie jest human approval. Historyczny podgląd i osobno potwierdzony backfill zapisują status, zdarzenie i projekcje w transakcji źródła z materialize=False. Payloady, cropy, hashe, decyzje i właściciele pozostają niezmienione; niejednoznaczność blokuje akceptację.
-- **Consequences:** dopuszcza implementację mechanizmu w zatwierdzonym zakresie. Historyczny backfill, operacje danych, trening, aktywacja i integracja nadal wymagają swoich odrębnych bramek; brak kontroli lub danych nie daje PASS.
-- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.

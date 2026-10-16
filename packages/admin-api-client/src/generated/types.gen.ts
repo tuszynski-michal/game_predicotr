@@ -4233,6 +4233,52 @@ export type GameUpdate = {
 };
 
 /**
+ * GeometryApprovalCommand
+ */
+export type GeometryApprovalCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Targetsha256
+   */
+  targetSha256: string;
+};
+
+/**
+ * GeometryApprovalResponse
+ */
+export type GeometryApprovalResponse = {
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
+};
+
+/**
  * GeometryCohortDiagnosticsResponse
  */
 export type GeometryCohortDiagnosticsResponse = {
@@ -14419,6 +14465,379 @@ export type ProposalRejectCommand = {
 };
 
 /**
+ * QualityAssessCommand
+ */
+export type QualityAssessCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Positions
+   */
+  positions: [
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+  ];
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Unexpected
+   */
+  unexpected?: Array<QualityUnexpectedJudgment>;
+};
+
+/**
+ * QualityCaptureCommand
+ */
+export type QualityCaptureCommand = {
+  /**
+   * Hardsourceids
+   */
+  hardSourceIds?: Array<string>;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Samplesize
+   */
+  sampleSize?: number;
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityCommandResponse
+ */
+export type QualityCommandResponse = {
+  current: QualityMeasurementResponse | null;
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * QualityMeasurementPage
+ */
+export type QualityMeasurementPage = {
+  /**
+   * Items
+   */
+  items: Array<QualityMeasurementSummary>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * QualityMeasurementResponse
+ */
+export type QualityMeasurementResponse = {
+  /**
+   * Capturedat
+   */
+  capturedAt: string;
+  /**
+   * Excludedsupersededcount
+   */
+  excludedSupersededCount: number;
+  /**
+   * Frozenpopulationcount
+   */
+  frozenPopulationCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestavailable
+   */
+  manifestAvailable: boolean;
+  /**
+   * Manifestblocker
+   */
+  manifestBlocker: string | null;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Members
+   */
+  members: Array<QualityMemberResponse>;
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Populationpolicy
+   */
+  populationPolicy: string;
+  /**
+   * Populationsha256
+   */
+  populationSha256: string;
+  /**
+   * Report
+   */
+  report: {
+    [key: string]: unknown;
+  };
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityMeasurementSummary
+ */
+export type QualityMeasurementSummary = {
+  /**
+   * Capturedat
+   */
+  capturedAt: string;
+  /**
+   * Frozenpopulationcount
+   */
+  frozenPopulationCount: number;
+  /**
+   * Hardsamplecount
+   */
+  hardSampleCount: number;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Randomsamplecount
+   */
+  randomSampleCount: number;
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityMemberResponse
+ */
+export type QualityMemberResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Judgments
+   */
+  judgments: Array<QualityPositionJudgment>;
+  /**
+   * Positions
+   */
+  positions: Array<QualityPositionResponse>;
+  /**
+   * Recordingstatus
+   */
+  recordingStatus: 'declared' | 'unresolved';
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Source
+   */
+  source: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Unavailablereason
+   */
+  unavailableReason: string | null;
+  /**
+   * Unexpecteddetections
+   */
+  unexpectedDetections: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Unexpectedjudgments
+   */
+  unexpectedJudgments: Array<QualityUnexpectedJudgment>;
+};
+
+/**
+ * QualityObservation
+ */
+export type QualityObservation = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Geometry
+   */
+  geometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Nodes
+   */
+  nodes: Array<Array<QualityPoint>> | null;
+  /**
+   * Producer
+   */
+  producer: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Reason
+   */
+  reason: string | null;
+};
+
+/**
+ * QualityPoint
+ */
+export type QualityPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * QualityPositionJudgment
+ */
+export type QualityPositionJudgment = {
+  /**
+   * Detection
+   */
+  detection: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+  /**
+   * Geometry
+   */
+  geometry: 'correct' | 'incorrect' | 'not_assessable' | 'unreviewed';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sequence
+   */
+  sequence: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+};
+
+/**
+ * QualityPositionResponse
+ */
+export type QualityPositionResponse = {
+  /**
+   * Approvalblocker
+   */
+  approvalBlocker?: string | null;
+  /**
+   * Approvaleligible
+   */
+  approvalEligible: boolean;
+  current: QualityObservation;
+  /**
+   * Currentmanualsymbolcount
+   */
+  currentManualSymbolCount: number;
+  /**
+   * Currentsymbolcellcount
+   */
+  currentSymbolCellCount: number;
+  original: QualityObservation;
+  /**
+   * Ownership
+   */
+  ownership: 'own' | 'foreign' | 'unknown';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Targetsha256
+   */
+  targetSha256: string;
+};
+
+/**
+ * QualityUnexpectedJudgment
+ */
+export type QualityUnexpectedJudgment = {
+  /**
+   * Index
+   */
+  index: number;
+  /**
+   * Verdict
+   */
+  verdict: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+};
+
+/**
  * RecordingSelection
  */
 export type RecordingSelection = {
@@ -23058,6 +23477,248 @@ export type RollbackGameGridModelResponses = {
 export type RollbackGameGridModelResponse =
   RollbackGameGridModelResponses[keyof RollbackGameGridModelResponses];
 
+export type ListGridQualityMeasurementsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements';
+};
+
+export type ListGridQualityMeasurementsErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridQualityMeasurementsError =
+  ListGridQualityMeasurementsErrors[keyof ListGridQualityMeasurementsErrors];
+
+export type ListGridQualityMeasurementsResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityMeasurementPage;
+};
+
+export type ListGridQualityMeasurementsResponse =
+  ListGridQualityMeasurementsResponses[keyof ListGridQualityMeasurementsResponses];
+
+export type CaptureGridQualityMeasurementData = {
+  body: QualityCaptureCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/capture';
+};
+
+export type CaptureGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CaptureGridQualityMeasurementError =
+  CaptureGridQualityMeasurementErrors[keyof CaptureGridQualityMeasurementErrors];
+
+export type CaptureGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityCommandResponse;
+};
+
+export type CaptureGridQualityMeasurementResponse =
+  CaptureGridQualityMeasurementResponses[keyof CaptureGridQualityMeasurementResponses];
+
+export type GetGridQualityMeasurementData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}';
+};
+
+export type GetGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridQualityMeasurementError =
+  GetGridQualityMeasurementErrors[keyof GetGridQualityMeasurementErrors];
+
+export type GetGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityMeasurementResponse;
+};
+
+export type GetGridQualityMeasurementResponse =
+  GetGridQualityMeasurementResponses[keyof GetGridQualityMeasurementResponses];
+
+export type AssessGridQualityMeasurementData = {
+  body: QualityAssessCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/assess';
+};
+
+export type AssessGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AssessGridQualityMeasurementError =
+  AssessGridQualityMeasurementErrors[keyof AssessGridQualityMeasurementErrors];
+
+export type AssessGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityCommandResponse;
+};
+
+export type AssessGridQualityMeasurementResponse =
+  AssessGridQualityMeasurementResponses[keyof AssessGridQualityMeasurementResponses];
+
+export type GetGridQualityMeasurementSourceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/sources/{source_id}/asset';
+};
+
+export type GetGridQualityMeasurementSourceErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridQualityMeasurementSourceError =
+  GetGridQualityMeasurementSourceErrors[keyof GetGridQualityMeasurementSourceErrors];
+
+export type GetGridQualityMeasurementSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ListImageGridReviewsData = {
   body?: never;
   path: {
@@ -24417,6 +25078,10 @@ export type ListSourceRecordingGroupsData = {
      * Groupid
      */
     groupId?: string | null;
+    /**
+     * Sourceid
+     */
+    sourceId?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/source-recording-groups';
 };
@@ -30783,6 +31448,59 @@ export type GetImageGridReviewCorrectionSymbolsResponses = {
 
 export type GetImageGridReviewCorrectionSymbolsResponse =
   GetImageGridReviewCorrectionSymbolsResponses[keyof GetImageGridReviewCorrectionSymbolsResponses];
+
+export type ApproveOperationalGeometryData = {
+  body: GeometryApprovalCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approvals';
+};
+
+export type ApproveOperationalGeometryErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ApproveOperationalGeometryError =
+  ApproveOperationalGeometryErrors[keyof ApproveOperationalGeometryErrors];
+
+export type ApproveOperationalGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryApprovalResponse;
+};
+
+export type ApproveOperationalGeometryResponse =
+  ApproveOperationalGeometryResponses[keyof ApproveOperationalGeometryResponses];
 
 export type PreviewImageGridReviewGeometryData = {
   body: ImageGridReviewGeometryPreviewCommand;

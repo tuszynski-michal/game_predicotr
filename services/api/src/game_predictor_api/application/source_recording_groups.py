@@ -30,6 +30,7 @@ class RecordingRepository(Protocol):
         limit: int,
         after: UUID | None,
         ids: list[UUID] | None = None,
+        source_id: UUID | None = None,
     ) -> dict[str, Any]: ...
     def source_pages(
         self, game_id: UUID, selection: dict[str, Any]
@@ -120,10 +121,12 @@ class SourceRecordingGroupsService:
         limit: int,
         after: UUID | None,
         group_id: UUID | None = None,
+        source_id: UUID | None = None,
     ) -> dict[str, Any]:
-        return self.repository.list_groups(
-            game, family, limit, after, [group_id] if group_id else None
-        )
+        ids = [group_id] if group_id else None
+        if source_id is None:
+            return self.repository.list_groups(game, family, limit, after, ids)
+        return self.repository.list_groups(game, family, limit, after, ids, source_id)
 
     def execute(
         self, game: UUID, command: SourceRecordingCommandRequest, actor: str

@@ -257,10 +257,12 @@ for _reinference_action in ("freeze", "pilot-ack", "start", "resume", "cancel"):
 _REVIEWER_MUTATION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
-        # D-462: the local Reviewer corrects one board at a time; there is
-        # no geometry approval and no whole-source save (TASK-0727).
+        # D-462: the local Reviewer corrects one board at a time. D-555 adds
+        # explicit approval-only for exact frozen current geometry; the
+        # removed singular approval and whole-source save remain absent.
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
+        r"^/api/v1/admin/image-reviews/[^/]+/geometry-approvals$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals$",

@@ -1,7 +1,7 @@
 ---
 title: Aplikacja V3 — rejestr ekranów i potrzebnych funkcji
 status: draft
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # Aplikacja V3 — rejestr przeglądu funkcjonalności
@@ -60,6 +60,7 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | MODEL-08 | Złota ramka i supergra Mumii | Oddzielić bazowy symbol, flagę złotej ramki i symbol wybrany na serię darmowych gier. Ręczny wybór symbolu serii po ≥3 mumiach jest kierunkiem użytkownika; licznik/retrigger wymagają osobnego dopracowania. | potrzebne, poza dzisiejszym zakresem | osobny plan |
 | MODEL-09 | Osobne Laboratorium w głównej aplikacji | Zakładka dla rodzin modeli i przypisanych gier: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Zgodne gry mogą wspólnie dostarczać zatwierdzenia. Udany trening zapisuje kandydata w głównej bazie. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526, D-527; osobny pion integracji |
 | MODEL-10 | Wybór modelu przy tworzeniu gry | Katalog opublikowanych wersji osobno od formatu strony. Zwykły formularz przypina opublikowany default bez wyboru modelu; ustawienia zaawansowane oferują zgodną wersję albo rodzinę z bazy. Brak własnych korekt nie blokuje importu zgodną bazą. Kierunek operatora 2026-10-14: sprawdzić wspólną geometrię Mumii/777 z oceną każdej gry. Modele symboli i zasady pozostają osobne. | katalog niewdrożony; plan accepted; D-549 proposed przed rozszerzeniem D-527 | [Plan V3](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md), TASK-1004/1006 |
+| MODEL-11 | Opisowa kontrola jakości siatek | Zamrożona próba losowa i osobna trudna, wszystkie dziewięć pozycji, oryginalny wynik i osobno bieżąca geometria. Jawne zatwierdzenie sprawdzonego current bez recropu; symbole wyłącznie z istniejących ręcznych potwierdzeń własnej gry. Brak producenta/anotacji pozostaje widoczny. | mechanizm zaimplementowany; oczekuje audytu i rzeczywistych anotacji operatora | D-555, TASK-1009 |
 
 ### Laboratorium — zaakceptowany kierunek, jeszcze bez implementacji
 

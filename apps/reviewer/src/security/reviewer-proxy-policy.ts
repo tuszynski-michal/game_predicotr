@@ -153,6 +153,14 @@ export function reviewerProxyTarget(
   ) {
     return path;
   }
+  if (
+    method === 'POST' &&
+    new RegExp(`^/api/v1/admin/image-reviews/${UUID}/geometry-approvals$`).test(
+      path,
+    )
+  ) {
+    return path;
+  }
   if (!path.startsWith('/api/v1/admin/image-review-items')) {
     return null;
   }

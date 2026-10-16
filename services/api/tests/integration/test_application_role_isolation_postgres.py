@@ -28,7 +28,7 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 from game_predictor_api.storage.database_roles import describe_application_role
-from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v15 import CREATE_TABLES
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
 from game_predictor_api.storage.game_storage_routing import (

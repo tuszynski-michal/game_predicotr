@@ -1,10 +1,29 @@
 ---
 title: Virtual geometry schema ownership
 status: accepted
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # Virtual geometry schema ownership
+
+## Jawne zatwierdzenie sprawdzonej geometrii — TASK-1009
+
+`storage/grid_geometry_approvals.py` zapisuje zatwierdzenie dokładnej frozen
+current geometrii przez istniejący projection recognized_boards i rzeczywisty
+event `approved`. Nie wywołuje writera korekty, recropu ani zapisu symboli.
+Readonly `virtual_geometry_context` zachowuje istniejącą kwalifikację importu,
+widocznego celu i render provenance; API zwraca `approvalBlocker`, a zapis
+sprawdza kwalifikację ponownie pod source/ownership/sequence locks. Pending
+import w processing pozostaje w opisowym pomiarze, lecz nie omija tego guardu.
+
+`storage/grid_quality_repoint.py` dopuszcza techniczny repoint niezmienionego
+frozen sąsiada wyłącznie po dodatnim porównaniu old/new own source identity,
+exact slot/sequence/binding/nodes oraz pełnych cell/render/decision fences.
+Nowy manual source musi mieć powiązaną rzeczywistą geometry revision i event
+`geometry_saved` innego targetu z tym samym source/checksum/actor. Automatic
+wersja, brak dowodu lub zmiana cropa, etykiety, ownera albo issues daje konflikt.
+Original/producer starego pomiaru pozostają niezmienne; nowy capture bez exact
+producing reference pokazuje coverage gap, nadal pozwalając sprawdzić current.
 
 ## Historyczna akceptacja statusów V3 — TASK-1008
 

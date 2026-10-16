@@ -1476,12 +1476,24 @@ def create_app(
     )
 
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
+        from game_predictor_api.application.grid_geometry_approvals import (
+            GridGeometryApprovalService,
+        )
         from game_predictor_api.application.grid_geometry_proposals import (
             GridGeometryProposalService,
         )
+        from game_predictor_api.application.grid_quality_measurements import (
+            GridQualityMeasurementService,
+        )
         from game_predictor_api.application.grid_reinference import GridReinferenceService
+        from game_predictor_api.storage.grid_geometry_approvals import (
+            SqlAlchemyGridGeometryApprovalRepository,
+        )
         from game_predictor_api.storage.grid_geometry_proposals import (
             SqlAlchemyGridGeometryProposalRepository,
+        )
+        from game_predictor_api.storage.grid_quality_measurements import (
+            SqlAlchemyGridQualityMeasurementRepository,
         )
         from game_predictor_api.storage.grid_reinference import SqlAlchemyGridReinferenceRepository
 
@@ -1491,6 +1503,16 @@ def create_app(
                 # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
+                    grid_quality_measurements=GridQualityMeasurementService(
+                        SqlAlchemyGridQualityMeasurementRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
+                    grid_geometry_approvals=GridGeometryApprovalService(
+                        SqlAlchemyGridGeometryApprovalRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
                     grid_geometry_proposals=GridGeometryProposalService(
                         SqlAlchemyGridGeometryProposalRepository(
                             session, resolved_settings.artifact_root

@@ -2044,3 +2044,32 @@ jest bieżącym brakiem receiptów w zamrożonym zakresie, nie sumą efektów ce
 Przed ukończeniem przygotowania panel pokazuje niedostępne statystyki zakresu
 i efektów także po błędzie albo anulowaniu przygotowania. Historyczne „nie
 zapisano” pozostaje odrębną informacją dla starszych operacji.
+
+## Opisowa kontrola siatek V3 (D-555, TASK-1009)
+
+Sekcja jakości gry zamraża losową próbę1–100 bieżących wystąpień źródeł według
+seed oraz osobną, jawną próbę trudnych przypadków. Wyłącza tylko całkowicie
+zastąpione źródła, zapisując ich liczbę i politykę. Braki rewizji, predykcji,
+plików, zakresów i częściowych pozycji pozostają widoczne. Każde zdjęcie zachowuje
+wszystkie dziewięć fizycznych pozycji, także środkowe luki.
+
+Oryginalny wynik automatyczny i bieżąca geometria mają osobne podglądy. Dziewięć
+pozycji wymaga jawnej oceny geometrii oraz oddzielnych ocen detekcji i sekwencji.
+Brak producenta lub obrazu pozostaje niewiadomą. Nadmiarowe detekcje mają osobną
+listę. Raporty losowe i trudne mają własne mianowniki, pokrycie i pochodzenie
+modelu. Istniejące aktualne ręczne potwierdzenia symboli są liczbą potwierdzeń,
+a nie skutecznością klasyfikatora ani nowymi etykietami.
+
+Capture i ocena są jawnymi poleceniami. Reload wykonuje tylko GET. Dokładny UUID
+i treść polecenia zapisują się przed POST; retry jest jawne, a porzucenie najpierw
+archiwizuje dane, także uszkodzony JSON. Spóźnione odpowiedzi są przypięte do gry
+i pomiaru. Rzeczywiste korekty korzystają z istniejącego Reviewera. Zatwierdzenie
+pokazanej niezmienionej bieżącej geometrii jest osobną akcją człowieka i może
+mieć current-only pochodzenie. Nie tworzy oceny oryginalnego modelu. Zapis oceny
+nie zmienia geometrii, kanonicznego właściciela, approval ani symboli. Bez anotacji
+operatora aplikacja nie deklaruje rzeczywistej jakości.
+
+Dostępność osobnego zatwierdzenia i powód blokady pochodzą z backendu. Trwający
+pending import nie omija istniejącej kwalifikacji Reviewera. Po korekcie sąsiada
+aplikacja zachowuje oceniany oryginał; techniczny repoint może zachować approval
+tylko przy dodatnim serwerowym dowodzie niezmienionego celu i jego renderów.

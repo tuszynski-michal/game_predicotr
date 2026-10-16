@@ -1,4 +1,9 @@
 import {
+  listGridQualityMeasurements as listGeneratedGridQualityMeasurements,
+  getGridQualityMeasurement as getGeneratedGridQualityMeasurement,
+  captureGridQualityMeasurement as captureGeneratedGridQualityMeasurement,
+  assessGridQualityMeasurement as assessGeneratedGridQualityMeasurement,
+  approveOperationalGeometry as approveGeneratedOperationalGeometry,
   listSourceRecordingGroups as listGeneratedSourceRecordingGroups,
   commandSourceRecordingGroups as commandGeneratedSourceRecordingGroups,
   listOperationalGridGeometryProposals as listGeneratedOperationalGridGeometryProposals,
@@ -27,6 +32,9 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  QualityCaptureCommand,
+  QualityAssessCommand,
+  GeometryApprovalCommand,
   SourceRecordingCommandRequest,
   ProposalCreateCommand,
   ProposalAcceptCommand,
@@ -42,6 +50,19 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  QualityCaptureCommand,
+  QualityAssessCommand,
+  GeometryApprovalCommand,
+  GeometryApprovalResponse,
+  QualityMeasurementResponse,
+  QualityMeasurementSummary,
+  QualityMemberResponse,
+  QualityPositionResponse,
+  QualityPositionJudgment,
+  QualityUnexpectedJudgment,
+  QualityObservation,
+  QualityMeasurementPage,
+  QualityCommandResponse,
   SourceRecordingCommandRequest,
   SourceRecordingCommandResponse,
   SourceRecordingGroupResponse,
@@ -1346,6 +1367,50 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
   });
 
   return {
+    listGridQualityMeasurements: (
+      gameId: string,
+      options: { cursor?: string; limit?: number } = {},
+    ) =>
+      listGeneratedGridQualityMeasurements({
+        client,
+        path: { game_id: gameId },
+        query: options,
+      }),
+    getGridQualityMeasurement: (gameId: string, measurementId: string) =>
+      getGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId, measurement_id: measurementId },
+      }),
+    captureGridQualityMeasurement: (
+      gameId: string,
+      body: QualityCaptureCommand,
+    ) =>
+      captureGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    assessGridQualityMeasurement: (
+      gameId: string,
+      measurementId: string,
+      body: QualityAssessCommand,
+    ) =>
+      assessGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId, measurement_id: measurementId },
+        body,
+      }),
+    approveOperationalGeometry: (
+      reviewItemId: string,
+      scope: { gameId: string; importJobId: string },
+      body: GeometryApprovalCommand,
+    ) =>
+      approveGeneratedOperationalGeometry({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: scope,
+        body,
+      }),
     getManagementSnapshot: () => getManagementSnapshot({ client }),
     previewManagementPointDeletion: (
       pointId: string,
@@ -4081,6 +4146,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       options: {
         familyId?: string;
         groupId?: string;
+        sourceId?: string;
         limit?: number;
         after?: string;
         signal?: AbortSignal;

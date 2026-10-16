@@ -5159,3 +5159,52 @@ storage-not-ready,5xx i błąd kwalifikacji nie otrzymują dowodu. Klient bez
 dowodu zachowuje polecenie, również przy422. Potwierdzone porzucenie lokalne
 najpierw archiwizuje surowy wpis, namespace i czas, bez usuwania serwerowego
 receiptu; niepowodzenie archiwum zachowuje pending.
+
+## Opisowy pomiar siatek i zatwierdzenie bez zmiany (D-555, TASK-1009)
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements?cursor=&limit=
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}
+POST /api/v1/admin/games/{gameId}/grid-quality-measurements/capture
+POST /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}/assess
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}/sources/{sourceId}/asset
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approvals?gameId=&importJobId=
+GET  /api/v1/admin/games/{gameId}/source-recording-groups?sourceId=
+```
+
+Zamknięty QualityCaptureCommand zawiera seed, sampleSize1–100, do100 jawnych
+hardSourceIds i UUID polecenia. Ocena wiąże manifest SHA, source/sample kind,
+rewizję CAS członka i dokładnie dziewięć różnych pozycji oraz każdą nadmiarową
+detekcję. Brak oryginalnej geometrii/producenta, drift źródła lub niedostępny plik
+nie otrzymuje pozornego sukcesu modelu. Raport rozdziela random/hard i producentów,
+mianowniki, pokrycie oraz niewiadome. Asset sprawdza niezmienną tożsamość i bajty
+przez istniejący resolver. GET nie wysyła poleceń ani nie zmienia anotacji.
+
+GeometryApprovalCommand zatwierdza dokładną FROZEN CURRENT geometrię pokazaną
+operatorowi, niezależnie od dostępności historycznego producenta. Zaufany lokalny
+lub scoped Reviewer actor jest sprawdzany przed replay, a replay przed CAS.
+Inna treść pod tym samym kluczem daje409. Fences obejmują source/target revision,
+właściciela, binding, nodes, issues i checksum; późniejsza inna geometria daje
+konflikt. Projection, prawdziwy event, receipt, kompletność materialize=False
+oraz wyszukiwanie mają jedną transakcję. Receipt jest historyczny i nie dowodzi
+bieżącego approval po korekcie/revert/cleanup. Nowa plural akcja nie przywraca
+usuniętej singular trasy TASK-0727. Zatwierdzenie current-only nie tworzy oceny
+oryginalnego modelu ani zmian symboli/cropów/właściciela kanonicznego.
+
+Capture zajmuje nonblocking transaction lock klucza na sesji żądania przed
+otwarciem REPEATABLE READ snapshotu. Zajęty klucz daje typowany409
+`GRID_QUALITY_CAPTURE_BUSY`; klient zachowuje dokładny UUID/body do jawnego
+retry. Nie powstaje drugi manifest. Po zwolnieniu klucza ponowienie odczytuje
+receipt pierwszego zapisu; inna treść nadal daje idempotency conflict.
+
+Pozycja zwraca server-owned `approvalEligible` i nullable `approvalBlocker`.
+Istniejący readonly writer context chroni również eligibility/import state;
+processing pending import może być mierzony, lecz nie jest zatwierdzany tą
+trasą. Wyjątek dla repoint niezmienionego frozen sąsiada wymaga dodatniego
+old/new source, canonical manual publication oraz pełnego cell/render/decision
+proof. Zwykła zmiana aggregate pointer/checksum nie wyłącza guardów globalnie.
+
+Opcjonalny sourceId wybiera wyłącznie własne członkostwo MAIN przed keyset/limit
+przez exact sześcioparametrowy resolver. Stary pięcioparametrowy resolver działa
+nadal. Brak wymaganego overloadu0162 jest blockerem wdrożenia; runtime nie ma
+bezpośredniego dostępu do prywatnych tabel rejestru nagrań.

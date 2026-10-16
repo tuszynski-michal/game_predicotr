@@ -7707,6 +7707,75 @@
         "title": "GameUpdate",
         "type": "object"
       },
+      "GeometryApprovalCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "measurementId": {
+            "format": "uuid",
+            "title": "Measurementid",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sampleKind": {
+            "enum": [
+              "random",
+              "hard"
+            ],
+            "title": "Samplekind",
+            "type": "string"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "targetSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Targetsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "measurementId",
+          "sourceId",
+          "sampleKind",
+          "positionIndex",
+          "manifestSha256",
+          "targetSha256"
+        ],
+        "title": "GeometryApprovalCommand",
+        "type": "object"
+      },
+      "GeometryApprovalResponse": {
+        "properties": {
+          "receipt": {
+            "additionalProperties": true,
+            "title": "Receipt",
+            "type": "object"
+          }
+        },
+        "required": [
+          "receipt"
+        ],
+        "title": "GeometryApprovalResponse",
+        "type": "object"
+      },
       "GeometryCohortDiagnosticsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -25594,6 +25663,641 @@
         "title": "ProposalRejectCommand",
         "type": "object"
       },
+      "QualityAssessCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/QualityPositionJudgment"
+            },
+            "maxItems": 9,
+            "minItems": 9,
+            "title": "Positions",
+            "type": "array"
+          },
+          "sampleKind": {
+            "enum": [
+              "random",
+              "hard"
+            ],
+            "title": "Samplekind",
+            "type": "string"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "unexpected": {
+            "items": {
+              "$ref": "#/components/schemas/QualityUnexpectedJudgment"
+            },
+            "maxItems": 100,
+            "title": "Unexpected",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "sourceId",
+          "sampleKind",
+          "expectedRevision",
+          "manifestSha256",
+          "positions"
+        ],
+        "title": "QualityAssessCommand",
+        "type": "object"
+      },
+      "QualityCaptureCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "hardSourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Hardsourceids",
+            "type": "array"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "sampleSize": {
+            "default": 100,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Samplesize",
+            "type": "integer"
+          },
+          "seed": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Seed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "seed"
+        ],
+        "title": "QualityCaptureCommand",
+        "type": "object"
+      },
+      "QualityCommandResponse": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QualityMeasurementResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt": {
+            "additionalProperties": true,
+            "title": "Receipt",
+            "type": "object"
+          }
+        },
+        "required": [
+          "receipt",
+          "current"
+        ],
+        "title": "QualityCommandResponse",
+        "type": "object"
+      },
+      "QualityMeasurementPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QualityMeasurementSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "QualityMeasurementPage",
+        "type": "object"
+      },
+      "QualityMeasurementResponse": {
+        "properties": {
+          "capturedAt": {
+            "title": "Capturedat",
+            "type": "string"
+          },
+          "excludedSupersededCount": {
+            "title": "Excludedsupersededcount",
+            "type": "integer"
+          },
+          "frozenPopulationCount": {
+            "title": "Frozenpopulationcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manifestAvailable": {
+            "title": "Manifestavailable",
+            "type": "boolean"
+          },
+          "manifestBlocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestblocker"
+          },
+          "manifestSha256": {
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "measurementId": {
+            "format": "uuid",
+            "title": "Measurementid",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/QualityMemberResponse"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "populationPolicy": {
+            "title": "Populationpolicy",
+            "type": "string"
+          },
+          "populationSha256": {
+            "title": "Populationsha256",
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": true,
+            "title": "Report",
+            "type": "object"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measurementId",
+          "gameId",
+          "policy",
+          "populationPolicy",
+          "seed",
+          "capturedAt",
+          "frozenPopulationCount",
+          "excludedSupersededCount",
+          "populationSha256",
+          "manifestSha256",
+          "manifestAvailable",
+          "manifestBlocker",
+          "report",
+          "members"
+        ],
+        "title": "QualityMeasurementResponse",
+        "type": "object"
+      },
+      "QualityMeasurementSummary": {
+        "properties": {
+          "capturedAt": {
+            "title": "Capturedat",
+            "type": "string"
+          },
+          "frozenPopulationCount": {
+            "title": "Frozenpopulationcount",
+            "type": "integer"
+          },
+          "hardSampleCount": {
+            "title": "Hardsamplecount",
+            "type": "integer"
+          },
+          "manifestSha256": {
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "measurementId": {
+            "format": "uuid",
+            "title": "Measurementid",
+            "type": "string"
+          },
+          "randomSampleCount": {
+            "title": "Randomsamplecount",
+            "type": "integer"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measurementId",
+          "capturedAt",
+          "seed",
+          "frozenPopulationCount",
+          "randomSampleCount",
+          "hardSampleCount",
+          "manifestSha256"
+        ],
+        "title": "QualityMeasurementSummary",
+        "type": "object"
+      },
+      "QualityMemberResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "judgments": {
+            "items": {
+              "$ref": "#/components/schemas/QualityPositionJudgment"
+            },
+            "title": "Judgments",
+            "type": "array"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/QualityPositionResponse"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "recordingStatus": {
+            "enum": [
+              "declared",
+              "unresolved"
+            ],
+            "title": "Recordingstatus",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sampleKind": {
+            "enum": [
+              "random",
+              "hard"
+            ],
+            "title": "Samplekind",
+            "type": "string"
+          },
+          "source": {
+            "additionalProperties": true,
+            "title": "Source",
+            "type": "object"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "unavailableReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailablereason"
+          },
+          "unexpectedDetections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Unexpecteddetections",
+            "type": "array"
+          },
+          "unexpectedJudgments": {
+            "items": {
+              "$ref": "#/components/schemas/QualityUnexpectedJudgment"
+            },
+            "title": "Unexpectedjudgments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sourceId",
+          "importJobId",
+          "sampleKind",
+          "revision",
+          "source",
+          "available",
+          "unavailableReason",
+          "recordingStatus",
+          "positions",
+          "judgments",
+          "unexpectedDetections",
+          "unexpectedJudgments"
+        ],
+        "title": "QualityMemberResponse",
+        "type": "object"
+      },
+      "QualityObservation": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "geometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/QualityPoint"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes"
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available",
+          "reason",
+          "nodes",
+          "geometry",
+          "producer"
+        ],
+        "title": "QualityObservation",
+        "type": "object"
+      },
+      "QualityPoint": {
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "QualityPoint",
+        "type": "object"
+      },
+      "QualityPositionJudgment": {
+        "additionalProperties": false,
+        "properties": {
+          "detection": {
+            "enum": [
+              "correct",
+              "incorrect",
+              "unknown",
+              "unreviewed"
+            ],
+            "title": "Detection",
+            "type": "string"
+          },
+          "geometry": {
+            "enum": [
+              "correct",
+              "incorrect",
+              "not_assessable",
+              "unreviewed"
+            ],
+            "title": "Geometry",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sequence": {
+            "enum": [
+              "correct",
+              "incorrect",
+              "unknown",
+              "unreviewed"
+            ],
+            "title": "Sequence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "geometry",
+          "detection",
+          "sequence"
+        ],
+        "title": "QualityPositionJudgment",
+        "type": "object"
+      },
+      "QualityPositionResponse": {
+        "properties": {
+          "approvalBlocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvalblocker"
+          },
+          "approvalEligible": {
+            "title": "Approvaleligible",
+            "type": "boolean"
+          },
+          "current": {
+            "$ref": "#/components/schemas/QualityObservation"
+          },
+          "currentManualSymbolCount": {
+            "title": "Currentmanualsymbolcount",
+            "type": "integer"
+          },
+          "currentSymbolCellCount": {
+            "title": "Currentsymbolcellcount",
+            "type": "integer"
+          },
+          "original": {
+            "$ref": "#/components/schemas/QualityObservation"
+          },
+          "ownership": {
+            "enum": [
+              "own",
+              "foreign",
+              "unknown"
+            ],
+            "title": "Ownership",
+            "type": "string"
+          },
+          "positionIndex": {
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "targetSha256": {
+            "title": "Targetsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "sequenceNumber",
+          "original",
+          "current",
+          "reviewItemId",
+          "targetSha256",
+          "ownership",
+          "currentManualSymbolCount",
+          "currentSymbolCellCount",
+          "approvalEligible"
+        ],
+        "title": "QualityPositionResponse",
+        "type": "object"
+      },
+      "QualityUnexpectedJudgment": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "verdict": {
+            "enum": [
+              "correct",
+              "incorrect",
+              "unknown",
+              "unreviewed"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "verdict"
+        ],
+        "title": "QualityUnexpectedJudgment",
+        "type": "object"
+      },
       "RecordingSelection": {
         "additionalProperties": false,
         "properties": {
@@ -41339,6 +42043,463 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements": {
+      "get": {
+        "operationId": "listGridQualityMeasurements",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityMeasurementPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Measurements",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/capture": {
+      "post": {
+        "operationId": "captureGridQualityMeasurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualityCaptureCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Capture",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}": {
+      "get": {
+        "operationId": "getGridQualityMeasurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "measurement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Measurement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityMeasurementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Measurement",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/assess": {
+      "post": {
+        "operationId": "assessGridQualityMeasurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "measurement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Measurement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QualityAssessCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Assess",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/sources/{source_id}/asset": {
+      "get": {
+        "operationId": "getGridQualityMeasurementSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "measurement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Measurement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Asset",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-reviews": {
       "get": {
         "operationId": "listImageGridReviews",
@@ -44005,6 +45166,23 @@
                 }
               ],
               "title": "Groupid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sourceid"
             }
           }
         ],
@@ -56298,6 +57476,114 @@
         "summary": "Read the symbols stored on the current cells of one board under correction",
         "tags": [
           "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/geometry-approvals": {
+      "post": {
+        "operationId": "approveOperationalGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeometryApprovalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validated human scope required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Frozen measurement or source unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Measurement command, identity or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Approve",
+        "tags": [
+          "grid-quality-measurements"
         ]
       }
     },

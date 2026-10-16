@@ -13,7 +13,7 @@ from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.storage.game_data_v2_manifest_v12 import ADDED_GAME_TABLES
-from game_predictor_api.storage.game_data_v2_manifest_v14 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v15 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

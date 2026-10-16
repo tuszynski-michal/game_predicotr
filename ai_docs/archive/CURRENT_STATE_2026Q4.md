@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-0994 — Rejestr rodzin, wersji i przypisań (done)
+
+- [Task](../tasks/completed/0994-grid-model-registry.md); oryginalny commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`. Po dłuższym audycie operatora jedna korekta: v1.7.374 / `27ff986a873559330cd75aad3ee47081a41758d5`; hash dopisany po utworzeniu do następnego commita, bez scalenia.
+- Katalog i historyczne przypisania bez zmiany danych gier. Korekta centralnie rejestruje6 mapowań ORM; test manifestu v9 obejmuje public.* i oba porządki importów. Frozen JSON/deskriptory/SHA mają regresję; migracje bez zmian.
+- [Runda1 REVISE](../quality/TASK-0994_AUDIT_claude-fable-5-1_round1.md); [Runda2 PASS](../quality/TASK-0994_AUDIT_claude-fable-5-1.md), bez P0/P1. P1-1/P2-3 zamknięte; P2-4 izolowany duplikat taska usunięty w docelowym drzewie. P2-1 koszt świeżych SHA i P2-2 nieweryfikowany historyczny cykl downgrade jawnie przyjęte poza zakresem. Wcześniejszy timeout/limit pozostają historyczne.
+- Korekta:19+19+9 PASS, Ruff/format3, mypy2, map/diff; połączenie z1012 w primary45 PASS. Pierwotne PG/counters/klient kontrole w Outcome. Bez nowej bazy operatora, usług, treningu/inference, aktywacji i integracji. Tymczasowy checkout audytu skierowany do archiwizacji po zachowaniu dowodów na D.
+
 ### TASK-1014 — Zarządzane checkpointy na D (done)
 
 - [Task](../tasks/completed/1014-managed-grid-checkpoints-on-d.md); codex/v3-grid-fine-tuning, bez scalenia. Commit v1.7.372 / `b11cdb19d81711fa801157c8effb3fc78863e46c`; hash dopisany po utworzeniu, do następnego commita.

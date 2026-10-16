@@ -305,3 +305,8 @@ niezależnego audytu, bez dalszych zmian źródeł lub zamrożonych dowodów.
 - P2-5: Poprawiona przenośna instrukcja: ścieżka venv głównego checkoutu wynika z git-common-dir. Odrębny proces PowerShell potwierdził istniejący interpreter; bez uruchamiania testów/usług i bez zmiany konfiguracji systemu.
 - Jedna dozwolona korekta P2; R2 nie wymagany. Końcowe DOC/MAP/diff i staged lista/stat są kontrolowane przed commitem. Stan historyczny „audyt niewykonany” powyżej opisuje przekazanie wykonawcy, a niniejsza sekcja je zastępuje.
 - Recommended next task:1009, geometria wszystkich9 pozycji obowiązkowa, symbole tylko według aktualnych ręcznych zatwierdzeń; pozostałe nieocenione. Bez rzeczywistej próby operatora przed zebraniem anotacji.
+
+
+### Commit TASK-1018 — zapis po utworzeniu
+
+- TASK-1018: **v1.7.383** / `ea9a27b29be948c9328da2670dc2b4159675ac4e`; osobny commit, staged check/stat/list i post-show/status PASS; bez merge/push. Zapis własnego hasha oczekuje następnego commita zgodnie z AGENTS; bez amend.

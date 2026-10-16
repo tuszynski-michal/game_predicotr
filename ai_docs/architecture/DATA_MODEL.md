@@ -3074,3 +3074,24 @@ wyjątek integralności propaguje do właściciela transakcji. Nowy import tworz
 pozycje również przed inicjalizacją historycznego backfillu, zachowując jego
 osobny stan gotowości. Etykiety człowieka przeżywają recrop; zatwierdzenie
 obrazu staje się nieaktualne i wymaga ponownej weryfikacji.
+
+## Zachowane dowody pomiaru V3 (D-555, TASK-1009, Alembic0162)
+
+Zamrożony manifestv15 dodaje pięć tabel partycjonowanych per gra: measurements,
+members, append-only judgments, measurement commands i canonical geometry
+approval commands. Członek przechowuje niezmienne wystąpienie źródła i oryginalny
+cel oddzielnie od wersjonowanych ocen. Złożone klucze gry, forced RLS i SQL guardy
+niezmienności chronią dowody i receipts. Manifesty v1–14 i historyczne migracje
+pozostają niezmienione. Downgrade odmawia przy jakiejkolwiek zachowanej historii.
+
+Zamrożone source IDs przeżywają legalne usunięcie źródła i layout-data reset.
+Nullable live_source_image_id ma fizyczny composite game/source FK i może zostać
+wyłącznie odłączony. Istniejące wejścia cleanupu zachowują manifesty, oceny oraz
+receipts. Lifecycle całej gry usuwa partycje w kolejności zależności. Approval
+receipt zachowuje event/target IDs bez nowego live FK blokującego cleanup.
+
+Kanoniczny projection pozostaje w recognized_boards wraz z rzeczywistym
+image_board_geometry_review_events(action=approved). Osobna jawna akcja
+zatwierdza dokładną FROZEN CURRENT geometrię również przy nieznanym historycznym
+modelu. Nie tworzy sztucznej rewizji geometrii/źródła ani nowych cropów. Brak
+producenta oryginału nadal pozostaje luką pomiaru jakości modelu.

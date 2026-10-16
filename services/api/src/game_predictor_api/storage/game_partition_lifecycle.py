@@ -19,16 +19,16 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+from game_predictor_api.storage.game_data_v2_manifest_v15 import (
     CREATE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+from game_predictor_api.storage.game_data_v2_manifest_v15 import (
     DELETE_TABLES as DELETE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+from game_predictor_api.storage.game_data_v2_manifest_v15 import (
     SCHEMA as SCHEMA,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v14 import (
+from game_predictor_api.storage.game_data_v2_manifest_v15 import (
     VERSION as VERSION,
 )
 

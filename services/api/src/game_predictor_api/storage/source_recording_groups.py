@@ -122,19 +122,22 @@ class SqlAlchemySourceRecordingRepository:
         limit: int,
         after: UUID | None,
         ids: list[UUID] | None = None,
+        source_id: UUID | None = None,
     ) -> dict[str, Any]:
         self.bind(game_id)
+        source_argument = ",CAST(:source AS uuid)" if source_id is not None else ""
         return cast(
             dict[str, Any],
             self._call(
                 "SELECT public.resolve_own_groups("
-                ":game,CAST(:ids AS uuid[]),:family,:limit,:after)",
+                f":game,CAST(:ids AS uuid[]),:family,:limit,:after{source_argument})",
                 {
                     "game": game_id,
                     "ids": ids or [],
                     "family": family_id,
                     "limit": limit,
                     "after": after,
+                    **({"source": source_id} if source_id is not None else {}),
                 },
             ),
         )

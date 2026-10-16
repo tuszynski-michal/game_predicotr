@@ -66,6 +66,9 @@ import type {
   CancelGridReinferenceData,
   CancelGridReinferenceErrors,
   CancelGridReinferenceResponses,
+  CancelGridTrainingCohortData,
+  CancelGridTrainingCohortErrors,
+  CancelGridTrainingCohortResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -87,6 +90,9 @@ import type {
   CommandSourceRecordingGroupsData,
   CommandSourceRecordingGroupsErrors,
   CommandSourceRecordingGroupsResponses,
+  CompleteGridSourceIdentitiesData,
+  CompleteGridSourceIdentitiesErrors,
+  CompleteGridSourceIdentitiesResponses,
   ConfirmBrowserPageGeometrySourceReplacementData,
   ConfirmBrowserPageGeometrySourceReplacementErrors,
   ConfirmBrowserPageGeometrySourceReplacementResponses,
@@ -294,6 +300,9 @@ import type {
   FreezeGridReinferenceData,
   FreezeGridReinferenceErrors,
   FreezeGridReinferenceResponses,
+  FreezeGridTrainingCohortData,
+  FreezeGridTrainingCohortErrors,
+  FreezeGridTrainingCohortResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -390,6 +399,15 @@ import type {
   GetGridShadowResultData,
   GetGridShadowResultErrors,
   GetGridShadowResultResponses,
+  GetGridTrainingCohortData,
+  GetGridTrainingCohortEligibilityData,
+  GetGridTrainingCohortEligibilityErrors,
+  GetGridTrainingCohortEligibilityResponses,
+  GetGridTrainingCohortErrors,
+  GetGridTrainingCohortMembersData,
+  GetGridTrainingCohortMembersErrors,
+  GetGridTrainingCohortMembersResponses,
+  GetGridTrainingCohortResponses,
   GetHealthData,
   GetHealthResponses,
   GetHistoricalGridAcceptanceData,
@@ -700,6 +718,9 @@ import type {
   ListGridShadowResultsData,
   ListGridShadowResultsErrors,
   ListGridShadowResultsResponses,
+  ListGridTrainingCohortsData,
+  ListGridTrainingCohortsErrors,
+  ListGridTrainingCohortsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -852,6 +873,9 @@ import type {
   ListVerifiedImageReviewCohortsResponses,
   ListWorkerLanesData,
   ListWorkerLanesResponses,
+  MaterializeGridTrainingCohortPageData,
+  MaterializeGridTrainingCohortPageErrors,
+  MaterializeGridTrainingCohortPageResponses,
   MutateV7LabelGeometryCalibrationSessionData,
   MutateV7LabelGeometryCalibrationSessionErrors,
   MutateV7LabelGeometryCalibrationSessionResponses,
@@ -873,6 +897,12 @@ import type {
   PrepareGridReinferenceData,
   PrepareGridReinferenceErrors,
   PrepareGridReinferenceResponses,
+  PrepareGridTrainingCohortData,
+  PrepareGridTrainingCohortErrors,
+  PrepareGridTrainingCohortPageData,
+  PrepareGridTrainingCohortPageErrors,
+  PrepareGridTrainingCohortPageResponses,
+  PrepareGridTrainingCohortResponses,
   PreviewBoardSourceCleanupData,
   PreviewBoardSourceCleanupErrors,
   PreviewBoardSourceCleanupResponses,
@@ -2282,6 +2312,233 @@ export const getGridShadowResult = <ThrowOnError extends boolean = false>(
   >({
     url: '/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}',
     ...options,
+  });
+
+/**
+ * Complete
+ */
+export const completeGridSourceIdentities = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CompleteGridSourceIdentitiesData, ThrowOnError>,
+): RequestResult<
+  CompleteGridSourceIdentitiesResponses,
+  CompleteGridSourceIdentitiesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CompleteGridSourceIdentitiesResponses,
+    CompleteGridSourceIdentitiesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-source-identities/complete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Cohorts
+ */
+export const listGridTrainingCohorts = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridTrainingCohortsData, ThrowOnError>,
+): RequestResult<
+  ListGridTrainingCohortsResponses,
+  ListGridTrainingCohortsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridTrainingCohortsResponses,
+    ListGridTrainingCohortsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-training-cohorts', ...options });
+
+/**
+ * Prepare
+ */
+export const prepareGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<PrepareGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  PrepareGridTrainingCohortResponses,
+  PrepareGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridTrainingCohortResponses,
+    PrepareGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/prepare',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get
+ */
+export const getGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortResponses,
+  GetGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortResponses,
+    GetGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  CancelGridTrainingCohortResponses,
+  CancelGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridTrainingCohortResponses,
+    CancelGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/cancel',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Eligibility
+ */
+export const getGridTrainingCohortEligibility = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridTrainingCohortEligibilityData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortEligibilityResponses,
+  GetGridTrainingCohortEligibilityErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortEligibilityResponses,
+    GetGridTrainingCohortEligibilityErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/eligibility',
+    ...options,
+  });
+
+/**
+ * Freeze
+ */
+export const freezeGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<FreezeGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  FreezeGridTrainingCohortResponses,
+  FreezeGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeGridTrainingCohortResponses,
+    FreezeGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/freeze',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Materialize Page
+ */
+export const materializeGridTrainingCohortPage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<MaterializeGridTrainingCohortPageData, ThrowOnError>,
+): RequestResult<
+  MaterializeGridTrainingCohortPageResponses,
+  MaterializeGridTrainingCohortPageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    MaterializeGridTrainingCohortPageResponses,
+    MaterializeGridTrainingCohortPageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/materialize-page',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Members
+ */
+export const getGridTrainingCohortMembers = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridTrainingCohortMembersData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortMembersResponses,
+  GetGridTrainingCohortMembersErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortMembersResponses,
+    GetGridTrainingCohortMembersErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/members',
+    ...options,
+  });
+
+/**
+ * Prepare Page
+ */
+export const prepareGridTrainingCohortPage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PrepareGridTrainingCohortPageData, ThrowOnError>,
+): RequestResult<
+  PrepareGridTrainingCohortPageResponses,
+  PrepareGridTrainingCohortPageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridTrainingCohortPageResponses,
+    PrepareGridTrainingCohortPageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/prepare-page',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

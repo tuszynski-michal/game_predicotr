@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-10-06
+last_updated: 2026-10-16
 ---
 
 # Architektura laboratorium wizji
@@ -673,3 +673,61 @@ A canonical JSON manifest is fsynced and atomically published under its SHA befo
 committing its reference and receipt. Cold replay verifies the same file and SHA.
 The recording six-argument resolver adds an indexed own-source membership lookup;
 SQL/permissions_v2 preserve the frozen0161/v1 boundary and exact old signature.
+
+## Application geometry snapshot boundary (D-556, TASK-0995)
+
+`GridTrainingCohortService` orchestrates one-game preparation, metadata capture,
+materialization and freeze. The domain module owns exact 24-node qualification,
+versioned minima and weights. `grid_training_cohort_evidence` proves current
+human events and exact approval receipt/manifest chains. Later cell materialization
+or symbol changes preserve a label only after exact derived cell-quad/render
+parity and the existing positive sibling-publication verifier. Pending grid
+issues, owner, actor, source, geometry and revert checks remain effective.
+The legacy geometry exporter and symbol workflows keep their defaults.
+
+Metadata uses ordinal keyset pages of at most 200 members. Identity completion
+and image materialization accept at most five sources and decode them sequentially;
+only metadata, proofs and paths survive the next decode. The pure canonical
+decoder and all-NULL/exact-equality metadata rules live in the API domain, with
+backward-compatible worker exports. EXIF orientation None is a valid expected
+value, not evidence of a partial canonical group. Completion requires the exact
+existing geometry revision and never invents an import lease or model revision.
+
+Content-addressed files under `data/grid-training-cohorts` are verified, fsynced
+and published on the same volume before the database reference and receipt.
+Public paths remain relative; containment and reparse checks precede native
+Windows long-path I/O. The immutable root pins the base catalogue descriptor,
+decoder, preprocessing and streamed page indexes. The application-specific worker
+adapter `images/grid_cohort_dataset.py` verifies these pins and exact nodes,
+checks roles before pixels and caches at most one canonical frame. It composes
+outside neutral `training_core` and performs no training or inference.
+
+Freeze uses a restricted READ COMMITTED runtime transaction with one 60-second
+budget, statements capped at the remaining budget/30 seconds and locks at five
+seconds. File verification precedes final write locks. Ordered catalog, recording,
+owner, game projection, sequence, source and target locks protect metadata-only
+revalidation, CAS, actual recording use and the immutable receipt atomically.
+The additive recording v3 capability preserves historical v1/v2 SQL and grants;
+runtime receives no direct private registry SELECT. Ordinary freeze creates no
+report binding. A future real evaluation read-v2 report uses the existing trusted
+producer and policy; TASK-0997 must provide its full reader, writer and joint
+publication currentness barrier before publication.
+
+Capture/materialization hold a transaction-scoped shared cohort asset guard
+through file publication and receipt commit. Existing GC takes its exclusive
+counterpart, then rechecks actual own-RLS page/root references before quarantine,
+retry or deletion. Retained references protect canceled and failed cohorts too.
+Unknown schema, routing, permissions or query results protect the file; absence
+of routing proves zero references only with a completed matching deletion receipt
+and absent catalog, route and own cohort partitions. Unreferenced staging expires
+24 hours after the latest real dependency or deletion receipt. GC performs no
+source/owner locking or bitmap scan. Physical cleanup remains separately approved.
+
+Eligibility GET combines bounded current metadata checks in one pass and performs
+no file I/O. A detached used source blocks new admission with
+`SOURCE_REMOVED_NEW_USE_BLOCKED` in both application currentness and the common
+private recording v3 guard. Metadata GET returns blocked, liveSourceLinked=false
+and humanLabelWithdrawn=null for that member; byte availability remains unknown.
+New detach notices record the same reason. Historical receipts, frozen payloads,
+actual-use protection and earlier notices remain unchanged. Receipt replay
+reads history and does not grant fresh admission.

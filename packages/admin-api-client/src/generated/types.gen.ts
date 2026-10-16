@@ -5162,6 +5162,381 @@ export type GridCalibrationProfileResponse = {
 };
 
 /**
+ * GridCohortCommandResponse
+ */
+export type GridCohortCommandResponse = {
+  cohort: GridCohortHeader;
+  receipt: GridCohortReceipt;
+};
+
+/**
+ * GridCohortEligibility
+ */
+export type GridCohortEligibility = {
+  /**
+   * Humanlabelwithdrawn
+   */
+  humanLabelWithdrawn: boolean | null;
+  /**
+   * Livesourcelinked
+   */
+  liveSourceLinked: boolean | null;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Qualification
+   */
+  qualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Snapshotbytesavailable
+   */
+  snapshotBytesAvailable: boolean | null;
+};
+
+/**
+ * GridCohortFreezeCommand
+ */
+export type GridCohortFreezeCommand = {
+  /**
+   * Expectedmanifestsha256
+   */
+  expectedManifestSha256: string;
+  /**
+   * Expectedpreviewsha256
+   */
+  expectedPreviewSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortHeader
+ */
+export type GridCohortHeader = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Nextcapturecursor
+   */
+  nextCaptureCursor: number | null;
+  /**
+   * Nextmaterializationcursor
+   */
+  nextMaterializationCursor: number | null;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status:
+    | 'preparing'
+    | 'preview_ready'
+    | 'materializing'
+    | 'ready_to_freeze'
+    | 'frozen'
+    | 'failed'
+    | 'canceled';
+  summary: GridCohortSummary;
+};
+
+/**
+ * GridCohortList
+ */
+export type GridCohortList = {
+  /**
+   * Items
+   */
+  items: Array<GridCohortHeader>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridCohortMember
+ */
+export type GridCohortMember = {
+  /**
+   * Boardeligiblecount
+   */
+  boardEligibleCount: number;
+  /**
+   * Metadatamissing
+   */
+  metadataMissing: boolean;
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Qualification
+   */
+  qualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
+  /**
+   * Screeneligible
+   */
+  screenEligible: boolean;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * GridCohortMembers
+ */
+export type GridCohortMembers = {
+  /**
+   * Items
+   */
+  items: Array<GridCohortMember>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: number | null;
+};
+
+/**
+ * GridCohortPageCommand
+ */
+export type GridCohortPageCommand = {
+  /**
+   * Cursor
+   */
+  cursor: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortPrepareCommand
+ */
+export type GridCohortPrepareCommand = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Recordings
+   */
+  recordings: Array<GridCohortRecording>;
+  selector: GridCohortSelector;
+};
+
+/**
+ * GridCohortReceipt
+ */
+export type GridCohortReceipt = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'prepare' | 'prepare-page' | 'materialize-page' | 'freeze' | 'cancel';
+  /**
+   * Outcome
+   */
+  outcome: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * GridCohortRecording
+ */
+export type GridCohortRecording = {
+  /**
+   * Groupid
+   */
+  groupId: string;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION';
+};
+
+/**
+ * GridCohortRevisionCommand
+ */
+export type GridCohortRevisionCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortRoleSummary
+ */
+export type GridCohortRoleSummary = {
+  /**
+   * Eligibleboards
+   */
+  eligibleBoards: number;
+  /**
+   * Eligiblefullphotos
+   */
+  eligibleFullPhotos: number;
+  /**
+   * Eligiblephotos
+   */
+  eligiblePhotos: number;
+  /**
+   * Materializedboards
+   */
+  materializedBoards?: number;
+  /**
+   * Materializedfullphotos
+   */
+  materializedFullPhotos?: number;
+  /**
+   * Materializedphotos
+   */
+  materializedPhotos?: number;
+  /**
+   * Missingboards
+   */
+  missingBoards: number;
+  /**
+   * Missingfullphotos
+   */
+  missingFullPhotos: number;
+  /**
+   * Missingphotos
+   */
+  missingPhotos: number;
+  /**
+   * Recordingrequired
+   */
+  recordingRequired: boolean;
+  /**
+   * Requiredboards
+   */
+  requiredBoards: number;
+  /**
+   * Requiredfullphotos
+   */
+  requiredFullPhotos: number;
+  /**
+   * Requiredphotos
+   */
+  requiredPhotos: number;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION';
+};
+
+/**
+ * GridCohortSelector
+ */
+export type GridCohortSelector = {
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Sourceids
+   */
+  sourceIds?: Array<string> | null;
+};
+
+/**
+ * GridCohortSummary
+ */
+export type GridCohortSummary = {
+  /**
+   * Reasoncounts
+   */
+  reasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Roles
+   */
+  roles: Array<GridCohortRoleSummary>;
+};
+
+/**
  * GridCorrectionCellSymbolPayload
  *
  * One symbol the operator assigns to a cell while saving its grid (D-488).
@@ -7230,6 +7605,85 @@ export type GridShadowUnassignedDetectionResponse = {
    * Reasoncodes
    */
   reasonCodes?: Array<string>;
+};
+
+/**
+ * GridSourceIdentityCompleteCommand
+ */
+export type GridSourceIdentityCompleteCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Sources
+   */
+  sources: Array<GridSourceIdentityPin>;
+};
+
+/**
+ * GridSourceIdentityPin
+ */
+export type GridSourceIdentityPin = {
+  /**
+   * Expectedgeometrysha256
+   */
+  expectedGeometrySha256: string;
+  /**
+   * Expectedsourcegeometryrevisionid
+   */
+  expectedSourceGeometryRevisionId: string;
+  /**
+   * Expectedsourcesha256
+   */
+  expectedSourceSha256: string;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * GridSourceIdentityReceipt
+ */
+export type GridSourceIdentityReceipt = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'complete_identities';
+  /**
+   * Outcome
+   */
+  outcome: 'completed';
+  /**
+   * Results
+   */
+  results: Array<GridSourceIdentityResult>;
+};
+
+/**
+ * GridSourceIdentityResponse
+ */
+export type GridSourceIdentityResponse = {
+  receipt: GridSourceIdentityReceipt;
+};
+
+/**
+ * GridSourceIdentityResult
+ */
+export type GridSourceIdentityResult = {
+  /**
+   * Outcome
+   */
+  outcome: 'completed' | 'already_complete';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
 };
 
 /**
@@ -23937,6 +24391,492 @@ export type GetGridShadowResultResponses = {
 
 export type GetGridShadowResultResponse =
   GetGridShadowResultResponses[keyof GetGridShadowResultResponses];
+
+export type CompleteGridSourceIdentitiesData = {
+  body: GridSourceIdentityCompleteCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-source-identities/complete';
+};
+
+export type CompleteGridSourceIdentitiesErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CompleteGridSourceIdentitiesError =
+  CompleteGridSourceIdentitiesErrors[keyof CompleteGridSourceIdentitiesErrors];
+
+export type CompleteGridSourceIdentitiesResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridSourceIdentityResponse;
+};
+
+export type CompleteGridSourceIdentitiesResponse =
+  CompleteGridSourceIdentitiesResponses[keyof CompleteGridSourceIdentitiesResponses];
+
+export type ListGridTrainingCohortsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts';
+};
+
+export type ListGridTrainingCohortsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridTrainingCohortsError =
+  ListGridTrainingCohortsErrors[keyof ListGridTrainingCohortsErrors];
+
+export type ListGridTrainingCohortsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortList;
+};
+
+export type ListGridTrainingCohortsResponse =
+  ListGridTrainingCohortsResponses[keyof ListGridTrainingCohortsResponses];
+
+export type PrepareGridTrainingCohortData = {
+  body: GridCohortPrepareCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/prepare';
+};
+
+export type PrepareGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridTrainingCohortError =
+  PrepareGridTrainingCohortErrors[keyof PrepareGridTrainingCohortErrors];
+
+export type PrepareGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type PrepareGridTrainingCohortResponse =
+  PrepareGridTrainingCohortResponses[keyof PrepareGridTrainingCohortResponses];
+
+export type GetGridTrainingCohortData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}';
+};
+
+export type GetGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortError =
+  GetGridTrainingCohortErrors[keyof GetGridTrainingCohortErrors];
+
+export type GetGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortHeader;
+};
+
+export type GetGridTrainingCohortResponse =
+  GetGridTrainingCohortResponses[keyof GetGridTrainingCohortResponses];
+
+export type CancelGridTrainingCohortData = {
+  body: GridCohortRevisionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/cancel';
+};
+
+export type CancelGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridTrainingCohortError =
+  CancelGridTrainingCohortErrors[keyof CancelGridTrainingCohortErrors];
+
+export type CancelGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type CancelGridTrainingCohortResponse =
+  CancelGridTrainingCohortResponses[keyof CancelGridTrainingCohortResponses];
+
+export type GetGridTrainingCohortEligibilityData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/eligibility';
+};
+
+export type GetGridTrainingCohortEligibilityErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortEligibilityError =
+  GetGridTrainingCohortEligibilityErrors[keyof GetGridTrainingCohortEligibilityErrors];
+
+export type GetGridTrainingCohortEligibilityResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortEligibility;
+};
+
+export type GetGridTrainingCohortEligibilityResponse =
+  GetGridTrainingCohortEligibilityResponses[keyof GetGridTrainingCohortEligibilityResponses];
+
+export type FreezeGridTrainingCohortData = {
+  body: GridCohortFreezeCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/freeze';
+};
+
+export type FreezeGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FreezeGridTrainingCohortError =
+  FreezeGridTrainingCohortErrors[keyof FreezeGridTrainingCohortErrors];
+
+export type FreezeGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type FreezeGridTrainingCohortResponse =
+  FreezeGridTrainingCohortResponses[keyof FreezeGridTrainingCohortResponses];
+
+export type MaterializeGridTrainingCohortPageData = {
+  body: GridCohortPageCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/materialize-page';
+};
+
+export type MaterializeGridTrainingCohortPageErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type MaterializeGridTrainingCohortPageError =
+  MaterializeGridTrainingCohortPageErrors[keyof MaterializeGridTrainingCohortPageErrors];
+
+export type MaterializeGridTrainingCohortPageResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type MaterializeGridTrainingCohortPageResponse =
+  MaterializeGridTrainingCohortPageResponses[keyof MaterializeGridTrainingCohortPageResponses];
+
+export type GetGridTrainingCohortMembersData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/members';
+};
+
+export type GetGridTrainingCohortMembersErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortMembersError =
+  GetGridTrainingCohortMembersErrors[keyof GetGridTrainingCohortMembersErrors];
+
+export type GetGridTrainingCohortMembersResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortMembers;
+};
+
+export type GetGridTrainingCohortMembersResponse =
+  GetGridTrainingCohortMembersResponses[keyof GetGridTrainingCohortMembersResponses];
+
+export type PrepareGridTrainingCohortPageData = {
+  body: GridCohortPageCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/prepare-page';
+};
+
+export type PrepareGridTrainingCohortPageErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridTrainingCohortPageError =
+  PrepareGridTrainingCohortPageErrors[keyof PrepareGridTrainingCohortPageErrors];
+
+export type PrepareGridTrainingCohortPageResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type PrepareGridTrainingCohortPageResponse =
+  PrepareGridTrainingCohortPageResponses[keyof PrepareGridTrainingCohortPageResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;

@@ -6987,6 +6987,9 @@ from game_predictor_api.storage import (  # noqa: E402
     grid_reinference_models as grid_reinference_models,
 )
 from game_predictor_api.storage import (  # noqa: E402
+    grid_training_cohort_models as grid_training_cohort_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
     management_models as management_models,
 )
 from game_predictor_api.storage import (  # noqa: E402

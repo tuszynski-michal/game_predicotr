@@ -28,6 +28,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/grid_quality_measurements.py: create_grid_quality_measurements_router
 - api/grid_reinference.py: register_grid_reinference_routes
 - api/grid_shadow.py: create_grid_shadow_router
+- api/grid_training_cohorts.py: create_grid_training_cohorts_router
 - api/health.py: create_health_router
 - api/image_grid_reviews.py: create_image_grid_reviews_router
 - api/image_imports.py: create_image_imports_router
@@ -92,6 +93,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_reinference.py: canonical, digest, now_text, conflict, receipt_replay, command_transition, class GridReinferenceRepository, class GridReinferenceService
 - application/grid_reinference_stats.py: stats_enabled, empty_scope, empty_effect, refresh_effect_gap, add_counts, frozen_target_counts, cell_observation, cell_effects
 - application/grid_shadow.py: class GridShadowModelStore, class GridShadowRepository, class GridShadowService
+- application/grid_source_identities.py: complete
+- application/grid_training_cohort_commands.py: prepare, execute
+- application/grid_training_cohort_freeze.py: freeze
+- application/grid_training_cohorts.py: class GridTrainingCohortService
 - application/image_geometry_rollout.py: class ImageGeometryRolloutStatus, class ImageGeometryRolloutStart, class ImageGeometryRolloutRepository, class ImageGeometryRolloutService
 - application/image_grid_reviews.py: class ImageGridReviewListSlice, class ImageGridReviewRepository, class ImageGridReviewService
 - application/image_import_geometry_guard.py: class ImageGeometryGuardRepository, class ImageGeometryGuardQueue, class ImageGeometryGuardDecisionCommand, class ImageGeometryGuardReportReconstructionInput, class ImageImportGeometryGuardService
@@ -167,6 +172,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/board_search_share_queries.py: class BoardSearchShareQueryKind, class BoardSearchShareQueryEntry, search_query_request, search_query_summary, approximate_win_query_request, approximate_win_stake_query_request, approximate_win_query_summary, board_detail_query_request, board_detail_query_summary, build_board_search_share_query_entry, encode_query_log_cursor, decode_query_log_cursor
 - domain/board_search_shares.py: class BoardSearchShareStatus, class BoardSearchShareAuditEventType, class BoardSearchShareError, class BoardSearchShareNotFoundError, class BoardSearchShareAuthenticationError, class BoardSearchShareAuthorizationError, class BoardSearchShareConflictError, class BoardSearchShareRateLimitError, class BoardSearchShareUnavailableError, validate_board_search_share_lifetime, normalize_board_search_share_label
 - domain/board_topology.py: class BoardTopologyError, class BoardTopology, class PinnedBoardTopology, pin_board_topology, ensure_rules_version_matches_topology
+- domain/canonical_source.py: class CanonicalSourceLoadError, class CanonicalSourceFrame, validate_source_checksum_sha256, decode_canonical_source_bytes, rgb_pixel_checksum_sha256
 - domain/catalog.py: class GameStatus, class GameShapeGeometryConfiguration, uses_framed_full_page_geometry, class ShapeGeometryReadinessStatus, class SymbolStatus, class CatalogError, class CatalogNotFoundError, class CatalogConflictError, class Game, class SharedShapeGeometryProfileReference, class ShapeGeometryReadiness, class Symbol, class SymbolUsageSummary, validate_stable_code, validate_name, stable_code_stem_from_name, validate_optional_name, validate_mobile_code, validate_expected_layout_count, validate_shape_geometry_configuration, validate_display_order, validate_image_path, validate_super_game_kind, validate_super_game_trigger_count, ensure_super_game_kind_allows_trigger
 - domain/cell_level_verification_migration.py: class CellLevelMigrationError, class CellFingerprint, class BoardMigrationPlan, board_fingerprint, plan_board_migration, manifest_counts, build_manifest, validate_manifest
 - domain/cleanup.py: class CleanupError, class CleanupNotFoundError, class CleanupConflictError, class BoardSourceCleanupSelection, class CleanupCount, class CleanupSnapshot, class CleanupPreview, class CleanupCommand, class CleanupResult, cleanup_preview
@@ -183,6 +189,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_model_snapshots.py: uses_neural_grid, catalogue_model_version
 - domain/grid_quality_measurements.py: canonical, digest, class PopulationSampler, empty_judgments, measurement_report
 - domain/grid_shadow.py: class GridShadowError, shadow_digest, request_fingerprint, validate_shadow_output, class GridShadowResult, class GridShadowResultView, class GridShadowResultPage
+- domain/grid_training_cohorts.py: class GridCohortError, canonical, digest, exact_lattice, target_fence, role_summary, require_minima
 - domain/image_geometry_completeness.py: class GeometryPositionState, class GeometryImageState, class GeometryPositionFacts, class GeometryPositionClassification, classify_position, classify_image, expected_sequence_number, class SourceImageGeometryStatus, persisted_status_for, recomputed_status, is_admitted_status, geometry_gate_withholds_board, require_geometry_exception_reason, extract_position_quad, class GeometryImageCursor, encode_geometry_image_cursor, decode_geometry_image_cursor, class LowQualityThresholds
 - domain/image_geometry_cutover.py: class GeometryCutoverEvidence, class GeometryCutoverAssessment, assess_geometry_cutover
 - domain/image_geometry_v2.py: class ImageGeometryContractError, canonical_json_bytes, is_sequence_range_filename_candidate, board_topology_fingerprint_sha256, sequence_attestation_checksum_sha256, class ActiveBoardSlot, class AttestedSequenceRange, parse_attested_sequence_range_filename, class GeometryEngineKind, class NormalizedSourceImage, class SourceOccurrence, class SourceImageBounds, class SourcePoint, class SourceQuad, class SourceLatticeNodes, class VirtualBoardGeometry, class DirectCellRenderConfiguration, class VirtualCell, derive_virtual_cells, unavailable_source_cell_indices, fully_unavailable_source_cell_indices, source_quad_intersects_image, resolve_manual_geometry_qualification
@@ -219,9 +226,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/semi_automatic_image_selections.py: class SemiAutomaticSelectionDirection, class SemiAutomaticSelectionWorkflowMode, class SemiAutomaticV7SelectionMode, class SemiAutomaticV7BorderStyle, class SemiAutomaticV7SelectionConfiguration, create_v7_selection_configuration, class FilenameRangeVerificationReviewDecision, class FilenameVerificationHistoryDeletion, class SemiAutomaticSelectionRunStatus, class SemiAutomaticSelectionRangeStatus, class FilenameRangeVerificationReview, class SemiAutomaticSelectionError, class SemiAutomaticSelectionNotFoundError, class SemiAutomaticSelectionConflictError, class SemiAutomaticSelectionSourceManifest, class SemiAutomaticSelectionRange, class SemiAutomaticSelectionRun, create_semi_automatic_selection_run, pause_run, resume_run, cancel_run, begin_filename_verification_cleanup, block_filename_verification_cleanup, resume_filename_verification_cleanup, complete_filename_verification_cleanup, acknowledge_output, acknowledge_manual_output, apply_range_status_transition, expected_ranges_fingerprint, run_identity_key, classify_filename_range_verification
 - domain/sequence_mode_projection.py: class SequenceMode, class PositionMode, class SequenceModeProjection
 - domain/sequence_takeover.py: class SequenceClaimOutcome, class ImportOrder, class PendingOwnerFacts, class SequenceClaim, decide_sequence_claim
+- domain/source_canonical_metadata.py: class SourceCanonicalMetadata, compare_source_metadata
 - domain/source_recording_groups.py: class RecordingError, canonical_recording_json, recording_sha256, protected_recording_mapping, class AncestorResolution, resolve_ancestor_references
 - domain/storage_capacity.py: class StorageCapacityPolicy, class StorageVolumeCapacity, class StorageCapacityDecision, conservative_image_storage_estimate, evaluate_storage_capacity
-- domain/storage_retention.py: class StorageArtifactClass, class StorageRootKind, class StorageProtectionReason, class BrowserStagingRetentionState, class StorageRetentionPolicy, class StorageArtifactObservation, class StorageRetentionDecision, class StorageGcManifestEntry, is_safe_managed_relative_path, evaluate_storage_retention, manifest_entry_from_decision, canonical_gc_manifest_bytes, gc_manifest_checksum_sha256, gc_preview_token
+- domain/storage_retention.py: class StorageArtifactClass, class StorageRootKind, class StorageProtectionReason, class BrowserStagingRetentionState, class StorageRetentionPolicy, class StorageArtifactObservation, class StorageRetentionDecision, class StorageGcManifestEntry, is_safe_managed_relative_path, evaluate_storage_retention, class CohortAssetReferenceState, cohort_asset_path_identity, manifest_entry_from_decision, canonical_gc_manifest_bytes, gc_manifest_checksum_sha256, gc_preview_token
 - domain/super_game_markers.py: class SuperGameMarkerKind, class SuperGameMarker, marker_for_position, class SuperGameMarkers
 - domain/super_game_series.py: class SeriesCompleteness, class RunVerification, class SuperGameSeriesError, class SuperGameSeriesNotFoundError, class SuperGameSeriesConflictError, class TriggerCellCount, class BoardTrigger, evaluate_board_trigger, class DerivedSuperGameSeries, class SuperGameSeriesDeriver, derive_super_game_series, series_positions, class SuperGameState, validate_super_symbol_candidate
 - domain/symbol_cell_training_cohorts.py: class ApprovedSymbolCellCandidate, class SelectedSymbolCellSample, class SymbolCellSelectionCoverage, class SymbolCellTrainingSelection, build_symbol_cell_training_manifest, class SymbolCellSelectionConfig, select_symbol_cell_training_samples
@@ -255,6 +263,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_quality_measurements.py: class QualityCaptureCommand, class QualityPositionJudgment, class QualityUnexpectedJudgment, class QualityAssessCommand, class GeometryApprovalCommand, class QualityPoint, class QualityObservation, class QualityPositionResponse, class QualityMemberResponse, class QualityMeasurementResponse, class QualityMeasurementSummary, class QualityMeasurementPage, class QualityCommandResponse, class GeometryApprovalResponse
 - schemas/grid_reinference.py: class GridReinferenceSelector, class GridReinferencePrepare, class GridReinferenceCommand, class GridReinferenceFreeze, class GridReinferenceStart, class GridReinferencePilotAck, class GridReinferenceResume, class GridReinferenceScopeStats, class GridReinferenceEffectStats, class GridReinferencePilotAcknowledgement, class GridReinferenceQuarantine, class GridReinferenceResponse, class GridReinferenceTargetResponse, class GridReinferenceTargetPage, class GridReinferenceOperationPage
 - schemas/grid_shadow.py: class GridShadowJobCreate, class GridShadowPointResponse, class GridShadowSlotResponse, class GridShadowUnassignedDetectionResponse, class GridShadowOutputResponse, class GridShadowResultSummaryResponse, class GridShadowResultResponse, class GridShadowResultPageResponse, class GridShadowJobPayloadResponse, to_grid_shadow_summary, to_grid_shadow_result, to_grid_shadow_page
+- schemas/grid_training_cohorts.py: class CohortClosedModel, class GridCohortSelector, class GridCohortRecording, class GridCohortPrepareCommand, class GridCohortRevisionCommand, class GridCohortPageCommand, class GridCohortFreezeCommand, class GridSourceIdentityPin, class GridSourceIdentityCompleteCommand, class GridCohortRoleSummary, class GridCohortSummary, class GridCohortHeader, class GridCohortMember, class GridCohortList, class GridCohortMembers, class GridCohortEligibility, class GridCohortReceipt, class GridCohortCommandResponse, class GridSourceIdentityResult, class GridSourceIdentityReceipt, class GridSourceIdentityResponse
 - schemas/health.py: class HealthResponse
 - schemas/image_geometry_completeness.py: class GeometryCompletenessPointResponse, class GeometryCompletenessImageCountsResponse, class GeometryCompletenessPositionCountResponse, class GeometryCompletenessSourceStatusCountResponse, class GeometryGateCountsResponse, class ImportSequenceOwnershipResponse, class ImageGeometryCompletenessResponse, class GeometryCompletenessPositionResponse, class IncompleteGeometryImageResponse, class IncompleteGeometryImagePageResponse, class SourceImageGeometryExceptionCommand, class SourceImageGeometryExceptionResponse, class GeometryLowQualityBoardResponse, class ImageGeometryLowQualityBoardsResponse, to_geometry_completeness_response, to_incomplete_geometry_image_page_response, to_source_image_geometry_exception_response, to_geometry_low_quality_boards_response
 - schemas/image_geometry_rollout.py: reject_removed_engine_policy, class ImageGeometryRolloutStatusResponse, class ImageGeometryRolloutStartResponse, class GeometryEngineVariantCapabilityResponse, class ImageImportEnginePolicyResponse, class ImageImportEnginePolicyPreviewRequest, class ImageImportEnginePolicyPreviewResponse, class ImageImportEnginePolicyUpdateRequest, to_image_import_engine_policy_response, to_image_import_engine_policy_preview_response, to_image_geometry_rollout_status_response, to_image_geometry_rollout_start_response
@@ -317,6 +326,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v13.py: ownership
 - storage/game_data_v2_manifest_v14.py: ownership
 - storage/game_data_v2_manifest_v15.py: ownership
+- storage/game_data_v2_manifest_v16.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
@@ -339,6 +349,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/global_shape_geometry_readiness.py: class GlobalGeometryReadinessReader, class GlobalShapeGeometryReadinessResolver
 - storage/grid_audit_board_reader.py: class SqlAlchemyGridAuditBoardReader
 - storage/grid_calibration_repository.py: class SqlAlchemyGridCalibrationRepository
+- storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
@@ -358,6 +369,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_reinference_models.py: class GridReinferenceOperationModel, class GridReinferenceSourceModel, class GridReinferenceTargetModel
 - storage/grid_reinference_retention.py: retained_grid_source_link_count, detach_grid_source_links
 - storage/grid_shadow.py: class SqlAlchemyGridShadowRepository
+- storage/grid_training_cohort_artifacts.py: class GridCohortArtifactStore
+- storage/grid_training_cohort_currentness.py: class MemberCurrentness, inspect_member, check_member, eligibility
+- storage/grid_training_cohort_evidence.py: normalized_source, unchanged_approved_target, class GridCohortEvidenceReader
+- storage/grid_training_cohort_models.py: class GridTrainingCohortModel, class GridTrainingCohortMemberModel, class GridTrainingCohortPageModel, class GridTrainingCohortCommandModel, class GridTrainingCohortEventModel, class GridSourceIdentityCommandModel
+- storage/grid_training_cohort_repository.py: class CohortDeadline, class SqlAlchemyGridTrainingCohortRepository
 - storage/historical_grid_evidence.py: class HistoricalEvidenceUnavailable, original_neural_evidence
 - storage/image_geometry_completeness_repository.py: class GeometryImageCounts, class GeometryImageSourceStatusCount, class GeometryPositionCount, class GeometryGateCounts, class ImportSequenceOwnership, class GeometryCompletenessReport, class GeometryImagePosition, class IncompleteGeometryImage, class IncompleteGeometryImagePage, class GeometrySourceImageAsset, class LowQualityBoard, class LowQualityBoardsReport, class SqlAlchemyImageGeometryCompletenessRepository, geometry_completeness_filter_conflict, classify_source_images
 - storage/image_geometry_completeness_state_repository.py: class SourceImageGeometryRecompute, class BoardRepointDecision, class SourceImageGeometryException, recompute_source_image_geometry_completeness, lock_source_images, start_deferred_gate_materializations, finish_deferred_gate_materializations, deferred_gate_materializations, materialize_deferred_source_images, recompute_source_images, recompute_source_images_of_boards, recompute_source_images_of_review_items, active_review_item_ids, materialize_admitted_source_image, withheld_review_item_ids, plan_board_repoint, apply_board_repoint, repoint_live_boards_to_newest_source_revision, class SqlAlchemyImageGeometryCompletenessStateRepository, status_key, class GeometryCompletenessBackfillBatch, class GeometryCompletenessGameSummary, class SourceImageGeometryCompletenessBackfill
@@ -415,6 +431,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof
 - storage/source_recording_permissions.py: provision_recording_capability, validate_recording_capability, enforce_recording_permissions, grant_recording_capability_dependencies, recording_permission_errors
 - storage/source_recording_permissions_v2.py: recording_permission_errors, enforce_recording_permissions
+- storage/source_recording_permissions_v3.py: grant_recording_capability_dependencies, recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_providers.py: read_provider, class TrustedRecordingProviders, install_recording_provider
 - storage/storage_gc_repository.py: class SqlAlchemyStorageGcRepository
 - storage/super_game_input_version.py: class SuperGameInputWritePoint, lock_super_game_state, enqueue_super_game_series_derive, record_super_game_input_change
@@ -492,6 +509,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/geometry_rollout_backfill.py: class ImageGeometryRolloutBackfillHandler
 - images/global_symbol_lattice.py: class GlobalSymbolCandidate, class GlobalSymbolLattice, detect_global_symbol_candidates, refine_global_symbol_center, locate_global_symbol_lattice
 - images/grid_calibration.py: class GridCalibrationError, local_corner_offsets, apply_local_corner_offsets, build_profile_document, class CalibrationAnchor, class CalibrationProfile, class CalibrationApplication, class GridCalibrationProfiles, profile_document_bytes
+- images/grid_cohort_dataset.py: class GridCohortDatasetError, class GridCohortSnapshot, class GridBoardDataset, class GridScreenDataset
 - images/grid_profile_end_to_end_gate.py: class GridProfileEndToEndGateError, class ProductionGateAdapterSuite, class GridProfileGateBoardResult, class GridProfileGateSourceResult, run_grid_profile_gate_source, build_grid_profile_end_to_end_gate_report
 - images/grid_quality.py: percentile, metric_summary, quad_to_canonical_matrix, project_points
 - images/grid_reinference_handler.py: class GridReinferenceHandler
@@ -514,7 +532,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/manual_geometry_recrop.py: class ManualGeometryCellPreview, class ManualGeometryPreview, class ManualGeometryCellArtifact, class ManualGeometryArtifacts, class ManualGeometryRecropper
 - images/neural_page_geometry_preflight.py: class ProposalRunner, validate_neural_page_manifest, class NeuralPageGeometryPreflightHandler
 - images/neural_pending_geometry.py: bound_neural_originals, neural_pending_payload
-- images/normalization.py: class ImageNormalizationError, class CanonicalSourceLoadError, class CanonicalSourceFrame, class CanonicalSourceLoader, rgb_pixel_checksum_sha256, class NormalizationIssue, class NormalizedImage, class NormalizationReport, normalize_images
+- images/normalization.py: class ImageNormalizationError, class CanonicalSourceLoader, class NormalizationIssue, class NormalizedImage, class NormalizationReport, normalize_images
 - images/operations_benchmark.py: class ImageOperationsBenchmarkError, build_operations_report, operations_report_bytes, validate_operations_report
 - images/orchestration.py: class ImageStageExecutionResult, class ImageFileExecution, class ImageBatchCandidate, class ImageFileRegistration, class ImageBatchStats, class ImageStageExecutor, class ImageBatchStore, initial_file_checkpoint, advance_file_checkpoint, class ImageBatchHandler
 - images/orchestration_store.py: class ImageOrchestrationStoreError, class SqlAlchemyImageBatchStore
@@ -844,6 +862,9 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/manual-image-selection/remote-manual-selection-actions.ts: RemoteManualSelectionHostClient, createRemoteManualSelectionAccess, loadRemoteManualSelectionSessions, loadRemoteManualSelectionMonitor, loadRemoteManualSelectionRecoveryStatus, revokeRemoteManualSelectionAccess, reopenRemoteManualSelectionBatch
 - features/manual-image-selection/remote-manual-selection-host-panel.tsx: RemoteManualSelectionHostPanel
 - features/manual-image-selection/remote-manual-selection-state.ts: REMOTE_SESSION_LIST_POLL_MS, REMOTE_SESSION_MONITOR_POLL_MS, REMOTE_SESSION_LIST_LIMIT, REMOTE_SESSION_FETCH_LIMIT, RemoteManualSelectionSessionFilter, newestRemoteManualSelectionSessions, activeRemoteManualSelectionSessions, filteredRemoteManualSelectionSessions, selectVisibleRemoteManualSelectionSessionId, selectRemoteManualSelectionSessionId, safeRemoteManualSelectionUrl, remoteSessionStatusLabel
+- features/model-quality/grid-cohort-actions.ts: GridCohortClient, sendGridCohortCommand
+- features/model-quality/grid-cohort-command-storage.ts: GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand, reserveGridCohortCommand, clearGridCohortCommand, discardGridCohortCommand
+- features/model-quality/grid-cohort-preview.tsx: GridCohortPreview
 - features/model-quality/grid-quality-measurement-command.ts: MeasurementCommand, measurementCommandKey, readMeasurementCommand, saveMeasurementCommand, clearMeasurementCommand, discardMeasurementCommand
 - features/model-quality/grid-quality-measurement-member.tsx: GridQualityMeasurementMember
 - features/model-quality/grid-quality-measurement-panel.tsx: GridQualityMeasurementPanel

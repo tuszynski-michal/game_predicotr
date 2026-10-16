@@ -31,7 +31,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; historyczny TASK-1007 sprawdzał tylko start CLI. TASK-1010 potwierdził loggedIn oraz wykonany audyt claude-fable-5-1/medium (REVISE, jedna runda poprawek). Reguła jest utrwalona w AGENTS.md. Zmiana na `codex/claude-cli-discovery`, oczekuje akceptacji/scalenia.
 
-- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (v1.7.380; Claude R2 PASS); TASK-1003 done (v1.7.381; Claude R2 PASS); TASK-1002 done (Claude R2 PASS) (D-554 przed kodem). D-549/D-550/D-551/D-552 accepted; D-548 proposed do etapu treningowego; dane, usługi, runy i integracja mają osobne bramki opisane w planie.
+- **V3 rewizja 6:** cały plan i koszt 12–28 dni roboczych zlecone 2026-10-14; niezależny worktree, bootstrap TASK-1015 done; TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (v1.7.380; Claude R2 PASS); TASK-1003 done (v1.7.381; Claude R2 PASS); TASK-1002 done (Claude R2 PASS) (D-554 przed kodem). D-549/D-550/D-551/D-552 accepted; D-548 accepted przed0995 (2026-10-16); dane, usługi, runy i integracja mają osobne bramki opisane w planie. TASK-0995 done (v1.7.385, ClaudeR2PASS); teraz przekazanie ról Claudeexecutor/Codexauditor.
 
 - **Kopia bazy dla planu V3 (2026-10-14):** operator wskazał istniejące `D:\game_predictor_backup` jako wystarczająco aktualną kopię. Nie tworzyć nowego snapshotu ani backupu bazy w ramach tego planu. Katalog dostępny; brak deklaracji testu odtworzenia. Zamrożone kohorty treningowe pozostają wymagane i nie są backupem bazy.
 
@@ -99,7 +99,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`, oryginalna baza `main` v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream/current HEAD v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Przed wznowieniem potwierdzić HEAD i lokalne zmiany.
 - TASK-1015 done, audyt PASS bez P0/P1, wszystkie P2 rozliczone. Środowisko przygotowane. Operator zatwierdził upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` i zmianę naszej akceptacji silnika na TASK-1017. Commit bootstrapu v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (Claude R2 PASS); TASK-1012 done (Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (v1.7.380; Claude R2 PASS); TASK-1003 done (v1.7.381, Claude R2 PASS); TASK-1002 done (v1.7.382, Claude high R2 PASS); TASK-1018 done (v1.7.383, Claude high R1 PASS); TASK-1009 done po zamknięciu P1/P2 po kontrakcie D-555. [Raport](../quality/TASK-1015_AUDIT_claude-fable-5-1.md).
 - Kolejność: TASK-1015 → TASK-1010 → TASK-1017 → TASK-1008 → TASK-0993 → TASK-1014 → TASK-0994 → TASK-1012 → TASK-0998 → TASK-1004 → TASK-1011 → TASK-0999 → TASK-1013 → TASK-1003 → TASK-1002 → TASK-1018 → TASK-1009 → TASK-0995 → TASK-1005 → TASK-0996 → TASK-0997 → TASK-1006 → TASK-1000 → TASK-1001. Każdy task ma osobny plik, audyt i commit; modele/reasoning są w ostatniej tabeli planu.
-- D-550/D-552 przyjęto przed TASK-1017; D-549 przed TASK-0994 na podstawie zleconej rewizji6. D-551 przyjęto2026-10-15 przed TASK-0999; D-548 pozostaje proposed do etapu danych treningowych. Przyjęcie zapisać przed zależną zmianą na podstawie instrukcji operatora. Nie zastępują wcześniejszych accepted decyzji automatycznie.
+- D-550/D-552 przyjęto przed TASK-1017; D-549 przed TASK-0994 na podstawie zleconej rewizji6. D-551 przyjęto2026-10-15 przed TASK-0999; D-548 przyjęto2026-10-16 przed0995 z jawnego zlecenia całej rewizji6; jej pierwotna propozycja pozostaje zachowana w pełnym wpisie. Nie zastępują wcześniejszych accepted decyzji automatycznie.
 - Aktualną przypisaną bazą wolno ponownie rozpoznać wybrany zakres bez nowego treningu (TASK-0999); zgłoszenia błędnej siatki tworzą propozycje (TASK-1013). Historyczna 777 archiwalna; symbole per gra.
 - TASK-1014 zabezpiecza checkpointy na D przed cleanup TASK-0957. Bez usuwania C. TASK-1010 potwierdził 8031 brakujących sekwencji Mumii (259 oczekuje na geometrię, 7772 bez znanego numerowanego źródła); szczegóły i ograniczenia w raporcie diagnostycznym.
 - Raporty Claude rund 1–3 pozostają historyczne, bez zmiany werdyktów. [Rozliczenie Codex](../quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md) wskazuje rewizję 6. Audyt planu nie jest audytem implementacji.
@@ -187,16 +187,12 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`).
 - Decyzje architektoniczne: indeks i najnowsze pełne wpisy w
   `ai_docs/process/DECISION_LOG.md`; wszystkie wpisy mają status `accepted`
-  albo `superseded`; D-548 pozostaje `proposed` do etapu danych treningowych V3.
+  albo `superseded`; D-548 ma osobny zapis przyjęcia2026-10-16 przed0995; pierwotna propozycja pozostaje historią.
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot (todo)
-
-- [0995-grid-training-cohort-snapshot.md](../tasks/0995-grid-training-cohort-snapshot.md); warunki startu, zakres i weryfikacja w pliku taska; wykonanie w kolejności planu.
 
 ### TASK-1005 — Preset i dopuszczenie zasobów (todo)
 
@@ -897,9 +893,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot (done)
+
+- [Task](../tasks/completed/0995-grid-training-cohort-snapshot.md); baza384, branch codex/v3-grid-fine-tuning. Przygotowany v1.7.385; pełny hash po commicie. Bez integracji.
+- Niezmienne per-game cohorty, exact24nodes/currenthumanproof, board/screen targets, bounded capture/copy/freeze i actual recording use. Canonical decoder/metadata completion, role/alias/ancestor protections, source notices/retencja/GCguard, API/OpenAPI/client/UI i CPUdataset spójne.0163/v16.
+- Wybrana polityka: zachować historię, blokować nowe użycie usuniętego źródła; usunięcie nie oznacza human withdrawal. E2E03 real120targets/20photos/restartdataset/revert-stale zero partialuse PASS; szczegóły, wcześniejsze FAIL i ograniczenia w Outcome. Korekta CPU01whole75PASS7FAIL i exact7CPU02PASS zachowane, scoped lint/types/mapsPASS.
+- [Claude R1 REVISE](../quality/TASK-0995_AUDIT_claude-fable-5-1_R1.md)648.089326s; jedna korekta; [R2 PASS](../quality/TASK-0995_AUDIT_claude-fable-5-1_R2.md)288.719457s/high/do1200s. Wszystkie5uwagR1 zamknięte, brakP0/P1. [Rozliczenie](../quality/TASK-0995_RESPONSE_CODEX.md); P2-5 niskie ryzyko testglob accepted→1001.
+- STOP/handoff zgodnie z operatorem: [instrukcja](../guides/V3_GRID_FINE_TUNING_ROLE_HANDOFF.md), kolejne6tasków wykonuje Claude Code, audytuje Codex. Następny1005 nie rozpoczęty. Known resetRESTRICT poza0995; bez operatorDB/usług/backup/GPU/runów/aktywacji/merge/push.
+
 ### TASK-1009 — Losowa kontrola geometrii Mumii i 777a2 (done)
 
-- [Task](../tasks/completed/1009-grid-quality-measurement.md); baza383, branch codex/v3-grid-fine-tuning. Przygotowany v1.7.384; pełny hash po commicie. Bez integracji.
+- [Task](../tasks/completed/1009-grid-quality-measurement.md); baza383, branch codex/v3-grid-fine-tuning. Commit **v1.7.384** / `d2b692dbc59f1de339ad1acd2a961d402fced8c8`; posthash zapisany po utworzeniu, do następnego commita. Bez integracji.
 - [Claude high R1 REVISE](../quality/TASK-1009_AUDIT_claude-fable-5-1_R1.md),719.665858s/do1200s. Jedyny P1-1 (kodowanie/checklist) zamknięty bezstratnym odzyskaniem. [Rozliczenie Codex](../quality/TASK-1009_RESPONSE_CODEX.md): wszystkie pięć P2 poprawione; jedna runda, bez automatycznego R2, brak otwartychP0/P1. Historyczny werdykt bez zmian.
 - Frozen random/hard, wszystkie9 pozycji, exact original producer lub coverage gap, jawny current-only human approval bez recropu, trwałe receipts/retencja.0162/currentv15 i forward recording seam. Symbole istniejące ręczne per gra, nieocenione pozostałe.
 - R1 backend49/seam51/consumers48/PG6/UI17/wrapper3/proxy7 oraz scoped typy/Ruff/DOC/MAP PASS; grupy nakładają się. Korekta UI18 i rzeczywisty równoległy HTTP200/409/replay/1manifest PASS. Pierwszy transport DNS i pierwotny Vision TEMP EPERM zachowane jako FAIL, retry rozliczone osobno. Własne zasoby testów sprzątnięte według receiptów.
@@ -964,10 +968,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Odrębne komendy publish/activate/default/rollback, CAS i trwałe receipts, serwerowy kontrakt oceny bez HTTP writera, jawne historyczne dopuszczenie. Published/available/eligible są osobne; stale blokuje nowe komendy, zachowując istniejący assignment/preflight i piny jobów. Symbole per gra, historyczna777 bez zmian.
 - Migracja0157/frozenv10 tylko public control; PostgreSQL2PASS i po poprawkach1PASS z rzeczywistymi zapisanymi jobami po activate/rollback, nowy interpreter i czyste bazy/role/PID. API92PASS +celowany1PASS, klient116PASS; poprawki35PASS, Ruff/mypy/OpenAPI/docs/map/diff PASS. Ograniczenia i dokładne dowody w Outcome.
 - [Claude R1 REVISE](../quality/TASK-0998_AUDIT_claude-fable-5-1.md), medium, limit1200s; jedna runda poprawek. P1-1 zamknięte dokumentacyjnie przez D-549, P2-1/2/3/5 rozwiązane, P2-4 jawnie zaakceptowane. [Rozliczenie](../quality/TASK-0998_AUDIT_RESPONSE_CODEX.md); bez nowego PASS/R2, bo P1 nie zmieniło zachowania. Bez operacji operatora/usług/GPU/aktywacji. Następny1004.
-
-### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (done)
-
-- [Task](../tasks/completed/1012-dynamic-grid-snapshots.md); baza implementacji373, parent0994 korekta374 / `27ff986a873559330cd75aad3ee47081a41758d5`. Commit v1.7.375 / `acf9ce4079b3ed176b1d40babb77f4e5a3ac9988`; hash dopisany po utworzeniu, bez scalenia.
-- Addytywny immutable snapshotv2 i legacyv1 reader, assignment zamiast current dla nowych V3; wspólny resolver preflight/import/reuse/worker/canonical. Stare joby zachowują pin po zmianie aktywacji. Obcy właściciel/brak/hashdrift blokują bez fallbacku. Backend/OpenAPI/klient/Admin spójne; D549 doprecyzowane.
-- PASS:90pytest/21TS, Ruff/mypy10+2/typy/lint, oddzielne Admin+VisionLabOpenAPI, map/docs/diff. Po poprawce28API+standaloneWorker1; po parent ORM45 wspólnych+1 standalone PASS. Pełny Worker timeout120s nie PASS; launcher P2-5 opisany w ograniczeniach.
-- [R1 REVISE](../quality/TASK-1012_AUDIT_claude-fable-5-1_round1.md), jedna korekta, [R2 PASS](../quality/TASK-1012_AUDIT_claude-fable-5-1.md), bez P0/P1. P2-1..4 zamknięte; P2-5 wcześniejszy runner poza zakresem. Bez operator migration/DB, usług, inference/GPU/treningu, aktywacji/default i integracji. Następny0998.

@@ -966,6 +966,7 @@ def _reference_blocks(
             in (
                 f"{GAME_SCHEMA}.grid_reinference_sources",
                 f"{GAME_SCHEMA}.grid_quality_measurement_members",
+                f"{GAME_SCHEMA}.grid_training_cohort_members",
             )
             and key.parent_root == f"{GAME_SCHEMA}.source_images"
             and key.child_columns == ("game_id", "live_source_image_id")

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.application.storage_gc import (
@@ -16,14 +17,26 @@ from game_predictor_api.application.storage_gc import (
     StorageGcPreview,
     StorageGcRun,
 )
+from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.jobs import (
     JobConflictError,
     JobNotFoundError,
     JobType,
     create_job,
 )
-from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
-from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.domain.storage_retention import (
+    CohortAssetReferenceState,
+    StorageRetentionPolicy,
+)
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRoutingError,
+    game_storage_scope,
+)
+from game_predictor_api.storage.grid_cohort_asset_retention import (
+    acquire_cohort_asset_guard,
+    parse_cohort_asset_path,
+    read_cohort_asset_reference,
+)
 
 from .job_repository import SqlAlchemyJobRepository
 from .models import (
@@ -37,6 +50,29 @@ from .models import (
 class SqlAlchemyStorageGcRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
+
+    @contextmanager
+    def cohort_asset_gc_guard(self, relative: str) -> Iterator[CohortAssetReferenceState]:
+        identity = parse_cohort_asset_path(relative)
+        if identity is None:
+            yield CohortAssetReferenceState(False, None, True)
+            return
+        game, cohort = identity
+        with self._session_factory() as session:
+            try:
+                try:
+                    acquire_cohort_asset_guard(session, game, cohort, exclusive=True)
+                    state = read_cohort_asset_reference(session, game, cohort, relative)
+                except (SQLAlchemyError, GameStorageRoutingError, GridCohortError):
+                    session.rollback()
+                    state = CohortAssetReferenceState(False, None, True)
+                # Retain this exact transaction/guard through caller quarantine,
+                # marker and delete, including the resume branch.
+                yield state
+                if not state.unresolved:
+                    session.info["grid_cohort_asset_deadline"].check(session)
+            finally:
+                session.rollback()
 
     def normalization_dependency_statuses(
         self, execution_keys: Sequence[str]
@@ -63,10 +99,7 @@ class SqlAlchemyStorageGcRepository:
                     )
                     for key, status in rows:
                         grouped[key].add(status.value)
-        return {
-            key: tuple(sorted(statuses))
-            for key, statuses in grouped.items()
-        }
+        return {key: tuple(sorted(statuses)) for key, statuses in grouped.items()}
 
     def active_automatic_run(self) -> StorageGcRun | None:
         with self._session_factory() as session:
@@ -103,9 +136,7 @@ class SqlAlchemyStorageGcRepository:
                 )
         with self._session_factory() as session:
             jobs = session.scalars(
-                select(JobModel).where(
-                    JobModel.job_type.in_((JobType.IMPORT, JobType.VALIDATE))
-                )
+                select(JobModel).where(JobModel.job_type.in_((JobType.IMPORT, JobType.VALIDATE)))
             ).all()
         by_upload: dict[str, set[str]] = defaultdict(set)
         for job in jobs:
@@ -123,9 +154,7 @@ class SqlAlchemyStorageGcRepository:
                     row.managed_manifest_relative_path is not None
                     and row.managed_manifest_checksum_sha256 is not None
                 ),
-                dependency_job_statuses=tuple(
-                    sorted(by_upload.get(str(row.upload_id), set()))
-                ),
+                dependency_job_statuses=tuple(sorted(by_upload.get(str(row.upload_id), set()))),
                 managed_manifest_relative_path=row.managed_manifest_relative_path,
                 managed_manifest_checksum_sha256=row.managed_manifest_checksum_sha256,
             )
@@ -265,16 +294,12 @@ def _preview(row: StorageGcRunModel) -> StorageGcPreview:
         protected_bytes=row.protected_bytes,
         predicted_free_bytes=free + row.candidate_bytes,
         category_counts=_nested_counters(row.inventory_before, "categoryCounts"),
-        protection_reason_counts=_nested_counters(
-            row.inventory_before, "protectionReasonCounts"
-        ),
+        protection_reason_counts=_nested_counters(row.inventory_before, "protectionReasonCounts"),
         created_at=row.created_at,
     )
 
 
-def _nested_counters(
-    payload: Mapping[str, object] | None, key: str
-) -> dict[str, dict[str, int]]:
+def _nested_counters(payload: Mapping[str, object] | None, key: str) -> dict[str, dict[str, int]]:
     if payload is None:
         return {}
     raw_counters = payload.get(key)

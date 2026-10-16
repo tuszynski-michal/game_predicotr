@@ -6,6 +6,13 @@ last_updated: 2026-10-15
 
 # Current State — archiwum 2026Q4
 
+### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (done)
+
+- [Task](../tasks/completed/1012-dynamic-grid-snapshots.md); baza implementacji373, parent0994 korekta374 / `27ff986a873559330cd75aad3ee47081a41758d5`. Commit v1.7.375 / `acf9ce4079b3ed176b1d40babb77f4e5a3ac9988`; hash dopisany po utworzeniu, bez scalenia.
+- Addytywny immutable snapshotv2 i legacyv1 reader, assignment zamiast current dla nowych V3; wspólny resolver preflight/import/reuse/worker/canonical. Stare joby zachowują pin po zmianie aktywacji. Obcy właściciel/brak/hashdrift blokują bez fallbacku. Backend/OpenAPI/klient/Admin spójne; D549 doprecyzowane.
+- PASS:90pytest/21TS, Ruff/mypy10+2/typy/lint, oddzielne Admin+VisionLabOpenAPI, map/docs/diff. Po poprawce28API+standaloneWorker1; po parent ORM45 wspólnych+1 standalone PASS. Pełny Worker timeout120s nie PASS; launcher P2-5 opisany w ograniczeniach.
+- [R1 REVISE](../quality/TASK-1012_AUDIT_claude-fable-5-1_round1.md), jedna korekta, [R2 PASS](../quality/TASK-1012_AUDIT_claude-fable-5-1.md), bez P0/P1. P2-1..4 zamknięte; P2-5 wcześniejszy runner poza zakresem. Bez operator migration/DB, usług, inference/GPU/treningu, aktywacji/default i integracji. Następny0998.
+
 ### TASK-0994 — Rejestr rodzin, wersji i przypisań (done)
 
 - [Task](../tasks/completed/0994-grid-model-registry.md); oryginalny commit v1.7.373 / `c06b7432e76e6e3d24b1cd78757d9f900bc9cac7`. Po dłuższym audycie operatora jedna korekta: v1.7.374 / `27ff986a873559330cd75aad3ee47081a41758d5`; hash dopisany po utworzeniu do następnego commita, bez scalenia.

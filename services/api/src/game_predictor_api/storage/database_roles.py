@@ -26,7 +26,7 @@ from typing import Final
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from game_predictor_api.storage.source_recording_permissions_v2 import (
+from game_predictor_api.storage.source_recording_permissions_v3 import (
     PRIVATE_SEQUENCES,
     PRIVATE_TABLES,
     enforce_recording_permissions,

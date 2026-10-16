@@ -1,10 +1,40 @@
 ---
 title: Eksport snapshotu do laboratorium wizji
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-16
 ---
 
 # Eksport snapshotu do laboratorium wizji
+
+## Kohorta geometrii w aplikacji (D-556, TASK-0995)
+
+Nowy snapshot `application-grid-snapshot-v1` powstaje z jawnej kohorty jednej
+gry w panelu jakości. Wskazuje bazę, rodzinę, preprocessing, tryb grid-only
+albo screen+grid i role całych nagrań. Kolejne jawne akcje przygotowują wybór,
+chwytają metadata, kopiują maksymalnie pięć źródeł na komendę i zamrażają
+zweryfikowany manifest. Reload odczytuje zapisany stan; retry zachowuje UUID
+i dokładną treść polecenia. Wykluczone i nierozstrzygnięte źródła pozostają
+w preview z powodami, bez kopii JPEG i bez zaliczania minimów. Drift wymaga
+nowego preview, zamiast automatycznego zmniejszenia kohorty.
+
+Ten format przechowuje dokładne 24 węzły każdej planszy, również ręcznie
+zdeformowane wnętrze siatki. Nie interpoluje etykiety z czterech rogów.
+Worker czyta go przez `images/grid_cohort_dataset.py`, weryfikuje root,
+indeksy, strony i źródła oraz zachowuje role przed odczytem pikseli. Brak lub
+uszkodzenie kopii blokuje dataset; czytnik nie szuka zastępczego zdjęcia.
+Dotychczasowe skrypty eksportu opisane poniżej zachowują swoje formaty,
+algorytmy i domyślne zachowanie. Kohorty symboli pozostają per game.
+
+Metadata kwalifikacji nie jest zgodą na uruchomienie treningu. GET pozostawia
+dostępność skopiowanych bajtów jako „nie sprawdzono”. Usunięcie operacyjnego
+źródła, cofnięcie ludzkiej etykiety i brak pliku mają odrębne znaczenie.
+Po source cleanup historia i kopie pozostają zachowane, a nowe użycie usuniętego
+źródła do treningu lub oceny jest blokowane. Powód to
+`SOURCE_REMOVED_NEW_USE_BLOCKED`; samo usunięcie nie oznacza cofnięcia etykiety.
+Obecny panel ma pomocnicze techniczne pola tożsamości; finalna integracja
+TASK-1000 ma wybierać import, nagranie i rodzinę po zrozumiałych nazwach.
+
+## Dotychczasowy eksport plikowy
 
 `scripts/vision_lab_export.py` jest osobnym narzędziem głównego środowiska.
 Wymaga pliku wejściowego JSON, lokalnej bazy PostgreSQL skonfigurowanej przez

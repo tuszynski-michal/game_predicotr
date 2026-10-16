@@ -10,7 +10,7 @@ last_updated: 2026-10-16
 
 Plan obejmuje geometrię Mumii, 777a2 i przyszłych gier V3: czytelne liczniki, edytor 4/24 punktów, uczenie na zatwierdzonych korektach, wspólny model geometrii oraz kontrolowane ponowne rozpoznanie. Modele symboli pozostają osobne dla każdej gry.
 
-**Status: accepted; implementation authorized.** Operator 2026-10-14 zaakceptował rewizję 6 i zlecił realizację całego planu, wraz z kosztem orientacyjnym 12–28 dni roboczych. Zgoda obejmuje wykonanie i audyty według tabeli, nie automatyczne scalenie, push, migracje operatora, trening ani masowe operacje danych. TASK-1015 utrwalił pięć propozycji D-548–D-552; D-549/D-550/D-552 przyjęto przed zależnymi taskami na podstawie zaakceptowanej instrukcji operatora. D-551 przyjęto przed TASK-0999; D-548 pozostaje proposed do etapu danych treningowych, bez domniemania wyników jakości.
+**Status: accepted; implementation authorized.** Operator 2026-10-14 zaakceptował rewizję 6 i zlecił realizację całego planu, wraz z kosztem orientacyjnym 12–28 dni roboczych. Zgoda obejmuje wykonanie i audyty według tabeli, nie automatyczne scalenie, push, migracje operatora, trening ani masowe operacje danych. TASK-1015 utrwalił pięć propozycji D-548–D-552; D-549/D-550/D-552 przyjęto przed zależnymi taskami na podstawie zaakceptowanej instrukcji operatora. D-551 przyjęto przed TASK-0999; D-548 przyjęto2026-10-16 przed TASK-0995 z jawnego zlecenia całej rewizji6, bez domniemania wyników jakości lub zgód operacyjnych.
 
 Uwzględnione uwagi rundy 3:
 
@@ -611,17 +611,27 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot
 
-- **Status:** `todo`.
+- **Status:** `done` — v1.7.385, ClaudeR2PASS, brakP0/P1; bez integracji.
 - **Goal / Context:** Dostarczyć trenerowi odtwarzalny zbiór z czytelną listą braków.
 - **Dependencies:** TASK-1002, TASK-1009; przyjęta decyzja rozszerzająca D-480.
 - **Recommended execution:** `gpt-6.1-sol`, `high`; aktualność etykiet i dane dowodowe.
 - **Relevant docs:** VISION_LAB_EXPORT, VISION_LAB, DATA_MODEL.
 - **Scope / Technical notes:** Preview required/eligible/missing per gra i rola. Osobne targety board/screen. Freeze źródeł, rewizji, preprocessing, base, ról i hashy. Cofnięte dowody unieważniają kwalifikację kandydata.
-- **Expected files:** istniejący eksporter geometrii jako wzorzec; nowe proponowane `domain/grid_training_cohorts.py`, application/storage, migracja, `training_core/grid_dataset.py`, `grid-cohort-preview.tsx`.
+- **Expected files:** istniejący eksporter geometrii jako wzorzec; nowe proponowane `domain/grid_training_cohorts.py`, application/storage, migracja, `images/grid_cohort_dataset.py`, `grid-cohort-preview.tsx`.
 - **Acceptance / Tests:** Pełna plansza z niekompletnego zdjęcia działa w grid-only. Niepełne zdjęcie nie jest screen targetem. Auto-accept nie tworzy etykiety. Drift między preview/freeze blokuje zapis.
 - **Verification:** API, WORKER, MIG, ADMIN, OpenAPI, MAP.
 - **Risks / Out of scope:** Stary eksporter zachowuje dotychczasową domyślną semantykę; bez treningu.
 - **Outcome:** manifest, liczby braków i dowody kwalifikacji.
+
+- **Retencja plików:** bounded adapter istniejącego preview/GC/quarantine sprawdza rzeczywiste refs pod per-cohort exclusive guardem; publication bierze shared guard do receipt commit. Query failure nie oznacza pustych refs. Kontrakt i rzeczywisty concurrency test w Technical notes0995/D-556; bez wykonania cleanupu.
+
+- **Granica neutralnego rdzenia:** proponowany czytnik kohort przeniesiono do images/grid_cohort_dataset.py, ponieważ neutralny training_core ma istniejący guard zabraniający importów game_predictor. Guard bez zmian;0996 otrzyma adapter przez kompozycję. Exact katalogowe checksum/preprocessing pins i bezpieczne Windows native I/O zachowują swoje dotychczasowe kontrakty.
+
+- **Kontrakt przed kodem (D-556,2026-10-16):** pełny Technical notes w pliku0995 jest samodzielnym źródłem wykonawczym. Jedna kohorta na grę, exact24nodes/current human proof, grid-only bez wymagania complete photo/15cells/symbol approvals. Nieznany historyczny producer nie odbiera current label; nieznany approval proof pozostaje unresolved. Pure canonical decoder i all-NULL completion zachowują worker lease/wyniki. Jawna completion1–5source/64MiB/50Mpx/60s, bez GET hash sweep.
+- **Trwałość i bezpieczeństwo:** sześć game-owned tabel i forward0163/v16 po kontroli heads; strony200/copy5, atomowe pliki przed receipts, osobny metadata-only READ COMMITTED freeze60s, catalog→registry przed ownership i rosnącymi sequence/source locks. Dokładne freshness/proof, actual use i control protection atomowo, preproof==postproof albo rollback. Dwa exact v3 capability entry points bez private runtime grants, narrow real-report validation seam. Nie fabrykujemy0997 report bindings.
+- **Aktualność i retencja:** lokalne indeksowane notices obejmują actual events i current projections, w tym repoint bez approval event; exact verifier nie stala niezmienionego sąsiada. Usunięcie source, cofnięcie zatwierdzenia i brak snapshot JPEG to oddzielne osie. Game partition deletion i oddzielny physical GC zachowują obecny kontrakt, bez pełnego wiecznego archiwum. Operator2026-10-16 wybrał zachowanie historii i blokadę nowego użycia frozen copy po source cleanup. Samo usunięcie nie dowodzi cofnięcia oceny człowieka. Zależna aplikacyjna i prywatna walidacja actual use ma zwracać jawną blokadę zamiast wcześniejszego tymczasowego unresolved; historia i oddzielne osie kwalifikacji pozostają zachowane. Pełne pliki/API/lock order/błędy/testy w0995.
+
+- **Zamknięcie:** R1 REVISE648.089326s, jedna korekta, R2 PASS288.719457s/high/do1200s. P1-1 i P2-1–4 zamknięte. NoweP2-5 przyjęto jako niskie ryzyko testglob i przekazano1001. Outcome i quality/TASK-0995_RESPONSE_CODEX.md zawierają actual checks i ograniczenia. Operator polecił przekazanie ról po tym commicie;1005 nie rozpoczęto.
 
 ### Etap E — trening i ocena
 
@@ -630,7 +640,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Status:** `todo`.
 - **Goal / Context:** Ustalić jawny budżet runu na podstawie danych.
 - **Dependencies:** TASK-0995; osobna zgoda na ograniczony pomiar GPU.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; parametry wynikają z raportów i mierzalnego testu.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; parametry wynikają z raportów i mierzalnego testu.
 - **Relevant docs:** VISION_LAB i raporty dotychczasowych iteracji Mumii.
 - **Scope / Technical notes:** Osobne presety grid-only/screen+grid, koszt kohorty, early stopping i limit czasu/kroków. Smoke kończy się po 50 krokach albo 120 sekundach, zależnie co nastąpi pierwsze. Dzierżawa obejmuje app grid runs.
 - **Expected files:** F19, istniejące protokoły runów; nowy proponowany `training_core/grid_training_admission.py`, presety i API podglądu.
@@ -644,7 +654,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Status:** `todo`.
 - **Goal / Context:** Wykonać odtwarzalny run z checkpointem i wznowieniem.
 - **Dependencies:** TASK-0995, TASK-1005, TASK-1012.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; stan treningu i maskowanie danych.
+- **Recommended execution:** `claude-fable-5-1`, `high`; stan treningu i maskowanie danych.
 - **Relevant docs:** VISION_LAB, architektura workera i kontrakt kohort.
 - **Scope / Technical notes:** Wydzielić wspólny rdzeń z istniejącego treningu. Grid-only zamraża detektor i BatchNorm. Obsłużyć lease, postęp, cancel/resume, eksport i trwały budżet.
 - **Expected files:** F18–F20, model i data adapter laboratorium; nowe proponowane `training_core/grid_training.py`, `images/grid_training_handler.py`, `application/grid_training_runs.py` i repozytorium runów.
@@ -658,7 +668,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Status:** `todo`.
 - **Goal / Context:** Zapobiec publikacji poprawy jednej gry kosztem drugiej.
 - **Dependencies:** TASK-0996 i niezależne, kompletne dane kontrolne.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; metryki i kwalifikacja publikacji.
+- **Recommended execution:** `claude-fable-5-1`, `high`; metryki i kwalifikacja publikacji.
 - **Relevant docs:** D-483, VISION_LAB, reguły oceny tego planu.
 - **Scope / Technical notes:** Identyczne źródła dla bazy i kandydata, pełny inference od zdjęcia, wyniki per gra/nagranie. Wersjonowane definicje metryk. REGRESSION tylko do końcowej kontroli.
 - **Expected files:** F18/F21 i istniejące metryki; nowe proponowane `training_core/grid_evaluation.py`, `application/grid_model_evaluation.py`, `grid-model-comparison.tsx`.
@@ -667,12 +677,14 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Risks / Out of scope:** Nie zastępować nieznanej jakości zerowym błędem.
 - **Outcome:** porównanie, wersja polityki i powody PASS/REVISE/braku możliwości oceny.
 
+- **Doprecyzowanie0995/D-556 przed zależnym SQL:** przyszły report używa grid-model-evaluation-read-v2 z dotychczasowym trusted producer/policy i exact cohort refs;0997 dostarcza writer i addytywny publication reader z regresją v1. Własne bindingi kohort są trwałe/idempotentne w osobnych game transakcjach, bez cross-game rebind. Publikacja v2 wymaga pełnego i aktualnego zestawu dowodów; most notices/proofs dla kilku gier wymaga pełnego kontraktu przed kodem0997. Awaria lub brak jednego bindingu nie daje PASS. Audyt high obejmuje nowe dane dowodowe zgodnie z AGENTS; nie jest to dodatkowa runda audytu.
+
 ### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2
 
 - **Status:** `todo`.
 - **Goal / Context:** Udostępnić kontrolowany trening geometrii obu gier.
 - **Dependencies:** TASK-0997; kohorty obu gier; osobne zlecenie i budżet rzeczywistego runu.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; wspólne dane i ryzyko regresji.
+- **Recommended execution:** `claude-fable-5-1`, `high`; wspólne dane i ryzyko regresji.
 - **Relevant docs:** rozszerzenie D-527, VISION_LAB, reguły wspólnej kohorty.
 - **Scope / Technical notes:** Wybór jednej bazy na VALIDATION, równoważenie gier/nagrań, dziedziczenie wyłączeń obu linii danych. Jeden jawny eksperyment, bez automatycznej pętli.
 - **Expected files:** rejestr, kohorty, trener i ocena poprzednich tasków; nowy proponowany `application/shared_grid_model_candidate.py` i wersjonowana joint policy.
@@ -688,11 +700,11 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Status:** `todo`.
 - **Goal / Context:** Udostępnić cały proces z poziomu gry.
 - **Dependencies:** TASK-0995, TASK-0997, TASK-0998, TASK-1003, TASK-1011; bez zależności od pozytywnego wyniku TASK-1006.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; integracja gotowych kontraktów.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; integracja gotowych kontraktów.
 - **Relevant docs:** ADMIN_APP, APP_V3_FUNCTIONAL_INVENTORY, D-527/D-541.
 - **Scope / Technical notes:** Diagnostyka, próbka, korekty, dane, run, porównanie, wersje i ponowne rozpoznanie. Backend określa dostępność działań. Brak danych pokazuje konkretne wymagania.
 - **Expected files:** F15, istniejąca nawigacja; nowe proponowane `grid-model-workspace.tsx`, `grid-model-state.ts`, `grid-model-client.ts`; wcześniejsze panele.
-- **Acceptance / Tests:** Proces działa bez skryptów operatora. Wejście na ekran nie uruchamia joba. Zmiana gry/reload zachowuje właściwy stan. Panel działa z dwiema bazami i odrzuconym wspólnym kandydatem.
+- **Acceptance / Tests:** Proces działa bez skryptów operatora i ręcznego wpisywania technicznych UUID; importy, nagrania i zgodne wersje wybiera się po nazwach z istniejących katalogów. Pomocnicze formularze poprzednich tasków są zastąpione finalnym przebiegiem. Wejście na ekran nie uruchamia joba. Zmiana gry/reload zachowuje właściwy stan. Panel działa z dwiema bazami i odrzuconym wspólnym kandydatem.
 - **Verification:** ADMIN, testy transportu i interakcji, DOC.
 - **Risks / Out of scope:** Bez połączenia treningu symboli z geometrią i bez przebudowy archiwalnej 777.
 - **Outcome:** ścieżki operatora i jawne stany blokujące.
@@ -702,7 +714,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 - **Status:** `todo`.
 - **Goal / Context:** Potwierdzić działanie całego procesu i możliwość dalszej pracy bez historii czatu.
 - **Dependencies:** Ukończone piony aplikacji i audyty. Odbiór na rzeczywistych danych wymaga właściwych zgód i anotacji; wynik wspólnego modelu raportowany oddzielnie.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; integracja i dowody trwałości.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; integracja i dowody trwałości.
 - **Relevant docs:** DEFINITION_OF_DONE, AUDIT_REPORT_TEMPLATE, dokumenty właścicielskie tasków.
 - **Scope / Technical notes:** E2E na izolowanej bazie: korekta → kohorta → run → ocena → aktywacja → wybrany przebieg → restart. Osobno aktualna baza bez treningu, propozycja i przyjęcie przez człowieka.
 - **Expected files:** nowe proponowane `ai_docs/guides/V3_GRID_FINE_TUNING_OPERATOR.md`, `ai_docs/quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md`, testy odbiorowe; wymagania, architektura, mapy i stan.
@@ -735,7 +747,7 @@ Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84
 
 ## 8. Przypisanie modeli do zadań
 
-Audyt każdego taska: Claude Code w oddzielnym kontekście, zgodnie z ograniczonym zakresem diffu i zasadami AGENTS. Historyczna sesja `claude-fable-5-1` jest potwierdzona raportem rundy 3. Pakietowe CLI Claude wykryto pełnym resolverem z nowego main; --version działa, logowanie i wykonanie audytu wymagają osobnego rzeczywistego wyniku; zewnętrzny raport TASK-1015 otrzymano od operatora: PASS, brak P0/P1, cztery P2 do rozliczenia. Raport zapisano bez zmiany znalezisk w `ai_docs/quality/TASK-1015_AUDIT_claude-fable-5-1.md`. Audyt bootstrapu nie jest PASS aplikacji. Niedostępność przypisanej konfiguracji przy wykonaniu wymaga jawnego rozstrzygnięcia, bez ukrytego zamiennika.
+Zmiana ról na jawne polecenie operatora2026-10-16: TASK-0995 kończy Codex z audytem Claude; po jego osobnym commicie następuje przekazanie. Pozostałe TASK-1005/0996/0997/1006/1000/1001 wykonuje Claude Code, a audytuje Codex gpt-6-astra, w oddzielnym kontekście i ograniczonym zakresie diffu. Historycznych wykonawców i raportów nie przepisujemy. Review0996 ma high dla trwałego stanu i dowodów. Reguły jednej rundy/poprawek, wersjonowania i osobnych zgód operacyjnych nadal obowiązują. Historyczna sesja `claude-fable-5-1` jest potwierdzona raportem rundy 3. Pakietowe CLI Claude wykryto pełnym resolverem z nowego main; --version działa, logowanie i wykonanie audytu wymagają osobnego rzeczywistego wyniku; zewnętrzny raport TASK-1015 otrzymano od operatora: PASS, brak P0/P1, cztery P2 do rozliczenia. Raport zapisano bez zmiany znalezisk w `ai_docs/quality/TASK-1015_AUDIT_claude-fable-5-1.md`. Audyt bootstrapu nie jest PASS aplikacji. Niedostępność przypisanej konfiguracji przy wykonaniu wymaga jawnego rozstrzygnięcia, bez ukrytego zamiennika.
 
 | Zadanie   | Model       | Reasoning | Uzasadnienie                                        | Dodatkowy review         |
 | --------- | ----------- | --------- | --------------------------------------------------- | ------------------------ |
@@ -757,9 +769,9 @@ Audyt każdego taska: Claude Code w oddzielnym kontekście, zgodnie z ograniczon
 | TASK-1018 | gpt-6.1-sol | high | Zgodność historycznych kontraktów, rzeczywiste role i narzędzia lifecycle. | claude-fable-5-1, high |
 | TASK-1009 | gpt-6.1-sol | high      | Dobór próby i interpretacja wyników.                | claude-fable-5-1, high |
 | TASK-0995 | gpt-6.1-sol | high      | Kwalifikacja i niezmienne dane dowodowe.            | claude-fable-5-1, high   |
-| TASK-1005 | gpt-6.1-sol | medium    | Pomiar kosztu i wersjonowany preset.                | claude-fable-5-1, medium |
-| TASK-0996 | gpt-6.1-sol | high      | Trener, checkpoint i wznowienie.                    | claude-fable-5-1, medium |
-| TASK-0997 | gpt-6.1-sol | high      | Metryki i bramka osobno dla gier.                   | claude-fable-5-1, medium |
-| TASK-1006 | gpt-6.1-sol | high      | Wspólna kohorta i regresje między grami.            | claude-fable-5-1, high   |
-| TASK-1000 | gpt-6.1-sol | medium    | Integracja gotowych funkcji panelu.                 | claude-fable-5-1, medium |
-| TASK-1001 | gpt-6.1-sol | medium    | Odbiór procesu i dokumentacja trwałości.            | claude-fable-5-1, medium |
+| TASK-1005 | claude-fable-5-1 | medium | Pomiar kosztu i wersjonowany preset. | gpt-6-astra, medium |
+| TASK-0996 | claude-fable-5-1 | high | Trener, checkpoint i wznowienie. | gpt-6-astra, high |
+| TASK-0997 | claude-fable-5-1 | high | Metryki i bramka osobno dla gier. | gpt-6-astra, high |
+| TASK-1006 | claude-fable-5-1 | high | Wspólna kohorta i regresje między grami. | gpt-6-astra, high |
+| TASK-1000 | claude-fable-5-1 | medium | Integracja gotowych funkcji panelu. | gpt-6-astra, medium |
+| TASK-1001 | claude-fable-5-1 | medium | Odbiór procesu i dokumentacja trwałości. | gpt-6-astra, medium |

@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import PurePosixPath
+from uuid import UUID
 
 STORAGE_RETENTION_POLICY_VERSION = "storage-retention-v1"
 
 
 class StorageArtifactClass(StrEnum):
+    GRID_COHORT_ASSET = "grid_cohort_asset"
     NORMALIZATION_WORKING_BITMAP = "normalization_working_bitmap"
     TEMPORARY_FILE = "temporary_file"
     BROWSER_STAGING = "browser_staging"
@@ -26,6 +28,8 @@ class StorageRootKind(StrEnum):
 
 
 class StorageProtectionReason(StrEnum):
+    RETAINED_COHORT_REFERENCE = "retained_cohort_reference"
+    COHORT_REFERENCE_UNRESOLVED = "cohort_reference_unresolved"
     ACTIVE_JOB_DEPENDENCY = "active_job_dependency"
     RETENTION_NOT_ELAPSED = "retention_not_elapsed"
     PROTECTED_NAMESPACE = "protected_namespace"
@@ -82,6 +86,8 @@ class StorageArtifactObservation:
     is_symlink: bool = False
     root_kind: StorageRootKind = StorageRootKind.ARTIFACT
     observation_checksum_sha256: str | None = None
+    retained_cohort_reference: bool = False
+    cohort_reference_unresolved: bool = False
 
     def __post_init__(self) -> None:
         if self.size_bytes < 0:
@@ -145,6 +151,10 @@ def evaluate_storage_retention(
     if now.tzinfo is None:
         raise ValueError("Storage retention evaluation time must be timezone-aware.")
     reasons: list[StorageProtectionReason] = []
+    if observation.retained_cohort_reference:
+        reasons.append(StorageProtectionReason.RETAINED_COHORT_REFERENCE)
+    if observation.cohort_reference_unresolved:
+        reasons.append(StorageProtectionReason.COHORT_REFERENCE_UNRESOLVED)
     if not is_safe_managed_relative_path(observation.relative_path):
         reasons.append(StorageProtectionReason.PATH_UNSAFE)
     if observation.is_symlink:
@@ -174,6 +184,43 @@ def evaluate_storage_retention(
         eligible_at=eligible_at if not ordered_reasons else None,
         protection_reasons=ordered_reasons,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class CohortAssetReferenceState:
+    referenced: bool
+    latest_dependency_at: datetime | None
+    unresolved: bool = False
+
+
+def cohort_asset_path_identity(relative: str) -> tuple[UUID, UUID] | None:
+    """Recognize only exact cohort-owned content files or publisher temporary files."""
+    if not is_safe_managed_relative_path(relative):
+        return None
+    value = PurePosixPath(relative)
+    if len(value.parts) != 6 or value.parts[:2] != ("data", "grid-training-cohorts"):
+        return None
+    try:
+        game, cohort = UUID(value.parts[2]), UUID(value.parts[3])
+    except ValueError:
+        return None
+    if (str(game), str(cohort)) != value.parts[2:4]:
+        return None
+    suffix = {"originals": ".jpg", "pages": ".json", "indexes": ".jsonl"}.get(value.parts[4])
+    if suffix is None:
+        return None
+    leaf = value.name
+    regular = (
+        len(leaf) == 64 + len(suffix)
+        and leaf.endswith(suffix)
+        and all(letter in "0123456789abcdef" for letter in leaf[:64])
+    )
+    temporary = (
+        leaf.startswith(".tmp-")
+        and leaf.endswith(".part")
+        and all(letter.isascii() and (letter.isalnum() or letter in "._-") for letter in leaf)
+    )
+    return (game, cohort) if regular or temporary else None
 
 
 def manifest_entry_from_decision(

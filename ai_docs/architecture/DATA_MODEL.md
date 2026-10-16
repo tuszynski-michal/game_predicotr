@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Model danych
@@ -3095,3 +3095,49 @@ image_board_geometry_review_events(action=approved). Osobna jawna akcja
 zatwierdza dokładną FROZEN CURRENT geometrię również przy nieznanym historycznym
 modelu. Nie tworzy sztucznej rewizji geometrii/źródła ani nowych cropów. Brak
 producenta oryginału nadal pozostaje luką pomiaru jakości modelu.
+
+## Kohorty geometrii aplikacji (D-556, TASK-0995, Alembic0163)
+
+Bieżący manifest v16 dodaje sześć game-owned tabel partycjonowanych:
+`grid_training_cohorts`, `grid_training_cohort_members`,
+`grid_training_cohort_pages`, `grid_training_cohort_commands`,
+`grid_training_cohort_events` i `grid_source_identity_commands`.
+Historyczne manifesty v1–15 oraz migracje0161/0162 pozostają niezmienione.
+Złożone klucze gry, forced RLS i triggery chronią niezmienność zamrożonych
+members, stron, zdarzeń oraz receipts. Downgrade odmawia po zachowaniu historii.
+
+Nagłówek przechowuje wersję CAS, stan, przypięty dokument, podsumowanie oraz
+ścieżkę i SHA manifestu. Member zachowuje niezmienne source_id i ordinal,
+nullable rolę, frozen payload z jawnym used oraz indeksowane zależności
+board/review/cell. Brak rozstrzygniętej roli nie staje się TRAIN. Nullable
+live_source_image_id jest fizycznym composite game/source FK; wolno go tylko
+odłączyć, bez odtwarzania usuniętego źródła. Strony capture/materialization
+przechowują SHA, względną ścieżkę i małą listę rzeczywistych referencji assets;
+obrazy pozostają plikami zarządzanymi, bez bitmap w tabelach domenowych.
+
+Przejścia preparing, preview_ready, materializing, ready_to_freeze i frozen
+pozostają jawne, podobnie failed/canceled. Idempotent commands wiążą UUID
+i dokładny checksum body z niezmienną odpowiedzią. Jawna komenda completion
+zachowuje osobny receipt i uzupełnia wyłącznie całkowicie NULL kanoniczną grupę
+source metadata; istniejąca grupa wymaga exact equality, także dla EXIF None.
+
+Recording v3 atomowo rejestruje rzeczywiste użycie wyłącznie used members
+przy freeze, także VALIDATION/REGRESSION. Walidacja aktualności jest tylko do
+odczytu. Minimalne prywatne use/resolution/report evidence umożliwia globalne
+alias invalidation bez foreign source partition queries i BYPASSRLS. Nie ma
+fikcyjnych przyszłych report bindings. Lokalne notices zachowują historię
+zależności, lecz nie zastępują dodatniego exact currentness verifiera.
+
+Source/layout reset odłącza live FK i zachowuje kohorty, strony oraz receipts.
+Rzeczywisty E2E layout resetu pozostaje zablokowany wcześniejszym FK
+`image_board_geometry_pending` do review items, poza zakresem TASK-0995.
+Usunięcie całej gry usuwa jej partycje zgodnie z istniejącym lifecycle;
+fizyczny JPEG GC pozostaje osobnym zatwierdzanym krokiem. Referencje stron/root
+chronią kopie również w failed/canceled. Brak routingu nie dowodzi orphan bez
+done deletion receipt oraz rzeczywistego braku katalogu, routingu i partycji.
+Minimalna prywatna ochrona recording identity/use nie przechowuje JPEG paths
+i nie utrzymuje pełnego archiwum. Usunięcie operacyjnego źródła blokuje nowe
+użycie przez SOURCE_REMOVED_NEW_USE_BLOCKED w currentness i prywatnym v3 guardzie.
+Nowe detach notices zapisują ten powód; starsze zdarzenia i receipts pozostają
+niezmienne. Samo odłączenie nie dowodzi cofnięcia ludzkiej etykiety i nie usuwa
+permanentnej ochrony nagrań ani zachowanych kopii.

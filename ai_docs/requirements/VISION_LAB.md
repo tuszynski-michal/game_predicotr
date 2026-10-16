@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-10-06
+last_updated: 2026-10-16
 ---
 
 # Laboratorium wizji
@@ -478,3 +478,47 @@ a model prediction. Mixed producers are reported separately; missing provenance
 does not become active-model accuracy. All nine positions require explicit
 geometry review. Symbol information uses only existing current human decisions
 from the same game, without assigning labels or sharing classifiers.
+
+## Application geometry cohorts (D-556, TASK-0995)
+
+One cohort belongs to one game and pins a base model, training family,
+preprocessing and whole-recording TRAIN, VALIDATION and REGRESSION roles.
+Unknown membership, declarations, providers or ancestor independence remain
+visible and unresolved. Selecting a source subset does not narrow the recording
+or global alias checks. Protected holdouts, final test, unseen game, Reels and
+Treasure never qualify as TRAIN. A control recording must also be independent
+of known ancestor TRAIN use.
+
+Only current human geometry evidence qualifies a target. A guarded manual save
+and a later unchanged approval preserve corrected origin; missing historical
+prediction attribution does not erase a real current label. The versioned pilot
+weight is four for proven manual corrections and one for checked unchanged
+geometry. Each complete board preserves all 24 exact nodes. Grid-only TRAIN can
+use complete boards from an incomplete photo without materialized symbol cells.
+Screen targets and control photos require all nine complete annotated boards.
+TRAIN requires at least 30 boards and ten photos. Each control role requires
+15 boards and five full photos from a separate independent recording; with
+nine boards per full photo the smallest complete cohort has 120 boards and
+20 photos. Counts, weights and topology are versioned policy.
+
+Preview retains every selected member with explicit reasons and a server-derived
+used flag. Excluded members contribute no image copy, negative example, minimum
+or actual recording use. After preview, drift fails explicitly and requires a
+new preview rather than silently shrinking the data. Freeze commits immutable
+evidence, replay receipts and permanent actual use for all three roles together.
+No quality result or training permission follows from descriptive judgments,
+preview counts or snapshot creation alone.
+
+Human label withdrawal, a live source link and snapshot byte availability are
+separate nullable facts. Metadata GET does not read image files and leaves byte
+availability unknown. Operational source removal blocks new training and
+evaluation use with `SOURCE_REMOVED_NEW_USE_BLOCKED`, while retaining history.
+It does not establish human label withdrawal. Removed used sources make metadata
+qualification blocked even alongside unresolved reasons; excluded sources do
+not block the actually used selection. Source and layout resets retain history
+with detached live links.
+Whole-game deletion follows existing partition deletion and separate approved
+reference-aware asset GC, without creating a permanent full image archive.
+The present preview has technical identity fields; TASK-1000 must integrate
+selection by understandable import, recording and family names into the final
+operator workflow.

@@ -84,6 +84,7 @@ from game_predictor_api.application.grid_calibration import GridCalibrationServi
 from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_shadow import GridShadowService
+from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_import_geometry_guard import (
@@ -239,6 +240,7 @@ from game_predictor_api.domain.datasets import (
 )
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_shadow import GridShadowError
+from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_import_engine_policy import (
     LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
@@ -390,6 +392,9 @@ from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
 from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepository
+from game_predictor_api.storage.grid_training_cohort_repository import (
+    SqlAlchemyGridTrainingCohortRepository,
+)
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     SqlAlchemyImageGeometryCompletenessRepository,
 )
@@ -2227,6 +2232,28 @@ def create_app(
     )
 
     application.state.database_engine = database_engine
+
+    def default_grid_training_cohort_dependency() -> Iterator[GridTrainingCohortService]:
+        with session_factory() as session:
+            try:
+                yield GridTrainingCohortService(
+                    SqlAlchemyGridTrainingCohortRepository(
+                        session, resolved_settings.artifact_root
+                    ),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    @application.exception_handler(GridCohortError)
+    async def grid_cohort_error_handler(_request: Request, error: GridCohortError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"code": error.code, "message": error.message, "details": {}},
+        )
+
     application.include_router(
         create_api_router(
             resolved_settings,
@@ -2299,6 +2326,7 @@ def create_app(
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
             grid_shadow_service_dependency=resolved_grid_shadow_dependency,
             lab_symbol_candidate_import_service_dependency=resolved_lab_symbol_candidate_import_dependency,
+            grid_training_cohort_service_dependency=default_grid_training_cohort_dependency,
         )
     )
     if not custom_service_dependency_supplied:

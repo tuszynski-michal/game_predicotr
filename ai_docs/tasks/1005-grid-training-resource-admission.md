@@ -1,7 +1,7 @@
 ---
 title: TASK-1005 — Preset i dopuszczenie zasobów
 status: todo
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # TASK-1005 — Preset i dopuszczenie zasobów
@@ -26,13 +26,16 @@ Task jest częścią zaakceptowanej rewizji 6. Pomiar kosztu i wersjonowany pres
 
 ## Recommended execution
 
-- Wykonawca: `gpt-6.1-sol`, reasoning `medium`. parametry wynikają z raportów i mierzalnego testu.
-- Dodatkowy review: `claude-fable-5-1`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
+Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
+
+- Wykonawca: `claude-fable-5-1`, reasoning `medium`. parametry wynikają z raportów i mierzalnego testu.
+- Dodatkowy review: `gpt-6-astra`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 
 ## Relevant docs
 
 - `AGENTS.md`
+- [Przekazanie po zamianie ról](../guides/V3_GRID_FINE_TUNING_ROLE_HANDOFF.md).
 - [CURRENT_STATE](../process/CURRENT_STATE.md)
 - [Plan rewizja 6](../delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md) — sekcje 2–5, właściwy opis taska w sekcji 6 i tabela modeli w sekcji 8.
 - [VISION_LAB](../architecture/VISION_LAB.md).
@@ -103,7 +106,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
 - Commit: nie utworzono; następny patch ustalić z rzeczywistej historii gałęzi.
-- Audit: wymagany `claude-fable-5-1`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
+- Audit: wymagany `gpt-6-astra`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
 - Następny krok: sprawdzić warunki wejściowe i ponownie odczytać task oraz odpowiadający fragment planu.
 
 ### Changed

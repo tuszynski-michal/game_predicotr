@@ -27,6 +27,7 @@ from game_predictor_api.api.grid_calibration import create_grid_calibration_rout
 from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
 from game_predictor_api.api.grid_quality_measurements import create_grid_quality_measurements_router
 from game_predictor_api.api.grid_shadow import create_grid_shadow_router
+from game_predictor_api.api.grid_training_cohorts import create_grid_training_cohorts_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_grid_reviews import create_image_grid_reviews_router
 from game_predictor_api.api.image_imports import create_image_imports_router
@@ -133,8 +134,13 @@ def create_api_router(
     grid_audit_proposal_service_dependency: Callable[..., object] | None = None,
     grid_shadow_service_dependency: Callable[..., object] | None = None,
     lab_symbol_candidate_import_service_dependency: Callable[..., object] | None = None,
+    grid_training_cohort_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
+    if grid_training_cohort_service_dependency is not None:
+        router.include_router(
+            create_grid_training_cohorts_router(grid_training_cohort_service_dependency)
+        )
     router.include_router(create_health_router(settings.version))
     router.include_router(
         create_reviewer_access_router(

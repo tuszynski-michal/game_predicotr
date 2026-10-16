@@ -19,16 +19,16 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v15 import (
+from game_predictor_api.storage.game_data_v2_manifest_v16 import (
     CREATE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v15 import (
+from game_predictor_api.storage.game_data_v2_manifest_v16 import (
     DELETE_TABLES as DELETE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v15 import (
+from game_predictor_api.storage.game_data_v2_manifest_v16 import (
     SCHEMA as SCHEMA,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v15 import (
+from game_predictor_api.storage.game_data_v2_manifest_v16 import (
     VERSION as VERSION,
 )
 
@@ -231,6 +231,12 @@ class GamePartitionLifecycleRepository:
                 "grid_reinference_targets",
                 "grid_geometry_proposals",
                 "grid_geometry_proposal_events",
+                "grid_training_cohorts",
+                "grid_training_cohort_members",
+                "grid_training_cohort_pages",
+                "grid_training_cohort_commands",
+                "grid_training_cohort_events",
+                "grid_source_identity_commands",
             }:
                 self._session.execute(text(f"ALTER TABLE {child} ENABLE ROW LEVEL SECURITY"))
                 self._session.execute(text(f"ALTER TABLE {child} FORCE ROW LEVEL SECURITY"))

@@ -20,6 +20,7 @@ import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state
 import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
 import { RecordingGroupsPanel } from './recording-groups-panel';
 import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
+import { GridCohortPreview } from './grid-cohort-preview';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -908,6 +909,11 @@ export function ModelQualityWorkspace(props: {
             gameId={props.gameId}
           />
           <GridQualityMeasurementPanel
+            apiBaseUrl={props.apiBaseUrl}
+            gameId={props.gameId}
+          />
+          <GridCohortPreview
+            key={`${props.apiBaseUrl}:${props.gameId}`}
             apiBaseUrl={props.apiBaseUrl}
             gameId={props.gameId}
           />

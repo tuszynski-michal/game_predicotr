@@ -418,3 +418,9 @@ Wyniki są grupami kontroli; nakładających się przypadków i ponowień nie su
 - Korekta SHA: `45b1c5ecaa6b5e64f4b599378136efb2877c91c9a6f5d96fd37c8b086b72b9c7`. Dowód P1: artifacts/audits/TASK-1009_P1_ENCODING_REPAIR.json. Bez automatycznego R2: P1 dotyczył tekstu, zmiana zachowania była P2. Nowy proces odczytał poprawne UTF-8 i cztery kryteria; instrukcja zapisu jest utrwalona w sekcji3.3 planu.
 - Końcowe DOC/MAP/diff oraz staged lista/stat są sprawdzane przed commitem. Dotychczasowe zapisy „audyt niewykonany” i „poprawki w toku” opisują wcześniejsze przekazanie; niniejsza sekcja je zastępuje. Rzeczywista jakość nadal wymaga anotacji operatora.
 - Recommended next task:0995. Bez integracji i operacji operatora.
+
+
+### Post-commit — 2026-10-16
+
+- Commit **v1.7.384** / `d2b692dbc59f1de339ad1acd2a961d402fced8c8`. git show --stat i pozostały status sprawdzone; worktree był czysty.
+- Execution phase: oczekiwanie na integrację całego planu; bez merge/push. Pełny hash dopisany po commicie, zapis wejdzie do następnego commita bez amend. Następny TASK-0995, kontrakt przed kodem i D-548 do przyjęcia.

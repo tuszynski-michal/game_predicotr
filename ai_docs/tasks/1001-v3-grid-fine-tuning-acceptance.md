@@ -1,7 +1,7 @@
 ---
 title: TASK-1001 — Odbiór procesu i instrukcja operatora
 status: todo
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # TASK-1001 — Odbiór procesu i instrukcja operatora
@@ -28,8 +28,10 @@ Task jest częścią zaakceptowanej rewizji 6. Odbiór procesu i dokumentacja tr
 
 ## Recommended execution
 
-- Wykonawca: `gpt-6.1-sol`, reasoning `medium`. integracja i dowody trwałości.
-- Dodatkowy review: `claude-fable-5-1`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
+Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
+
+- Wykonawca: `claude-fable-5-1`, reasoning `medium`. integracja i dowody trwałości.
+- Dodatkowy review: `gpt-6-astra`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 
 ## Relevant docs
@@ -75,6 +77,7 @@ Nowe pliki/symbole są proponowane, nie istniejącą implementacją. Przed kodow
 
 ## Test cases
 
+- Przeniesione P2-5 z TASK-0995/ClaudeR2PASS: w test_immutable_publish_survives_new_store_and_lost_response zastąpić stary glob*.staged faktycznym.tmp-*.part i sprawdzić brak resztek po sukcesie/replay. To accepted niskie ryzyko pokrycia, nie otwartyP0/P1; produkcyjne finally bez zmiany, real hard-crash/guardedscan/24h regression jużPASS.
 - Proces działa po restarcie i utracie odpowiedzi; obie gry i nowa gra zachowują izolację symboli.
 - Stara 777 ma regresję.
 - Rzeczywiste liczby i ograniczenia są opisane bez domniemanych wyników.
@@ -115,7 +118,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
 - Commit: nie utworzono; następny patch ustalić z rzeczywistej historii gałęzi.
-- Audit: wymagany `claude-fable-5-1`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
+- Audit: wymagany `gpt-6-astra`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
 - Następny krok: sprawdzić warunki wejściowe i ponownie odczytać task oraz odpowiadający fragment planu.
 
 ### Changed

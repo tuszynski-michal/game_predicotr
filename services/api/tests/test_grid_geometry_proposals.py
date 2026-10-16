@@ -17,7 +17,7 @@ from game_predictor_api.schemas.grid_geometry_proposals import (
 )
 from game_predictor_api.storage import game_data_v2_manifest_v12 as previous
 from game_predictor_api.storage import game_data_v2_manifest_v13 as current
-from game_predictor_api.storage import game_data_v2_manifest_v15 as runtime
+from game_predictor_api.storage import game_data_v2_manifest_v16 as runtime
 from game_predictor_api.storage.grid_geometry_proposal_models import (
     GridGeometryProposalEventModel,
     GridGeometryProposalModel,

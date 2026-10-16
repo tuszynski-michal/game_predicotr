@@ -1,4 +1,14 @@
 import {
+  listGridTrainingCohorts as listGeneratedGridTrainingCohorts,
+  getGridTrainingCohort as getGeneratedGridTrainingCohort,
+  getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
+  getGridTrainingCohortEligibility as getGeneratedGridTrainingCohortEligibility,
+  prepareGridTrainingCohort as prepareGeneratedGridTrainingCohort,
+  prepareGridTrainingCohortPage as prepareGeneratedGridTrainingCohortPage,
+  materializeGridTrainingCohortPage as materializeGeneratedGridTrainingCohortPage,
+  freezeGridTrainingCohort as freezeGeneratedGridTrainingCohort,
+  cancelGridTrainingCohort as cancelGeneratedGridTrainingCohort,
+  completeGridSourceIdentities as completeGeneratedGridSourceIdentities,
   listGridQualityMeasurements as listGeneratedGridQualityMeasurements,
   getGridQualityMeasurement as getGeneratedGridQualityMeasurement,
   captureGridQualityMeasurement as captureGeneratedGridQualityMeasurement,
@@ -32,6 +42,11 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  GridCohortPrepareCommand,
+  GridCohortPageCommand,
+  GridCohortFreezeCommand,
+  GridCohortRevisionCommand,
+  GridSourceIdentityCompleteCommand,
   QualityCaptureCommand,
   QualityAssessCommand,
   GeometryApprovalCommand,
@@ -50,6 +65,23 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridCohortPrepareCommand,
+  GridCohortPageCommand,
+  GridCohortFreezeCommand,
+  GridCohortRevisionCommand,
+  GridSourceIdentityCompleteCommand,
+  GridCohortRecording,
+  GridCohortSelector,
+  GridCohortHeader,
+  GridCohortSummary,
+  GridCohortRoleSummary,
+  GridCohortMember,
+  GridCohortList,
+  GridCohortMembers,
+  GridCohortEligibility,
+  GridCohortReceipt,
+  GridCohortCommandResponse,
+  GridSourceIdentityResponse,
   QualityCaptureCommand,
   QualityAssessCommand,
   GeometryApprovalCommand,
@@ -1367,6 +1399,93 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
   });
 
   return {
+    listGridTrainingCohorts: (
+      gameId: string,
+      options: { cursor?: string; limit?: number } = {},
+    ) =>
+      listGeneratedGridTrainingCohorts({
+        client,
+        path: { game_id: gameId },
+        query: options,
+      }),
+    getGridTrainingCohort: (gameId: string, cohortId: string) =>
+      getGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    getGridTrainingCohortMembers: (
+      gameId: string,
+      cohortId: string,
+      options: { cursor?: number; limit?: number } = {},
+    ) =>
+      getGeneratedGridTrainingCohortMembers({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        query: options,
+      }),
+    getGridTrainingCohortEligibility: (gameId: string, cohortId: string) =>
+      getGeneratedGridTrainingCohortEligibility({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    prepareGridTrainingCohort: (
+      gameId: string,
+      body: GridCohortPrepareCommand,
+    ) =>
+      prepareGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    prepareGridTrainingCohortPage: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortPageCommand,
+    ) =>
+      prepareGeneratedGridTrainingCohortPage({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    materializeGridTrainingCohortPage: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortPageCommand,
+    ) =>
+      materializeGeneratedGridTrainingCohortPage({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    freezeGridTrainingCohort: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortFreezeCommand,
+    ) =>
+      freezeGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    cancelGridTrainingCohort: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortRevisionCommand,
+    ) =>
+      cancelGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    completeGridSourceIdentities: (
+      gameId: string,
+      body: GridSourceIdentityCompleteCommand,
+    ) =>
+      completeGeneratedGridSourceIdentities({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
     listGridQualityMeasurements: (
       gameId: string,
       options: { cursor?: string; limit?: number } = {},

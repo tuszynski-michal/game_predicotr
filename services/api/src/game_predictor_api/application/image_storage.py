@@ -38,6 +38,7 @@ MANAGED_STORAGE_NAMESPACES = (
     "training",
     "models",
     "exports",
+    "grid-training-cohorts",
 )
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _RETENTION_POLICIES = {
@@ -48,6 +49,7 @@ _RETENTION_POLICIES = {
     "training": ("versioned-derived", True),
     "models": ("preserve", True),
     "exports": ("versioned", True),
+    "grid-training-cohorts": ("reference-protected-cohort", True),
 }
 
 

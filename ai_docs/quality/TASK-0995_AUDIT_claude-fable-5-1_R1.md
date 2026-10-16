@@ -1,0 +1,57 @@
+# Audyt TASK-0995 — Kwalifikacja korekt i niezmienny snapshot
+
+Werdykt: REVISE
+Audytor: claude-fable-5-1, reasoning high
+Wykonawca: gpt-6.1-sol, reasoning high
+Zakres: d2b692dbc59f1de339ad1acd2a961d402fced8c8...d2b692dbc59f1de339ad1acd2a961d402fced8c8 oraz zmiany niezacommitowane, data 2026-10-16
+Runda: 1
+
+Przegląd statyczny. Audytor nie zmieniał żadnych plików.
+
+## Streszczenie
+
+Zbadano pełny pion kohort geometrii: domenę (`grid_training_cohorts.py`, `canonical_source.py`, `source_canonical_metadata.py`), aplikację (prepare/capture/materialize/freeze, completion tożsamości), magazyn (modele, repozytorium, evidence, currentness, artefakty, asset retention), migrację 0163 z triggerami, SQL/permissions v3, router i schematy, worker (`grid_cohort_dataset.py`, re-eksporty `normalization.py`, `pipeline_store.py`, GC), UI Admin z testami interakcji, generowany wrapper klienta oraz zmiany dokumentów właścicielskich. Implementacja jest zgodna z kontraktem Technical notes w kluczowych punktach: dokładne 24 węzły bez interpolacji, kwalifikacja wyłącznie z rzeczywistego ludzkiego zdarzenia/receiptu, grid-only z niekompletnego zdjęcia, oddzielne screen targety, kolejność blokad freeze, jeden budżet 60 s z poprawnym hookiem dla named cursor, atomowa publikacja plików przed receiptem, odrębne osie `humanLabelWithdrawn`/`liveSourceLinked`/`snapshotBytesAvailable` i blokada `SOURCE_REMOVED_NEW_USE_BLOCKED` w trzech miejscach. Główne ryzyko: publisher tworzy pliki tymczasowe `.<hex>.staged`, a rozpoznawanie przestrzeni GC kohort akceptuje tylko `.tmp-*.part`, więc plik po twardej awarii zapisu nigdy nie wchodzi do preview/quarantine, wbrew kontraktowi 24 h; test utrwala nazwę, której publisher nie produkuje. Pozostałe uwagi są P2 (stary literał reason w triggerze migracji, luka mappera kodów SQL, luźniejsze wiązanie rewizji przy completion, nieaktualne zdanie w Outcome).
+
+## Znaleziska
+
+### P0
+
+Brak.
+
+### P1
+
+- [P1-1] `services/api/src/game_predictor_api/storage/grid_training_cohort_artifacts.py:95` — `_publish` zapisuje plik tymczasowy jako `.{uuid4().hex}.staged` w katalogu `pages/`, `originals/` lub `indexes/`. `services/api/src/game_predictor_api/domain/storage_retention.py:218` rozpoznaje jako „publisher temporary” wyłącznie nazwy `.tmp-*.part`, a `services/api/src/game_predictor_api/application/storage_gc.py:235` pomija (`continue`) każdy plik, dla którego `cohort_asset_path_identity` zwraca `None`; ogólny skaner tymczasowych (`storage_gc.py:299-307`) obejmuje tylko `data/working`. Skutek: plik `.staged` pozostawiony po twardej awarii między otwarciem a `os.replace` nie trafia do żadnego preview, quarantine ani usunięcia, co narusza kontrakt „niepodpięty plik po awarii podlega istniejącym 24 h”, a gałąź tymczasowa w `cohort_asset_path_identity` jest martwa. Test `services/api/tests/test_grid_cohort_asset_retention.py:79` asercjonuje nazwę `.tmp-abc_123.part`, której publisher nie tworzy, więc nie wykrywa rozjazdu. Proponowana poprawka: ujednolicić nazewnictwo (np. publisher zapisuje `.tmp-<hex>.part`, zgodnie z istniejącą heurystyką GC) albo rozszerzyć `cohort_asset_path_identity` o `.<hex>.staged`, oraz zmienić test tak, aby brał nazwę faktycznie wyprodukowaną przez `GridCohortArtifactStore._publish` (np. przez wymuszoną awarię `os.replace`). Dokumentacja (`ai_docs/architecture/VISION_LAB.md`, sekcja „Unreferenced staging expires 24 hours…”) wymaga wtedy zgodności z zachowaniem.
+
+### P2
+
+- [P2-1] `services/api/alembic/versions/0163_grid_training_cohorts.py:213` — trigger notice nadal zapisuje `SOURCE_REMOVED_POLICY_UNRESOLVED` przy `DELETE` na `source_images`, podczas gdy `services/api/src/game_predictor_api/storage/grid_reinference_retention.py:49` zapisuje przed usunięciem notice z `SOURCE_REMOVED_NEW_USE_BLOCKED`. Każde usunięcie źródła daje dwa notices z różnymi kodami dla tych samych members, a task (`ai_docs/tasks/0995-grid-training-cohort-snapshot.md:167`) opisuje literał tymczasowy jako zastąpiony. Notices nie wpływają na kwalifikację, więc skutek jest informacyjny. Ponieważ 0163 jest nową, niezacommitowaną migracją, proponuję zmienić literał w triggerze (bez kosztu historii) albo jawnie udokumentować, że notice triggera zachowuje stary kod, a wiążący jest kod detach.
+- [P2-2] `services/api/src/game_predictor_api/storage/grid_training_cohort_repository.py:300` — mapper wyjątków funkcji v3 mapuje tylko prefiksy `RECORDING_` i `SOURCE_REMOVED_`, a `services/api/src/game_predictor_api/storage/source_recording_sql_v3.py:126` podnosi `GRID_COHORT_MINIMUM_NOT_MET` (22023). Python sprawdza minima wcześniej na `summary`, ale SQL liczy `photos` jako liczbę used members niezależnie od `boardEligibleCount`, więc rozbieżność (np. uszkodzony summary) daje surowy `DBAPIError`: w GET eligibility 503 `GRID_COHORT_DEPENDENCY_UNRESOLVED` (`grid_training_cohort_currentness.py:200`), we freeze nieobsłużony wyjątek 500 zamiast typed 409. Proponowana poprawka: dodać prefiks `GRID_COHORT_` do mappera i krótki test CPU jak `test_private_source_removed_reason_keeps_409_and_recovers_savepoint`.
+- [P2-3] `services/api/src/game_predictor_api/application/grid_source_identities.py:77-111` — completion weryfikuje, że wskazana `expectedSourceGeometryRevisionId` istnieje dla źródła, nie jest `reverted` i ma zgodne checksumy/piny, ale nie sprawdza, że jest to rewizja wskazywana przez aktualny własny target (`recognized_boards.source_geometry_revision_id`), czego wymaga Technical notes („rzeczywistej zachowanej rewizji źródła wskazanej przez aktualny własny target”). Ryzyko niskie, bo zapisywane wartości wynikają z faktycznego dekodowania bajtów i muszą zgadzać się z pinami rewizji; mimo to kontrakt jest szerszy niż kod. Proponuję dodać warunek istnienia własnego aktualnego boardu z tą rewizją albo zapisać w Technical notes świadome rozluźnienie.
+- [P2-4] `ai_docs/tasks/0995-grid-training-cohort-snapshot.md:325` — w sekcji Outcome „Changed” pozostało zdanie „Docelowej polityki nowego użycia po usunięciu źródła nie wybrano”, sprzeczne z późniejszymi wpisami Outcome, D-556 i dokumentami właścicielskimi, które opisują wybraną i wdrożoną blokadę. Przed commitem (kryterium 5) zaktualizować to zdanie, aby Outcome odpowiadał zachowaniu.
+
+## Pokrycie kryteriów akceptacji
+
+| Kryterium | Status (spełnione / niespełnione / niezweryfikowane) | Dowód (`ścieżka:linia` lub wynik polecenia) |
+|---|---|---|
+| Pełna plansza z niekompletnego zdjęcia działa w grid-only | spełnione | `services/api/src/game_predictor_api/storage/grid_training_cohort_evidence.py:363` sprawdza `completeness_status` planszy, nie zdjęcia; `:446` `used = ready and (full or (role == "TRAIN" and mode == "grid-only"))`; `:365-371` brak wymogu 15 komórek; `services/api/src/game_predictor_api/storage/source_recording_sql_v3.py:190` wymaga pełnych 9 tylko poza TRAIN grid-only; deklarowany E2E03 (120 targetów/30 TRAIN) w Outcome, nieuruchamiany przez audytora |
+| Niepełne zdjęcie nie jest screen targetem | spełnione | `grid_training_cohort_evidence.py:443` `PHOTO_NOT_FULLY_ANNOTATED`, `:465` `screenEligible = full and ready`; `source_recording_sql_v3.py:188` wiąże `screenEligible` z `boardEligibleCount=9`; worker `services/worker/src/game_predictor_worker/images/grid_cohort_dataset.py:473-510` wymaga 9 pozycji; `services/api/tests/test_grid_training_cohort_core.py:392-410` |
+| Auto-accept nie tworzy etykiety | spełnione | `grid_training_cohort_evidence.py:137-148` wymaga `approved_geometry_revision == geometry_revision`, aktora bez prefiksu `system:`/`worker:` i dokładnego zdarzenia `approved`/`geometry_saved` (`:149-168`); brak receiptu daje `APPROVAL_PROVENANCE_UNRESOLVED`; `test_grid_training_cohort_core.py:94` |
+| Drift między preview/freeze blokuje zapis | spełnione | `services/api/src/game_predictor_api/application/grid_training_cohort_freeze.py:92-100` (status/manifest/preview SHA), `:112-113` (root ↔ expectedPreviewSha256), `:153-161` ponowna kontrola pod blokadami, `:163-165` `check_member` dla każdego membera; `source_recording_sql_v3.py` `RECORDING_COHORT_PROOF_STALE`/`RECORDING_PROOF_CHANGED_BY_USE`; `services/api/src/game_predictor_api/storage/grid_training_cohort_currentness.py:34-137`; deklarowany E2E03 (revert → `GRID_COHORT_LABEL_STALE` 409, zero use/receiptów) |
+| Wyniki kontroli, audytu i ograniczeń zapisano w Outcome; dokumentacja odpowiada zachowaniu | niespełnione | Kryterium otwarte do czasu audytu; dodatkowo `ai_docs/tasks/0995-grid-training-cohort-snapshot.md:325` (P2-4) i rozbieżność 24 h GC vs `.staged` (P1-1) wobec `ai_docs/architecture/VISION_LAB.md` |
+
+## Listy zamknięte i otwarte
+
+Zamknięte (tylko w rundzie 2 lub później): nie dotyczy, runda 1.
+
+Otwarte: P1-1, P2-1, P2-2, P2-3, P2-4.
+
+## Proponowane testy
+
+- `services/api/tests/test_grid_cohort_asset_retention.py`: test, który przez `GridCohortArtifactStore._publish` z wymuszoną awarią `os.replace` zostawia rzeczywisty plik tymczasowy i asercjonuje, że `cohort_asset_path_identity` go rozpoznaje oraz że `StorageGcArtifactStore.scan` zwraca dla niego obserwację po 24 h; komenda: `.\.venv\Scripts\python.exe -m pytest services/api/tests/test_grid_cohort_asset_retention.py services/worker/tests/test_grid_cohort_gc.py`.
+- `services/api/tests/test_grid_training_cohort_core.py`: przypadek mappera dla `GRID_COHORT_MINIMUM_NOT_MET` podniesionego przez `recording_cohort_command_v3` (oczekiwany typed 409 i odzyskany savepoint), analogiczny do `test_private_source_removed_reason_keeps_409_and_recovers_savepoint`.
+- `services/api/tests/integration/test_grid_cohort_retention_edges_postgres.py` (tylko przy `$env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'`): po detach źródła asercja, że nowe notices zawierają wyłącznie `SOURCE_REMOVED_NEW_USE_BLOCKED` (po rozstrzygnięciu P2-1).
+- `services/api/tests/test_grid_training_cohort_core.py`: negatywny przypadek completion z istniejącą, niereverted, lecz nieaktualną rewizją źródła (po rozstrzygnięciu P2-3).
+
+## Zakres przeglądu i ograniczenia
+
+Przeczytano w całości brief (instrukcje, task, fragment planu, Outcome), wszystkie nowe moduły API/SQL/migracji/schematów/routera, `grid_cohort_dataset.py`, UI (`grid-cohort-preview.tsx`, `grid-cohort-actions.ts`, `grid-cohort-command-storage.ts`), test interakcji Admin, wrapper klienta (`packages/admin-api-client/src/index.ts:1401-1488`), diffy dokumentów właścicielskich oraz wybrane testy (`test_grid_training_cohort_requests.py` w całości, fragmenty `test_grid_training_cohort_core.py`, `test_grid_training_cohort_storage.py`, `test_grid_cohort_asset_retention.py`, `test_grid_cohort_gc.py`). Diff plików śledzonych był w briefie ucięty po `openapi.json`; `main.py`, `router.py`, `grid_reinference_retention.py`, `storage_gc_repository.py`, `application/storage_gc.py`, `domain/storage_retention.py`, `game_storage_routing.py`, `source_recording_groups.py`, worker `storage_gc.py`, `normalization.py` i `pipeline_store.py` przeczytano z dysku w zakresie związanym z kohortami, bez dokładnego diffu (brak narzędzia Bash do `git diff`). Nie uruchamiano testów, Ruff/mypy, OpenAPI check, docs/code-map check ani PostgreSQL; wyniki E2E, PG i cleanup pochodzą wyłącznie z deklaracji Outcome i pozostają niezweryfikowane. Nie czytano `.env`, surowych logów połączeń ani `TASK-1002_R1_PYTHON_TEST_AGGREGATE.json`. Nie oceniano `CURRENT_STATE.md` ani map kodu (poza pathspec briefu). Zgodność wygenerowanego `types.gen.ts`/`sdk.gen.ts` z OpenAPI przyjęto na podstawie deklarowanego `openapi:check` PASS.

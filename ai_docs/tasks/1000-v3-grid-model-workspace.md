@@ -1,7 +1,7 @@
 ---
 title: TASK-1000 — Pełna sekcja „Geometria V3”
 status: todo
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # TASK-1000 — Pełna sekcja „Geometria V3”
@@ -26,8 +26,10 @@ Task jest częścią zaakceptowanej rewizji 6. Integracja gotowych funkcji panel
 
 ## Recommended execution
 
-- Wykonawca: `gpt-6.1-sol`, reasoning `medium`. integracja gotowych kontraktów.
-- Dodatkowy review: `claude-fable-5-1`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
+Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
+
+- Wykonawca: `claude-fable-5-1`, reasoning `medium`. integracja gotowych kontraktów.
+- Dodatkowy review: `gpt-6-astra`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 
 ## Relevant docs
@@ -58,6 +60,7 @@ Task jest częścią zaakceptowanej rewizji 6. Integracja gotowych funkcji panel
 ## Acceptance criteria
 
 - [ ] Proces działa bez skryptów operatora.
+- [ ] Zwykły przebieg używa nazw gier, importów, nagrań i wersji; operator nie musi wpisywać technicznych UUID ani składni poleceń.
 - [ ] Wejście na ekran nie uruchamia joba.
 - [ ] Zmiana gry/reload zachowuje właściwy stan.
 - [ ] Panel działa z dwiema bazami i odrzuconym wspólnym kandydatem.
@@ -66,6 +69,8 @@ Task jest częścią zaakceptowanej rewizji 6. Integracja gotowych funkcji panel
 ## Technical notes
 
 Diagnostyka, próbka, korekty, dane, run, porównanie, wersje i ponowne rozpoznanie. Backend określa dostępność działań. Brak danych pokazuje konkretne wymagania.
+
+Integracja zastępuje techniczne pola wejściowe pomocniczych paneli powstałych we wcześniejszych taskach, w tym pól family/base/source/recording UUID z pierwszego preview0995. Operator wybiera import/nagrania i zgodną wersję po czytelnych nazwach w istniejącym katalogu gry. Przypięty identyfikator pozostaje wewnętrzną wartością wyboru; opcjonalne szczegóły diagnostyczne mogą go pokazać. Nie ukrywamy rozstrzygnięć ról lub zakresu pod automatycznym wyborem. Stosujemy istniejące kontrakty katalogu/nagrań/importów oraz ich stronicowanie, zamiast wymagać kopiowania identyfikatorów ze skryptów. Dotychczasowe pomocnicze formularze nie stanowią odbioru finalnego procesu operatora. Kwalifikacja metadanych oraz bieżąca dostępność bajtów pozostają rozróżnione zgodnie z D-556.
 
 Chronione zachowanie: deterministyczna `sequence_number`, brak obcego przypisania symboli, ochrona ręcznych decyzji i danych kanonicznych. Nowe encje wymagają Alembic; zmiana API obejmuje OpenAPI, wygenerowany klient, wrapper i test żądania. Publikacja, aktywacja i rzeczywisty run pozostają odrębnymi operacjami. Szczegółowe kontrakty, źródła prawdy i błędy obowiązują z sekcji 2 i 4 planu; wyników jakości nie domniemywać.
 
@@ -81,6 +86,7 @@ Nowe pliki/symbole są proponowane, nie istniejącą implementacją. Przed kodow
 ## Test cases
 
 - Proces działa bez skryptów operatora.
+- Wybór importu, nagrań i wersji po nazwach tworzy poprawne przypięte polecenie bez ręcznie wpisanych UUID; zmiana gry usuwa obce wybory, a reload nie uruchamia mutacji.
 - Wejście na ekran nie uruchamia joba.
 - Zmiana gry/reload zachowuje właściwy stan.
 - Panel działa z dwiema bazami i odrzuconym wspólnym kandydatem.
@@ -114,7 +120,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Zatwierdzony upstream/current HEAD: main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` (operator 2026-10-14); oryginalna baza pozostaje zapisana powyżej.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
 - Commit: nie utworzono; następny patch ustalić z rzeczywistej historii gałęzi.
-- Audit: wymagany `claude-fable-5-1`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
+- Audit: wymagany `gpt-6-astra`, reasoning `medium`; raport jeszcze nie istnieje, otwarte uwagi jeszcze nie ustalone.
 - Następny krok: sprawdzić warunki wejściowe i ponownie odczytać task oraz odpowiadający fragment planu.
 
 ### Changed

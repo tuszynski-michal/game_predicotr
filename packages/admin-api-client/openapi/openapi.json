@@ -9342,6 +9342,682 @@
         "title": "GridCalibrationProfileResponse",
         "type": "object"
       },
+      "GridCohortCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "$ref": "#/components/schemas/GridCohortHeader"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/GridCohortReceipt"
+          }
+        },
+        "required": [
+          "cohort",
+          "receipt"
+        ],
+        "title": "GridCohortCommandResponse",
+        "type": "object"
+      },
+      "GridCohortEligibility": {
+        "additionalProperties": false,
+        "properties": {
+          "humanLabelWithdrawn": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Humanlabelwithdrawn"
+          },
+          "liveSourceLinked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Livesourcelinked"
+          },
+          "manifestSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestsha256"
+          },
+          "qualification": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ],
+            "title": "Qualification",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "snapshotBytesAvailable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshotbytesavailable"
+          }
+        },
+        "required": [
+          "qualification",
+          "reasons",
+          "manifestSha256",
+          "humanLabelWithdrawn",
+          "liveSourceLinked",
+          "snapshotBytesAvailable"
+        ],
+        "title": "GridCohortEligibility",
+        "type": "object"
+      },
+      "GridCohortFreezeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedmanifestsha256",
+            "type": "string"
+          },
+          "expectedPreviewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedpreviewsha256",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision",
+          "expectedPreviewSha256",
+          "expectedManifestSha256"
+        ],
+        "title": "GridCohortFreezeCommand",
+        "type": "object"
+      },
+      "GridCohortHeader": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestsha256"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "nextCaptureCursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcapturecursor"
+          },
+          "nextMaterializationCursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextmaterializationcursor"
+          },
+          "previewSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewsha256"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "preparing",
+              "preview_ready",
+              "materializing",
+              "ready_to_freeze",
+              "frozen",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/GridCohortSummary"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "revision",
+          "status",
+          "mode",
+          "familyId",
+          "baseVersionId",
+          "previewSha256",
+          "manifestSha256",
+          "summary",
+          "nextCaptureCursor",
+          "nextMaterializationCursor",
+          "createdAt"
+        ],
+        "title": "GridCohortHeader",
+        "type": "object"
+      },
+      "GridCohortList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridCohortHeader"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "GridCohortList",
+        "type": "object"
+      },
+      "GridCohortMember": {
+        "additionalProperties": false,
+        "properties": {
+          "boardEligibleCount": {
+            "title": "Boardeligiblecount",
+            "type": "integer"
+          },
+          "metadataMissing": {
+            "title": "Metadatamissing",
+            "type": "boolean"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "qualification": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ],
+            "title": "Qualification",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "TRAIN",
+                  "VALIDATION",
+                  "REGRESSION"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "screenEligible": {
+            "title": "Screeneligible",
+            "type": "boolean"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "ordinal",
+          "role",
+          "qualification",
+          "reasons",
+          "boardEligibleCount",
+          "screenEligible",
+          "metadataMissing"
+        ],
+        "title": "GridCohortMember",
+        "type": "object"
+      },
+      "GridCohortMembers": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridCohortMember"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "GridCohortMembers",
+        "type": "object"
+      },
+      "GridCohortPageCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "minimum": 0.0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision",
+          "cursor"
+        ],
+        "title": "GridCohortPageCommand",
+        "type": "object"
+      },
+      "GridCohortPrepareCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "recordings": {
+            "items": {
+              "$ref": "#/components/schemas/GridCohortRecording"
+            },
+            "maxItems": 200,
+            "title": "Recordings",
+            "type": "array"
+          },
+          "selector": {
+            "$ref": "#/components/schemas/GridCohortSelector"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "mode",
+          "familyId",
+          "baseVersionId",
+          "selector",
+          "recordings"
+        ],
+        "title": "GridCohortPrepareCommand",
+        "type": "object"
+      },
+      "GridCohortReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "prepare",
+              "prepare-page",
+              "materialize-page",
+              "freeze",
+              "cancel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "kind",
+          "revision",
+          "outcome"
+        ],
+        "title": "GridCohortReceipt",
+        "type": "object"
+      },
+      "GridCohortRecording": {
+        "additionalProperties": false,
+        "properties": {
+          "groupId": {
+            "format": "uuid",
+            "title": "Groupid",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "TRAIN",
+              "VALIDATION",
+              "REGRESSION"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "groupId",
+          "role"
+        ],
+        "title": "GridCohortRecording",
+        "type": "object"
+      },
+      "GridCohortRevisionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision"
+        ],
+        "title": "GridCohortRevisionCommand",
+        "type": "object"
+      },
+      "GridCohortRoleSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "eligibleBoards": {
+            "title": "Eligibleboards",
+            "type": "integer"
+          },
+          "eligibleFullPhotos": {
+            "title": "Eligiblefullphotos",
+            "type": "integer"
+          },
+          "eligiblePhotos": {
+            "title": "Eligiblephotos",
+            "type": "integer"
+          },
+          "materializedBoards": {
+            "default": 0,
+            "title": "Materializedboards",
+            "type": "integer"
+          },
+          "materializedFullPhotos": {
+            "default": 0,
+            "title": "Materializedfullphotos",
+            "type": "integer"
+          },
+          "materializedPhotos": {
+            "default": 0,
+            "title": "Materializedphotos",
+            "type": "integer"
+          },
+          "missingBoards": {
+            "title": "Missingboards",
+            "type": "integer"
+          },
+          "missingFullPhotos": {
+            "title": "Missingfullphotos",
+            "type": "integer"
+          },
+          "missingPhotos": {
+            "title": "Missingphotos",
+            "type": "integer"
+          },
+          "recordingRequired": {
+            "title": "Recordingrequired",
+            "type": "boolean"
+          },
+          "requiredBoards": {
+            "title": "Requiredboards",
+            "type": "integer"
+          },
+          "requiredFullPhotos": {
+            "title": "Requiredfullphotos",
+            "type": "integer"
+          },
+          "requiredPhotos": {
+            "title": "Requiredphotos",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "TRAIN",
+              "VALIDATION",
+              "REGRESSION"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "requiredBoards",
+          "requiredPhotos",
+          "requiredFullPhotos",
+          "eligibleBoards",
+          "eligiblePhotos",
+          "eligibleFullPhotos",
+          "missingBoards",
+          "missingPhotos",
+          "missingFullPhotos",
+          "recordingRequired"
+        ],
+        "title": "GridCohortRoleSummary",
+        "type": "object"
+      },
+      "GridCohortSelector": {
+        "additionalProperties": false,
+        "properties": {
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "sourceIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceids"
+          }
+        },
+        "title": "GridCohortSelector",
+        "type": "object"
+      },
+      "GridCohortSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "reasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reasoncounts",
+            "type": "object"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/GridCohortRoleSummary"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "reasonCounts"
+        ],
+        "title": "GridCohortSummary",
+        "type": "object"
+      },
       "GridCorrectionCellSymbolPayload": {
         "additionalProperties": false,
         "description": "One symbol the operator assigns to a cell while saving its grid (D-488).\n\nA ``null`` ``symbolId`` means the operator cannot tell the symbol: the cell\nis marked unreadable and left for a later review, never guessed.",
@@ -12798,6 +13474,136 @@
           "detectionIndex"
         ],
         "title": "GridShadowUnassignedDetectionResponse",
+        "type": "object"
+      },
+      "GridSourceIdentityCompleteCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/GridSourceIdentityPin"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "sources"
+        ],
+        "title": "GridSourceIdentityCompleteCommand",
+        "type": "object"
+      },
+      "GridSourceIdentityPin": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedGeometrySha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedgeometrysha256",
+            "type": "string"
+          },
+          "expectedSourceGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Expectedsourcegeometryrevisionid",
+            "type": "string"
+          },
+          "expectedSourceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcesha256",
+            "type": "string"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "expectedSourceSha256",
+          "expectedSourceGeometryRevisionId",
+          "expectedGeometrySha256"
+        ],
+        "title": "GridSourceIdentityPin",
+        "type": "object"
+      },
+      "GridSourceIdentityReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "kind": {
+            "const": "complete_identities",
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "const": "completed",
+            "title": "Outcome",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/GridSourceIdentityResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "kind",
+          "outcome",
+          "results"
+        ],
+        "title": "GridSourceIdentityReceipt",
+        "type": "object"
+      },
+      "GridSourceIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/GridSourceIdentityReceipt"
+          }
+        },
+        "required": [
+          "receipt"
+        ],
+        "title": "GridSourceIdentityResponse",
+        "type": "object"
+      },
+      "GridSourceIdentityResult": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "completed",
+              "already_complete"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "outcome"
+        ],
+        "title": "GridSourceIdentityResult",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -42958,6 +43764,954 @@
         "summary": "Get Grid Shadow Result",
         "tags": [
           "grid-shadow"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-source-identities/complete": {
+      "post": {
+        "operationId": "completeGridSourceIdentities",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridSourceIdentityCompleteCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridSourceIdentityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Complete",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts": {
+      "get": {
+        "operationId": "listGridTrainingCohorts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Cohorts",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/prepare": {
+      "post": {
+        "operationId": "prepareGridTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCohortPrepareCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Prepare",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}": {
+      "get": {
+        "operationId": "getGridTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortHeader"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/cancel": {
+      "post": {
+        "operationId": "cancelGridTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCohortRevisionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/eligibility": {
+      "get": {
+        "operationId": "getGridTrainingCohortEligibility",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortEligibility"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eligibility",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/freeze": {
+      "post": {
+        "operationId": "freezeGridTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCohortFreezeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Freeze",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/materialize-page": {
+      "post": {
+        "operationId": "materializeGridTrainingCohortPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCohortPageCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Materialize Page",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/members": {
+      "get": {
+        "operationId": "getGridTrainingCohortMembers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortMembers"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Members",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/prepare-page": {
+      "post": {
+        "operationId": "prepareGridTrainingCohortPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCohortPageCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCohortCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Prepare Page",
+        "tags": [
+          "grid-training-cohorts"
         ]
       }
     },

@@ -19,6 +19,10 @@ from game_predictor_api.domain.geometry_correction_reverts import (
 )
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
+from game_predictor_api.domain.source_canonical_metadata import (
+    SourceCanonicalMetadata,
+    compare_source_metadata,
+)
 from game_predictor_api.domain.v3_engine_acceptance import (
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
@@ -243,23 +247,27 @@ class SqlAlchemyImagePipelineStore:
                 checked_at=executed_at,
             )
             source = _locked_source(session, job_id, candidate.execution.file_execution_key)
-            expected = {
-                "raw_width": cast(int, payload["sourceWidth"]),
-                "raw_height": cast(int, payload["sourceHeight"]),
-                "oriented_width": cast(int, payload["width"]),
-                "oriented_height": cast(int, payload["height"]),
-                "exif_orientation": cast(int | None, payload.get("exifOrientation")),
-                "coordinate_space": SOURCE_COORDINATE_SPACE,
-                "normalization_adapter_version": normalization.adapter_version,
-                "normalized_pixel_checksum_sha256": cast(
+            expected = SourceCanonicalMetadata(
+                raw_width=cast(int, payload["sourceWidth"]),
+                raw_height=cast(int, payload["sourceHeight"]),
+                oriented_width=cast(int, payload["width"]),
+                oriented_height=cast(int, payload["height"]),
+                exif_orientation=cast(int | None, payload.get("exifOrientation")),
+                coordinate_space=SOURCE_COORDINATE_SPACE,
+                normalization_adapter_version=normalization.adapter_version,
+                normalized_pixel_checksum_sha256=cast(
                     str, payload["normalizedPixelChecksumSha256"]
                 ),
-            }
-            current = {key: getattr(source, key) for key in expected}
-            if all(value is None for value in current.values()):
-                for key, value in expected.items():
+            )
+            fields = expected.to_dict()
+            current = SourceCanonicalMetadata.from_mapping(
+                {key: getattr(source, key) for key in fields}
+            )
+            comparison = compare_source_metadata(current, expected)
+            if comparison == "complete":
+                for key, value in fields.items():
                     setattr(source, key, value)
-            elif current != expected:
+            elif comparison == "conflict":
                 raise ImagePipelineStoreError(
                     "IMAGE_SOURCE_COORDINATE_METADATA_CONFLICT",
                     "The immutable source coordinate metadata already differs.",

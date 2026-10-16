@@ -16,7 +16,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 - **Gałąź integracyjna = `main`** (operator, 2026-10-16): nowe gałęzie od `main`, scalanie do `main`. `v1.1-vision-lab-hybrid-geometry` jest w `main` i usunięta lokalnie; na `origin` zostaje do decyzji operatora. Starsze wzmianki o „gałęzi integracyjnej” dotyczą tamtej gałęzi. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Panel wielu gier / TASK-0991 (2026-10-16):** migracja `0155`, scalenie do `main` (v1.7.364) i cleanup wykonane bez audytu (decyzja operatora); Reviewer 3001 wymaga ręcznego restartu. Numer TASK-0991 koliduje z naprawą symboli: identyfikuj pełną ścieżką. Źródło: archiwum Q4, „TASK-0991 — Panel udostępniania wielu gier”.
-- **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Push, restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
+- **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Zgoda na scalenie obejmuje push `main` do origin (operator, 2026-10-16); restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. TASK-1024 istnieje na `main` (zamknięcie tasków) i na `codex/v3-grid-fine-tuning`. Zakres TASK-1030–1033 zarezerwowany dla etapu 2 odczytu startowego. Źródło: archiwum Q3/Q4.
 - **Cykl życia usług:** API, Admin, Reviewer i workery uruchamia, zatrzymuje i restartuje wyłącznie operator; zgoda na restart dotyczy jednego zadania. Usługi działają z `D:\game_predicotr` (API z `--reload`); z `C:\Users\tuszy\Documents\game_predicotr` nie uruchamiać usług. Źródło: `AGENTS.md`, „Kontrola lokalnych usług API i Admin”.
 - **Migracje bazy operatora tylko za osobną zgodą**, w przejściu stop usług → scalenie → `db:migrate` → start; test na `*_test` nie jest zgodą. Nie scalaj do `main` kodu wymagającego niewykonanej migracji (API z `--reload` nie wystartuje). Ostatni zapis: `0155` (2026-10-16, panel wielu gier). Źródło: archiwum Q4, „Hybrydowy silnik siatek V3…”.
@@ -31,7 +31,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md` | accepted (2026-10-16), etap A wykonany | TASK-1032–1033 todo (etap B) | `feat/stage2-plan` |
+| `delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md` | accepted (2026-10-16), etap B w toku | TASK-1033 todo | `feat/stage2-plan` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | proposed, rev. 2 (na `codex/v3-grid-fine-tuning`: accepted, rev. 6) | TASK-0993–1006 w planie; pliki tasków tylko na tamtej gałęzi | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
@@ -53,17 +53,14 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski toru V3 (TASK-0993–1024) są na gałęzi `codex/v3-grid-fine-tuning`.
 
-### TASK-1032 — `AGENTS.md` ≤ 14 000 B (todo)
-
-- `ai_docs/tasks/1032-agents-md-slimming.md`; etap B, po skillach z etapu A.
-
 ### TASK-1033 — `README.md` ≤ 5 000 B i `DOC_INDEX.md` (todo)
 
 - `ai_docs/tasks/1033-readme-doc-index.md`; etap B, zamyka plan.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1031** — Skill `merge-to-main` z preflightem — v1.7.379 — tasks/completed/1031-merge-to-main-skill.md
+- **TASK-1032** — `AGENTS.md` ≤ 14 000 B — v1.7.381 — tasks/completed/1032-agents-md-slimming.md
+- **TASK-1031** — Skill `merge-to-main` z preflightem — v1.7.379 / `bf0ad43b` — tasks/completed/1031-merge-to-main-skill.md
 - **TASK-1030** — Skill `task-close` ze skryptem zamykania — v1.7.378 / `54e01133` — tasks/completed/1030-task-close-skill.md
 - **TASK-1024** — Zamknięcie nieaktualnych tasków na `main` — v1.7.375 / `5fa317c4` — tasks/completed/1024-close-stale-tasks.md
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
@@ -72,4 +69,3 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 - **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md
 - **TASK-1020** — `DECISION_LOG.md` jako lekki indeks — v1.7.367 / `d803c27c` — tasks/completed/1020-decision-log-light-index.md
 - **TASK-1019** — Skrypt pomiaru i budżetów odczytu startowego — v1.7.366 / `d1174304` — tasks/completed/1019-startup-read-budget-script.md
-- **TASK-1007** — Trwałe wykrywanie Claude Code CLI — v1.7.361 / `baf67dbd` (scalenie v1.7.362 / `885ba12f`) — tasks/completed/1007-claude-cli-discovery.md

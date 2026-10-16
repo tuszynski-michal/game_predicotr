@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1032 — `AGENTS.md` ≤ 14 000 B: procedury do skilli (done)
+
+- Plik: `ai_docs/tasks/completed/1032-agents-md-slimming.md`; plan etapu 2 odczytu startowego, etap B. Commit **v1.7.381**.
+- `AGENTS.md` 26 404 → 13 942 B (LF): procedury audytu, scalania, wersjonowania i zamykania w skillach `audit-task`/`claude-audit`, `merge-to-main`, `task-close`; nagłówki i reguły wiążące zostały (mapa 174 reguł, żadna bez miejsca). Zgoda na scalenie obejmuje push; audyt tylko, gdy wymaga go plan.
+- Budżet `AGENTS.md` 14 000 B wymuszony (10/10). Audyt Codex gpt-6.1-sol: PASS.
+
 ### TASK-1031 — Skill `merge-to-main` z preflightem scalania (done)
 
-- Plik: `ai_docs/tasks/completed/1031-merge-to-main-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.379**.
+- Plik: `ai_docs/tasks/completed/1031-merge-to-main-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.379 / `bf0ad43b48c05657d6d28509daa004bbf234d8c6`**.
 - `scripts/integration_preflight.py` (tylko odczyt: ahead/behind, fast-forward, `main` vs `origin/main`, kolizje TASK/D/`vX.Y.N`/migracji z `main` i niescalonymi gałęziami), skill `merge-to-main` w `.claude/skills/` i `.agents/skills/` z bramkami zgody i bezpiecznym usuwaniem worktree.
 - 28 nowych testów, razem 78 PASS; ruff, mypy --strict, docs:check PASS. Skill nie był jeszcze ćwiczony na prawdziwym scaleniu.
 

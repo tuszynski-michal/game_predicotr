@@ -5,15 +5,20 @@ description: Prowadzi scalenie gałęzi roboczej do `main` w D:\game_predicotr z
 
 # Scalanie gałęzi roboczej do `main` (`integration_preflight.py`)
 
-Skill prowadzi scalenie, push i sprzątanie. Reguły wiążące są w `AGENTS.md`
-(„Scalanie do gałęzi integracyjnej”, „Brudny worktree i zakres commita”,
+Skill prowadzi scalenie, push i sprzątanie; zawiera procedurę do reguły
+wiążącej z `AGENTS.md` („Scalanie do gałęzi integracyjnej”). Pozostałe reguły
+są w `AGENTS.md` („Brudny worktree i zakres commita”,
 „Kontrola lokalnych usług API i Admin”, „Wersjonowanie commitów”) oraz w
 „Obowiązujących ograniczeniach” `ai_docs/process/CURRENT_STATE.md`. Skill ich
 nie zastępuje ani nie osłabia; przy sprzeczności obowiązuje `AGENTS.md`.
 Skrypt `scripts/integration_preflight.py` tylko czyta stan i raportuje; scalenie,
 push i usunięcie worktree wykonujesz Ty, po zgodzie operatora.
 
-Fakty o repozytorium: gałęzią integracyjną jest `main` w `D:\game_predicotr`.
+Fakty o repozytorium: gałęzią integracyjną jest `main` w `D:\game_predicotr`
+(decyzja operatora 2026-10-16). Dawna gałąź `v1.1-vision-lab-hybrid-geometry`
+jest w całości zawarta w `main` i usunięta lokalnie; nie scalaj do niej ani nie
+zakładaj od niej nowych gałęzi. Nowe prace wykonuj na gałęzi roboczej, aby nie
+omijać akceptacji commitem bezpośrednio na `main`.
 Ten checkout uruchamia API z `--reload`, więc każda zmiana plików po scaleniu
 trafia od razu do działającego procesu. `main` może przesunąć się w trakcie
 pracy (równoległa sesja), dlatego stan sprawdzasz tuż przed scaleniem, a nie
@@ -34,11 +39,12 @@ punkt:
 1. **Akceptacja wyniku i zgoda na scalenie** są konieczne. Akceptacja planu,
    polecenie rozpoczęcia implementacji, ogólne „kontynuuj” ani milczenie nie są
    zgodą. Przy całym planie albo etapie zadaj jedno końcowe pytanie o cały
-   zakres, nie pytaj po każdym tasku.
-2. **Push `main` do origin** wolno wykonać tylko wtedy, gdy zgoda na scalenie
-   (z kroku 2) jawnie go obejmuje. Pytanie o zgodę nazywa oba kroki: scalenie i
-   push. Brak takiej zgody oznacza: zakończ na lokalnym scaleniu albo wcale nie
-   scalaj, zgodnie z odpowiedzią operatora. Pushuj wyłącznie `main`; gałęzi
+   zakres, nie pytaj po każdym tasku. Niezależne blokery i zgody na koszt lub
+   operacje na danych zgłaszaj nadal według pozostałych reguł.
+2. **Push `main` do origin** obejmuje zgoda na scalenie (decyzja operatora
+   2026-10-16); bez tej zgody push nie następuje, nigdy automatycznie. Pytanie o
+   zgodę nazywa oba kroki: scalenie i push. Gdy operator w odpowiedzi wprost
+   wyłączy push, zakończ na lokalnym scaleniu. Pushuj wyłącznie `main`; gałęzi
    roboczych i pomocniczych nie pushuj. Nigdy `--force`.
 3. **Otwarte uwagi audytu P0/P1**, wymagana migracja i zgody na operacje na
    danych lub koszt poza zatwierdzonym zakresem nadal blokują scalenie.
@@ -173,7 +179,8 @@ worktree gałęzi (`.venv` i `node_modules` w worktree są dowiązaniami do
    zastępuj go zwykłym merge ani `reset`. Nie nadpisuj nieśledzonych plików
    operatora w `D:\game_predicotr` (np. `worktrees/`).
 
-9. **Push** (tylko jeśli zgoda z kroku 2 go obejmuje):
+9. **Push** (zgoda na scalenie z kroku 2 go obejmuje, chyba że operator wprost
+   go wyłączył):
 
    ```powershell
    git -C D:\game_predicotr push origin main
@@ -215,7 +222,9 @@ worktree gałęzi (`.venv` i `node_modules` w worktree są dowiązaniami do
     scalenia, nie przeszkoda do ominięcia. Wpisów `remotes/` i gałęzi innych
     sesji nie usuwaj.
 
-11. **Raport końcowy.** Podaj: nazwę scalonej gałęzi, zakres wypchniętych
+11. **Raport końcowy.** Najpierw potwierdź, że `main` zawiera commity tasków
+    (`git -C D:\game_predicotr merge-base --is-ancestor <hash> main`, kod 0).
+    Podaj: nazwę scalonej gałęzi, zakres wypchniętych
     commitów (`git log --oneline <czubek main sprzed>..main`) z pełnym hashem
     czubka `main` i `origin/main`, wynik `docs:check`, kolizje numerów
     zaakceptowane lub rozwiązane, stan worktree po scaleniu

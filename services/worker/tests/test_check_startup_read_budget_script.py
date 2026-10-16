@@ -101,6 +101,23 @@ def test_enforced_startup_total_and_claude_budgets_fail(tree: Path) -> None:
     assert len(claude) == 1 and "AGENTS.md" in claude[0]
 
 
+def test_default_flags_fail_on_agents_over_14000_bytes(tree: Path) -> None:
+    agents = tree / budget.AGENTS
+    agents.write_bytes(b"a" * 14_000)
+    assert not any(problem.startswith("AGENTS.md [") for problem in budget.check(tree))
+    agents.write_bytes(b"a" * 14_001)
+    problems = [problem for problem in budget.check(tree) if problem.startswith("AGENTS.md [")]
+    assert len(problems) == 1
+    assert "14001 B, budget 14000 B" in problems[0]
+    assert "skill" in problems[0]
+
+
+def test_agents_budget_measures_lf_line_endings(tree: Path) -> None:
+    agents = tree / budget.AGENTS
+    agents.write_bytes(b"a\r\n" * 7_000)  # 21 000 B on disk, 14 000 B with LF
+    assert not any(problem.startswith("AGENTS.md [") for problem in budget.check(tree))
+
+
 def test_sizes_do_not_depend_on_line_endings(tree: Path) -> None:
     names = (budget.CURRENT_STATE, budget.CLAUDE, budget.AGENTS)
     for name in names:  # fixture files may already be CRLF (text mode on Windows)

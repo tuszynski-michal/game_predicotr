@@ -91,7 +91,7 @@ npm run docs:check
 
 ## Outcome
 
-Commit: v1.7.379 (hash dopisuje kolejny commit).
+Commit: v1.7.379 / `bf0ad43b48c05657d6d28509daa004bbf234d8c6`.
 
 Wykonawca: claude-sonnet-5-5 / high. Dodatkowego review nie było (zgodnie z
 planem); kryteria sprawdzone samodzielnie poniżej.

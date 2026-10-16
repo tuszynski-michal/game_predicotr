@@ -7,9 +7,10 @@ description: Zamyka ukończony task według formatu okna CURRENT_STATE.md skrypt
 
 Zamknięcie taska jest powtarzalne, więc robi je skrypt `scripts/close_task.py`,
 a nie ręczna edycja. Ręczne zamykanie dawało commity z czerwonym `docs:check`
-i edycję złych plików przy kolizji numerów TASK. Skill uzupełnia reguły z
-`AGENTS.md` („Po kodowaniu”, „Wersjonowanie commitów”, „Brudny worktree i zakres
-commita”); ich nie zastępuje. Format okna opisuje nagłówek
+i edycję złych plików przy kolizji numerów TASK. Skill zawiera procedurę do
+reguł wiążących z `AGENTS.md` („Po kodowaniu”, „Wersjonowanie commitów”,
+„Brudny worktree i zakres commita”); nie osłabia ich, a przy sprzeczności
+obowiązuje `AGENTS.md`. Format okna opisuje nagłówek
 `ai_docs/process/CURRENT_STATE.md`.
 
 ## Kiedy użyć
@@ -18,10 +19,66 @@ Przy zamykaniu każdego taska: implementacja i testy są gotowe, sekcja `Outcome
 wypełniona, a task ma wejść do commita. Drugi tryb (`record-hash`) uruchamiasz w
 commicie następującym po zamykającym.
 
-## Kroki
+## Kolejność zamykania (`AGENTS.md`, „Po kodowaniu”)
+
+1. Formatowanie, lint, testy i kontrola typów zmienionych części.
+2. Dokumentacja zmienionego zachowania, API, modelu danych lub decyzji. Task,
+   który dodaje, usuwa lub przenosi moduł albo zmienia publiczny symbol,
+   regeneruje mapę kodu (`.\.venv\Scripts\python.exe scripts/generate_code_map.py`)
+   i dołącza ją do swojego commita; aktualność sprawdza `npm run code-map:check`
+   (poza `docs:check` i `quality`, żeby równoległe gałęzie nie psuły bramki).
+3. Audyt krzyżowy, jeśli plan go wymaga (skill audytu), przed commitem.
+4. `Outcome` taska: wynik, wyniki weryfikacji, odstępstwa, odnośnik do raportu
+   audytu albo zapis rezygnacji operatora.
+5. Zamknięcie skryptem (kroki niżej): `CURRENT_STATE.md` według reguły okna i
+   przeniesienie pliku `done` do `ai_docs/tasks/completed/`, potem
+   `npm run docs:check`.
+6. Osobny commit taska.
+7. Raport końcowy: co zmieniono, jakie testy uruchomiono, czego nie wykonano,
+   jakie są następne kroki lub ryzyka; porównanie punkt po punkcie z Definition
+   of Done taska i zaakceptowanym planem.
+8. Zatrzymanie albo kontynuacja etapu według punktu 8 sekcji „Po kodowaniu” w
+   `AGENTS.md`.
+
+## Wersjonowanie commitów
+
+- Każdy ukończony task dostaje osobny commit; niezależna poprawka błędu
+  wykonana przed taskiem także.
+- Dla pierwszego commita w bieżącym torze ustal wersję z najnowszego
+  wersjonowanego commita na bieżącym branchu (`git log`). Nie zakładaj wersji z
+  nazwy brancha ani nie używaj przykładowej lub zapamiętanej wersji (np. `v1.1`).
+- Każdy następny commit zwiększa patch o jeden względem poprzedniego commita w
+  tym torze. Patch jest przypisany do kolejności commitów, nie do liczby zadań w
+  commicie. Nie używaj ponownie ani nie pomijaj numeru bez jawnej decyzji
+  użytkownika.
+- Komunikat ma format `vX.Y.N - {opis}`: pełna bieżąca wersja brancha i krótki
+  opis zakresu.
+- Przed commitem sprawdź `git diff --cached --check`, `git diff --cached --stat`
+  i listę staged plików (`git diff --cached --name-only`). Po commicie sprawdź
+  `git show --stat` oraz pozostały `git status`.
+- Po commicie wersja i pełny hash trafiają do `Outcome` taska i do
+  `CURRENT_STATE.md` (krok 8 w „Krokach skryptu”, `record-hash`, w kolejnym
+  commicie); lead
+  dopisuje je, a audytor sprawdza obecność zapisu. Przy kontynuacji odczytaj ten
+  zapis i potwierdź go z historią brancha; przy rozbieżności obowiązuje
+  rzeczywisty commit na branchu.
+
+## Brudny worktree i zakres commita
+
+- Zmiany obecne przed rozpoczęciem taska należą do użytkownika, chyba że ich
+  pochodzenie jest jednoznacznie znane. Nie usuwaj ich, nie formatuj masowo i
+  nie dołączaj automatycznie do commita.
+- Jeżeli plik zawiera zmiany użytkownika i bieżącego taska, dodaj do indeksu
+  wyłącznie właściwe hunki (sposób w „Uwagach”); nie commituj całego pliku tylko
+  dlatego, że task zmienił jego fragment.
+- Zmiana API wymaga jednego spójnego pionu: backendu, OpenAPI, wygenerowanego
+  klienta, wrappera klienta i testu żądania; nie utrzymuj ręcznie rozbieżnych
+  typów.
+
+## Kroki skryptu
 
 1. Ustal numer wersji `vX.Y.N` commita zamykającego z historii bieżącego
-   brancha (`git log`, zasada z `AGENTS.md`). Pierwszy wiersz sekcji `Outcome`
+   brancha (`git log`, sekcja „Wersjonowanie commitów” wyżej). Pierwszy wiersz sekcji `Outcome`
    taska musi brzmieć dokładnie `Commit: vX.Y.N (hash dopisuje kolejny commit).`;
    tę linię `record-hash` zamieni potem na wersję z hashem.
 2. Przygotuj plik z pełną sekcją `done` (poza repozytorium, np. w katalogu

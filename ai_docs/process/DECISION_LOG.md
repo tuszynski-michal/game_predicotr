@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 541 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (183 wiersze); starsze (357 wierszy) są w
+- Indeks obejmuje 542 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (184 wiersze); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-548](decisions/DECISION_LOG_2026.md#d-548--panel-wyszukiwarki-wielu-gier-przez-link-bez-kodu) | Panel wyszukiwarki wielu gier przez link bez kodu | accepted | 2026-10-13 | Immutable chosen games, full search/corrections, capability link max 72h, shared tunnel; audit omitted and migration/main integration/cleanup explicitly approved 2026-10-16. |
 | [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
@@ -226,8 +227,19 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-547, D-546, D-545, D-544, D-543), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-548, D-547, D-546, D-545, D-544), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-548 — Panel wyszukiwarki wielu gier przez link bez kodu
+
+- **Date:** 2026-10-13.
+- **Status:** accepted by explicit operator instructions in this conversation.
+- **Decision:** add the Admin tab "Udostępnianie": an immutable selection from the existing non-archived game catalog, one capability link without a typed code, and the complete existing search UI including symbol corrections. Lifetime stays at most 72 hours; default 8 hours. Anybody holding the link has these rights.
+- **Scope and credentials:** an additive parent panel groups existing single-game child sessions. The server stores only hashes; a long random key in the URL fragment is exchanged for separate per-panel-path HttpOnly/Secure/SameSite cookies. Child credentials are domain-separated HMAC-SHA256 over parent and child UUIDs, so all existing game-scoped reads, corrections, retry receipts and logs remain unchanged. Opening another device does not rotate access. Legacy coded links retain their contract.
+- **Limits and history:** one panel counts once toward the existing five active search-link limit. Up to 100 distinct games per panel bounds its transport/context. Every selected game must be ready before ingress and persistence. Revoke atomically clears every child; history remains per game and the owner selects the game's existing log/review/replay.
+- **Tunnel:** retain the current shared Quick Tunnel. A new origin produces a new URL for the same session using the owner's locally cached key, without extending expiry or changing membership. No stable hostname, new provider or uptime guarantee. Missing owner key or a lost create response is handled by listing/revoking the inaccessible link and creating a new one.
+- **Execution gates:** the original 3–5 hour scope included tests and operator Claude review. On 2026-10-16 the operator explicitly omitted the audit, approved migration 0155 on the operator database, integration into literal main, and removal of the named branch/worktree after preserving evidence. No Claude Code audit is run and no audit PASS is asserted. Services remain under operator control; no push or automatic startup.
+- **Source:** operator answers and scope/budget approval in this chat; TASK-0991 and MULTI_GAME_BOARD_SEARCH_SHARE_EXECUTION_PLAN_20261013.md.
 
 ## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
 
@@ -370,85 +382,3 @@ Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
   geometry engine; the D-521 symbol-model pilot scope is unchanged.
 - **Source:** operator instructions in the conversation of 2026-10-11;
   ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md.
-
-## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
-
-- **Date:** 2026-10-10 (decyzje operatora W7–W9 z 2026-10-09; implementacja TASK-0970, TASK-0971).
-- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
-  (v1.7.295–v1.7.296), wymaga migracji `0154_geometry_correction_revert` wykonanej
-  przez operatora. **Zmienia D-238.**
-- **Odrzucenie slotu odroczonego:** operator odrzuca w Reviewerze („Korekta cięcia
-  siatki” → „Odrzuć planszę”) slot `pending` z powodem `cropped` („Plansza
-  przycięta”), `blurred` albo `other` (z wymaganym opisem). Slot dostaje status
-  `rejected` (`rejection_reason`, `rejection_note`, `rejected_at`, `rejected_by`,
-  CHECK cyklu życia) i znika z kolejki korekty; nie jest cięty na symbole.
-- **Trwałe zdarzenia odrzuceń slotów:** każde odrzucenie, jego cofnięcie i
-  zastąpienie przez zamiennik zapisuje append-only wiersz tabeli gry
-  `image_board_geometry_pending_events` (klucz idempotencji, suma kontrolna
-  polecenia, `rejection_revision`, aktor, akcje `rejected` / `rejection_reverted` /
-  `superseded` z `successor_review_item_id`). Slot po cofnięciu zapomina
-  odrzucenie (CHECK), zdarzenia je pamiętają: ten sam klucz i polecenie odtwarza
-  zapisany wynik także po cofnięciu, inny klucz dla odrzuconego slotu daje 409
-  `IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`, a stare żądanie cofnięcia nie
-  cofa nowszego odrzucenia (`GEOMETRY_REVERT_NOT_LATEST`).
-- **Odrzucenie istniejącej planszy:** istniejące rozstrzygnięcie `rejected` z
-  powodem (`cropped` / `blurred` / `other: <opis>`); kanoniczny właściciel
-  sekwencji zawsze dostaje 409 `BOARD_REJECT_CANONICAL` (przejęcie kanonu to
-  TASK-0305). Odrzucona pozycja wypada z weryfikacji symboli, liczników,
-  operacji zbiorczych i wyszukiwarki (predykat widoczności wyklucza komórki
-  pozycji `rejected`; wiersze i zdarzenia zostają jako historia; liczniki są
-  zwalniane przy wejściu w `rejected` i przywracane przy każdym wyjściu).
-- **Bramka bez zmian (W8):** odrzucona pozycja liczy się jak brak planszy (D-484);
-  całe zdjęcie czeka na zamiennik albo wyjątek operatora.
-- **Cofnięcie odrzucenia:** odrzucenia są na liście „Ostatnie korekty” i można je
-  cofnąć (slot wraca do `pending`, pozycja wraca do `pending` zdarzeniem
-  `reopened`), dopóki sekwencja nie ma żywej pozycji innego zdjęcia
-  (`GEOMETRY_REVERT_REPLACED`).
-- **Reguła własności sekwencji (zmienia D-238 „najnowszy import zastępuje
-  nierozwiązaną planszę”):** nowa plansza przejmuje sekwencję, gdy ta nie ma
-  żywego właściciela albo właściciel jest odrzucony (pozycja `rejected` lub slot
-  `rejected`). Gdy właścicielem jest żywa pozycja `pending` innego zdjęcia (inna
-  checksuma źródła), nowa plansza dostaje `superseded` i alternatywę
-  `superseded_existing_owner_kept`. Kanoniczny właściciel wygrywa jak dotąd
-  (first-save-wins z alternatywą). Ta sama checksuma zdjęcia (ponowne
-  przetworzenie) zachowuje porządek D-238. Reguła jest jedną czystą funkcją
-  (`domain/sequence_takeover.py`) stosowaną w jednym miejscu
-  (`storage/pending_sequence_ownership.create_owned_pending_review_item`) przez API
-  i workera.
-- **Ochrona lateralna:** `has_protected_lateral_owner` nadal chroni właściciela.
-  Gdy ochronę dają wyłącznie wiersze innego zdjęcia, a zachowywany właściciel
-  jest pewny (kanoniczny albo wszystkie chronione wiersze `pending`), worker nie
-  pomija pliku, tylko przechodzi przez wspólną regułę (kanon → first-save-wins,
-  żywa pozycja → nowa plansza `superseded` z alternatywą i licznikiem
-  „Pominięte”). Ochrona tego samego zdjęcia — pominięcie jak dotąd.
-- **Sprzątanie po przejęciu (ta sama transakcja):** odrzucony slot starego
-  zdjęcia przechodzi do `superseded` (pola odrzucenia zostają jako historia) ze
-  zdarzeniem `superseded`; bramki zdjęć z odrzuconą pozycją/slotem tej sekwencji
-  i zdjęć `geometry_incomplete`, których rewizja źródła obejmuje numer, są
-  przeliczane, a dopuszczone zdjęcia cięte istniejącą ścieżką (w workerze na
-  końcu transakcji). Przejmowane komórki pociętej, odrzuconej planszy przechodzą
-  do nowej planszy jako sugestie (reguła recropu D-462 bez kontroli ciągłości
-  rewizji); zatwierdzenie przechodzi tylko przy tej samej tożsamości cropa.
-  Raport importu pokazuje „Zastąpione sekwencje” i „Pominięte — sekwencja ma
-  właściciela” (`sequenceOwnership`).
-- **Blokada własności gry i globalna kolejność blokad:** transakcyjna blokada
-  doradcza `(game_id, 'sequence-ownership')` w trybie czytelnik/pisarz
-  (`storage/sequence_ownership_lock.py`): `EXCLUSIVE` bierze każdy zapis, który
-  może przejąć sekwencję albo przeliczyć bramkę innego zdjęcia (projekcja i
-  `resolve_board` workera, zapis siatki zdjęcia i planszy, konwersja legacy,
-  odrzucenie slotu, cofnięcia, bezpośrednie rozstrzygnięcie, operacje zbiorcze,
-  wyjątek geometrii); `SHARED` — decyzje komórek (`EXCLUSIVE`, gdy możliwe jest
-  zastąpienie cudzej pozycji). Brak podnoszenia trybu: `EXCLUSIVE` przy trzymanym
-  `SHARED` → 409 `SEQUENCE_OWNERSHIP_LOCK_UPGRADE`. Kolejność dla wszystkich
-  uczestników: klucz idempotencji albo dzierżawa joba (`FOR NO KEY UPDATE`) →
-  własność → wiersz gry → sekwencje → `source_images` (rosnąco, jednym
-  zapytaniem) → plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
-  `image_symbol_review_states` → komórki. Odstępstwa są opisane w
-  `DATA_MODEL.md` i działają wyłącznie pod `EXCLUSIVE`.
-- **Konsekwencje:** ponowny import innego zdjęcia nie zastępuje już żywej
-  pozycji `pending`; operator musi ją najpierw odrzucić (raport importu to
-  pokazuje). Ryzyka przyjęte w audycie zastępczym TASK-0971 (5 × P2) czekają na
-  ponowny audyt Codex.
-- **Source:** decyzje operatora W7–W9 (2026-10-09) w
-  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
-  TASK-0970 i TASK-0971.

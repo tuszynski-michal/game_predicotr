@@ -702,6 +702,41 @@ wyłącznie do odczytu.
 
 ### Udostępnianie wyszukiwania online
 
+**D-548 / TASK-0991 — zakładka „Udostępnianie”.** Operator wybiera gry
+z obecnego katalogu niearchiwalnych gier (także gotowe drafty), nazwę linku
+i ważność 1/4/8/24/48/72 h, domyślnie 8 h. Jeden link otwiera panel odbiorcy
+bez ręcznego kodu. Lista wybranych gier pozostaje stała. Każda gra musi mieć
+gotową wyszukiwarkę i opublikowane reguły; niegotowa gra blokuje utworzenie
+całego linku z komunikatem wskazującym grę. Pojedynczy panel obejmuje do
+100 gier, jako jawny limit transportu i rozmiaru kontekstu.
+
+Odbiorca wybiera grę i korzysta z dokładnie tego samego wspólnego UI:
+wzoru, zakresu, liczby wyników, karuzeli, przybliżonej wygranej, wykresu,
+stawek, linii i poprawiania symboli. Zmiana gry otwiera świeży wzór jak
+w obecnym Adminie. Cache i niepotwierdzone poprawki są odseparowane per
+sesja gry; powrót do gry pozwala ponowić dokładnie poprzedni zapis po
+utracie odpowiedzi lub odświeżeniu. Zapytania i poprawki są rejestrowane.
+
+Każdy posiadacz linku ma dostęp do danych i poprawek wybranych gier.
+Losowy sekret znajduje się we fragmencie URL, jest usuwany po jego odczycie
+i wymieniany na osobne HttpOnly cookie panelu. Nie trafia do Referer ani
+zapytań URL. Ponowne otwarcie linku przez kolejnego odbiorcę nie wyrzuca
+poprzedniego. Dziennik operatora wybiera grę, zachowuje dotychczasowy
+przegląd poprawek oraz odtworzenie wyszukiwania. „Zatrzymaj link”, po
+potwierdzeniu, odwołuje wszystkie jego gry i zachowuje historię.
+
+Limit pięciu aktywnych linków wyszukiwarki obejmuje również panele,
+liczone po jednym. Obecny Quick Tunnel pozostaje współdzielony. Zmiana
+adresu tunelu nie przedłuża ważności: operator odświeża listę i kopiuje
+nowy adres tej samej sesji z lokalnie zachowanym sekretem. Brak tej kopii
+w przeglądarce wymaga zatrzymania i utworzenia nowego linku. Po utracie
+odpowiedzi tworzenia operator odświeża listę, zatrzymuje link bez sekretu
+i tworzy następny. Stały adres i gwarancja dostępności przez 72 h są poza
+zakresem. Dotychczasowe linki jednej gry z kodem zachowują swój kontrakt.
+
+Kod TASK-0991 jest w izolowanym worktree i czeka na audyt Claude operatora
+oraz osobno uzgodnioną migrację0155. Ten opis nie oznacza wdrożenia.
+
 **D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`; panel
 TASK-0769, aplikacja odbiorcy w Reviewerze TASK-0768).** Przycisk
 „Udostępnij online” w nagłówku sekcji „Wyszukaj plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla

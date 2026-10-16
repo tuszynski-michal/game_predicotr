@@ -199,6 +199,12 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-management-session", "management-session:{session_id}"
     ),
     # D-471: a share link exposes one game's board search online.
+    ("POST", "/api/v1/admin/board-search-panels"): HighImpactOperation(
+        "create-board-search-panel", "board-search-panel:new"
+    ),
+    ("POST", "/api/v1/admin/board-search-panels/{panel_id}/revoke"): HighImpactOperation(
+        "revoke-board-search-panel", "board-search-panel:{panel_id}"
+    ),
     (
         "POST",
         "/api/v1/admin/board-search-shares/sessions",

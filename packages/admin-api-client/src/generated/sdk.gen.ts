@@ -81,6 +81,9 @@ import type {
   CorrectPublicManagementBoardCellData,
   CorrectPublicManagementBoardCellErrors,
   CorrectPublicManagementBoardCellResponses,
+  CreateBoardSearchPanelData,
+  CreateBoardSearchPanelErrors,
+  CreateBoardSearchPanelResponses,
   CreateBoardSearchShareSessionData,
   CreateBoardSearchShareSessionErrors,
   CreateBoardSearchShareSessionResponses,
@@ -282,6 +285,9 @@ import type {
   GetBoardSearchBoardViewData,
   GetBoardSearchBoardViewErrors,
   GetBoardSearchBoardViewResponses,
+  GetBoardSearchPanelContextData,
+  GetBoardSearchPanelContextErrors,
+  GetBoardSearchPanelContextResponses,
   GetBoardSearchShareApproximateWinData,
   GetBoardSearchShareApproximateWinErrors,
   GetBoardSearchShareApproximateWinResponses,
@@ -579,6 +585,9 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchPanelsData,
+  ListBoardSearchPanelsErrors,
+  ListBoardSearchPanelsResponses,
   ListBoardSearchShareCorrectionsData,
   ListBoardSearchShareCorrectionsErrors,
   ListBoardSearchShareCorrectionsResponses,
@@ -774,6 +783,9 @@ import type {
   MutateV7LabelGeometryCalibrationSessionData,
   MutateV7LabelGeometryCalibrationSessionErrors,
   MutateV7LabelGeometryCalibrationSessionResponses,
+  OpenBoardSearchPanelData,
+  OpenBoardSearchPanelErrors,
+  OpenBoardSearchPanelResponses,
   OpenLocalReviewerWorkData,
   OpenLocalReviewerWorkErrors,
   OpenLocalReviewerWorkResponses,
@@ -960,6 +972,9 @@ import type {
   ReviewBoardSearchShareCorrectionData,
   ReviewBoardSearchShareCorrectionErrors,
   ReviewBoardSearchShareCorrectionResponses,
+  RevokeBoardSearchPanelData,
+  RevokeBoardSearchPanelErrors,
+  RevokeBoardSearchPanelResponses,
   RevokeBoardSearchShareSessionData,
   RevokeBoardSearchShareSessionErrors,
   RevokeBoardSearchShareSessionResponses,
@@ -1150,6 +1165,66 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List Panels
+ */
+export const listBoardSearchPanels = <ThrowOnError extends boolean = false>(
+  options?: Options<ListBoardSearchPanelsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchPanelsResponses,
+  ListBoardSearchPanelsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchPanelsResponses,
+    ListBoardSearchPanelsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-panels', ...options });
+
+/**
+ * Create
+ */
+export const createBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<CreateBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchPanelResponses,
+  CreateBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchPanelResponses,
+    CreateBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-panels',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Revoke
+ */
+export const revokeBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchPanelResponses,
+  RevokeBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchPanelResponses,
+    RevokeBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-panels/{panel_id}/revoke',
+    ...options,
+  });
 
 /**
  * Delete one query log entry; a search takes its follow-up entries with it
@@ -8094,6 +8169,47 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/worker-lanes', ...options });
+
+/**
+ * Context
+ */
+export const getBoardSearchPanelContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchPanelContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchPanelContextResponses,
+  GetBoardSearchPanelContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchPanelContextResponses,
+    GetBoardSearchPanelContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-panels/{panel_id}/context', ...options });
+
+/**
+ * Open Panel
+ */
+export const openBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<OpenBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  OpenBoardSearchPanelResponses,
+  OpenBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenBoardSearchPanelResponses,
+    OpenBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-panels/{panel_id}/open',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Calculate the approximate win for a range of the shared game

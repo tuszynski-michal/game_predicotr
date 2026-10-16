@@ -14,6 +14,17 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-548 — Panel wyszukiwarki wielu gier przez link bez kodu
+
+- **Date:** 2026-10-13.
+- **Status:** accepted by explicit operator instructions in this conversation.
+- **Decision:** add the Admin tab "Udostępnianie": an immutable selection from the existing non-archived game catalog, one capability link without a typed code, and the complete existing search UI including symbol corrections. Lifetime stays at most 72 hours; default 8 hours. Anybody holding the link has these rights.
+- **Scope and credentials:** an additive parent panel groups existing single-game child sessions. The server stores only hashes; a long random key in the URL fragment is exchanged for separate per-panel-path HttpOnly/Secure/SameSite cookies. Child credentials are domain-separated HMAC-SHA256 over parent and child UUIDs, so all existing game-scoped reads, corrections, retry receipts and logs remain unchanged. Opening another device does not rotate access. Legacy coded links retain their contract.
+- **Limits and history:** one panel counts once toward the existing five active search-link limit. Up to 100 distinct games per panel bounds its transport/context. Every selected game must be ready before ingress and persistence. Revoke atomically clears every child; history remains per game and the owner selects the game's existing log/review/replay.
+- **Tunnel:** retain the current shared Quick Tunnel. A new origin produces a new URL for the same session using the owner's locally cached key, without extending expiry or changing membership. No stable hostname, new provider or uptime guarantee. Missing owner key or a lost create response is handled by listing/revoking the inaccessible link and creating a new one.
+- **Execution gates:** the original 3–5 hour scope included tests and operator Claude review. On 2026-10-16 the operator explicitly omitted the audit, approved migration 0155 on the operator database, integration into literal main, and removal of the named branch/worktree after preserving evidence. No Claude Code audit is run and no audit PASS is asserted. Services remain under operator control; no push or automatic startup.
+- **Source:** operator answers and scope/budget approval in this chat; TASK-0991 and MULTI_GAME_BOARD_SEARCH_SHARE_EXECUTION_PLAN_20261013.md.
+
 ## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
 
 - **Date:** 2026-10-13.

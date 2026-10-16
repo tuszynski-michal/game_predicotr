@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # Current State
@@ -22,6 +22,8 @@ ograniczenia”. Lead dopisuje hashe commitów jak dotychczas. Spójność okna
 sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`).
 
 ## Obowiązujące ograniczenia
+
+- **Panel wielu gier / TASK-0991 (2026-10-16):** operator jawnie pominął audyt, zatwierdził migrację 0155, scalenie do literalnego main i usunięcie gałęzi/worktree po zabezpieczeniu dowodów. Usługi zatrzymuje operator. Migracja 0155 wykonana; integrację i cleanup rozlicza sekcja done. Poprzednie oczekiwanie na Claude zostało uchylone. Kolizja numeru TASK-0991 z naprawą symboli: identyfikować pełną ścieżką taska.
 
 - **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Operator zaakceptował wynik i wskazał `main`: scalenie fast-forward wykonane do v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`; bez push.
 
@@ -878,6 +880,12 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0991 — Panel udostępniania wielu gier (done, 2026-10-16)
+
+- Task: `ai_docs/tasks/completed/0991-multi-game-board-search-share.md` (odrębny od naprawy symboli o tym samym numerze). Zakładka Udostępnianie, wybór wielu gier, link bez kodu do 72 h, obecne wyszukiwanie/poprawki/logi, wspólny tunel.
+- Operator jawnie pominął audyt oraz zatwierdził migrację 0155, main merge i usunięcie gałęzi/worktree. Brak audytu PASS. Migracja wykonana: 24 stare sesje identyczne; FK i indeks valid. Backup schematu i zmienianych tabel oraz dowody poza worktree: `artifacts/branch-integration/multi-game-share-20261016-4e7f3eb0/`. Nie jest to pełna kopia 124 GiB danych.
+- Weryfikacja pierwotna: 84 Python, 44 Node, 10 interakcji, lint/typecheck/build/OpenAPI/docs/mapa PASS. Na aktualnej bazie main ponowiono 27 testów panelu/schematu PASS. Integracja, hash commita i cleanup są rozliczane po wykonaniu. Usługi nieuruchamiane przez agenta; Reviewer 3001 wymaga ręcznego restartu po buildzie. Bez push i fizycznego odbioru sieci zewnętrznej.
+
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
 
 - Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
@@ -950,11 +958,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
 - Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
 - Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.
-
-### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
-
-- Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wykonanie v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
-- Identity ma najwyżej dwie świeże próby tylko po timeout, unknown failclosed; bounded telemetry bez identity/PID/path. Obcy lock po dwóch timeoutach bajtowo zachowany.
-- Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
-- 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
-- Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.

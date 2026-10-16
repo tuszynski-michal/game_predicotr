@@ -10468,3 +10468,78 @@ div.imageJobInlineError {
 .catalog-panel select {
   min-height: 44px;
 }
+
+.sharingWorkspace,
+.sharingWorkspace fieldset,
+.sharingLinkCard {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sharingWorkspace fieldset,
+.sharingLinkCard {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.sharingWorkspace label {
+  display: grid;
+  gap: 8px;
+}
+
+.sharingWorkspace .sharingGameOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.sharingWorkspace input:not([type='checkbox']),
+.sharingWorkspace select,
+.sharingWorkspace button {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+  font: inherit;
+}
+
+.sharingWorkspace button {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.sharingWorkspace button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sharingWorkspace .primaryButton {
+  color: var(--background);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.sharingWorkspace h1 {
+  font-size: clamp(26px, 3vw, 38px);
+}
+
+.sharingWorkspace p,
+.sharingWorkspace h1,
+.sharingWorkspace h2,
+.sharingLinkCard h3 {
+  margin: 0;
+}
+
+.sharingWorkspace input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-strong);
+}

@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Literal, cast
@@ -303,6 +303,38 @@ def _load_page_geometry_manifest(
         except (ValueError, TypeError, KeyError) as error:
             raise JobError("IMAGE_PAGE_GEOMETRY_MANIFEST_INVALID", str(error)) from error
     return cast(dict[str, object], value)
+
+
+def _neural_unbound_source_counts(
+    manifest: dict[str, object],
+    *,
+    excluded_checksums: Collection[str],
+) -> tuple[int, int]:
+    """Count V3 sources an import skips because no slot binding exists (TASK-1041).
+
+    Returns the source count and the board count of their attested filename
+    ranges. Operator-excluded sources are not imported at all, so they are not
+    counted; `skipped_human_resolved` sources are already canonical.
+    """
+
+    if manifest.get("schemaVersion") != NEURAL_GRID_MANIFEST_SCHEMA_VERSION:
+        return 0, 0
+    sources = boards = 0
+    for source_sha, entry in cast(dict[str, object], manifest["entries"]).items():
+        if (
+            source_sha in excluded_checksums
+            or not isinstance(entry, dict)
+            or entry.get("status") != "slot_binding_required"
+        ):
+            continue
+        sources += 1
+        proposal = entry.get("neuralProposal")
+        original = proposal.get("originalRange") if isinstance(proposal, dict) else None
+        start = original.get("sequenceRangeStart") if isinstance(original, dict) else None
+        end = original.get("sequenceRangeEnd") if isinstance(original, dict) else None
+        if isinstance(start, int) and isinstance(end, int) and end >= start:
+            boards += end - start + 1
+    return sources, boards
 
 
 def _uses_touching_page_grid(raw_override: object) -> bool:
@@ -653,6 +685,8 @@ def create_image_imports_router(
             geometry_engine_variant=geometry_engine_variant,
         )
         confirmed_ranges: dict[str, tuple[int, int] | None] | None = None
+        unbound_source_count = unbound_board_count = 0
+        unbound_count_job_id: UUID | None = None
         if (
             existing_geometry_preflight is not None
             and existing_geometry_preflight.status is JobStatus.COMPLETED
@@ -668,6 +702,10 @@ def create_image_imports_router(
             )
             if descriptor is not None:
                 neural_manifest = _load_page_geometry_manifest(resolved_artifact_root, descriptor)
+                unbound_source_count, unbound_board_count = _neural_unbound_source_counts(
+                    neural_manifest, excluded_checksums=exclusions
+                )
+                unbound_count_job_id = existing_geometry_preflight.id
                 confirmed_ranges = {}
                 for source_sha, entry in cast(
                     dict[str, object], neural_manifest["entries"]
@@ -844,6 +882,9 @@ def create_image_imports_router(
             existing_import_job=(
                 None if existing_import is None else JobResponse.from_domain(existing_import)
             ),
+            neural_unbound_source_count=unbound_source_count,
+            neural_unbound_attested_board_count=unbound_board_count,
+            neural_unbound_count_preflight_job_id=unbound_count_job_id,
         )
 
     @router.post(
@@ -1249,6 +1290,26 @@ def create_image_imports_router(
                 raise JobConflictError(
                     "IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED",
                     "The page geometry preflight requires manual correction before import.",
+                )
+            # TASK-1041: a V3 import skips sources without a slot binding. It
+            # starts (or replays) only after the operator confirms that exact
+            # count, so the skip is never silent.
+            unbound_source_count, _ = _neural_unbound_source_counts(
+                geometry_manifest_contents, excluded_checksums=source_exclusions
+            )
+            confirmed_unbound = payload.confirmed_neural_unbound_source_count
+            if (
+                unbound_source_count > 0 or confirmed_unbound is not None
+            ) and confirmed_unbound != unbound_source_count:
+                raise JobConflictError(
+                    "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED",
+                    f"{unbound_source_count} V3 source(s) have no board slot binding and are "
+                    "skipped by this import. Bind them first or confirm skipping exactly "
+                    "this count.",
+                    details={
+                        "unboundSourceCount": unbound_source_count,
+                        "confirmedUnboundSourceCount": confirmed_unbound,
+                    },
                 )
             if effective_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
                 from game_predictor_worker.images.pipeline_execution import (

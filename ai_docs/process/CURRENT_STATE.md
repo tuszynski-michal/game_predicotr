@@ -54,6 +54,7 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1041** — Zdjęcia V3 bez przypisania plansz są jawne — v1.7.388 — tasks/completed/1041-v3-import-unbound-photos-visible.md
 - **TASK-1040** — Hooki Claude Code i subagent `repo-explorer` — v1.7.386 / `ce72b7e7` — tasks/completed/1040-claude-code-hooks-and-explorer.md
 - **TASK-1033** — `README.md` ≤ 5 000 B i `DOC_INDEX.md` — v1.7.382 / `ed25cd1c` — tasks/completed/1033-readme-doc-index.md
 - **TASK-1032** — `AGENTS.md` ≤ 14 000 B — v1.7.381 / `676f22f4` — tasks/completed/1032-agents-md-slimming.md
@@ -63,4 +64,3 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
 - **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md
-- **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md

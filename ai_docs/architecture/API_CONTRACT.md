@@ -1,10 +1,32 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-16
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Zdjęcia V3 bez przypisania plansz — TASK-1041
+
+Addytywne pola istniejących operacji, bez nowych tras i migracji:
+
+- `previewReadyBrowserImageImport` zwraca `neuralUnboundSourceCount`,
+  `neuralUnboundAttestedBoardCount` i `neuralUnboundCountPreflightJobId` z
+  zamrożonego manifestu ostatniego ukończonego preflightu V3 (wpisy
+  `slot_binding_required`, bez źródeł wykluczonych przez operatora). Bez takiego
+  preflightu pola mają wartości `0`, `0`, `null`.
+- `startReadyBrowserImageImport` przyjmuje `confirmedNeuralUnboundSourceCount`.
+  Gdy przypięty manifest V3 ma N > 0 takich źródeł albo potwierdzenie jest
+  podane, musi ono równać się N; inaczej 409
+  `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED` z `details`
+  `unboundSourceCount` i `confirmedUnboundSourceCount`, zanim powstanie lub
+  zostanie zwrócony job.
+- `JobResponse.progress.neuralUnboundSources` (tylko job importu z pominiętymi
+  źródłami): `sourceCount`, `attestedBoardCount`, `reasonCounts`,
+  `reportChecksumSha256`, `reportRelativePath` i `sample` (≤ 20 pozycji:
+  `sourceRelativePath`, `sequenceRangeStart`, `sequenceRangeEnd`, `reasonCode`).
+  Pełna lista leży w niezmiennym raporcie pod `reportRelativePath` w katalogu
+  artefaktów.
 
 ## Shadow siatek V3 — TASK-0805
 

@@ -772,6 +772,47 @@ test('generated client starts a ready browser import with checksum-bound geometr
   assert.deepEqual(await captured.json(), body);
 });
 
+test('generated client sends the V3 unbound-source confirmation unchanged (TASK-1041)', async () => {
+  let captured;
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const uploadId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    preflightChecksumSha256: 'b'.repeat(64),
+    geometryPreflightJobId: '44444444-4444-4444-8444-444444444444',
+    geometryManifestChecksumSha256: 'c'.repeat(64),
+    confirmedNeuralUnboundSourceCount: 1962,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json(
+        {
+          code: 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+          message: 'confirm',
+          details: { unboundSourceCount: 1962 },
+        },
+        { status: 409 },
+      );
+    },
+  });
+
+  const result = await client.startReadyBrowserImageImport(uploadId, body);
+
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/browser-selections/${uploadId}/start`,
+  );
+  assert.deepEqual(await captured.json(), body);
+  assert.equal(
+    result.error.code,
+    'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+  );
+  assert.equal(result.error.details.unboundSourceCount, 1962);
+});
+
 test('generated client reprocesses a managed image import with explicit confirmation', async () => {
   let captured;
   const sourceJobId = '22222222-2222-4222-8222-222222222222';

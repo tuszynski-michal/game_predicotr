@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1041 — Zdjęcia V3 bez przypisania plansz są jawne (done)
+
+- Plik: `ai_docs/tasks/completed/1041-v3-import-unbound-photos-visible.md`; zlecenie sesji operatora po imporcie 777a2 (staging `60a7bc4d`: 1962 z 2200 zdjęć `slot_binding_required` pominięte bez śladu). Commit **v1.7.388**.
+- Polityka wiązania bez zmian. Preflight raportu podaje `neuralUnboundSourceCount` i plansze zakresów; start bez potwierdzenia dokładnej liczby → 409 `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED` (także replay). Worker zapisuje raport `data/image-import-unbound-sources/{jobId}.json` i `progress.neuralUnboundSources`. Admin: ostrzeżenie, „Przypisz plansze ręcznie”, checkbox „Importuj bez tych N zdjęć”, wiersz „Pominięte bez przypisania plansz” w liście importów.
+- 207 testów API/workera, 83 klienta, 738 Admina PASS; ruff, mypy --strict, typecheck Admina PASS. Bez migracji; po scaleniu restart API, workera i Admina.
+
 ### TASK-1040 — Hooki Claude Code i subagent `repo-explorer` (done)
 
 - Plik: `ai_docs/tasks/completed/1040-claude-code-hooks-and-explorer.md`; wybór operatora z analizy `claude-code-setup` (2026-10-16). Commit **v1.7.386 / `ce72b7e7f9aae165257c887bdc0484f5e27126b0`**.

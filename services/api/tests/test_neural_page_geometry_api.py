@@ -637,6 +637,11 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert preflight["geometryPreflightArtifactReady"] is True, preflight
     assert preflight["newSequenceCount"] == 0, json.dumps(preflight)
     assert preflight["geometryPreflightArtifactReady"] is True
+    # TASK-1041: the unbound source is reported before start and skipping it
+    # needs an explicit confirmation of that exact count.
+    assert preflight["neuralUnboundSourceCount"] == 1
+    assert preflight["neuralUnboundAttestedBoardCount"] == 5
+    assert preflight["neuralUnboundCountPreflightJobId"] == str(job.id)
     command = {
         "gameId": str(game_id),
         "manifestChecksumSha256": "b" * 64,
@@ -645,7 +650,14 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         "geometryManifestChecksumSha256": checksum,
         "startMode": "rerun_current_models",
     }
-    started = client.post(prefix + "/start", json=command)
+    for unconfirmed in (command, {**command, "confirmedNeuralUnboundSourceCount": 2}):
+        with pytest.raises(JobConflictError) as refused:
+            client.post(prefix + "/start", json=unconfirmed)
+        assert refused.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
+        assert refused.value.details["unboundSourceCount"] == 1
+    assert not [job for job in repository.items.values() if job.job_type is JobType.IMPORT]
+    confirmed_command = {**command, "confirmedNeuralUnboundSourceCount": 1}
+    started = client.post(prefix + "/start", json=confirmed_command)
     assert started.status_code == 201, started.text
     assert started.json()["created"] is True
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
@@ -655,7 +667,10 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
         == "neural-auto-crop-v1"
     )
-    replay = client.post(prefix + "/start", json=command)
+    with pytest.raises(JobConflictError) as replay_refused:
+        client.post(prefix + "/start", json=command)
+    assert replay_refused.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
+    replay = client.post(prefix + "/start", json=confirmed_command)
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]
@@ -683,6 +698,19 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     updated_report = client.post(prefix + "/preflight", json={"gameId": str(game_id)})
     assert updated_report.status_code == 200, updated_report.text
     assert updated_report.json()["newSequenceCount"] == 5
+    # A fully bound manifest needs no confirmation; a stale one is refused.
+    assert updated_report.json()["neuralUnboundSourceCount"] == 0
+    with pytest.raises(JobConflictError) as stale_confirmation:
+        client.post(
+            prefix + "/start",
+            json={
+                **confirmed_command,
+                "preflightChecksumSha256": updated_report.json()["preflightChecksumSha256"],
+                "geometryPreflightJobId": str(updated_job.id),
+                "geometryManifestChecksumSha256": updated_sha,
+            },
+        )
+    assert stale_confirmation.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
     updated_command = {
         **command,
         "preflightChecksumSha256": updated_report.json()["preflightChecksumSha256"],

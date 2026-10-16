@@ -513,3 +513,29 @@ test('polls board import coverage only while an import job is active', () => {
   assert.match(missingBoardsSectionSource, /window\.clearInterval/);
   assert.match(missingBoardsSectionSource, /POLL_INTERVAL_MS = 15_000/);
 });
+
+test('V3 unbound sources are shown, confirmed and reported instead of skipped silently (TASK-1041)', () => {
+  // Before start: count, explicit checkbox and a way to bind a sample manually.
+  assert.match(panelSource, /zdjęć nie ma przypisania plansz/);
+  assert.match(panelSource, /Importuj bez tych/);
+  assert.match(
+    panelSource,
+    /setNeuralPreviewJobId\(geometryPreflightJob\.id\)/,
+  );
+  assert.match(
+    panelSource,
+    /neuralUnboundSkipConfirmed: neuralUnboundSkipAccepted/,
+  );
+  assert.match(
+    panelSource,
+    /neuralUnboundSourceCount > 0 \? neuralUnboundSourceCount : undefined/,
+  );
+  assert.match(
+    panelSource,
+    /result\.code === 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED'/,
+  );
+  // After start: the import list shows the durable skip summary.
+  assert.match(panelSource, /job\.progress\.neuralUnboundSources/);
+  assert.match(panelSource, /neuralUnboundSourcesLabel\(/);
+  assert.match(globalStyles, /\.neuralUnboundSourcesWarning \{/);
+});

@@ -950,6 +950,24 @@ class ImageImportPipelineProgressResponse(ApiModel):
     review_sources: int = Field(ge=0)
 
 
+class NeuralUnboundSourceResponse(ApiModel):
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    sequence_range_start: int | None = Field(default=None, ge=1)
+    sequence_range_end: int | None = Field(default=None, ge=1)
+    reason_code: str = Field(min_length=1, max_length=120)
+
+
+class NeuralUnboundSourcesJobProgressResponse(ApiModel):
+    """TASK-1041: V3 sources the import skipped because no slot binding exists."""
+
+    source_count: int = Field(ge=1)
+    attested_board_count: int = Field(ge=0)
+    reason_counts: dict[str, int]
+    report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    report_relative_path: str = Field(min_length=1, max_length=2048)
+    sample: list[NeuralUnboundSourceResponse]
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -958,6 +976,10 @@ class JobProgressResponse(ApiModel):
     failed: int
     review: int
     image_import: ImageImportPipelineProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    neural_unbound_sources: NeuralUnboundSourcesJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
@@ -1078,6 +1100,7 @@ class JobResponse(ApiModel):
                 board_cell_geometry=_board_cell_geometry_progress(job),
                 geometry_systemic_guard=_geometry_systemic_guard_progress(job),
                 image_import=_image_import_progress(job),
+                neural_unbound_sources=_neural_unbound_sources_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -1187,6 +1210,22 @@ def _image_import_progress(job: Job) -> ImageImportPipelineProgressResponse | No
         return None
     try:
         return ImageImportPipelineProgressResponse.model_validate(raw)
+    except ValueError:
+        return None
+
+
+def _neural_unbound_sources_progress(
+    job: Job,
+) -> NeuralUnboundSourcesJobProgressResponse | None:
+    if job.job_type is not JobType.IMPORT or not job.checkpoint_payload:
+        return None
+    raw = job.checkpoint_payload.get("neural_unbound_sources")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return NeuralUnboundSourcesJobProgressResponse.model_validate(
+            {key: value for key, value in raw.items() if key != "version"}
+        )
     except ValueError:
         return None
 

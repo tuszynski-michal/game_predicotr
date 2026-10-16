@@ -76,9 +76,13 @@ import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
 import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
 import {
+  type NeuralUnboundSkipConfirmation,
   canResumeNeuralImport,
   isNeuralGeometryPreflight,
   neuralImportModelExportId,
+  neuralUnboundReasonLabel,
+  neuralUnboundSkipConfirmed,
+  neuralUnboundSourcesLabel,
   readySelectionHasNeuralImport,
 } from './neural-import-preflight-state';
 
@@ -280,6 +284,8 @@ export function ImageFolderImportPanel({
   const [neuralPreviewJobId, setNeuralPreviewJobId] = useState<string | null>(
     null,
   );
+  const [neuralUnboundConfirmation, setNeuralUnboundConfirmation] =
+    useState<NeuralUnboundSkipConfirmation | null>(null);
   const [pendingGeometryCorrectionState, setPendingGeometryCorrectionState] =
     useState<{
       readonly jobId: string;
@@ -392,6 +398,14 @@ export function ImageFolderImportPanel({
   const geometryManifestChecksum =
     activeBrowserGeometryPreflightJob?.progress.pageGeometryPreflight
       ?.geometryManifestChecksumSha256 ?? null;
+  const neuralUnboundSourceCount = preflight?.neuralUnboundSourceCount ?? 0;
+  const neuralUnboundSkipAccepted =
+    preflight !== null &&
+    neuralUnboundSkipConfirmed(
+      preflight,
+      geometryManifestChecksum,
+      neuralUnboundConfirmation,
+    );
   const failedGeometryGuardJob = useMemo(
     () =>
       readyUploadId === null ||
@@ -509,6 +523,8 @@ export function ImageFolderImportPanel({
       symbolModelAvailable:
         preflight.symbolModelReady ||
         (preflight.unclassifiedColdStartAllowed ?? false),
+      neuralUnboundSourceCount,
+      neuralUnboundSkipConfirmed: neuralUnboundSkipAccepted,
     });
 
   const refreshReadySelections = useCallback(async () => {
@@ -668,6 +684,53 @@ export function ImageFolderImportPanel({
       window.clearInterval(timer);
     };
   }, [api, geometryPreflightJobId, geometryPreflightJobStatus]);
+
+  // TASK-1041: the unbound-source count comes from the frozen manifest of a
+  // completed V3 preflight. A report fetched before that preflight finished
+  // names no (or another) counted job, so read the count once more.
+  const staleNeuralUnboundCountJobId =
+    preflight !== null &&
+    activeBrowserGeometryPreflightJob !== null &&
+    activeBrowserGeometryPreflightJob.status === 'completed' &&
+    isNeuralGeometryPreflight(activeBrowserGeometryPreflightJob) &&
+    preflight.neuralUnboundCountPreflightJobId !==
+      activeBrowserGeometryPreflightJob.id
+      ? activeBrowserGeometryPreflightJob.id
+      : null;
+  useEffect(() => {
+    if (staleNeuralUnboundCountJobId === null || readyUploadId === null) return;
+    let cancelled = false;
+    void (async () => {
+      const fresh = await previewReadyBrowserImageImport(
+        api,
+        readyUploadId,
+        gameId,
+        geometryEngineVariant,
+      );
+      if (cancelled || !fresh.ok) return;
+      setPreflight((current) =>
+        current === null || current.uploadId !== fresh.data.uploadId
+          ? current
+          : {
+              ...current,
+              neuralUnboundAttestedBoardCount:
+                fresh.data.neuralUnboundAttestedBoardCount,
+              neuralUnboundCountPreflightJobId:
+                fresh.data.neuralUnboundCountPreflightJobId,
+              neuralUnboundSourceCount: fresh.data.neuralUnboundSourceCount,
+            },
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    api,
+    gameId,
+    geometryEngineVariant,
+    readyUploadId,
+    staleNeuralUnboundCountJobId,
+  ]);
 
   useEffect(() => {
     if (
@@ -951,8 +1014,27 @@ export function ImageFolderImportPanel({
         geometryGuardResolutionManifest?.manifestChecksumSha256,
         geometryEngineVariant,
         preflight.symbolModelSnapshotFingerprint ?? undefined,
+        neuralUnboundSourceCount > 0 ? neuralUnboundSourceCount : undefined,
       );
       if (!result.ok) {
+        if (
+          result.code === 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED'
+        ) {
+          // The pinned manifest has a different unbound count than this
+          // report: show the current count and ask for a new confirmation.
+          setNeuralUnboundConfirmation(null);
+          const fresh = await previewReadyBrowserImageImport(
+            api,
+            readyUploadId,
+            gameId,
+            geometryEngineVariant,
+          );
+          if (fresh.ok) setPreflight(fresh.data);
+          setError(
+            'Liczba zdjęć bez przypisania plansz zmieniła się. Sprawdź ostrzeżenie i potwierdź pominięcie ponownie.',
+          );
+          return;
+        }
         setError(result.error);
         return;
       }
@@ -1938,6 +2020,69 @@ export function ImageFolderImportPanel({
                             )}
                           </span>
                         ) : null}
+                        {geometryPreflightJob?.status === 'completed' &&
+                        isNeuralGeometryPreflight(geometryPreflightJob) &&
+                        neuralUnboundSourceCount > 0 ? (
+                          <div
+                            aria-label="Zdjęcia bez przypisania plansz"
+                            className="neuralUnboundSourcesWarning"
+                            role="alert"
+                          >
+                            <p>
+                              <strong>
+                                {neuralUnboundSourceCount.toLocaleString(
+                                  'pl-PL',
+                                )}{' '}
+                                zdjęć nie ma przypisania plansz
+                              </strong>{' '}
+                              (status <code>slot_binding_required</code>):
+                              wykrycia sieci nie pasują jednoznacznie do plansz
+                              z zakresu w nazwie pliku. Import V3 pominie te
+                              zdjęcia — ich zakresy obejmują{' '}
+                              {(
+                                preflight.neuralUnboundAttestedBoardCount ?? 0
+                              ).toLocaleString('pl-PL')}{' '}
+                              plansz, które pozostaną brakami.
+                            </p>
+                            <div className="importActionButtons">
+                              <button
+                                className="secondaryButton"
+                                disabled={busy}
+                                onClick={() =>
+                                  setNeuralPreviewJobId(geometryPreflightJob.id)
+                                }
+                                type="button"
+                              >
+                                Przypisz plansze ręcznie
+                              </button>
+                              <label>
+                                <input
+                                  checked={neuralUnboundSkipAccepted}
+                                  disabled={busy}
+                                  onChange={(event) =>
+                                    setNeuralUnboundConfirmation(
+                                      event.target.checked
+                                        ? {
+                                            geometryManifestChecksumSha256:
+                                              geometryManifestChecksum,
+                                            sourceCount:
+                                              neuralUnboundSourceCount,
+                                            uploadId: preflight.uploadId,
+                                          }
+                                        : null,
+                                    )
+                                  }
+                                  type="checkbox"
+                                />{' '}
+                                Importuj bez tych{' '}
+                                {neuralUnboundSourceCount.toLocaleString(
+                                  'pl-PL',
+                                )}{' '}
+                                zdjęć
+                              </label>
+                            </div>
+                          </div>
+                        ) : null}
                         {replacementPreview?.uploadId === ready.uploadId &&
                         geometryPreflightJob === null &&
                         replacementPreview.source != null &&
@@ -2345,6 +2490,52 @@ export function ImageFolderImportPanel({
                     jobId={job.id}
                     technicalErrorCount={outcome?.failedImages ?? 0}
                   />
+                  {job.progress.neuralUnboundSources ? (
+                    <details className="neuralUnboundSourcesWarning">
+                      <summary>
+                        {neuralUnboundSourcesLabel(
+                          job.progress.neuralUnboundSources.sourceCount,
+                          job.progress.neuralUnboundSources.attestedBoardCount,
+                        )}
+                      </summary>
+                      <p>
+                        Powody:{' '}
+                        {Object.entries(
+                          job.progress.neuralUnboundSources.reasonCounts,
+                        )
+                          .map(
+                            ([reason, count]) =>
+                              `${neuralUnboundReasonLabel(reason)} — ${count.toLocaleString('pl-PL')}`,
+                          )
+                          .join(' · ')}
+                      </p>
+                      <ul>
+                        {job.progress.neuralUnboundSources.sample.map(
+                          (item) => (
+                            <li key={item.sourceRelativePath}>
+                              {item.sourceRelativePath}
+                              {item.sequenceRangeStart != null &&
+                              item.sequenceRangeEnd != null
+                                ? ` · plansze ${item.sequenceRangeStart}–${item.sequenceRangeEnd}`
+                                : ''}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                      <p>
+                        Pokazano{' '}
+                        {job.progress.neuralUnboundSources.sample.length} z{' '}
+                        {job.progress.neuralUnboundSources.sourceCount.toLocaleString(
+                          'pl-PL',
+                        )}
+                        . Pełna lista:{' '}
+                        <code>
+                          artifacts/
+                          {job.progress.neuralUnboundSources.reportRelativePath}
+                        </code>
+                      </p>
+                    </details>
+                  ) : null}
                   {job.status === 'failed' &&
                   job.error?.code === 'IMAGE_GEOMETRY_SYSTEMIC_REGRESSION' ? (
                     <button

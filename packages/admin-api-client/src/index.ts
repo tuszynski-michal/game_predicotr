@@ -977,6 +977,8 @@ export type {
   ImageSequenceSourceSelectionResponse,
   JobErrorResponse,
   JobProgressResponse,
+  NeuralUnboundSourceResponse,
+  NeuralUnboundSourcesJobProgressResponse,
   JobResponse,
   JobStatus,
   JobType,

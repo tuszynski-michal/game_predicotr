@@ -95,8 +95,8 @@ Zasady obowiązują wszystkich agentów, w tym subagentów, wykonawców i audyto
 Pilot TASK-0939 (do czasu pomiaru): kodu szukaj od
 `ai_docs/architecture/CODE_MAP.md`, potem `rg` na `CODE_MAP_SYMBOLS.md`, a plik
 otwieraj z `offset`/`limit` (plik ponad 200 KB tylko tak; hook `PreToolUse`).
-Szeroką eksplorację deleguj subagentowi na tańszym modelu, który zwraca ścieżkę,
-symbol, zakres linii i 1–3 zdania, nie zrzuty plików. Do promptów subagentów i
+Szeroką eksplorację deleguj subagentowi `repo-explorer` (tańszy model; zwraca
+ścieżkę, symbol, linie i 1–3 zdania, nie zrzuty plików). Do promptów subagentów i
 audytorów nie wklejaj całych dokumentów procesu; podaj ścieżkę i zakres. Task
 zmieniający moduły lub publiczne symbole regeneruje mapę
 (`scripts/generate_code_map.py`) w swoim commicie. Z włączonym MCP Serena

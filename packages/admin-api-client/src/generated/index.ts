@@ -2392,6 +2392,8 @@ export type {
   NeuralSourceBindingPayload,
   NeuralSourceProposalPayload,
   NeuralSourceRangePayload,
+  NeuralUnboundSourceResponse,
+  NeuralUnboundSourcesJobProgressResponse,
   OpenBoardSearchPanelData,
   OpenBoardSearchPanelError,
   OpenBoardSearchPanelErrors,

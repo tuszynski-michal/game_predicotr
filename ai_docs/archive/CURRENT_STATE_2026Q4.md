@@ -273,6 +273,18 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - [Task](../tasks/completed/1015-documentation-bootstrap.md); worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`. Oryginalna baza v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
 - Rewizja 6 i 23 taski utrwalone; pięć decyzji proposed. Nasz silnik acceptance TASK-1017 po zatwierdzonym rozwiązaniu kolizji z historycznym CLI TASK-1007. Audyt Claude PASS, brak P0/P1; P2-1/2/3 zamknięte, P2-4 ryzyko poza zakresem. Kontrole dokumentacji i środowiska PASS, bez zmian kodu/danych/usług.
 - Commit bootstrapu: **v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`**. TASK-1010 in_progress; integracja dopiero po całym planie i osobnej akceptacji.
+### TASK-1041 — Zdjęcia V3 bez przypisania plansz są jawne (done)
+
+- Plik: `ai_docs/tasks/completed/1041-v3-import-unbound-photos-visible.md`; zlecenie sesji operatora po imporcie 777a2 (staging `60a7bc4d`: 1962 z 2200 zdjęć `slot_binding_required` pominięte bez śladu). Commit **v1.7.388 / `c93eb54e9e64c315306defb1d18d64d51a18f959`**.
+- Polityka wiązania bez zmian. Preflight raportu podaje `neuralUnboundSourceCount` i plansze zakresów; start bez potwierdzenia dokładnej liczby → 409 `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED` (także replay). Worker zapisuje raport `data/image-import-unbound-sources/{jobId}.json` i `progress.neuralUnboundSources`. Admin: ostrzeżenie, „Przypisz plansze ręcznie”, checkbox „Importuj bez tych N zdjęć”, wiersz „Pominięte bez przypisania plansz” w liście importów.
+- 207 testów API/workera, 83 klienta, 738 Admina PASS; ruff, mypy --strict, typecheck Admina PASS. Bez migracji; po scaleniu restart API, workera i Admina.
+
+### TASK-1040 — Hooki Claude Code i subagent `repo-explorer` (done)
+
+- Plik: `ai_docs/tasks/completed/1040-claude-code-hooks-and-explorer.md`; wybór operatora z analizy `claude-code-setup` (2026-10-16). Commit **v1.7.386 / `ce72b7e7f9aae165257c887bdc0484f5e27126b0`**.
+- Hooki w `.claude/settings.json`: blokada edycji `.env*` (poza `.env.example`), `.tooling/`, starej kopii na C i `package-lock.json`; pytanie przed destrukcyjnymi komendami (force push, `reset --hard`, `clean -f`, `branch -D`, `db:reset`, DROP/TRUNCATE, rekurencyjne usuwanie `.venv`/`node_modules`/katalogu repo, zapis w kopii C); formatowanie tylko edytowanego pliku w zakresie bramki jakości. Subagent `repo-explorer` (Haiku, tylko odczyt).
+- 166 testów hooków PASS; ruff, mypy --strict, docs:check PASS. Opis: `guides/CLAUDE_CODE_AUTOMATIONS.md`.
+
 ### TASK-1033 — `README.md` ≤ 5 000 B, `DOC_INDEX.md` i pomiar końcowy (done)
 
 - Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382 / `ed25cd1cf867c0a14988d273f3f013e4de8740c3`**.

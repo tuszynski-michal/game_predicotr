@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -44,6 +44,30 @@ zachowane. Status, przeliczenie kompletności i projekcje zapisują się w jedne
 transakcji rozpoznania. Błąd projekcji wycofuje także akceptację. Stary job bez
 tej polityki zachowuje wcześniejszy wynik przy retry. Historyczny backfill
 pozostaje oddzielną, wymagającą podglądu i potwierdzenia operacją TASK-1008.
+
+## Zdjęcia V3 bez przypisania plansz są jawne — TASK-1041
+
+Polityka wiązania się nie zmienia: import V3 materializuje tylko zdjęcia, których
+wykrycia sieci przypisano do plansz zakresu z nazwy pliku. Zdjęcie
+`slot_binding_required` (powód `NEURAL_GRID_SLOT_BINDING_REQUIRED` albo
+`NEURAL_GRID_SOURCE_TIME_LIMIT`) nie tworzy plansz, ale pominięcie nie jest już
+ciche:
+
+- raport importu po ukończonym preflighcie V3 podaje liczbę takich zdjęć i liczbę
+  plansz ich zakresów (bez zdjęć wykluczonych przez operatora); Admin pokazuje
+  ostrzeżenie, przycisk „Przypisz plansze ręcznie” (podgląd propozycji sieci z
+  ręcznym wiązaniem) i pole „Importuj bez tych N zdjęć”;
+- start importu bez potwierdzenia dokładnie tej liczby kończy się konfliktem
+  `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED`, także przy ponowieniu
+  istniejącego runu; nowy preflight po ręcznym wiązaniu wymaga nowego
+  potwierdzenia;
+- worker zapisuje niezmienny raport `data/image-import-unbound-sources/{jobId}.json`
+  (pełna lista: checksum, ścieżka, zakres, powód) i podsumowanie w postępie joba;
+  lista importów w Adminie pokazuje „Pominięte bez przypisania plansz: N zdjęć”,
+  powody, do 20 przykładów i ścieżkę pełnej listy.
+
+Częściowe automatyczne wiązanie przy mniej niż 9 wykryciach pozostaje poza
+zakresem: wymaga decyzji operatora i nowego wpisu D-.
 
 ## Profil 777 v2 importuje przez V3 — D-544 (TASK-0974)
 

@@ -2619,6 +2619,20 @@ export type BrowserImageImportPreflightResponse = {
    */
   manifestChecksumSha256: string;
   /**
+   * Neuralunboundattestedboardcount
+   */
+  neuralUnboundAttestedBoardCount?: number;
+  /**
+   * Neuralunboundcountpreflightjobid
+   *
+   * Completed V3 geometry preflight whose frozen manifest gave the counts.
+   */
+  neuralUnboundCountPreflightJobId?: string | null;
+  /**
+   * Neuralunboundsourcecount
+   */
+  neuralUnboundSourceCount?: number;
+  /**
    * Newsequencecount
    */
   newSequenceCount: number;
@@ -2700,6 +2714,12 @@ export type BrowserImageImportStart = {
    */
   boardCellProcessingMode?:
     'structured_default' | 'structured_lattice_v3' | null;
+  /**
+   * Confirmedneuralunboundsourcecount
+   *
+   * Explicit operator confirmation that the pinned V3 manifest's sources without a slot binding are skipped; must equal their current count.
+   */
+  confirmedNeuralUnboundSourceCount?: number | null;
   /**
    * Gameid
    */
@@ -12224,6 +12244,7 @@ export type JobProgressResponse = {
   geometrySystemicGuard?: ImageGeometrySystemicGuardJobProgressResponse | null;
   imageImport?: ImageImportPipelineProgressResponse | null;
   imageSelection?: ImageSelectionJobProgressResponse | null;
+  neuralUnboundSources?: NeuralUnboundSourcesJobProgressResponse | null;
   pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
    * Review
@@ -14564,6 +14585,62 @@ export type NeuralSourceRangePayload = {
    * Sequencerangestart
    */
   sequenceRangeStart: number;
+};
+
+/**
+ * NeuralUnboundSourceResponse
+ */
+export type NeuralUnboundSourceResponse = {
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd?: number | null;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart?: number | null;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * NeuralUnboundSourcesJobProgressResponse
+ *
+ * TASK-1041: V3 sources the import skipped because no slot binding exists.
+ */
+export type NeuralUnboundSourcesJobProgressResponse = {
+  /**
+   * Attestedboardcount
+   */
+  attestedBoardCount: number;
+  /**
+   * Reasoncounts
+   */
+  reasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Reportchecksumsha256
+   */
+  reportChecksumSha256: string;
+  /**
+   * Reportrelativepath
+   */
+  reportRelativePath: string;
+  /**
+   * Sample
+   */
+  sample: Array<NeuralUnboundSourceResponse>;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
 };
 
 /**

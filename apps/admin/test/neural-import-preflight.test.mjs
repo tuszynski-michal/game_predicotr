@@ -11,6 +11,9 @@ import {
 import {
   canResumeNeuralImport,
   neuralImportSnapshot,
+  neuralUnboundReasonLabel,
+  neuralUnboundSkipConfirmed,
+  neuralUnboundSourcesLabel,
   readySelectionHasNeuralImport,
 } from '../src/features/imports/neural-import-preflight-state.ts';
 
@@ -253,4 +256,68 @@ test('neural snapshot is accepted for each grid engine profile and nothing else 
   );
   for (const profile of ['framed_full_page_v2', 'requires_clarification', null])
     assert.equal(neuralImportSnapshot(withProfile(profile)), null);
+});
+
+test('unbound V3 sources block start until the exact count is confirmed (TASK-1041)', () => {
+  const unboundReport = {
+    ...report,
+    neuralUnboundSourceCount: 1962,
+    neuralUnboundAttestedBoardCount: 17658,
+  };
+  const manifest = 'c'.repeat(64);
+  const startState = (confirmed) => ({
+    symbolModelAvailable: true,
+    geometryPreflightRequired: true,
+    geometryPreflightCompleted: true,
+    geometryManifestAvailable: true,
+    geometryPreflightArtifactReady: true,
+    geometryGuardResolutionRequired: false,
+    neuralUnboundSourceCount: unboundReport.neuralUnboundSourceCount,
+    neuralUnboundSkipConfirmed: confirmed,
+  });
+  const confirmation = {
+    uploadId: report.uploadId,
+    geometryManifestChecksumSha256: manifest,
+    sourceCount: 1962,
+  };
+
+  assert.equal(
+    neuralUnboundSkipConfirmed(unboundReport, manifest, null),
+    false,
+  );
+  assert.equal(canStartReadyImport(startState(false)), false);
+  assert.equal(
+    neuralUnboundSkipConfirmed(unboundReport, manifest, confirmation),
+    true,
+  );
+  assert.equal(canStartReadyImport(startState(true)), true);
+  // A new frozen manifest, another count or another staging needs a new consent.
+  for (const stale of [
+    { ...confirmation, geometryManifestChecksumSha256: 'd'.repeat(64) },
+    { ...confirmation, sourceCount: 1961 },
+    { ...confirmation, uploadId: 'other' },
+  ])
+    assert.equal(
+      neuralUnboundSkipConfirmed(unboundReport, manifest, stale),
+      false,
+    );
+  // A fully bound report and a report without the field need no confirmation.
+  assert.equal(neuralUnboundSkipConfirmed(report, manifest, null), true);
+  assert.equal(
+    neuralUnboundSkipConfirmed(
+      { ...report, neuralUnboundSourceCount: 0 },
+      manifest,
+      null,
+    ),
+    true,
+  );
+  assert.equal(
+    neuralUnboundSourcesLabel(1962, 17658),
+    `Pominięte bez przypisania plansz: ${(1962).toLocaleString('pl-PL')} zdjęć (zakresy z nazw plików: ${(17658).toLocaleString('pl-PL')} plansz)`,
+  );
+  assert.equal(
+    neuralUnboundReasonLabel('NEURAL_GRID_SOURCE_TIME_LIMIT'),
+    'przekroczony czas analizy zdjęcia',
+  );
+  assert.equal(neuralUnboundReasonLabel('OTHER_CODE'), 'OTHER_CODE');
 });

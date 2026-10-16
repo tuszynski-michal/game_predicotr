@@ -1568,6 +1568,23 @@ nav {
   line-height: 1.5;
 }
 
+.neuralUnboundSourcesWarning {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  border-radius: 10px;
+  background: rgba(120, 53, 15, 0.18);
+  color: #fde68a;
+  line-height: 1.5;
+}
+
+.neuralUnboundSourcesWarning p,
+.neuralUnboundSourcesWarning ul {
+  margin: 0;
+}
+
 .manualRepairBulkDeleteDialog {
   width: min(680px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));

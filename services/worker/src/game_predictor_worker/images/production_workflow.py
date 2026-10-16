@@ -461,10 +461,23 @@ class ProductionImageImportWorkflow:
         )
         neural_import = "neural_grid_proposal" in job.input_payload
         candidate_originals = manifest.originals
+        # TASK-1041: sources without a slot binding stay out of the import, but
+        # the skip is recorded in every later checkpoint and an immutable report.
+        unbound_extras: dict[str, object] = {}
         if neural_import:
             from .neural_pending_geometry import bound_neural_originals
+            from .neural_unbound_sources import record_neural_unbound_sources
 
             candidate_originals = bound_neural_originals(manifest.originals, geometry_manifest)
+            unbound_summary = record_neural_unbound_sources(
+                self._artifact_root,
+                job_id=job.id,
+                page_geometry_manifest_checksum_sha256=_page_geometry_manifest_checksum(job),
+                originals=manifest.originals,
+                entries=geometry_manifest,
+            )
+            if unbound_summary is not None:
+                unbound_extras["neural_unbound_sources"] = unbound_summary
         unresolved_originals = _filter_canonical_originals(candidate_originals, job)
         canonical_skipped_count = len(candidate_originals) - len(unresolved_originals)
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
@@ -492,6 +505,7 @@ class ProductionImageImportWorkflow:
                     "checkpoint_kind": "image-source-filtered-v1",
                     "deferred_geometry_source_count": deferred_geometry_count,
                     "schema_version": 1,
+                    **unbound_extras,
                 },
                 stage="image_deferred_geometry_skip",
                 current=all_source_count,
@@ -671,22 +685,25 @@ class ProductionImageImportWorkflow:
             current_offset=all_source_count,
             total=all_source_count + source_count,
             stage_prefix="image_pipeline",
-            checkpoint_extras=(
-                {
-                    "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
-                    **(
-                        {
-                            "geometry_guard_resolution": (
-                                geometry_guard_resolution.checkpoint_payload()
-                            )
-                        }
-                        if geometry_guard_resolution is not None
-                        else {}
-                    ),
-                }
-                if geometry_guard is not None and geometry_guard.required
-                else None
-            ),
+            checkpoint_extras={
+                **unbound_extras,
+                **(
+                    {
+                        "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
+                        **(
+                            {
+                                "geometry_guard_resolution": (
+                                    geometry_guard_resolution.checkpoint_payload()
+                                )
+                            }
+                            if geometry_guard_resolution is not None
+                            else {}
+                        ),
+                    }
+                    if geometry_guard is not None and geometry_guard.required
+                    else {}
+                ),
+            },
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 

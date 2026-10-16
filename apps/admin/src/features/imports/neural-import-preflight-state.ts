@@ -118,6 +118,51 @@ export function readySelectionHasNeuralImport(
   });
 }
 
+/**
+ * TASK-1041: a V3 import skips sources whose network detections have no board
+ * slot binding. The operator confirms the exact count for one staging and one
+ * frozen geometry manifest; a new preflight or count needs a new confirmation.
+ */
+export interface NeuralUnboundSkipConfirmation {
+  readonly uploadId: string;
+  readonly geometryManifestChecksumSha256: string | null;
+  readonly sourceCount: number;
+}
+
+export function neuralUnboundSkipConfirmed(
+  report: Pick<
+    BrowserImageImportPreflightResponse,
+    'uploadId' | 'neuralUnboundSourceCount'
+  >,
+  geometryManifestChecksumSha256: string | null,
+  confirmation: NeuralUnboundSkipConfirmation | null,
+): boolean {
+  const count = report.neuralUnboundSourceCount ?? 0;
+  return (
+    count === 0 ||
+    (confirmation !== null &&
+      confirmation.uploadId === report.uploadId &&
+      confirmation.geometryManifestChecksumSha256 ===
+        geometryManifestChecksumSha256 &&
+      confirmation.sourceCount === count)
+  );
+}
+
+export function neuralUnboundSourcesLabel(
+  sourceCount: number,
+  attestedBoardCount: number,
+): string {
+  return `Pominięte bez przypisania plansz: ${sourceCount.toLocaleString('pl-PL')} zdjęć (zakresy z nazw plików: ${attestedBoardCount.toLocaleString('pl-PL')} plansz)`;
+}
+
+export function neuralUnboundReasonLabel(reasonCode: string): string {
+  if (reasonCode === 'NEURAL_GRID_SLOT_BINDING_REQUIRED')
+    return 'wykrycia sieci nie pasują jednoznacznie do plansz z zakresu';
+  if (reasonCode === 'NEURAL_GRID_SOURCE_TIME_LIMIT')
+    return 'przekroczony czas analizy zdjęcia';
+  return reasonCode;
+}
+
 /** A new frozen manifest may materialize an operator-bound source after a pending-only run. */
 export function canResumeNeuralImport(
   report: BrowserImageImportPreflightResponse,

@@ -4687,6 +4687,31 @@
             "title": "Manifestchecksumsha256",
             "type": "string"
           },
+          "neuralUnboundAttestedBoardCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Neuralunboundattestedboardcount",
+            "type": "integer"
+          },
+          "neuralUnboundCountPreflightJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Completed V3 geometry preflight whose frozen manifest gave the counts.",
+            "title": "Neuralunboundcountpreflightjobid"
+          },
+          "neuralUnboundSourceCount": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Neuralunboundsourcecount",
+            "type": "integer"
+          },
           "newSequenceCount": {
             "minimum": 0.0,
             "title": "Newsequencecount",
@@ -4858,6 +4883,19 @@
               }
             ],
             "title": "Boardcellprocessingmode"
+          },
+          "confirmedNeuralUnboundSourceCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit operator confirmation that the pinned V3 manifest's sources without a slot binding are skipped; must equal their current count.",
+            "title": "Confirmedneuralunboundsourcecount"
           },
           "gameId": {
             "format": "uuid",
@@ -21718,6 +21756,16 @@
               }
             ]
           },
+          "neuralUnboundSources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralUnboundSourcesJobProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pageGeometryPreflight": {
             "anyOf": [
               {
@@ -25846,6 +25894,104 @@
           "sequenceRangeEnd"
         ],
         "title": "NeuralSourceRangePayload",
+        "type": "object"
+      },
+      "NeuralUnboundSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "reasonCode": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
+          "sourceRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sourcerelativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRelativePath",
+          "reasonCode"
+        ],
+        "title": "NeuralUnboundSourceResponse",
+        "type": "object"
+      },
+      "NeuralUnboundSourcesJobProgressResponse": {
+        "additionalProperties": false,
+        "description": "TASK-1041: V3 sources the import skipped because no slot binding exists.",
+        "properties": {
+          "attestedBoardCount": {
+            "minimum": 0.0,
+            "title": "Attestedboardcount",
+            "type": "integer"
+          },
+          "reasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reasoncounts",
+            "type": "object"
+          },
+          "reportChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Reportchecksumsha256",
+            "type": "string"
+          },
+          "reportRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Reportrelativepath",
+            "type": "string"
+          },
+          "sample": {
+            "items": {
+              "$ref": "#/components/schemas/NeuralUnboundSourceResponse"
+            },
+            "title": "Sample",
+            "type": "array"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceCount",
+          "attestedBoardCount",
+          "reasonCounts",
+          "reportChecksumSha256",
+          "reportRelativePath",
+          "sample"
+        ],
+        "title": "NeuralUnboundSourcesJobProgressResponse",
         "type": "object"
       },
       "OperationalImageReviewAlternativeResponse": {

@@ -5,9 +5,12 @@ before a task (``AGENTS.md`` "Obowiązkowa kolejność czytania"). Claude Code a
 loads ``CLAUDE.md`` automatically, so it is measured separately.
 
 Budgets come from ``ai_docs/delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md``
-(decision D3). Every budget has an ``enforced`` flag: a budget that is not
-enforced is only reported; an enforced budget makes the script exit 1 when it is
-exceeded. This script is the single owner of size limits for these documents.
+(decision D3) and ``ai_docs/delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md``
+(decision E5: ``AGENTS.md`` 14 000 B, TASK-1032; ``ai_docs/README.md`` 5 000 B and
+the startup total 45 000 B, TASK-1033). Every budget has an ``enforced``
+flag: a budget that is not enforced is only reported; an enforced budget makes
+the script exit 1 when it is exceeded. This script is the single owner of size
+limits for these documents.
 
 Usage: ``python scripts/check_startup_read_budget.py [--report]``.
 Exit code 0 when every enforced budget holds, 1 otherwise.
@@ -52,16 +55,21 @@ class Section:
 
 
 def read_lines(root: Path, relative: str) -> list[str]:
-    """Lines with their original line endings; empty when the file is missing."""
+    """Lines with LF endings; empty when the file is missing.
+
+    Sizes are measured with LF line endings so that a Windows checkout with
+    ``core.autocrlf=true`` (CRLF on disk) and an LF checkout give the same result.
+    """
     path = root / relative
     if not path.is_file():
         return []
-    return path.read_bytes().decode("utf-8").splitlines(keepends=True)
+    return path.read_bytes().replace(b"\r\n", b"\n").decode("utf-8").splitlines(keepends=True)
 
 
 def file_size(root: Path, relative: str) -> int:
+    """Byte size with LF line endings (see ``read_lines``)."""
     path = root / relative
-    return path.stat().st_size if path.is_file() else 0
+    return len(path.read_bytes().replace(b"\r\n", b"\n")) if path.is_file() else 0
 
 
 def sections(lines: list[str]) -> list[Section]:
@@ -158,6 +166,20 @@ class Budget:
 
 BUDGETS: tuple[Budget, ...] = (
     Budget(
+        "AGENTS.md",
+        14_000,
+        True,
+        _file(AGENTS),
+        hint="keep 1-3 binding sentences per procedure; move the procedure into its skill",
+    ),
+    Budget(
+        "ai_docs/README.md",
+        5_000,
+        True,
+        _file(README),
+        hint="keep the entry points only; the document catalog belongs in ai_docs/DOC_INDEX.md",
+    ),
+    Budget(
         "DECISION_LOG.md",
         12_000,
         True,
@@ -204,7 +226,7 @@ BUDGETS: tuple[Budget, ...] = (
     ),
     Budget(
         "startup total",
-        90_000,
+        45_000,
         True,
         _startup_total,
         hint="shrink the largest file of the mandatory startup read",

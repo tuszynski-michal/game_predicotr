@@ -93,12 +93,73 @@ def test_enforced_index_rows_budget_fails(tree: Path) -> None:
 
 
 def test_enforced_startup_total_and_claude_budgets_fail(tree: Path) -> None:
-    (tree / "AGENTS.md").write_text("a" * 90_001, encoding="utf-8")
+    (tree / "AGENTS.md").write_text("a" * 45_001, encoding="utf-8")
     (tree / "CLAUDE.md").write_text("c" * 6_001, encoding="utf-8")
     total = budget.check(tree, _enforce("startup total"))
-    assert len(total) == 1 and "budget 90000 B" in total[0]
+    assert len(total) == 1 and "budget 45000 B" in total[0]
     claude = budget.check(tree, _enforce("CLAUDE.md"))
     assert len(claude) == 1 and "AGENTS.md" in claude[0]
+
+
+def test_default_flags_fail_on_agents_over_14000_bytes(tree: Path) -> None:
+    agents = tree / budget.AGENTS
+    agents.write_bytes(b"a" * 14_000)
+    assert not any(problem.startswith("AGENTS.md [") for problem in budget.check(tree))
+    agents.write_bytes(b"a" * 14_001)
+    problems = [problem for problem in budget.check(tree) if problem.startswith("AGENTS.md [")]
+    assert len(problems) == 1
+    assert "14001 B, budget 14000 B" in problems[0]
+    assert "skill" in problems[0]
+
+
+def test_default_flags_fail_on_readme_over_5000_bytes(tree: Path) -> None:
+    readme = tree / budget.README
+    readme.write_bytes(b"a" * 5_000)
+    assert not any(problem.startswith("ai_docs/README.md [") for problem in budget.check(tree))
+    readme.write_bytes(b"a" * 5_001)
+    problems = [p for p in budget.check(tree) if p.startswith("ai_docs/README.md [")]
+    assert len(problems) == 1
+    assert "5001 B, budget 5000 B" in problems[0]
+    assert "DOC_INDEX.md" in problems[0]
+
+
+def test_readme_budget_measures_lf_line_endings(tree: Path) -> None:
+    readme = tree / budget.README
+    readme.write_bytes(b"a\r\n" * 2_500)  # 7 500 B on disk, 5 000 B with LF
+    assert not any(problem.startswith("ai_docs/README.md [") for problem in budget.check(tree))
+
+
+def test_default_flags_fail_on_startup_total_over_45000_bytes(tree: Path) -> None:
+    (tree / budget.AGENTS).write_bytes(b"a" * 14_000)
+    (tree / budget.README).write_bytes(b"a" * 5_000)
+    others = sum(budget.file_size(tree, name) for name in budget.STARTUP_FILES)
+    state = tree / budget.CURRENT_STATE
+    # CURRENT_STATE alone stays within its own 30 000 B budget in both cases.
+    room = 45_000 - others + budget.file_size(tree, budget.CURRENT_STATE)
+    state.write_bytes(b"x" * room)
+    assert not any(p.startswith("startup total [") for p in budget.check(tree))
+    state.write_bytes(b"x" * (room + 1))
+    problems = [p for p in budget.check(tree) if p.startswith("startup total [")]
+    assert len(problems) == 1
+    assert "budget 45000 B" in problems[0]
+
+
+def test_agents_budget_measures_lf_line_endings(tree: Path) -> None:
+    agents = tree / budget.AGENTS
+    agents.write_bytes(b"a\r\n" * 7_000)  # 21 000 B on disk, 14 000 B with LF
+    assert not any(problem.startswith("AGENTS.md [") for problem in budget.check(tree))
+
+
+def test_sizes_do_not_depend_on_line_endings(tree: Path) -> None:
+    names = (budget.CURRENT_STATE, budget.CLAUDE, budget.AGENTS)
+    for name in names:  # fixture files may already be CRLF (text mode on Windows)
+        path = tree / name
+        path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+    lf_report = budget.report(tree)
+    for name in names:
+        path = tree / name
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    assert budget.report(tree) == lf_report
 
 
 def test_heading_inside_code_fence_is_not_a_section(tree: Path) -> None:

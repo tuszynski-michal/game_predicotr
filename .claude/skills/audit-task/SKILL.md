@@ -6,14 +6,68 @@ description: Uruchamia audyt krzyżowy ukończonego taska drugą rodziną modeli
 # Audyt krzyżowy taska (Claude Code -> Codex)
 
 Wykonawca (Claude) nie audytuje własnej pracy. Ten skill buduje brief dla
-audytora z innej rodziny modeli (Codex) i odbiera jego raport. Zasady procesu
-opisuje sekcja „Audyt krzyżowy” w `AGENTS.md`; format raportu definiuje
-`ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
+audytora z innej rodziny modeli (Codex) i odbiera jego raport. Regułę wiążącą
+zawiera sekcja „Audyt krzyżowy” w `AGENTS.md`; skill opisuje szczegóły i jej
+nie osłabia. Format raportu definiuje `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
+Wykrywanie Claude Code CLI (kierunek odwrotny) opisuje
+`.codex/skills/claude-audit/SKILL.md`.
 
 ## Kiedy użyć
 
-Po zakończeniu implementacji i testów taska, przed commitem. Argument: czterocyfrowy
+Po zakończeniu implementacji i testów taska, przed commitem, gdy kolumna
+`Dodatkowy review` planu wymaga audytu. Argument: czterocyfrowy
 numer taska (`/audit-task 0930`). Nie uruchamiaj skilla w pętli.
+
+## Zasady (z `AGENTS.md`, „Audyt krzyżowy”)
+
+- Audyt jest wymagany tylko po tasku, który wskazuje go w kolumnie
+  `Dodatkowy review` zaakceptowanego planu, przed commitem. Operator może z
+  niego zrezygnować dla planu lub taska (np. 2026-10-16); rezygnację zapisz w
+  `Outcome`.
+- Zmiany taska audytuje model z innej rodziny niż wykonawca: pracę Claude
+  audytuje Codex, a pracę Codex audytuje Claude. Wykonawca nie audytuje własnej
+  pracy.
+- Audytor zastępczy: dopóki oba CLI (`codex`, `claude`) nie są zainstalowane i
+  zalogowane przez operatora, audytorem jest niezależny subagent Claude z innym
+  modelem niż wykonawca, w świeżym kontekście i wyłącznie do odczytu. Zastępstwo
+  odnotuj jawnie w `Outcome`; musi być zgodne z kolumną `Dodatkowy review`
+  planu. Brak dostępnego modelu zatrzymuje task zgodnie z
+  `ai_docs/process/PLAN_STANDARD.md`.
+- Brief buduje `scripts/audit_task.ps1`: plik taska, fragment planu,
+  `git diff <base>...HEAD` wraz ze zmianami niezacommitowanymi (domyślnie
+  `-Base HEAD`, czyli audyt przed commitem; `-Paths` ogranicza diff do plików
+  taska) i linie weryfikacji z `Outcome`. Brief leży w `artifacts/audits/`
+  (katalog ignorowany przez git). Gdy CLI audytora jest dostępne, skrypt
+  uruchamia je tylko do odczytu z limitem czasu; bez CLI kończy się na briefie,
+  a audyt wykonuje się ręcznie lub zastępczym subagentem.
+- Audytor nie zmienia plików. Przegląd jest statyczny: ocenia zgodność z
+  zakresem, kryteriami akceptacji, planem i regułami `AGENTS.md`, nie rozszerza
+  zakresu.
+- Domyślny audyt jest szybki (decyzja operatora 2026-10-09): `gpt-6-astra` na
+  poziomie `medium` (`high` tylko dla tasków zmieniających schemat bazy,
+  migracje, wypłaty albo dane dowodowe), brief ograniczony `-Paths` do plików
+  taska, raport skupiony na P0 i P1, najwyżej pięć najważniejszych uwag P2.
+  Audytor zastępczy Claude stosuje ten sam zakres i poziom `medium`, chyba że
+  tabela planu wymaga `high`. Brak odpowiedzi audytora w limicie czasu nie
+  zatrzymuje taska, tylko jest odnotowany w `Outcome`.
+- Limit czasu: wyjątek od domyślnych 120 s z `AGENTS.md`. Narzędzie
+  uruchamiające audyt może mieć timeout do 600 s, a własny `-TimeoutSec`
+  skryptu musi być niższy (zalecane 480 s, bo po jego upływie skrypt potrzebuje
+  jeszcze około 25 s na sprzątanie). Alternatywnie uruchom skrypt jako
+  kontrolowany proces w tle i monitoruj go.
+- Raport leży w `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md`, jest pisany
+  normalną prozą po polsku w formacie `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`:
+  werdykt `PASS` albo `REVISE`, znaleziska P0–P2 z `plik:linia`, listy
+  zamkniętych i otwartych uwag, proponowane testy oraz oświadczenie „przegląd
+  statyczny, bez zmian w plikach”. Raport wchodzi do commita taska.
+- Po commicie taska lead dopisuje wersję i pełny hash commita do
+  `CURRENT_STATE.md` i `Outcome` (skill `task-close`, `record-hash`); audytor
+  sprawdza obecność tego zapisu.
+- Poświadczeń CLI nie wpisuje agent: instalację i logowanie wykonuje operator.
+- Codex CLI uruchamiany przez skrypt używa `node.exe` z `codex.js` (shim `.cmd`
+  nie przenosi cudzysłowów) oraz nadpisań `windows.sandbox="unelevated"` i
+  `model_reasoning_effort` (parametry `-CodexWindowsSandbox`, `-Effort`), bo
+  piaskownica `elevated` zarejestrowana przez aplikację ChatGPT nie działa z CLI.
 
 ## Kroki
 
@@ -46,6 +100,7 @@ numer taska (`/audit-task 0930`). Nie uruchamiaj skilla w pętli.
    `high` tylko gdy tabela planu tego wymaga), `-CodexWindowsSandbox`
    (domyślnie `unelevated`, bo piaskownica `elevated` aplikacji ChatGPT nie
    działa z CLI), `-DryRun` (tylko brief).
+
 3. Odczytaj wynik:
    - Kod 0 i komunikat „Report stored”: otwórz
      `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` i przeczytaj werdykt.

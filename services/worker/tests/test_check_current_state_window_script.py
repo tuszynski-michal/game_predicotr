@@ -111,6 +111,22 @@ def test_active_task_without_section_fails(
     assert "TASK-0002" in out
 
 
+def test_bare_cr_line_endings_fail(tmp_path: Path, run: Callable[[], tuple[int, str]]) -> None:
+    _write(tmp_path, [DONE_LINE.format(n=1)])
+    path = tmp_path / "ai_docs" / "process" / "CURRENT_STATE.md"
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r"))
+    code, out = run()
+    assert code == 1
+    assert "bare CR" in out
+
+
+def test_crlf_line_endings_pass(tmp_path: Path, run: Callable[[], tuple[int, str]]) -> None:
+    _write(tmp_path, [DONE_LINE.format(n=1)])
+    path = tmp_path / "ai_docs" / "process" / "CURRENT_STATE.md"
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    assert run()[0] == 0
+
+
 def test_file_size_is_not_checked_here(tmp_path: Path, run: Callable[[], tuple[int, str]]) -> None:
     _write(tmp_path, [DONE_LINE.format(n=1)], extra="x" * 150_000 + "\n")
     code, _ = run()

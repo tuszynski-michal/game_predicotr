@@ -259,6 +259,30 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - [Task](../tasks/completed/1015-documentation-bootstrap.md); worktree `D:\game_predicotr\worktrees\v3-grid-fine-tuning`, branch `codex/v3-grid-fine-tuning`. Oryginalna baza v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; zatwierdzony upstream v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`.
 - Rewizja 6 i 23 taski utrwalone; pięć decyzji proposed. Nasz silnik acceptance TASK-1017 po zatwierdzonym rozwiązaniu kolizji z historycznym CLI TASK-1007. Audyt Claude PASS, brak P0/P1; P2-1/2/3 zamknięte, P2-4 ryzyko poza zakresem. Kontrole dokumentacji i środowiska PASS, bez zmian kodu/danych/usług.
 - Commit bootstrapu: **v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`**. TASK-1010 in_progress; integracja dopiero po całym planie i osobnej akceptacji.
+### TASK-1033 — `README.md` ≤ 5 000 B, `DOC_INDEX.md` i pomiar końcowy (done)
+
+- Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382 / `ed25cd1cf867c0a14988d273f3f013e4de8740c3`**.
+- `README.md` 17 931 → 4 092 B (LF); katalog dokumentów w nowym `ai_docs/DOC_INDEX.md` (110 linków, wszystkie rozwiązują się), otwieranym na żądanie.
+- Budżety: `README.md` 5 000 B, suma 45 000 B; 11/11 wymuszonych. Obowiązkowy odczyt startowy 38 413 B (z ok. 65 000 B przed etapem 2).
+
+### TASK-1032 — `AGENTS.md` ≤ 14 000 B: procedury do skilli (done)
+
+- Plik: `ai_docs/tasks/completed/1032-agents-md-slimming.md`; plan etapu 2 odczytu startowego, etap B. Commit **v1.7.381 / `676f22f42b7e28ba82476471247aea828e4ed604`**.
+- `AGENTS.md` 26 404 → 13 942 B (LF): procedury audytu, scalania, wersjonowania i zamykania w skillach `audit-task`/`claude-audit`, `merge-to-main`, `task-close`; nagłówki i reguły wiążące zostały (mapa 174 reguł, żadna bez miejsca). Zgoda na scalenie obejmuje push; audyt tylko, gdy wymaga go plan.
+- Budżet `AGENTS.md` 14 000 B wymuszony (10/10). Audyt Codex gpt-6.1-sol: PASS.
+
+### TASK-1031 — Skill `merge-to-main` z preflightem scalania (done)
+
+- Plik: `ai_docs/tasks/completed/1031-merge-to-main-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.379 / `bf0ad43b48c05657d6d28509daa004bbf234d8c6`**.
+- `scripts/integration_preflight.py` (tylko odczyt: ahead/behind, fast-forward, `main` vs `origin/main`, kolizje TASK/D/`vX.Y.N`/migracji z `main` i niescalonymi gałęziami), skill `merge-to-main` w `.claude/skills/` i `.agents/skills/` z bramkami zgody i bezpiecznym usuwaniem worktree.
+- 28 nowych testów, razem 78 PASS; ruff, mypy --strict, docs:check PASS. Skill nie był jeszcze ćwiczony na prawdziwym scaleniu.
+
+### TASK-1030 — Skill `task-close` ze skryptem zamykania taska (done)
+
+- Plik: `ai_docs/tasks/completed/1030-task-close-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.378 / `54e011333aafc4aaf5ae6b8e63a5a36e1546f184`**.
+- `scripts/close_task.py` (`close`, `record-hash`, `--dry-run`, wycofanie przy czerwonej kontroli), skill `task-close` w `.claude/skills/` i `.agents/skills/`, `scripts/check_skill_mirrors.py` w `docs:check`. Codex CLI 0.162.0 czyta skille z `.agents/skills/` i `.codex/skills/`.
+- 28 nowych testów, łącznie 50 PASS; ruff, mypy --strict, docs:check PASS. Ten task zamknięto własnym skryptem.
+
 ### TASK-1024 — Zamknięcie nieaktualnych tasków na `main` (done)
 
 - Plik: `ai_docs/tasks/completed/1024-close-stale-tasks.md`. Commit **v1.7.375 / `5fa317c48858438b35f33fd6e4dae8be1fc29f18`**, scalony do `main` i wypchnięty (v1.7.376).

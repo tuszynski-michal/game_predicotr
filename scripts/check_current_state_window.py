@@ -44,16 +44,23 @@ def section_lines(lines: list[str], heading: str) -> list[str] | None:
     return body
 
 
-def main() -> int:
+def main(root: Path | None = None) -> int:
+    """Check the window of ``root`` (default: this repository, via ``STATE``/``TASKS``)."""
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    state = STATE if root is None else root / "ai_docs" / "process" / "CURRENT_STATE.md"
+    tasks = TASKS if root is None else root / "ai_docs" / "tasks"
     problems: list[str] = []
-    raw = STATE.read_bytes()
+    raw = state.read_bytes()
+    if raw.replace(b"\r\n", b"").count(b"\r"):
+        # a bare CR (e.g. a tool that dropped the LF) still splits into lines below,
+        # so the window would look valid while the file is one line for git
+        problems.append("CURRENT_STATE.md contains bare CR line endings; use LF or CRLF")
     lines = raw.decode("utf-8").splitlines()
 
     headings = [line for line in lines if re.match(r"#{2,4} ", line)]
     active = sorted(
-        path.name[:4] for path in TASKS.glob("[0-9][0-9][0-9][0-9]-*.md") if path.is_file()
+        path.name[:4] for path in tasks.glob("[0-9][0-9][0-9][0-9]-*.md") if path.is_file()
     )
     for task_id in active:
         pattern = re.compile(rf"\bTASK-{task_id}\b")

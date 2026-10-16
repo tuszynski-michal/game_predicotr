@@ -6,8 +6,6 @@ last_updated: 2026-10-16
 
 # Dokumentacja AI Driven Development
 
-Selektor Windows **1.0.0**: [wydanie i zatwierdzenie odbioru](quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md). Brak narzuconego limitu zdjęć, automatyczny projekt/wynik obok źródła, historia i wznowienie obu kierunków. Bieżąca paczka zachowana w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`; odbiór zatwierdzony przez operatora 2026-10-13. Starsze wpisy0.1.x poniżej są historyczne. Aktualizacja instrukcji Word nie jest wymagana na tym etapie decyzją operatora z 2026-10-13; istniejąca instrukcja pozostaje zachowana.
-
 ## Cel
 
 Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może
@@ -18,7 +16,9 @@ niegotowych części systemu.
 
 Przed rozpoczęciem pracy czytaj w tej kolejności:
 
-1. ten indeks (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md)),
+1. ten plik (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md);
+   szukając dokumentu lub planu, otwórz [katalog dokumentów](DOC_INDEX.md)
+   albo przeszukaj go `rg`),
 2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
    (≤ 30 000 B): obowiązujące ograniczenia, tabela planów z niezakończonymi
    taskami, otwarte decyzje, wskaźniki tasków aktywnych (≤ 1 200 B każdy) i
@@ -35,221 +35,6 @@ oraz archiwa stanu ([Q4 2026](archive/CURRENT_STATE_2026Q4.md),
 docs` aktywnego zadania je wskazuje albo gdy indeks nie wystarcza do oceny
 sprzeczności. Pozostałe materiały archiwalne i ukończone zadania nie są
 domyślnym kontekstem implementacyjnym.
-
-## Aktywna dokumentacja
-
-### Projekt
-
-- [Project brief](project/PROJECT_BRIEF.md) — cel, użytkownicy, zakres i ograniczenia.
-- [Glossary](project/GLOSSARY.md) — jednoznaczne pojęcia domenowe.
-- [Open questions](project/OPEN_QUESTIONS.md) — pytania otwarte i indeks
-  ostatnich rozstrzygnięć.
-- [Traceability](project/TRACEABILITY.md) — mapa wymaganie → dokument → milestone.
-
-### Wymagania
-
-- [Mobile app](requirements/MOBILE_APP.md)
-- [Admin app](requirements/ADMIN_APP.md)
-- [Management panel](requirements/MANAGEMENT_PANEL.md) — compact point/machine
-  navigation, independent stake saves, scoped deletion and online access
-  (D-533, D-536).
-- [Aplikacja V3 — rejestr przeglądu ekranów](requirements/APP_V3_FUNCTIONAL_INVENTORY.md)
-  — robocze potrzeby, funkcje do zachowania/przeniesienia i oddzielny panel online.
-- [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
-- [Algorithms](requirements/ALGORITHMS.md)
-- [Image ingestion](requirements/IMAGE_INGESTION.md)
-- [Fast representative image selection](requirements/IMAGE_SELECTION.md)
-- [Local manual image selection](requirements/MANUAL_IMAGE_SELECTION.md)
-- [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
-- [Iterative supervised model improvement](requirements/SUPERVISED_MODEL_IMPROVEMENT.md)
-- [Vision lab requirements](requirements/VISION_LAB.md) — zatwierdzenia
-  laboratoryjne, podziały, topologie i granice integracji (D-447).
-
-### Architektura
-
-- [Tech stack](architecture/TECH_STACK.md)
-- [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
-- [Code map](architecture/CODE_MAP.md) — **pierwsze miejsce szukania kodu**:
-  obszar → katalogi, moduły wejściowe, testy, komendy; generowana przez
-  `scripts/generate_code_map.py`. Indeks symboli do `rg`:
-  [CODE_MAP_SYMBOLS.md](architecture/CODE_MAP_SYMBOLS.md) (nie czytać w całości).
-- [Management panel architecture](architecture/MANAGEMENT_PANEL.md)
-- [Data model](architecture/DATA_MODEL.md)
-- [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
-- [API contract](architecture/API_CONTRACT.md)
-- [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
-- [Vision lab architecture](architecture/VISION_LAB.md) — izolacja,
-  kontrakty, eksport, UI i środowisko treningowe.
-- [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
-- [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
-- [Remote manual image selection proposal](architecture/REMOTE_MANUAL_IMAGE_SELECTION.md)
-  — analiza wykonalności, bezpieczeństwa, synchronizacji i breakdown wdrożenia;
-  dokument ma status `proposed`.
-- [Grid engine v3 proposal](architecture/GRID_ENGINE_V3_PROPOSAL.md)
-  — silnik siatek bez wzorca per gra (model ekranu 3 × 3, siatka z rozrzutu
-  między planszami); prototyp TASK-0648, status `proposed`.
-
-### Dostarczanie
-
-- [Odchudzenie obowiązkowego odczytu startowego](delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md)
-  — wykonany 2026-10-16 (TASK-1019–1023): obowiązkowy odczyt 211 → 78 KB,
-  budżety bajtów w `docs:check`, lekki indeks decyzji, krótkie okno stanu,
-  `CLAUDE.md` bez duplikatu `AGENTS.md`.
-
-- [Panel udostępniania wielu gier](delivery/MULTI_GAME_BOARD_SEARCH_SHARE_EXECUTION_PLAN_20261013.md)
-  — completed, TASK-0991; audyt pominięty jawną decyzją operatora 2026-10-16.
-  [Instrukcja uruchomienia](guides/MULTI_GAME_BOARD_SEARCH_SHARE_OPERATOR.md).
-  Migracja 0155 i scalenie do main wykonane 2026-10-16; gałąź/worktree usunięte.
-
-- [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
-  — accepted, rewizja 6, TASK-0993–1015 (bez TASK-1007) oraz TASK-1017 (23 taski pierwotne) oraz korekta kompatybilności TASK-1018 (24 łącznie), cały plan i orientacyjny koszt 12–28 dni roboczych zlecone 2026-10-14. Bootstrap TASK-1015 done; audyt PASS i P2 rozliczone, commit v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; TASK-1010 done po jednej rundzie poprawek; TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379; Claude R3 PASS); TASK-1013 done (v1.7.380; Claude R2 PASS); TASK-1003 done (v1.7.381; Claude R2 PASS); TASK-1002 done (v1.7.382; Claude R2 PASS); [TASK-1018](tasks/completed/1018-v3-head-compatibility-regressions.md) done (v1.7.383; Claude R1 PASS), [TASK-1009](tasks/completed/1009-grid-quality-measurement.md) done (v1.7.384; Claude R1 REVISE, P1/P2 zamknięte w jednej rundzie), [TASK-0995](tasks/completed/0995-grid-training-cohort-snapshot.md) done (v1.7.385; Claude R2 PASS); następny1005 dla Claude Code. Liczniki, akceptacja, edytor, wersje, nowe gry, ponowne rozpoznanie aktualną bazą bez treningu oraz doszkalanie mają odrębne piony. Historyczna 777 pozostaje archiwalna, symbole per gra. Wznowienie i bramki operacyjne: CURRENT_STATE i sekcja 3 planu; D-549/D-550/D-551/D-552 accepted; D-548 accepted przed0995 (2026-10-16); aktualne etykiety ludzkie, bez operacyjnego treningu. Operator2026-10-16 polecił dokończyć TASK-0995, potem zamienić role: pozostałe6 zadań Claude Code jako wykonawca, Codex jako audytor; bieżący0995 zachowuje audyt Claude.
-
-- [Przekazanie planu V3 po zamianie ról](guides/V3_GRID_FINE_TUNING_ROLE_HANDOFF.md)
-  — po zamknięciu TASK-0995 Claude Code wykonuje pozostałe zadania, Codex je audytuje.
-
-- [Lokalny selektor zdjęć Windows](delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md)
-  — wszystkie zadania wykonane i zamknięte, wersja **1.0.0** scalona do lokalnego main;
-  odbiór zatwierdzony przez operatora, worktree usunięty. [Rejestr odbioru](quality/OFFLINE_PHOTO_SELECTOR_ACCEPTANCE.md)
-  i [instrukcja operatora](guides/OFFLINE_PHOTO_SELECTOR_OPERATOR.md).
-  Historyczne etapy: [poprawki po audycie](delivery/OFFLINE_PHOTO_SELECTOR_AUDIT_REMEDIATION_PLAN_20261012.md),
-  [start i historia](delivery/OFFLINE_PHOTO_SELECTOR_START_PLAN_20261012.md),
-  [finalizacja](delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md)
-  oraz [zniesienie limitu zdjęć](delivery/OFFLINE_PHOTO_SELECTOR_NO_COUNT_LIMIT_PLAN.md).
-  Raporty testów i audytów pozostają dowodami dla opisanych w nich wersji.
-
-- [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
-  — zamknięty 2026-10-16 bez dalszej realizacji (TASK-1024); TASK-0947–0949
-  nieaktualne. D-539: punkt otwiera widok, maszyna jest wyborem.
-
-- [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
-  — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
-  manual Claude review before each task commit.
-
-- [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
-  — accepted T1–T7, TASK-0921–0927.
-- [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
-  — zamknięty 2026-10-16 (D-535, TASK-0929–0939; ostatnie 0937 i 0939
-  zamknięte jako nieaktualne w TASK-1024).
-
-- [Cofnięcie korekty cięcia siatki, odrzucanie i zamiennik](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
-  — wykonany, migracja `0154` zastosowana 2026-10-10; odbiór TASK-0972 zamknięty
-  2026-10-16 (TASK-1024); etapy R1–R4,
-  TASK-0966–0972 (dawniej TASK-0945–0951), D-542/D-543, migracja `0154`;
-  [instrukcja operatora](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md).
-
-- [Roadmap](delivery/ROADMAP.md)
-- [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
-- [Milestone 01 execution plan](delivery/MILESTONE_01_EXECUTION_PLAN.md)
-- [Milestone 02 execution plan](delivery/MILESTONE_02_EXECUTION_PLAN.md)
-- [Milestone 03 execution plan](delivery/MILESTONE_03_EXECUTION_PLAN.md)
-- [Milestone 04 execution plan](delivery/MILESTONE_04_EXECUTION_PLAN.md)
-- [Milestone 05 execution plan](delivery/MILESTONE_05_EXECUTION_PLAN.md)
-- [Milestone 06 execution plan](delivery/MILESTONE_06_EXECUTION_PLAN.md)
-- [Milestone 06.5 execution plan](delivery/MILESTONE_06_5_EXECUTION_PLAN.md)
-- [Milestone 06.6 execution plan](delivery/MILESTONE_06_6_EXECUTION_PLAN.md)
-- [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
-- [Milestone 07.0 image selection execution plan](delivery/MILESTONE_07_0_EXECUTION_PLAN.md)
-- [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
-- [Global geometry library v1 execution plan](delivery/GLOBAL_GEOMETRY_LIBRARY_EXECUTION_PLAN.md)
-- [Vision lab execution plan](delivery/VISION_LAB_EXECUTION_PLAN.md) —
-  plan P00/T01–T13 i punkty STOP A–E; pozostałe taski (0668, 0671–0678)
-  zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
-- [Legacy public store removal execution plan](delivery/LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md) —
-  przejście na V2-only; `0125` zastosowana (D-467), pozostałe taski
-  0687–0691, 0694, 0695 i 0698 zamknięte jako nieaktualne 2026-10-16 (TASK-1024).
-- [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
-  — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
-- [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
-  — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
-- [Board search share plan](delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md)
-  — modal linii wypłat, wykres, stawki i udostępnianie online (D-470, D-471).
-- [Legacy V1 remnants removal plan](delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md)
-  — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
-  i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
-- [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
-  naprawy po `no-go` T08; TASK-0698 zamknięty jako nieaktualny 2026-10-16.
-- [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
-- [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
-- [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
-- [Version 0.4 execution plan](delivery/VERSION_0_4_EXECUTION_PLAN.md)
-- [Version 0.5 execution plan](delivery/VERSION_0_5_EXECUTION_PLAN.md)
-- [Version 0.6 execution plan](delivery/VERSION_0_6_EXECUTION_PLAN.md)
-
-### Proces i jakość
-
-- [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
-- [Definition of Done](process/DEFINITION_OF_DONE.md)
-- [Decision log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji; pełne
-  wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
-  starszy indeks w
-  [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
-- [Current state](process/CURRENT_STATE.md) — okno kroczące ≤ 30 000 B
-  (wskaźniki aktywnych tasków, wiersze `done`); pełne sekcje i historia w
-  [archive/CURRENT_STATE_2026Q4.md](archive/CURRENT_STATE_2026Q4.md) i
-  [archive/CURRENT_STATE_2026Q3.md](archive/CURRENT_STATE_2026Q3.md).
-- [Task template](process/TASK_TEMPLATE.md)
-- [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
-  planowaniem, aktualizacją lub wykonaniem planu.
-- [Test strategy](quality/TEST_STRATEGY.md)
-- [Protokół pomiaru narzędzi tokenowych](quality/TOKEN_TOOLING_PILOT_PROTOCOL.md)
-  — zadania pomiarowe, warianty, rubryka jakości i reguła decyzyjna pilota
-  (TASK-0939); zużycie zbiera `scripts/token_pilot_collect.py`.
-- [Szablon raportu audytu krzyżowego](quality/AUDIT_REPORT_TEMPLATE.md) —
-  format raportu `TASK-NNNN_AUDIT_<model>.md`; skill `/audit-task`,
-  skrypt `scripts/audit_task.ps1` (TASK-0929, D-535).
-- [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
-- [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)
-- [Virtual geometry 0.10 cutover acceptance](quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md)
-- [Keypoint geometry fallback 0.10](quality/V0_10_KEYPOINT_GEOMETRY_FALLBACK.md)
-- [Fast symbol verification acceptance](quality/SYMBOL_REVIEW_FAST_PAGE_ACCEPTANCE.md)
-- [Semi-automatic range OCR v3 performance](quality/SEMI_AUTOMATIC_SELECTION_RANGE_OCR_V3_PERFORMANCE.md)
-- [Theoretical symbol-cell review scalability analysis](quality/SYMBOL_CELL_REVIEW_SCALABILITY_ANALYSIS.md)
-  — analiza granic pamięci i transakcji TASK-0294; nie jest pomiarem czasu.
-- [Remote source browser capability spike](quality/REMOTE_SOURCE_BROWSER_CAPABILITY_SPIKE.md)
-  — wynik TASK-0273 i bramka przed zdalnym modułem ręcznej selekcji.
-
-### Bezpieczeństwo
-
-- [Model zagrożeń zdalnego Reviewera](security/REMOTE_REVIEWER_THREAT_MODEL.md)
-
-### Instrukcje operatorskie
-
-- [Management panel operations](process/MANAGEMENT_PANEL_OPERATIONS.md) —
-  compact rollout prerequisites, binary backup/restore, local/recipient access
-  and live acceptance gates.
-- [Compact management acceptance](quality/ADMIN_COMPACT_PANEL_ACCEPTANCE.md) —
-  bounded browser/database evidence and open operator rollout gates (TASK-0943).
-- [Compact management Claude handoff](quality/ADMIN_COMPACT_PANEL_CLAUDE_HANDOFF.md)
-  — deferred audit scopes, corrected stage snapshots and remaining closure work.
-- [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
-  środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
-- [Narzędzia oszczędzania tokenów](guides/TOKEN_TOOLING.md) — mapa kodu, hook
-  odczytu, pilot Serena MCP i Graphify, wyłączanie i rejestracja (TASK-0939).
-- [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
-  zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
-  kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.
-- [Cofanie korekt cięcia siatki i zdjęcie zastępcze](guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md)
-  — stop usług, scalenie, migracja `0154`, cofnięcie i odrzucenie w Reviewerze,
-  import zastępczy i zapytania odbioru (D-542, D-543).
-- [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
-  — preflight, odrębne approval, apply i postflight migracji `0125`.
-- [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —
-  manifest wejściowy, uruchomienie eksportera i format wyniku.
-- [Lokalna galeria laboratorium wizji](guides/VISION_LAB_LOCAL.md) — import
-  folderu zdjęć, uruchomienie galerii i ograniczenia baseline.
-
-### Materiały warunkowe
-
-- [Analiza aplikacji referencyjnej](reverse_engineering/REFERENCE_APP_ANALYSIS.md)
-  — używać dopiero po rozstrzygnięciu Q-020.
-
-## Historia
-
-- [Archiwum dokumentacji](archive/README.md)
-- [Ukończone zadania](tasks/completed/README.md)
-
-Historia wyjaśnia pochodzenie decyzji, ale nie zastępuje aktualnych wymagań,
-architektury ani Decision Log.
 
 ## Zasada pojedynczego źródła prawdy
 
@@ -286,7 +71,8 @@ krótkie podsumowanie i link do właściciela reguły.
 
 ## Reguła aktualizacji
 
-Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
+Nowy plan lub dokument dopisuje się do [DOC_INDEX.md](DOC_INDEX.md) (podsekcja
+„Dostarczanie” dla planów), nie do tego pliku. Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
 wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
 jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
 na górze indeksu; wiersze ponad 30 przechodzą do archiwum indeksu).

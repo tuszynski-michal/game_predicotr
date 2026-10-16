@@ -60,7 +60,7 @@ Write the brief and print what would be executed; never start the auditor.
 
 .PARAMETER Effort
 Reasoning effort passed to the Codex auditor (low, medium, high; default medium,
-the quick audit of AGENTS.md "Audyt krzyżowy"). Ignored for the Claude auditor.
+the quick audit of the audit-task skill, "Zasady"). Ignored for the Claude auditor.
 
 .PARAMETER CodexWindowsSandbox
 Windows sandbox mode for the Codex CLI run (default unelevated; the elevated mode

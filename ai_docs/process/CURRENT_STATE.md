@@ -210,9 +210,9 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` (todo)
+### TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` (blocked)
 
-- `ai_docs/tasks/1021-current-state-constraints-review.md`; etap B, tylko raport i decyzja operatora.
+- `ai_docs/tasks/1021-current-state-constraints-review.md`; etap B. Raport `quality/CURRENT_STATE_REVIEW_20261016.md` gotowy (commit v1.7.368); czeka na decyzję operatora (sekcja 7 raportu). Bez niej TASK-1022 nie startuje.
 
 ### TASK-1022 — zastosowanie budżetów `CURRENT_STATE.md` (todo)
 
@@ -899,7 +899,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (done)
 
-- Plik: `ai_docs/tasks/completed/1020-decision-log-light-index.md`; plan odczytu startowego, etap A. Commit v1.7.367 (hash w kolejnym commicie).
+- Plik: `ai_docs/tasks/completed/1020-decision-log-light-index.md`; plan odczytu startowego, etap A. Commit **v1.7.367 / `d803c27c21b1e69fcad6287d9f5e8350d263d60e`**.
 - `DECISION_LOG.md` 77 628 → 10 755 B: 30 najnowszych wierszy, bez pełnych kopii; 157 starszych wierszy w `decisions/DECISION_INDEX_ARCHIVE.md` (tylko ścieżka linku skrócona). Decyzji spoza indeksu szukać `rg`; reguły w `AGENTS.md`, `README.md`, `TASK_TEMPLATE.md`.
 - Budżety `DECISION_LOG.md` (12 000 B, 30 wierszy) włączone; limit 100 000 B usunięty z `check_decision_links.py`. Dowód multizbioru 544 = 544, docs:check PASS. Odczyt startowy 145 776 B.
 

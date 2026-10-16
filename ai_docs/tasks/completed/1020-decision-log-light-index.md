@@ -141,7 +141,7 @@ npm run docs:check
 
 Wykonawca: claude-opus-5-5 (sesja leada) zamiast przypisanego
 claude-sonnet-5-5 / medium. Bez audytu Codex (decyzja operatora 2026-10-16).
-Commit: v1.7.367 (hash dopisuje kolejny commit). Gałąź zsynchronizowana z
+Commit: v1.7.367 / `d803c27c21b1e69fcad6287d9f5e8350d263d60e`. Gałąź zsynchronizowana z
 `main` (czubek `main` bez zmian od bazy v1.7.363); wiersze D-548..D-555 z
 `codex/v3-grid-fine-tuning` trafią do indeksu przy scaleniu tamtej gałęzi.
 

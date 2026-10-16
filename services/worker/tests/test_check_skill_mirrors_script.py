@@ -39,9 +39,10 @@ def test_differing_copy_fails_with_clear_message(tmp_path: Path) -> None:
     assert ".agents/skills/x/SKILL.md differs from .claude/skills/x/SKILL.md" in problems[0]
 
 
-def test_line_ending_difference_is_a_difference(tmp_path: Path) -> None:
+def test_line_ending_difference_alone_passes(tmp_path: Path) -> None:
+    # a git checkout with core.autocrlf=true and a tool-written LF copy hold the same text
     make(tmp_path, b"a\nb\n", b"a\r\nb\r\n")
-    assert len(mirrors.check(tmp_path, PAIR)) == 1
+    assert mirrors.check(tmp_path, PAIR) == []
 
 
 def test_missing_copy_fails(tmp_path: Path) -> None:

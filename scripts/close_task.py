@@ -87,6 +87,8 @@ ARCHIVE_NAME_RE = re.compile(r"^CURRENT_STATE_(\d{4})Q([1-4])\.md$")
 HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*$")
 LINE_RE = re.compile(r"[^\n]*\n|[^\n]+")
 STATUS_TOKEN_RE = re.compile(r"^(\s*)`([a-z_]+)`(.*)$", re.DOTALL)
+# Older task files write the status without backticks, e.g. "blocked — reason".
+BARE_STATUS_RE = re.compile(r"^(\s*)(todo|in_progress|blocked|done)\b(.*)$", re.DOTALL)
 
 
 class CloseError(Exception):
@@ -210,7 +212,7 @@ def active_names(root: Path) -> list[str]:
     )
 
 
-def newest_archive(root: Path) -> Path:
+def archives_newest_first(root: Path) -> list[Path]:
     candidates: list[tuple[int, int, Path]] = []
     for path in (root / ARCHIVE_REL).glob("CURRENT_STATE_*.md"):
         match = ARCHIVE_NAME_RE.match(path.name)
@@ -218,7 +220,11 @@ def newest_archive(root: Path) -> Path:
             candidates.append((int(match.group(1)), int(match.group(2)), path))
     if not candidates:
         raise CloseError(f"no archive file {ARCHIVE_REL}/CURRENT_STATE_<year>Q<n>.md")
-    return max(candidates)[2]
+    return [path for _, _, path in sorted(candidates, reverse=True)]
+
+
+def newest_archive(root: Path) -> Path:
+    return archives_newest_first(root)[0]
 
 
 def read_state(root: Path) -> tuple[bytes, list[str]]:
@@ -253,9 +259,9 @@ def set_task_status_done(raw: bytes, date: str, name: str) -> bytes:
     for index in range(section[0] + 1, end):
         if not bare(lines[index]).strip():
             continue
-        match = STATUS_TOKEN_RE.match(lines[index])
+        match = STATUS_TOKEN_RE.match(lines[index]) or BARE_STATUS_RE.match(lines[index])
         if not match:
-            raise CloseError(f"{name}: first line of ## Status is not a `status` token")
+            raise CloseError(f"{name}: first line of ## Status is not a status word")
         lines[index] = f"{match.group(1)}`done`{match.group(3)}"
         return encode(lines)
     raise CloseError(f"{name}: ## Status section has no status line")
@@ -406,24 +412,28 @@ def plan_record_hash(root: Path, number: str, commit: str, version: str | None) 
     )
     state_new = encode(state)
 
-    archive_path = newest_archive(root)
-    archive_raw = archive_path.read_bytes()
-    archive = decode(archive_raw)
+    # The section may sit in an older quarter file when a new archive was started
+    # between closing and recording, so search every archive, newest first.
     token = re.compile(rf"(?<![\w.]){re.escape(found_version)}(?!\w)(?!\.\d)(?! / `)")
     replaced = False
-    for start, level, text in headings(archive):
-        if level != 3 or not re.match(rf"TASK-{number}\b", text):
-            continue
-        for n in range(start + 1, block_end(archive, start, 3)):
-            if token.search(archive[n]):
-                archive[n] = token.sub(f"{found_version} / `{commit}`", archive[n], count=1)
-                replaced = True
+    for archive_path in archives_newest_first(root):
+        archive_raw = archive_path.read_bytes()
+        archive = decode(archive_raw)
+        for start, level, text in headings(archive):
+            if level != 3 or not re.match(rf"TASK-{number}\b", text):
+                continue
+            for n in range(start + 1, block_end(archive, start, 3)):
+                if token.search(archive[n]):
+                    archive[n] = token.sub(f"{found_version} / `{commit}`", archive[n], count=1)
+                    replaced = True
+                    break
+            if replaced:
                 break
         if replaced:
             break
     if not replaced:
         raise CloseError(
-            f"{archive_path.name}: no TASK-{number} section with a mention of {found_version} "
+            f"no archive has a TASK-{number} section with a mention of {found_version} "
             "without a hash"
         )
     archive_new = encode(archive)
@@ -519,12 +529,9 @@ def run_checks(root: Path) -> list[str]:
     """Window consistency and startup-read budgets for ``root``; one string per problem."""
     problems: list[str] = []
     window = load_script("check_current_state_window")
-    setattr(window, "ROOT", root)  # noqa: B010 - the script keeps its paths in module globals
-    setattr(window, "STATE", root / STATE_REL)  # noqa: B010
-    setattr(window, "TASKS", root / TASKS_REL)  # noqa: B010
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
-        code = window.main()
+        code = window.main(root)
     if code != 0:
         problems.append(captured.getvalue().strip())
     budget = load_script("check_startup_read_budget")

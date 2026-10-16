@@ -44,7 +44,8 @@ MIGRATIONS_PREFIX = "services/api/alembic/versions"
 
 TASK_RE = re.compile(r"^ai_docs/tasks/(?:.+/)?(\d{4})-[^/]+\.md$")
 DECISION_FILE_RE = re.compile(r"^ai_docs/process/decisions/DECISION_LOG_[^/]+\.md$")
-DECISION_HEADING_RE = re.compile(r"^##[ \t]+(D-\d+)\b.*$", re.MULTILINE)
+# Entries use ``## D-NNN`` or ``### D-NNN`` (as in check_decision_links.ENTRY_RE).
+DECISION_HEADING_RE = re.compile(r"^#{2,3}[ \t]+(D-\d+)\b.*$", re.MULTILINE)
 MIGRATION_RE = re.compile(r"^services/api/alembic/versions/(\d{4})_[^/]+\.py$")
 VERSION_RE = re.compile(r"^(v\d+\.\d+\.\d+)\b")
 
@@ -327,11 +328,11 @@ def analyse(root: Path, branch: str, base: str, remote: str) -> dict[str, object
     }
 
     added = added_by(root, branch, base, merge_base_out)
-    collisions = find_collisions(branch, added, base, occupied_on(root, base))
+    base_taken = occupied_on(root, base)
+    collisions = find_collisions(branch, added, base, base_taken)
 
     others: list[dict[str, object]] = []
     informational: list[Collision] = []
-    base_taken = occupied_on(root, base)
     for other in local_branches(root):
         if other in (branch, base):
             continue

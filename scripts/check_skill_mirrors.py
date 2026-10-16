@@ -33,7 +33,9 @@ def check(root: Path, pairs: tuple[tuple[str, str], ...] = MIRRORED_PAIRS) -> li
         ]
         if missing:
             problems.append(f"missing skill file(s): {', '.join(missing)}")
-        elif left.read_bytes() != right.read_bytes():
+        elif left.read_bytes().replace(b"\r\n", b"\n") != right.read_bytes().replace(
+            b"\r\n", b"\n"
+        ):  # line endings may differ between a git checkout and a tool-written copy
             problems.append(
                 f"{mirror} differs from {canonical}; copy the canonical file over the mirror"
             )

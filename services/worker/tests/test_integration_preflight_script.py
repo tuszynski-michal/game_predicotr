@@ -216,6 +216,14 @@ def test_decision_collision(repo: Path) -> None:
     assert "Cudza" in collisions[0]["against_items"][0]
 
 
+def test_level_three_decision_heading_collision(repo: Path) -> None:
+    switch(repo, "feat/work", "main")
+    commit(repo, "v1.0.2 - decision", {DECISIONS: "# Decisions\n\n### D-003 — Moja\n\nA.\n"})
+    switch(repo, "main")
+    commit(repo, "v1.0.3 - decision", {DECISIONS: "# Decisions\n\n## D-003 — Cudza\n\nB.\n"})
+    assert ("D", "D-003", "main") in collision_keys(report(repo, "feat/work"))
+
+
 def test_decision_without_collision(repo: Path) -> None:
     switch(repo, "feat/work", "main")
     commit(

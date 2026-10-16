@@ -52,16 +52,21 @@ class Section:
 
 
 def read_lines(root: Path, relative: str) -> list[str]:
-    """Lines with their original line endings; empty when the file is missing."""
+    """Lines with LF endings; empty when the file is missing.
+
+    Sizes are measured with LF line endings so that a Windows checkout with
+    ``core.autocrlf=true`` (CRLF on disk) and an LF checkout give the same result.
+    """
     path = root / relative
     if not path.is_file():
         return []
-    return path.read_bytes().decode("utf-8").splitlines(keepends=True)
+    return path.read_bytes().replace(b"\r\n", b"\n").decode("utf-8").splitlines(keepends=True)
 
 
 def file_size(root: Path, relative: str) -> int:
+    """Byte size with LF line endings (see ``read_lines``)."""
     path = root / relative
-    return path.stat().st_size if path.is_file() else 0
+    return len(path.read_bytes().replace(b"\r\n", b"\n")) if path.is_file() else 0
 
 
 def sections(lines: list[str]) -> list[Section]:

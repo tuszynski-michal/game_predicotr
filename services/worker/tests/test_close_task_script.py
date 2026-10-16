@@ -251,6 +251,28 @@ def test_status_section_without_blank_line_keeps_following_heading(
     assert "## Status\n`done`\n## Goal\n" in read(repo, COMPLETED_PATH)
 
 
+def test_bare_status_word_without_backticks_is_closed(repo: Path, done_file: Path) -> None:
+    write(
+        repo,
+        TASK_PATH,
+        TASK_FILE.replace("## Status\n\n`todo`\n", "## Status\n\nblocked — powód\n"),
+    )
+    assert run(repo, *close_args(done_file)) == 0
+    assert "## Status\n\n`done` — powód\n" in read(repo, COMPLETED_PATH)
+
+
+def test_record_hash_finds_section_in_older_archive(repo: Path, done_file: Path) -> None:
+    assert run(repo, *close_args(done_file)) == 0
+    run_git(repo, "add", "-A")
+    run_git(repo, "commit", "-q", "-m", "v1.0.20 - TASK-0001")
+    commit = run_git(repo, "rev-parse", "HEAD").strip()
+    # a new quarter file appears between closing and recording the hash
+    write(repo, "ai_docs/archive/CURRENT_STATE_2027Q1.md", "# Current State — archiwum 2027Q1\n")
+
+    assert run(repo, "record-hash", "TASK-0001", "--commit", commit) == 0
+    assert "Commit **v1.0.20 / `" + commit + "`**." in read(repo, ARCHIVE_PATH)
+
+
 def test_close_preserves_crlf_files(repo: Path, done_file: Path) -> None:
     for relative in (STATE_PATH, ARCHIVE_PATH):
         write(repo, relative, read(repo, relative).replace("\n", "\r\n"))

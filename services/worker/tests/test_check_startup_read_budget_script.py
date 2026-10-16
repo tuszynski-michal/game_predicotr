@@ -101,6 +101,18 @@ def test_enforced_startup_total_and_claude_budgets_fail(tree: Path) -> None:
     assert len(claude) == 1 and "AGENTS.md" in claude[0]
 
 
+def test_sizes_do_not_depend_on_line_endings(tree: Path) -> None:
+    names = (budget.CURRENT_STATE, budget.CLAUDE, budget.AGENTS)
+    for name in names:  # fixture files may already be CRLF (text mode on Windows)
+        path = tree / name
+        path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+    lf_report = budget.report(tree)
+    for name in names:
+        path = tree / name
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    assert budget.report(tree) == lf_report
+
+
 def test_heading_inside_code_fence_is_not_a_section(tree: Path) -> None:
     lines = budget.read_lines(tree, budget.CURRENT_STATE)
     titles = [section.title for section in budget.sections(lines)]

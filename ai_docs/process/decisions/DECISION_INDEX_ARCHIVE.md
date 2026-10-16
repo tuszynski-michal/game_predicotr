@@ -4,13 +4,14 @@ status: active
 last_updated: 2026-10-16
 ---
 
-# Indeks starszych decyzji (D-1..D-528)
+# Indeks starszych decyzji (D-1..D-529)
 
 Ciąg dalszy indeksu z [DECISION_LOG.md](../DECISION_LOG.md): wpisy o numerach
-poniżej D-529 (525 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
+poniżej D-530 (526 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-529](DECISION_LOG_2026.md#d-529--metadata-overview-precedes-exact-training-cohort-preparation) | metadata overview precedes exact training cohort preparation | accepted | 2026-10-07 | page entry reads current-owner logical symbol approvals and registry metadata through the existing… |
 | [D-528](DECISION_LOG_2026.md#d-528--one-explicit-save-and-approve-action-in-symbol-verification) | one explicit save-and-approve action in symbol verification | accepted | 2026-10-07 | replace the separate approve and apply-change buttons with Symbol do zatwierdzenia and Zapisz i zatwierdź. |
 | [D-527](DECISION_LOG_2026.md#d-527--shared-model-families-and-published-game-creation-catalog) | shared model families and published game creation catalog | accepted | 2026-10-07 | a model family is independent of a game record. |
 | [D-526](DECISION_LOG_2026.md#d-526--neural-proposals-are-not-mandatory-correction-shared-laboratory-direction) | neural proposals are not mandatory correction; shared Laboratory direction | accepted | 2026-10-07 | neural review source counts describe unapproved proposals, not rejected geometry or mandatory manual work. |

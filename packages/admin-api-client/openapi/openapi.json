@@ -13897,6 +13897,94 @@
         "title": "GridTrainingEarlyStopping",
         "type": "object"
       },
+      "GridTrainingJobPayload": {
+        "additionalProperties": false,
+        "description": "Pinned application grid-training run (TASK-0996); created only by its own route.",
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "cohortManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cohortmanifestsha256",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "plannedSteps": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Plannedsteps",
+            "type": "integer"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "presetId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Presetid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "trainingKind": {
+            "const": "grid-training-run-v1",
+            "title": "Trainingkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trainingKind",
+          "idempotencyKey",
+          "cohortId",
+          "cohortManifestSha256",
+          "mode",
+          "familyId",
+          "baseVersionId",
+          "presetId",
+          "presetFingerprint",
+          "seed",
+          "plannedSteps"
+        ],
+        "title": "GridTrainingJobPayload",
+        "type": "object"
+      },
       "GridTrainingLeaseView": {
         "additionalProperties": false,
         "properties": {
@@ -14052,6 +14140,35 @@
         "title": "GridTrainingPresetView",
         "type": "object"
       },
+      "GridTrainingRunBudget": {
+        "additionalProperties": false,
+        "properties": {
+          "maxSeconds": {
+            "title": "Maxseconds",
+            "type": "number"
+          },
+          "maxSteps": {
+            "title": "Maxsteps",
+            "type": "integer"
+          },
+          "reservedSteps": {
+            "title": "Reservedsteps",
+            "type": "integer"
+          },
+          "usedSeconds": {
+            "title": "Usedseconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "maxSteps",
+          "maxSeconds",
+          "reservedSteps",
+          "usedSeconds"
+        ],
+        "title": "GridTrainingRunBudget",
+        "type": "object"
+      },
       "GridTrainingRunCost": {
         "additionalProperties": false,
         "properties": {
@@ -14099,6 +14216,57 @@
           "withinBudget"
         ],
         "title": "GridTrainingRunCost",
+        "type": "object"
+      },
+      "GridTrainingRunCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "presetId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Presetid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "cohortId",
+          "presetId",
+          "presetFingerprint"
+        ],
+        "title": "GridTrainingRunCreate",
+        "type": "object"
+      },
+      "GridTrainingRunList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridTrainingRunView"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GridTrainingRunList",
         "type": "object"
       },
       "GridTrainingRunPreview": {
@@ -14212,6 +14380,173 @@
           "smoke"
         ],
         "title": "GridTrainingRunPreview",
+        "type": "object"
+      },
+      "GridTrainingRunView": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridTrainingRunBudget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelRequested": {
+            "title": "Cancelrequested",
+            "type": "boolean"
+          },
+          "candidateVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateversionid"
+          },
+          "checkpointStep": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointstep"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "plannedSteps": {
+            "title": "Plannedsteps",
+            "type": "integer"
+          },
+          "presetFingerprint": {
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "presetId": {
+            "title": "Presetid",
+            "type": "string"
+          },
+          "progressCurrent": {
+            "title": "Progresscurrent",
+            "type": "integer"
+          },
+          "progressTotal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progresstotal"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "processing",
+              "waiting_for_review",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "gameId",
+          "status",
+          "stage",
+          "cohortId",
+          "mode",
+          "presetId",
+          "presetFingerprint",
+          "baseVersionId",
+          "plannedSteps",
+          "progressCurrent",
+          "progressTotal",
+          "attempt",
+          "budget",
+          "checkpointStep",
+          "candidateVersionId",
+          "cancelRequested",
+          "errorCode",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "GridTrainingRunView",
         "type": "object"
       },
       "GridTrainingRuntimeRequirement": {
@@ -20612,6 +20947,9 @@
                 "$ref": "#/components/schemas/SuperGameSeriesDeriveJobPayload"
               },
               {
+                "$ref": "#/components/schemas/GridTrainingJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -20740,7 +21078,8 @@
           "storage_gc",
           "storage_inventory",
           "storage_pipeline_compaction",
-          "super_game_series_derive"
+          "super_game_series_derive",
+          "grid_training"
         ],
         "title": "JobType",
         "type": "string"
@@ -39974,7 +40313,8 @@
       "WorkerLaneName": {
         "enum": [
           "general",
-          "image_selection"
+          "image_selection",
+          "grid_training"
         ],
         "title": "WorkerLaneName",
         "type": "string"
@@ -45779,6 +46119,424 @@
         "summary": "Run Preview",
         "tags": [
           "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-runs": {
+      "get": {
+        "operationId": "listGridTrainingRuns",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "grid-training-runs"
+        ]
+      },
+      "post": {
+        "operationId": "createGridTrainingRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridTrainingRunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "grid-training-runs"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}": {
+      "get": {
+        "operationId": "getGridTrainingRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "grid-training-runs"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancelGridTrainingRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "grid-training-runs"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/resume": {
+      "post": {
+        "operationId": "resumeGridTrainingRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resume",
+        "tags": [
+          "grid-training-runs"
         ]
       }
     },

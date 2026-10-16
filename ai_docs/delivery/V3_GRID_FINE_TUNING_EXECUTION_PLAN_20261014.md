@@ -159,7 +159,7 @@ Historyczna baza zachowuje historyczny raport i ograniczenia; nie otrzymuje fikc
 - Worktree wykonawczy: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
 - Gałąź robocza: `codex/v3-grid-fine-tuning`.
 - Wybór `main` dotyczy bazy tego planu. Nie zmienia automatycznie globalnej polityki integracji ani nie upoważnia do scalenia.
-- Gałęzią integracyjną jest od 2026-10-16 `main` (decyzja operatora zapisana w `AGENTS.md`); `v1.1-vision-lab-hybrid-geometry` jest w `main`. Na polecenie operatora 2026-10-16 scalono `main` v1.7.374 do gałęzi roboczej, aby końcowa integracja mogła być fast-forwardem `main`. Przed scaleniem trzeba przedstawić zakres commitów gałęzi względem `main`.
+- Gałęzią integracyjną jest od 2026-10-16 `main` (decyzja operatora zapisana w `AGENTS.md`); `v1.1-vision-lab-hybrid-geometry` jest w `main`. Na polecenie operatora 2026-10-16 scalono `main` v1.7.376 / `0c0f64de` do gałęzi roboczej (commit scalenia v1.7.387 / `9b6b25dce9a2670afb3b4abcbe8b3e1b88d1a6f5`; komunikat commita błędnie podaje v1.7.374), aby końcowa integracja mogła być fast-forwardem `main`. Przed scaleniem trzeba przedstawić zakres commitów gałęzi względem `main`.
 
 Przed utworzeniem worktree sprawdzić, czy wskazana ścieżka i gałąź nie należą już do innej pracy. Nie resetować istniejącego checkoutu.
 
@@ -651,7 +651,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-0996 — Trwały trening V3 w aplikacji
 
-- **Status:** `todo`.
+- **Status:** `done` — v1.7.388, Codex R5 PASS, D-558; bez integracji.
 - **Goal / Context:** Wykonać odtwarzalny run z checkpointem i wznowieniem.
 - **Dependencies:** TASK-0995, TASK-1005, TASK-1012.
 - **Recommended execution:** `claude-fable-5-1`, `high`; stan treningu i maskowanie danych.
@@ -749,7 +749,7 @@ Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84
 
 Zmiana ról na jawne polecenie operatora2026-10-16: TASK-0995 kończy Codex z audytem Claude; po jego osobnym commicie następuje przekazanie. Pozostałe TASK-1005/0996/0997/1006/1000/1001 wykonuje Claude Code, a audytuje Codex gpt-6-astra, w oddzielnym kontekście i ograniczonym zakresie diffu. Historycznych wykonawców i raportów nie przepisujemy. Review0996 ma high dla trwałego stanu i dowodów. Reguły jednej rundy/poprawek, wersjonowania i osobnych zgód operacyjnych nadal obowiązują. Historyczna sesja `claude-fable-5-1` jest potwierdzona raportem rundy 3. Pakietowe CLI Claude wykryto pełnym resolverem z nowego main; --version działa, logowanie i wykonanie audytu wymagają osobnego rzeczywistego wyniku; zewnętrzny raport TASK-1015 otrzymano od operatora: PASS, brak P0/P1, cztery P2 do rozliczenia. Raport zapisano bez zmiany znalezisk w `ai_docs/quality/TASK-1015_AUDIT_claude-fable-5-1.md`. Audyt bootstrapu nie jest PASS aplikacji. Niedostępność przypisanej konfiguracji przy wykonaniu wymaga jawnego rozstrzygnięcia, bez ukrytego zamiennika.
 
-Zamiennik wykonawcy na jawną decyzję operatora 2026-10-16: sesja Claude Code przejmująca TASK-1005/0996/0997/1006/1000/1001 działa na `claude-opus-5-5`. Operator polecił ocenić, czy zadania można wykonać na Opus 5.5 z wyższym poziomem rozumowania zamiast `claude-fable-5-1`; wykonawca przyjął `claude-opus-5-5`/`high` dla wszystkich sześciu tasków. Audytor Codex `gpt-6-astra` i jego poziomy pozostają bez zmian. Pierwotne przypisanie `claude-fable-5-1` jest zachowane w historii Git tej sekcji.
+Zamiennik wykonawcy 2026-10-16: sesja Claude Code przejmująca TASK-1005/0996/0997/1006/1000/1001 działa na `claude-opus-5-5`. Operator wskazał możliwość użycia Opus 5.5 z wyższym poziomem rozumowania albo `claude-fable-5-1` tam, gdzie byłby wyraźnie lepszy, i pozostawił wybór wykonawcy. Wykonawca ocenił taski: TASK-1005 i TASK-0996 wykonano na `high`; TASK-0997 (definicje metryk, bramka publikacji per gra, aktualność dowodów wielu gier) otrzymuje `xhigh`; TASK-1006, TASK-1000 i TASK-1001 `high`. Brak przesłanek, że `claude-fable-5-1` dałby wyraźnie lepszy wynik, a ciągłość kontekstu sesji przemawia za jednym wykonawcą. Audyt każdego taska wykonuje Codex `gpt-6-astra` na poziomach z tabeli, przy braku dostępności `gpt-6.1-sol`. Limit czasu audytu Codex (decyzja po pytaniu operatora 2026-10-16): 1200 s dla poziomu `medium`, 2400 s dla `high` i tasków z dużym diffem; limit jest górną granicą, a brak raportu nie jest PASS. Pierwotne przypisanie `claude-fable-5-1` jest zachowane w historii Git tej sekcji.
 
 | Zadanie   | Model       | Reasoning | Uzasadnienie                                        | Dodatkowy review         |
 | --------- | ----------- | --------- | --------------------------------------------------- | ------------------------ |
@@ -773,7 +773,7 @@ Zamiennik wykonawcy na jawną decyzję operatora 2026-10-16: sesja Claude Code p
 | TASK-0995 | gpt-6.1-sol | high      | Kwalifikacja i niezmienne dane dowodowe.            | claude-fable-5-1, high   |
 | TASK-1005 | claude-opus-5-5 | high | Pomiar kosztu i wersjonowany preset. | gpt-6-astra, medium |
 | TASK-0996 | claude-opus-5-5 | high | Trener, checkpoint i wznowienie. | gpt-6-astra, high |
-| TASK-0997 | claude-opus-5-5 | high | Metryki i bramka osobno dla gier. | gpt-6-astra, high |
+| TASK-0997 | claude-opus-5-5 | xhigh | Metryki i bramka osobno dla gier. | gpt-6-astra, high |
 | TASK-1006 | claude-opus-5-5 | high | Wspólna kohorta i regresje między grami. | gpt-6-astra, high |
 | TASK-1000 | claude-opus-5-5 | high | Integracja gotowych funkcji panelu. | gpt-6-astra, medium |
 | TASK-1001 | claude-opus-5-5 | high | Odbiór procesu i dokumentacja trwałości. | gpt-6-astra, medium |

@@ -259,3 +259,46 @@ class GridTrainingRunPreview(CohortClosedModel):
     pendingWorkerChecks: list[str]
     lease: GridTrainingLeaseView
     smoke: GridTrainingSmokeLimits
+
+
+class GridTrainingRunCreate(CohortClosedModel):
+    idempotencyKey: UUID
+    cohortId: UUID
+    presetId: str = Field(min_length=1, max_length=64)
+    presetFingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class GridTrainingRunBudget(CohortClosedModel):
+    maxSteps: int
+    maxSeconds: float
+    reservedSteps: int
+    usedSeconds: float
+
+
+class GridTrainingRunView(CohortClosedModel):
+    runId: UUID
+    gameId: UUID
+    status: Literal[
+        "created", "processing", "waiting_for_review", "completed", "failed", "cancelled"
+    ]
+    stage: str | None
+    cohortId: UUID
+    mode: Literal["grid-only", "screen+grid"]
+    presetId: str
+    presetFingerprint: str
+    baseVersionId: UUID
+    plannedSteps: int
+    progressCurrent: int
+    progressTotal: int | None
+    attempt: int
+    budget: GridTrainingRunBudget | None
+    checkpointStep: int | None
+    candidateVersionId: UUID | None
+    cancelRequested: bool
+    errorCode: str | None
+    createdAt: str
+    updatedAt: str
+
+
+class GridTrainingRunList(CohortClosedModel):
+    items: list[GridTrainingRunView]

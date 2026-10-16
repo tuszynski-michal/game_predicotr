@@ -752,6 +752,23 @@ class SuperGameSeriesDeriveJobPayload(ApiModel):
     request_id: UUID
 
 
+class GridTrainingJobPayload(ApiModel):
+    """Pinned application grid-training run (TASK-0996); created only by its own route."""
+
+    schema_version: Literal[1] = 1
+    training_kind: Literal["grid-training-run-v1"]
+    idempotency_key: UUID
+    cohort_id: UUID
+    cohort_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["grid-only", "screen+grid"]
+    family_id: UUID
+    base_version_id: UUID
+    preset_id: str = Field(min_length=1, max_length=64)
+    preset_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    seed: int = Field(ge=0, le=2**31 - 1)
+    planned_steps: int = Field(ge=1, le=1_000_000)
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -824,6 +841,7 @@ JobPayloadResponse = (
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
+    | GridTrainingJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload
@@ -1348,6 +1366,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         if job.input_payload.get("inference_kind") == "grid-reinference-v1":
             return GridReinferenceJobPayload.model_validate(job.input_payload)
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.GRID_TRAINING:
+        return GridTrainingJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 
 

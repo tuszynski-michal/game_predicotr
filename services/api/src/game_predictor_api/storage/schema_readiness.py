@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0164_merge_main_board_search_panels"
+EXPECTED_ALEMBIC_HEAD: Final = "0165_grid_training_lane"
 
 
 class AlembicHeadMismatchError(RuntimeError):

@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
@@ -147,6 +148,8 @@ from game_predictor_worker.symbols.training_job import (
 WORKER_VERSION = "worker-v10"
 GENERAL_LANE = "general"
 IMAGE_SELECTION_LANE = "image-selection"
+GRID_TRAINING_LANE = "grid-training"
+GRID_TRAINING_PYTHON_ENV = "GAME_PREDICTOR_GRID_TRAINING_PYTHON"
 DEFAULT_GENERAL_THREAD_BUDGET = 7
 DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 5
 
@@ -164,6 +167,26 @@ def _remote_host_action_cycle(
         materialization_runner.run_bounded_cycle()
 
     return run
+
+
+def _grid_training_handler(session_factory: Any, engine: Any, artifact_root: Path) -> Any:
+    """GPU training supervisor; the trainer child uses the configured CUDA interpreter."""
+    from game_predictor_worker.images.grid_training_handler import GridTrainingJobHandler
+    from game_predictor_worker.images.grid_training_store import SqlGridTrainingStore
+
+    configured = os.environ.get(GRID_TRAINING_PYTHON_ENV, "").strip()
+    repository_root = Path(__file__).resolve().parents[4]
+    sources = [
+        repository_root / "services" / "worker" / "src",
+        repository_root / "services" / "api" / "src",
+    ]
+    return GridTrainingJobHandler(
+        SqlGridTrainingStore(session_factory, engine, artifact_root),
+        artifact_root=artifact_root,
+        python=Path(configured) if configured else None,
+        pythonpath=os.pathsep.join(str(path) for path in sources),
+        repository_root=repository_root,
+    )
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -192,7 +215,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--lane",
-        choices=(GENERAL_LANE, IMAGE_SELECTION_LANE),
+        choices=(GENERAL_LANE, IMAGE_SELECTION_LANE, GRID_TRAINING_LANE),
         default=GENERAL_LANE,
         help=(
             "Claim only general jobs or only image-selection jobs. "
@@ -288,11 +311,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
     settings = ApiSettings.from_environment()
     engine = create_database_engine(settings)
     session_factory = create_session_factory(engine)
-    runtime_lane = (
-        WorkerLaneName.IMAGE_SELECTION
-        if options.lane == IMAGE_SELECTION_LANE
-        else WorkerLaneName.GENERAL
-    )
+    runtime_lane = {
+        IMAGE_SELECTION_LANE: WorkerLaneName.IMAGE_SELECTION,
+        GRID_TRAINING_LANE: WorkerLaneName.GRID_TRAINING,
+    }.get(options.lane, WorkerLaneName.GENERAL)
     if options.mark_lane_stopped:
         try:
             stopped = SqlAlchemyWorkerLaneRepository(session_factory).stop(
@@ -315,7 +337,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
     materialization_runner: RemoteManualSelectionHostActionRunner | None = None
     removal_runner: RemoteManualSelectionRemovalRunner | None = None
     recovery_runner: RemoteManualSelectionRecoveryRunner | None = None
-    if options.lane == IMAGE_SELECTION_LANE:
+    if options.lane == GRID_TRAINING_LANE:
+        handlers = {
+            JobType.GRID_TRAINING: _grid_training_handler(session_factory, engine, artifact_root)
+        }
+        execution_slot = JobExecutionSlot.GRID_TRAINING
+    elif options.lane == IMAGE_SELECTION_LANE:
         # TASK-0194 showed that two Paddle/OpenCV verifier instances contend on
         # the owner's CPU and make the real first-200 profile slower. Keep the
         # deterministic parallel adapter available, but do not activate it in

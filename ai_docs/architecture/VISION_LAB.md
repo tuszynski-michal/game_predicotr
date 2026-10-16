@@ -765,3 +765,38 @@ thread enforces the three limits plus 30 s even when a batch blocks. It writes n
 candidate or export. The read-only `run-preview` route reports presets, cost, cohort
 qualification and lease state, and lists GPU, runtime, VRAM and budget as pending worker
 checks.
+
+## Durable application grid training (D-558, TASK-0996)
+
+Training runs are `grid_training` jobs in their own execution slot 3 and worker lane
+(`--lane grid-training`), so imports in the general lane are never blocked. The lane's
+supervisor `images/grid_training_handler.py` runs in the main environment: it renews the
+job lease, re-checks the frozen cohort and its D-556 eligibility, the base version's
+`training-base`, the preset and the runtime facts from `grid_training_child --probe`, and
+calls `evaluate_admission`. It then starts `images/grid_training_child.py` with the CUDA
+interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. The child opens no database; it
+reads the pinned `spec.json`, holds the D-557 GPU lease and stops on a cancel intent, its
+time limit or 60 seconds without a supervisor heartbeat.
+
+The neutral core holds the shared logic: `training_core/neural_grid_network.py` (network,
+graphs, losses), `training_core/neural_grid_augmentation.py` (jitter, photometric
+augmentation, training items) and `training_core/grid_training.py` (loop, sampler,
+checkpoints, early stopping, freezing, weighted node losses, export and parity). The
+laboratory re-exports the moved symbols and keeps its results. Every step is a pure
+function of `(seed, step)`, so a run resumed from a checkpoint continues with the indices
+and seeds of an uninterrupted run; checkpoints are immutable, re-read before the pointer in
+`jobs.checkpoint_payload` moves, and a damaged pointed file fails the run without a
+candidate. Grid-only trains only the board stage with the detector and BatchNorm frozen and
+the visibility loss masked; screen+grid trains the whole network.
+
+The best checkpoint is exported with ONNX parity, installed under
+`models/grid-engine/<profile>/<version>` with its `training-base` receipt and registered
+`not_evaluated` with an identifier derived from the job and checkpoint, so a retry after a
+crash restores the same version. Budget, attempt, checkpoint pointer, export and candidate
+live in the job payload; a re-claim charges the unconfirmed interval up to the child's
+self-stop (at most 100 s); a whole-process watchdog in the child enforces that bound, and
+the child publishes a step checkpoint when it is cancelled, out of budget or loses its
+supervisor. A re-claim first waits for the previous trainer to end, then charges its time and
+reported steps, adopts a newer intact checkpoint and recovers a finished export without new
+budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
+(`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.

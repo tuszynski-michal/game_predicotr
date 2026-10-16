@@ -87,6 +87,7 @@ from game_predictor_api.application.grid_engine_acceptance import HistoricalAcce
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_shadow import GridShadowService
 from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
+from game_predictor_api.application.grid_training_runs import GridTrainingRunService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_import_geometry_guard import (
@@ -398,6 +399,7 @@ from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepositor
 from game_predictor_api.storage.grid_training_cohort_repository import (
     SqlAlchemyGridTrainingCohortRepository,
 )
+from game_predictor_api.storage.grid_training_run_jobs import SqlAlchemyGridTrainingRunJobs
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     SqlAlchemyImageGeometryCompletenessRepository,
 )
@@ -2290,6 +2292,23 @@ def create_app(
                 session.rollback()
                 raise
 
+    def default_grid_training_run_dependency() -> Iterator[GridTrainingRunService]:
+        with session_factory() as session:
+            try:
+                yield GridTrainingRunService(
+                    GridTrainingCohortService(
+                        SqlAlchemyGridTrainingCohortRepository(
+                            session, resolved_settings.artifact_root
+                        ),
+                        resolved_settings.artifact_root,
+                    ),
+                    SqlAlchemyGridTrainingRunJobs(session),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
     @application.exception_handler(GridCohortError)
     async def grid_cohort_error_handler(_request: Request, error: GridCohortError) -> JSONResponse:
         return JSONResponse(
@@ -2376,6 +2395,7 @@ def create_app(
             grid_shadow_service_dependency=resolved_grid_shadow_dependency,
             lab_symbol_candidate_import_service_dependency=resolved_lab_symbol_candidate_import_dependency,
             grid_training_cohort_service_dependency=default_grid_training_cohort_dependency,
+            grid_training_run_service_dependency=default_grid_training_run_dependency,
         )
     )
     if not custom_service_dependency_supplied:

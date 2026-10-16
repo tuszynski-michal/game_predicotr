@@ -433,6 +433,16 @@ class GridBoardDataset:
                     )
                 yield source
 
+    def indexed(self) -> list[tuple[dict[str, Any], list[tuple[np.ndarray, int]]]]:
+        """Metadata-only index of the role: each source with its (nodes, weight) targets in
+        physical position order, after the root count check of ``__len__``."""
+        len(self)
+        result = []
+        for source in self._sources():
+            ordered = sorted(source["targets"], key=lambda target: target["positionIndex"])
+            result.append((source, [_target(target)[:2] for target in ordered]))
+        return result
+
     def __len__(self) -> int:
         boards = photos = full = 0
         for source in self._sources():

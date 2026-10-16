@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-0996 — Trwały trening V3 w aplikacji (done)
+
+- [Task](../tasks/completed/0996-durable-v3-grid-training.md); baza v1.7.387, branch `codex/v3-grid-fine-tuning`, commit v1.7.388. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1–R4 REVISE (kolejno 7, 4, 4 i 2 uwagi P0/P1), dodatkowe rundy poprawek zatwierdzone przez operatora, R5 PASS bez uwag.
+- D-558: lane i slot `grid_training` (migracja `0165`), nadzorca w workerze z bazą i trener GPU bez bazy, neutralny rdzeń sieci/augmentacji/treningu, wznowienie identyczne po kroku, checkpoint przy przerwaniu i adopcja po utracie nadzorcy, rezerwacja kroków blokami 200, kandydat `not_evaluated` bez duplikatu, API `grid-training-runs`.
+- E2E na GPU z izolowanym PostgreSQL i prawdziwym workerem PASS: normalny run oraz zabicie nadzorcy, samodzielne zatrzymanie trenera, wznowienie i jedna rejestracja; wykrył i zamknął dwa błędy kontraktu jobów.
+- Bez treningu na danych operatora, migracji jego bazy i integracji; te kroki na końcu planu za zgodą operatora.
+
 ### TASK-1005 — Preset i dopuszczenie zasobów (done)
 
 - [Task](../tasks/completed/1005-grid-training-resource-admission.md); baza v1.7.385, branch `codex/v3-grid-fine-tuning`. Commit **v1.7.386** / `0862fbeca1243daad9e84b8bb3a8c6d0dba7e5f8`, bez integracji. Wykonawca Claude Code `claude-opus-5-5`/`high` jako jawny zamiennik `claude-fable-5-1` (decyzja operatora 2026-10-16), audytor Codex `gpt-6-astra`/`medium`.
@@ -84,7 +91,7 @@ last_updated: 2026-10-16
 
 ## Przeniesione z okna gałęzi `codex/v3-grid-fine-tuning` przy scaleniu `main` (2026-10-16)
 
-Teksty bez zmian z okna gałęzi przed scaleniem `main` v1.7.374; nowy format okna TASK-1022 skraca je w `CURRENT_STATE.md`.
+Teksty bez zmian z okna gałęzi przed scaleniem `main` v1.7.376 (commit scalenia v1.7.387); nowy format okna TASK-1022 skraca je w `CURRENT_STATE.md`.
 
 ### Obowiązujące ograniczenia gałęzi (przed scaleniem)
 

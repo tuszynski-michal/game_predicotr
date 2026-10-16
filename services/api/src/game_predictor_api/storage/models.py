@@ -540,9 +540,11 @@ class JobModel(Base):
         ),
         CheckConstraint(
             "(status = 'processing' "
-            "AND ((job_type IN ('image_selection', 'semi_automatic_image_selection') "
+            "AND ((job_type::text IN ('image_selection', 'semi_automatic_image_selection') "
             "AND execution_slot = 2) "
-            "OR (job_type NOT IN ('image_selection', 'semi_automatic_image_selection') "
+            "OR (job_type::text = 'grid_training' AND execution_slot = 3) "
+            "OR (job_type::text NOT IN "
+            "('image_selection', 'semi_automatic_image_selection', 'grid_training') "
             "AND execution_slot = 1)) "
             "AND lease_owner IS NOT NULL AND lease_token IS NOT NULL "
             "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL) "

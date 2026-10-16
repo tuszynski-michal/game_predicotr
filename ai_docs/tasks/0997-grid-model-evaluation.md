@@ -29,8 +29,8 @@ Task jest częścią zaakceptowanej rewizji 6. Metryki i bramka osobno dla gier.
 
 Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
 
-- Wykonawca: `claude-opus-5-5`, reasoning `high` (zamiennik `claude-fable-5-1`/`high` na jawną decyzję operatora 2026-10-16, zapisaną w sekcji 8 planu). metryki i kwalifikacja publikacji.
-- Dodatkowy review: `gpt-6-astra`, reasoning `high`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
+- Wykonawca: `claude-opus-5-5`, reasoning `xhigh` (zamiennik `claude-fable-5-1`/`high`; wybór wykonawcy po sugestii operatora 2026-10-16, uzasadnienie w sekcji 8 planu). metryki i kwalifikacja publikacji.
+- Dodatkowy review: `gpt-6-astra` (przy braku dostępności `gpt-6.1-sol`), reasoning `high`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 
 ## Relevant docs

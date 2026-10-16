@@ -4,6 +4,11 @@ import {
   getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
   getGridTrainingCohortEligibility as getGeneratedGridTrainingCohortEligibility,
   previewGridTrainingRun as previewGeneratedGridTrainingRun,
+  createGridTrainingRun as createGeneratedGridTrainingRun,
+  listGridTrainingRuns as listGeneratedGridTrainingRuns,
+  getGridTrainingRun as getGeneratedGridTrainingRun,
+  cancelGridTrainingRun as cancelGeneratedGridTrainingRun,
+  resumeGridTrainingRun as resumeGeneratedGridTrainingRun,
   prepareGridTrainingCohort as prepareGeneratedGridTrainingCohort,
   prepareGridTrainingCohortPage as prepareGeneratedGridTrainingCohortPage,
   materializeGridTrainingCohortPage as materializeGeneratedGridTrainingCohortPage,
@@ -44,6 +49,7 @@ import {
 } from './generated/sdk.gen';
 import type {
   GridCohortPrepareCommand,
+  GridTrainingRunCreate,
   GridCohortPageCommand,
   GridCohortFreezeCommand,
   GridCohortRevisionCommand,
@@ -81,6 +87,10 @@ export type {
   GridCohortMembers,
   GridCohortEligibility,
   GridTrainingRunPreview,
+  GridTrainingRunCreate,
+  GridTrainingRunView,
+  GridTrainingRunList,
+  GridTrainingRunBudget,
   GridTrainingPresetView,
   GridTrainingRunCost,
   GridCohortReceipt,
@@ -1446,6 +1456,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId, cohort_id: cohortId },
       }),
+    createGridTrainingRun: (gameId: string, body: GridTrainingRunCreate) =>
+      createGeneratedGridTrainingRun({ client, path: { game_id: gameId }, body }),
+    listGridTrainingRuns: (gameId: string) =>
+      listGeneratedGridTrainingRuns({ client, path: { game_id: gameId } }),
+    getGridTrainingRun: (gameId: string, runId: string) =>
+      getGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
+    cancelGridTrainingRun: (gameId: string, runId: string) =>
+      cancelGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
+    resumeGridTrainingRun: (gameId: string, runId: string) =>
+      resumeGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
     prepareGridTrainingCohort: (
       gameId: string,
       body: GridCohortPrepareCommand,

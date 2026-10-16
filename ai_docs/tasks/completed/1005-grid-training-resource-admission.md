@@ -28,7 +28,7 @@ Task jest częścią zaakceptowanej rewizji 6. Pomiar kosztu i wersjonowany pres
 
 Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
 
-- Wykonawca: `claude-opus-5-5`, reasoning `high` (zamiennik `claude-fable-5-1`/`medium` na jawną decyzję operatora 2026-10-16, zapisaną w sekcji 8 planu). parametry wynikają z raportów i mierzalnego testu.
+- Wykonawca: `claude-opus-5-5`, reasoning `high` (zamiennik `claude-fable-5-1`/`medium` ; wybór wykonawcy po sugestii operatora 2026-10-16, uzasadnienie w sekcji 8 planu). parametry wynikają z raportów i mierzalnego testu.
 - Dodatkowy review: `gpt-6-astra`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 
@@ -122,7 +122,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 
 - Gotowe do commita: audyt R2 [PASS](../../quality/TASK-1005_AUDIT_gpt-6-astra_R2.md) (`gpt-6-astra`/`medium`), wszystkie uwagi R1 zamknięte, brak otwartych P0/P1/P2. Raport bieżący: `quality/TASK-1005_AUDIT_gpt-6-astra.md` (kopia R2), R1 zachowany.
 - Audyt R1: [REVISE](../../quality/TASK-1005_AUDIT_gpt-6-astra_R1.md), P0-1/P0-2/P0-3 i P2-1, brak P1. Jedna runda poprawek: P0-1 pełna walidacja typów i skończoności rekordu dzierżawy (błąd daje `GRID_RUN_LEASE_UNKNOWN`, plik zostaje); P0-2 `SmokeWatchdog` pilnuje także terminu treningu od pierwszego kroku (+30 s); P0-3 watchdog zatrzymywany w `finally` przed powrotem, po zatrzymaniu nie zapisuje raportu i nie kończy procesu; P2-1 `release` obcym lub brakującym tokenem daje `GRID_RUN_LEASE_LOST` zgodnie z kontraktem.
-- Wykonawca: Claude Code `claude-opus-5-5`/`high` jako jawny zamiennik `claude-fable-5-1`/`medium` na decyzję operatora 2026-10-16 (sekcja 8 planu).
+- Wykonawca: Claude Code `claude-opus-5-5`/`high` jako jawny zamiennik `claude-fable-5-1`/`medium`, wybrany przez wykonawcę po sugestii operatora 2026-10-16 (sekcja 8 planu).
 - Original base: v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`; baza taska v1.7.385 / `f0cfa9bdf2deaf0e5abdf7970624bd5575f10dc7`.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
 - Commit: **v1.7.386** / `0862fbeca1243daad9e84b8bb3a8c6d0dba7e5f8` (najwyższy wersjonowany commit lokalnych gałęzi: v1.7.385 tej gałęzi; `main` v1.7.374); hash dopisany w commicie scalenia `main` v1.7.387.

@@ -533,3 +533,13 @@ approved, the cohort is empty, of another mode or too costly, or the budget is s
 Resuming a run never renews its steps or seconds. A smoke ends after 50 steps or 120
 training seconds and produces no candidate. The preview reads metadata only; it starts
 no job and does not claim worker-side checks.
+
+## Durable application grid training (D-558, TASK-0996)
+
+An operator starts a run from a frozen, eligible cohort and the approved preset of its
+mode. The run is queued in its own lane and never blocks imports. It can be cancelled and
+resumed; resume keeps the spent budget and continues from the last valid checkpoint with
+the same data order. A damaged checkpoint, a removed source, a changed base or preset,
+missing GPU or a held GPU lease stops the run without a candidate. A finished run
+registers one not-evaluated candidate version, also after a crash and retry; it is never
+published or activated by the run.

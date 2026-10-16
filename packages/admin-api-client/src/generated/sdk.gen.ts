@@ -69,6 +69,9 @@ import type {
   CancelGridTrainingCohortData,
   CancelGridTrainingCohortErrors,
   CancelGridTrainingCohortResponses,
+  CancelGridTrainingRunData,
+  CancelGridTrainingRunErrors,
+  CancelGridTrainingRunResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -132,6 +135,9 @@ import type {
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
+  CreateGridTrainingRunData,
+  CreateGridTrainingRunErrors,
+  CreateGridTrainingRunResponses,
   CreateHistoricalGridAcceptanceData,
   CreateHistoricalGridAcceptanceErrors,
   CreateHistoricalGridAcceptanceResponses,
@@ -414,6 +420,9 @@ import type {
   GetGridTrainingCohortMembersErrors,
   GetGridTrainingCohortMembersResponses,
   GetGridTrainingCohortResponses,
+  GetGridTrainingRunData,
+  GetGridTrainingRunErrors,
+  GetGridTrainingRunResponses,
   GetHealthData,
   GetHealthResponses,
   GetHistoricalGridAcceptanceData,
@@ -730,6 +739,9 @@ import type {
   ListGridTrainingCohortsData,
   ListGridTrainingCohortsErrors,
   ListGridTrainingCohortsResponses,
+  ListGridTrainingRunsData,
+  ListGridTrainingRunsErrors,
+  ListGridTrainingRunsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -1089,6 +1101,9 @@ import type {
   ResumeGridReinferenceData,
   ResumeGridReinferenceErrors,
   ResumeGridReinferenceResponses,
+  ResumeGridTrainingRunData,
+  ResumeGridTrainingRunErrors,
+  ResumeGridTrainingRunResponses,
   ResumeSemiAutomaticImageSelectionData,
   ResumeSemiAutomaticImageSelectionErrors,
   ResumeSemiAutomaticImageSelectionResponses,
@@ -2635,6 +2650,105 @@ export const previewGridTrainingRun = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview',
+    ...options,
+  });
+
+/**
+ * List Runs
+ */
+export const listGridTrainingRuns = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridTrainingRunsData, ThrowOnError>,
+): RequestResult<
+  ListGridTrainingRunsResponses,
+  ListGridTrainingRunsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridTrainingRunsResponses,
+    ListGridTrainingRunsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-training-runs', ...options });
+
+/**
+ * Create
+ */
+export const createGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  CreateGridTrainingRunResponses,
+  CreateGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridTrainingRunResponses,
+    CreateGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get
+ */
+export const getGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingRunResponses,
+  GetGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingRunResponses,
+    GetGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  CancelGridTrainingRunResponses,
+  CancelGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridTrainingRunResponses,
+    CancelGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/cancel',
+    ...options,
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  ResumeGridTrainingRunResponses,
+  ResumeGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridTrainingRunResponses,
+    ResumeGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/resume',
     ...options,
   });
 

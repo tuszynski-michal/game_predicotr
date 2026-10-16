@@ -1045,6 +1045,8 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.STORAGE_PIPELINE_COMPACTION,
         # TASK-0933: queued only by its own route and by input changes.
         JobType.SUPER_GAME_SERIES_DERIVE,
+        # TASK-0996: queued only by the grid-training run route.
+        JobType.GRID_TRAINING,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

@@ -28,6 +28,7 @@ class JobType(StrEnum):
     STORAGE_INVENTORY = "storage_inventory"
     STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
     SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
+    GRID_TRAINING = "grid_training"
 
 
 class JobStatus(StrEnum):
@@ -42,6 +43,7 @@ class JobStatus(StrEnum):
 class JobExecutionSlot(IntEnum):
     GENERAL = 1
     IMAGE_SELECTION = 2
+    GRID_TRAINING = 3
 
 
 class JobError(ValueError):
@@ -120,6 +122,10 @@ def create_job(
         schema_version,
         input_payload.get("inference_kind"),
     ) in {(2, "pending_grid_only"), (3, "grid-reinference-v1")}
+    supports_grid_training_v1 = job_type is JobType.GRID_TRAINING and (
+        schema_version,
+        input_payload.get("training_kind"),
+    ) == (1, "grid-training-run-v1")
     supports_semi_automatic_selection_v2_v4 = (
         schema_version in {2, 3, 4} and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
     )
@@ -130,6 +136,7 @@ def create_job(
         and not supports_page_geometry_preflight_v2
         and not supports_pending_grid_reinference_v2
         and not supports_semi_automatic_selection_v2_v4
+        and not supports_grid_training_v1
     ):
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
@@ -204,6 +211,15 @@ def job_input_key(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def execution_slot_for(job_type: JobType) -> JobExecutionSlot:
+    """Image selection and GPU grid training run in their own lanes (D-558)."""
+    if job_type in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}:
+        return JobExecutionSlot.IMAGE_SELECTION
+    if job_type is JobType.GRID_TRAINING:
+        return JobExecutionSlot.GRID_TRAINING
+    return JobExecutionSlot.GENERAL
+
+
 def start_job(
     job: Job,
     *,
@@ -216,11 +232,7 @@ def start_job(
 ) -> Job:
     if job.status is not JobStatus.CREATED:
         _raise_invalid_transition(job, JobStatus.PROCESSING)
-    expected_slot = (
-        JobExecutionSlot.IMAGE_SELECTION
-        if job.job_type in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}
-        else JobExecutionSlot.GENERAL
-    )
+    expected_slot = execution_slot_for(job.job_type)
     if execution_slot is not expected_slot:
         raise JobError(
             "INVALID_JOB_EXECUTION_SLOT",

@@ -7860,6 +7860,62 @@ export type GridTrainingEarlyStopping = {
 };
 
 /**
+ * GridTrainingJobPayload
+ *
+ * Pinned application grid-training run (TASK-0996); created only by its own route.
+ */
+export type GridTrainingJobPayload = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Cohortmanifestsha256
+   */
+  cohortManifestSha256: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Seed
+   */
+  seed: number;
+  /**
+   * Trainingkind
+   */
+  trainingKind: 'grid-training-run-v1';
+};
+
+/**
  * GridTrainingLeaseView
  */
 export type GridTrainingLeaseView = {
@@ -7958,6 +8014,28 @@ export type GridTrainingPresetView = {
 };
 
 /**
+ * GridTrainingRunBudget
+ */
+export type GridTrainingRunBudget = {
+  /**
+   * Maxseconds
+   */
+  maxSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Reservedsteps
+   */
+  reservedSteps: number;
+  /**
+   * Usedseconds
+   */
+  usedSeconds: number;
+};
+
+/**
  * GridTrainingRunCost
  */
 export type GridTrainingRunCost = {
@@ -7993,6 +8071,38 @@ export type GridTrainingRunCost = {
    * Withinbudget
    */
   withinBudget: boolean;
+};
+
+/**
+ * GridTrainingRunCreate
+ */
+export type GridTrainingRunCreate = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+};
+
+/**
+ * GridTrainingRunList
+ */
+export type GridTrainingRunList = {
+  /**
+   * Items
+   */
+  items: Array<GridTrainingRunView>;
 };
 
 /**
@@ -8046,6 +8156,95 @@ export type GridTrainingRunPreview = {
    */
   selectedPresetId: string | null;
   smoke: GridTrainingSmokeLimits;
+};
+
+/**
+ * GridTrainingRunView
+ */
+export type GridTrainingRunView = {
+  /**
+   * Attempt
+   */
+  attempt: number;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  budget: GridTrainingRunBudget | null;
+  /**
+   * Cancelrequested
+   */
+  cancelRequested: boolean;
+  /**
+   * Candidateversionid
+   */
+  candidateVersionId: string | null;
+  /**
+   * Checkpointstep
+   */
+  checkpointStep: number | null;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Progresscurrent
+   */
+  progressCurrent: number;
+  /**
+   * Progresstotal
+   */
+  progressTotal: number | null;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  /**
+   * Status
+   */
+  status:
+    | 'created'
+    | 'processing'
+    | 'waiting_for_review'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
 };
 
 /**
@@ -11571,6 +11770,7 @@ export type JobResponse = {
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
+    | GridTrainingJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload;
@@ -11630,7 +11830,8 @@ export type JobType =
   | 'storage_gc'
   | 'storage_inventory'
   | 'storage_pipeline_compaction'
-  | 'super_game_series_derive';
+  | 'super_game_series_derive'
+  | 'grid_training';
 
 /**
  * LabSymbolCandidateImportJobPayloadResponse
@@ -22452,7 +22653,7 @@ export type VirtualCellPreviewTileResponse = {
 /**
  * WorkerLaneName
  */
-export type WorkerLaneName = 'general' | 'image_selection';
+export type WorkerLaneName = 'general' | 'image_selection' | 'grid_training';
 
 /**
  * WorkerLaneState
@@ -25486,6 +25687,238 @@ export type PreviewGridTrainingRunResponses = {
 
 export type PreviewGridTrainingRunResponse =
   PreviewGridTrainingRunResponses[keyof PreviewGridTrainingRunResponses];
+
+export type ListGridTrainingRunsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs';
+};
+
+export type ListGridTrainingRunsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridTrainingRunsError =
+  ListGridTrainingRunsErrors[keyof ListGridTrainingRunsErrors];
+
+export type ListGridTrainingRunsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunList;
+};
+
+export type ListGridTrainingRunsResponse =
+  ListGridTrainingRunsResponses[keyof ListGridTrainingRunsResponses];
+
+export type CreateGridTrainingRunData = {
+  body: GridTrainingRunCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs';
+};
+
+export type CreateGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateGridTrainingRunError =
+  CreateGridTrainingRunErrors[keyof CreateGridTrainingRunErrors];
+
+export type CreateGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type CreateGridTrainingRunResponse =
+  CreateGridTrainingRunResponses[keyof CreateGridTrainingRunResponses];
+
+export type GetGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}';
+};
+
+export type GetGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingRunError =
+  GetGridTrainingRunErrors[keyof GetGridTrainingRunErrors];
+
+export type GetGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type GetGridTrainingRunResponse =
+  GetGridTrainingRunResponses[keyof GetGridTrainingRunResponses];
+
+export type CancelGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/cancel';
+};
+
+export type CancelGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridTrainingRunError =
+  CancelGridTrainingRunErrors[keyof CancelGridTrainingRunErrors];
+
+export type CancelGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type CancelGridTrainingRunResponse =
+  CancelGridTrainingRunResponses[keyof CancelGridTrainingRunResponses];
+
+export type ResumeGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/resume';
+};
+
+export type ResumeGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridTrainingRunError =
+  ResumeGridTrainingRunErrors[keyof ResumeGridTrainingRunErrors];
+
+export type ResumeGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type ResumeGridTrainingRunResponse =
+  ResumeGridTrainingRunResponses[keyof ResumeGridTrainingRunResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;

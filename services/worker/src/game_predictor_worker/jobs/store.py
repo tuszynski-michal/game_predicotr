@@ -48,6 +48,7 @@ CANDIDATE_SCAN_LIMIT = 100
 GENERAL_JOB_TYPES = frozenset(JobType) - {
     JobType.IMAGE_SELECTION,
     JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+    JobType.GRID_TRAINING,
 }
 
 
@@ -176,6 +177,7 @@ class SqlAlchemyWorkerJobStore:
         failure_count: int,
         review_count: int,
         checkpointed_at: datetime,
+        acknowledge_cancellation: bool = True,
     ) -> Job:
         _validate_lease_duration(lease_duration)
         with self._session_factory() as session, session.begin():
@@ -198,7 +200,9 @@ class SqlAlchemyWorkerJobStore:
                 review_count=review_count,
                 updated_at=checkpointed_at,
             )
-            if updated.cancel_requested_at is not None:
+            # A handler that must stop a child process first keeps the request pending and
+            # acknowledges it with a later checkpoint (TASK-0996 grid training).
+            if updated.cancel_requested_at is not None and acknowledge_cancellation:
                 updated = acknowledge_job_cancellation(
                     updated,
                     lease_token=lease_token,

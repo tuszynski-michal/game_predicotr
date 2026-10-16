@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1042 — Czyszczenie zakresów usuwa oryginały naprawdę i bezpiecznie (done)
 
-- Plik: `ai_docs/tasks/completed/1042-board-source-cleanup-originals.md`; defekt znaleziony po cleanupie 214 zdjęć importu `c2b7d87a` (777a2, 2026-10-17): wynik zgłosił 214 usuniętych plików, żaden nie zniknął. Commit **v1.7.399**.
+- Plik: `ai_docs/tasks/completed/1042-board-source-cleanup-originals.md`; defekt znaleziony po cleanupie 214 zdjęć importu `c2b7d87a` (777a2, 2026-10-17): wynik zgłosił 214 usuniętych plików, żaden nie zniknął. Commit **v1.7.399 / `6253c29635f0add53d91cd9a27183e40a0aa40f7`**.
 - `ManagedCleanupArtifactStore.resolve` mapuje ścieżki względne do `artifacts` albo `artifacts/data` na istniejące pliki; podgląd i wykonanie `board_source_ranges` używają tylko istniejących plików, licznik `missing_artifacts`, blokada `CLEANUP_ARTIFACT_PATH_AMBIGUOUS`. Repozytorium zachowuje oryginał współdzielony z innym źródłem lub geometrią albo potrzebny niezakończonemu jobowi (`SOURCE_ORIGINALS_RETAINED`).
 - Testy domenowe i integracyjne Postgres (izolowana `*_test`) PASS; reset gry i wydania bez zmian. Bez migracji i zmian schematu API.
 

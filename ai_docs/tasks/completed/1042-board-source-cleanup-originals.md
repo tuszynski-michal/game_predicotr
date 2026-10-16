@@ -118,7 +118,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'; .\.venv\Scripts\python.exe -m pyte
 
 ## Outcome
 
-Commit: v1.7.399 (hash dopisuje kolejny commit).
+Commit: v1.7.399 / `6253c29635f0add53d91cd9a27183e40a0aa40f7`.
 
 Wykonawca: Claude Opus 5.5 (sesja operatora). Bez audytu krzyżowego (task poza
 planem; audyty zawieszone przez operatora).

@@ -31,7 +31,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md` | proposed (2026-10-16) | TASK-1030–1033 todo | brak gałęzi |
+| `delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md` | accepted (2026-10-16), etap A w toku | TASK-1031–1033 todo (1030 done) | `feat/stage2-plan` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | proposed, rev. 2 (na `codex/v3-grid-fine-tuning`: accepted, rev. 6) | TASK-0993–1006 w planie; pliki tasków tylko na tamtej gałęzi | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
@@ -53,10 +53,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski toru V3 (TASK-0993–1024) są na gałęzi `codex/v3-grid-fine-tuning`.
 
-### TASK-1030 — skill `task-close` ze skryptem zamykania (todo)
-
-- `ai_docs/tasks/1030-task-close-skill.md`; plan etapu 2, etap A.
-
 ### TASK-1031 — skill `merge-to-main` z preflightem (todo)
 
 - `ai_docs/tasks/1031-merge-to-main-skill.md`; etap A, po TASK-1030.
@@ -71,6 +67,7 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1030** — Skill `task-close` ze skryptem zamykania — v1.7.378 — tasks/completed/1030-task-close-skill.md
 - **TASK-1024** — Zamknięcie nieaktualnych tasków na `main` — v1.7.375 / `5fa317c4` — tasks/completed/1024-close-stale-tasks.md
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
@@ -80,4 +77,3 @@ TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski 
 - **TASK-1019** — Skrypt pomiaru i budżetów odczytu startowego — v1.7.366 / `d1174304` — tasks/completed/1019-startup-read-budget-script.md
 - **TASK-1007** — Trwałe wykrywanie Claude Code CLI — v1.7.361 / `baf67dbd` (scalenie v1.7.362 / `885ba12f`) — tasks/completed/1007-claude-cli-discovery.md
 - **TASK-0991** — Wznowienie symboli i pełny przebieg 777 a2 <80% — v1.7.358 / `17a1012e` (naprawa v1.7.351 / `6e84a1b1`) — tasks/completed/0991-symbol-reinference-resume.md
-- **TASK-0992** — Scalenie naprawy i obowiązek integracji — v1.7.353 / `14aeb0c0` (korekta v1.7.355 / `be7ecff1`) — tasks/completed/0992-integration-branch-merge-policy.md

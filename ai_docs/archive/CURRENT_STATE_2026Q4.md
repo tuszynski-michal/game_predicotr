@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1030 — Skill `task-close` ze skryptem zamykania taska (done)
+
+- Plik: `ai_docs/tasks/completed/1030-task-close-skill.md`; plan etapu 2 odczytu startowego, etap A. Commit **v1.7.378**.
+- `scripts/close_task.py` (`close`, `record-hash`, `--dry-run`, wycofanie przy czerwonej kontroli), skill `task-close` w `.claude/skills/` i `.agents/skills/`, `scripts/check_skill_mirrors.py` w `docs:check`. Codex CLI 0.162.0 czyta skille z `.agents/skills/` i `.codex/skills/`.
+- 28 nowych testów, łącznie 50 PASS; ruff, mypy --strict, docs:check PASS. Ten task zamknięto własnym skryptem.
+
 ### TASK-1024 — Zamknięcie nieaktualnych tasków na `main` (done)
 
 - Plik: `ai_docs/tasks/completed/1024-close-stale-tasks.md`. Commit **v1.7.375 / `5fa317c48858438b35f33fd6e4dae8be1fc29f18`**, scalony do `main` i wypchnięty (v1.7.376).

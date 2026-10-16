@@ -1,6 +1,6 @@
 ---
 title: Etap 2 odczytu startowego — skille procedur i odchudzenie AGENTS.md oraz README
-status: proposed
+status: accepted
 last_updated: 2026-10-16
 ---
 

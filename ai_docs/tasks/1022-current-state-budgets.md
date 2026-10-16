@@ -29,8 +29,9 @@ raporcie TASK-1021.
 
 claude-sonnet-5-5 / high. Duże przeniesienie treści z dowodem i zmiana reguły
 zamykania tasków używanej przez wszystkich agentów. Eskalacja do
-claude-opus-5-5 / high, jeśli dowód multizbioru nie przechodzi. Audyt:
-gpt-6.1-sol / medium.
+claude-opus-5-5 / high, jeśli dowód multizbioru nie przechodzi. Bez audytu Codex (decyzja operatora
+2026-10-16); wykonawca robi samokontrolę kryteriów akceptacji i zapisuje ją w
+`Outcome`.
 
 ## Relevant docs
 

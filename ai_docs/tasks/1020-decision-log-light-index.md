@@ -34,7 +34,9 @@ dotyczących jego taska.
 
 claude-sonnet-5-5 / medium. Mechaniczne przeniesienie z dowodem i zmiana reguł
 w kilku dokumentach. Eskalacja do claude-opus-5-5 / high przy kolizji numerów
-D z innym torem. Audyt: gpt-6.1-sol / medium.
+D z innym torem. Bez audytu Codex (decyzja operatora
+2026-10-16); wykonawca robi samokontrolę kryteriów akceptacji i zapisuje ją w
+`Outcome`.
 
 ## Relevant docs
 

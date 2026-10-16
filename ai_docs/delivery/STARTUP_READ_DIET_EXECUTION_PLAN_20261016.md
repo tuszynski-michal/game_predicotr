@@ -1,6 +1,6 @@
 ---
 title: Odchudzenie obowiązkowego odczytu startowego
-status: proposed
+status: accepted
 last_updated: 2026-10-16
 ---
 
@@ -135,10 +135,11 @@ Start każdego etapu wymaga jawnego polecenia operatora (`AGENTS.md`).
   (TASK-1016). TASK-1020 i TASK-1022 wykonuje się **bezpośrednio przed
   scaleniem**, po zsynchronizowaniu gałęzi z aktualnym czubkiem gałęzi
   docelowej, żeby przenieść także świeżo dopisaną treść.
-- Gałąź docelowa scalenia: według `AGENTS.md` domyślnie
-  `v1.1-vision-lab-hybrid-geometry` (v1.7.357), ale operator wskazał `main`
-  dla TASK-1007 i `main` (v1.7.363) jest przed nią. Wybór gałęzi docelowej
-  należy do operatora przy końcowym pytaniu o scalenie.
+- Gałąź docelowa scalenia: `main` (decyzja operatora 2026-10-16;
+  `v1.1-vision-lab-hybrid-geometry` jest zawarta w `main` i przeznaczona do
+  usunięcia). Scalenie po końcowej akceptacji operatora.
+- Audyt Codex nie jest wymagany (decyzja operatora 2026-10-16); każdy task
+  kończy samokontrola kryteriów akceptacji w `Outcome`.
 - Po scaleniu każda inna otwarta gałąź musi przepisać swoje hunki stanu na
   nowy format; TASK-1022 dodaje o tym punkt do „Obowiązujących ograniczeń”.
 - Numery TASK-1019–1023 i wersje `vX.Y.N` trzeba potwierdzić z czubkiem
@@ -184,8 +185,8 @@ porównuje `/context` świeżej sesji przed i po (wynik do `Outcome` TASK-1023).
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1019 — skrypt pomiaru i budżetów startowych | claude-sonnet-5-5 | medium | Mały skrypt Python z testami, bez logiki domenowej; wzorzec istniejących skryptów kontroli. Eskalacja do claude-opus-5-5 / high, jeśli test negatywny ujawni niejednoznaczny podział sekcji. | tak: gpt-6.1-sol / medium (Codex, `scripts/audit_task.ps1`) |
-| TASK-1020 — `DECISION_LOG.md` jako lekki indeks | claude-sonnet-5-5 | medium | Mechaniczne przeniesienie wierszy i usunięcie kopii z dowodem; zmiana reguł w trzech dokumentach. Eskalacja do claude-opus-5-5 / high przy kolizji numerów D z innym torem. | tak: gpt-6.1-sol / medium (Codex) |
+| TASK-1019 — skrypt pomiaru i budżetów startowych | claude-sonnet-5-5 | medium | Mały skrypt Python z testami, bez logiki domenowej; wzorzec istniejących skryptów kontroli. Eskalacja do claude-opus-5-5 / high, jeśli test negatywny ujawni niejednoznaczny podział sekcji. | nie: decyzja operatora 2026-10-16 (bez audytu Codex); samokontrola w `Outcome` |
+| TASK-1020 — `DECISION_LOG.md` jako lekki indeks | claude-sonnet-5-5 | medium | Mechaniczne przeniesienie wierszy i usunięcie kopii z dowodem; zmiana reguł w trzech dokumentach. Eskalacja do claude-opus-5-5 / high przy kolizji numerów D z innym torem. | nie: decyzja operatora 2026-10-16 (bez audytu Codex); samokontrola w `Outcome` |
 | TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` | claude-opus-5-5 | high | Ocena aktualności ograniczeń operacyjnych (migracje, zgody, usługi) wymaga ostrożnego osądu; wynik jest tylko raportem do decyzji. | nie: bramką jest decyzja operatora |
-| TASK-1022 — zastosowanie budżetów `CURRENT_STATE.md` | claude-sonnet-5-5 | high | Duże przeniesienie treści z dowodem braku utraty i zmiana reguły zamykania tasków używanej przez wszystkich agentów. Eskalacja do claude-opus-5-5 / high, jeśli dowód multizbioru nie przechodzi. | tak: gpt-6.1-sol / medium (Codex) |
-| TASK-1023 — `CLAUDE.md` bez duplikatu i końcowy pomiar | claude-sonnet-5-5 | medium | Krótka zmiana instrukcji i włączenie ostatnich budżetów; ryzyko w pominięciu reguły specyficznej dla Claude. | tak: gpt-6.1-sol / medium (Codex) |
+| TASK-1022 — zastosowanie budżetów `CURRENT_STATE.md` | claude-sonnet-5-5 | high | Duże przeniesienie treści z dowodem braku utraty i zmiana reguły zamykania tasków używanej przez wszystkich agentów. Eskalacja do claude-opus-5-5 / high, jeśli dowód multizbioru nie przechodzi. | nie: decyzja operatora 2026-10-16 (bez audytu Codex); samokontrola w `Outcome` |
+| TASK-1023 — `CLAUDE.md` bez duplikatu i końcowy pomiar | claude-sonnet-5-5 | medium | Krótka zmiana instrukcji i włączenie ostatnich budżetów; ryzyko w pominięciu reguły specyficznej dla Claude. | nie: decyzja operatora 2026-10-16 (bez audytu Codex); samokontrola w `Outcome` |

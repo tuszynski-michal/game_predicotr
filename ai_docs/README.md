@@ -90,7 +90,7 @@ domyślnym kontekstem implementacyjnym.
 ### Dostarczanie
 
 - [Odchudzenie obowiązkowego odczytu startowego](delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md)
-  — proposed, TASK-1019–1023: budżety bajtów w `docs:check`, lekki indeks
+  — accepted, TASK-1019–1023: budżety bajtów w `docs:check`, lekki indeks
   decyzji, krótkie okno stanu, `CLAUDE.md` bez duplikatu `AGENTS.md`.
 
 - [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)

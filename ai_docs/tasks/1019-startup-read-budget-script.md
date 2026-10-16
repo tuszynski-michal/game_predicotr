@@ -29,8 +29,9 @@ kolejnych tasków ani zapobiec ponownemu rozrostowi.
 
 claude-sonnet-5-5 / medium. Mały skrypt i testy według wzorca istniejących
 skryptów kontroli. Eskalacja do claude-opus-5-5 / high, jeśli podział sekcji
-okaże się niejednoznaczny (np. nagłówki w blokach kodu). Audyt:
-gpt-6.1-sol / medium przez `scripts/audit_task.ps1`.
+okaże się niejednoznaczny (np. nagłówki w blokach kodu). Bez audytu Codex (decyzja operatora
+2026-10-16); wykonawca robi samokontrolę kryteriów akceptacji i zapisuje ją w
+`Outcome`.
 
 ## Relevant docs
 

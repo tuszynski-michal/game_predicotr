@@ -27,7 +27,9 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 - **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
 
-- **Akceptacja przed integracją (korekta operatora 2026-10-14):** domyślna gałąź `v1.1-vision-lab-hybrid-geometry`. Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
+- **Gałąź integracyjna = `main` (decyzja operatora 2026-10-16):** wszystkie nowe gałęzie zakładać od `main` i do niej scalać. `v1.1-vision-lab-hybrid-geometry` (v1.7.357 / `c6510f19`) jest w całości zawarta w `main` i przeznaczona do usunięcia (lokalnie i na `origin`; usuwa operator albo agent za osobną zgodą; blokuje to worktree `worktrees/multi-game-share` wskazujący tę gałąź). Wzmianki o „gałęzi integracyjnej” w starszych wpisach dotyczą historycznie tamtej gałęzi. Lokalny `main` (v1.7.363) wyprzedza `origin/main` (v1.7.360). Reguła w `AGENTS.md`, sekcja „Scalanie do gałęzi integracyjnej”.
+
+- **Akceptacja przed integracją (korekta operatora 2026-10-14):** gałąź docelowa według punktu wyżej (`main`). Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
 
 - **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 
@@ -83,10 +85,10 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Odchudzenie obowiązkowego odczytu startowego (proposed, 2026-10-16)
+### Odchudzenie obowiązkowego odczytu startowego (accepted, 2026-10-16)
 
 - `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, TASK-1019–1023, gałąź `feat/startup-read-diet` (worktree `worktrees/startup-read-diet`, baza `main` v1.7.363).
-- Cel: obowiązkowy odczyt (`AGENTS.md`, `README.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`) z 211 359 B do ≤ 90 000 B z budżetami w `docs:check`, bez utraty treści. Etapy A (1019–1020), B (1021, decyzja operatora), C (1022–1023); żaden nie jest uruchomiony. TASK-1020 i TASK-1022 wykonać tuż przed scaleniem, po synchronizacji z gałęzią docelową.
+- Cel: obowiązkowy odczyt (`AGENTS.md`, `README.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`) z 211 359 B do ≤ 90 000 B z budżetami w `docs:check`, bez utraty treści. Etapy A (1019–1020), B (1021, decyzja operatora), C (1022–1023). Operator zaakceptował plan i zlecił wykonanie 2026-10-16, bez audytu Codex. TASK-1020 i TASK-1022 wykonać tuż przed scaleniem, po synchronizacji z gałęzią docelową.
 
 ### Doszkalanie siatek V3 z korekt w aplikacji (proposed, 2026-10-14)
 

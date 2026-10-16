@@ -26,7 +26,9 @@ agent i tak czyta w `AGENTS.md`. Streszczenia rozjeżdżają się z czasem
 
 claude-sonnet-5-5 / medium. Krótka zmiana instrukcji i włączenie budżetów;
 ryzyko w pominięciu reguły potrzebnej Claude przed odczytem `AGENTS.md`.
-Audyt: gpt-6.1-sol / medium.
+Bez audytu Codex (decyzja operatora
+2026-10-16); wykonawca robi samokontrolę kryteriów akceptacji i zapisuje ją w
+`Outcome`.
 
 ## Relevant docs
 

@@ -207,6 +207,9 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
 - [Narzędzia oszczędzania tokenów](guides/TOKEN_TOOLING.md) — mapa kodu, hook
   odczytu, pilot Serena MCP i Graphify, wyłączanie i rejestracja (TASK-0939).
+- [Automatyzacje Claude Code](guides/CLAUDE_CODE_AUTOMATIONS.md) — hooki (blokada
+  edycji chronionych ścieżek, pytanie przed poleceniami destrukcyjnymi, formatowanie
+  edytowanego pliku) i subagent `repo-explorer` (TASK-1040).
 - [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
   zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
   kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.

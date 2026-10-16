@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1040 — Hooki Claude Code i subagent `repo-explorer` (done)
+
+- Plik: `ai_docs/tasks/completed/1040-claude-code-hooks-and-explorer.md`; wybór operatora z analizy `claude-code-setup` (2026-10-16). Commit **v1.7.386**.
+- Hooki w `.claude/settings.json`: blokada edycji `.env*` (poza `.env.example`), `.tooling/`, starej kopii na C i `package-lock.json`; pytanie przed destrukcyjnymi komendami (force push, `reset --hard`, `clean -f`, `branch -D`, `db:reset`, DROP/TRUNCATE, rekurencyjne usuwanie `.venv`/`node_modules`/katalogu repo, zapis w kopii C); formatowanie tylko edytowanego pliku w zakresie bramki jakości. Subagent `repo-explorer` (Haiku, tylko odczyt).
+- 166 testów hooków PASS; ruff, mypy --strict, docs:check PASS. Opis: `guides/CLAUDE_CODE_AUTOMATIONS.md`.
+
 ### TASK-1033 — `README.md` ≤ 5 000 B, `DOC_INDEX.md` i pomiar końcowy (done)
 
 - Plik: `ai_docs/tasks/completed/1033-readme-doc-index.md`; zamyka plan etapu 2 odczytu startowego (status `implemented`). Commit **v1.7.382 / `ed25cd1cf867c0a14988d273f3f013e4de8740c3`**.

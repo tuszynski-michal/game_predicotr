@@ -71,6 +71,11 @@ $p = (Resolve-Path ai_docs/process/decisions/DECISION_LOG_2026.md).Path | Conver
 
 Testy automatyczne: `services/api/tests/test_block_large_read_hook.py`.
 
+Pozostałe hooki projektu (blokada edycji `.env`, `.tooling/`, starej kopii C i
+`package-lock.json`, pytanie przed poleceniami destrukcyjnymi, formatowanie
+edytowanego pliku) oraz subagent `repo-explorer` opisuje
+`ai_docs/guides/CLAUDE_CODE_AUTOMATIONS.md`.
+
 ## 3. Serena MCP (pilot)
 
 Serena udostępnia agentowi narzędzia symbolowe (`find_symbol`,

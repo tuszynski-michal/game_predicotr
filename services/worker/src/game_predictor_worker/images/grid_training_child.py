@@ -359,8 +359,10 @@ def _train(
     from .grid_training_data import (
         CohortPhotos,
         GridOnlyBatches,
+        JointPhotos,
         ScreenGridBatches,
         board_evaluator,
+        macro_evaluator,
         photo_evaluator,
         validation_crops,
     )
@@ -388,20 +390,49 @@ def _train(
     network.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
     workers = int(spec.get("dataWorkers", preset.data_workers))
     screen_mode = preset.mode == "screen+grid"
-    train_photos = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
+    train_photos: Any = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
     validation = CohortPhotos(snapshot, "VALIDATION", full_only=True)
     crops, labels = validation_crops(validation, recipe)
+    joint = spec.get("joint")
+    strata = None
+    validations = [validation]
+    if joint is not None:
+        # TASK-1006: one base, TRAIN of every shared game, equal game/recording weights.
+        pins = joint["cohorts"]
+        if (
+            len(pins) < 2
+            or pins[0]["cohortId"] != cohort["cohortId"]
+            or pins[0]["manifestSha256"] != cohort["manifestSha256"]
+        ):
+            raise ChildError("GRID_SHARED_SPEC_INVALID")
+        snapshots = [snapshot] + [
+            GridCohortSnapshot(artifact_root, pin["manifestPath"], pin["manifestSha256"])
+            for pin in pins[1:]
+        ]
+        if any(item.manifest.get("mode") != preset.mode for item in snapshots):
+            raise ChildError("GRID_RUN_COHORT_MODE_MISMATCH")
+        train_photos = JointPhotos(
+            [CohortPhotos(item, "TRAIN", full_only=screen_mode) for item in snapshots],
+            [pin["recordings"] for pin in pins],
+        )
+        strata = train_photos.strata
+        validations = [validation] + [
+            CohortPhotos(item, "VALIDATION", full_only=True) for item in snapshots[1:]
+        ]
     if screen_mode:
         batches: Any = ScreenGridBatches(
-            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers
+            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers, strata
         )
-        evaluate = photo_evaluator(validation, recipe, device)
+        evaluate = macro_evaluator([photo_evaluator(item, recipe, device) for item in validations])
         losses = screen_grid_losses
     else:
         batches = GridOnlyBatches(
-            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers
+            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers, strata
         )
-        evaluate = board_evaluator(crops, labels, device)
+        evaluate = macro_evaluator(
+            [board_evaluator(*validation_crops(item, recipe), device) for item in validations[1:]]
+            + [board_evaluator(crops, labels, device)]
+        )
         losses = board_only_losses
     plan = TrainingPlan.of(
         spec["jobId"],
@@ -413,6 +444,7 @@ def _train(
             "baseWeightsSha256": spec["base"]["weightsSha256"],
             "basePresetSha256": spec["base"]["presetSha256"],
             "mode": preset.mode,
+            **({} if joint is None else {"jointSha256": joint["sha256"]}),
         },
     )
     resume = spec.get("resume")
@@ -512,7 +544,10 @@ def _export(
             "trainingPresetFingerprint": spec["preset"]["fingerprint"],
             "weightsSha256": sha256_bytes(weights),
             "checkpointSha256": result.checkpoint_sha256,
-            "snapshotId": spec["cohort"]["manifestSha256"],
+            # A shared candidate's snapshot identity is its pinned joint plan (TASK-1006).
+            "snapshotId": spec["joint"]["sha256"]
+            if spec.get("joint")
+            else spec["cohort"]["manifestSha256"],
             "baseVersionId": spec["base"]["versionId"],
             "bestStep": result.best_step,
         }

@@ -555,3 +555,11 @@ final non-regression check and never for checkpoint selection. When a control ph
 geometry changes later, the candidate is blocked until the operator checks currentness
 again; a withdrawn label keeps it blocked. The evaluation never publishes or activates a
 model.
+
+## Shared candidate of several games (D-560, TASK-1006)
+
+An operator may train one candidate from the frozen cohorts of several games of one family
+and base. Every game and recording weighs the same, so a large game never dominates; a
+control photo of one game never becomes training data of another. The candidate is
+evaluated on every game it trained on; a regression in any game blocks publication, and the
+result never switches a game automatically.

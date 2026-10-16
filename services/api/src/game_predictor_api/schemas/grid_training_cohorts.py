@@ -261,11 +261,18 @@ class GridTrainingRunPreview(CohortClosedModel):
     smoke: GridTrainingSmokeLimits
 
 
+class GridSharedCohortRef(CohortClosedModel):
+    gameId: UUID
+    cohortId: UUID
+
+
 class GridTrainingRunCreate(CohortClosedModel):
     idempotencyKey: UUID
     cohortId: UUID
     presetId: str = Field(min_length=1, max_length=64)
     presetFingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    # TASK-1006: one frozen cohort of each other game for one shared candidate.
+    sharedCohorts: list[GridSharedCohortRef] | None = Field(None, min_length=1, max_length=7)
 
 
 class GridTrainingRunBudget(CohortClosedModel):
@@ -298,6 +305,8 @@ class GridTrainingRunView(CohortClosedModel):
     errorCode: str | None
     createdAt: str
     updatedAt: str
+    sharedCohorts: list[GridSharedCohortRef] = Field(default_factory=list)
+    jointSha256: str | None = None
 
 
 class GridTrainingRunList(CohortClosedModel):

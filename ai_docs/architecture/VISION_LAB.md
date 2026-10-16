@@ -836,3 +836,17 @@ cohort to equal today's count and an active store of the same generation
 dropped without row triggers but whose storage location is removed); publication also requires every game of the
 family. The currentness command repeats the four steps; a withdrawn label is not proven
 again.
+
+## Shared candidate of several games (D-560, TASK-1006)
+
+A shared run is a `grid_training` job of kind `grid-shared-training-run-v1`: the primary
+game's route pins its cohort and one frozen, eligible cohort of each other game of the same
+family, base and mode. `domain/shared_grid_model_candidate.py` holds the pure joint policy
+`grid-shared-candidate-v1`: TRAIN and VALIDATION in every cohort, no recording group with two
+roles and no TRAIN photo sharing bytes, pixels or recording group with a control photo of
+any game. `images/grid_shared_candidate.py` applies it to pinned snapshot metadata; the API
+pins the plan SHA and the supervisor recomputes it at every claim. The trainer fine-tunes the
+one base on `JointPhotos` with `BalancedSampler` (each round visits every game once, then
+recordings in permutations) and stops early on the equal-weight mean of the games'
+VALIDATION scores. The candidate keeps the primary `cohortId`, its `snapshotId` is the plan
+SHA, and its D-559 evaluation must cover every cohort it trained on.

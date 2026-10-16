@@ -8,6 +8,10 @@ re-claim after a lost lease the time since the last persisted charge is charged 
 an exported candidate is installed and registered idempotently, and training resumes
 from the last valid checkpoint. A corrupt pointed checkpoint fails the job without a
 candidate. Publication, activation and default changes are never performed here.
+
+A shared run (TASK-1006, ``grid-shared-training-run-v1``) also pins one frozen cohort of
+each other game; every claim re-checks them and recomputes the joint plan, whose SHA must
+equal the pinned one, before the trainer samples games and recordings with equal weight.
 """
 
 from __future__ import annotations
@@ -28,17 +32,22 @@ from typing import Any, Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.shared_grid_model_candidate import (
+    SHARED_TRAINING_KIND,
+    SharedCandidateError,
+)
 
 from ..jobs.runtime import JobExecutionContext, JobHandlerError, _ExecutionStopped
 from ..training_core.gpu_lease import GpuLease, lease_path
 from ..training_core.grid_training_admission import (
     PRESETS,
-    CohortCounts,
     RunBudget,
     RuntimeFacts,
     evaluate_admission,
+    summed_counts,
 )
 from ..training_core.process_identity import own_identity
+from .grid_shared_candidate import plan_for
 from .grid_training_child import (
     RECIPE_FILE,
     RECIPE_FINGERPRINT,
@@ -71,6 +80,8 @@ class GridTrainingStore(Protocol):
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
 
     def base_version(self, version_id: UUID) -> Mapping[str, Any]: ...
+
+    def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]: ...
 
     def register(self, key: UUID, payload: dict[str, Any]) -> Mapping[str, Any]: ...
 
@@ -126,25 +137,6 @@ class RunState:
 
 def _payload(job: Job) -> dict[str, Any]:
     return cast(dict[str, Any], job.input_payload)
-
-
-def counts_from_header(header: Mapping[str, Any]) -> CohortCounts:
-    """Per-role eligible counts of a frozen cohort header (the TASK-0995 summary)."""
-    roles = {item["role"]: item for item in header["summary"]["roles"]}
-
-    def value(role: str, key: str) -> int:
-        return int(roles.get(role, {}).get(key, 0))
-
-    return CohortCounts(
-        mode=str(header["mode"]),
-        train_boards=value("TRAIN", "eligibleBoards"),
-        train_photos=value("TRAIN", "eligiblePhotos"),
-        train_full_photos=value("TRAIN", "eligibleFullPhotos"),
-        validation_boards=value("VALIDATION", "eligibleBoards"),
-        validation_photos=value("VALIDATION", "eligiblePhotos"),
-        regression_boards=value("REGRESSION", "eligibleBoards"),
-        regression_photos=value("REGRESSION", "eligiblePhotos"),
-    )
 
 
 def run_directory(artifact_root: Path, job_id: UUID) -> Path:
@@ -206,10 +198,11 @@ class GridTrainingJobHandler:
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         payload = _payload(job)
-        if (payload.get("schema_version"), payload.get("training_kind")) != (
-            1,
-            "grid-training-run-v1",
-        ) or job.game_id is None:
+        if (
+            payload.get("schema_version") != 1
+            or payload.get("training_kind") not in ("grid-training-run-v1", SHARED_TRAINING_KIND)
+            or job.game_id is None
+        ):
             raise JobHandlerError("GRID_TRAINING_PAYLOAD_INVALID", "Pinned run payload differs.")
         preset = PRESETS.get(str(payload["preset_id"]))
         if preset is None or preset.fingerprint != payload["preset_fingerprint"]:
@@ -352,9 +345,69 @@ class GridTrainingJobHandler:
             observation = lease.observe()
         return observation
 
+    def _joint(
+        self, job: Job, primary: Mapping[str, Any]
+    ) -> tuple[dict[str, Any] | None, list[Mapping[str, Any]]]:
+        """Re-check every pinned shared cohort and the joint plan (TASK-1006)."""
+        payload = _payload(job)
+        if payload["training_kind"] != SHARED_TRAINING_KIND:
+            return None, [primary]
+        assert job.game_id is not None
+        entries: list[tuple[UUID, Mapping[str, Any]]] = [(job.game_id, primary)]
+        for pin in payload["shared_cohorts"]:
+            game, cohort_id = UUID(pin["game_id"]), UUID(pin["cohort_id"])
+            header = self.store.cohort(game, cohort_id)
+            if (
+                header["status"] != "frozen"
+                or header["manifestSha256"] != pin["manifest_sha256"]
+                or header["mode"] != payload["mode"]
+                or str(header["baseVersionId"]) != str(payload["base_version_id"])
+                or str(header["familyId"]) != str(payload["family_id"])
+            ):
+                raise JobHandlerError(
+                    "GRID_TRAINING_COHORT_DRIFT", "A shared frozen cohort differs from the run."
+                )
+            eligibility = self.store.eligibility(game, cohort_id)
+            if eligibility["qualification"] != "eligible":
+                reasons = list(eligibility.get("reasons") or [])
+                raise JobHandlerError(
+                    reasons[0] if reasons else "GRID_RUN_COHORT_NOT_QUALIFIED",
+                    "A shared cohort no longer qualifies for new training use.",
+                )
+            entries.append((game, header))
+        if str(primary["familyId"]) != str(payload["family_id"]):
+            raise JobHandlerError("GRID_TRAINING_COHORT_DRIFT", "Primary family differs.")
+        pinned = [
+            (header, self.store.recordings(game, UUID(str(header["id"]))))
+            for game, header in entries
+        ]
+        try:
+            plan = plan_for(self.artifact_root, str(job.game_id), pinned)
+        except SharedCandidateError as error:
+            raise JobHandlerError(error.code, error.message) from error
+        if plan["sha256"] != payload["joint_sha256"]:
+            raise JobHandlerError(
+                "GRID_SHARED_PLAN_DRIFT", "The shared cohorts no longer give the pinned plan."
+            )
+        joint = {
+            "policy": plan["policy"],
+            "sha256": plan["sha256"],
+            "cohorts": [
+                {
+                    "gameId": str(header["gameId"]),
+                    "cohortId": str(header["id"]),
+                    "manifestPath": header["manifestPath"],
+                    "manifestSha256": header["manifestSha256"],
+                    "recordings": dict(groups),
+                }
+                for header, groups in pinned
+            ],
+        }
+        return joint, [header for _game, header in entries]
+
     def _admit(
         self, context: JobExecutionContext, job: Job, state: RunState
-    ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    ) -> tuple[Mapping[str, Any], Mapping[str, Any], dict[str, Any] | None]:
         payload, game = _payload(job), job.game_id
         assert game is not None
         cohort_id = UUID(str(payload["cohort_id"]))
@@ -375,9 +428,10 @@ class GridTrainingJobHandler:
                 reasons[0] if reasons else "GRID_RUN_COHORT_NOT_QUALIFIED",
                 "The cohort no longer qualifies for new training use.",
             )
+        joint, headers = self._joint(job, cohort)
         base = self.store.base_version(UUID(str(payload["base_version_id"])))
         lease = GpuLease(lease_path(self.artifact_root)).observe()
-        counts = counts_from_header(cohort)
+        counts = summed_counts(headers)
         decision = evaluate_admission(
             preset_id=str(payload["preset_id"]),
             preset_fingerprint=str(payload["preset_fingerprint"]),
@@ -391,10 +445,15 @@ class GridTrainingJobHandler:
             raise JobHandlerError(decision.reasons[0], "Run admission refused.")
         state.budget = decision.budget
         state.attempt += 1
-        return cohort, base
+        return cohort, base, joint
 
     def _spec(
-        self, job: Job, state: RunState, cohort: Mapping[str, Any], base: Mapping[str, Any]
+        self,
+        job: Job,
+        state: RunState,
+        cohort: Mapping[str, Any],
+        base: Mapping[str, Any],
+        joint: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         payload = _payload(job)
         pid, created = own_identity()
@@ -425,6 +484,7 @@ class GridTrainingJobHandler:
             },
             "supervisor": {"pid": pid, "created": created},
             "resume": state.checkpoint,
+            **({} if joint is None else {"joint": joint}),
         }
 
     def _verified_export_without_result(self, job: Job, run_dir: Path) -> dict[str, Any] | None:
@@ -513,8 +573,8 @@ class GridTrainingJobHandler:
                 raise JobHandlerError(
                     "GRID_TRAINING_CHECKPOINT_CORRUPT", "The pointed checkpoint is not intact."
                 )
-        cohort, base = self._admit(context, job, state)
-        spec = self._spec(job, state, cohort, base)
+        cohort, base, joint = self._admit(context, job, state)
+        spec = self._spec(job, state, cohort, base, joint)
         spec_path = run_dir / "spec.json"
         write_json_atomic(spec_path, {"payload": spec, "sha256": sha256_bytes(canonical(spec))})
         (run_dir / "cancel.intent").unlink(missing_ok=True)
@@ -768,6 +828,12 @@ class GridTrainingJobHandler:
             "selectionReason": (
                 f"Application run {job.id}: best VALIDATION {export.get('metric')} "
                 f"{export.get('bestMetric')} at step {provenance.get('bestStep')}; not evaluated."
+                + (
+                    f" Shared with games {', '.join(p['game_id'] for p in shared)}"
+                    f" (joint plan {_payload(job)['joint_sha256'][:12]})."
+                    if (shared := _payload(job).get("shared_cohorts"))
+                    else ""
+                )
             )[:1000],
             "report": "TASK-0996 application run; evaluation by TASK-0997",
             "reportResults": reports,

@@ -126,7 +126,7 @@ def create_job(
     supports_grid_training_v1 = job_type is JobType.GRID_TRAINING and (
         schema_version,
         input_payload.get("training_kind"),
-    ) == (1, "grid-training-run-v1")
+    ) in {(1, "grid-training-run-v1"), (1, "grid-shared-training-run-v1")}
     supports_grid_model_evaluation_v1 = job_type is JobType.GRID_MODEL_EVALUATION and (
         schema_version,
         input_payload.get("evaluation_kind"),

@@ -195,6 +195,7 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
 )
+from game_predictor_api.application.shared_grid_model_candidate import SharedGridCandidateService
 from game_predictor_api.application.source_recording_groups import SourceRecordingGroupsService
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
@@ -2305,6 +2306,8 @@ def create_app(
                         resolved_settings.artifact_root,
                     ),
                     SqlAlchemyGridTrainingRunJobs(session),
+                    # Other games of a shared run are read in their own transactions.
+                    SharedGridCandidateService(session_factory, resolved_settings.artifact_root),
                 )
                 session.commit()
             except BaseException:

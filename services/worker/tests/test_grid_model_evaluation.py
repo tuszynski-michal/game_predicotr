@@ -408,7 +408,8 @@ def test_checkpoint_selection_never_reads_regression():
         and getattr(call.func, "id", None) == "CohortPhotos"
         and isinstance(call.args[1], ast.Constant)
     ]
-    assert photo_roles == ["TRAIN", "VALIDATION"]
+    # Single and shared (TASK-1006) runs: TRAIN and VALIDATION only.
+    assert set(photo_roles) == {"TRAIN", "VALIDATION"} and len(photo_roles) == 4
 
 
 def test_the_report_is_canonical_and_free_of_timestamps(scenario):

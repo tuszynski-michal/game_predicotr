@@ -19,13 +19,9 @@ from game_predictor_api.domain.grid_model_evaluation import PRODUCER
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.storage import grid_model_evaluation_repository as evidence
-from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
-)
-from game_predictor_api.storage.grid_training_cohort_repository import (
-    SqlAlchemyGridTrainingCohortRepository,
 )
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -72,30 +68,13 @@ class SqlGridModelEvaluationStore:
             )
 
     def cohort(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
-        with game_storage_scope(game_id):
-            return self._cohorts.cohort(game_id, cohort_id)
+        return self._cohorts.cohort(game_id, cohort_id)
 
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
-        with game_storage_scope(game_id):
-            return self._cohorts.eligibility(game_id, cohort_id)
+        return self._cohorts.eligibility(game_id, cohort_id)
 
     def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]:
-        """Pinned recording group of every used member, from the frozen cohort rows."""
-        with game_storage_scope(game_id), self.session_factory() as session:
-            repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
-            try:
-                repository.bind(game_id)
-                groups: dict[str, str] = {}
-                for member in repository.iter_members(game_id, cohort_id):
-                    frozen = member.frozen
-                    recording = frozen.get("recording")
-                    if frozen.get("used") is True and isinstance(recording, dict):
-                        group = recording.get("groupId")
-                        if isinstance(group, str):
-                            groups[str(member.source_id)] = group
-                return groups
-            except GridCohortError as error:
-                raise JobHandlerError(error.code, error.message) from error
+        return self._cohorts.recordings(game_id, cohort_id)
 
     def store_report(
         self, report_id: UUID, version_id: UUID, report_json: str, report_sha256: str

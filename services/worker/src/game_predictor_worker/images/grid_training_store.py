@@ -17,6 +17,7 @@ from game_predictor_api.application.grid_model_registry import GridModelRegistry
 from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
@@ -43,7 +44,8 @@ class SqlGridTrainingStore:
         )
 
     def cohort(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
-        with self.session_factory() as session:
+        # Every read is scoped to its own game: a shared run also reads other games.
+        with game_storage_scope(game_id), self.session_factory() as session:
             try:
                 service = self._service(session)
                 service.repository.bind(game_id)
@@ -53,9 +55,27 @@ class SqlGridTrainingStore:
                 raise JobHandlerError(error.code, error.message) from error
 
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
-        with self.session_factory() as session:
+        with game_storage_scope(game_id), self.session_factory() as session:
             try:
                 return self._service(session).eligibility(game_id, cohort_id)
+            except GridCohortError as error:
+                raise JobHandlerError(error.code, error.message) from error
+
+    def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]:
+        """Pinned recording group of every used member, from the frozen cohort rows."""
+        with game_storage_scope(game_id), self.session_factory() as session:
+            repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
+            try:
+                repository.bind(game_id)
+                groups: dict[str, str] = {}
+                for member in repository.iter_members(game_id, cohort_id):
+                    frozen = member.frozen
+                    recording = frozen.get("recording")
+                    if frozen.get("used") is True and isinstance(recording, dict):
+                        group = recording.get("groupId")
+                        if isinstance(group, str):
+                            groups[str(member.source_id)] = group
+                return groups
             except GridCohortError as error:
                 raise JobHandlerError(error.code, error.message) from error
 

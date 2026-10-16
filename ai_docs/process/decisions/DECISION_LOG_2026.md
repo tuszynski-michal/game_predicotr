@@ -14,6 +14,18 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-560 — Wspólny kandydat geometrii V3 kilku gier
+
+- **Date:** 2026-10-16.
+- **Status:** accepted; techniczne doprecyzowanie D-549 dla TASK-1006 w zleconej rewizji 6. Nie jest zgodą na rzeczywisty run na danych operatora, publikację, aktywację ani zmianę default; rzeczywisty eksperyment wymaga osobnego polecenia i budżetu po integracji.
+- **Context:** D-549 dopuszcza wspólnego kandydata Mumii i 777a2 jako fine-tuning jednej bazy z bramką per gra. Run TASK-0996 trenował na jednej kohorcie jednej gry; rejestr nagrań (TASK-1002/0995) na poziomie rodziny łączy aliasy, te same bajty i piksele w jedno domknięcie i blokuje TRAIN z kontrolą w domknięciu.
+- **Decision:** run `grid-shared-training-run-v1` ma kohortę główną (gra trasy i `cohortId` kandydata) oraz po jednej frozen, kwalifikującej się kohorcie każdej innej gry (2–8 gier) tej samej rodziny, bazy i trybu. Polityka `grid-shared-candidate-v1` (czysta funkcja `joint_plan`) wymaga TRAIN i VALIDATION w każdej kohorcie, odrzuca grupę nagrania o różnych rolach (`GRID_SHARED_ROLE_CONFLICT`) i zdjęcie TRAIN dowolnej gry o tych samych bajtach, pikselach albo grupie co zdjęcie kontrolne dowolnej gry (`GRID_SHARED_CONTROL_ALIAS`); plan z SHA jest przypinany w jobie, a nadzorca przelicza go przy każdym claim (`GRID_SHARED_PLAN_DRIFT`).
+- **Training:** jedna baza, bez uśredniania wag. Sampler `BalancedSampler` jest czystą funkcją `(seed, step)`: każda runda odwiedza każdą grę raz, gra odwiedza swoje nagrania po kolei w permutacjach, zdjęcie losowane w nagraniu, więc duża gra nie dominuje. Early stopping używa średniej wyników VALIDATION gier z równą wagą; REGRESSION nie jest czytany. Plan kroków i dopuszczenie liczą się z sumy kohort. `snapshotId` kandydata to SHA planu.
+- **Evaluation and publication:** ocena D-559 kandydata wspólnego musi objąć dokładnie wszystkie kohorty treningu (`GRID_EVALUATION_GAME_COHORT_REQUIRED`); gra główna wymaga ścisłej poprawy, każda gra braku regresji, więc regresja dowolnej gry blokuje publikację. Wynik nie publikuje, nie aktywuje i nie przełącza żadnej gry.
+- **API:** opcjonalne `sharedCohorts` w istniejącym `createGridTrainingRun`; widok runu zwraca `sharedCohorts` i `jointSha256`. Bez migracji i nowych tabel.
+- **Consequences:** brak dobrego wspólnego kandydata nie blokuje pracy na dotychczasowych wersjach. Mechanizm i wynik eksperymentu pozostają rozdzielone; brak rzeczywistego pomiaru nie jest PASS.
+- **Source:** zaakceptowana rewizja 6, TASK-1006; D-527, D-549, D-556, D-558, D-559.
+
 ## D-559 — Ocena kandydata geometrii V3 per gra i most aktualności dowodów
 
 - **Date:** 2026-10-16.

@@ -61,8 +61,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 ### Katalogi
 
 - `services/api/src/game_predictor_api/api/` (54 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (104 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (83 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/application/` (105 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/domain/` (84 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (57 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
 - `services/api/src/game_predictor_api/storage/` (164 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (399 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (110 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (401 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (111 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (137 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (138 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (13 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (262 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (263 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -244,7 +244,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (26 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (27 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

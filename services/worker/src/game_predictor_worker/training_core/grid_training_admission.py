@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Literal
 
@@ -223,6 +223,45 @@ class CohortCounts:
     validation_photos: int = 0
     regression_boards: int = 0
     regression_photos: int = 0
+
+
+def counts_from_header(header: Mapping[str, Any]) -> CohortCounts:
+    """Per-role eligible counts of a frozen cohort header (the TASK-0995 summary)."""
+    roles = {item["role"]: item for item in header["summary"]["roles"]}
+
+    def value(role: str, key: str) -> int:
+        return int(roles.get(role, {}).get(key, 0))
+
+    return CohortCounts(
+        mode=str(header["mode"]),
+        train_boards=value("TRAIN", "eligibleBoards"),
+        train_photos=value("TRAIN", "eligiblePhotos"),
+        train_full_photos=value("TRAIN", "eligibleFullPhotos"),
+        validation_boards=value("VALIDATION", "eligibleBoards"),
+        validation_photos=value("VALIDATION", "eligiblePhotos"),
+        regression_boards=value("REGRESSION", "eligibleBoards"),
+        regression_photos=value("REGRESSION", "eligiblePhotos"),
+    )
+
+
+def summed_counts(headers: Sequence[Mapping[str, Any]]) -> CohortCounts:
+    """Shared runs are admitted and costed on the counts of all their cohorts."""
+    parts = [counts_from_header(header) for header in headers]
+    return CohortCounts(
+        mode=parts[0].mode,
+        **{
+            name: sum(getattr(part, name) for part in parts)
+            for name in (
+                "train_boards",
+                "train_photos",
+                "train_full_photos",
+                "validation_boards",
+                "validation_photos",
+                "regression_boards",
+                "regression_photos",
+            )
+        },
+    )
 
 
 @dataclass(frozen=True)

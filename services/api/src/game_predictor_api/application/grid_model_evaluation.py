@@ -238,6 +238,15 @@ class GridModelEvaluationService:
                 return self._replay(existing, version_id, requested)
             manifest, base_sha256 = self._candidate(session, version_id)
             family = evidence.family_games(session, UUID(manifest["familyId"]))
+            trained = self._trained_cohorts(session, manifest)
+        absent = sorted(trained - {(str(game), str(cohort)) for game, cohort in requested})
+        if absent:
+            error = _error(
+                "GRID_EVALUATION_GAME_COHORT_REQUIRED",
+                "A shared candidate is evaluated on every cohort it was trained on.",
+            )
+            error.details = {"cohorts": [{"gameId": g, "cohortId": c} for g, c in absent]}
+            raise error
         training = [game for game, cohort in requested if str(cohort) == manifest["cohortId"]]
         if len(training) != 1:
             raise _error(
@@ -297,6 +306,22 @@ class GridModelEvaluationService:
                 "GRID_EVALUATION_IDEMPOTENCY_CONFLICT", "The key was used for another scope."
             )
         return self.view(job)
+
+    @staticmethod
+    def _trained_cohorts(session: Session, manifest: Mapping[str, Any]) -> set[tuple[str, str]]:
+        """Primary and shared cohorts of the training run that produced the candidate."""
+        try:
+            run = session.get(JobModel, UUID(str(manifest["provenance"]["runId"])))
+        except (KeyError, ValueError):
+            return set()
+        if run is None or run.job_type != JobType.GRID_TRAINING:
+            return set()
+        payload: dict[str, Any] = dict(run.input_payload)
+        if payload.get("training_kind") != "grid-shared-training-run-v1":
+            return set()
+        return {(str(run.game_id), str(payload["cohort_id"]))} | {
+            (str(pin["game_id"]), str(pin["cohort_id"])) for pin in payload["shared_cohorts"]
+        }
 
     @staticmethod
     def _by_key(session: Session, key: UUID) -> Job | None:

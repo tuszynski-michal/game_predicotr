@@ -10,7 +10,7 @@ without jitter or photometric changes; REGRESSION is never read.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
@@ -20,6 +20,7 @@ import torch
 from ..geometry_core.inference import DecodeSettings, NeuralGridEngine
 from ..geometry_core.preprocessing import board_rectifier, corners, crop_board, transform_points
 from ..training_core.grid_training import (
+    BalancedSampler,
     StepSampler,
     board_correct,
     photo_complete_correct,
@@ -65,6 +66,66 @@ class CohortPhotos:
         return self.rows[index][1]
 
 
+class JointPhotos:
+    """TRAIN photos of several games in one index space (TASK-1006).
+
+    ``strata[game][recording]`` groups the indices by game and pinned recording group, so
+    a ``BalancedSampler`` weighs games and recordings equally whatever their sizes.
+    """
+
+    def __init__(self, parts: Sequence[CohortPhotos], groups: Sequence[Mapping[str, str]]) -> None:
+        if len(parts) < 2 or len(parts) != len(groups):
+            raise GridTrainingDataError("GRID_TRAINING_SHARED_SCOPE_INVALID")
+        self.parts = list(parts)
+        self.starts: list[int] = []
+        strata = []
+        start = 0
+        for part, mapping in zip(parts, groups, strict=True):
+            by_group: dict[str, list[int]] = {}
+            for local, (source, _targets) in enumerate(part.rows):
+                group = mapping.get(str(source["sourceId"]))
+                if group is None:
+                    raise GridTrainingDataError("GRID_TRAINING_RECORDING_UNRESOLVED")
+                by_group.setdefault(group, []).append(start + local)
+            strata.append(tuple(tuple(by_group[key]) for key in sorted(by_group)))
+            self.starts.append(start)
+            start += len(part)
+        self.size = start
+        self.strata = tuple(strata)
+
+    def __len__(self) -> int:
+        return self.size
+
+    def _locate(self, index: int) -> tuple[CohortPhotos, int]:
+        for part, start in zip(reversed(self.parts), reversed(self.starts), strict=True):
+            if index >= start:
+                return part, index - start
+        raise IndexError(index)
+
+    def rgb(self, index: int) -> np.ndarray:
+        part, local = self._locate(index)
+        return part.rgb(local)
+
+    def targets(self, index: int) -> list[tuple[np.ndarray, int]]:
+        part, local = self._locate(index)
+        return part.targets(local)
+
+
+def _sampler(size: int, batch: int, seed: int, strata: Any) -> Any:
+    if strata is None:
+        return StepSampler(size, batch, seed)
+    return BalancedSampler(strata, batch, seed)
+
+
+def macro_evaluator(evaluators: Sequence[Callable[[Any], float]]) -> Callable[[Any], float]:
+    """Shared VALIDATION score: the mean of the per-game scores, each game weighing the same."""
+
+    def evaluate(network: Any) -> float:
+        return float(np.mean([evaluator(network) for evaluator in evaluators]))
+
+    return evaluate
+
+
 class _Prefetched:
     def __init__(self, build: Any, workers: int) -> None:
         self.build = build
@@ -92,11 +153,17 @@ class GridOnlyBatches(_Prefetched):
     fewer complete boards is padded with zero-weight copies, never with duplicated weight."""
 
     def __init__(
-        self, photos: CohortPhotos, recipe: Any, batch_boards: int, seed: int, workers: int
+        self,
+        photos: Any,
+        recipe: Any,
+        batch_boards: int,
+        seed: int,
+        workers: int,
+        strata: Any = None,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
         self.k = int(recipe.board.boards_per_image)
-        self.sampler = StepSampler(len(photos), max(1, batch_boards // self.k), seed)
+        self.sampler = _sampler(len(photos), max(1, batch_boards // self.k), seed, strata)
         super().__init__(self._build, workers)
 
     def _build(self, step: int) -> dict[str, torch.Tensor]:
@@ -130,10 +197,16 @@ class ScreenGridBatches(_Prefetched):
     """Full TRAIN photos with detector targets of all nine boards plus weighted crops."""
 
     def __init__(
-        self, photos: CohortPhotos, recipe: Any, batch_photos: int, seed: int, workers: int
+        self,
+        photos: Any,
+        recipe: Any,
+        batch_photos: int,
+        seed: int,
+        workers: int,
+        strata: Any = None,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
-        self.sampler = StepSampler(len(photos), batch_photos, seed)
+        self.sampler = _sampler(len(photos), batch_photos, seed, strata)
         super().__init__(self._build, workers)
 
     def _build(self, step: int) -> dict[str, torch.Tensor]:

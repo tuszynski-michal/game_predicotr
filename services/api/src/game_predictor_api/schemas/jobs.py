@@ -752,11 +752,21 @@ class SuperGameSeriesDeriveJobPayload(ApiModel):
     request_id: UUID
 
 
+class GridSharedCohortPin(ApiModel):
+    game_id: UUID
+    cohort_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class GridTrainingJobPayload(ApiModel):
-    """Pinned application grid-training run (TASK-0996); created only by its own route."""
+    """Pinned application grid-training run (TASK-0996); created only by its own route.
+
+    A shared run (TASK-1006) also pins one frozen cohort of every other game and the SHA
+    of its joint plan.
+    """
 
     schema_version: Literal[1] = 1
-    training_kind: Literal["grid-training-run-v1"]
+    training_kind: Literal["grid-training-run-v1", "grid-shared-training-run-v1"]
     idempotency_key: UUID
     cohort_id: UUID
     cohort_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -767,6 +777,8 @@ class GridTrainingJobPayload(ApiModel):
     preset_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     seed: int = Field(ge=0, le=2**31 - 1)
     planned_steps: int = Field(ge=1, le=1_000_000)
+    shared_cohorts: list[GridSharedCohortPin] | None = Field(None, min_length=1, max_length=7)
+    joint_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
 
 
 class GridModelEvaluationCohortPin(ApiModel):

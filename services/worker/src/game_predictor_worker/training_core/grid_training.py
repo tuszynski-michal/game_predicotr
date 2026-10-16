@@ -68,6 +68,51 @@ class StepSampler:
         return result
 
 
+@dataclass(frozen=True)
+class BalancedSampler:
+    """Shared-candidate sampler (TASK-1006): equal weight per game, then per recording.
+
+    ``strata[game][recording]`` lists dataset indices. Every round of ``len(strata)``
+    positions visits each game once in a per-round permutation; a game visits its
+    recordings in per-pass permutations and draws a photo of the recording from
+    ``(seed, game, recording, round)``. A pure function of ``(seed, step)``, so a resume
+    continues with the indices of an uninterrupted run; game size never changes weight.
+    """
+
+    strata: tuple[tuple[tuple[int, ...], ...], ...]
+    batch: int
+    seed: int
+
+    def __post_init__(self) -> None:
+        if not self.strata or any(
+            not game or any(not recording for recording in game) for game in self.strata
+        ):
+            raise ValueError("GRID_TRAINING_EMPTY_DATASET")
+
+    @property
+    def size(self) -> int:
+        return sum(len(recording) for game in self.strata for recording in game)
+
+    def indices(self, step: int) -> list[int]:
+        result = []
+        games = len(self.strata)
+        for slot in range(self.batch):
+            position = step * self.batch + slot
+            round_index, offset = divmod(position, games)
+            game = int(
+                np.random.default_rng([self.seed, 0x4A47, round_index]).permutation(games)[offset]
+            )
+            recordings = self.strata[game]
+            visit, at = divmod(round_index, len(recordings))
+            order = np.random.default_rng([self.seed, 0x4A52, game, visit]).permutation(
+                len(recordings)
+            )
+            recording = recordings[int(order[at])]
+            pick = np.random.default_rng([self.seed, 0x4A50, game, int(order[at]), round_index])
+            result.append(int(recording[int(pick.integers(len(recording)))]))
+        return result
+
+
 def learning_rate(preset: GridTrainingPreset, progress: float) -> float:
     """Warm-up then cosine to ``final_learning_rate_fraction`` (same curve as the lab)."""
     progress = min(max(progress, 0.0), 1.0)

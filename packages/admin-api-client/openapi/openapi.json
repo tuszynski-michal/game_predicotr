@@ -14576,6 +14576,54 @@
         "title": "GridShadowUnassignedDetectionResponse",
         "type": "object"
       },
+      "GridSharedCohortPin": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId",
+          "manifestSha256"
+        ],
+        "title": "GridSharedCohortPin",
+        "type": "object"
+      },
+      "GridSharedCohortRef": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId"
+        ],
+        "title": "GridSharedCohortRef",
+        "type": "object"
+      },
       "GridSourceIdentityCompleteCommand": {
         "additionalProperties": false,
         "properties": {
@@ -14751,7 +14799,7 @@
       },
       "GridTrainingJobPayload": {
         "additionalProperties": false,
-        "description": "Pinned application grid-training run (TASK-0996); created only by its own route.",
+        "description": "Pinned application grid-training run (TASK-0996); created only by its own route.\n\nA shared run (TASK-1006) also pins one frozen cohort of every other game and the SHA\nof its joint plan.",
         "properties": {
           "baseVersionId": {
             "format": "uuid",
@@ -14777,6 +14825,18 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "jointSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jointsha256"
           },
           "mode": {
             "enum": [
@@ -14815,8 +14875,27 @@
             "title": "Seed",
             "type": "integer"
           },
+          "sharedCohorts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridSharedCohortPin"
+                },
+                "maxItems": 7,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharedcohorts"
+          },
           "trainingKind": {
-            "const": "grid-training-run-v1",
+            "enum": [
+              "grid-training-run-v1",
+              "grid-shared-training-run-v1"
+            ],
             "title": "Trainingkind",
             "type": "string"
           }
@@ -15093,6 +15172,22 @@
             "minLength": 1,
             "title": "Presetid",
             "type": "string"
+          },
+          "sharedCohorts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridSharedCohortRef"
+                },
+                "maxItems": 7,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharedcohorts"
           }
         },
         "required": [
@@ -15308,6 +15403,17 @@
             "title": "Gameid",
             "type": "string"
           },
+          "jointSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jointsha256"
+          },
           "mode": {
             "enum": [
               "grid-only",
@@ -15347,6 +15453,13 @@
             "format": "uuid",
             "title": "Runid",
             "type": "string"
+          },
+          "sharedCohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridSharedCohortRef"
+            },
+            "title": "Sharedcohorts",
+            "type": "array"
           },
           "stage": {
             "anyOf": [

@@ -681,7 +681,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2
 
-- **Status:** `todo`.
+- **Status:** `done` — v1.7.390, Codex R1 PASS, D-560; mechanizm bez rzeczywistego eksperymentu.
 - **Goal / Context:** Udostępnić kontrolowany trening geometrii obu gier.
 - **Dependencies:** TASK-0997; kohorty obu gier; osobne zlecenie i budżet rzeczywistego runu.
 - **Recommended execution:** `claude-fable-5-1`, `high`; wspólne dane i ryzyko regresji.

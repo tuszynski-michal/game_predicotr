@@ -1778,6 +1778,8 @@ export type {
   GridShadowResultSummaryResponse,
   GridShadowSlotResponse,
   GridShadowUnassignedDetectionResponse,
+  GridSharedCohortPin,
+  GridSharedCohortRef,
   GridSourceIdentityCompleteCommand,
   GridSourceIdentityPin,
   GridSourceIdentityReceipt,

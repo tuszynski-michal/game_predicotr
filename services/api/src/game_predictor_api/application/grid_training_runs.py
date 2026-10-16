@@ -5,12 +5,15 @@ pins the frozen cohort, its base version and the approved preset, and is idempot
 key. The durable run state (budget, checkpoint pointer, export, registered candidate) is
 the job's ``checkpoint_payload`` written by the supervisor; this service only reads it.
 Cancel and resume reuse the job lifecycle; resume never renews the budget.
+
+A shared run (TASK-1006) names one frozen cohort of each other game; the joint plan of
+``grid-shared-candidate-v1`` is pinned by SHA and its summed counts set the step plan.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
@@ -25,6 +28,7 @@ from game_predictor_api.domain.jobs import (
 )
 
 TRAINING_KIND = "grid-training-run-v1"
+SHARED_TRAINING_KIND = "grid-shared-training-run-v1"
 LIST_LIMIT = 200
 # Lease state only says whether the GPU is free now; a queued job waits for its lane.
 _QUEUE_BLOCKERS_IGNORED = {"GRID_RUN_LEASE_BUSY", "GRID_RUN_LEASE_UNKNOWN"}
@@ -59,21 +63,43 @@ def _error(code: str, message: str, status: int = 409) -> GridCohortError:
     return GridCohortError(code, message, status)
 
 
+class SharedCandidatePlanner(Protocol):
+    def prepare(
+        self, primary_game: UUID, primary_cohort: UUID, others: Sequence[tuple[UUID, UUID]]
+    ) -> dict[str, Any]: ...
+
+
 class GridTrainingRunService:
-    def __init__(self, cohorts: GridTrainingCohortService, jobs: GridTrainingJobRepository) -> None:
-        self.cohorts, self.jobs = cohorts, jobs
+    def __init__(
+        self,
+        cohorts: GridTrainingCohortService,
+        jobs: GridTrainingJobRepository,
+        shared: SharedCandidatePlanner | None = None,
+    ) -> None:
+        self.cohorts, self.jobs, self.shared = cohorts, jobs, shared
 
     def create(self, game: UUID, command: Mapping[str, Any]) -> dict[str, Any]:
         key = UUID(str(command["idempotencyKey"]))
         cohort = UUID(str(command["cohortId"]))
+        others = [
+            (UUID(str(entry["gameId"])), UUID(str(entry["cohortId"])))
+            for entry in command.get("sharedCohorts") or []
+        ]
         self.jobs.lock_idempotency(key)
         existing = self.jobs.find_by_idempotency(key)
         if existing is not None:
+            pinned = {
+                (entry["game_id"], entry["cohort_id"])
+                for entry in cast(
+                    list[dict[str, str]], existing.input_payload.get("shared_cohorts") or []
+                )
+            }
             if (
                 existing.game_id != game
                 or existing.input_payload.get("cohort_id") != str(cohort)
                 or existing.input_payload.get("preset_id") != command["presetId"]
                 or existing.input_payload.get("preset_fingerprint") != command["presetFingerprint"]
+                or pinned != {(str(other), str(cohort_id)) for other, cohort_id in others}
             ):
                 raise _error("GRID_RUN_IDEMPOTENCY_CONFLICT", "The key was used for another run.")
             return self.view(existing)
@@ -95,9 +121,26 @@ class GridTrainingRunService:
         ):
             raise _error("GRID_RUN_PRESET_NOT_APPROVED", "Choose the approved preset of the mode.")
         header = self.cohorts.get(game, cohort)
+        planned_steps = int(preview["cost"]["plannedSteps"])
+        shared: dict[str, Any] | None = None
+        if others:
+            if self.shared is None:
+                raise _error("GRID_SHARED_UNAVAILABLE", "Shared runs are not configured.", 503)
+            from game_predictor_worker.training_core.grid_training_admission import (
+                PRESETS,
+                estimate_cohort_cost,
+            )
+
+            shared = self.shared.prepare(game, cohort, others)
+            cost = estimate_cohort_cost(PRESETS[str(command["presetId"])], shared["counts"])
+            if not cost.within_budget or cost.planned_steps < 1:
+                raise _error(
+                    "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET", "The shared cohorts exceed the budget."
+                )
+            planned_steps = cost.planned_steps
         payload: dict[str, object] = {
             "schema_version": 1,
-            "training_kind": TRAINING_KIND,
+            "training_kind": TRAINING_KIND if shared is None else SHARED_TRAINING_KIND,
             "idempotency_key": str(key),
             "cohort_id": str(cohort),
             "cohort_manifest_sha256": header["manifestSha256"],
@@ -107,8 +150,11 @@ class GridTrainingRunService:
             "preset_id": command["presetId"],
             "preset_fingerprint": command["presetFingerprint"],
             "seed": key.int % (2**31 - 1),
-            "planned_steps": int(preview["cost"]["plannedSteps"]),
+            "planned_steps": planned_steps,
         }
+        if shared is not None:
+            payload["shared_cohorts"] = shared["pins"]
+            payload["joint_sha256"] = shared["plan"]["sha256"]
         job = create_job(JobType.GRID_TRAINING, game_id=game, input_payload=payload)
         existing = self.jobs.get_job_by_input_key(job.input_key)
         return self.view(existing if existing is not None else self.jobs.add_job(job))
@@ -183,4 +229,9 @@ class GridTrainingRunService:
             "errorCode": job.error_code,
             "createdAt": job.created_at.isoformat(),
             "updatedAt": job.updated_at.isoformat(),
+            "sharedCohorts": [
+                {"gameId": entry["game_id"], "cohortId": entry["cohort_id"]}
+                for entry in cast(list[dict[str, str]], payload.get("shared_cohorts") or [])
+            ],
+            "jointSha256": payload.get("joint_sha256"),
         }

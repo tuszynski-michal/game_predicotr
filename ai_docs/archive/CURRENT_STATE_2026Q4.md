@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2 (done)
+
+- [Task](../tasks/completed/1006-shared-grid-model-candidate.md); baza v1.7.389 `88b2ab82`, branch `codex/v3-grid-fine-tuning`, commit v1.7.390. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1 PASS bez P0/P1, oba P2 domknięte przed commitem.
+- D-560: run `grid-shared-training-run-v1` (kohorta główna + kohorty innych gier tej samej rodziny, bazy i trybu), polityka `grid-shared-candidate-v1` bez aliasów kontrolnych z przypiętym SHA planu (także przypisania nagrań), `BalancedSampler` z równą wagą gier i nagrań, VALIDATION średnio po grach, ocena D-559 na wszystkich kohortach treningu, bez migracji.
+- E2E na GPU z izolowanym PostgreSQL i prawdziwym trenerem PASS na dwóch syntetycznych grach; rzeczywisty eksperyment Mumii i 777a2 wymaga integracji i osobnego polecenia.
+
 ### TASK-0997 — Ocena per gra i bramka kandydata (done)
 
-- [Task](../tasks/completed/0997-grid-model-evaluation.md); baza v1.7.388 `6397bc51`, branch `codex/v3-grid-fine-tuning`, commit v1.7.389. Wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audytor Codex `gpt-6-astra`/`high`: R1 REVISE (P0: usunięta gra i duplikaty detekcji), jedna runda poprawek, R2 PASS; resztkowe P2-2 domknięte po R2.
+- [Task](../tasks/completed/0997-grid-model-evaluation.md); baza v1.7.388 `6397bc51`, branch `codex/v3-grid-fine-tuning`, commit v1.7.389 `88b2ab82`. Wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audytor Codex `gpt-6-astra`/`high`: R1 REVISE (P0: usunięta gra i duplikaty detekcji), jedna runda poprawek, R2 PASS; resztkowe P2-2 domknięte po R2.
 - D-559: raport v2 z miarami bazy i kandydata per gra/rola/nagranie, polityka `grid-model-per-game-gate-v1` przeliczana przez czytnik, job `grid_model_evaluation` w lane `general`, migracja `0166` (manifest v17) ze znacznikami notices przez wyzwalacz `SECURITY DEFINER` i append-only proofs z generacją magazynu, bariera publikacji/aktywacji/default, API `grid-model-evaluations` i panel porównania.
 - E2E PostgreSQL na rzeczywiście zamrożonej kohorcie PASS (writer, bind, proof, publikacja, revert → STALE, ponowne sprawdzenie odmawia); naprawiono fixture E2E TASK-0995 niezgodny z jego R1.
 - Bez oceny na danych operatora, publikacji, aktywacji i migracji jego bazy.

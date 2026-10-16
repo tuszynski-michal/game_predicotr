@@ -33,7 +33,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 21/24 done | TASK-1006, 1000, 1001 | `codex/v3-grid-fine-tuning` |
+| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 22/24 done | TASK-1000, 1001 | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -52,13 +52,9 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2 (todo)
-
-- [1006-shared-grid-model-candidate.md](../tasks/1006-shared-grid-model-candidate.md) na `codex/v3-grid-fine-tuning`; następny po TASK-0997 (ocena D-559 gotowa); rzeczywisty run tylko po osobnej zgodzie.
-
 ### TASK-1000 — Pełna sekcja „Geometria V3” (todo)
 
-- [1000-v3-grid-model-workspace.md](../tasks/1000-v3-grid-model-workspace.md) na `codex/v3-grid-fine-tuning`; po TASK-0997/1006; wybór po nazwach zamiast UUID.
+- [1000-v3-grid-model-workspace.md](../tasks/1000-v3-grid-model-workspace.md) na `codex/v3-grid-fine-tuning`; następny po TASK-1006; wybór po nazwach zamiast UUID.
 
 ### TASK-1001 — Odbiór procesu i instrukcja operatora (todo)
 
@@ -66,7 +62,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / hash w następnym commicie — tasks/completed/0997-grid-model-evaluation.md
+- **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / hash w następnym commicie — tasks/completed/1006-shared-grid-model-candidate.md
+- **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / 88b2ab82 — tasks/completed/0997-grid-model-evaluation.md
 - **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / 6397bc51 — tasks/completed/0996-durable-v3-grid-training.md
 - **TASK-1005** — Preset i dopuszczenie zasobów — v1.7.386 / `0862fbec` — tasks/completed/1005-grid-training-resource-admission.md
 - **TASK-0995** — Kwalifikacja korekt i niezmienny snapshot — v1.7.385 / `f0cfa9bd` — tasks/completed/0995-grid-training-cohort-snapshot.md
@@ -75,4 +72,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1024** — Zamknięcie nieaktualnych tasków na `main` — v1.7.375 / `5fa317c4` — tasks/completed/1024-close-stale-tasks.md
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
-- **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md

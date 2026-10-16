@@ -8229,6 +8229,38 @@ export type GridShadowUnassignedDetectionResponse = {
 };
 
 /**
+ * GridSharedCohortPin
+ */
+export type GridSharedCohortPin = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridSharedCohortRef
+ */
+export type GridSharedCohortRef = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
  * GridSourceIdentityCompleteCommand
  */
 export type GridSourceIdentityCompleteCommand = {
@@ -8341,6 +8373,9 @@ export type GridTrainingEarlyStopping = {
  * GridTrainingJobPayload
  *
  * Pinned application grid-training run (TASK-0996); created only by its own route.
+ *
+ * A shared run (TASK-1006) also pins one frozen cohort of every other game and the SHA
+ * of its joint plan.
  */
 export type GridTrainingJobPayload = {
   /**
@@ -8363,6 +8398,10 @@ export type GridTrainingJobPayload = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Jointsha256
+   */
+  jointSha256?: string | null;
   /**
    * Mode
    */
@@ -8388,9 +8427,13 @@ export type GridTrainingJobPayload = {
    */
   seed: number;
   /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortPin> | null;
+  /**
    * Trainingkind
    */
-  trainingKind: 'grid-training-run-v1';
+  trainingKind: 'grid-training-run-v1' | 'grid-shared-training-run-v1';
 };
 
 /**
@@ -8571,6 +8614,10 @@ export type GridTrainingRunCreate = {
    * Presetid
    */
   presetId: string;
+  /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortRef> | null;
 };
 
 /**
@@ -8678,6 +8725,10 @@ export type GridTrainingRunView = {
    */
   gameId: string;
   /**
+   * Jointsha256
+   */
+  jointSha256?: string | null;
+  /**
    * Mode
    */
   mode: 'grid-only' | 'screen+grid';
@@ -8705,6 +8756,10 @@ export type GridTrainingRunView = {
    * Runid
    */
   runId: string;
+  /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortRef>;
   /**
    * Stage
    */

@@ -16,7 +16,7 @@ push i usunięcie worktree wykonujesz Ty, po zgodzie operatora.
 
 Fakty o repozytorium: gałęzią integracyjną jest `main` w `D:\game_predicotr`
 (decyzja operatora 2026-10-16). Dawna gałąź `v1.1-vision-lab-hybrid-geometry`
-jest w całości zawarta w `main` i usunięta lokalnie; nie scalaj do niej ani nie
+jest w całości zawarta w `main` i usunięta lokalnie oraz na origin; nie scalaj do niej ani nie
 zakładaj od niej nowych gałęzi. Nowe prace wykonuj na gałęzi roboczej, aby nie
 omijać akceptacji commitem bezpośrednio na `main`.
 Ten checkout uruchamia API z `--reload`, więc każda zmiana plików po scaleniu

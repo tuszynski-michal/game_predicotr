@@ -154,7 +154,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
-  - `model-quality/` (28 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+121)
+  - `model-quality/` (28 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+123)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)
   - `reviews/` (4 plików): ReviewsClient, LoadReviewBatchesResult, loadReviewBatches, LoadReviewItemsResult, loadReviewItems, LoadReviewItemResult, loadReviewItem, loadReviewSymbols (+15)

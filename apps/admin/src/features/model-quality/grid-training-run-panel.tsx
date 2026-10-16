@@ -14,6 +14,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state';
 import {
+  COHORT_PAGE_LIMIT,
   answeredRefusal,
   clearModelCommand,
   cohortLabel,
@@ -108,7 +109,10 @@ function RunPanel({
     // Each read starts in its own promise: one failing read never leaves another unhandled.
     const [cohortList, runList] = await Promise.all([
       readAllPages((cursor) =>
-        api.listGridTrainingCohorts(gameId, { cursor, limit: 100 }),
+        api.listGridTrainingCohorts(gameId, {
+          cursor,
+          limit: COHORT_PAGE_LIMIT,
+        }),
       ),
       Promise.resolve().then(() => api.listGridTrainingRuns(gameId)),
     ]);
@@ -200,7 +204,10 @@ function RunPanel({
     });
     if (!enabled || sharedOptions[otherGame]) return;
     const items = await readAllPages((cursor) =>
-      api.listGridTrainingCohorts(otherGame, { cursor, limit: 100 }),
+      api.listGridTrainingCohorts(otherGame, {
+        cursor,
+        limit: COHORT_PAGE_LIMIT,
+      }),
     ).catch(() => undefined);
     if (items === undefined) {
       setError('Nie udało się pobrać kohort innej gry.');

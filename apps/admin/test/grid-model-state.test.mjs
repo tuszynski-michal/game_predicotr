@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
+  COHORT_PAGE_LIMIT,
+  RECORDING_PAGE_LIMIT,
   clearModelCommand,
   cohortLabel,
   modelCommandKey,
@@ -98,4 +101,29 @@ test('a saved command survives until its own confirmation', () => {
   assert.equal(readModelCommand(storage, key), null);
   items.set(key, '{"kind":1}');
   assert.throws(() => readModelCommand(storage, key), /nieczytelne/);
+});
+
+test('page sizes never exceed what the list endpoints accept', () => {
+  const openapi = JSON.parse(
+    readFileSync(
+      new URL(
+        '../../../packages/admin-api-client/openapi/openapi.json',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  const maximum = (operationId) => {
+    for (const methods of Object.values(openapi.paths))
+      for (const operation of Object.values(methods))
+        if (operation.operationId === operationId) {
+          const limit = operation.parameters.find(
+            (item) => item.name === 'limit',
+          );
+          return limit.schema.maximum;
+        }
+    throw new Error(operationId);
+  };
+  assert.ok(COHORT_PAGE_LIMIT <= maximum('listGridTrainingCohorts'));
+  assert.ok(RECORDING_PAGE_LIMIT <= maximum('listSourceRecordingGroups'));
 });

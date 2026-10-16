@@ -17,6 +17,7 @@ import { usesNeuralGridConfiguration } from '@/features/games/game-catalog-state
 import {
   cohortLabel,
   gameLabel,
+  COHORT_PAGE_LIMIT,
   gameName,
   readAllPages,
   reasonLabel,
@@ -164,7 +165,7 @@ function Comparison({
     });
     if (!enabled || otherCohorts[other]) return;
     const items = await readAllPages((cursor) =>
-      api.listGridTrainingCohorts(other, { cursor, limit: 100 }),
+      api.listGridTrainingCohorts(other, { cursor, limit: COHORT_PAGE_LIMIT }),
     ).catch(() => undefined);
     if (items === undefined) {
       setError('Nie udało się pobrać kohort innej gry.');

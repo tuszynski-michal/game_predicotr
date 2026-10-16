@@ -896,7 +896,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-cohort-preview.tsx: GridCohortPreview
 - features/model-quality/grid-model-comparison.tsx: GridModelComparison
 - features/model-quality/grid-model-evaluation-state.ts: GridModelEvaluationClient, evaluationVerdictLabels, evaluationDecisionLabels, currentnessLabels, comparisonMetrics, MetricChange, metricChange, formatMetric, PendingEvaluationCommand, evaluationCommand, needsCurrentnessCheck, evaluationFinished
-- features/model-quality/grid-model-state.ts: REASON_LABELS, reasonLabel, reasonList, MODE_LABELS, RUN_STATUS_LABELS, COHORT_STATUS_LABELS, shortDate, versionLabel, versionName, cohortLabel, runLabel, gameLabel, gameName, publishBlocker, PendingModelCommand, modelCommandKey, readModelCommand, saveModelCommand, clearModelCommand, answeredRefusal, readAllPages
+- features/model-quality/grid-model-state.ts: REASON_LABELS, reasonLabel, reasonList, MODE_LABELS, RUN_STATUS_LABELS, COHORT_STATUS_LABELS, shortDate, versionLabel, versionName, cohortLabel, runLabel, gameLabel, gameName, publishBlocker, PendingModelCommand, modelCommandKey, readModelCommand, saveModelCommand, clearModelCommand, answeredRefusal, COHORT_PAGE_LIMIT, RECORDING_PAGE_LIMIT, readAllPages
 - features/model-quality/grid-model-versions-panel.tsx: GridModelVersionsClient, GridModelVersionsPanel
 - features/model-quality/grid-model-workspace.tsx: GridModelWorkspace
 - features/model-quality/grid-quality-measurement-command.ts: MeasurementCommand, measurementCommandKey, readMeasurementCommand, saveMeasurementCommand, clearMeasurementCommand, discardMeasurementCommand

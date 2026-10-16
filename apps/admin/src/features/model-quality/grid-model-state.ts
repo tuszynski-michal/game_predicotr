@@ -276,6 +276,10 @@ export function answeredRefusal(result: {
 
 const PAGE_LIMIT = 50;
 
+// Largest page each list endpoint accepts (OpenAPI `maximum`; a test keeps them in sync).
+export const COHORT_PAGE_LIMIT = 50;
+export const RECORDING_PAGE_LIMIT = 100;
+
 /** Reads every page of a cursor list; any failed page fails the whole read. */
 export async function readAllPages<T>(
   read: (cursor: string | undefined) => Promise<{

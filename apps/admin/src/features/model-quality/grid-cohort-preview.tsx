@@ -27,6 +27,7 @@ import {
   type GridCohortCommand,
 } from './grid-cohort-command-storage';
 import {
+  RECORDING_PAGE_LIMIT,
   cohortLabel,
   readAllPages,
   reasonLabel,
@@ -200,7 +201,10 @@ export function GridCohortPreview({
         Promise.all([
           Promise.resolve().then(() => api.getGameGridModelAssignment(gameId)),
           readAllPages((after) =>
-            api.listSourceRecordingGroups(gameId, { limit: 200, after }),
+            api.listSourceRecordingGroups(gameId, {
+              limit: RECORDING_PAGE_LIMIT,
+              after,
+            }),
           ),
           Promise.resolve().then(() => api.listGridModelVersions()),
         ]),

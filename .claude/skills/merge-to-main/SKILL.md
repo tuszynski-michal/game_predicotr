@@ -1,6 +1,6 @@
 ---
 name: merge-to-main
-description: Prowadzi scalenie gałęzi roboczej do `main` w D:\game_predicotr z push do origin i bezpiecznym usunięciem worktree (preflight kolizji numerów, zgoda operatora, aktualizacja gałęzi, docs:check, fast-forward, push, odpięcie junction). Użyj, gdy praca na gałęzi jest skończona i trzeba ją scalić, np. "scal do main", "scal gałąź", "wypchnij", "zapushuj main", "merge to main", "merge the branch into main", "ship this branch", "sprzątnij worktree po scaleniu".
+description: Prowadzi scalenie gałęzi roboczej do `main` w D:\game_predicotr z push do origin i bezpiecznym usunięciem worktree (preflight kolizji numerów, zgoda operatora, aktualizacja gałęzi, docs:check, fast-forward, push, odpięcie junction). Używaj zawsze przed `git merge`/`push` do `main` i przed `git worktree remove`, także gdy operator mówi tylko „scal wszystko na końcu”, „wypchnij” albo „posprzątaj” — main przesuwa się w trakcie pracy, a junction w worktree prowadzą do głównego checkoutu. Też: "merge to main", "ship this branch".
 ---
 
 # Scalanie gałęzi roboczej do `main` (`integration_preflight.py`)

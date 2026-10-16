@@ -1,6 +1,6 @@
 ---
 name: task-close
-description: Zamyka ukończony task według formatu okna CURRENT_STATE.md skryptem scripts/close_task.py (plik do completed/, pełna sekcja done do archiwum, wiersz w oknie, usunięcie wskaźnika, zapis hasha po commicie). Użyj, gdy task jest gotowy do commita i trzeba go zamknąć, np. "zamknij task", "zamknij TASK-1030", "close task", "mark task done", "zapisz hash commita taska".
+description: Zamyka ukończony task z ai_docs/tasks/ skryptem scripts/close_task.py (status done, plik do completed/, pełna sekcja done do archiwum, wiersz w oknie CURRENT_STATE.md, usunięcie wskaźnika, commit vX.Y.N, zapis hasha w kolejnym commicie). Używaj przy KAŻDYM zakończeniu taska, także w trakcie wykonywania etapu lub planu, gdy nikt nie mówi „zamknij” — ręczna edycja okna łamie format i docs:check. Też: "zamknij task", "close TASK-1030", "zapisz hash commita".
 ---
 
 # Zamykanie taska (`close_task.py`)

@@ -86,6 +86,12 @@ def test_malformed_done_entry_fails(tmp_path: Path, run: Callable[[], tuple[int,
     assert "malformed done entry" in out
 
 
+def test_done_entry_without_hash_passes(tmp_path: Path, run: Callable[[], tuple[int, str]]) -> None:
+    _write(tmp_path, ["- **TASK-0001** — zamknięty — v1.0.1 — tasks/completed/0001-x.md\n"])
+    code, _ = run()
+    assert code == 0
+
+
 def test_old_done_section_format_is_rejected(
     tmp_path: Path, run: Callable[[], tuple[int, str]]
 ) -> None:

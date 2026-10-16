@@ -186,7 +186,7 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 — tasks/completed/1022-current-state-budgets.md
+- **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md
 - **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md
 - **TASK-1020** — `DECISION_LOG.md` jako lekki indeks — v1.7.367 / `d803c27c` — tasks/completed/1020-decision-log-light-index.md
 - **TASK-1019** — Skrypt pomiaru i budżetów odczytu startowego — v1.7.366 / `d1174304` — tasks/completed/1019-startup-read-budget-script.md

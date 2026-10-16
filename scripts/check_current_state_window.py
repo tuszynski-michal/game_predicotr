@@ -25,8 +25,10 @@ TASKS = ROOT / "ai_docs" / "tasks"
 MAX_DONE = 10
 CONSTRAINTS_HEADING = "## Obowiązujące ograniczenia"
 DONE_HEADING = "## Ostatnie 10 ukończonych tasków"
+# The commit hash is optional: a closing commit cannot contain its own hash,
+# which the lead adds in the next commit.
 DONE_ENTRY_RE = re.compile(
-    r"^- \*\*TASK-\d{4}\*\* — .+ — v\d+\.\d+\.\d+ / .+ — tasks/completed/\S+\.md$"
+    r"^- \*\*TASK-\d{4}\*\* — .+ — v\d+\.\d+\.\d+( / .+)? — tasks/completed/\S+\.md$"
 )
 
 

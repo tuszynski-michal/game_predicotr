@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1022 — Zastosowanie budżetów `CURRENT_STATE.md` (done)
 
-- Plik: `ai_docs/tasks/completed/1022-current-state-budgets.md`; plan odczytu startowego, etap C. Commit v1.7.370.
+- Plik: `ai_docs/tasks/completed/1022-current-state-budgets.md`; plan odczytu startowego, etap C. Commit **v1.7.370 / `138005341bfde8b4ae7ccf8e89265542dd2bf882`**.
 - `CURRENT_STATE.md` 90 029 → 23 204 B według zatwierdzonego raportu TASK-1021: skrócone ograniczenia, tabela planów, 23 wskaźniki aktywnych tasków, 10 wierszy `done`; reszta bez zmian w archiwum Q4 i w 13 plikach tasków. Dowód 402/406 bloków (4 celowo przepisane nagłówki).
 - Nowa reguła zamykania w `AGENTS.md` i `README.md`; `check_current_state_window.py` sprawdza wiersze `done`; 7 z 9 budżetów włączonych. Odczyt startowy 78 047 B.
 

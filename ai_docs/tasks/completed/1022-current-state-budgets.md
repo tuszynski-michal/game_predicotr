@@ -138,7 +138,7 @@ Wykonawca: claude-sonnet-5-5 (subagent). Bez audytu Codex (decyzja operatora
 2026-10-16). Kontrola leada (claude-opus-5-5): ponowne `npm run docs:check`,
 20 testów skryptów PASS, ponowny dowód (402/406 bloków dosłownie; 4 brakujące
 to celowo zmienione front matter, dwa akapity starej reguły i nagłówek
-TASK-1022 `(todo)`). Commit: v1.7.370 (hash dopisuje kolejny commit).
+TASK-1022 `(todo)`). Commit: v1.7.370 / `138005341bfde8b4ae7ccf8e89265542dd2bf882`.
 
 ### Changed
 

@@ -9,9 +9,10 @@ Ten plik zawiera nadrzędne zasady pracy dla Codex oraz innych agentów AI w tym
 Przed rozpoczęciem każdego zadania przeczytaj:
 
 1. `ai_docs/README.md`
-2. `ai_docs/process/CURRENT_STATE.md` (okno kroczące: obowiązujące
-   ograniczenia, plany z niezakończonymi taskami, taski aktywne, 10 ostatnich
-   sekcji `done`),
+2. `ai_docs/process/CURRENT_STATE.md` (okno kroczące ≤ 30 000 B: obowiązujące
+   ograniczenia, tabela planów z niezakończonymi taskami, otwarte decyzje,
+   wskaźniki tasków aktywnych ≤ 1 200 B każdy i 10 jednowierszowych wpisów
+   `done`; pełne sekcje `done` są w archiwum),
 3. `ai_docs/process/DECISION_LOG.md` (indeks 30 najnowszych decyzji; starszych
    szukaj przez `rg` w nim i w
    `ai_docs/process/decisions/DECISION_INDEX_ARCHIVE.md`, a pełny wpis
@@ -307,11 +308,15 @@ Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyn
 1. Uruchom formatowanie, lint, testy i kontrolę typów dla zmienionych części.
 2. Zaktualizuj dokumentację, jeżeli zmieniło się zachowanie, API, model danych lub decyzja.
 3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md` zgodnie z regułą okna
-   kroczącego: dopisz sekcję `done` taska na początku sekcji „Ostatnie 10
-   ukończonych tasków”, przenieś najstarsze sekcje `done` ponad limit 10 na
-   początek najnowszego `ai_docs/archive/CURRENT_STATE_*.md` (tekst bez zmian),
-   usuń z „Aktywne taski” sekcję zamkniętego taska i zaktualizuj „Obowiązujące
-   ograniczenia”. Sprawdź `npm run docs:check`.
+   kroczącego: dopisz pełną sekcję `done` taska na początku najnowszego
+   `ai_docs/archive/CURRENT_STATE_*.md` (tuż pod nagłówkiem, tekst bez zmian),
+   dopisz w oknie jeden wiersz na początku sekcji „Ostatnie 10 ukończonych
+   tasków” (format w nagłówku `CURRENT_STATE.md`, ≤ 400 B) i usuń z okna najstarszy wiersz ponad
+   10 (jego pełna sekcja jest już w archiwum). Usuń z „Aktywne taski”
+   wskaźnik zamkniętego taska (wskaźniki aktywne mają ≤ 1 200 B: status,
+   plik taska, blocker lub następny krok; szczegóły w `Outcome`) i
+   zaktualizuj „Obowiązujące ograniczenia” oraz „Plany”. Sprawdź
+   `npm run docs:check` (budżety bajtów: `scripts/check_startup_read_budget.py`).
 4. Uzupełnij sekcję `Outcome` aktywnego zadania.
 5. Po zakończeniu zadania przenieś plik ze statusem `done` do
    `ai_docs/tasks/completed/`.

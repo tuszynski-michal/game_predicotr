@@ -20,8 +20,9 @@ Przed rozpoczęciem pracy czytaj w tej kolejności:
 
 1. ten indeks (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md)),
 2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
-   obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
-   i 10 ostatnich sekcji `done`,
+   (≤ 30 000 B): obowiązujące ograniczenia, tabela planów z niezakończonymi
+   taskami, otwarte decyzje, wskaźniki tasków aktywnych (≤ 1 200 B każdy) i
+   10 jednowierszowych wpisów `done` (pełne sekcje `done` w archiwum),
 3. [Decision Log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji;
    starsze wyszukuj `rg` w nim i w
    [archiwum indeksu](process/decisions/DECISION_INDEX_ARCHIVE.md),
@@ -171,7 +172,8 @@ domyślnym kontekstem implementacyjnym.
   wpisy w [decisions/DECISION_LOG_2026.md](process/decisions/DECISION_LOG_2026.md),
   starszy indeks w
   [decisions/DECISION_INDEX_ARCHIVE.md](process/decisions/DECISION_INDEX_ARCHIVE.md).
-- [Current state](process/CURRENT_STATE.md) — okno kroczące; historia w
+- [Current state](process/CURRENT_STATE.md) — okno kroczące ≤ 30 000 B
+  (wskaźniki aktywnych tasków, wiersze `done`); pełne sekcje i historia w
   [archive/CURRENT_STATE_2026Q4.md](archive/CURRENT_STATE_2026Q4.md) i
   [archive/CURRENT_STATE_2026Q3.md](archive/CURRENT_STATE_2026Q3.md).
 - [Task template](process/TASK_TEMPLATE.md)
@@ -278,9 +280,13 @@ wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
 jest istotna, `DECISION_LOG.md` (pełny wpis w `process/decisions/` i wiersz
 na górze indeksu; wiersze ponad 30 przechodzą do archiwum indeksu).
 
-Przy zamykaniu taska agent dopisuje jego sekcję `done` w `CURRENT_STATE.md`,
-przenosi sekcje `done` ponad limit 10 do najnowszego archiwum
-`archive/CURRENT_STATE_*.md` (tekst bez zmian) i aktualizuje sekcję
-„Obowiązujące ograniczenia”. Spójność oba pliki sprawdza `npm run docs:check`
+Przy zamykaniu taska agent dopisuje jego pełną sekcję `done` na początku
+najnowszego archiwum `archive/CURRENT_STATE_*.md` (tekst bez zmian), w
+`CURRENT_STATE.md` dodaje jednowierszowy wpis na początku „Ostatnie 10
+ukończonych tasków” (format `- **TASK-NNNN** — tytuł — vX.Y.N / hash —
+tasks/completed/<plik>.md`) i usuwa najstarszy wiersz ponad 10 (jego sekcja
+jest już w archiwum), usuwa wskaźnik taska z „Aktywne taski” (wskaźniki
+≤ 1 200 B) oraz aktualizuje „Obowiązujące ograniczenia” i „Plany”. Spójność
+oba pliki sprawdza `npm run docs:check`
 (`scripts/check_current_state_window.py`, `scripts/check_decision_links.py`),
 a budżety bajtów obowiązkowego odczytu `scripts/check_startup_read_budget.py`.

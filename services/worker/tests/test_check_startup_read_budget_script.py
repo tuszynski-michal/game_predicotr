@@ -109,3 +109,41 @@ def test_bullet_items_include_continuation_lines(tree: Path) -> None:
     done = budget.top_section(lines, budget.DONE)
     assert done is not None
     assert len(budget.section_items(done)) == 2
+
+
+def test_current_state_budgets_are_enforced_by_default() -> None:
+    enforced = {item.name for item in budget.BUDGETS if item.enforced}
+    assert {
+        "CURRENT_STATE.md",
+        f"section {budget.CONSTRAINTS}",
+        f"section {budget.PLANS}",
+        "active task section",
+        "done entry",
+    } <= enforced
+
+
+def test_default_flags_fail_on_active_section_over_1200_bytes(tree: Path) -> None:
+    problems = budget.check(tree)
+    assert any("active task section [TASK-0002" in problem for problem in problems)
+
+
+def test_default_flags_fail_on_file_over_30000_bytes(tree: Path) -> None:
+    state = tree / budget.CURRENT_STATE
+    state.write_text(STATE.format(long="x" * 30_000), encoding="utf-8", newline="\n")
+    problems = budget.check(tree)
+    assert any(
+        problem.startswith("CURRENT_STATE.md [") and "budget 30000 B" in problem
+        for problem in problems
+    )
+
+
+def test_default_flags_fail_on_done_entry_over_400_bytes(tree: Path) -> None:
+    state = tree / budget.CURRENT_STATE
+    text = state.read_text(encoding="utf-8")
+    state.write_text(
+        text + "- **TASK-0005** — " + "y" * 450 + " — v1.0.3 / ghi — tasks/completed/0005-x.md\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    problems = budget.check(tree)
+    assert any(problem.startswith("done entry [") for problem in problems)

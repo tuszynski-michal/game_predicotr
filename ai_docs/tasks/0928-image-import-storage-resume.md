@@ -199,3 +199,11 @@ V7 migration under separately authorized operations/user-managed services,
 then restart only general with its seven-thread budget and confirm one live
 instance plus actual source progress for this same job. Do not claim live
 repair complete on the basis of unit tests or a healthy heartbeat alone.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
+
+- **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.

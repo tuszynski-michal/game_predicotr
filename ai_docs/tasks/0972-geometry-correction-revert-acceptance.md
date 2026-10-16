@@ -208,3 +208,9 @@ Z katalogu worktree, `PYTHONPATH` worktree, `..\..\.venv\Scripts\python.exe`:
 - `npm install`, `npm run db:migrate` (0153_merge_compact_super_games → 0154_geometry_correction_revert, role przeprovisionowane), `npm run reviewer:build`.
 - Start usług w zakładkach Terminala (`npm run api:dev`, `npm run worker:poll -- --cpu-thread-budget 7`, `npm run admin:dev`, `npm run reviewer:start`); `/api/v1/health` 200, `/api/v1/admin/games` 200, Admin 200, Reviewer 200.
 - Gałąź `feat/geometry-correction-revert` (lokalnie i na origin) oraz worktree usunięte.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **Plan cofania korekt (D-542/D-543): odbiór i dług audytowy.** Slot 69004 z planu nie istnieje (wymiana zdjęć Mumii); odbiór cofnięcia na nowej korekcie. TASK-0971 czeka na ponowny audyt Codex (5 × P2 przyjęte). Źródło: sekcja „TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (blocked)” w tym pliku.

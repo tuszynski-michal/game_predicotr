@@ -122,3 +122,9 @@ Dostarczone: narzędzie pomiarowe, przepływ etykietowania, testy i szkic raport
 ### Recommended next task
 
 Po etykietach: uzupełnić rekomendację raportu i zdecydować „dalej / nie” dla automatycznego proponowania super symbolu; przy „dalej” osobny task cechy komórki w weryfikacji symboli.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **TASK-0937 (pilot złotej ramki) jest `blocked`:** narzędzie gotowe (v1.7.281), odblokowanie wymaga migracji `0152` na bazie operatora, wyprowadzonej serii, co najmniej 5 zdefiniowanych super symboli i etykiet operatora (co najmniej 30 komórek na wariant wycinka); pomiar, bez zmiany produktu. TASK-0939 (narzędzia oszczędzania tokenów) jest zadaniem z pomiarem. Źródło: sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.

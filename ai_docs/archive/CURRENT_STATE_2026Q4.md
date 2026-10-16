@@ -1,10 +1,921 @@
 ---
 title: Current state archive 2026Q4
 status: archive
-last_updated: 2026-10-14
+last_updated: 2026-10-16
 ---
 
 # Current State — archiwum 2026Q4
+
+### TASK-1022 — Zastosowanie budżetów `CURRENT_STATE.md` (done)
+
+- Plik: `ai_docs/tasks/completed/1022-current-state-budgets.md`; plan odczytu startowego, etap C. Commit v1.7.370.
+- `CURRENT_STATE.md` 90 029 → 23 204 B według zatwierdzonego raportu TASK-1021: skrócone ograniczenia, tabela planów, 23 wskaźniki aktywnych tasków, 10 wierszy `done`; reszta bez zmian w archiwum Q4 i w 13 plikach tasków. Dowód 402/406 bloków (4 celowo przepisane nagłówki).
+- Nowa reguła zamykania w `AGENTS.md` i `README.md`; `check_current_state_window.py` sprawdza wiersze `done`; 7 z 9 budżetów włączonych. Odczyt startowy 78 047 B.
+
+## Przeniesione z okna 2026-10-16 (TASK-1022)
+
+Treść poniżej usunięto z `ai_docs/process/CURRENT_STATE.md` bez zmian przy wprowadzeniu budżetów okna (`ai_docs/tasks/1022-current-state-budgets.md`, decyzja operatora z `ai_docs/quality/CURRENT_STATE_REVIEW_20261016.md`). Kolejność jak w oknie przed zmianą. Punkty „do task” leżą dodatkowo w sekcji „Ograniczenia z CURRENT_STATE” plików tasków, których dotyczą (tylko tam, nie tutaj).
+
+**Obowiązujące ograniczenia** (dawne punkty niezmienione, w tym pełne wersje punktów skróconych w oknie; punkty „do task” pominięto, bo przeniesiono je do plików tasków):
+
+- **Claude Code CLI / TASK-1007 (2026-10-14):** brak `claude` w PATH nie oznacza braku instalacji. Skrypt audytu wykrywa fizyczny katalog pakietu Windows `Claude_*/LocalCache/Roaming/Claude/claude-code` oraz instalację natywną, bez przypięcia wersji. Nowy proces uruchamia 2.1.295; logowanie i audyt modelowy nie były testowane. Reguła jest utrwalona w AGENTS.md. Operator zaakceptował wynik i wskazał `main`: scalenie fast-forward wykonane do v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`; bez push.
+
+- **TASK-0991 / 777 a2 (2026-10-14):** naprawa wznowienia jest już na gałęzi integracyjnej. Cały zlecony przebieg 35122 komórek <80% zakończono i zweryfikowano; 3832 nadal ma confidence <80%, bez nowego treningu. Monitor wyłączony. Istniejący poll worker nie został przeładowany; jego ręczna instrukcja jest w completed tasku. Końcowa dokumentacja wymaga akceptacji przed scaleniem. Raport: `quality/SYMBOL_REINFERENCE_777A2_20261014.md`.
+
+- **Gałąź integracyjna = `main` (decyzja operatora 2026-10-16):** wszystkie nowe gałęzie zakładać od `main` i do niej scalać. `v1.1-vision-lab-hybrid-geometry` (v1.7.357 / `c6510f19`) jest w całości zawarta w `main` i przeznaczona do usunięcia (lokalnie i na `origin`; usuwa operator albo agent za osobną zgodą; blokuje to worktree `worktrees/multi-game-share` wskazujący tę gałąź). Wzmianki o „gałęzi integracyjnej” w starszych wpisach dotyczą historycznie tamtej gałęzi. Lokalny `main` (v1.7.363) wyprzedza `origin/main` (v1.7.360). Reguła w `AGENTS.md`, sekcja „Scalanie do gałęzi integracyjnej”.
+
+- **Akceptacja przed integracją (korekta operatora 2026-10-14):** gałąź docelowa według punktu wyżej (`main`). Najpierw wykonaj cały zlecony task, etap albo plan wraz z kontrolami, dokumentacją i commitami. Dopiero na końcu zapytaj o akceptację wyniku i zgodę na scalenie; przy całym planie/etapie nie pytaj po każdym wewnętrznym tasku. Scal dopiero po wyraźnym potwierdzeniu. Zgoda na plan/implementację nie zastępuje akceptacji wyniku. Push, restart usług i migracje zachowują osobne bramki. Reguła w `AGENTS.md`, TASK-0992; operator zaakceptował korektę i zlecił jej scalenie, wykonane przez fast-forward do v1.7.356 / `45923355dee60a433471465bba8aeeb62106c04d`.
+
+- **Selektor1.0.0 / D-547:** operator zatwierdził odbiór i lokalne main merge oraz usunięcie wyłącznie worktree selektora. ZIP z v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, zachowany w `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`. TASK-0979/0988/0989/0990 done. Brak narzuconego limitu liczby zdjęć. Nowy niezależny audyt i fizyczne kontrole bez dowodów nie są PASS; nie blokują zamknięcia zatwierdzonego przez operatora. Starsze wpisy0.1.x w tej sekcji są historyczne względem wydania1.0.0. Nowa instrukcja Word nie jest obecnie potrzebna. Dowody: quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
+
+- **Historical numbering collision:** selector foundation and symbol-training recovery both use TASK-0975 and v1.7.317/318 on parallel branches. Preserve both historical records and identify tasks by complete file path; do not renumber existing commits or audit reports.
+
+- **Historia selektora:** wszystkie rundy TASK-0975–0990 dotyczące selektora zamknięto; bieżące wydanie1.0.0 i decyzja D-547 zastępują dawne statusy pilota0.1.x. Historyczne raporty/audyty/limity pomiarów pozostają w quality i completed. Brak nowego niezależnego audytu i dowodów fizycznych nie jest ukrywany ani oznaczany jako PASS.
+
+- **TASK-0974 / D-544 (2026-10-11):** gra `777a2` („777 a2”, profil `grid_profile_777_v2`) importuje przez V3 z modelem 777 z laboratorium. Kod scalony i wypchnięty (v1.7.314 `4344510b`, v1.7.315 `55af1b63`); API i Admin (`admin:dev`) przeładowały go same. **Przed pierwszym preflightem a2 operator musi zrestartować worker `general`** (stary proces odrzuci snapshot profilu 777 v2). Nie importować a2 przez V1.1 ani nie przełączać jej na profil Mumii. Audyt E2E Codex: rundy 1–2 PASS.
+
+- **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
+
+- **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
+
+- **Lokalny Reviewer / D-541:** po „Otwórz lokalnie” pracuje w zakresie gry (bez wyboru importu), z zakładkami „Do korekty” i „Braki zdjęć” (realne braki D-484); „Siatka niepotwierdzona” jest tylko licznikiem w Diagnostyce Admina, nie kolejką. Admin nie ma UI wyjątków bramki (endpointy i audyt zostają). Źródło: `DECISION_LOG.md`, wpis D-541.
+
+Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
+(przeszukanie słów kluczowych: migracja, zgoda, blokada, PID, job, „nie
+uruchamiać”, potem ręczny dobór). Każdy punkt wskazuje sekcję-źródło. Stan z
+daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
+(odczyt, bez zmian w systemie).
+
+- **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0154_geometry_correction_revert` (strażnik schematu startowego); jego rodzic `0153_merge_compact_super_games` łączy obie gałęzie0152 (serie supergry i kompaktowy panel). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
+
+- **Migracja `0154_geometry_correction_revert` wykonana na bazie operatora 2026-10-10** (na polecenie operatora: stop API/worker/Admin/Reviewer → scalenie fast-forward `feat/geometry-correction-revert` do gałęzi integracyjnej (v1.7.308, push) → `npm install` → `npm run db:migrate` → `npm run reviewer:build` → start usług w zakładkach Terminala). `alembic current` = `0154_geometry_correction_revert`. Gałąź i worktree usunięte. Pozostaje odbiór TASK-0972 (cofnięcie świeżej korekty, jeden import zastępczy) i zaległe audyty Codex. Worktree innych sesji na starszym kodzie nie wystartują na tej bazie, dopóki nie scalą gałęzi integracyjnej. Źródło: sekcja „TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika” w tym pliku.
+
+- **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
+
+- **Cykl życia usług.** API, Admin (i Reviewer) uruchamia, zatrzymuje i restartuje wyłącznie użytkownik, w swoich terminalach; wcześniejsza zgoda na restart nie obowiązuje w kolejnych zadaniach (`AGENTS.md`, sekcja „Kontrola lokalnych usług API i Admin”). Stan z 2026-10-10: usługi działają z `D:\game_predicotr` (D-540, TASK-0956): API 8000 (`api:dev` z `--reload` z checkoutu D, więc scalenie do gałęzi integracyjnej i `git merge --ff-only` na D przeładowuje API), Admin 3000 (`admin:dev`), Reviewer 3001 (`reviewer:start`, build na D) i worker `general` (`workers:start`); baza w obrazie dysku Docker Desktop `D:\docker\DockerDesktopWSL`. Sesje agentów pracują od teraz w `D:\game_predicotr` (worktree'y zakładane w klonie D); katalog `C:\Users\tuszy\Documents\game_predicotr` jest nieużywany do etapu C (TASK-0957), nie uruchamiać z niego usług ani nie synchronizować go do D. Źródło: sekcja „TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)” w tym pliku.
+
+- **Migracje bazy deweloperskiej/operatora wymagają osobnej zgody** i skoordynowanego przejścia (stop usług → scalenie → `db:migrate` → start); migracja zweryfikowana na bazach `*_test` nie jest zgodą. Nie scalać do gałęzi integracyjnej kodu wymagającego nowej migracji przed jej wykonaniem: API 8000 z `--reload` w głównym checkoucie przestaje wtedy startować. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
+
+- **Udostępnianie online (D-470/D-471):** migracja `0130` i sesje udostępniania wymagały zgody operatora przed odbiorem etapu B; kody dostępu przechowywane z PBKDF2, blokada po 5 błędach, limit 5 aktywnych sesji, flaga `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)”.
+
+- **Masowe odświeżenie nieaktualnych odczytów wyszukiwarki** (TASK-0773, D-474: ok. 88 260 plansz gry 7 sprzed późniejszej rewizji geometrii) jest osobnym zadaniem i wymaga zgody; okno planszy tylko pokazuje linie i odświeża jedną planszę. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)”.
+
+- **Obowiązkowa kolejność dla `apply` manifestu Arbuz < 60%** (sha256 `1e4be8ce…`, 2 703 plansze): nie uruchamiać równolegle z weryfikacją w Adminie ani z jobem przeliczania predykcji. W chwili wpisu nic nie zapisano w bazie. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-464 — biblioteka wzorców symboli, etap A (w toku)”.
+
+- **Operacje destrukcyjne na danych.** Implementacja mechanizmu destrukcyjnego (GC, cleanup, legacy deletion, `db:reset:local`) nie jest zgodą na jego wykonanie; wymaga osobnego preview i jawnego potwierdzenia. TASK-0517: baza starej gry usunięta, częściowy GC zatrzymany; dalsze usuwanie tylko za jawną zgodą. Źródło: sekcja „TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany” w tym pliku.
+
+- **Rezerwa dysku (D-534, D-530):** twarda rezerwa 5 GiB (domyślnie) dla kopiowania, normalnego pipeline i wznowienia; polityka GC i szacunki przyjęcia bez zmian. Brak migracji ani czyszczenia danych w TASK-0928. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
+
+- **Gra Mumie jest w statusie `draft`** (profil `grid_profile_mumie_v1`, gra `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`). Operator testuje Wild na drafcie; wyniki planszy w serii są `provisional`, dopóki super symbol nie jest zdefiniowany i generacja serii nie jest świeża (D-537): nie wchodzą do bilansu ani rozpoznanych wypłat. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”; sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.
+
+- **Modele symboli Mumii:** kandydat V5 odrzucony (10/18 porównań nie przechodzi), etapu TASK-0873 nie uruchamiać z tym kandydatem; obowiązuje baseline R2 RGB. Historycznego CLI `verified_v19` nie uruchamiać (nowy CLI: `scripts/run_mumie_image_import.py`). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”.
+
+- **Plan symboli premium Mumii** (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`, `proposed`) czeka na decyzje operatora; od 2026-10-04 obowiązuje zakres `MUMIE_TRAINING_RESUME_20261004.md`. Zakres Super jest realizowany osobnym planem `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
+
+- **Plan Mumie (D-535):** start każdego etapu na jawne polecenie operatora; 2026-10-08 operator zezwolił na przejście do etapu S-B bez pytań. Audyt krzyżowy wykonuje subagent Claude z innej rodziny modeli niż wykonawca do czasu zainstalowania i zalogowania CLI `codex`; zastępstwo odnotowuje `Outcome`. Merge i push tylko za zgodą operatora (merge do gałęzi integracyjnej obejmuje push). Źródło: sekcja „Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)” w tym pliku.
+
+- **Znane odłożone braki bramki jakości (TASK-0940, zielona `npm run quality`):** 3 testy historycznych migracji pomijane z powodem, testy korpusów M5 bez korpusu, test junction tylko w worktree. Cztery stare testy CLI (fixture) padają także na niezmienionym HEAD (TASK-0928). Nie rozszerzać zakresu zadania o ich naprawę bez decyzji. Źródło: sekcja „TASK-0940 — zielona bramka `npm run quality` (done)” w tym pliku; sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
+
+- **Usunięcie legacy public store (TASK-0687–0691):** DDL wymaga odrębnej zgody operacyjnej (`guides/LEGACY_PUBLIC_STORE_REMOVAL.md`); TASK-0694/0695/0698 zależą od rozstrzygnięcia sprzecznych zasad (TASK-0698). Plan ma w nagłówku `completed`, a pliki tasków są nadal aktywne: rozbieżność do wyjaśnienia. Źródło: sekcja „TASK-0687 — T08 readiness release V2-only: krytyczna bramka przed T09–T12” w tym pliku.
+
+- **Kolizje numeracji.** Pliki TASK-0649–0653 (silnik V3 neural) kolidują z ukończoną serią „Przybliżona wygrana” (D-445), a TASK-0825 użyto w dwóch torach; identyfikuj plik pełną ścieżką. Równoległe sesje kolidują też w numerach TASK, D- i `vX.Y.N`: przed numerowaniem sprawdź czubek gałęzi integracyjnej. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „TASK-0649 — „Liczba wyników” wyszukiwania plansz + kontrolowany wybór wyniku (1/6, plan D-445)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
+
+- **Odroczony plan przybliżonego snapshotu mobilnego** (`APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`, `deferred`) wymaga nowej decyzji (proponowane D-463; zmienia zasadę D-462/P4); do tego czasu zmiany tylko w aplikacji webowej.
+
+- **Aplikacja mobilna** pozostaje w pełni offline: źródłem jest wyłącznie wersjonowany snapshot SQLite w APK, bez uprawnienia `INTERNET` w wydaniu (`CLAUDE.md`, `apps/mobile`).
+
+- **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
+
+**Plany z niezakończonymi taskami** (dawne podsekcje):
+
+### Odchudzenie obowiązkowego odczytu startowego (accepted, 2026-10-16)
+
+- `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, TASK-1019–1023, gałąź `feat/startup-read-diet` (worktree `worktrees/startup-read-diet`, baza `main` v1.7.363).
+- Cel: obowiązkowy odczyt (`AGENTS.md`, `README.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`) z 211 359 B do ≤ 90 000 B z budżetami w `docs:check`, bez utraty treści. Etapy A (1019–1020), B (1021, decyzja operatora), C (1022–1023). Operator zaakceptował plan i zlecił wykonanie 2026-10-16, bez audytu Codex. TASK-1020 i TASK-1022 wykonać tuż przed scaleniem, po synchronizacji z gałęzią docelową.
+
+### Doszkalanie siatek V3 z korekt w aplikacji (proposed, 2026-10-14)
+
+- Plan: `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`,
+  rewizja 2, proponowane TASK-0993–1006 w etapach A–D i faza operatora O.
+  Taski opisano w planie;
+  pliki aktywne powstaną dopiero po jego akceptacji i ponownej kontroli numerów.
+- Zakres: edytor czterech rogów z opcjonalnymi 24 punktami, dane z aktualnych
+  ręcznych korekt także pojedynczej planszy niekompletnego zdjęcia, niezależna
+  ocena, trwały trening V3, wersje/aktywacja/powrót i ponowne rozpoznanie
+  wybranych siatek z ochroną decyzji człowieka i sekwencji. Domyślnie
+  uncertain/deferred oraz próba do 100 zdjęć; szeroki zakres jest opt-in.
+- Audyt Claude pierwszej wersji: REVISE, raport zachowany w quality.
+  P1/P2 uwzględniono w rewizji 2; odpowiedź w
+  `quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md`, bez deklaracji
+  nowego niezależnego PASS. Dane audytu: 777a2 ma 0 ręcznych korekt i 0 complete
+  zdjęć; Mumie 44 korekty i 4 complete. Pierwszy run zależy od fazy etykiet.
+- TASK-0994 zabezpiecza bazowe checkpointy z C na D; TASK-0957 ma warunek
+  ochrony źródła przed sprzątaniem. Trener produkcyjny czyta ścieżki z registry.
+- Kierunek operatora: nowa gra wybiera opublikowaną zgodną wersję; wspólna
+  geometria Mumii/777 jest kandydatem TASK-1006 z bramką osobno dla każdej gry.
+  Rozdział rodzin geometrii D-527 wymaga nowej decyzji przy akceptacji planu;
+  nie łączymy modeli symboli ani nie przełączamy istniejących gier teraz.
+- Polecenie operatora: usunięcie globalnego bloku „Ulepszanie geometrii /
+  Cięcie siatki” obejmuje planowaną zmianę UI. Nie usuwać historycznych danych
+  ani klasycznych profili. Doprecyzowanie operatora: sekcja w każdej grze,
+  historyczna `777` (kod `7`) pozostaje archiwalna, bez przejścia na V3.
+- To nie jest zgoda na implementację, koszt wielodniowej pracy, trening,
+  migrację, aktywację lub masową inferencję. Nowa policy feedback TRAIN wymaga
+  decyzji rozszerzającej D-480 przy akceptacji. Operator wybrał: Codex wykonuje,
+  Claude Code audytuje (`claude-fable-5-1`, medium/high zgodnie z tabelą).
+  Istniejąca sesja Claude może audytować bez instalacji CLI w środowisku Codex.
+- TASK-0991 oraz jego operacyjny przebieg symboli pozostają niezależne.
+
+### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
+
+- `delivery/DISK_D_MIGRATION_PLAN_20261009.md`, TASK-0952–0955 `done`,
+  TASK-0956 `blocked` (lista kontrolna operatora), TASK-0957 `todo`
+  (podgląd gotowy, osobne zgody). Gałąź `feat/disk-d-migration-plan`
+  scalona do gałęzi integracyjnej (v1.7.312) i wypchnięta; checkout D
+  przewinięty `--ff-only`.
+- Etapy: A (kopia `pg_dump`, przyrostowy `robocopy` katalogów danych,
+  push gałęzi) bez przestoju; B1 (przeniesienie `docker_data.vhdx` przez
+  Docker Desktop, jedyny niepodzielny krok) i B2 (pierwszy start z
+  `D:\game_predicotr`) po zakończeniu joba `d9a49da0`; C (sprzątanie,
+  osobne zgody). Baza nie jest kopiowana przez `pg_dump`/`pg_restore`;
+  compose z D podłącza się do tego samego kontenera (identyczny hash).
+- Inwestygacja 2026-10-09 (tylko odczyt): ścieżki w `game_data_v2`
+  względne; ścieżki C tylko w `jobs.input_payload.source_directory`
+  (173 jobów) i `remote_manual_selection_sessions.host_base_path` (13).
+- Pięć rund przeglądu Codex (gpt-6.1-sol, high, tylko odczyt): rundy 1–4
+  REVISE, runda 5 PASS; raporty
+  `quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round1–5.md`.
+  Zaakceptowany 2026-10-10 (D-540). Etap A wykonany (v1.7.302–304),
+  etap A′ i B1 wykonane 2026-10-10 16:20–18:15 (TASK-0955 `done`, baza na
+  D, baza odniesienia `0154`/280/59 tabel/845 jobów/14 sesji). Audyt Codex
+  TASK-0955 (REVISE, 1 P0, 5 P1, 1 P2) rozliczony dokumentacją (v1.7.307);
+  wyjątek P0 (rozmiar `pg_internal.init` w nieprawidłowej bazie testowej)
+  zaakceptowany przez leada. D-540 jest wolny na gałęzi integracyjnej
+  (`feat/reviewer-geometry-gaps` użyła D-541).
+
+### Plan braków geometrii zdjęć w lokalnym Reviewerze (wykonany w kodzie, 2026-10-10; odbiór wizualny po restarcie operatora)
+
+- `delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`, TASK-0961–0965 na gałęzi `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`.
+- Zakres wybrany przez operatora: realne braki (nie „Siatka niepotwierdzona”), zakres całej gry bez selecta importu, filtry stanów w Reviewerze, Admin tylko z licznikami. Zaakceptowany poleceniem „Realizuj cały plan”; etapy A (0961–0963) i B (0964–0965) wykonywane w jednym przebiegu.
+- Stan: etapy A (TASK-0961–0963) i B (TASK-0964–0965) wykonane w kodzie i zacommitowane (v1.7.301–v1.7.305); decyzja D-541 zapisana (D-540 zajęła gałąź `feat/disk-d-migration-plan`). TASK-0965 wykonany (odbiór danych na żywym API OK; odbiór wizualny ekranów na portach 3000/3001 po restarcie API i `npm run reviewer:build` przez operatora); scalenie i push tylko za zgodą operatora, przy scalaniu renumeracja `vX.Y.N` względem gałęzi dysku D.
+
+### Plan korekty układu panelu (proposed, 2026-10-09)
+
+- `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
+- D-539 zatwierdza model wyboru maszyny; pełny plan oczekuje akceptacji/uruchomienia.
+- Claude Code opus5.5/medium: pierwszyREVISE, trzyP1 doprecyzowane; końcowy przegląd aktualnej wersji na prośbę operatora PASS bezP0/P1. DwieP2 doprecyzowano (waluta i stare piny). Raport `quality/ADMIN_PANEL_LAYOUT_PLAN_FINAL_REVIEW_CLAUDE_20261009.md`; bez implementacji.
+- Niezweryfikowany patch formularza odłożono; kod pozostaje na poprawce paddingu0946.
+- Odczyt operatora: API snapshot200, dwa archiwalne punkty, baza0153; zapis według operatora działa. Brak produkcyjnych zmian i lifecycle usług.
+
+### Plan cofania korekty cięcia siatki, odrzucania i zamiennika (implemented, awaiting operator migration and acceptance)
+
+- `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`, gałąź
+  `feat/geometry-correction-revert`, worktree
+  `worktrees/geometry-correction-revert`; decyzje D-542 (cofanie, zmienia
+  D-462 dla wierszy cofanego zapisu slotu) i D-543 (odrzucanie i zamiennik,
+  zmienia D-238). TASK-0966–0971 ukończone (v1.7.291–v1.7.296), TASK-0972
+  `blocked` (odbiór operatora).
+- Przy scaleniu gałęzi integracyjnej (v1.7.306) przenumerowano kolizje:
+  TASK-0945–0951 → TASK-0966–0972, D-538/D-539 → D-542/D-543, migracja
+  `0153_geometry_correction_revert` → `0154_geometry_correction_revert`
+  (rodzic `0153_merge_compact_super_games`). Historyczne komunikaty commitów
+  v1.7.288–v1.7.296 zachowują stare numery.
+- Kod wymagający `0154` nie trafia do gałęzi integracyjnej przed migracją
+  operatora; instrukcja `ai_docs/guides/GEOMETRY_CORRECTION_REVERT_OPERATOR.md`.
+  Agenci nie cofają korekt na bazie operatora.
+
+### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
+
+- `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski
+  TASK-0929–0939 (`todo`) na gałęzi `feat/mumie-super-game-plan`,
+  worktree `worktrees/mumie-super-game`. Cztery przeglądy Codex, ostatni
+  PASS (v1.7.264). Zaakceptowany; D-535. Wszystkie taski wykonuje ta sesja
+  przez subagentów; audyt Codex zastąpiony subagentem Claude do czasu CLI.
+  Etapy: P, S-0, S-A, (T: 0938) S-B, S-C, S-D; start każdego etapu na
+  jawne polecenie operatora. Żaden etap nie jest jeszcze uruchomiony.
+
+**Aktywne taski** (dawne pełne sekcje; w oknie zostały wskaźniki):
+
+### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
+
+- Etap B2 wykonany 2026-10-10 wieczorem: usługi z D (API 8000, Admin 3000,
+  Reviewer 3001, worker `general`), `db:current` = `0154`, health 200,
+  `workers:status` z D, 0 procesów z C; niezmienniki względem raportu B1
+  spełnione (845 jobów, 280/59 tabel, 14 sesji).
+- Nowy `scripts/verify_artifact_references.py` (tylko odczyt, bramka
+  `--forbid-prefix`) z testem: 258 212 ścieżek, 0 brakujących, 21 782
+  manifestów; zależne od C: 181 katalogów jobów, 14 sesji, 53 wpisy
+  manifestów, 0 plików. Bindingi zdalnej selekcji (14) bez danych i akcji.
+- Naprawione: `.tooling\node\node_modules` (npm) brakowało na D (skrypt
+  kopii wykluczał `node_modules` także w `.tooling`); skrypt poprawiony,
+  katalog skopiowany z równymi SHA-256.
+- Lista kontrolna operatora (powód `blocked`): restart Windows i skrócony
+  odbiór, telefon i nowy tunel, usunięcie wpisów C z `Path` użytkownika,
+  ponowny start backfillu weryfikacji symboli Mumii (anulowany przed B1).
+- Version v1.7.309; commit ba3b36d16bd0b8c614f9a004c5374bc8328a01f7.
+  Scalenie planu do gałęzi integracyjnej: v1.7.312.
+- Task: `ai_docs/tasks/0956-disk-d-application-startup.md`.
+
+### TASK-0957 — sprzątanie po przeniesieniu i ścieżki C w jobach (todo)
+
+- Etap C, osobne zgody: podgląd i przepisanie `source_directory` w
+  `jobs.input_payload`, usunięcie baz testowych (44 GB + 15 małych),
+  kompaktowanie vhdx, usunięcie katalogu i starego vhdx na C.
+- Podgląd 2026-10-10 (tylko odczyt, sekcja „Preview” w tasku): do usunięcia
+  po bramkach stary `docker_data.vhdx` na C 158,4 GB i checkout C 103,1 GB;
+  zostają `wsl\main\ext4.vhdx` (zarejestrowana dystrybucja
+  `docker-desktop`), foldery spoza repozytorium (15,9 GB) i backup na D
+  (228,5 GB). Status `todo`, każda operacja wymaga osobnej zgody.
+- Version v1.7.310 (podgląd); commit 190d30cc1906c53223e58dbf2381ac0bb7f0e6c4.
+- Task: `ai_docs/tasks/0957-disk-d-cleanup-and-job-paths.md`.
+
+### TASK-0947 — czytelny widok punktu (todo)
+
+- D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
+- Doprecyzowanie operatora: wszystkie zapisane piny przy wszystkich zapisanych stawkach od razu. Kod nadal ogranicza podgląd przez selectedStake && !editor; do poprawy w0947, bez zmiany API.
+- Plan korekty gotowy do implementacji po końcowymClaudePASS obejmującym piny; statusproposed/todo, wykonanie jeszcze nie uruchomione.
+- Task: `ai_docs/tasks/0947-management-point-workspace-layout.md`.
+
+### TASK-0948 — formularz i historyczne kafelki (todo)
+
+- Zapis działa według operatora; plan zabezpiecza widoczność błędu i retry w modalu.
+- Przywracanie historycznych danych jest propozycją, nie nowym zaakceptowanym kontraktem.
+- Task: `ai_docs/tasks/0948-management-modal-recovery-and-legacy-access.md`.
+
+### TASK-0949 — wizualny odbiór układu (todo)
+
+- Odrębne fixture Admin/Reviewer, utrzymanie listy maszyn i widoczne podsumowania pinów bez wyboru stawki, po Save/reload.
+- Task: `ai_docs/tasks/0949-management-layout-visual-acceptance.md`.
+
+### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
+
+- Od `v0.8.18` `Ekran startowy` otwiera zawsze wizualnie czysty konfigurator:
+  oba pickery są niewybrane, nie jest pokazywany skrót powrotu do bieżącego
+  workspace'u, a operator wskazuje ponownie katalog zdjęć oraz katalog zapisu.
+  Jest to nadal nawigacja niedestrukcyjna — zgodna para folderów odtwarza
+  zachowany manifest, decyzje, kursor i następny zakres.
+
+- Od `v0.7.76` aktywny workspace eksponuje niedestrukcyjny `Ekran startowy`
+  jako główną akcję po lewej stronie. `Restart selekcji` pozostaje po prawej
+  jako akcja wtórna, która dopiero otwiera bezpieczny modal potwierdzenia.
+
+- Od `v0.7.75` panel `Zdalna ręczna selekcja` trwale pokazuje przy wybranej
+  aktywnej sesji link i kod wraz z niezależnymi przyciskami kopiowania. Kod z
+  odpowiedzi create pozostaje wyłącznie w `localStorage` komputera Admina do
+  TTL albo revoke; API, baza i lista sesji nadal nie zwracają surowego kodu.
+  Nie ma już osobnej, znikającej sekcji „Kod jednorazowy”.
+
+- Od `v0.7.74` ekran startowy rozróżnia relink aktywnego źródła od świadomego
+  przełączenia folderu. Lokalne batch'e pozostają oddzielne i są odnajdywane po
+  nazwie oraz checksummie manifestu; ponowne wskazanie zgodnej pary folderów
+  wznawia postęp zamiast zgłaszać `REMOTE_SELECTION_SOURCE_CHANGED`.
+
+- Od `v0.7.72` aktywny workspace otrzymał przycisk `Ekran startowy` obok
+  restartu. Historyczny skrót `Wróć do selekcji` został zastąpiony w `v0.8.18`
+  ponownym, jawnym wyborem obu katalogów.
+
+- Od `v0.7.71` operator-local Reviewer pokazuje od razu dwa niezależne
+  pickery: katalog zdjęć i katalog zapisu. Katalog nadrzędny można zapamiętać
+  przed źródłem; po indeksowaniu powstaje `<źródło> wybrane`. Poprawny wynik
+  wznawia zapisany kursor i zakres, a nowy modal resetu jawnie ostrzega przed
+  usunięciem i blokuje skróty oraz nawigację do czasu decyzji.
+
+- Wspólny dla lokalnej i zdalnej ręcznej selekcji wybór skoku strzałek obejmuje
+  teraz również `8` oraz `9`; kolejność klawiaturowa `↑/↓` pozostaje ciągła.
+
+- Lokalna ręczna selekcja synchronizuje przy wznowieniu należący do sesji
+  manifest wynikowy z rekordem IndexedDB. Bezpieczna korekta ciągłej numeracji
+  aktualizuje pierwszy i następny zakres bez ponownego kopiowania JPEG-ów;
+  niezgodny manifest blokuje wznowienie.
+
+- Od `v0.8.31` lokalny i operator-local workspace pozwalają kliknąć bieżący
+  zakres i zapisać wyłącznie dodatni przedział `start–start+8`. Po decyzji
+  kolejny zakres jest wyliczany względem ręcznie podanej wartości zgodnie z
+  kierunkiem sesji. Manifest odtwarza takie świadome luki dokładnie, bez
+  cichego wypełniania lub przenumerowywania historii.
+
+- Historia importów plansz pokazuje przy każdym jobie przypięty silnik cięcia:
+  historyczny `v18` albo pełny import `v20` korzystający z geometrii i cropów
+  `v19`; źródłem etykiety jest niezmienny snapshot joba.
+
+- Od `v0.7.70` każdy nowy staging i ponowne przetworzenie importu przypinają
+  `v20 — geometria i cropy v19`. API przy braku pola także wybiera
+  `verified_v19`; historyczny v18 pozostaje wyłącznie odtwarzalnym artefaktem
+  już utworzonych jobów i nie jest fallbackiem.
+
+- Monitor jobów pokazuje pod importem katalogowym i preflightem geometrii
+  zakres z nazwy stagingu, np. `Zakres 19810–45162`. Nazwa stagingu jest
+  metadataną prezentacyjną i nie zmienia idempotencji preflightu.
+
+- Zamiast technicznych etykiet `Import` i `Walidacja` monitor jobów pokazuje
+  opis aktualnej pracy: ładowanie zdjęć, wyznaczanie siatki i cięcie plansz,
+  rozpoznawanie symboli albo tworzenie geometrii siatek.
+
+- Po kolejnych rzeczywistych rozjazdach transferu właściciel zmienił model
+  wyniku na operator-local. Od v0.7.51 link i kod wyłącznie odblokowują stronę;
+  źródło, decyzje, kursor, zoom, obie osie scrolla, manifest oraz wybrane JPEG-i
+  pozostają na urządzeniu operatora. Reviewer tworzy w wybranym katalogu
+  nadrzędnym folder `<źródło> wybrane`; nie wysyła decyzji ani obrazów na host.
+- Zdalny viewport otrzymał brakujące bazowe reguły CSS lokalnego selektora.
+  Wcześniej komponent używał tych samych nazw klas i obliczał nowy rozmiar, ale
+  Reviewer nie definiował wysokości viewportu, flex layoutu ani canvasu, dlatego
+  wartość zoomu zmieniała się bez widocznego efektu. Scroll i zoom są utrwalane
+  per sesja/partia w storage przeglądarki operatora.
+- Mobilny test operator-local wykrył drugi niezależny przypadek niewidocznego
+  zoomu: naturalne wymiary JPEG-a nie zawsze trafiały do stanu przez
+  `onLoadCapture`. Reviewer używa zwykłego `onLoad` zgodnego z lokalnym
+  selektorem i ma fallback dla obrazu już zdekodowanego z cache.
+- Panel hosta nie pokazuje już pustej tabeli serwerowych partii, limitu 100 ani
+  historycznych akcji recovery/reopen. Aktywny operator-local workflow utrzymuje
+  wyniki wyłącznie na urządzeniu operatora, więc host zarządza tylko sesją
+  dostępu i stanem połączenia.
+- Lista hosta jest ograniczona do dziesięciu najnowszych sesji w porządku
+  malejącym. Starsze wpisy pozostają audytowalne, ale nie rosną bez końca w
+  codziennym widoku Admina. Operator może filtrować tę listę na aktywne
+  (`draft/active`) i zakończone (`completed/expired/revoked`); panel pobiera
+  ograniczone 100 metadanych, aby dziesięć nowych terminalnych wpisów nie
+  ukrywało starszej aktywnej sesji.
+- Zdalny podgląd nie resetuje już wymiarów tego samego JPEG-a po drugim refreshu
+  następującym po zatwierdzeniu. Scroll poziomy i pionowy pozostają zachowane po
+  `Enter`, `F` i przycisku zapisu, nie tylko po nawigacji strzałkami.
+- Folder operator-local jest teraz przyjmowany tylko jako pusty albo jako
+  kompletny wynik do wznowienia. Manifest przechowuje checksumę źródła, liczbę
+  JPEG-ów, pierwszy zakres i kierunek; przy nowym linku odtwarza zdjęcie,
+  następny zakres i decyzje, mapując je na świeże identyfikatory IndexedDB.
+  Obce pliki, brak manifestu, brak wskazanego `seq_*` lub inne źródło blokują
+  start przed zapisem.
+- Odtworzenie scrolla po zatwierdzeniu jest przypięte do ordinalu następnego
+  JPEG-a. Wcześniejsza flaga boolean mogła zostać skonsumowana przez render
+  `busy` jeszcze na starym zdjęciu; teraz dopiero załadowany docelowy podgląd
+  może odtworzyć i wyczyścić oczekiwanie.
+- Dodatkowa regresja ujawniła różnicę względem lokalnego selektora: pozycja była
+  przechwytywana przed asynchronicznym zapisem JPEG-a. Zdalny ekran przechwytuje
+  ją teraz dokładnie jak lokalny — po trwałym zapisie, bezpośrednio przed
+  zmianą stanu React. Test rzeczywistego komponentu przy viewportcie 390×844
+  zachował `scrollTop=388,8` po zatwierdzeniu i przejściu na kolejny JPEG.
+- Próba operatorska w Chrome na macOS nadal wykazała reset wewnętrznego scrolla
+  wyłącznie po zatwierdzeniu; zwykła nawigacja zachowywała pozycję. Ścieżka
+  zapisu przechwytuje więc `scrollLeft/scrollTop` synchronicznie przy komendzie
+  Enter/F/klik, zanim rozpocznie zapis pliku i zmieni stan `busy`.
+  Dodatkowym źródłem resetu był stan przejściowy: canvas znikał i `scrollHeight`
+  chwilowo malał, więc Chrome mógł wymusić `scrollTop=0` po wcześniejszym
+  odtworzeniu.
+  Reviewer utrzymuje teraz stary canvas i jego wymiary do `decode` następnego
+  JPEG-a; odtwarzanie czeka jawnie na `decoded` docelowego ordinalu.
+- Kolejna próba ujawniła, że publiczny link nadal serwował proces Reviewera
+  uruchomiony o 17:05, podczas gdy aktualny build powstał o 17:40. Kod poprawek
+  nie był więc obecny w testowanej stronie. Po kontrolowanym restarcie aktualny
+  proces wystartował o 17:56, a ten sam Quick Tunnel pozostał aktywny.
+- Kontrolery lokalnego i zdalnego Reviewera wiążą teraz readiness z aktualnym
+  `.next/BUILD_ID`, który produkcyjny HTML zawiera jako identyfikator builda.
+  Stary produkcyjny Node na porcie 3001 jest bezpiecznie zastępowany przed
+  ponownym użyciem ingressu, a stan procesu zapisuje tożsamość rzeczywistego
+  listenera zamiast krótkotrwałego wrappera `npm.cmd`.
+- Operator-local przechowuje teraz również uchwyt katalogu nadrzędnego wyniku.
+  Usunięcie `<źródło> wybrane` albo błąd niedostępnego źródła powoduje atomowy
+  reset od pierwszego zdjęcia i odłączenie obu uchwytów. Reviewer wymaga
+  ponownego wskazania zgodnego folderu zdjęć i katalogu zapisu; pusty manifest
+  powstaje dopiero przy jawnym uruchomieniu. Jawny `Restart selekcji` czyści
+  tylko zweryfikowany folder tej selekcji; obce lub zmienione pliki blokują
+  operację.
+- Bieżącym aktywnym modelem symboli gry `777` jest iteracja `#3`
+  `47b6aa0d-2cea-4765-97f0-ee1f86cfc056`. Weryfikacja bazy 2026-08-24
+  potwierdziła status `candidate_ready` oraz aktywację z 2026-08-19; ponowna
+  aktywacja zwraca poprawnie `SYMBOL_MODEL_ALREADY_ACTIVE`. Historyczna
+  iteracja v19 z błędem `lemon → orange` pozostaje odrzuconym artefaktem i nie
+  jest tym aktywnym modelem.
+- Historyczny control outbox, transfer i materializacja pozostają w repozytorium
+  do audytu, lecz nowy workspace ich nie uruchamia. Etapy rolloutowe mierzące
+  transfer do hosta wymagają ponownej decyzji przed kontynuacją.
+
+- Rozpoczęto TASK 18 po zamknięciu bramki bezpieczeństwa v0.7.41. Pierwszy pion
+  tworzy deterministyczny etap 1, wersjonowany raport content-addressed oraz
+  runbook kolejnych checkpointów 10/500/1000/8000/15000.
+- Etap 1 przeszedł lokalnie przez `npm run remote-selection:rollout:stage1` i
+  `npm run remote-selection:rollout:check`; obejmuje także stale-generation
+  i exact retry przez właściwą maszynę domenową. Nie uruchomiono jeszcze
+  etapów 2–5 ani środowiska LAN/publicznego.
+- Lokalna podbramka etapu 2 przeszła 100 JPEG-ów przez rzeczywisty tymczasowy
+  filesystem, produkcyjny streaming, materializację i finalizację. Wykryła i
+  zamknęła regresję: udane ponowienie transferu anuluje starszą próbę `failed`
+  tego samego pliku/generacji, zachowując audyt i twardą bramkę finalizacji.
+  Raport pozostaje świadomie `blocked`, dopóki nie przejdą wymagane próby dwóch
+  profili/UI, LAN, offline host/operator, restart API, revoke i nowy URL tunelu.
+- Etapy 4 i 5, prawdziwy Quick Tunnel oraz testy na zewnętrznej sieci wymagają
+  osobnej zgody właściciela i nie zostaną uruchomione przez implementację.
+- TASK 19 pozostaje warunkowy: decyzja o chunkowanym uploadzie może powstać
+  wyłącznie na podstawie raportów TASK-0290.
+- Próba UI etapu 2 wykryła blokujący błąd File System Access API: identyfikator
+  pickera folderu źródłowego przekraczał limit 32 znaków Chromium. Reviewer używa
+  teraz stabilnego `gp-remote-source-v1`, a test regresyjny pilnuje limitu i
+  dozwolonego alfabetu identyfikatora.
+- Kolejna próba UI wykryła, że natywny `window.fetch` był wywoływany z obiektem
+  transportu jako odbiorcą i Chromium zwracał `Illegal invocation`. Transport
+  control plane oraz transfer JPEG wywołują teraz fetch z `globalThis`; dwa
+  testy regresyjne chronią oba miejsca przed powrotem błędu.
+- Zdalny workspace ponownie używa klas wizualnych lokalnej selekcji zamiast
+  natywnie wyglądających kontrolek. Poziomy scroll podglądu jest ukryty, obraz
+  pozostaje wycentrowany, a pionowy scroll jest przywracany po gotowym layoucie
+  kolejnego zdjęcia. Dwa testy kontraktu pilnują parytetu UI i scrolla.
+- Próba operatorska wykryła utratę szybkich decyzji oraz możliwość finalizacji
+  po cyklu synchronizacji, który nie obejmował operacji dopisanych w jego
+  trakcie. Interakcje są teraz szeregowane, koordynator synchronizacji wykonuje
+  zaległy kolejny przebieg, a finalizacja wymaga pustego lokalnego outboxu.
+  Cofnięcie przywraca również indeks zdjęcia usuwanej decyzji.
+- Mobilna próba Quick Tunnel wykryła możliwość pozostania na statycznym ekranie
+  `Sprawdzanie sesji…`, gdy przeglądarka odrzuca dostęp do `sessionStorage` albo
+  zapytanie przez ingress nie kończy się. Id klienta ma teraz bezpieczny
+  fallback pamięciowy i UUID v4 bez `randomUUID`, a context, unlock i lease mają
+  wspólny limit 12 sekund zamiast bezterminowego oczekiwania.
+- Kolejna próba wykryła `selected > 0` przy `transfer = synced = 0`: aktywny
+  skan mógł nadpisać przewinięcie kursora transferów wykonane przez nową decyzję
+  `F`. Aktualizacja kursora jest teraz warunkowa, więc starszy skan nie pomija
+  świeżych wyborów. Zdalny viewport przywraca też poziomy scroll i zachowuje
+  obie osie przy przejściu strzałką, decyzji, pominięciu oraz cofnięciu.
+- Mobilna próba wykryła `REMOTE_SELECTION_CLIENT_SEQUENCE_REPLAY` po otwarciu
+  kolejnej karty. Klient uzgadnia teraz globalny zegar sekwencji z odpowiedzią
+  hosta i jednokrotnie, atomowo przenumerowuje wyłącznie niepotwierdzony outbox,
+  zachowując `operationId` oraz decyzje. Koordynacja kart rozróżnia instancję
+  karty od kopiowanego `clientInstanceId`, więc duplikat karty jest read-only.
+  Podgląd ma pełną szerokość, techniczne liczniki usunięto z bocznego panelu,
+  a zoom i przywracanie obu osi są wymuszane po ustabilizowaniu layoutu.
+- Przed publicznym pilotem TASK-0290 wymaga checkpointu polityki feature flag:
+  plan architektury opisuje nieaktywny kod do odbioru, natomiast obecna
+  konfiguracja/instrukcja opisują wartość domyślnie włączoną. Nie zmieniono
+  tej wcześniejszej polityki w ramach benchmarku.
+
+### TASK-0472 — bezpieczeństwo v11 poprawione, precyzja nadal nie przechodzi
+
+- Wielorozdzielcze potwierdzenie numerów, ostrożna deduplikacja wariantów bbox,
+  fallback perspektywy i odzyskanie górnej granicy usunęły wykryte odcięcie.
+- Ujawnione korpusy rozwojowe: 9/10, 7/7 i 10/10. Najnowsza niezależna próba:
+  9 automatów, 1 manual, zero odcięć plansz/numerów, lecz tylko 6/10 cropów w
+  ścisłych przedziałach obu linii z powodu nadmiaru tła.
+- Bramka TASK-0472 nadal nie przeszła. V11 pozostaje nieaktywny; nie zmieniono
+  danych użytkownika. Następna praca dotyczy odróżnienia dolnych numerów od
+  elementów obudowy bez osłabiania obowiązkowej korekty.
+
+### TASK-0472 — trzecia iteracja: 90% regresji, nieprzejściowy nowy odbiór
+
+- Poziome łączenie krawędzi i analiza pochylonych etykiet dały 9/10 poprawnych
+  automatów w znanej próbie, bez błędnych cięć. Bufor v11 wynosi teraz 20%.
+- Niezależne 7 nowych katalogów: 5 poprawnych, 1 granica ponad referencją dolną,
+  1 manual. Nie spełnia bramki. V11 nieaktywny, task pozostaje blocked.
+- 101 testów i typecheck core/Admin OK. Bez zmian źródeł, cut, importów i jobów.
+  Szczegóły i zamrożone referencje opisuje raport SELECTED_CROP_V11_REGRESSIONS.
+
+### TASK-0472 — poprawka detektora, druga bramka nadal nieprzejściowa
+
+- Poprawiono halo dylatacji, scalanie kandydatów i ranking etykiet w v11;
+  stara para regresyjna daje 2/2 poprawnych automatów.
+- Nowy niezależny zbiór: 5/10 poprawnych automatów, 1 z nadmiarem dolnego tła,
+  4 ręczne korekty. Nie osiągnięto >=90%; v11 nadal nieaktywny, task blocked.
+- 100 testów core/runner/Admin contract i oba typechecki OK. Bez zmian źródeł,
+  katalogów cut, geometrii v0.10 i aktywnych jobów. Szczegóły w raporcie jakości.
+- Odbiór dziesięciu zdjęć jest od teraz ujawniony; dalsze strojenie wymaga
+  kolejnego niezależnego materiału. Oryginałów gry literowej nadal brak.
+
+### TASK-0472 — bramka jakości v11 nie przeszła; rollout zatrzymany
+
+- Holdout: 0/2 poprawnych automatów, 0 błędnych automatów, 2 incomplete_layout
+  po analizach 960/1600. Nie osiągnięto wymaganych 90%; nie kontynuujemy strojenia.
+- V11 pozostaje nieaktywny. Katalogi, importy, OCR i aktywne joby bez zmian.
+- 72 core, 18 Admin contract, 7 Node recovery/EXIF, typecheck, scoped lint,
+  scoped format oraz produkcyjny build Admina OK. Pełny lint nadal ma dwa
+  wcześniejsze błędy w geometry-guard-resolution-panel.tsx, poza zakresem.
+- Task pozostaje blocked; raport w SELECTED_CROP_V11_REGRESSIONS.md.
+  Brak oryginałów gry literowej i live QA ogranicza odbiór. Dalsze prace tylko
+  po osobnym poleceniu, bez obniżania ochrony ani automatycznego przeliczenia danych.
+
+### TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany
+
+- `777 v0.1` (`80f3c7ec-6110-4e20-a263-2675ee5b15d6`) osiągnęła terminalny
+  receipt `database_done`: 81 etapów i 10549 zatwierdzonych porcji.
+- `new-siedem` pozostaje obecne, brak aktywnych jobów starej gry, a zachowane
+  archiwum 414705 układów ma niezmieniony SHA-256
+  `0e1d18a6f9ffe22860c6956f8f5761909df45021465643817c8cbf2426314c5e`.
+- Read-only reference-aware GC preview chroni 80640 żywych ścieżek i wskazuje
+  9599508 osieroconych plików (104,888 GiB). Preview SHA-256:
+  `c4cce437b5f84df95f0ea07e6b68d4f8dffe2696e495c82badeb92946d2b2b2b`.
+- Fizyczny GC przetworzył 15700 rekordów JSONL: 2258144 plików i
+  21271550497 bajtów (19,811 GiB). Receipt ma status `executing`, bez pending.
+  Operacja została zatrzymana przez operatora i nie jest obecnie uruchomiona.
+- Pozostałe managed assets znajdują się w odłączonym katalogu
+  `artifacts/data.detached-20260908-legacy-reset`; aktywny `artifacts/data` jest
+  pusty. Katalog `C:\Users\user\Documents\777` i archiwum czatowe są poza
+  zakresem.
+- Executor GC jest gotowy jako ograniczona do 120 s, wznawialna operacja z
+  atomowym przenoszeniem do kwarantanny, trwałym kursorem i blokadą zapisów do
+  tabel ścieżek. Obsługuje jawnie przypięty katalog `data.detached-*`, blokuje
+  wznowienie przy niepustym aktywnym `data`, wiąże katalog z receiptem i
+  odzyskuje przerwany zapis intention/rename. Wznowienie wymaga nowej dokładnej
+  zgody dla istniejącego SHA; dryf referencji, plików, tożsamości gry lub
+  aktywny job zatrzymuje porcję przed usunięciem.
+
+### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
+
+- Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu
+  wykazał dokładne kliknięcia; p95 `0,2255` wynikał z połączenia dwóch
+  kadrowań w statycznym V1 oraz niespójnych grup. Stara sesja `482cbe56…`
+  (V1, `blocked_source_drift` po zmianie `reels_test`) zostaje do audytu.
+- D-463: nowy ignorowany manifest
+  `.runtime/v7-label-geometry-calibration-t0603-v2.local.json` przypina oba
+  katalogi 777 do V2. Admin tworzy sesje V2 domyślnie z obu katalogów, ma
+  `Zacznij nową sesję` i ostrzega o zdjęciach bez lokalnej siatki (min. 5
+  pełnych numerów w 2 wierszach i 2 kolumnach). Grupa `A` = `small_777`,
+  `B` = `occluded_777`.
+- Próba na tymczasowym runtime: sesja V2 z 374 źródeł (131 + 243), odmowy
+  dla V1, `rells_big` i `reels_test`. Mutacja trwa ok. 7 s (pełna kontrola
+  inwentarza). Stare punkty w V2 dają diagnostycznie p95 `0,0354`; to nie jest
+  profil.
+- Admin: 16 testów V7, 7 testów interakcji ekranu, `tsc` i ESLint PASS.
+  Instrukcja operatora: `LOCAL_OPERATION_GUIDE.md`. Następny krok: anotacje
+  operatora w nowej sesji V2, potem profil, raport walidacji i adopcja. V7
+  pozostaje zablokowane.
+
+### TASK-0603 — eksperyment i kontrakt wejścia geometrii shape v2
+
+- Ukończono G01: schema v1 zachowuje pięć początkowych gier, a jawny schema v2
+  pozwala później dodać zgodną grę z pełną ramką i topologią bez forka silnika.
+  Read-only runner wiąże manifest, inventory, anotacje, wariant i profil
+  transferowy checksumami, odrzuca wkład badanej gry oraz zwraca
+  `not_evaluable` dla niepełnych dowodów.
+- Brak atestowanego corpusów, anotacji i profili dla danych produkcyjnych nadal
+  ogranicza tylko rzeczywisty pomiar i przyszły pilot. Nie powstały fikcyjne
+  bramki liczbowe; G02 może zbudować niezależny rdzeń geometrii.
+- 17 testów, Ruff i ograniczony mypy przeszły. Audyt Astra Medium wykrył trzy
+  P2, wszystkie naprawiono; re-audyt nie ma P0–P2 ani P3. Karta zadania została
+  przeniesiona do `ai_docs/tasks/completed/`.
+
+### TASK-0603 — przygotowanie realnej kalibracji geometrii etykiet 777 V7
+
+- Przygotowano realną kalibrację `standard_3x3_numeric_labels_v1`.
+  Ekran z TASK-0602 oferował `small_777`, lecz aktywny manifest V1 oznaczał go
+  jako `development`, przez co API słusznie nie pozwalało wykorzystać obu
+  wskazanych katalogów 777 w jednej sesji kalibracyjnej.
+- Zgodnie z D-415 powstał osobny, ignorowany manifest T0603 w `.runtime/`:
+  oba case'y 777 są w nim `calibration`, należą do jednej rodziny i nie
+  zmieniają istniejącego manifestu V1, danych wejściowych ani holdoutu.
+  Operator oznaczył po sześć–siedem pełnych cropów każdej pozycji, w więcej
+  niż dwóch grupach ujęć. Poprawka D-418 sprawia, że pojedyncze zapisane
+  diagnostyki `clipped`/`uncertain` nie blokują już tych pełnych punktów;
+  serwer do profilu bierze wyłącznie `contained` z zapisaną grupą ujęć.
+  Rzeczywisty dry-run nie przeszedł p95, ponieważ pełne źródło ma poprawną,
+  ale przesuniętą geometrię względem pięciu częściowo zasłoniętych źródeł.
+  TASK-0603 pozostaje `blocked` na decyzji: osobne profile framingów albo
+  dynamiczna normalizacja viewportu; V7 pozostaje zablokowane.
+
+### TASK-0645 — Reguła decyzji i dry-run (read-only) (blocked)
+
+- Plik zadania: `ai_docs/tasks/0645-777-grid-reverify-dry-run.md`.
+- Status: `blocked` — D-445 wstrzymała stary weryfikator; D-447 i `VISION_LAB_EXECUTION_PLAN.md` nie dostarczają uzupełniania slotów historycznego 777 siecią. Wznowienie wymaga osobnej decyzji i korekty tego planu.
+- Cel: Dla każdej planszy „Do walidacji” i każdego slotu „Do poprawy” gry 777 wyznaczyć decyzję (pewny / niepewny / pominięty + powód) bez żadnego zapisu i zaraportować liczności.
+- Historia w archiwum: `CURRENT_STATE_2026Q3.md` → „P00 / TASK-0665 — zapis planu laboratorium wizji (D-447)”; `CURRENT_STATE_2026Q3.md` → „TASK-0644 — kalibracja weryfikatora siatek 777: weryfikator…”.
+
+### TASK-0646 — Ścieżka `execute` (bez uruchomienia na żywych danych) (blocked)
+
+- Plik zadania: `ai_docs/tasks/0646-777-grid-reverify-execute.md`.
+- Status: `blocked` — zależy od przepisania TASK-0645 po osobnej decyzji. D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią.
+- Cel: Zapisywać decyzje „pewne” z TASK-0645 wyłącznie przez istniejące serwisy Reviewera, idempotentnie i z izolacją błędów per zdjęcie, pokryte testami.
+
+### TASK-0647 — Przebieg na żywych danych i odbiór (blocked)
+
+- Plik zadania: `ai_docs/tasks/0647-777-grid-reverify-live-run.md`.
+- Status: `blocked` — zależy od osobnej decyzji i TASK-0645/0646; D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią ani do zapisu na żywych danych.
+- Cel: Za osobną, jawną zgodą użytkownika wykonać `execute` dla gry 777 i potwierdzić wynik licznikami Reviewera oraz próbką wizualną.
+
+### TASK-0649 — Pula kandydatów i kontrakt datasetu (tylko odczyt) (blocked)
+
+- Plik zadania: `ai_docs/tasks/0649-grid-nn-candidate-pool.md`.
+- Status: `blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); odpowiednik zakresu danych to TASK-0666/TASK-0668. Numer TASK-0649 koliduje z ukończonym zadaniem „Przybliżona wygrana”; identyfikuj ten plik pełną ścieżką.
+- Cel: Wersjonowany manifest kandydatów do kuracji (plansze 777 z quadem, źródłem i metrykami trudności) z warstwowym losowaniem i splitem według rodziny źródła, bez zapisu do bazy.
+- Uwaga: numer koliduje z ukończoną serią „Przybliżona wygrana” (D-445); sekcje archiwum o tym numerze dotyczą tamtej serii, nie tego pliku.
+
+### TASK-0650 — Narzędzie kuracji danych uczących (blocked)
+
+- Plik zadania: `ai_docs/tasks/0650-grid-nn-curation-tool.md`.
+- Status: `blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); nowa kuracja to TASK-0668/TASK-0671. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
+- Cel: Użytkownik szybko akceptuje/odrzuca kandydatów (klawisze A/R/S), a jego decyzje trwale trafiają do manifestu datasetu bez utraty i bez ponownego liczenia.
+- Uwaga: numer koliduje z ukończoną serią „Przybliżona wygrana” (D-445); sekcje archiwum o tym numerze dotyczą tamtej serii, nie tego pliku.
+
+### TASK-0651 — Model (etap A + B), trening i wydanie (blocked)
+
+- Plik zadania: `ai_docs/tasks/0651-grid-nn-training.md`.
+- Status: `blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); trening to TASK-0669/TASK-0670 i warunkowo TASK-0675. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
+- Cel: Wytrenowane na zaakceptowanych danych modele etapu A (lokalizacja 9 plansz) i B (24 punkty siatki na wycinku) z eksportem ONNX, parytetem i manifestem wydania `shadowOnly=true`.
+- Uwaga: numer koliduje z ukończoną serią „Przybliżona wygrana” (D-445); sekcje archiwum o tym numerze dotyczą tamtej serii, nie tego pliku.
+
+### TASK-0652 — Ocena shadow na zbiorze złotym (blocked)
+
+- Plik zadania: `ai_docs/tasks/0652-grid-nn-shadow-evaluation.md`.
+- Status: `blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); ocena to TASK-0674/TASK-0678. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
+- Cel: Liczbowe porównanie sieci z hybrydą na zbiorze złotym i ustalenie reguły pewności z zerem fałszywie zielonych siatek.
+- Uwaga: numer koliduje z ukończoną serią „Przybliżona wygrana” (D-445); sekcje archiwum o tym numerze dotyczą tamtej serii, nie tego pliku.
+
+### TASK-0653 — Użycie sieci w reweryfikacji 777 (blocked)
+
+- Plik zadania: `ai_docs/tasks/0653-grid-nn-777-slot-fill.md`.
+- Status: `blocked` — propozycję uzupełniania slotów historycznego 777 siecią wycofano. Obowiązuje `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); TASK-0645–0647 nie otrzymują takiej integracji. D-446 dotyczy „Przybliżonej wygranej”. Numer koliduje z ukończoną serią o tej nazwie; identyfikuj plik pełną ścieżką.
+- Cel: Historyczna, niewykonywana propozycja zastąpienia kroku „dorysowania” w hybrydzie 777. D-446 nie jest jej decyzją.
+- Uwaga: numer koliduje z ukończoną serią „Przybliżona wygrana” (D-445); sekcje archiwum o tym numerze dotyczą tamtej serii, nie tego pliku.
+
+### TASK-0654 — dokumentacja „Przybliżonej wygranej”; plan zaimplementowany, odbiór na żywo wstrzymany (6/6)
+
+- Ostatni task planu sesji `2026-09-24`/`2026-09-25`. Wyłącznie
+  dokumentacyjny, bez zmiany kodu.
+- Zaktualizowano `ai_docs/requirements/ADMIN_APP.md` (akapit „Liczba
+  wyników” + nowa sekcja „Przybliżona wygrana”),
+  `ai_docs/architecture/API_CONTRACT.md` (pełny kontrakt endpointu
+  `GET .../board-search/approximate-win`) i
+  `ai_docs/requirements/ALGORITHMS.md` (nowe `## D. Przybliżona wygrana w
+Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
+  dolnym ograniczeniem — właściwość istniejącego `payout-v3-unknown-prefix-stop`,
+  nie nowy algorytm).
+- Nowy wpis **D-446** w `DECISION_LOG.md`, zbierający całą serię
+  TASK-0649–0653 w jedną decyzję referencyjną. **Kolizja numeracji:** plan i
+  pliki tasków 0649–0653 odwoływały się do tego pakietu decyzji jako
+  „D-445”; ten numer zajęła w międzyczasie inna, równoległa sesja (siatki
+  777). D-446 jest właściwym, ostatecznym numerem.
+- **Plan „Przybliżona wygrana” (D-446) jest w pełni zaimplementowany i
+  przetestowany** (TASK-0649 „Liczba wyników”; TASK-0650
+  `PreparedPayoutEvaluator`; TASK-0651 czysty kalkulator zakresu; TASK-0652
+  pion API; TASK-0653 UI Admina). **Odbiór na żywych danych gry 777 nie
+  został wykonany** — wymaga osobnej, jawnej zgody użytkownika na
+  uruchomienie lokalnego API i Admina (zasady bezpieczeństwa tej sesji).
+  TASK-0654 pozostaje `in_progress` do czasu tego odbioru;
+  `ai_docs/tasks/0654-approximate-win-docs-and-acceptance.md` nie jest
+  jeszcze przeniesiony do `completed/`.
+- Znane, zgłoszone wcześniej i celowo nienaprawione w tym planie: pre-existing
+  błąd fikstury `test_payout_store.py` (TASK-0650, chip `task_4008a087`) i
+  pre-existing `prettier --check` na `packages/admin-api-client/src/index.ts`/
+  `test/client.test.mjs` (TASK-0652). Limit `spinCount ≤ 10 000` jest
+  oszacowaniem bez pomiaru (do weryfikacji przy pierwszym realnym użyciu).
+
+### TASK-0668 — T03 — edytor i zbiór geometrii (in_progress)
+
+- Plik zadania: `ai_docs/tasks/0668-vision-lab-geometry-annotations.md`.
+- Status: `in_progress` — D-456 zatwierdza T03k i pilota całymi grami bez pomiaru. Pełny protokół rodzin/pomiaru pozostaje odroczony. Historycznie: anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie źródeł do rodzin, kontrola konfliktów oraz zamrożony podział. Mechanizmy T03e/T03f są wdrożone i odebrane; T03g zachował zapisy w…
+- Cel: Zatwierdzać warstwowe anotacje geometrii z trwałymi rewizjami i zamrożonymi podziałami.
+- Historia w archiwum: `CURRENT_STATE_2026Q3.md` → „T03 — dopuszczenie historycznych zdjęć 777 do geometrii”; `CURRENT_STATE_2026Q3.md` → „Niepełne plansze — realizacja zaakceptowanego planu T1–T4”; `CURRENT_STATE_2026Q3.md` → „Etap B laboratorium — narzędzia T03 odebrane, bramka danych”.
+
+### TASK-0672 — T07 — RGB, szarość i fuzja (todo)
+
+- Plik zadania: `ai_docs/tasks/0672-vision-lab-symbol-models.md`.
+- Status: `todo`
+- Cel: Porównać modele symboli i skalibrowaną fuzję na wspólnych podziałach per gra.
+
+### TASK-0673 — T08 — panel treningu (todo)
+
+- Plik zadania: `ai_docs/tasks/0673-vision-lab-training-panel.md`.
+- Status: `todo`
+- Cel: Udostępnić panel treningu korzystający z trwałego kontraktu runów T04 i odtwarzający widok po restarcie.
+
+### TASK-0674 — T09 — walidacja i wybór (todo)
+
+- Plik zadania: `ai_docs/tasks/0674-vision-lab-validation.md`.
+- Status: `todo`
+- Cel: Wybrać i zamrozić kandydata lub uzasadnić potrzebę pełnej sieci.
+
+### TASK-0675 — T10 — pełna sieć węzłów (todo)
+
+- Plik zadania: `ai_docs/tasks/0675-vision-lab-neural-grid.md`.
+- Status: `todo`
+- Cel: Warunkowo dodać neural_grid przewidujący pełną siatkę obu topologii.
+
+### TASK-0676 — T11 — geometria w aplikacji (todo)
+
+- Plik zadania: `ai_docs/tasks/0676-vision-lab-geometry-integration.md`.
+- Status: `todo`
+- Cel: Wprowadzić kandydata geometrii do review/shadow tylko dla 5 × 3, także równolegle do starego silnika na zdjęciu istniejącej gry `777 v1.1`.
+
+### TASK-0677 — T12 — symbole i wspólny trening (todo)
+
+- Plik zadania: `ai_docs/tasks/0677-vision-lab-symbol-integration.md`.
+- Status: `todo`
+- Cel: Podłączyć model symboli i neutralny rdzeń do workera bez regresji.
+
+### TASK-0678 — T13 — test końcowy i raport (todo)
+
+- Plik zadania: `ai_docs/tasks/0678-vision-lab-final-acceptance.md`.
+- Status: `todo`
+- Cel: Ocenić zamrożonego kandydata end-to-end i opublikować ograniczenia.
+
+### TASK-0687 — T08 readiness release V2-only: krytyczna bramka przed T09–T12
+
+- Użytkownik polecił dokończyć T08 i samodzielnie rozstrzygać zwykłe kwestie
+  techniczne. Baza użytkownika została tylko odczytana i nadal ma Alembic
+  `0124`; migracji 0125 nie zastosowano. Kod bazowy to commit `v0.10.451` z
+  niezatwierdzonymi zmianami fixture. Release jest source-run; smoke zapisuje
+  revision i hash źródeł/config, osobna binarka nie jest wymagana.
+- Na izolowanym head 0125 po naprawie części fixture przeszły browser
+  retention 1/1, katalog 1/1 i worker job store 1/1. Raport importu po
+  usunięciu błędu routingu nadal ma wcześniejszy dryf kodu błędu, a test
+  HTTP M2 kończy się 422 na tworzeniu symbolu. Poprzednia sesja zgłosiła
+  49 failed / 64 passed w pełnych 28 plikach integracyjnych; tego przebiegu
+  nie powtórzono. Szczegóły i granice dowodu:
+  `quality/LEGACY_PUBLIC_STORE_RELEASE_READINESS.md`.
+- Użytkownik doprecyzował zlecenie całego pozostałego planu do T12 i auditów;
+  T08 wznowiono. TASK-0694 grupuje naprawy fixture/asercji po 0125,
+  TASK-0695 niezwiązane rozjazdy kontraktu, TASK-0697 trzy rzeczywiste klucze
+  konfliktu upsertów workera bez `game_id`.
+- Sprostowanie środowiska: `.venv` działa z Pythonem 3.12.10 poza sandboxem.
+  Brak startu w sandboxie nie dowodził brakującej instalacji; błędnie utworzone
+  TASK-0696 wycofano. Mypy ma dodatkowo niepoprawny separator `;` w wartości
+  config `mypy_path`; sam Python nie wymaga reinstalacji.
+- Nowy smoke ujawnił rzeczywiste nieobsłużone globalne wejścia V2: odczyt
+  layoutów przez `datasetId` oraz wielogrowe release bez bind. T09 pozostaje
+  `no-go` do rozstrzygnięcia tych problemów; nie wolno ukrywać ich dodatkowym
+  scope w fixture. Przygotowawczy read-only preflight z 07:16:30 CEST jest
+  `ready` (65 pustych tabel, 3 active V2), ale nie jest zgodą na apply.
+- Końcowy smoke rzeczywistych procesów trwał67,56s: trwały worker completed,
+  restart API i drugi worker no_job,65 public absent, missing location409.
+  Pozostały HTTP500 dataset layouts/review-batches i422 geometry schema3.
+  Test oraz wynik zachowane; procesy/bazy izolowane posprzątane.
+- Naprawione fixture: imagebatch15/16, catalog2/2, image selection4/4.
+  Pozostały duplicate pending oraz wcześniejsze błędy typów zgrupowano z
+  dryfem kontraktów i schema3 w TASK-0695. Pełnej suite nie powtórzono;
+  TASK-0694 nie jest done. Audit fixture/smoke: brak nowych P0–P2.
+- Krytyczny audit potwierdził konflikt accepted D-038 (źródła i rodzic
+  release w jednej transakcji) z pojedynczą grą per transakcja V2.
+  TASK-0698 zapisuje pytanie i rekomendację jawnego koordynatora atomowej
+  operacji wielu gier. Nie podjęto ukrytej zmiany D-038/RLS. To warunek
+  wymagający decyzji użytkownika; T09–T12 nie wykonano. Samo polecenie całego
+  planu nie zastępuje wymaganej później zgody na exact path/hash preflightu.
+
+### TASK-0688 — T09 — zastosowanie usunięcia legacy `public` (todo)
+
+- Plik zadania: `ai_docs/tasks/0688-apply-legacy-public-store-removal.md`.
+- Status: `todo`
+- Cel: Po osobnym, dokładnym potwierdzeniu operatora zastosować 0125 raz i utrwalić dowód przed/po bez naruszenia catalog/control/shared lub V2.
+
+### TASK-0689 — T10 — odbiór operacyjny po usunięciu legacy `public` (todo)
+
+- Plik zadania: `ai_docs/tasks/0689-post-removal-operational-acceptance.md`.
+- Status: `todo`
+- Cel: Niezależnie potwierdzić, że aktywne gry, API, worker i trwały routing działają po 0125 wyłącznie na V2.
+
+### TASK-0690 — T11 — usunięcie nieosiągalnych ścieżek legacy `public` (todo)
+
+- Plik zadania: `ai_docs/tasks/0690-remove-legacy-public-code-paths.md`.
+- Status: `todo`
+- Cel: Usunąć lub jednoznacznie odseparować pozostałe nieprodukcyjne symbole legacy po udowodnieniu operacyjnego V2-only.
+
+### TASK-0691 — T12 — końcowy odbiór V2-only (todo)
+
+- Plik zadania: `ai_docs/tasks/0691-legacy-public-store-final-acceptance.md`.
+- Status: `todo`
+- Cel: Zamknąć plan dowodem, że V2 jest jedynym game data plane oraz że dokumentacja i ryzyka odzwierciedlają stan rzeczywisty.
+
+### TASK-0694 — wiarygodny zestaw integracyjny po 0125 (blocked)
+
+- Plik zadania: `ai_docs/tasks/0694-v2-0125-integration-suite.md`.
+- Status: `blocked` — częściowe naprawy gotowe; zależny runtime wymaga TASK-0698.
+- Cel: Przywrócić testy integracyjne zależne od 65 relacji game-owned tak, aby sprawdzały `game_data_v2` na świeżym head 0125 i stanowiły wiarygodną bramkę przed ponownym T08.
+
+### TASK-0695 — dryf kontraktów testów integracyjnych (todo)
+
+- Plik zadania: `ai_docs/tasks/0695-unrelated-integration-contract-drift.md`.
+- Status: `todo`
+- Cel: Rozstrzygnąć niezwiązane z usunięciem legacy rozjazdy między testami a bieżącym zachowaniem API i domeny, bez automatycznego osłabienia asercji.
+
+### TASK-0698 — globalny routing V2 i granica transakcji release (blocked)
+
+- Plik zadania: `ai_docs/tasks/0698-global-v2-routing-transaction-decision.md`.
+- Status: `blocked` — wymaga jawnego rozstrzygnięcia sprzecznych zaakceptowanych zasad.
+- Cel: Przywrócić globalne odczyty i atomowe wydania 1–15 gier bez legacy public, bez utraty fail-closed i bez niejawnego obejścia izolacji V2.
+- Historia w archiwum: `CURRENT_STATE_2026Q3.md` → „TASK-0697 — ukończona naprawa upsertów V2”.
+
+### TASK-0928 — image import storage resumption (in progress)
+
+- Mumie job 092ff7a4-e652-4273-9c0a-a30e38ebd8cc stalls at 535/2915 sources
+  with `waiting_for_storage`, despite 50.23 GiB free. Attempts increase;
+  the worker wrongly uses the 80 GiB GC target to resume instead of reserve.
+- D-534: same configured hard reserve for copying, normal pipeline and resume,
+  default 5 GiB. Keep GC policy and admission estimates unchanged; add the
+  existing polling delay after storage deferral instead of immediate reclaims.
+- The user separately authorized restarting only worker general after tests.
+  No API/Admin lifecycle, data cleanup, new import or manual state mutation.
+- Implementation verified: 119 worker tests (including 24 new regressions),
+  71 API capacity/config/retention tests, scoped strict mypy and Ruff pass.
+  Four old CLI fixture failures reproduce on unchanged HEAD; left outside
+  this fix. No API schema change or GC-policy change.
+- Live rollout blocked before stopping general: DB is
+  `0146_symbol_review_import_filter_index`, current code requires
+  `0147_merge_v7_main`. At 19:22:52 UTC, 50.14 GiB free and the same job still
+  at 535/2915. Existing PID 6984/19496 and API/Admin remain untouched.
+  V7 migration needs separate authorization/user-run service maintenance;
+  do not include the unrelated in-progress management migration 0148.
+
+### TASK-0937 — Pilot wykrywania złotej ramki super symbolu (pomiar) (blocked)
+
+- Plik zadania: `ai_docs/tasks/0937-gold-frame-detection-pilot.md`.
+- Stan: `blocked`. Narzędzie gotowe i zacommitowane (v1.7.281 /
+  7b7b0a7e4b1b63fbde4518ccdabe336443ef1728): dwufazowy skrypt
+  `scripts/m8_gold_frame_pilot.py`, arkusz kontaktowy i 8 testów
+  (`services/worker/tests/test_m8_gold_frame_pilot.py`); raport
+  `ai_docs/quality/MUMIE_GOLD_FRAME_PILOT_20261009.md`.
+- Warunki odblokowania: migracja `0152` zastosowana na bazie operatora, seria
+  supergry wyprowadzona, zdefiniowanych co najmniej 5 super symboli oraz
+  etykiety operatora (co najmniej 30 komórek na wariant wycinka). Dopiero
+  wtedy można wykonać pomiar i sformułować wniosek o automatycznej propozycji
+  super symbolu.
+
+### TASK-0939 — Narzędzia oszczędzania tokenów z pomiarem (mapa kodu, Serena, Graphify, hook) (in_progress)
+
+- Commit v1.7.284 / 6f783932b05f0c11d0579086e9d464756304f046.
+- Plik zadania: `ai_docs/tasks/0939-token-tooling-pilot.md`.
+- Status: `in_progress` (dostarczono narzędzia i protokół; brak przebiegów pomiaru).
+- Cel: Zestaw narzędzi nawigacji po repozytorium i reguł pracy, który mierzalnie obniża tokeny wejścia typowych zadań bez spadku jakości wyniku; do stałego użytku wchodzi tylko to, co pomiar potwierdził.
+- Gotowe (commit dostarczający narzędzia: `v1.7.284`, hash do dopisania po commicie): mapa kodu `ai_docs/architecture/CODE_MAP.md` i `CODE_MAP_SYMBOLS.md` generowane `scripts/generate_code_map.py` (`npm run code-map:check`, ok. 3 s, poza `docs:check`); hook `PreToolUse` w `.claude/settings.json` blokujący `Read` pliku > 200 KB bez zakresu (`scripts/hooks/block_large_read.py`); reguły „Oszczędzanie kontekstu” w `AGENTS.md`; Serena MCP i Graphify zainstalowane w izolowanym venv `.tooling/venv-tokens` (test dymny i pomiary czasu w `ai_docs/guides/TOKEN_TOOLING.md`), rejestracja MCP wyłącznie decyzją operatora (`claude mcp add`).
+- Audyt Codex gpt-6-astra / medium, runda 1: REVISE (`ai_docs/quality/TASK-0939_AUDIT_gpt-6-astra.md`); poprawki wykonane w jednej rundzie (patrz Outcome).
+- Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
+- Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
+
+### TASK-0972 — D-542, D-543, dokumentacja i odbiór cofania korekt i zamiennika (blocked)
+
+- Plik zadania: `ai_docs/tasks/0972-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R4).
+- Status `blocked`: scalenie i migracja `0154` wykonane 2026-10-10 (v1.7.308); czeka na odbiór operatora (cofnięcie świeżej korekty i import zastępczy; slot 69004 już nie istnieje).
+- Wykonane: scalenie gałęzi integracyjnej z przenumerowaniem (v1.7.306 / 853052a1e1fcc4024dc468547224058ec7c4132f), wpisy D-542 i D-543, dokumenty, instrukcja operatora (commit dokumentacyjny v1.7.307 / f7f6d30e509950161c2cc00ddf37ea6cc5ba14aa). Lokalny Reviewer w zakresie gry pokazuje „Ostatnie korekty” importu planszy na ekranie (zmiana wymuszona scaleniem z TASK-0962).
+- Pomiar N1 (odczyt, 2026-10-10): import `092ff7a4-…` nie ma już żadnej korekty ani slotu; slot 69004 (`378a273f-…`) zniknął z wymianą 275 zdjęć Mumii (2026-10-09), sekwencje 69004–69012 wróciły w imporcie `344ce332-…` jako 9 plansz `pending`. Cofnięcia 69004 nie da się wykonać; odbiór na nowej korekcie. W całej grze 44 korekty (import `f3ff4258-…`, 2026-10-06), szacunkowo 0 cofalnych (39 `SOURCE_ADVANCED`, 5 `CELLS_CHANGED`).
+- **Dług audytowy:** TASK-0971 (dawny 0950) wymaga ponownego audytu Codex po czwartej rundzie poprawek i audycie zastępczym Claude; 5 przyjętych ryzyk P2 (nieczytelny błąd ponownej akceptacji odrzuconej planszy po przejęciu; `pipeline_store.py:353` bez blokady własności i `_recompute_liveness_changes` blokujące źródło po stanie liczników; możliwe trójstronne zakleszczenie przez inne `FOR UPDATE` wierszy joba; rejestr blokad ignoruje savepointy; skan kandydatów bramki bez indeksu). Dodatkowe rundy bez ponownego audytu: TASK-0966 (runda 2), TASK-0968 (test dopisany przez leada), TASK-0970 (runda 4). Zmiana „Ostatnie korekty” w zakresie gry bez audytu drugiej rodziny.
+- Znane czerwone testy cyklu migracji, identyczne na czubku integracji `9d011460`: `test_postgres_baseline.py::test_upgrade_downgrade_upgrade_cycle_on_postgres` i `test_super_game_series_postgres.py::test_migration_downgrade_refuses_decisions_and_round_trips` (downgrade przez nieodwracalne `0152_management_compact_panel`); do osobnej poprawki toru panelu.
+- Pozostałość do usunięcia przez operatora: baza testowa `game_predictor_task0760_e7d125df587d_test` (DROP audytora przekroczył czas).
+
+**Ostatnie 10 ukończonych tasków** (dawne pełne sekcje `done`; w oknie zostały wiersze):
+
+### TASK-1021 — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` (done)
+
+- Plik: `ai_docs/tasks/completed/1021-current-state-constraints-review.md`; etap B. Raport `quality/CURRENT_STATE_REVIEW_20261016.md` (v1.7.368 / `a8ed5dcc`): 40 ograniczeń (13 zostaje, 9 do task, 13 archiwum, 5 operator), 50 sekcji aktywnych do 24 wskaźników, prognoza ok. 22 500 B.
+- Operator zatwierdził propozycję w całości 2026-10-16; pytania z sekcji „Rozbieżności” otwarte. Zapis decyzji: commit v1.7.369.
+
+### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (done)
+
+- Plik: `ai_docs/tasks/completed/1020-decision-log-light-index.md`; plan odczytu startowego, etap A. Commit **v1.7.367 / `d803c27c21b1e69fcad6287d9f5e8350d263d60e`**.
+- `DECISION_LOG.md` 77 628 → 10 755 B: 30 najnowszych wierszy, bez pełnych kopii; 157 starszych wierszy w `decisions/DECISION_INDEX_ARCHIVE.md` (tylko ścieżka linku skrócona). Decyzji spoza indeksu szukać `rg`; reguły w `AGENTS.md`, `README.md`, `TASK_TEMPLATE.md`.
+- Budżety `DECISION_LOG.md` (12 000 B, 30 wierszy) włączone; limit 100 000 B usunięty z `check_decision_links.py`. Dowód multizbioru 544 = 544, docs:check PASS. Odczyt startowy 145 776 B.
+
+### TASK-1019 — Skrypt pomiaru i budżetów odczytu startowego (done)
+
+- Plik: `ai_docs/tasks/completed/1019-startup-read-budget-script.md`; plan `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, etap A. Commit **v1.7.366 / `d117430487f8b4fd401ecb94d7796bcfc209c0ec`**.
+- `scripts/check_startup_read_budget.py` w `docs:check`: raport plików, sumy, sekcji `CURRENT_STATE.md` i wierszy indeksu; 9 budżetów z D3, na razie tylko raport. Bazowo 213 899 B obowiązkowego odczytu.
+- 6 nowych testów + testy linków decyzji: 10 passed; ruff, mypy --strict, docs:check PASS. Bez audytu Codex (decyzja operatora).
+
+### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
+
+- Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
+- Skrypt audytu zachowuje PATH jako pierwszy wybór; wykrywa także natywną i pakietową instalację Claude Code, wybierając wersję liczbowo. Reguła w AGENTS.md oraz skillu audytu.
+- Osiem regresji PASS w nowym Windows PowerShell 5.1; rzeczywiste CLI 2.1.295 startuje w nowym procesie (exit 0). Bez testu logowania/modelu, reinstalacji, zmiany PATH i restartu usług.
+- Za zgodą operatora scalono `codex/claude-cli-discovery` do wskazanego `main` przez fast-forward: v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d`. Potwierdzono obecność commita implementacji; cudze zmiany worktree zachowane, bez push. Commit implementacji: **v1.7.361 / `baf67dbd0456ede583237c45c3b287e01afe6385`**.
+
+### TASK-0991 — Wznowienie symboli i pełny przebieg 777 a2 <80% (done)
+
+- Commit zweryfikowanego zamknięcia operacyjnego: **v1.7.358 / `17a1012eb86a41ccbaaa9c61b53448a30ccc1856`**, na main. Do scalenia dokumentacji wymagana jest końcowa akceptacja operatora; bez automatycznego merge.
+- Task: `ai_docs/tasks/completed/0991-symbol-reinference-resume.md`; wynik: `ai_docs/quality/SYMBOL_REINFERENCE_777A2_20261014.md`. Naprawa: **v1.7.351 / `6e84a1b1d4a9546e1ff9545b039512f6691ec15d`**, już scalona do gałęzi integracyjnej po wcześniejszej zgodzie.
+- Nowy checkpoint zapisuje stabilny kursor; stare checkpointy odtwarza idempotentnie z zachowaniem trwałych liczników. Regresje, 43 testy worker/domain, ruff i targeted mypy PASS; niezależny Claude audit niewykonany (brak CLI), brief zachowany bez deklarowania PASS.
+- Zamrożone 35122 pending komórki <0.80, wszystkie osiem klas gry `777a2`; model `747c21d5…`, manifest SHA `dbec7abccf16f9be88854622c5dae804a47170ec069583f9b3a2118951f1f0d6`. Całość zakończona: 24309 unikalnych receiptów, zero braków; 34726 komórek przeliczono teraz, 396 miało już wynik tego samego modelu dla tych samych cropów. Po operacji 31290 komórek ma confidence >=0.80, 3832 nadal <0.80; wszystkie 35122 pozostają pending.
+- Weryfikacja z nowego procesu potwierdziła każdą rewizję/model i obecność wszystkich komórek. Ochrona pozostałych predykcji i decyzji człowieka przechodziła w każdej transakcji. Wznowienie po blokadzie statusu Windows i planowym limicie procesu zachowało receipty. Runner zakończony, monitor PAUSED.
+- Bez nowego filtra API/UI, treningu, aktywacji, migracji, cleanupu, restartu usług, push i nowego merge. Instrukcja przeładowania starego poll workera pozostaje dla operatora. Dokumentacja zamknięcia oczekuje końcowej akceptacji i zgody na scalenie.
+
+### TASK-0992 — Scalenie naprawy i obowiązek integracji (done)
+
+- Plik: `ai_docs/tasks/completed/0992-integration-branch-merge-policy.md`. Commit reguły: **v1.7.353 / `14aeb0c02b03b60480f3447545c0a17e13bb835b`**.
+- Pierwotna reguła z v1.7.353 wymagała automatycznej integracji. Późniejsza korekta operatora wymaga pytania o akceptację i scalenie dopiero po ukończeniu całego zleconego taska, etapu albo planu; bez pytań po każdym wewnętrznym tasku. Scalanie następuje po wyraźnej zgodzie. Korekta jest przygotowana lokalnie, do końcowej akceptacji; wcześniejsze autoryzowane scalenie pozostaje w historii.
+- Korekta akceptacji: **v1.7.355 / `be7ecff16a1204274d8acc354aa82b49101b3917`**, na main; gałąź integracyjna pozostaje na v1.7.354 / `cf0e99a4b4f8108122a7cd602074c17faaf21711` do końcowego potwierdzenia operatora. Docs/diff PASS; bez nowych testów kodu, bo zmieniono wyłącznie instrukcje i dokumentację.
+- Operator następnie zaakceptował nową regułę i jawnie zlecił merge. Korektę v1.7.355 i zapis v1.7.356 scalono do `v1.1-vision-lab-hybrid-geometry` przez fast-forward do **`45923355dee60a433471465bba8aeeb62106c04d`**. Kontrola zachowania 52 cudzych plików, dodatków CURRENT_STATE i pustego stagingu PASS. Bez push i restartu usług.
+- Gałąź integracyjna przewinięta fast-forward z v1.7.350 do v1.7.353, wraz z naprawą symboli v1.7.351 i zapisem v1.7.352. Wszystkie 52 pozostałe cudze pliki zachowały hashe, a kolidujący CURRENT_STATE zachował 33 dodane/zmienione cudze linie i obie sekcje tasków. Brak cudzych plików w commicie lub stagingu. Snapshot i ochronny stash zachowane w `artifacts/integration-20261014/` i Git.
+- Docs/diff i ancestry/hash checks PASS; istniejące 43 testy, ruff i targeted mypy naprawy nie były powtarzane. Bez push, migracji i restartu usług. TASK-0991 operacyjnie nadal in_progress, z aktywnym monitorem.
+
+### TASK-0979 — Wydanie1.0.0 i odbiór operatora (done)
+
+- Commit zamknięcia dokumentacji i sprzątania: **v1.7.349 / `8ac68f5fb92f948e7302bb71eebf2f03f92530b9`**. Usunięto36 plików, 1 346 463 654 B; SHA-256 bieżącego ZIP1.0.0 bez zmian. docs:check/diff PASS. Brak otwartego zadania Word.
+
+- Zamknięcie dokumentacji i sprzątanie2026-10-13: operator nie wymaga obecnie nowej instrukcji. Zachowano1.0.0, istniejący Word/PDF, screenshoty i dowody; usunięto stare ZIP-y oraz pomocnicze pliki robocze według zweryfikowanego manifestu. Bez zmian aplikacji i nowych testów runtime.
+
+- Commit zamknięcia v1.7.347 / `037a30100d7383a18c76ba5fc7a8a82dad7f20a2`. Lokalny `main` w `D:\game_predicotr` zawiera cały selektor oraz dotychczasowy checkout `667f5d712486adee1c5f895b65690da73b023eb0`. Worktree selektora usunięty po zachowaniu 180 zweryfikowanych plików i ZIP1.0.0 poza nim; `v3-777-profile` nietknięty. Bez push. docs:check/code-map:check PASS z nowego procesu w głównym katalogu.
+
+- Poprawka synchronizacji harnessu v1.7.346 / d117adb092bb83ea9ab54393bf08d37f50b8122c; initial/repeat smoke FAIL zachowane. Końcowy PASS wymaga dokładnego scroll120/100 po restarcie; runtime bez zmian.
+
+- Plik: `ai_docs/tasks/completed/0979-selector-desktop-release-acceptance.md`; D-547. Przygotowanie kodu v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`; merge v1.7.344 / 95a05d9eafd0d9f512332635e8ff9d5fcdf2eca8.
+- ZIP1.0.0 149411351 B, SHA `67311421f7b2810a0c6df519c8dc33243f2234766d94a37d59aa0fee1d069efb`, app.asar `fb9e57f90e0b4922134e806322896617c6fb4f9d8e1c033d2ed009bb91c198ac`, dirty=false/applicationSourceDirty=false. Zachowany poza usuwanym worktree.
+- Release2/UI6, lint/typecheck, release i finalZIP full/UX/start obu kierunków PASS. Odbiór zamknięty jawną decyzją operatora2026-10-13; nie dopisano dowodów fizycznych ani niezależnego audytu. Bez nowej instrukcji Word na tym etapie; bez push/migracji.
+
+### TASK-0990 — Zakres pośrodku nad zdjęciem i końcowy zapis widoku (done)
+
+- Plik: `ai_docs/tasks/completed/0990-selector-desktop-centered-range.md`; D-547. Commity: v1.7.342 / c9afef29d4839cc17eee727ca8324832f6b9379b; v1.7.343 / 8a3249fdefc49547cb2d8ed001e8841cdd2867eb.
+- Zakres przeniesiono poza toolbar do osobnego wyśrodkowanego wiersza nad zdjęciem w obu trybach. Semantyka dziewięciu plansz pozostaje. closingProject blokuje spóźnione zmiany widoku podczas close; dodano deterministyczną regresję scrolla po kliknięciu zamknięcia.
+- UI6/6, lint/typecheck, packaged UX po poprawce oraz finalZIP0.1.6 UX PASS. Geometria zakresu: mniej niż1CSSpixel od środka zdjęcia. Pierwszy smoke wykrył utratę widoku przy close; nieudane logi zachowane. Świeży1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
+
+### TASK-0989 — Stabilny układ, minimalny fullscreen i centrowanie zdjęcia (done)
+
+- Plik: `ai_docs/tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md`; D-547. Commity: v1.7.341 / a9cb2fed291077419c1b67fab546deafaf98771b.
+- Wyłączono rutynowe komunikaty nawigacji/zapisu, pozostałe informacje są dolnym overlayem. Minimalny natywny fullscreen, zsynchronizowane wyjście F11/Escape/przycisk i centrowanie zdjęcia w obu osiach zachowują przewijanie przy dużym zoomie.
+- UI6/6, lint/typecheck/format, packaged UX i finalZIP0.1.5 full/UX PASS. Świeży finalZIP1.0.0 full/UX/start PASS. Repo docs odroczone przez operatora, uzupełnione przy wydaniu1.0.0.
+
+### TASK-0988 — Brak limitu liczby zdjęć (done)
+
+- Plik: `ai_docs/tasks/completed/0988-selector-desktop-no-count-limit.md`; D-547. v1.7.340 / ccb9526e4b29d5586eba1927d592d82149a5fb43.
+- Brak limitu JPEG, wpisów katalogowych i walidacji inventory; bez większej stałej zastępczej. Ścieżki, własność i checksumy pozostają.
+- Desktop264/264 PASS w ograniczonych grupach; metadane30 000 JPEG+100 001 wpisów, stan obu kierunków i finalZIP0.1.4 full/start PASS. Nie jest to pomiar realnych30 000 zdjęć. Dokumentację odroczono na polecenie operatora.
 
 ### TASK-0975 — odzyskiwanie treningu symboli po odrzuceniu podziału (done)
 

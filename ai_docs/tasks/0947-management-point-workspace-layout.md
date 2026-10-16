@@ -134,3 +134,9 @@ model availability and the complete expected cost before starting costly work.
 
 Planning only. No implementation or new validation results. Replaces the
 unfinished0947 draft, saved as an ignored patch after operator requested a plan.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Zapisane piny każdej stawki mają być widoczne od razu, bez klikania stawki i także przy otwartym edytorze. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.

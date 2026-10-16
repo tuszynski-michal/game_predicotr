@@ -1566,3 +1566,9 @@ ten wpis pozostaje lokalnym uzupełnieniem do następnego commita.
   Dopiero po spełnieniu bramek T03 można uruchomić zależny T04.
   Odblokowanie samego kodowania T04 wcześniej wymaga zmiany zaakceptowanego
   planu; nie przyjęto jej samodzielnie.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **Vision lab:** D-456 zatwierdza T03k i pilota całymi grami bez pomiaru (TASK-0668); T06b (TASK-0671) czeka na rzeczywiste zatwierdzenia symboli operatora; T07–T13 (TASK-0672–0678) `todo`. Narzędzia przeglądowe/anotacyjne (porty 8103, 8105, 8107, 8108) startują ręcznie skryptami i nie mają autostartu; nie zakładaj, że działają. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.

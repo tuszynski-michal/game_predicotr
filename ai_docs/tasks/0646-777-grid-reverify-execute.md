@@ -65,3 +65,9 @@ npm run python:lint; npm run python:typecheck
 ## Outcome
 
 Wypełnia agent po pracy.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **TASK-0645–0647 (reweryfikacja siatek 777) są `blocked`:** D-445 wstrzymała stary weryfikator, D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią ani do zapisu na żywych danych; wznowienie wymaga osobnej decyzji i korekty planu `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md`.

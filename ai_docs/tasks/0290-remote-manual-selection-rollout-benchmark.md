@@ -460,3 +460,9 @@ Tunnel ani benchmarkowych etapów TASK-0290.
 Poprawka z 2026-08-31 zamyka regresję wznowienia malejącego workflow
 operator-local. Nie zmienia statusu rolloutowego zadania i nie uruchamia
 publicznego tunelu ani transferu JPEG-ów do hosta.
+
+## Ograniczenia z CURRENT_STATE
+
+Punkty przeniesione bez zmian z sekcji „Obowiązujące ograniczenia” pliku `ai_docs/process/CURRENT_STATE.md` (TASK-1022, 2026-10-16). Dotyczą tego taska.
+
+- **TASK-0603** (kalibracja etykiet 777 w trybie V2) czeka na anotacje operatora; **TASK-0654** (dokumentacja „Przybliżonej wygranej”) ma ukończoną dokumentację, odbiór na żywych danych wstrzymany; **TASK-0290** (zdalna ręczna selekcja): benchmark i kontrolowany rollout `blocked`. Źródło: sekcja „TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)” w tym pliku; sekcja „TASK-0654 — dokumentacja „Przybliżonej wygranej”; plan zaimplementowany, odbiór na żywo wstr…” w tym pliku; sekcja „Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290” w tym pliku.

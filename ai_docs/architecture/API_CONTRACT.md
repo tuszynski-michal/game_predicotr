@@ -4688,6 +4688,20 @@ Zarządzane pliki są najpierw przenoszone do durable kwarantanny powiązanej z
 `previewToken`; rollback przywraca je, a potwierdzony commit finalizuje usunięcie
 przy następnym recovery, jeśli odpowiedź procesu została przerwana.
 
+TASK-1042: zapisane ścieżki są względne do katalogu artefaktów albo do jego
+przestrzeni `data` (`source_images.relative_path` = `originals/...`). Preview
+źródeł plansz rozwiązuje je do istniejących plików: `artifactPaths` zawiera
+wyłącznie pliki obecne na dysku (postać `data/originals/...`),
+`managed_artifacts` to ich liczba, a nowy licznik `missing_artifacts` liczy
+ścieżki bez pliku, których nie raportuje się jako usuniętych. Plik obecny w obu
+lokalizacjach blokuje operację (`CLEANUP_ARTIFACT_PATH_AMBIGUOUS`). Oryginał
+zostaje (`retainedSharedArtifactCount`, ostrzeżenie `SOURCE_ORIGINALS_RETAINED`),
+gdy odwołuje się do niego zachowane źródło albo geometria planszy dowolnej gry,
+albo gdy job importu źródła (lub job przypięty do niego przez
+`managed_source_job_id`) jest w stanie `created`, `processing` albo
+`waiting_for_review`. Token preview obejmuje rozwiązany stan dysku. Reset gry i
+usuwanie wydań nie korzystają z tego rozwiązywania.
+
 Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
 APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,
 ale usuwa game-scoped importy, obrazy robocze, review, symbole, reguły, datasety,

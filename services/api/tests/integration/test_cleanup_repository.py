@@ -506,3 +506,137 @@ def test_source_cleanup_batches_preserve_queue_until_last_source(
                 assert remaining == 1 - index
     finally:
         engine.dispose()
+
+
+def test_source_cleanup_removes_data_relative_originals_only_when_unreferenced(
+    isolated_cleanup_database: URL,
+    tmp_path: Path,
+) -> None:
+    """TASK-1042: `originals/...` lives under `data/`; shared or in-use files stay."""
+    command.upgrade(_migration_config(isolated_cleanup_database), "head")
+    engine = create_engine(isolated_cleanup_database, pool_pre_ping=True)
+    factory = create_session_factory(engine)
+    cross_game_factory = create_cross_game_owner_session_factory(engine)
+    game_id = provision_game(engine, "source-cleanup-originals")
+    now = datetime.now(UTC)
+    first_checksum, shared_checksum = "a" * 64, "b" * 64
+    first_path = f"originals/aa/{first_checksum}.jpg"
+    shared_path = f"originals/bb/{shared_checksum}.jpg"
+    for relative in (first_path, shared_path):
+        target = tmp_path / "data" / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"managed original")
+    try:
+        # Job admission allows one active image job per game, and only an active
+        # job registers files: build each import, then finish it.
+        store = SqlAlchemyImageBatchStore(factory)
+        imports = (
+            ((first_checksum, first_path, 1), (shared_checksum, shared_path, 10)),
+            ((shared_checksum, shared_path, 19),),
+        )
+        jobs = []
+        order_index = 0
+        for offset, job_sources in enumerate(imports):
+            with game_storage_scope(game_id), factory() as session:
+                job = SqlAlchemyJobRepository(session).add_job(
+                    _image_job(game_id, PIPELINE, now + timedelta(seconds=offset))
+                )
+                session.commit()
+            for checksum, relative, sequence_number in job_sources:
+                execution = store.register_file(
+                    job.id,
+                    source_checksum_sha256=checksum,
+                    pipeline_fingerprint=PIPELINE,
+                    source_relative_path=relative,
+                    order_index=order_index,
+                    registered_at=now,
+                )
+                order_index += 1
+                with game_storage_scope(game_id), factory() as session:
+                    _add_review_projection_source(
+                        session,
+                        job_id=job.id,
+                        file_execution_key=execution.file_execution_key,
+                        source_checksum=checksum,
+                        source_name=relative,
+                        position_index=0,
+                        sequence_number=sequence_number,
+                        status="pending",
+                        created_at=now,
+                    )
+                    session.commit()
+            with game_storage_scope(game_id), factory() as session:
+                record = session.get(JobModel, job.id)
+                assert record is not None
+                record.status = JobStatus.COMPLETED
+                session.commit()
+            jobs.append(job)
+        first_job, second_job = jobs
+
+        def set_status(job_id: UUID, status: JobStatus) -> None:
+            with game_storage_scope(game_id), factory() as session:
+                record = session.get(JobModel, job_id)
+                assert record is not None
+                record.status = status
+                session.commit()
+
+        def clean(first_board: int) -> tuple[dict[str, int], int, tuple[str, ...]]:
+            with game_storage_scope(game_id), factory() as session:
+                start, end = session.execute(
+                    select(
+                        ImageSourceGeometryRevisionModel.sequence_range_start,
+                        ImageSourceGeometryRevisionModel.sequence_range_end,
+                    ).where(
+                        ImageSourceGeometryRevisionModel.game_id == game_id,
+                        ImageSourceGeometryRevisionModel.sequence_range_start <= first_board,
+                        ImageSourceGeometryRevisionModel.sequence_range_end >= first_board,
+                    )
+                ).one()
+                service = CleanupService(
+                    SqlAlchemyCleanupRepository(session, cross_game_factory),
+                    ManagedCleanupArtifactStore(tmp_path),
+                )
+                selection = BoardSourceCleanupSelection(tuple(range(start, end + 1)))
+                preview = service.preview_board_sources(game_id, selection)
+                assert preview.snapshot.blockers == ()
+                result = service.delete_board_sources(
+                    game_id,
+                    selection,
+                    CleanupCommand(
+                        preview.preview_token, preview.snapshot.confirmation_target, True
+                    ),
+                )
+                session.commit()
+                service.finalize_committed_artifacts()
+            counts = {item.name: item.count for item in preview.snapshot.counts}
+            assert result.deleted_artifact_count == counts["managed_artifacts"]
+            return (
+                counts,
+                preview.snapshot.retained_shared_artifact_count,
+                (preview.snapshot.warnings),
+            )
+
+        # An unfinished import re-verifies its originals when it resumes.
+        set_status(first_job.id, JobStatus.WAITING_FOR_REVIEW)
+        set_status(second_job.id, JobStatus.COMPLETED)
+        counts, retained, warnings = clean(1)
+        assert (counts["managed_artifacts"], retained) == (0, 1)
+        assert "SOURCE_ORIGINALS_RETAINED" in warnings
+        assert (tmp_path / "data" / first_path).exists()
+
+        # A content-addressed original shared by another import's source stays.
+        set_status(first_job.id, JobStatus.COMPLETED)
+        counts, retained, warnings = clean(10)
+        assert (counts["managed_artifacts"], retained) == (0, 1)
+        assert (tmp_path / "data" / shared_path).exists()
+
+        # The last reference goes: the file really leaves `data/originals`.
+        counts, retained, warnings = clean(19)
+        assert (counts["managed_artifacts"], counts["missing_artifacts"], retained) == (1, 0, 0)
+        assert "SOURCE_ORIGINALS_RETAINED" not in warnings
+        assert not (tmp_path / "data" / shared_path).exists()
+        assert not (tmp_path / "cleanup-quarantine").exists() or not any(
+            (tmp_path / "cleanup-quarantine").iterdir()
+        )
+    finally:
+        engine.dispose()

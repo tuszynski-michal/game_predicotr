@@ -546,6 +546,13 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             verified_export_ids=verified_export_ids,
             source_rows=source_rows,
         )
+        retained_paths = self._retained_source_paths(
+            source_rows=source_rows,
+            source_ids=source_ids,
+            board_ids=board_ids,
+            import_job_ids=import_job_ids,
+        )
+        artifact_paths = tuple(path for path in artifact_paths if path not in retained_paths)
         return _BoardSourceScope(
             game_id=game_id,
             ranges=ranges,
@@ -571,8 +578,66 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 activation_rows, activation_ids
             ),
             artifact_paths=artifact_paths,
-            retained_shared_artifact_count=0,
+            retained_shared_artifact_count=len(retained_paths),
         )
+
+    def _retained_source_paths(
+        self,
+        *,
+        source_rows: list[tuple[UUID, str, str, str, UUID]],
+        source_ids: tuple[UUID, ...],
+        board_ids: tuple[UUID, ...],
+        import_job_ids: tuple[UUID, ...],
+    ) -> frozenset[str]:
+        """Originals that a surviving row or an unfinished job still needs.
+
+        TASK-1042: originals are content-addressed and may be shared by sources
+        of other imports or games. An unfinished import (or a job pinned to it
+        as ``managed_source_job_id``) re-verifies its whole originals manifest
+        when it resumes, so its originals stay until it ends.
+        """
+
+        source_paths = tuple(sorted({row[1] for row in source_rows}))
+        if not source_paths:
+            return frozenset()
+        referenced = self._cross_game_paths(
+            "SELECT relative_path FROM source_images "
+            "WHERE relative_path IN :paths AND id NOT IN :source_ids",
+            paths=source_paths,
+            source_ids=source_ids,
+        )
+        referenced |= (
+            self._cross_game_paths(
+                "SELECT board_relative_path FROM image_board_geometry_revisions "
+                "WHERE board_relative_path IN :paths "
+                "AND recognized_board_id NOT IN :board_ids",
+                paths=source_paths,
+                board_ids=board_ids,
+            )
+            if board_ids
+            else self._cross_game_paths(
+                "SELECT board_relative_path FROM image_board_geometry_revisions "
+                "WHERE board_relative_path IN :paths",
+                paths=source_paths,
+            )
+        )
+        unfinished = set(
+            self._ids(
+                "SELECT id FROM jobs WHERE id IN :import_job_ids "
+                "AND status IN ('created', 'processing', 'waiting_for_review')",
+                import_job_ids=import_job_ids,
+            )
+        )
+        unfinished.update(
+            UUID(value)
+            for value in self._paths(
+                "SELECT input_payload->>'managed_source_job_id' FROM jobs "
+                "WHERE status IN ('created', 'processing', 'waiting_for_review') "
+                "AND input_payload->>'managed_source_job_id' IN :job_ids",
+                job_ids=tuple(str(job_id) for job_id in import_job_ids),
+            )
+        )
+        return frozenset(referenced | {row[1] for row in source_rows if row[4] in unfinished})
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
@@ -631,6 +696,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         history = (
             ["GRID_REINFERENCE_HISTORY_RETAINED_LIVE_SOURCE_LINKS_DETACHED"] if retained else []
         )
+        if scope.retained_shared_artifact_count:
+            history.append("SOURCE_ORIGINALS_RETAINED")
         if scope.active_model_survives:
             return history
         exclusion = "AND id NOT IN :model_ids" if scope.model_ids else ""
@@ -1003,6 +1070,20 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             return int(
                 session.scalar(self._bound_statement(statement, parameters), parameters) or 0
             )
+
+    def _cross_game_paths(self, statement: str, **parameters: object) -> set[str]:
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return set()
+        if self._cross_game_session_factory is None:
+            return set(self._paths(statement, **parameters))
+        with self._cross_game_reader() as session:
+            return {
+                str(value)
+                for value in session.scalars(
+                    self._bound_statement(statement, parameters), parameters
+                )
+                if value is not None
+            }
 
     def _paths(self, statement: str, **parameters: object) -> tuple[str, ...]:
         if any(isinstance(value, tuple) and not value for value in parameters.values()):

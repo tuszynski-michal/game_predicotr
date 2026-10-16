@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 from uuid import UUID
@@ -13,11 +14,26 @@ from game_predictor_api.domain.cleanup import (
     BoardSourceCleanupSelection,
     CleanupCommand,
     CleanupConflictError,
+    CleanupCount,
     CleanupPreview,
     CleanupResult,
     CleanupSnapshot,
     cleanup_preview,
 )
+
+# TASK-1042: persisted artifact paths are relative either to the artifact root
+# (``data/symbol-references/...``) or to its ``data`` namespace
+# (``originals/...`` from ``source_images.relative_path``).
+_DATA_NAMESPACE = "data"
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedCleanupArtifacts:
+    """Persisted paths mapped to existing artifact-root-relative files."""
+
+    present: tuple[str, ...]
+    missing: tuple[str, ...]
+    ambiguous: tuple[str, ...]
 
 
 class CleanupRepository(Protocol):
@@ -70,6 +86,8 @@ class CleanupRepository(Protocol):
 
 
 class CleanupArtifactStore(Protocol):
+    def resolve(self, relative_paths: tuple[str, ...]) -> ResolvedCleanupArtifacts: ...
+
     def delete(self, relative_paths: tuple[str, ...]) -> None: ...
 
     def quarantine(self, operation_key: str, relative_paths: tuple[str, ...]) -> None: ...
@@ -87,6 +105,38 @@ class ManagedCleanupArtifactStore:
     def __init__(self, artifact_root: Path) -> None:
         self._root = artifact_root.resolve()
         self._quarantine_root = self._root / "cleanup-quarantine"
+
+    def resolve(self, relative_paths: tuple[str, ...]) -> ResolvedCleanupArtifacts:
+        """Map persisted paths to files that exist below the artifact root.
+
+        A path already under ``data/`` is root-relative. Any other path may be
+        root-relative or ``data``-relative; exactly one existing candidate is
+        used, none means the file is already gone, and two are ambiguous.
+        """
+
+        present: set[str] = set()
+        missing: list[str] = []
+        ambiguous: list[str] = []
+        for relative_path in sorted(set(relative_paths)):
+            candidates = (
+                (relative_path,)
+                if PurePosixPath(relative_path).parts[:1] == (_DATA_NAMESPACE,)
+                else (relative_path, f"{_DATA_NAMESPACE}/{relative_path}")
+            )
+            existing = [
+                candidate for candidate in candidates if self._safe_target(candidate).exists()
+            ]
+            if len(existing) == 1:
+                present.add(existing[0])
+            elif existing:
+                ambiguous.append(relative_path)
+            else:
+                missing.append(relative_path)
+        return ResolvedCleanupArtifacts(
+            present=tuple(sorted(present)),
+            missing=tuple(missing),
+            ambiguous=tuple(ambiguous),
+        )
 
     def delete(self, relative_paths: tuple[str, ...]) -> None:
         for relative_path in sorted(set(relative_paths)):
@@ -292,7 +342,7 @@ class CleanupService:
         game_id: UUID,
         selection: BoardSourceCleanupSelection,
     ) -> CleanupPreview:
-        return cleanup_preview(self._repository.board_source_snapshot(game_id, selection))
+        return cleanup_preview(self._board_source_snapshot(game_id, selection))
 
     def delete_release(
         self,
@@ -347,9 +397,7 @@ class CleanupService:
         )
         if completed is not None:
             return _as_completed(completed)
-        preview = cleanup_preview(
-            self._repository.board_source_snapshot(game_id, selection, for_update=True)
-        )
+        preview = cleanup_preview(self._board_source_snapshot(game_id, selection, for_update=True))
         self._validate(command, preview)
         quarantine_key = preview.preview_token
         self._artifact_store.quarantine(
@@ -364,6 +412,38 @@ class CleanupService:
             raise
         self._pending_quarantines.add(quarantine_key)
         return result
+
+    def _board_source_snapshot(
+        self,
+        game_id: UUID,
+        selection: BoardSourceCleanupSelection,
+        *,
+        for_update: bool = False,
+    ) -> CleanupSnapshot:
+        """Bind the preview to the files that exist now (TASK-1042).
+
+        Only existing files are counted and quarantined; already missing files
+        are reported separately; an ambiguous location blocks the cleanup.
+        """
+
+        snapshot = self._repository.board_source_snapshot(game_id, selection, for_update=for_update)
+        resolved = self._artifact_store.resolve(snapshot.artifact_paths)
+        counts = tuple(
+            CleanupCount("managed_artifacts", len(resolved.present))
+            if item.name == "managed_artifacts"
+            else item
+            for item in snapshot.counts
+        )
+        return replace(
+            snapshot,
+            counts=(*counts, CleanupCount("missing_artifacts", len(resolved.missing))),
+            artifact_paths=resolved.present,
+            blockers=(
+                (*snapshot.blockers, "CLEANUP_ARTIFACT_PATH_AMBIGUOUS")
+                if resolved.ambiguous
+                else snapshot.blockers
+            ),
+        )
 
     def finalize_committed_artifacts(self) -> None:
         for quarantine_key in tuple(self._pending_quarantines):
@@ -451,4 +531,5 @@ __all__ = [
     "CleanupRepository",
     "CleanupService",
     "ManagedCleanupArtifactStore",
+    "ResolvedCleanupArtifacts",
 ]

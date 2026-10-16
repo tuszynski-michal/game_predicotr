@@ -54,6 +54,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1042** — Czyszczenie zakresów usuwa oryginały — v1.7.399 — tasks/completed/1042-board-source-cleanup-originals.md
 - **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
 - **TASK-1041** — Zdjęcia V3 bez przypisania plansz są jawne — v1.7.388 / `c93eb54e` — tasks/completed/1041-v3-import-unbound-photos-visible.md
 - **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md
@@ -63,4 +64,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / 6397bc51 — tasks/completed/0996-durable-v3-grid-training.md
 - **TASK-1033** — `README.md` ≤ 5 000 B i `DOC_INDEX.md` — v1.7.382 / `ed25cd1c` — tasks/completed/1033-readme-doc-index.md
 - **TASK-1032** — `AGENTS.md` ≤ 14 000 B — v1.7.381 / `676f22f4` — tasks/completed/1032-agents-md-slimming.md
-- **TASK-1031** — Skill `merge-to-main` z preflightem — v1.7.379 / `bf0ad43b` — tasks/completed/1031-merge-to-main-skill.md

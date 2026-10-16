@@ -25,7 +25,7 @@ import pytest
 from _application_role_database import ApplicationRoleDatabase, application_role_database
 from _virtual_board_fixtures import save_manual_virtual_geometry
 from game_predictor_api.application.catalog import CatalogService
-from game_predictor_api.application.cleanup import CleanupService
+from game_predictor_api.application.cleanup import CleanupService, ResolvedCleanupArtifacts
 from game_predictor_api.application.geometry_correction_reverts import (
     GeometryCorrectionRevertService,
     VirtualRestoredRenderVerifier,
@@ -758,6 +758,10 @@ def test_expected_layout_count_change_invalidates_and_rejects(fixture: Fixture) 
 
 
 class _NoArtifacts:
+    def resolve(self, relative_paths: tuple[str, ...]) -> ResolvedCleanupArtifacts:
+        # TASK-1042: no files on disk here; every persisted path counts as present.
+        return ResolvedCleanupArtifacts(tuple(sorted(set(relative_paths))), (), ())
+
     def delete(self, relative_paths: tuple[str, ...]) -> None:
         return None
 

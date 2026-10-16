@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1042 — Czyszczenie zakresów usuwa oryginały naprawdę i bezpiecznie (done)
+
+- Plik: `ai_docs/tasks/completed/1042-board-source-cleanup-originals.md`; defekt znaleziony po cleanupie 214 zdjęć importu `c2b7d87a` (777a2, 2026-10-17): wynik zgłosił 214 usuniętych plików, żaden nie zniknął. Commit **v1.7.399**.
+- `ManagedCleanupArtifactStore.resolve` mapuje ścieżki względne do `artifacts` albo `artifacts/data` na istniejące pliki; podgląd i wykonanie `board_source_ranges` używają tylko istniejących plików, licznik `missing_artifacts`, blokada `CLEANUP_ARTIFACT_PATH_AMBIGUOUS`. Repozytorium zachowuje oryginał współdzielony z innym źródłem lub geometrią albo potrzebny niezakończonemu jobowi (`SOURCE_ORIGINALS_RETAINED`).
+- Testy domenowe i integracyjne Postgres (izolowana `*_test`) PASS; reset gry i wydania bez zmian. Bez migracji i zmian schematu API.
+
 ### TASK-1001 — Odbiór procesu i instrukcja operatora (done)
 
 - Plik: [1001-v3-grid-fine-tuning-acceptance.md](../tasks/completed/1001-v3-grid-fine-tuning-acceptance.md); commit **v1.7.393 / `161751ec1987256544ee7ea3ce9157ba1c1efcff`** na `codex/v3-grid-fine-tuning`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (P0 status/stop lane GPU, P1 opis zapisów automatycznych ponownego rozpoznania, P2 opis poleceń), jedna runda poprawek, R2 PASS bez uwag.

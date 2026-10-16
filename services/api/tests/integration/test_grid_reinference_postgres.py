@@ -940,7 +940,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
 
 def cleanup_fixture(database, factory, game, kind):
     """Production cleanup on owned data, unchanged history, rollback and other games."""
-    from game_predictor_api.application.cleanup import CleanupService
+    from game_predictor_api.application.cleanup import CleanupService, ResolvedCleanupArtifacts
     from game_predictor_api.domain.cleanup import BoardSourceCleanupSelection, CleanupCommand
     from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
     from game_predictor_api.storage.database import create_cross_game_owner_session_factory
@@ -950,6 +950,8 @@ def cleanup_fixture(database, factory, game, kind):
     from game_predictor_api.storage.models import SourceImageModel
 
     artifacts = SimpleNamespace(
+        # TASK-1042: files are not on disk here; every persisted path counts as present.
+        resolve=lambda paths: ResolvedCleanupArtifacts(tuple(sorted(set(paths))), (), ()),
         delete=lambda _paths: None,
         quarantine=lambda *_args: None,
         restore=lambda *_args: None,

@@ -77,7 +77,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/board_search_share_queries.py: class BoardSearchShareQueryLog, record_board_search_share_query, class BoardSearchShareRequestKind, class BoardSearchShareRateLimiter, class BoardSearchShareQueryEvent, class BoardSearchShareQueryPage, class BoardSearchShareQueryReplay, class BoardSearchShareQueryRepository, class BoardSearchShareQueryLogService
 - application/browser_staging_retention.py: class ManagedOriginalsHandoff, class BrowserStagingRetention
 - application/catalog.py: class CatalogRepository, class ShapeGeometryReadinessResolver, class DefaultShapeGeometryReadinessResolver, shape_geometry_clarification_readiness, class CatalogService
-- application/cleanup.py: class CleanupRepository, class CleanupArtifactStore, class ManagedCleanupArtifactStore, class CleanupService
+- application/cleanup.py: class ResolvedCleanupArtifacts, class CleanupRepository, class CleanupArtifactStore, class ManagedCleanupArtifactStore, class CleanupService
 - application/controlled_folder_picker.py: class WindowsFolderPicker
 - application/datasets.py: class DatasetRepository, class DatasetService
 - application/geometry_correction_reverts.py: class GeometryCorrectionEntry, class GeometryCorrectionRevertPreview, class GeometryCorrectionRevertResult, class RestoredRenderRequest, class RestoredRenderVerifier, class VirtualRestoredRenderVerifier, class GeometryCorrectionRevertRepository, class GeometryCorrectionRevertService

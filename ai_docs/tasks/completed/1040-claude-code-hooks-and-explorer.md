@@ -114,7 +114,7 @@ git diff --check
 
 ## Outcome
 
-Commit: v1.7.386 (hash dopisuje kolejny commit).
+Commit: v1.7.386 / `ce72b7e7f9aae165257c887bdc0484f5e27126b0`.
 
 Wykonawca: claude-sonnet-5-5. Bez dodatkowego review (operator go nie zlecił).
 

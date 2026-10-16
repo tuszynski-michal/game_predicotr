@@ -83,6 +83,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
+### Odchudzenie obowiązkowego odczytu startowego (proposed, 2026-10-16)
+
+- `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, TASK-1019–1023, gałąź `feat/startup-read-diet` (worktree `worktrees/startup-read-diet`, baza `main` v1.7.363).
+- Cel: obowiązkowy odczyt (`AGENTS.md`, `README.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`) z 211 359 B do ≤ 90 000 B z budżetami w `docs:check`, bez utraty treści. Etapy A (1019–1020), B (1021, decyzja operatora), C (1022–1023); żaden nie jest uruchomiony. TASK-1020 i TASK-1022 wykonać tuż przed scaleniem, po synchronizacji z gałęzią docelową.
+
 ### Doszkalanie siatek V3 z korekt w aplikacji (proposed, 2026-10-14)
 
 - Plan: `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`,
@@ -202,6 +207,26 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1019 — skrypt pomiaru i budżetów odczytu startowego (todo)
+
+- `ai_docs/tasks/1019-startup-read-budget-script.md`; plan odczytu startowego, etap A.
+
+### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (todo)
+
+- `ai_docs/tasks/1020-decision-log-light-index.md`; etap A, po TASK-1019.
+
+### TASK-1021 — przegląd ograniczeń i sekcji `CURRENT_STATE.md` (todo)
+
+- `ai_docs/tasks/1021-current-state-constraints-review.md`; etap B, tylko raport i decyzja operatora.
+
+### TASK-1022 — zastosowanie budżetów `CURRENT_STATE.md` (todo)
+
+- `ai_docs/tasks/1022-current-state-budgets.md`; etap C, po decyzji z TASK-1021.
+
+### TASK-1023 — `CLAUDE.md` bez duplikatu i końcowy pomiar (todo)
+
+- `ai_docs/tasks/1023-claude-md-dedupe-final-measurement.md`; etap C, zamyka plan.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 

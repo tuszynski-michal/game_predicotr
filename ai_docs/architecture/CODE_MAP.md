@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (389 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (390 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (104 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -109,8 +109,8 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 - `services/worker/src/game_predictor_worker/domain/` (10 py) - kontrakty, sygnatury, wypłaty (czysta domena); Framework-independent Game Predictor domain contracts.
 - `services/worker/src/game_predictor_worker/semi_automatic_selection/` (46 py) - półautomatyczna selekcja obrazów; Pure contracts for the independent semi-automatic image selection workflow.
 - `services/worker/src/game_predictor_worker/geometry_core/` (9 py) - wspólny rdzeń geometrii; Neutral V3 geometry inference: no storage, training or laboratory dependencies.
-- `services/worker/src/game_predictor_worker/training_core/` (3 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
-- `services/worker/src/game_predictor_worker/vision_lab/` (75 py) - laboratorium wizji (izolowane); Standalone, file-backed vision laboratory; no production entry-point imports.
+- `services/worker/src/game_predictor_worker/training_core/` (6 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
+- `services/worker/src/game_predictor_worker/vision_lab/` (76 py) - laboratorium wizji (izolowane); Standalone, file-backed vision laboratory; no production entry-point imports.
 - `services/worker/src/game_predictor_worker/releases/` (6 py) - wydania modeli/aplikacji; Resumable mobile release workflow and controlled Android publication.
 - `services/worker/src/game_predictor_worker/benchmarks/` (4 py) - benchmarki (nie uruchamiać bez polecenia); Deterministic datasets and verification helpers for performance benchmarks.
 - `services/worker/src/game_predictor_worker/cli.py` - wejście CLI workera
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (255 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (256 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -242,7 +242,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (22 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (23 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

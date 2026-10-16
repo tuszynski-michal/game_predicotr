@@ -522,3 +522,14 @@ reference-aware asset GC, without creating a permanent full image archive.
 The present preview has technical identity fields; TASK-1000 must integrate
 selection by understandable import, recording and family names into the final
 operator workflow.
+
+## Grid training presets and admission (D-557, TASK-1005)
+
+Grid-only and screen+grid runs use separate versioned presets with a fingerprint, a
+training-time range, a step limit, early stopping on VALIDATION and a charged run limit.
+A run is refused when no GPU is available, the runtime versions differ, VRAM is too
+small, the application GPU lease is held or unknown, the preset is unknown or not
+approved, the cohort is empty, of another mode or too costly, or the budget is spent.
+Resuming a run never renews its steps or seconds. A smoke ends after 50 steps or 120
+training seconds and produces no candidate. The preview reads metadata only; it starts
+no job and does not claim worker-side checks.

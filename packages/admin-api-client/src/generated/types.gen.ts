@@ -7687,6 +7687,265 @@ export type GridSourceIdentityResult = {
 };
 
 /**
+ * GridTrainingEarlyStopping
+ */
+export type GridTrainingEarlyStopping = {
+  /**
+   * Direction
+   */
+  direction: 'maximize' | 'minimize';
+  /**
+   * Evaluationintervalseconds
+   */
+  evaluationIntervalSeconds: number;
+  /**
+   * Metric
+   */
+  metric: string;
+  /**
+   * Mindelta
+   */
+  minDelta: number;
+  /**
+   * Minevaluations
+   */
+  minEvaluations: number;
+  /**
+   * Patience
+   */
+  patience: number;
+};
+
+/**
+ * GridTrainingLeaseView
+ */
+export type GridTrainingLeaseView = {
+  /**
+   * Runkind
+   */
+  runKind: 'train' | 'smoke' | null;
+  /**
+   * State
+   */
+  state: 'free' | 'held' | 'stale' | 'unknown';
+};
+
+/**
+ * GridTrainingPresetView
+ */
+export type GridTrainingPresetView = {
+  /**
+   * Approvalbasis
+   */
+  approvalBasis: string;
+  /**
+   * Approved
+   */
+  approved: boolean;
+  /**
+   * Batchitems
+   */
+  batchItems: number;
+  /**
+   * Boardsperitem
+   */
+  boardsPerItem: number;
+  earlyStopping: GridTrainingEarlyStopping;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string;
+  /**
+   * Frozenmodules
+   */
+  frozenModules: Array<string>;
+  /**
+   * Learningrate
+   */
+  learningRate: number;
+  /**
+   * Maxrunseconds
+   */
+  maxRunSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Maxtrainseconds
+   */
+  maxTrainSeconds: number;
+  /**
+   * Minfreevrambytes
+   */
+  minFreeVramBytes: number;
+  /**
+   * Mintotalvrambytes
+   */
+  minTotalVramBytes: number;
+  /**
+   * Mintrainseconds
+   */
+  minTrainSeconds: number;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  runtime: GridTrainingRuntimeRequirement;
+  /**
+   * Stepspersecondestimate
+   */
+  stepsPerSecondEstimate: number;
+  /**
+   * Trainsecondspertrainphoto
+   */
+  trainSecondsPerTrainPhoto: number;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * GridTrainingRunCost
+ */
+export type GridTrainingRunCost = {
+  /**
+   * Epochsplanned
+   */
+  epochsPlanned: number;
+  /**
+   * Estimatedrunseconds
+   */
+  estimatedRunSeconds: number;
+  /**
+   * Evaluationsplanned
+   */
+  evaluationsPlanned: number;
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Plannedtrainseconds
+   */
+  plannedTrainSeconds: number;
+  /**
+   * Stepsperepoch
+   */
+  stepsPerEpoch: number;
+  /**
+   * Trainitems
+   */
+  trainItems: number;
+  /**
+   * Withinbudget
+   */
+  withinBudget: boolean;
+};
+
+/**
+ * GridTrainingRunPreview
+ */
+export type GridTrainingRunPreview = {
+  /**
+   * Apiblockers
+   */
+  apiBlockers: Array<string>;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Cohortmode
+   */
+  cohortMode: 'grid-only' | 'screen+grid';
+  /**
+   * Cohortqualification
+   */
+  cohortQualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Cohortreasons
+   */
+  cohortReasons: Array<string>;
+  /**
+   * Cohortstatus
+   */
+  cohortStatus: string;
+  cost: GridTrainingRunCost | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  lease: GridTrainingLeaseView;
+  /**
+   * Pendingworkerchecks
+   */
+  pendingWorkerChecks: Array<string>;
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Presets
+   */
+  presets: Array<GridTrainingPresetView>;
+  /**
+   * Selectedpresetid
+   */
+  selectedPresetId: string | null;
+  smoke: GridTrainingSmokeLimits;
+};
+
+/**
+ * GridTrainingRuntimeRequirement
+ */
+export type GridTrainingRuntimeRequirement = {
+  /**
+   * Cuda
+   */
+  cuda: string;
+  /**
+   * Torch
+   */
+  torch: string;
+  /**
+   * Torchvision
+   */
+  torchvision: string;
+};
+
+/**
+ * GridTrainingSmokeLimits
+ */
+export type GridTrainingSmokeLimits = {
+  /**
+   * Maxseconds
+   */
+  maxSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Startupseconds
+   */
+  startupSeconds: number;
+  /**
+   * Trainseconds
+   */
+  trainSeconds: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -24877,6 +25136,54 @@ export type PrepareGridTrainingCohortPageResponses = {
 
 export type PrepareGridTrainingCohortPageResponse =
   PrepareGridTrainingCohortPageResponses[keyof PrepareGridTrainingCohortPageResponses];
+
+export type PreviewGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview';
+};
+
+export type PreviewGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewGridTrainingRunError =
+  PreviewGridTrainingRunErrors[keyof PreviewGridTrainingRunErrors];
+
+export type PreviewGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunPreview;
+};
+
+export type PreviewGridTrainingRunResponse =
+  PreviewGridTrainingRunResponses[keyof PreviewGridTrainingRunResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;

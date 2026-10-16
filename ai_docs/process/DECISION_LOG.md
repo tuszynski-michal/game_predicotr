@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-557](decisions/DECISION_LOG_2026.md#d-557--presety-treningu-geometrii-v3-dzierżawa-gpu-i-dopuszczenie-runu) | Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu | accepted | 2026-10-16 | Wersjonowane presety z odciskiem, koszt kohorty, jedna dzierżawa GPU aplikacji, budżet bez odnowienia przy wznowieniu i smoke 50 kroków/120 s treningu. |
 | [D-556](decisions/DECISION_LOG_2026.md#d-556--niezmienne-kohorty-geometrii-v3-i-aktualność-dowodów) | Niezmienne kohorty geometrii V3 i aktualność dowodów | accepted | 2026-10-16 | Exact human labels i24nodes, bounded snapshot/use/currentness; zachowana historia, nowe użycie usuniętego źródła zablokowane decyzją operatora. |
 | [D-555](decisions/DECISION_LOG_2026.md#d-555--pomiar-jakości-v3-i-jawne-zatwierdzenie-niezmienionej-geometrii) | Pomiar jakości V3 i jawne zatwierdzenie niezmienionej geometrii | accepted | 2026-10-16 | Frozen baseline i9 pozycji, separate canonical approval bez recropu, symbols manual-only i forward permissions. |
 | [D-554](decisions/DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3) | Nagrania i ochrona danych kontrolnych geometrii V3 | accepted | 2026-10-15 | Geometry-only aliasy i role nagrań, prywatne capability, dependent-only invalidation; bez operator runs. |
@@ -235,7 +236,19 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Pełne kopie pięciu najnowszych wpisów (D-556–D-552), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
+Pełne kopie pięciu najnowszych wpisów (D-557–D-553), identyczne z `decisions/DECISION_LOG_2026.md`. Poprzednie przyjęte wpisy pozostają w pełnym logu i indeksie.
+
+## D-557 — Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu
+
+- **Date:** 2026-10-16.
+- **Status:** accepted; techniczne doprecyzowanie zleconej rewizji 6, TASK-1005, zapisane przy implementacji. Limity smoke doprecyzował operator 2026-10-16. Nie jest zgodą na trening, publikację, aktywację ani operacje danych operatora.
+- **Context:** aplikacja nie miała dzierżawy GPU ani wspólnej decyzji dopuszczenia; kontrola środowiska działała dopiero w procesie laboratorium, a budżet runu i presety istniały wyłącznie w laboratorium. Plan wymaga osobnych presetów grid-only i screen+grid, kosztu kohorty, early stopping, limitu czasu/kroków, blokady przy braku GPU, niezgodnym środowisku, zajętej dzierżawie lub braku zatwierdzonego presetu oraz budżetu, którego wznowienie nie odnawia.
+- **Decision:** neutralny `training_core/grid_training_admission.py` przechowuje wersjonowane presety `grid-only-v1` i `screen-grid-v1` z odciskiem SHA-256 parametrów (bez rekordu zatwierdzenia), deterministyczny koszt kohorty, fakty środowiska i czystą decyzję dopuszczenia zbierającą wszystkie powody w stałej kolejności. Trening wymaga zatwierdzonego presetu o zgodnym odcisku; smoke wymaga znanego odcisku, ale nie zatwierdzenia. `RunBudget` w kopercie `{payload, sha256}` zachowuje kroki, sekundy i próby; wznowienie zwiększa tylko licznik prób, a cofnięty zegar wyczerpuje budżet. `training_core/gpu_lease.py` to jedna międzyprocesowa dzierżawa GPU aplikacji w `<artifact_root>/grid-training/gpu-lease.json` pod krótką blokadą pliku; przejęcie wyłącznie po terminie i przy potwierdzonym braku procesu o zapisanym PID i czasie utworzenia, nieczytelny rekord blokuje. `process_identity` przeniesiono do neutralnego rdzenia z reeksportem w laboratorium.
+- **Presets:** optymalizacja presetu D; 60 s treningu na zdjęcie TRAIN w zakresie 300–1800 s, ocena VALIDATION co 300 s, early stopping po 2 ocenach bez poprawy (minimum 2 oceny), REGRESSION nie służy do wyboru. Limit 3600 s naliczonego runu i 4000 kroków. Szacunek 2,0 kroku/s (raporty 2,03–2,46 i smoke 2,63 pełnego kroku D), co najmniej 6,0 GB VRAM i 5,0 GB wolnej po utworzeniu kontekstu (szczyt alokacji smoke 4,67 GB). Grid-only zamraża detektor i BatchNorm; wykonanie należy do TASK-0996.
+- **Smoke:** 50 kroków albo 120 s treningu liczone od pierwszego kroku, start do 300 s, cały run najwyżej 600 s, watchdog +30 s. Pierwotny limit 120 s od dopuszczenia zakończył się przed pierwszym krokiem; operator polecił większy limit, aby test był dokładny.
+- **API:** `GET …/grid-training-cohorts/{cohortId}/run-preview` tylko odczytuje nagłówek, istniejącą kwalifikację, presety, koszt i stan dzierżawy (bez PID); GPU/środowisko/VRAM/budżet są `pendingWorkerChecks`, nigdy domniemanym PASS.
+- **Consequences:** TASK-0996 utrwala budżet w encji runu, pobiera dzierżawę i przed startem wywołuje tę samą decyzję; metryki early stopping mapuje TASK-0997. Dzierżawa nie kontroluje zewnętrznych procesów CUDA ani runów laboratorium. Bez migracji, nowych tabel i zmian trenera symboli.
+- **Source:** zaakceptowana rewizja 6, TASK-1005; raporty `quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md` i `MUMIE_CURRENT_APPROVALS_20261005.md`; ograniczony smoke za zgodą operatora 2026-10-16.
 
 ## D-556 — Niezmienne kohorty geometrii V3 i aktualność dowodów
 
@@ -298,12 +311,3 @@ Pełne kopie pięciu najnowszych wpisów (D-556–D-552), identyczne z `decision
 - **Alternatives:** mieszanie agregatów READ COMMITTED może dać niespójny obraz; zmiana izolacji już rozpoczętej sesji żądania albo jej trybu READ ONLY może wpłynąć na inne działania. Osobny endpoint, cache i nowe tabele nie są potrzebne.
 - **Consequences:** diagnostyka zużywa dodatkowe połączenie tylko podczas jawnego odczytu. Testy PostgreSQL muszą sprawdzić odrzucony slot, priorytety przyczyn, unikalność sekwencji i zakres gry w odczycie snapshotu. Snapshot danych do pomiaru jest transakcją odczytu; nie jest backupem bazy ani kohortą treningową. Żadna akceptacja geometrii ani kwalifikacja treningowa nie wynika z tego raportu.
 - **Source:** polecenie implementacji całego planu rewizji 6 i zatwierdzony koszt, sekcje 2.2 i TASK-1010; audyt TASK-1010 P2-2. Rozszerza dokumentowanie D-437/D-543 bez zmiany własności, cropów lub etykiet.
-
-## D-552 — Baza i wznowienie planu doszkalania V3
-
-- **Date:** 2026-10-14.
-- **Status:** accepted; udokumentowane przyjęcie 2026-10-14 na podstawie jawnego polecenia implementacji rewizji 6, zgody na cały koszt i późniejszych decyzji operatora. TASK-1015 zachowuje historię wcześniejszej propozycji.
-- **Context:** zaakceptowana rewizja 6 wymaga jawnego wpisu przed zmianą obowiązujących decyzji.
-- **Decision:** Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. Operator zatwierdził później upstream main v1.7.362 / 885ba12fb56305a47871daf743973c84469ad23d; bootstrap zapisano jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Operator upoważnił automatyczny przydział kolejnych wolnych patchy i kolidujących tasków po sprawdzeniu lokalnych gałęzi oraz zapisie mapowania; TASK-1007 → 1016 → 1017. Nasza akceptacja silnika ma TASK-1017, a historyczny ukończony TASK-1007 CLI pozostaje bez zmian. Stan wznowienia przechowują task i CURRENT_STATE, z fazą, kontrolami, audytem, następnym krokiem oraz hashem po commicie. Cały zakres i koszt 12–28 dni roboczych operator zlecił 2026-10-14; przyjęcie zostało teraz udokumentowane przed zależną implementacją TASK-1017. Integracja wymaga końcowej akceptacji; bez push, automatycznego restartu i niepotwierdzonych operacji danych.
-- **Consequences:** dopuszcza implementację mechanizmu w zatwierdzonym zakresie. Historyczny backfill, operacje danych, trening, aktywacja i integracja nadal wymagają swoich odrębnych bramek; brak kontroli lub danych nie daje PASS.
-- **Source:** ai_docs/delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md, sekcje 2–4; polecenie operatora 2026-10-14; TASK-1015.

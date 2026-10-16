@@ -180,3 +180,82 @@ class GridSourceIdentityReceipt(CohortClosedModel):
 
 class GridSourceIdentityResponse(CohortClosedModel):
     receipt: GridSourceIdentityReceipt
+
+
+class GridTrainingEarlyStopping(CohortClosedModel):
+    metric: str
+    direction: Literal["maximize", "minimize"]
+    evaluationIntervalSeconds: float
+    patience: int
+    minDelta: float
+    minEvaluations: int
+
+
+class GridTrainingRuntimeRequirement(CohortClosedModel):
+    torch: str
+    torchvision: str
+    cuda: str
+
+
+class GridTrainingPresetView(CohortClosedModel):
+    presetId: str
+    version: int
+    policy: str
+    fingerprint: str
+    mode: Literal["grid-only", "screen+grid"]
+    approved: bool
+    approvalBasis: str
+    batchItems: int
+    boardsPerItem: int
+    frozenModules: list[str]
+    learningRate: float
+    trainSecondsPerTrainPhoto: float
+    minTrainSeconds: float
+    maxTrainSeconds: float
+    maxSteps: int
+    maxRunSeconds: float
+    stepsPerSecondEstimate: float
+    minTotalVramBytes: int
+    minFreeVramBytes: int
+    earlyStopping: GridTrainingEarlyStopping
+    runtime: GridTrainingRuntimeRequirement
+
+
+class GridTrainingRunCost(CohortClosedModel):
+    trainItems: int
+    stepsPerEpoch: int
+    plannedTrainSeconds: float
+    plannedSteps: int
+    epochsPlanned: float
+    evaluationsPlanned: int
+    estimatedRunSeconds: float
+    withinBudget: bool
+
+
+class GridTrainingLeaseView(CohortClosedModel):
+    state: Literal["free", "held", "stale", "unknown"]
+    runKind: Literal["train", "smoke"] | None
+
+
+class GridTrainingSmokeLimits(CohortClosedModel):
+    maxSteps: int
+    trainSeconds: float
+    startupSeconds: float
+    maxSeconds: float
+
+
+class GridTrainingRunPreview(CohortClosedModel):
+    policy: str
+    gameId: UUID
+    cohortId: UUID
+    cohortStatus: str
+    cohortMode: Literal["grid-only", "screen+grid"]
+    cohortQualification: Qualification
+    cohortReasons: list[str]
+    presets: list[GridTrainingPresetView]
+    selectedPresetId: str | None
+    cost: GridTrainingRunCost | None
+    apiBlockers: list[str]
+    pendingWorkerChecks: list[str]
+    lease: GridTrainingLeaseView
+    smoke: GridTrainingSmokeLimits

@@ -20,6 +20,7 @@ from game_predictor_api.schemas.grid_training_cohorts import (
     GridCohortRevisionCommand,
     GridSourceIdentityCompleteCommand,
     GridSourceIdentityResponse,
+    GridTrainingRunPreview,
 )
 
 
@@ -101,6 +102,16 @@ def create_grid_training_cohorts_router(dependency: Callable[..., object]) -> AP
         game_id: UUID, cohort_id: UUID, service: Annotated[GridTrainingCohortService, parameter]
     ) -> GridCohortEligibility:
         return GridCohortEligibility.model_validate(service.eligibility(game_id, cohort_id))
+
+    @router.get(
+        "/grid-training-cohorts/{cohort_id}/run-preview",
+        operation_id="previewGridTrainingRun",
+        response_model=GridTrainingRunPreview,
+    )
+    def run_preview(
+        game_id: UUID, cohort_id: UUID, service: Annotated[GridTrainingCohortService, parameter]
+    ) -> GridTrainingRunPreview:
+        return GridTrainingRunPreview.model_validate(service.run_preview(game_id, cohort_id))
 
     @router.post(
         "/grid-training-cohorts/{cohort_id}/prepare-page",

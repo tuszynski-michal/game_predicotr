@@ -3,6 +3,7 @@ import {
   getGridTrainingCohort as getGeneratedGridTrainingCohort,
   getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
   getGridTrainingCohortEligibility as getGeneratedGridTrainingCohortEligibility,
+  previewGridTrainingRun as previewGeneratedGridTrainingRun,
   prepareGridTrainingCohort as prepareGeneratedGridTrainingCohort,
   prepareGridTrainingCohortPage as prepareGeneratedGridTrainingCohortPage,
   materializeGridTrainingCohortPage as materializeGeneratedGridTrainingCohortPage,
@@ -79,6 +80,9 @@ export type {
   GridCohortList,
   GridCohortMembers,
   GridCohortEligibility,
+  GridTrainingRunPreview,
+  GridTrainingPresetView,
+  GridTrainingRunCost,
   GridCohortReceipt,
   GridCohortCommandResponse,
   GridSourceIdentityResponse,
@@ -1425,6 +1429,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getGridTrainingCohortEligibility: (gameId: string, cohortId: string) =>
       getGeneratedGridTrainingCohortEligibility({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    previewGridTrainingRun: (gameId: string, cohortId: string) =>
+      previewGeneratedGridTrainingRun({
         client,
         path: { game_id: gameId, cohort_id: cohortId },
       }),

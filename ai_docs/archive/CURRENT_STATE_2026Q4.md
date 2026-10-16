@@ -1,10 +1,17 @@
 ---
 title: Current state archive 2026Q4
 status: archive
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Current State — archiwum 2026Q4
+
+### TASK-0998 — Publikacja, aktywacja, domyślna wersja i rollback (done)
+
+- [Task](../tasks/completed/0998-grid-model-publication-and-activation.md); baza375, branch `codex/v3-grid-fine-tuning`. Commit v1.7.376 / `6d89d079502a128047cfcd183e420ef35382a78c`; hash dopisano po utworzeniu, do następnego commita. Bez scalenia.
+- Odrębne komendy publish/activate/default/rollback, CAS i trwałe receipts, serwerowy kontrakt oceny bez HTTP writera, jawne historyczne dopuszczenie. Published/available/eligible są osobne; stale blokuje nowe komendy, zachowując istniejący assignment/preflight i piny jobów. Symbole per gra, historyczna777 bez zmian.
+- Migracja0157/frozenv10 tylko public control; PostgreSQL2PASS i po poprawkach1PASS z rzeczywistymi zapisanymi jobami po activate/rollback, nowy interpreter i czyste bazy/role/PID. API92PASS +celowany1PASS, klient116PASS; poprawki35PASS, Ruff/mypy/OpenAPI/docs/map/diff PASS. Ograniczenia i dokładne dowody w Outcome.
+- [Claude R1 REVISE](../quality/TASK-0998_AUDIT_claude-fable-5-1.md), medium, limit1200s; jedna runda poprawek. P1-1 zamknięte dokumentacyjnie przez D-549, P2-1/2/3/5 rozwiązane, P2-4 jawnie zaakceptowane. [Rozliczenie](../quality/TASK-0998_AUDIT_RESPONSE_CODEX.md); bez nowego PASS/R2, bo P1 nie zmieniło zachowania. Bez operacji operatora/usług/GPU/aktywacji. Następny1004.
 
 ### TASK-1012 — Dynamiczne snapshoty i spójny routing V3 (done)
 

@@ -731,3 +731,37 @@ and humanLabelWithdrawn=null for that member; byte availability remains unknown.
 New detach notices record the same reason. Historical receipts, frozen payloads,
 actual-use protection and earlier notices remain unchanged. Receipt replay
 reads history and does not grant fresh admission.
+
+## Grid training admission and GPU lease (D-557, TASK-1005)
+
+`training_core/grid_training_admission.py` is neutral: it imports no application,
+database or laboratory module and loads `torch` only inside `probe_runtime`. It owns
+the versioned presets `grid-only-v1` and `screen-grid-v1`, whose SHA-256 fingerprint
+covers every training parameter but not the approval record. `estimate_cohort_cost`
+trains boards in grid-only and full photos in screen+grid; the training time is 60 s per
+TRAIN photo clamped to 300–1800 s, and the charged run limit is 3600 s.
+`evaluate_admission` is pure and lists every blocking reason in a fixed order: preset
+approval or fingerprint, cohort mode, empty cohort, cost over budget, GPU, runtime
+versions, VRAM, lease and budget. A training run needs an approved preset; a smoke
+needs only a known fingerprint.
+
+`RunBudget` is a checksummed envelope of steps, seconds and attempts. Resume increments
+only the attempt; a negative or non-finite charge (clock moved back) exhausts it. The
+durable record of a run budget belongs to TASK-0996.
+
+`training_core/gpu_lease.py` holds one application GPU lease at
+`<artifact_root>/grid-training/gpu-lease.json`. Each read-decide-write runs under a
+short `.lock` file lock and replaces the record atomically. A live owner keeps an expired
+lease; takeover needs a passed term and a missing process with the recorded PID and
+creation time. An unreadable record or an unknown process state blocks and is never
+removed automatically. The lease does not control foreign CUDA processes or laboratory
+runs. `process_identity` moved here; the laboratory module re-exports it.
+
+The bounded smoke `vision_lab/grid_training_smoke.py` runs in the isolated laboratory
+environment on the reference snapshot's `training` role. It takes the lease, passes the
+same admission with `purpose=smoke` and stops after 50 steps or 120 training seconds from
+the first step; start-up may take 300 s and the whole run 600 s. A stoppable watchdog
+thread enforces the three limits plus 30 s even when a batch blocks. It writes no checkpoint,
+candidate or export. The read-only `run-preview` route reports presets, cost, cohort
+qualification and lease state, and lists GPU, runtime, VRAM and budget as pending worker
+checks.

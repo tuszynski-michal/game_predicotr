@@ -30,7 +30,7 @@ Task jest częścią zaakceptowanej rewizji 6. Odbiór procesu i dokumentacja tr
 
 Zmiana ról na jawne polecenie operatora2026-10-16 po ukończeniu TASK-0995: Claude Code wykonuje, Codex audytuje. Historycznych raportów i wykonawców ukończonych zadań nie zmieniamy.
 
-- Wykonawca: `claude-fable-5-1`, reasoning `medium`. integracja i dowody trwałości.
+- Wykonawca: `claude-opus-5-5`, reasoning `high` (zamiennik `claude-fable-5-1`/`medium` na jawną decyzję operatora 2026-10-16, zapisaną w sekcji 8 planu). integracja i dowody trwałości.
 - Dodatkowy review: `gpt-6-astra`, reasoning `medium`, oddzielny kontekst, tylko do odczytu, brief ograniczony do diffu taska.
 - Eskalacja: rozbieżność planu, kontraktu lub niedostępna konfiguracja modelu wymaga jawnego rozstrzygnięcia; bez ukrytego zamiennika.
 

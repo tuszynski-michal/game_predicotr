@@ -13606,6 +13606,419 @@
         "title": "GridSourceIdentityResult",
         "type": "object"
       },
+      "GridTrainingEarlyStopping": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "maximize",
+              "minimize"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "evaluationIntervalSeconds": {
+            "title": "Evaluationintervalseconds",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "minDelta": {
+            "title": "Mindelta",
+            "type": "number"
+          },
+          "minEvaluations": {
+            "title": "Minevaluations",
+            "type": "integer"
+          },
+          "patience": {
+            "title": "Patience",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "metric",
+          "direction",
+          "evaluationIntervalSeconds",
+          "patience",
+          "minDelta",
+          "minEvaluations"
+        ],
+        "title": "GridTrainingEarlyStopping",
+        "type": "object"
+      },
+      "GridTrainingLeaseView": {
+        "additionalProperties": false,
+        "properties": {
+          "runKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "train",
+                  "smoke"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runkind"
+          },
+          "state": {
+            "enum": [
+              "free",
+              "held",
+              "stale",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "runKind"
+        ],
+        "title": "GridTrainingLeaseView",
+        "type": "object"
+      },
+      "GridTrainingPresetView": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalBasis": {
+            "title": "Approvalbasis",
+            "type": "string"
+          },
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "batchItems": {
+            "title": "Batchitems",
+            "type": "integer"
+          },
+          "boardsPerItem": {
+            "title": "Boardsperitem",
+            "type": "integer"
+          },
+          "earlyStopping": {
+            "$ref": "#/components/schemas/GridTrainingEarlyStopping"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "frozenModules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Frozenmodules",
+            "type": "array"
+          },
+          "learningRate": {
+            "title": "Learningrate",
+            "type": "number"
+          },
+          "maxRunSeconds": {
+            "title": "Maxrunseconds",
+            "type": "number"
+          },
+          "maxSteps": {
+            "title": "Maxsteps",
+            "type": "integer"
+          },
+          "maxTrainSeconds": {
+            "title": "Maxtrainseconds",
+            "type": "number"
+          },
+          "minFreeVramBytes": {
+            "title": "Minfreevrambytes",
+            "type": "integer"
+          },
+          "minTotalVramBytes": {
+            "title": "Mintotalvrambytes",
+            "type": "integer"
+          },
+          "minTrainSeconds": {
+            "title": "Mintrainseconds",
+            "type": "number"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "presetId": {
+            "title": "Presetid",
+            "type": "string"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/GridTrainingRuntimeRequirement"
+          },
+          "stepsPerSecondEstimate": {
+            "title": "Stepspersecondestimate",
+            "type": "number"
+          },
+          "trainSecondsPerTrainPhoto": {
+            "title": "Trainsecondspertrainphoto",
+            "type": "number"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "presetId",
+          "version",
+          "policy",
+          "fingerprint",
+          "mode",
+          "approved",
+          "approvalBasis",
+          "batchItems",
+          "boardsPerItem",
+          "frozenModules",
+          "learningRate",
+          "trainSecondsPerTrainPhoto",
+          "minTrainSeconds",
+          "maxTrainSeconds",
+          "maxSteps",
+          "maxRunSeconds",
+          "stepsPerSecondEstimate",
+          "minTotalVramBytes",
+          "minFreeVramBytes",
+          "earlyStopping",
+          "runtime"
+        ],
+        "title": "GridTrainingPresetView",
+        "type": "object"
+      },
+      "GridTrainingRunCost": {
+        "additionalProperties": false,
+        "properties": {
+          "epochsPlanned": {
+            "title": "Epochsplanned",
+            "type": "number"
+          },
+          "estimatedRunSeconds": {
+            "title": "Estimatedrunseconds",
+            "type": "number"
+          },
+          "evaluationsPlanned": {
+            "title": "Evaluationsplanned",
+            "type": "integer"
+          },
+          "plannedSteps": {
+            "title": "Plannedsteps",
+            "type": "integer"
+          },
+          "plannedTrainSeconds": {
+            "title": "Plannedtrainseconds",
+            "type": "number"
+          },
+          "stepsPerEpoch": {
+            "title": "Stepsperepoch",
+            "type": "integer"
+          },
+          "trainItems": {
+            "title": "Trainitems",
+            "type": "integer"
+          },
+          "withinBudget": {
+            "title": "Withinbudget",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "trainItems",
+          "stepsPerEpoch",
+          "plannedTrainSeconds",
+          "plannedSteps",
+          "epochsPlanned",
+          "evaluationsPlanned",
+          "estimatedRunSeconds",
+          "withinBudget"
+        ],
+        "title": "GridTrainingRunCost",
+        "type": "object"
+      },
+      "GridTrainingRunPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "apiBlockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apiblockers",
+            "type": "array"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "cohortMode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Cohortmode",
+            "type": "string"
+          },
+          "cohortQualification": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ],
+            "title": "Cohortqualification",
+            "type": "string"
+          },
+          "cohortReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cohortreasons",
+            "type": "array"
+          },
+          "cohortStatus": {
+            "title": "Cohortstatus",
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridTrainingRunCost"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/GridTrainingLeaseView"
+          },
+          "pendingWorkerChecks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pendingworkerchecks",
+            "type": "array"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/GridTrainingPresetView"
+            },
+            "title": "Presets",
+            "type": "array"
+          },
+          "selectedPresetId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selectedpresetid"
+          },
+          "smoke": {
+            "$ref": "#/components/schemas/GridTrainingSmokeLimits"
+          }
+        },
+        "required": [
+          "policy",
+          "gameId",
+          "cohortId",
+          "cohortStatus",
+          "cohortMode",
+          "cohortQualification",
+          "cohortReasons",
+          "presets",
+          "selectedPresetId",
+          "cost",
+          "apiBlockers",
+          "pendingWorkerChecks",
+          "lease",
+          "smoke"
+        ],
+        "title": "GridTrainingRunPreview",
+        "type": "object"
+      },
+      "GridTrainingRuntimeRequirement": {
+        "additionalProperties": false,
+        "properties": {
+          "cuda": {
+            "title": "Cuda",
+            "type": "string"
+          },
+          "torch": {
+            "title": "Torch",
+            "type": "string"
+          },
+          "torchvision": {
+            "title": "Torchvision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "torch",
+          "torchvision",
+          "cuda"
+        ],
+        "title": "GridTrainingRuntimeRequirement",
+        "type": "object"
+      },
+      "GridTrainingSmokeLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "maxSeconds": {
+            "title": "Maxseconds",
+            "type": "number"
+          },
+          "maxSteps": {
+            "title": "Maxsteps",
+            "type": "integer"
+          },
+          "startupSeconds": {
+            "title": "Startupseconds",
+            "type": "number"
+          },
+          "trainSeconds": {
+            "title": "Trainseconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "maxSteps",
+          "trainSeconds",
+          "startupSeconds",
+          "maxSeconds"
+        ],
+        "title": "GridTrainingSmokeLimits",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -44710,6 +45123,89 @@
           }
         ],
         "summary": "Prepare Page",
+        "tags": [
+          "grid-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview": {
+      "get": {
+        "operationId": "previewGridTrainingRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cohort_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridTrainingRunPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Preview",
         "tags": [
           "grid-training-cohorts"
         ]

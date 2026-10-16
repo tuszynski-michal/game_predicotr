@@ -915,6 +915,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewGridTrainingRunData,
+  PreviewGridTrainingRunErrors,
+  PreviewGridTrainingRunResponses,
   PreviewHistoricalGridAcceptanceNextData,
   PreviewHistoricalGridAcceptanceNextErrors,
   PreviewHistoricalGridAcceptanceNextResponses,
@@ -2539,6 +2542,25 @@ export const prepareGridTrainingCohortPage = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Run Preview
+ */
+export const previewGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  PreviewGridTrainingRunResponses,
+  PreviewGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGridTrainingRunResponses,
+    PreviewGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview',
+    ...options,
   });
 
 /**

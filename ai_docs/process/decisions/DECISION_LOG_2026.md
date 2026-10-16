@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-15
+last_updated: 2026-10-16
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,18 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-557 — Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu
+
+- **Date:** 2026-10-16.
+- **Status:** accepted; techniczne doprecyzowanie zleconej rewizji 6, TASK-1005, zapisane przy implementacji. Limity smoke doprecyzował operator 2026-10-16. Nie jest zgodą na trening, publikację, aktywację ani operacje danych operatora.
+- **Context:** aplikacja nie miała dzierżawy GPU ani wspólnej decyzji dopuszczenia; kontrola środowiska działała dopiero w procesie laboratorium, a budżet runu i presety istniały wyłącznie w laboratorium. Plan wymaga osobnych presetów grid-only i screen+grid, kosztu kohorty, early stopping, limitu czasu/kroków, blokady przy braku GPU, niezgodnym środowisku, zajętej dzierżawie lub braku zatwierdzonego presetu oraz budżetu, którego wznowienie nie odnawia.
+- **Decision:** neutralny `training_core/grid_training_admission.py` przechowuje wersjonowane presety `grid-only-v1` i `screen-grid-v1` z odciskiem SHA-256 parametrów (bez rekordu zatwierdzenia), deterministyczny koszt kohorty, fakty środowiska i czystą decyzję dopuszczenia zbierającą wszystkie powody w stałej kolejności. Trening wymaga zatwierdzonego presetu o zgodnym odcisku; smoke wymaga znanego odcisku, ale nie zatwierdzenia. `RunBudget` w kopercie `{payload, sha256}` zachowuje kroki, sekundy i próby; wznowienie zwiększa tylko licznik prób, a cofnięty zegar wyczerpuje budżet. `training_core/gpu_lease.py` to jedna międzyprocesowa dzierżawa GPU aplikacji w `<artifact_root>/grid-training/gpu-lease.json` pod krótką blokadą pliku; przejęcie wyłącznie po terminie i przy potwierdzonym braku procesu o zapisanym PID i czasie utworzenia, nieczytelny rekord blokuje. `process_identity` przeniesiono do neutralnego rdzenia z reeksportem w laboratorium.
+- **Presets:** optymalizacja presetu D; 60 s treningu na zdjęcie TRAIN w zakresie 300–1800 s, ocena VALIDATION co 300 s, early stopping po 2 ocenach bez poprawy (minimum 2 oceny), REGRESSION nie służy do wyboru. Limit 3600 s naliczonego runu i 4000 kroków. Szacunek 2,0 kroku/s (raporty 2,03–2,46 i smoke 2,63 pełnego kroku D), co najmniej 6,0 GB VRAM i 5,0 GB wolnej po utworzeniu kontekstu (szczyt alokacji smoke 4,67 GB). Grid-only zamraża detektor i BatchNorm; wykonanie należy do TASK-0996.
+- **Smoke:** 50 kroków albo 120 s treningu liczone od pierwszego kroku, start do 300 s, cały run najwyżej 600 s, watchdog +30 s. Pierwotny limit 120 s od dopuszczenia zakończył się przed pierwszym krokiem; operator polecił większy limit, aby test był dokładny.
+- **API:** `GET …/grid-training-cohorts/{cohortId}/run-preview` tylko odczytuje nagłówek, istniejącą kwalifikację, presety, koszt i stan dzierżawy (bez PID); GPU/środowisko/VRAM/budżet są `pendingWorkerChecks`, nigdy domniemanym PASS.
+- **Consequences:** TASK-0996 utrwala budżet w encji runu, pobiera dzierżawę i przed startem wywołuje tę samą decyzję; metryki early stopping mapuje TASK-0997. Dzierżawa nie kontroluje zewnętrznych procesów CUDA ani runów laboratorium. Bez migracji, nowych tabel i zmian trenera symboli.
+- **Source:** zaakceptowana rewizja 6, TASK-1005; raporty `quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md` i `MUMIE_CURRENT_APPROVALS_20261005.md`; ograniczony smoke za zgodą operatora 2026-10-16.
 
 ## D-556 — Niezmienne kohorty geometrii V3 i aktualność dowodów
 

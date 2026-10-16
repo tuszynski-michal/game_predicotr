@@ -17,7 +17,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Gałąź integracyjna = `main`** (operator, 2026-10-16): nowe gałęzie od `main`, scalanie do `main`. `v1.1-vision-lab-hybrid-geometry` jest w `main` i usunięta lokalnie; na `origin` zostaje do decyzji operatora. Starsze wzmianki o „gałęzi integracyjnej” dotyczą tamtej gałęzi. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Panel wielu gier / TASK-0991 (2026-10-16):** migracja `0155`, scalenie do `main` (v1.7.364) i cleanup wykonane bez audytu (decyzja operatora); Reviewer 3001 wymaga ręcznego restartu. Numer TASK-0991 koliduje z naprawą symboli: identyfikuj pełną ścieżką. Źródło: archiwum Q4, „TASK-0991 — Panel udostępniania wielu gier”.
 - **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Push, restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
-- **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. Źródło: archiwum Q3/Q4.
+- **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. TASK-1024 istnieje na `main` (zamknięcie tasków) i na `codex/v3-grid-fine-tuning`. Zakres TASK-1030–1033 zarezerwowany dla etapu 2 odczytu startowego. Źródło: archiwum Q3/Q4.
 - **Cykl życia usług:** API, Admin, Reviewer i workery uruchamia, zatrzymuje i restartuje wyłącznie operator; zgoda na restart dotyczy jednego zadania. Usługi działają z `D:\game_predicotr` (API z `--reload`); z `C:\Users\tuszy\Documents\game_predicotr` nie uruchamiać usług. Źródło: `AGENTS.md`, „Kontrola lokalnych usług API i Admin”.
 - **Migracje bazy operatora tylko za osobną zgodą**, w przejściu stop usług → scalenie → `db:migrate` → start; test na `*_test` nie jest zgodą. Nie scalaj do `main` kodu wymagającego niewykonanej migracji (API z `--reload` nie wystartuje). Ostatni zapis: `0155` (2026-10-16, panel wielu gier). Źródło: archiwum Q4, „Hybrydowy silnik siatek V3…”.
 - **Operacje destrukcyjne** (GC, cleanup, usuwanie legacy, `db:reset:local`, DROP baz): implementacja nie jest zgodą na wykonanie; wymagany podgląd i jawne potwierdzenie. Źródło: `AGENTS.md`, „Trwałe workflowy i operacje danych”.
@@ -31,6 +31,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md` | proposed (2026-10-16) | TASK-1030–1033 todo | brak gałęzi |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | proposed, rev. 2 (na `codex/v3-grid-fine-tuning`: accepted, rev. 6) | TASK-0993–1006 w planie; pliki tasków tylko na tamtej gałęzi | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
@@ -50,7 +51,23 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-Brak aktywnych tasków na `main` (2026-10-16, TASK-1024 zamknął 42 nieaktualne taski). Taski toru V3 (TASK-0993–1018) są na gałęzi `codex/v3-grid-fine-tuning`.
+TASK-1024 zamknął 2026-10-16 wszystkie 42 dawne taski jako nieaktualne. Taski toru V3 (TASK-0993–1024) są na gałęzi `codex/v3-grid-fine-tuning`.
+
+### TASK-1030 — skill `task-close` ze skryptem zamykania (todo)
+
+- `ai_docs/tasks/1030-task-close-skill.md`; plan etapu 2, etap A.
+
+### TASK-1031 — skill `merge-to-main` z preflightem (todo)
+
+- `ai_docs/tasks/1031-merge-to-main-skill.md`; etap A, po TASK-1030.
+
+### TASK-1032 — `AGENTS.md` ≤ 14 000 B (todo)
+
+- `ai_docs/tasks/1032-agents-md-slimming.md`; etap B, po skillach z etapu A.
+
+### TASK-1033 — `README.md` ≤ 5 000 B i `DOC_INDEX.md` (todo)
+
+- `ai_docs/tasks/1033-readme-doc-index.md`; etap B, zamyka plan.
 
 ## Ostatnie 10 ukończonych tasków
 

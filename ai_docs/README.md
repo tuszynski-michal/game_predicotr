@@ -91,6 +91,10 @@ domyślnym kontekstem implementacyjnym.
 
 ### Dostarczanie
 
+- [Etap 2 odczytu startowego](delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md)
+  — proposed, TASK-1030–1033: skille `task-close` i `merge-to-main` ze
+  skryptami, `AGENTS.md` ≤ 14 KB, `README.md` ≤ 5 KB, suma ≤ 45 KB.
+
 - [Odchudzenie obowiązkowego odczytu startowego](delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md)
   — wykonany 2026-10-16 (TASK-1019–1023): obowiązkowy odczyt 211 → 78 KB,
   budżety bajtów w `docs:check`, lekki indeks decyzji, krótkie okno stanu,

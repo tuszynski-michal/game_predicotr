@@ -210,10 +210,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-1019 — skrypt pomiaru i budżetów odczytu startowego (todo)
-
-- `ai_docs/tasks/1019-startup-read-budget-script.md`; plan odczytu startowego, etap A.
-
 ### TASK-1020 — `DECISION_LOG.md` jako lekki indeks (todo)
 
 - `ai_docs/tasks/1020-decision-log-light-index.md`; etap A, po TASK-1019.
@@ -905,6 +901,12 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-1019 — Skrypt pomiaru i budżetów odczytu startowego (done)
+
+- Plik: `ai_docs/tasks/completed/1019-startup-read-budget-script.md`; plan `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md`, etap A. Commit v1.7.366 (hash w kolejnym commicie).
+- `scripts/check_startup_read_budget.py` w `docs:check`: raport plików, sumy, sekcji `CURRENT_STATE.md` i wierszy indeksu; 9 budżetów z D3, na razie tylko raport. Bazowo 213 899 B obowiązkowego odczytu.
+- 6 nowych testów + testy linków decyzji: 10 passed; ruff, mypy --strict, docs:check PASS. Bez audytu Codex (decyzja operatora).
+
 ### TASK-1007 — Trwałe wykrywanie Claude Code CLI (done)
 
 - Plik: `ai_docs/tasks/completed/1007-claude-cli-discovery.md`. Polecenie operatora: zachować rozwiązanie powracającego problemu.
@@ -977,11 +979,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Desktop262/262, core110/110, operator-local16/16 PASS; lint/typecheck/format, docs/mapy/diff PASS. Pięć wariantów actualrelease smoke i update0.1.0/0.1.2→0.1.3 PASS; starsze EXE odrzucają head2, pełne bajty/mtime migrowanej kopii i oryginałów bez zmian.
 - Pomiar15000: NAV918,79→95,08 ms p50, accept976,16→124,49;100 operacji każdej wersji,100 receiptów po nowym procesie/retry,24 prefixy ledgeru, zero dodatkowych warm worker spawns. Cztery immutable pliki i wszystkie oryginalne SHA/mtime bez zmian. Create21,277 s/open10,523 s oraz małeJPEG/100receiptów są jawnymi granicami.
 - Pierwsze FAIL encoding i premature Tab zachowane w logach; udowodniony wyścig native commit/React busy naprawiony w harnessie bez zmiany runtime/ZIP. Own EXE count0. Raport finalizacji/pomiar i końcowy brief Claude gotowe, instrukcja imagePath/SHA zaktualizowana. Fizyczny0979 i formalny audyt operatora pozostają osobne; bez usług/danych operatora/push/merge/uploadu.
-
-### TASK-0986 — Diagnozowalny start i automatyczna kontrola paczki (done)
-
-- Plik: `ai_docs/tasks/completed/0986-selector-desktop-diagnostics-and-archive.md`; D-546, plan finalizacji. Wykonanie v1.7.336 /`c43434c28d49597407072f9636c7c07d1c3622b8`.
-- Identity ma najwyżej dwie świeże próby tylko po timeout, unknown failclosed; bounded telemetry bez identity/PID/path. Obcy lock po dwóch timeoutach bajtowo zachowany.
-- Wszystkie smoke zachowują logi/rotacje i ograniczoną przyczynę przed cleanup; capture failure zachowuje fixture. Idempotentne close, własne zarejestrowane PID, nested finally i actualZIP verifier.
-- 53/53 focused PASS (5,728 s), lint/typecheck/format/package PASS. Actualstart oba kierunki/history/source reselect/relocated source w nowych procesach PASS. Kontrolowany fail zachował64B selector.log+reason, fixture sprzątnięta, zero appprocesów.
-- Pierwsze błędy Windows ASAR path, względnego test child i finalizera Playwright naprawione z regresjami; pierwotny log zachowany. ActualoldZIP0.1.2 verifier7files PASS. Formalny audyt/0979 operatora na końcu; przyczyny historycznego P2-E nie udawano jako ustalonej.

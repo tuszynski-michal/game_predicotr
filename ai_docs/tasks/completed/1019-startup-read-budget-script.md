@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -108,4 +108,45 @@ npm run docs:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Wykonawca: claude-opus-5-5 (sesja leada) zamiast przypisanego
+claude-sonnet-5-5 / medium; odstępstwo bez wpływu na zakres. Bez audytu Codex
+(decyzja operatora 2026-10-16). Commit: v1.7.366 (hash dopisuje kolejny commit).
+
+### Changed
+
+- Nowy `scripts/check_startup_read_budget.py`: raport (`--report`) plików
+  obowiązkowego odczytu, sumy, sekcji `##`/`###` `CURRENT_STATE.md` (nagłówki w
+  blokach kodu pominięte) i liczby wierszy indeksu decyzji; tabela `BUDGETS`
+  z D3 planu, każdy budżet z flagą `enforced` (wszystkie `False`); `check()`
+  zwraca problemy tylko dla włączonych budżetów, z podpowiedzią.
+- `package.json`: skrypt dopisany na końcu `docs:check`.
+- Nowy `services/worker/tests/test_check_startup_read_budget_script.py`
+  (6 testów: repozytorium przechodzi, raport bez wymuszeń, negatywny budżet
+  sekcji aktywnego taska z podpowiedzią, negatywny budżet wierszy indeksu,
+  nagłówek w bloku kodu, punkty z kontynuacją).
+
+### Verification results
+
+- pytest (nowe testy + `test_check_decision_links_script.py`): 10 passed.
+- `ruff check`, `ruff format --check`, `mypy --strict` (skrypt i test): PASS.
+- `npm run docs:check`: PASS, `check_startup_read_budget: OK (startup read 213899 bytes, 0/9 budgets enforced)`.
+- Raport bazowy (2026-10-16, po commitach v1.7.364–365): `AGENTS.md` 26 120 B,
+  `README.md` 16 557 B, `CURRENT_STATE.md` 93 594 B, `DECISION_LOG.md`
+  77 628 B, suma 213 899 B; `CLAUDE.md` 8 392 B. Sekcje `CURRENT_STATE.md`:
+  ograniczenia 20 389 B, plany 8 288 B, otwarte decyzje 1 013 B, aktywne
+  taski 50 038 B (52 sekcje, 10 ponad 1 200 B; największa TASK-0290
+  13 740 B), ukończone 12 737 B (10 sekcji, wszystkie ponad 400 B). Indeks
+  decyzji: 187 wierszy. Przekroczone (tylko raport) wszystkie 9 budżetów.
+- Samokontrola kryteriów akceptacji: wszystkie pięć spełnione.
+
+### Not completed
+
+- Brak.
+
+### Documentation updates
+
+- `CURRENT_STATE.md` (sekcja `done`), ten plik.
+
+### Recommended next task
+
+- TASK-1020.

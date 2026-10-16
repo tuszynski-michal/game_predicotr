@@ -195,8 +195,20 @@ BUDGETS: tuple[Budget, ...] = (
         _items(DONE),
         hint="one line per done task; the full section goes to the archive",
     ),
-    Budget("CLAUDE.md", 6_000, False, _file(CLAUDE)),
-    Budget("startup total", 90_000, False, _startup_total),
+    Budget(
+        "CLAUDE.md",
+        6_000,
+        True,
+        _file(CLAUDE),
+        hint="keep only Claude-specific guidance; process rules belong in AGENTS.md",
+    ),
+    Budget(
+        "startup total",
+        90_000,
+        True,
+        _startup_total,
+        hint="shrink the largest file of the mandatory startup read",
+    ),
 )
 
 

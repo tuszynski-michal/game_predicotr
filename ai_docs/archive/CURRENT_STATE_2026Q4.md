@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1023 — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar (done)
+
+- Plik: `ai_docs/tasks/completed/1023-claude-md-dedupe-final-measurement.md`; zamyka plan odczytu startowego (status `implemented`). Commit v1.7.372.
+- `CLAUDE.md` 8 392 → 5 974 B (odesłanie do `AGENTS.md` i trzy reguły sprzed jego odczytu). Wymuszone wszystkie 9 budżetów.
+- Wynik planu: obowiązkowy odczyt 211 359 → 77 895 B (−63 %). docs:check i 22 testy PASS. Czeka na zgodę na scalenie do `main`.
+
 ### TASK-1022 — Zastosowanie budżetów `CURRENT_STATE.md` (done)
 
 - Plik: `ai_docs/tasks/completed/1022-current-state-budgets.md`; plan odczytu startowego, etap C. Commit **v1.7.370 / `138005341bfde8b4ae7ccf8e89265542dd2bf882`**.

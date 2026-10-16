@@ -92,6 +92,15 @@ def test_enforced_index_rows_budget_fails(tree: Path) -> None:
     assert problems and "31 rows, budget 30 rows" in problems[0]
 
 
+def test_enforced_startup_total_and_claude_budgets_fail(tree: Path) -> None:
+    (tree / "AGENTS.md").write_text("a" * 90_001, encoding="utf-8")
+    (tree / "CLAUDE.md").write_text("c" * 6_001, encoding="utf-8")
+    total = budget.check(tree, _enforce("startup total"))
+    assert len(total) == 1 and "budget 90000 B" in total[0]
+    claude = budget.check(tree, _enforce("CLAUDE.md"))
+    assert len(claude) == 1 and "AGENTS.md" in claude[0]
+
+
 def test_heading_inside_code_fence_is_not_a_section(tree: Path) -> None:
     lines = budget.read_lines(tree, budget.CURRENT_STATE)
     titles = [section.title for section in budget.sections(lines)]

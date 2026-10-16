@@ -36,7 +36,6 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md` | accepted (2026-10-16) | TASK-1022, TASK-1023 (1019–1021 done) | `feat/startup-read-diet` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | proposed, rev. 2 (na `codex/v3-grid-fine-tuning`: accepted, rev. 6; R8) | TASK-0993–1006 w planie; pliki tasków tylko na tamtej gałęzi | `codex/v3-grid-fine-tuning` |
 | `delivery/DISK_D_MIGRATION_PLAN_20261009.md` | accepted (D-540) | TASK-0956 blocked, TASK-0957 todo | scalona (v1.7.312) |
 | `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md` | proposed (D-539) | TASK-0947–0949 todo | brak gałęzi |
@@ -83,10 +82,6 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
   - R15 TASK-0472: okno było nieaktualne (cztery bramki, plik: szósta); po zmianie zostaje wskaźnik, do potwierdzenia.
 
 ## Aktywne taski
-
-### TASK-1023 — `CLAUDE.md` bez duplikatu i końcowy pomiar (todo)
-
-- `ai_docs/tasks/1023-claude-md-dedupe-final-measurement.md`; etap C, zamyka plan.
 
 ### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (blocked)
 
@@ -186,6 +181,7 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 — tasks/completed/1023-claude-md-dedupe-final-measurement.md
 - **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md
 - **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md
 - **TASK-1020** — `DECISION_LOG.md` jako lekki indeks — v1.7.367 / `d803c27c` — tasks/completed/1020-decision-log-light-index.md
@@ -195,4 +191,3 @@ Plan braków geometrii w lokalnym Reviewerze (`delivery/REVIEWER_GEOMETRY_GAPS_E
 - **TASK-0992** — Scalenie naprawy i obowiązek integracji — v1.7.353 / `14aeb0c0` (korekta v1.7.355 / `be7ecff1`) — tasks/completed/0992-integration-branch-merge-policy.md
 - **TASK-0979** — Wydanie 1.0.0 i odbiór operatora — v1.7.349 / `8ac68f5f` — tasks/completed/0979-selector-desktop-release-acceptance.md
 - **TASK-0990** — Zakres pośrodku nad zdjęciem i końcowy zapis widoku — v1.7.343 / `8a3249fd` — tasks/completed/0990-selector-desktop-centered-range.md
-- **TASK-0989** — Stabilny układ, minimalny fullscreen i centrowanie zdjęcia — v1.7.341 / `a9cb2fed` — tasks/completed/0989-selector-desktop-stable-layout-and-fullscreen.md

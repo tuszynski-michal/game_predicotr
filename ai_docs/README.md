@@ -92,8 +92,9 @@ domyślnym kontekstem implementacyjnym.
 ### Dostarczanie
 
 - [Odchudzenie obowiązkowego odczytu startowego](delivery/STARTUP_READ_DIET_EXECUTION_PLAN_20261016.md)
-  — accepted, TASK-1019–1023: budżety bajtów w `docs:check`, lekki indeks
-  decyzji, krótkie okno stanu, `CLAUDE.md` bez duplikatu `AGENTS.md`.
+  — wykonany 2026-10-16 (TASK-1019–1023): obowiązkowy odczyt 211 → 78 KB,
+  budżety bajtów w `docs:check`, lekki indeks decyzji, krótkie okno stanu,
+  `CLAUDE.md` bez duplikatu `AGENTS.md`.
 
 - [Doszkalanie siatek V3 z korekt w aplikacji](delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md)
   — proposed, rewizja 2, TASK-0993–1006: edytor 4/24 punktów, dane i trening,

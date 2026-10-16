@@ -1,6 +1,6 @@
 ---
 title: Odchudzenie obowiązkowego odczytu startowego
-status: accepted
+status: implemented
 last_updated: 2026-10-16
 ---
 
@@ -42,6 +42,21 @@ Szacunek: tekst polski w Markdown to około 3–3,5 B na token, więc obowiązko
 odczyt kosztuje około 60–70 tys. tokenów wejścia na każdą sesję i każdego
 subagenta, zanim zacznie się praca nad zadaniem. Liczba tokenów jest
 szacunkiem; metryką planu są bajty (deterministyczne, mierzalne skryptem).
+
+**Wynik (2026-10-16, po TASK-1023, v1.7.366–372):**
+
+| Plik | Przed (v1.7.363) | Po | Budżet |
+|---|---:|---:|---:|
+| `AGENTS.md` | 25 943 | 26 821 | — |
+| `ai_docs/README.md` | 16 296 | 17 267 | — |
+| `ai_docs/process/CURRENT_STATE.md` | 91 492 | 23 052 | 30 000 |
+| `ai_docs/process/DECISION_LOG.md` | 77 628 | 10 755 | 12 000 |
+| razem (obowiązkowy odczyt) | 211 359 | 77 895 (−63 %) | 90 000 |
+| `CLAUDE.md` | 8 392 | 5 974 | 6 000 |
+
+Wszystkie 9 budżetów jest wymuszanych w `npm run docs:check`. Szacunkowo
+oszczędność to około 40 tys. tokenów wejścia na każdą sesję i każdego
+subagenta.
 
 ## Cel
 

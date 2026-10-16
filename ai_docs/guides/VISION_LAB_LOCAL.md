@@ -409,17 +409,24 @@ niezależnym testem modelu; raport musi zachować tę informację.
 
 ## Izolowane środowisko treningowe T04
 
-Z katalogu repo uruchamiaj osobno poniższe kroki PowerShell. Każdy ma limit
-120 sekund; po timeout skrypt kończy wyłącznie swój instalator wraz z dziećmi.
-Ponowienie wykorzystuje pobrane pakiety. Główna `.venv` pozostaje bez zmian.
+Z katalogu repo uruchamiaj osobno poniższe kroki PowerShell. Każdy ma domyślny
+limit 120 sekund (`-TimeoutSeconds`, najwyżej 1800); po timeout skrypt kończy
+wyłącznie swój instalator wraz z dziećmi. Pierwsze pobranie kroku Cuda (około
+3 GB) potrzebuje dłuższego limitu; pakiety z cache pip instalują się w kilka
+minut. Główna `.venv` pozostaje bez zmian.
 
 ```powershell
-pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Create
-pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Cuda
-pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Dependencies
-pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Project
-pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Check
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_vision_lab.ps1 -Step Create
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_vision_lab.ps1 -Step Cuda -TimeoutSeconds 1800
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_vision_lab.ps1 -Step Dependencies
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_vision_lab.ps1 -Step Project
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_vision_lab.ps1 -Step Check
 ```
+
+Lane `grid-training` (`scripts/manage_worker_lanes.ps1`) bez parametru i zmiennej
+`GAME_PREDICTOR_GRID_TRAINING_PYTHON` używa `.venv-vision-lab` tego checkoutu.
+Na komputerze operatora środowisko jest w `D:\game_predicotr\.venv-vision-lab`
+(2026-10-16).
 
 Pakiety i ich zależności przypina `constraints-vision-lab.txt`, a projekt
 instaluje się editable z `--no-deps`. Check uruchamia nowy proces, sprawdza
@@ -652,8 +659,8 @@ prosi Windows o brak uśpienia bezczynności na czas swojego życia; zamknięcie
 pokrywy albo ręczne uśpienie zawiesza run, a czas biegnie dalej.
 
 ```powershell
-$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
-$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$env:PYTHONPATH = 'D:\game_predicotr\services\worker\src'
+$py = 'D:\game_predicotr\.venv-vision-lab\Scripts\python.exe'
 $m = 'game_predictor_worker.vision_lab.neural_grid_runs'
 & $py -m $m status                                  # runy, budżet, postęp, ostatnia strata
 & $py -m $m start --preset A --purpose smoke --request-id ng-smoke-a-<data>
@@ -840,8 +847,8 @@ niezamkniętych → raport. Wszystkie iteracje razem mieszczą się w 14 400 s (
 odmawia iteracji, gdy budżet się kończy); czwartego runu nie da się uruchomić.
 
 ```powershell
-$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
-$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$env:PYTHONPATH = 'D:\game_predicotr\services\worker\src'
+$py = 'D:\game_predicotr\.venv-vision-lab\Scripts\python.exe'
 $f = 'game_predictor_worker.vision_lab.neural_grid_finetune'
 & $py -m $f status            # budżet runu 3, holdout, wyniki iteracji
 & $py -m $f iterate           # jedna iteracja; po przerwaniu ta sama komenda wznawia

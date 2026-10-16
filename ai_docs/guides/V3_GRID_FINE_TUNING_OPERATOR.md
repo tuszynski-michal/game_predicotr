@@ -43,11 +43,11 @@ Wynik odbioru: [V3_GRID_FINE_TUNING_ACCEPTANCE](../quality/V3_GRID_FINE_TUNING_A
     `-Lane grid-training` odmawia startu, a `-Lane all` pomija ten lane. Worker
     uruchomiony ręcznie (`npm run worker:grid-training:poll`) bez zmiennej startuje,
     ale każdy run kończy się kodem `GRID_TRAINING_PYTHON_UNSET`.
-  - Stan 2026-10-16: środowisko `.venv-vision-lab` istnieje tylko w starym
-    checkoucie `C:\Users\tuszy\Documents\game_predicotr`; checkout
-    `D:\game_predicotr` go nie ma. Do czasu kopii na D wskaż ścieżkę z C
-    parametrem lub zmienną użytkownika i nie usuwaj tego katalogu przy
-    sprzątaniu C (TASK-0957).
+  - Stan 2026-10-16: środowisko `D:\game_predicotr\.venv-vision-lab` (torch
+    2.12.1+cu130) istnieje, więc skrypt znajduje interpreter sam, bez parametru
+    i zmiennej. Środowisko w starym checkoucie na C nie jest już używane.
+    Odtworzenie: [VISION_LAB_LOCAL](VISION_LAB_LOCAL.md), sekcja „Izolowane
+    środowisko treningowe T04”.
 - Lane `grid-training` ma jeden slot GPU. Drugi run czeka w kolejce; zajęte
   GPU nie jest błędem runu. Orientacyjnie: kohorta 30 plansz TRAIN, preset
   `grid-only-v1`, 1200 kroków to około 5 minut treningu na lokalnym GPU (pomiar

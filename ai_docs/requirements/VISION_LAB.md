@@ -543,3 +543,15 @@ the same data order. A damaged checkpoint, a removed source, a changed base or p
 missing GPU or a held GPU lease stops the run without a candidate. A finished run
 registers one not-evaluated candidate version, also after a crash and retry; it is never
 published or activated by the run.
+
+## Per-game candidate evaluation (D-559, TASK-0997)
+
+An operator evaluates a trained candidate against its base on the control photos of the
+training game and of every other game of its family. Both models analyse the same photos
+from the original image; results are shown per game, role and recording. A regression in
+any game, a missing board, a missing control photo, failed parity or a stale proof blocks
+publication; the training game must improve. REGRESSION photos are used only for the
+final non-regression check and never for checkpoint selection. When a control photo's
+geometry changes later, the candidate is blocked until the operator checks currentness
+again; a withdrawn label keeps it blocked. The evaluation never publishes or activates a
+model.

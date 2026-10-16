@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
@@ -32,6 +33,10 @@ class GridModelControlRepository(Protocol):
         self, command: dict[str, Any], receipt: dict[str, Any], evidence: dict[str, Any]
     ) -> None: ...
     def history(self, game_id: UUID | None) -> list[dict[str, Any]]: ...
+    def cohort_currentness(
+        self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]: ...
+    def family_games(self, family_id: UUID) -> set[str]: ...
 
 
 class GridModelPublicationService:
@@ -57,7 +62,12 @@ class GridModelPublicationService:
         return view
 
     def _evidence(
-        self, view: dict[str, Any], evaluation_id: UUID | None, game_id: UUID | None
+        self,
+        view: dict[str, Any],
+        evaluation_id: UUID | None,
+        game_id: UUID | None,
+        *,
+        publishing: bool = False,
     ) -> dict[str, Any]:
         manifest = view["manifest"]
         if manifest["admission"] == "historical_baseline":
@@ -97,12 +107,44 @@ class GridModelPublicationService:
             base_sha256=base.manifest_sha256,
             game_id=game_id,
         )
+        if evidence.cohorts:
+            self._require_current(evidence.report_id, evidence.cohorts)
+            if publishing:
+                missing = sorted(
+                    self.repository.family_games(UUID(manifest["familyId"]))
+                    - {str(game) for game in evidence.games}
+                )
+                if missing:
+                    error = GridModelRegistryError(
+                        "GRID_MODEL_EVALUATION_REQUIRED",
+                        "Every game of the candidate's family needs a passing evaluation.",
+                    )
+                    error.details = {"gameIds": missing}
+                    raise error
         return {
             "kind": "evaluated_candidate",
             "evaluationId": str(evidence.report_id),
             "evaluationSha256": evidence.report_sha256,
             "manifestSha256": view["manifestSha256"],
         }
+
+    def _require_current(self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]) -> None:
+        """D-559: every cohort's latest proof must match today's notice watermark and the
+        game's active storage generation; a deleted game is never current."""
+        for state in self.repository.cohort_currentness(report_id, cohorts):
+            if state["state"] == "current":
+                continue
+            missing = state["state"] == "missing"
+            error = GridModelRegistryError(
+                "GRID_MODEL_EVALUATION_REQUIRED" if missing else "GRID_MODEL_EVALUATION_STALE",
+                "A game's cohort has no current evaluation proof; check currentness again.",
+            )
+            error.details = {
+                "gameId": state["gameId"],
+                "cohortId": state["cohortId"],
+                "state": state["state"],
+            }
+            raise error
 
     def eligible(
         self,
@@ -219,7 +261,7 @@ class GridModelPublicationService:
             )
         if kind == "publish":
             view = self._version(version_id)
-            evidence = self._evidence(view, evaluation_id, None)
+            evidence = self._evidence(view, evaluation_id, None, publishing=True)
         else:
             view, evidence = self.eligible(version_id, game_id=game_id)
         if game is not None:

@@ -169,6 +169,24 @@ def _remote_host_action_cycle(
     return run
 
 
+def _grid_model_evaluation_handler(
+    session_factory: Any, engine: Any, artifact_root: Path, threads: int
+) -> Any:
+    """CPU ONNX evaluation of a registered candidate against its base (TASK-0997)."""
+    from game_predictor_worker.images.grid_model_evaluation_handler import (
+        GridModelEvaluationJobHandler,
+    )
+    from game_predictor_worker.images.grid_model_evaluation_store import (
+        SqlGridModelEvaluationStore,
+    )
+
+    return GridModelEvaluationJobHandler(
+        SqlGridModelEvaluationStore(session_factory, engine, artifact_root),
+        artifact_root,
+        threads=max(1, min(8, threads)),
+    )
+
+
 def _grid_training_handler(session_factory: Any, engine: Any, artifact_root: Path) -> Any:
     """GPU training supervisor; the trainer child uses the configured CUDA interpreter."""
     from game_predictor_worker.images.grid_training_handler import GridTrainingJobHandler
@@ -534,6 +552,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 owner_engine,
             ),
             JobType.SUPER_GAME_SERIES_DERIVE: SuperGameSeriesDeriveHandler(session_factory),
+            JobType.GRID_MODEL_EVALUATION: _grid_model_evaluation_handler(
+                session_factory, engine, artifact_root, thread_budget
+            ),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

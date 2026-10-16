@@ -1,8 +1,9 @@
 """Eligibility read contract. Only the server evaluator owns evaluation outcomes.
 
-No HTTP command can create a report. TASK-0997 produces measured reports and
-TASK-0995/0997 append invalidations under the catalogue transaction lock when
-their pinned truth/cohort becomes stale. This module never calculates a PASS.
+No HTTP command can create a report. The TASK-0997 evaluator job writes measured
+v2 reports; v1 keeps its closed historical contract. The v2 reader recomputes the
+policy decisions from stored measures (``grid_model_evaluation``); cohort
+currentness proofs are a separate barrier of the publication service.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from .grid_model_evaluation import REPORT_SCHEMA as EVALUATION_SCHEMA_V2
+from .grid_model_evaluation import GridEvaluationReportError, require_report
 from .grid_model_registry import GridModelRegistryError, canonical_json, descriptor_sha256
 
 EVALUATION_SCHEMA = "grid-model-evaluation-read-v1"
@@ -26,6 +29,8 @@ class GridEvaluationEvidence:
     report_id: UUID
     report_sha256: str
     games: frozenset[UUID]
+    # v2 only: the (gameId, cohortId, manifestSha256) entries whose proofs must be current.
+    cohorts: tuple[dict[str, str], ...] = ()
 
 
 def require_evaluation_evidence(
@@ -48,6 +53,17 @@ def require_evaluation_evidence(
         if len(report_json) > 1024 * 1024:
             raise ValueError("Evaluation read model is too large.")
         report = json.loads(report_json)
+        if isinstance(report, dict) and report.get("schemaVersion") == EVALUATION_SCHEMA_V2:
+            return _require_v2(
+                report_id=report_id,
+                report_json=report_json,
+                report_sha256=report_sha256,
+                producer=producer,
+                invalidated=invalidated,
+                manifest=manifest,
+                base_sha256=base_sha256,
+                game_id=game_id,
+            )
         if (
             producer != EVALUATION_PRODUCER
             or invalidated
@@ -111,3 +127,38 @@ def require_evaluation_evidence(
             "A current compatible server evaluation must pass for every required game.",
         ) from error
     return GridEvaluationEvidence(report_id, report_sha256, identifiers)
+
+
+def _require_v2(
+    *,
+    report_id: UUID,
+    report_json: str,
+    report_sha256: str,
+    producer: str,
+    invalidated: bool,
+    manifest: dict[str, Any],
+    base_sha256: str,
+    game_id: UUID | None,
+) -> GridEvaluationEvidence:
+    """Only a measured PASS of every required game is publication evidence."""
+    if (
+        producer != EVALUATION_PRODUCER
+        or invalidated
+        or descriptor_sha256(json.loads(report_json)) != report_sha256
+    ):
+        raise ValueError("Evidence identity or currentness differs.")
+    try:
+        report = require_report(report_json, manifest=manifest, base_sha256=base_sha256)
+    except GridEvaluationReportError as error:
+        raise ValueError(str(error)) from error
+    if report["verdict"] != "PASS":
+        raise ValueError("The measured evaluation did not pass.")
+    identifiers = frozenset(UUID(value) for value in report["requiredGameIds"])
+    if game_id is not None and game_id not in identifiers:
+        raise ValueError("The game is outside this evaluated scope.")
+    return GridEvaluationEvidence(
+        report_id,
+        report_sha256,
+        identifiers,
+        tuple(dict(entry) for entry in report["cohorts"]),
+    )

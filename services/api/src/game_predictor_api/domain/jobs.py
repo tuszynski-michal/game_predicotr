@@ -29,6 +29,7 @@ class JobType(StrEnum):
     STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
     SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
     GRID_TRAINING = "grid_training"
+    GRID_MODEL_EVALUATION = "grid_model_evaluation"
 
 
 class JobStatus(StrEnum):
@@ -126,6 +127,10 @@ def create_job(
         schema_version,
         input_payload.get("training_kind"),
     ) == (1, "grid-training-run-v1")
+    supports_grid_model_evaluation_v1 = job_type is JobType.GRID_MODEL_EVALUATION and (
+        schema_version,
+        input_payload.get("evaluation_kind"),
+    ) == (1, "grid-model-evaluation-v1")
     supports_semi_automatic_selection_v2_v4 = (
         schema_version in {2, 3, 4} and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
     )
@@ -138,6 +143,12 @@ def create_job(
         and not supports_semi_automatic_selection_v2_v4
         and not supports_grid_training_v1
     ):
+        raise JobError(
+            "UNSUPPORTED_JOB_PAYLOAD_VERSION",
+            "Job inputPayload must use a supported schema version.",
+            details={"schemaVersion": schema_version},
+        )
+    if job_type is JobType.GRID_MODEL_EVALUATION and not supports_grid_model_evaluation_v1:
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
             "Job inputPayload must use a supported schema version.",

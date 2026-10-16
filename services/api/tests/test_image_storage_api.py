@@ -125,9 +125,14 @@ def test_inventory_is_read_only_bounded_to_managed_namespaces(
         "training",
         "models",
         "exports",
+        # TASK-0995: frozen cohort snapshots are reference-protected, never auto-deleted.
+        "grid-training-cohorts",
     ]
     originals = payload["namespaces"][1]
     models = payload["namespaces"][5]
+    cohorts = payload["namespaces"][7]
+    assert cohorts["retentionPolicy"] == "reference-protected-cohort"
+    assert cohorts["protected"] is True
     assert originals["retentionPolicy"] == "preserve"
     assert originals["protected"] is True
     assert models["protected"] is True

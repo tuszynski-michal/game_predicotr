@@ -135,6 +135,9 @@ import type {
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
+  CreateGridModelEvaluationData,
+  CreateGridModelEvaluationErrors,
+  CreateGridModelEvaluationResponses,
   CreateGridTrainingRunData,
   CreateGridTrainingRunErrors,
   CreateGridTrainingRunResponses,
@@ -393,6 +396,9 @@ import type {
   GetGridModelDefaultData,
   GetGridModelDefaultErrors,
   GetGridModelDefaultResponses,
+  GetGridModelEvaluationData,
+  GetGridModelEvaluationErrors,
+  GetGridModelEvaluationResponses,
   GetGridModelHistoryData,
   GetGridModelHistoryErrors,
   GetGridModelHistoryResponses,
@@ -721,6 +727,9 @@ import type {
   ListGridCalibrationProfilesResponses,
   ListGridEngineProfilesData,
   ListGridEngineProfilesResponses,
+  ListGridModelEvaluationsData,
+  ListGridModelEvaluationsErrors,
+  ListGridModelEvaluationsResponses,
   ListGridModelVersionsData,
   ListGridModelVersionsErrors,
   ListGridModelVersionsResponses,
@@ -1302,6 +1311,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  VerifyGridModelEvaluationCurrentnessData,
+  VerifyGridModelEvaluationCurrentnessErrors,
+  VerifyGridModelEvaluationCurrentnessResponses,
   WithdrawSourceImageGeometryExceptionData,
   WithdrawSourceImageGeometryExceptionErrors,
   WithdrawSourceImageGeometryExceptionResponses,
@@ -4392,6 +4404,87 @@ export const setGridModelDefault = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List Evaluations
+ */
+export const listGridModelEvaluations = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridModelEvaluationsData, ThrowOnError>,
+): RequestResult<
+  ListGridModelEvaluationsResponses,
+  ListGridModelEvaluationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridModelEvaluationsResponses,
+    ListGridModelEvaluationsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-evaluations', ...options });
+
+/**
+ * Create
+ */
+export const createGridModelEvaluation = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGridModelEvaluationData, ThrowOnError>,
+): RequestResult<
+  CreateGridModelEvaluationResponses,
+  CreateGridModelEvaluationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridModelEvaluationResponses,
+    CreateGridModelEvaluationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-evaluations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Verify
+ */
+export const verifyGridModelEvaluationCurrentness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<VerifyGridModelEvaluationCurrentnessData, ThrowOnError>,
+): RequestResult<
+  VerifyGridModelEvaluationCurrentnessResponses,
+  VerifyGridModelEvaluationCurrentnessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    VerifyGridModelEvaluationCurrentnessResponses,
+    VerifyGridModelEvaluationCurrentnessErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-evaluations/reports/{report_id}/currentness',
+    ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridModelEvaluation = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridModelEvaluationData, ThrowOnError>,
+): RequestResult<
+  GetGridModelEvaluationResponses,
+  GetGridModelEvaluationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridModelEvaluationResponses,
+    GetGridModelEvaluationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/grid-model-evaluations/{evaluation_id}',
+    ...options,
   });
 
 /**

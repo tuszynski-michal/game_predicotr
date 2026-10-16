@@ -66,7 +66,7 @@ def test_grid_training_lane_constraints_and_guarded_downgrade() -> None:
             ).all()
             assert "grid_training" in labels
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0165_grid_training_lane"
+                "0166_grid_model_evaluation"
             )
         with db.owner_engine.begin() as connection:
             connection.execute(text("DELETE FROM public.jobs WHERE execution_slot = 3"))

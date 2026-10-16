@@ -6,9 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-0997 — Ocena per gra i bramka kandydata (done)
+
+- [Task](../tasks/completed/0997-grid-model-evaluation.md); baza v1.7.388 `6397bc51`, branch `codex/v3-grid-fine-tuning`, commit v1.7.389. Wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audytor Codex `gpt-6-astra`/`high`: R1 REVISE (P0: usunięta gra i duplikaty detekcji), jedna runda poprawek, R2 PASS; resztkowe P2-2 domknięte po R2.
+- D-559: raport v2 z miarami bazy i kandydata per gra/rola/nagranie, polityka `grid-model-per-game-gate-v1` przeliczana przez czytnik, job `grid_model_evaluation` w lane `general`, migracja `0166` (manifest v17) ze znacznikami notices przez wyzwalacz `SECURITY DEFINER` i append-only proofs z generacją magazynu, bariera publikacji/aktywacji/default, API `grid-model-evaluations` i panel porównania.
+- E2E PostgreSQL na rzeczywiście zamrożonej kohorcie PASS (writer, bind, proof, publikacja, revert → STALE, ponowne sprawdzenie odmawia); naprawiono fixture E2E TASK-0995 niezgodny z jego R1.
+- Bez oceny na danych operatora, publikacji, aktywacji i migracji jego bazy.
+
 ### TASK-0996 — Trwały trening V3 w aplikacji (done)
 
-- [Task](../tasks/completed/0996-durable-v3-grid-training.md); baza v1.7.387, branch `codex/v3-grid-fine-tuning`, commit v1.7.388. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1–R4 REVISE (kolejno 7, 4, 4 i 2 uwagi P0/P1), dodatkowe rundy poprawek zatwierdzone przez operatora, R5 PASS bez uwag.
+- [Task](../tasks/completed/0996-durable-v3-grid-training.md); baza v1.7.387, branch `codex/v3-grid-fine-tuning`, commit v1.7.388 `6397bc51`. Wykonawca Claude Code `claude-opus-5-5`/`high`, audytor Codex `gpt-6-astra`/`high`: R1–R4 REVISE (kolejno 7, 4, 4 i 2 uwagi P0/P1), dodatkowe rundy poprawek zatwierdzone przez operatora, R5 PASS bez uwag.
 - D-558: lane i slot `grid_training` (migracja `0165`), nadzorca w workerze z bazą i trener GPU bez bazy, neutralny rdzeń sieci/augmentacji/treningu, wznowienie identyczne po kroku, checkpoint przy przerwaniu i adopcja po utracie nadzorcy, rezerwacja kroków blokami 200, kandydat `not_evaluated` bez duplikatu, API `grid-training-runs`.
 - E2E na GPU z izolowanym PostgreSQL i prawdziwym workerem PASS: normalny run oraz zabicie nadzorcy, samodzielne zatrzymanie trenera, wznowienie i jedna rejestracja; wykrył i zamknął dwa błędy kontraktu jobów.
 - Bez treningu na danych operatora, migracji jego bazy i integracji; te kroki na końcu planu za zgodą operatora.

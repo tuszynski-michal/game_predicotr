@@ -20,7 +20,7 @@ from game_predictor_api.storage import (
 from game_predictor_api.storage import (
     game_data_v2_manifest_v12 as current,
 )
-from game_predictor_api.storage import game_data_v2_manifest_v16 as runtime
+from game_predictor_api.storage import game_data_v2_manifest_v17 as runtime
 
 ROOT = Path(__file__).resolve().parents[3]
 REVISION = "0159_grid_reinference"

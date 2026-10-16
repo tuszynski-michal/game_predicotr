@@ -11276,6 +11276,858 @@
         "title": "GridModelDefaultResponse",
         "type": "object"
       },
+      "GridModelEvaluationCohortPin": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId",
+          "manifestSha256"
+        ],
+        "title": "GridModelEvaluationCohortPin",
+        "type": "object"
+      },
+      "GridModelEvaluationCohortRef": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId"
+        ],
+        "title": "GridModelEvaluationCohortRef",
+        "type": "object"
+      },
+      "GridModelEvaluationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortRef"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "versionId",
+          "cohorts"
+        ],
+        "title": "GridModelEvaluationCreate",
+        "type": "object"
+      },
+      "GridModelEvaluationCurrentness": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "noticeCount": {
+            "title": "Noticecount",
+            "type": "integer"
+          },
+          "provenAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenat"
+          },
+          "provenNoticeCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provennoticecount"
+          },
+          "state": {
+            "enum": [
+              "current",
+              "stale",
+              "missing",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId",
+          "state",
+          "noticeCount",
+          "provenNoticeCount",
+          "provenAt"
+        ],
+        "title": "GridModelEvaluationCurrentness",
+        "type": "object"
+      },
+      "GridModelEvaluationCurrentnessResult": {
+        "additionalProperties": false,
+        "properties": {
+          "currentness": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCurrentness"
+            },
+            "title": "Currentness",
+            "type": "array"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationProofFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "reportId": {
+            "format": "uuid",
+            "title": "Reportid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reportId",
+          "currentness",
+          "failures"
+        ],
+        "title": "GridModelEvaluationCurrentnessResult",
+        "type": "object"
+      },
+      "GridModelEvaluationDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "title": "GridModelEvaluationDetail",
+        "type": "object"
+      },
+      "GridModelEvaluationGame": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "regression": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Regression",
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/GridModelEvaluationRoles"
+          },
+          "targetMetric": {
+            "title": "Targetmetric",
+            "type": "string"
+          },
+          "validation": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId",
+          "mode",
+          "targetMetric",
+          "validation",
+          "regression",
+          "coverage",
+          "reasons",
+          "roles"
+        ],
+        "title": "GridModelEvaluationGame",
+        "type": "object"
+      },
+      "GridModelEvaluationJobPayload": {
+        "additionalProperties": false,
+        "description": "Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route.",
+        "properties": {
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "evaluationKind": {
+            "const": "grid-model-evaluation-v1",
+            "title": "Evaluationkind",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluationKind",
+          "idempotencyKey",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "cohorts"
+        ],
+        "title": "GridModelEvaluationJobPayload",
+        "type": "object"
+      },
+      "GridModelEvaluationList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationView"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GridModelEvaluationList",
+        "type": "object"
+      },
+      "GridModelEvaluationMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "board_correct_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Correct Rate"
+          },
+          "boards_correct": {
+            "title": "Boards Correct",
+            "type": "integer"
+          },
+          "boards_expected": {
+            "title": "Boards Expected",
+            "type": "integer"
+          },
+          "boards_matched": {
+            "title": "Boards Matched",
+            "type": "integer"
+          },
+          "detection_recall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Recall"
+          },
+          "duplicate_predictions": {
+            "title": "Duplicate Predictions",
+            "type": "integer"
+          },
+          "false_boards": {
+            "title": "False Boards",
+            "type": "integer"
+          },
+          "image_macro": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Macro"
+          },
+          "max_node_error_p95": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Node Error P95"
+          },
+          "nme_p95": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nme P95"
+          },
+          "photo_complete_correct": {
+            "title": "Photo Complete Correct",
+            "type": "integer"
+          },
+          "photo_complete_correct_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Complete Correct Rate"
+          },
+          "photos": {
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "photos",
+          "photo_complete_correct",
+          "photo_complete_correct_rate",
+          "boards_expected",
+          "boards_correct",
+          "board_correct_rate",
+          "boards_matched",
+          "detection_recall",
+          "false_boards",
+          "duplicate_predictions",
+          "image_macro",
+          "nme_p95",
+          "max_node_error_p95"
+        ],
+        "title": "GridModelEvaluationMetrics",
+        "type": "object"
+      },
+      "GridModelEvaluationParity": {
+        "additionalProperties": false,
+        "properties": {
+          "bundleSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Bundlesha256",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "passed",
+          "bundleSha256"
+        ],
+        "title": "GridModelEvaluationParity",
+        "type": "object"
+      },
+      "GridModelEvaluationProofFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "code"
+        ],
+        "title": "GridModelEvaluationProofFailure",
+        "type": "object"
+      },
+      "GridModelEvaluationRecording": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/GridModelEvaluationMetrics"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/GridModelEvaluationMetrics"
+          },
+          "groupId": {
+            "format": "uuid",
+            "title": "Groupid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "groupId",
+          "base",
+          "candidate"
+        ],
+        "title": "GridModelEvaluationRecording",
+        "type": "object"
+      },
+      "GridModelEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationGame"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "additionalProperties": true,
+            "title": "Policy",
+            "type": "object"
+          },
+          "policyVersion": {
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "title": "Producer",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v2",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "producer",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict"
+        ],
+        "title": "GridModelEvaluationReport",
+        "type": "object"
+      },
+      "GridModelEvaluationRole": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/GridModelEvaluationMetrics"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/GridModelEvaluationMetrics"
+          },
+          "detail": {
+            "$ref": "#/components/schemas/GridModelEvaluationDetail"
+          },
+          "inputSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inputsha256",
+            "type": "string"
+          },
+          "photos": {
+            "title": "Photos",
+            "type": "integer"
+          },
+          "recordings": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationRecording"
+            },
+            "title": "Recordings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "photos",
+          "inputSha256",
+          "base",
+          "candidate",
+          "recordings",
+          "detail"
+        ],
+        "title": "GridModelEvaluationRole",
+        "type": "object"
+      },
+      "GridModelEvaluationRoles": {
+        "additionalProperties": false,
+        "properties": {
+          "REGRESSION": {
+            "$ref": "#/components/schemas/GridModelEvaluationRole"
+          },
+          "VALIDATION": {
+            "$ref": "#/components/schemas/GridModelEvaluationRole"
+          }
+        },
+        "required": [
+          "VALIDATION",
+          "REGRESSION"
+        ],
+        "title": "GridModelEvaluationRoles",
+        "type": "object"
+      },
+      "GridModelEvaluationView": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "cancelRequested": {
+            "title": "Cancelrequested",
+            "type": "boolean"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortRef"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "currentness": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCurrentness"
+            },
+            "title": "Currentness",
+            "type": "array"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "evaluationId": {
+            "format": "uuid",
+            "title": "Evaluationid",
+            "type": "string"
+          },
+          "progressCurrent": {
+            "title": "Progresscurrent",
+            "type": "integer"
+          },
+          "progressTotal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progresstotal"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridModelEvaluationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reportId": {
+            "format": "uuid",
+            "title": "Reportid",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "processing",
+              "waiting_for_review",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PASS",
+                  "REVISE",
+                  "NOT_EVALUABLE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluationId",
+          "reportId",
+          "status",
+          "stage",
+          "versionId",
+          "baseVersionId",
+          "trainingGameId",
+          "cohorts",
+          "progressCurrent",
+          "progressTotal",
+          "verdict",
+          "cancelRequested",
+          "errorCode",
+          "createdAt",
+          "updatedAt",
+          "report",
+          "currentness"
+        ],
+        "title": "GridModelEvaluationView",
+        "type": "object"
+      },
       "GridModelHistoricalReport": {
         "additionalProperties": false,
         "properties": {
@@ -20950,6 +21802,9 @@
                 "$ref": "#/components/schemas/GridTrainingJobPayload"
               },
               {
+                "$ref": "#/components/schemas/GridModelEvaluationJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -21079,7 +21934,8 @@
           "storage_inventory",
           "storage_pipeline_compaction",
           "super_game_series_derive",
-          "grid_training"
+          "grid_training",
+          "grid_model_evaluation"
         ],
         "title": "JobType",
         "type": "string"
@@ -53552,6 +54408,305 @@
         "summary": "Set Default",
         "tags": [
           "grid-model-registry"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-evaluations": {
+      "get": {
+        "operationId": "listGridModelEvaluations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Versionid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Evaluations",
+        "tags": [
+          "grid-model-evaluations"
+        ]
+      },
+      "post": {
+        "operationId": "createGridModelEvaluation",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridModelEvaluationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "grid-model-evaluations"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-evaluations/reports/{report_id}/currentness": {
+      "post": {
+        "operationId": "verifyGridModelEvaluationCurrentness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationCurrentnessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Verify",
+        "tags": [
+          "grid-model-evaluations"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-evaluations/{evaluation_id}": {
+      "get": {
+        "operationId": "getGridModelEvaluation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "grid-model-evaluations"
         ]
       }
     },

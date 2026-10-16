@@ -1047,6 +1047,8 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.SUPER_GAME_SERIES_DERIVE,
         # TASK-0996: queued only by the grid-training run route.
         JobType.GRID_TRAINING,
+        # TASK-0997: queued only by the grid-model evaluation route.
+        JobType.GRID_MODEL_EVALUATION,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

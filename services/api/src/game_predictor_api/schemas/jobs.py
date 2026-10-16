@@ -769,6 +769,27 @@ class GridTrainingJobPayload(ApiModel):
     planned_steps: int = Field(ge=1, le=1_000_000)
 
 
+class GridModelEvaluationCohortPin(ApiModel):
+    game_id: UUID
+    cohort_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class GridModelEvaluationJobPayload(ApiModel):
+    """Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route."""
+
+    schema_version: Literal[1] = 1
+    evaluation_kind: Literal["grid-model-evaluation-v1"]
+    idempotency_key: UUID
+    version_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    base_version_id: UUID
+    base_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    family_id: UUID
+    training_game_id: UUID
+    cohorts: list[GridModelEvaluationCohortPin] = Field(min_length=1, max_length=100)
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -842,6 +863,7 @@ JobPayloadResponse = (
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
     | GridTrainingJobPayload
+    | GridModelEvaluationJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload
@@ -1368,6 +1390,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.GRID_TRAINING:
         return GridTrainingJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.GRID_MODEL_EVALUATION:
+        return GridModelEvaluationJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 
 

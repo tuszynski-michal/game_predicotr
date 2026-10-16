@@ -133,7 +133,7 @@ Warunek zaliczenia: spełnione kryteria i brak otwartych P0/P1 audytu. Brak dany
 - Wykonawca: Claude Code `claude-opus-5-5`/`high` (wybór wykonawcy po sugestii operatora 2026-10-16, sekcja 8 planu).
 - Baza taska: v1.7.387 / `9b6b25dce9a2670afb3b4abcbe8b3e1b88d1a6f5` (scalenie `main` v1.7.376); original base v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.
 - Worktree: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`; branch `codex/v3-grid-fine-tuning`.
-- Commit: v1.7.388 (poprzedni wersjonowany commit gałęzi v1.7.387, `main` v1.7.376); pełny hash w następnym commicie zgodnie z AGENTS.
+- Commit: v1.7.388 `6397bc517e787271b76fa7d49425fef40fd6b785` (poprzedni wersjonowany commit gałęzi v1.7.387, `main` v1.7.376); hash zapisany w commicie TASK-0997.
 - Następny krok: audyt, ewentualna jedna runda poprawek, commit, TASK-0997.
 
 ### Changed

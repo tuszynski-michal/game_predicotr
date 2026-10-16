@@ -800,3 +800,39 @@ supervisor. A re-claim first waits for the previous trainer to end, then charges
 reported steps, adopts a newer intact checkpoint and recovers a finished export without new
 budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
 (`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.
+
+## Per-game candidate evaluation and proof currentness (D-559, TASK-0997)
+
+A registered `not_evaluated` candidate is compared with its base by a
+`grid_model_evaluation` job in the general lane (CPU ONNX). The API
+`/admin/grid-model-evaluations` queues it only with the candidate's training cohort and
+the cohort of every game whose assignment trains in the candidate's family, each frozen,
+`eligible` and pinned to the same family and base, and only with a passing candidate
+parity. The handler `images/grid_model_evaluation_handler.py` measures one unit per
+(game, VALIDATION or REGRESSION): it re-reads the game's snapshot in that game's own
+session, runs both bundles on the same decoded frames from the original photo and scores
+them with `neural-grid-metrics-v1` through the neutral `training_core/grid_evaluation.py`.
+Each unit writes `grid-model-evaluations/<jobId>/<gameId>-<role>.json` atomically and
+checkpoints its summary; a restart skips finished units and rebuilds the same canonical
+report v2 (`domain/grid_model_evaluation.py`) under the identity `uuid5(jobId)`.
+
+The gate `grid-model-per-game-gate-v1` is one pure function shared by writer and reader:
+no regression in complete-correct photos, correct boards, detected boards, false boards,
+duplicate detections and image-macro (a missing board costs 1, an unknown value counts as the worst), a strict
+improvement of the target metric on the training game's VALIDATION, REGRESSION as the
+final non-regression check only, at least five photos per role measured by both models.
+The publication reader recomputes every decision and accepts only a v2 `PASS`.
+
+Cross-game currentness never reads a foreign partition. Migration 0166 (manifest v17)
+adds `public.grid_model_cohort_notice_marks`, appended only by a `SECURITY DEFINER`
+trigger on every `currentness_notice` and read-only for the application role, and the
+append-only `public.grid_model_evaluation_cohort_proofs`. `application/grid_model_evaluation.py`
+proves one game per transaction: read the notice count, check the exact eligibility,
+bind the report with `bind_existing_report` (replay on retry) and append the proof with
+the count read first and the game's active storage generation. Publication, activation,
+rollback, default and eligibility views of a v2 report require the latest proof of every
+cohort to equal today's count and an active store of the same generation
+(`GRID_MODEL_EVALUATION_STALE` otherwise, also for a deleted game, whose partitions are
+dropped without row triggers but whose storage location is removed); publication also requires every game of the
+family. The currentness command repeats the four steps; a withdrawn label is not proven
+again.

@@ -665,7 +665,7 @@ Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy d
 
 ### TASK-0997 — Ocena per gra i bramka kandydata
 
-- **Status:** `todo`.
+- **Status:** `done` — v1.7.389, Codex R2 PASS, D-559; bez integracji.
 - **Goal / Context:** Zapobiec publikacji poprawy jednej gry kosztem drugiej.
 - **Dependencies:** TASK-0996 i niezależne, kompletne dane kontrolne.
 - **Recommended execution:** `claude-fable-5-1`, `high`; metryki i kwalifikacja publikacji.

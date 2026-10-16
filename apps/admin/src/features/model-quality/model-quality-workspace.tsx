@@ -21,6 +21,7 @@ import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
 import { RecordingGroupsPanel } from './recording-groups-panel';
 import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
 import { GridCohortPreview } from './grid-cohort-preview';
+import { GridModelComparison } from './grid-model-comparison';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -914,6 +915,10 @@ export function ModelQualityWorkspace(props: {
           />
           <GridCohortPreview
             key={`${props.apiBaseUrl}:${props.gameId}`}
+            apiBaseUrl={props.apiBaseUrl}
+            gameId={props.gameId}
+          />
+          <GridModelComparison
             apiBaseUrl={props.apiBaseUrl}
             gameId={props.gameId}
           />

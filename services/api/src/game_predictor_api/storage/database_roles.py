@@ -37,8 +37,9 @@ APPLICATION_SCHEMAS: Final = ("public", "game_data_v2")
 _ROLE_NAME: Final = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _SCRAM_ITERATIONS: Final = 4096
 # The application role may read the Alembic revision (startup head guard) but
-# never move it.
-_READ_ONLY_TABLES: Final = ("public.alembic_version",)
+# never move it. The 0166 cohort notice watermark is written only by its
+# SECURITY DEFINER trigger, so the role may read it but never append or rewrite it.
+_READ_ONLY_TABLES: Final = ("public.alembic_version", "public.grid_model_cohort_notice_marks")
 _V7_ACCEPTANCE_TABLE: Final = "public.semi_automatic_selection_v7_pilot_acceptances"
 _V7_GATE_TABLE: Final = "public.semi_automatic_selection_v7_activation_gate"
 

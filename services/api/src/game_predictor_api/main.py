@@ -22,6 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.api.board_search_panels import create_board_search_panels_router
+from game_predictor_api.api.grid_model_evaluations import create_grid_model_evaluations_router
 from game_predictor_api.api.grid_model_registry import create_grid_model_registry_router
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.management import create_management_router
@@ -84,6 +85,7 @@ from game_predictor_api.application.grid_audit_symbol_suggestions import (
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
+from game_predictor_api.application.grid_model_evaluation import GridModelEvaluationService
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_shadow import GridShadowService
 from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
@@ -2443,6 +2445,16 @@ def create_app(
         create_grid_model_registry_router(
             grid_model_registry_service_dependency or default_grid_model_registry_dependency
         )
+    )
+
+    def default_grid_model_evaluation_dependency() -> GridModelEvaluationService:
+        # Each game is read in its own routed transaction; the catalogue in a plain one.
+        return GridModelEvaluationService(
+            database_engine, session_factory, resolved_settings.artifact_root
+        )
+
+    application.include_router(
+        create_grid_model_evaluations_router(default_grid_model_evaluation_dependency)
     )
 
     @application.exception_handler(GridModelRegistryError)

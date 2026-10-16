@@ -9,6 +9,10 @@ import {
   getGridTrainingRun as getGeneratedGridTrainingRun,
   cancelGridTrainingRun as cancelGeneratedGridTrainingRun,
   resumeGridTrainingRun as resumeGeneratedGridTrainingRun,
+  createGridModelEvaluation as createGeneratedGridModelEvaluation,
+  listGridModelEvaluations as listGeneratedGridModelEvaluations,
+  getGridModelEvaluation as getGeneratedGridModelEvaluation,
+  verifyGridModelEvaluationCurrentness as verifyGeneratedGridModelEvaluationCurrentness,
   prepareGridTrainingCohort as prepareGeneratedGridTrainingCohort,
   prepareGridTrainingCohortPage as prepareGeneratedGridTrainingCohortPage,
   materializeGridTrainingCohortPage as materializeGeneratedGridTrainingCohortPage,
@@ -50,6 +54,7 @@ import {
 import type {
   GridCohortPrepareCommand,
   GridTrainingRunCreate,
+  GridModelEvaluationCreate,
   GridCohortPageCommand,
   GridCohortFreezeCommand,
   GridCohortRevisionCommand,
@@ -93,6 +98,16 @@ export type {
   GridTrainingRunBudget,
   GridTrainingPresetView,
   GridTrainingRunCost,
+  GridModelEvaluationCreate,
+  GridModelEvaluationView,
+  GridModelEvaluationList,
+  GridModelEvaluationReport,
+  GridModelEvaluationGame,
+  GridModelEvaluationRole,
+  GridModelEvaluationMetrics,
+  GridModelEvaluationRecording,
+  GridModelEvaluationCurrentness,
+  GridModelEvaluationCurrentnessResult,
   GridCohortReceipt,
   GridCohortCommandResponse,
   GridSourceIdentityResponse,
@@ -1457,15 +1472,42 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { game_id: gameId, cohort_id: cohortId },
       }),
     createGridTrainingRun: (gameId: string, body: GridTrainingRunCreate) =>
-      createGeneratedGridTrainingRun({ client, path: { game_id: gameId }, body }),
+      createGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
     listGridTrainingRuns: (gameId: string) =>
       listGeneratedGridTrainingRuns({ client, path: { game_id: gameId } }),
     getGridTrainingRun: (gameId: string, runId: string) =>
-      getGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
+      getGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
     cancelGridTrainingRun: (gameId: string, runId: string) =>
-      cancelGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
+      cancelGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
     resumeGridTrainingRun: (gameId: string, runId: string) =>
-      resumeGeneratedGridTrainingRun({ client, path: { game_id: gameId, run_id: runId } }),
+      resumeGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
+    createGridModelEvaluation: (body: GridModelEvaluationCreate) =>
+      createGeneratedGridModelEvaluation({ client, body }),
+    listGridModelEvaluations: (versionId: string) =>
+      listGeneratedGridModelEvaluations({ client, query: { versionId } }),
+    getGridModelEvaluation: (evaluationId: string) =>
+      getGeneratedGridModelEvaluation({
+        client,
+        path: { evaluation_id: evaluationId },
+      }),
+    verifyGridModelEvaluationCurrentness: (reportId: string) =>
+      verifyGeneratedGridModelEvaluationCurrentness({
+        client,
+        path: { report_id: reportId },
+      }),
     prepareGridTrainingCohort: (
       gameId: string,
       body: GridCohortPrepareCommand,

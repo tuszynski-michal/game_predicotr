@@ -26,14 +26,14 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Aplikacja mobilna offline:** jedynym źródłem jest wersjonowany snapshot SQLite w APK, bez `INTERNET` w wydaniu. Plan przybliżonego snapshotu mobilnego jest `deferred` do nowej decyzji (proponowana D-463); do tego czasu zmiany tylko w aplikacji webowej. Źródło: `CLAUDE.md`; `delivery/APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`.
 - **Narzędzia tokenowe:** hook blokuje `Read` pliku > 200 KB bez `offset`/`limit`; task zmieniający moduły regeneruje mapę kodu (`scripts/generate_code_map.py`, kontrola `npm run code-map:check`). Serena i Graphify nie są stałym narzędziem (pilot TASK-0939 zamknięty bez pomiaru). Źródło: `guides/TOKEN_TOOLING.md`.
 - **Plan V3 rewizja 6** (`codex/v3-grid-fine-tuning`, accepted 2026-10-14): cały zakres i koszt zlecone; od TASK-1005 wykonuje Claude Code `claude-opus-5-5`/`high` (zamiennik `claude-fable-5-1` wybrany przez wykonawcę po sugestii operatora 2026-10-16; 0997 na `xhigh`), audytuje Codex `gpt-6-astra`. GPU smoke, trening, publikacja, aktywacja, migracje i operacje danych operatora oraz scalenie do `main` mają osobne zgody; kopia `D:\game_predictor_backup` wystarcza, bez nowego backupu. Źródło: plan sekcje 1, 3 i 8; D-552.
-- **Migracje gałęzi V3:** `0155_historical_grid_acceptance`–`0163`, scalająca `0164_merge_main_board_search_panels` i `0165_grid_training_lane` (TASK-0996, lane `grid_training`) sprawdzane tylko na bazach `*_test`; baza operatora jest na `0155_board_search_panels`. Integracja wymaga przejścia operatora i provisioningu capability przed `0161` (D-554). Źródło: archiwum Q4, „Przeniesione z okna gałęzi `codex/v3-grid-fine-tuning`…”.
+- **Migracje gałęzi V3:** `0155_historical_grid_acceptance`–`0163`, scalająca `0164_merge_main_board_search_panels`, `0165_grid_training_lane` (TASK-0996, lane `grid_training`) i `0166_grid_model_evaluation` (TASK-0997, manifest v17) sprawdzane tylko na bazach `*_test`; baza operatora jest na `0155_board_search_panels`. Integracja wymaga przejścia operatora i provisioningu capability przed `0161` (D-554). Źródło: archiwum Q4, „Przeniesione z okna gałęzi `codex/v3-grid-fine-tuning`…”.
 - **Regresje V3:** [rejestr obowiązków](../quality/V3_BACKEND_REGRESSION_OBLIGATIONS_20261015.md) i [baseline HEAD380](../quality/TASK-1003_BASELINE_HEAD380.md) (215 PASS/10 FAIL) zachowują jawne FAIL; TASK-1001 porównuje wynik końcowy. `scripts/run_python_tests.ps1 -Suite` dla jednej ścieżki psuje kolekcję: używać bezpośredniego `pytest`. Źródło: archiwum Q4, jak wyżej.
 
 ## Plany z niezakończonymi taskami
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 20/24 done | TASK-0997, 1006, 1000, 1001 | `codex/v3-grid-fine-tuning` |
+| `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 21/24 done | TASK-1006, 1000, 1001 | `codex/v3-grid-fine-tuning` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -52,13 +52,9 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-0997 — Ocena per gra i bramka kandydata (todo)
-
-- [0997-grid-model-evaluation.md](../tasks/0997-grid-model-evaluation.md) na `codex/v3-grid-fine-tuning`; po TASK-0996; dostarcza writer/reader v2 raportu i bramkę publikacji (D-556).
-
 ### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2 (todo)
 
-- [1006-shared-grid-model-candidate.md](../tasks/1006-shared-grid-model-candidate.md) na `codex/v3-grid-fine-tuning`; po TASK-0997; rzeczywisty run tylko po osobnej zgodzie.
+- [1006-shared-grid-model-candidate.md](../tasks/1006-shared-grid-model-candidate.md) na `codex/v3-grid-fine-tuning`; następny po TASK-0997 (ocena D-559 gotowa); rzeczywisty run tylko po osobnej zgodzie.
 
 ### TASK-1000 — Pełna sekcja „Geometria V3” (todo)
 
@@ -70,7 +66,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / hash w następnym commicie — tasks/completed/0996-durable-v3-grid-training.md
+- **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / hash w następnym commicie — tasks/completed/0997-grid-model-evaluation.md
+- **TASK-0996** — Trwały trening V3 w aplikacji — v1.7.388 / 6397bc51 — tasks/completed/0996-durable-v3-grid-training.md
 - **TASK-1005** — Preset i dopuszczenie zasobów — v1.7.386 / `0862fbec` — tasks/completed/1005-grid-training-resource-admission.md
 - **TASK-0995** — Kwalifikacja korekt i niezmienny snapshot — v1.7.385 / `f0cfa9bd` — tasks/completed/0995-grid-training-cohort-snapshot.md
 - **TASK-1009** — Losowa kontrola geometrii Mumii i 777a2 — v1.7.384 / `d2b692db` — tasks/completed/1009-grid-quality-measurement.md
@@ -79,4 +76,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
 - **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md
-- **TASK-1021** — Przegląd ograniczeń i sekcji `CURRENT_STATE.md` — v1.7.368 / `a8ed5dcc` (decyzja v1.7.369 / `13cb5022`) — tasks/completed/1021-current-state-constraints-review.md

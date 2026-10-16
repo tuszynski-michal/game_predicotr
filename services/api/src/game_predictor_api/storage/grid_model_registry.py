@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -17,6 +18,7 @@ from game_predictor_api.domain.grid_model_registry import (
     descriptor_sha256,
     historical_catalogue,
 )
+from game_predictor_api.storage import grid_model_evaluation_repository as evaluation_evidence
 from game_predictor_api.storage.database import session_game
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageRouter,
@@ -312,6 +314,15 @@ class SqlAlchemyGridModelRegistryRepository:
             is not None
         )
         return report, invalidated
+
+    def cohort_currentness(
+        self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """D-559 barrier: public proofs and notice watermarks only, no game partition."""
+        return evaluation_evidence.cohort_currentness(self.session, report_id, cohorts)
+
+    def family_games(self, family_id: UUID) -> set[str]:
+        return evaluation_evidence.family_games(self.session, family_id)
 
     def default(self) -> GridModelDefaultModel | None:
         # A caller may have read the head before waiting for the transaction lock.

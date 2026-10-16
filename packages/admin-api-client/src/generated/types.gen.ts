@@ -6307,6 +6307,484 @@ export type GridModelDefaultResponse = {
 };
 
 /**
+ * GridModelEvaluationCohortPin
+ */
+export type GridModelEvaluationCohortPin = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridModelEvaluationCohortRef
+ */
+export type GridModelEvaluationCohortRef = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridModelEvaluationCreate
+ */
+export type GridModelEvaluationCreate = {
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortRef>;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationCurrentness
+ */
+export type GridModelEvaluationCurrentness = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Noticecount
+   */
+  noticeCount: number;
+  /**
+   * Provenat
+   */
+  provenAt: string | null;
+  /**
+   * Provennoticecount
+   */
+  provenNoticeCount: number | null;
+  /**
+   * State
+   */
+  state: 'current' | 'stale' | 'missing' | 'unavailable';
+};
+
+/**
+ * GridModelEvaluationCurrentnessResult
+ */
+export type GridModelEvaluationCurrentnessResult = {
+  /**
+   * Currentness
+   */
+  currentness: Array<GridModelEvaluationCurrentness>;
+  /**
+   * Failures
+   */
+  failures: Array<GridModelEvaluationProofFailure>;
+  /**
+   * Reportid
+   */
+  reportId: string;
+};
+
+/**
+ * GridModelEvaluationDetail
+ */
+export type GridModelEvaluationDetail = {
+  /**
+   * Path
+   */
+  path: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+};
+
+/**
+ * GridModelEvaluationGame
+ */
+export type GridModelEvaluationGame = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Coverage
+   */
+  coverage: 'complete' | 'incomplete';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Regression
+   */
+  regression: 'pass' | 'fail' | 'not_evaluable';
+  roles: GridModelEvaluationRoles;
+  /**
+   * Targetmetric
+   */
+  targetMetric: string;
+  /**
+   * Validation
+   */
+  validation: 'pass' | 'fail' | 'not_evaluable';
+};
+
+/**
+ * GridModelEvaluationJobPayload
+ *
+ * Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route.
+ */
+export type GridModelEvaluationJobPayload = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Evaluationkind
+   */
+  evaluationKind: 'grid-model-evaluation-v1';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationList
+ */
+export type GridModelEvaluationList = {
+  /**
+   * Items
+   */
+  items: Array<GridModelEvaluationView>;
+};
+
+/**
+ * GridModelEvaluationMetrics
+ */
+export type GridModelEvaluationMetrics = {
+  /**
+   * Board Correct Rate
+   */
+  board_correct_rate: number | null;
+  /**
+   * Boards Correct
+   */
+  boards_correct: number;
+  /**
+   * Boards Expected
+   */
+  boards_expected: number;
+  /**
+   * Boards Matched
+   */
+  boards_matched: number;
+  /**
+   * Detection Recall
+   */
+  detection_recall: number | null;
+  /**
+   * Duplicate Predictions
+   */
+  duplicate_predictions: number;
+  /**
+   * False Boards
+   */
+  false_boards: number;
+  /**
+   * Image Macro
+   */
+  image_macro: number | null;
+  /**
+   * Max Node Error P95
+   */
+  max_node_error_p95: number | null;
+  /**
+   * Nme P95
+   */
+  nme_p95: number | null;
+  /**
+   * Photo Complete Correct
+   */
+  photo_complete_correct: number;
+  /**
+   * Photo Complete Correct Rate
+   */
+  photo_complete_correct_rate: number | null;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
+ * GridModelEvaluationParity
+ */
+export type GridModelEvaluationParity = {
+  /**
+   * Bundlesha256
+   */
+  bundleSha256: string;
+  /**
+   * Passed
+   */
+  passed: boolean;
+};
+
+/**
+ * GridModelEvaluationProofFailure
+ */
+export type GridModelEvaluationProofFailure = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridModelEvaluationRecording
+ */
+export type GridModelEvaluationRecording = {
+  base: GridModelEvaluationMetrics;
+  candidate: GridModelEvaluationMetrics;
+  /**
+   * Groupid
+   */
+  groupId: string;
+};
+
+/**
+ * GridModelEvaluationReport
+ */
+export type GridModelEvaluationReport = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<GridModelEvaluationGame>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  /**
+   * Policy
+   */
+  policy: {
+    [key: string]: unknown;
+  };
+  /**
+   * Policyversion
+   */
+  policyVersion: string;
+  /**
+   * Producer
+   */
+  producer: string;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v2';
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationRole
+ */
+export type GridModelEvaluationRole = {
+  base: GridModelEvaluationMetrics;
+  candidate: GridModelEvaluationMetrics;
+  detail: GridModelEvaluationDetail;
+  /**
+   * Inputsha256
+   */
+  inputSha256: string;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Recordings
+   */
+  recordings: Array<GridModelEvaluationRecording>;
+};
+
+/**
+ * GridModelEvaluationRoles
+ */
+export type GridModelEvaluationRoles = {
+  REGRESSION: GridModelEvaluationRole;
+  VALIDATION: GridModelEvaluationRole;
+};
+
+/**
+ * GridModelEvaluationView
+ */
+export type GridModelEvaluationView = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cancelrequested
+   */
+  cancelRequested: boolean;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortRef>;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Currentness
+   */
+  currentness: Array<GridModelEvaluationCurrentness>;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string;
+  /**
+   * Progresscurrent
+   */
+  progressCurrent: number;
+  /**
+   * Progresstotal
+   */
+  progressTotal: number | null;
+  report: GridModelEvaluationReport | null;
+  /**
+   * Reportid
+   */
+  reportId: string;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  /**
+   * Status
+   */
+  status:
+    | 'created'
+    | 'processing'
+    | 'waiting_for_review'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE' | null;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
  * GridModelHistoricalReport
  */
 export type GridModelHistoricalReport = {
@@ -11771,6 +12249,7 @@ export type JobResponse = {
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
     | GridTrainingJobPayload
+    | GridModelEvaluationJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload;
@@ -11831,7 +12310,8 @@ export type JobType =
   | 'storage_inventory'
   | 'storage_pipeline_compaction'
   | 'super_game_series_derive'
-  | 'grid_training';
+  | 'grid_training'
+  | 'grid_model_evaluation';
 
 /**
  * LabSymbolCandidateImportJobPayloadResponse
@@ -29514,6 +29994,177 @@ export type SetGridModelDefaultResponses = {
 
 export type SetGridModelDefaultResponse =
   SetGridModelDefaultResponses[keyof SetGridModelDefaultResponses];
+
+export type ListGridModelEvaluationsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Versionid
+     */
+    versionId: string;
+  };
+  url: '/api/v1/admin/grid-model-evaluations';
+};
+
+export type ListGridModelEvaluationsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridModelEvaluationsError =
+  ListGridModelEvaluationsErrors[keyof ListGridModelEvaluationsErrors];
+
+export type ListGridModelEvaluationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationList;
+};
+
+export type ListGridModelEvaluationsResponse =
+  ListGridModelEvaluationsResponses[keyof ListGridModelEvaluationsResponses];
+
+export type CreateGridModelEvaluationData = {
+  body: GridModelEvaluationCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations';
+};
+
+export type CreateGridModelEvaluationErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateGridModelEvaluationError =
+  CreateGridModelEvaluationErrors[keyof CreateGridModelEvaluationErrors];
+
+export type CreateGridModelEvaluationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type CreateGridModelEvaluationResponse =
+  CreateGridModelEvaluationResponses[keyof CreateGridModelEvaluationResponses];
+
+export type VerifyGridModelEvaluationCurrentnessData = {
+  body?: never;
+  path: {
+    /**
+     * Report Id
+     */
+    report_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations/reports/{report_id}/currentness';
+};
+
+export type VerifyGridModelEvaluationCurrentnessErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type VerifyGridModelEvaluationCurrentnessError =
+  VerifyGridModelEvaluationCurrentnessErrors[keyof VerifyGridModelEvaluationCurrentnessErrors];
+
+export type VerifyGridModelEvaluationCurrentnessResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationCurrentnessResult;
+};
+
+export type VerifyGridModelEvaluationCurrentnessResponse =
+  VerifyGridModelEvaluationCurrentnessResponses[keyof VerifyGridModelEvaluationCurrentnessResponses];
+
+export type GetGridModelEvaluationData = {
+  body?: never;
+  path: {
+    /**
+     * Evaluation Id
+     */
+    evaluation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations/{evaluation_id}';
+};
+
+export type GetGridModelEvaluationErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridModelEvaluationError =
+  GetGridModelEvaluationErrors[keyof GetGridModelEvaluationErrors];
+
+export type GetGridModelEvaluationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type GetGridModelEvaluationResponse =
+  GetGridModelEvaluationResponses[keyof GetGridModelEvaluationResponses];
 
 export type GetGridModelHistoryData = {
   body?: never;

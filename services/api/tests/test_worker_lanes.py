@@ -57,7 +57,8 @@ def test_lane_status_distinguishes_running_degraded_and_stopped() -> None:
 
     statuses = WorkerLaneStatusService(repository, clock=lambda: now).list_statuses()
 
-    assert [status.state.value for status in statuses] == ["running", "degraded"]
+    # TASK-0996: the GPU grid-training lane is listed and stopped until started.
+    assert [status.state.value for status in statuses] == ["running", "degraded", "stopped"]
     repository.records = (
         _runtime(
             WorkerLaneName.GENERAL,
@@ -67,7 +68,7 @@ def test_lane_status_distinguishes_running_degraded_and_stopped() -> None:
         ),
     )
     statuses = WorkerLaneStatusService(repository, clock=lambda: now).list_statuses()
-    assert [status.state.value for status in statuses] == ["stopped", "stopped"]
+    assert [status.state.value for status in statuses] == ["stopped", "stopped", "stopped"]
 
 
 def test_worker_lane_api_returns_both_lanes_without_process_details(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -104,6 +105,14 @@ def test_worker_lane_api_returns_both_lanes_without_process_details(tmp_path) ->
         },
         {
             "lane": "image_selection",
+            "state": "stopped",
+            "workerVersion": None,
+            "threadBudget": None,
+            "startedAt": None,
+            "heartbeatAt": None,
+        },
+        {
+            "lane": "grid_training",
             "state": "stopped",
             "workerVersion": None,
             "threadBudget": None,

@@ -191,8 +191,6 @@ def _save_source(db, root, game, ordinal, slot_count, expected):
             slot_count=slot_count,
             sequence_base=100 + ordinal * 10,
         )
-    if ordinal == 0:
-        _complete_first_identity(db, root, game, seed.source_image_id)
     with game_storage_scope(game), factory.begin() as session:
         source = session.get(SourceImageModel, seed.source_image_id)
         assert source is not None
@@ -250,14 +248,12 @@ def _save_source(db, root, game, ordinal, slot_count, expected):
                     "expected_extractor_version": cell.extractor_version,
                 },
             }
-        return (
-            seed.source_image_id,
-            (
-                source.checksum_sha256,
-                source.normalized_pixel_checksum_sha256,
-            ),
-            seed.import_job_id,
-        )
+        checksums = (source.checksum_sha256, source.normalized_pixel_checksum_sha256)
+    if ordinal == 0:
+        # TASK-0995 R1: completion needs a current own target that references the
+        # exact source geometry revision, so it follows the human geometry save.
+        _complete_first_identity(db, root, game, seed.source_image_id)
+    return seed.source_image_id, checksums, seed.import_job_id
 
 
 def _recording(db, root, game, sources, role, family, version, providers, checkpoint):
@@ -389,7 +385,8 @@ def _complete_first_identity(db, root, game, source):
                 {"g": game, "s": source},
             )
         )
-        assert len(revisions) == 1 and original[4] is None
+        # The seed revision and the human save; the current target pins the save.
+        assert len(revisions) == 2 and original[4] is None
         checksum = session.scalar(
             text("SELECT checksum_sha256 FROM source_images WHERE game_id=:g AND id=:s"),
             {"g": game, "s": source},
@@ -410,8 +407,8 @@ def _complete_first_identity(db, root, game, source):
             {
                 "sourceId": str(source),
                 "expectedSourceSha256": checksum,
-                "expectedSourceGeometryRevisionId": revisions[0]["id"],
-                "expectedGeometrySha256": revisions[0]["geometry_checksum_sha256"],
+                "expectedSourceGeometryRevisionId": revisions[-1]["id"],
+                "expectedGeometrySha256": revisions[-1]["geometry_checksum_sha256"],
             }
         ],
     }

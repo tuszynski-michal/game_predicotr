@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -207,5 +208,36 @@ class GridModelFamilyForkModel(Base):
     base_manifest_sha256: Mapped[str] = mapped_column(String(64))
     lineage_json: Mapped[str] = mapped_column(Text)
     lineage_sha256: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelCohortNoticeMarkModel(Base):
+    """Append-only notice watermark; only the 0166 SECURITY DEFINER trigger writes it."""
+
+    __tablename__ = "grid_model_cohort_notice_marks"
+    __table_args__ = ({"schema": "public"},)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    game_id: Mapped[UUID] = mapped_column()
+    cohort_id: Mapped[UUID] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GridModelEvaluationCohortProofModel(Base):
+    """Append-only proof that one game's cohort was current and bound to a report."""
+
+    __tablename__ = "grid_model_evaluation_cohort_proofs"
+    __table_args__ = ({"schema": "public"},)
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    report_id: Mapped[UUID] = mapped_column(
+        ForeignKey("public.grid_model_evaluation_reports.id", ondelete="RESTRICT")
+    )
+    game_id: Mapped[UUID] = mapped_column()
+    cohort_id: Mapped[UUID] = mapped_column()
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    notice_count: Mapped[int] = mapped_column(BigInteger)
+    storage_generation: Mapped[int] = mapped_column()
+    bind_receipt_sha256: Mapped[str] = mapped_column(String(64))
+    eligibility_sha256: Mapped[str] = mapped_column(String(64))
     actor: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -54,7 +54,7 @@ Brak aktywnych tasków na `main` (2026-10-16, TASK-1024 zamknął 42 nieaktualne
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1024** — Zamknięcie nieaktualnych tasków na `main` — v1.7.375 — tasks/completed/1024-close-stale-tasks.md
+- **TASK-1024** — Zamknięcie nieaktualnych tasków na `main` — v1.7.375 / `5fa317c4` — tasks/completed/1024-close-stale-tasks.md
 - **TASK-0991** — Panel udostępniania wielu gier — v1.7.364 / `cb87d269` — tasks/completed/0991-multi-game-board-search-share.md
 - **TASK-1023** — `CLAUDE.md` bez duplikatu `AGENTS.md` i końcowy pomiar — v1.7.372 / `e342fdb6` — tasks/completed/1023-claude-md-dedupe-final-measurement.md
 - **TASK-1022** — Zastosowanie budżetów `CURRENT_STATE.md` — v1.7.370 / `13800534` — tasks/completed/1022-current-state-budgets.md

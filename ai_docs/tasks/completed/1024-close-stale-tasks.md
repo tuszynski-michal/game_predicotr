@@ -57,7 +57,7 @@ claude-opus-5-5 (sesja leada), bez audytu Codex (decyzja operatora 2026-10-16).
 
 ## Outcome
 
-Commit: v1.7.375 (hash dopisuje kolejny commit).
+Commit: v1.7.375 / `5fa317c48858438b35f33fd6e4dae8be1fc29f18`; scalony fast-forward do `main` i wypchnięty na `origin` razem z zapisem hasha (v1.7.376), na polecenie operatora.
 
 ### Changed
 

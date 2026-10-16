@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1024 — Zamknięcie nieaktualnych tasków na `main` (done)
 
-- Plik: `ai_docs/tasks/completed/1024-close-stale-tasks.md`. Commit v1.7.375.
+- Plik: `ai_docs/tasks/completed/1024-close-stale-tasks.md`. Commit **v1.7.375 / `5fa317c48858438b35f33fd6e4dae8be1fc29f18`**, scalony do `main` i wypchnięty (v1.7.376).
 - Decyzją operatora 2026-10-16 zamknięto 42 nieaktualne taski (TASK-0290–0972); okno stanu bez aktywnych tasków, pytania R1–R15 rozstrzygnięte, ograniczenia zamkniętych tasków w archiwum (sekcja „Zamknięte z okna 2026-10-16”).
 
 ## Zamknięte z okna 2026-10-16 (TASK-1024)

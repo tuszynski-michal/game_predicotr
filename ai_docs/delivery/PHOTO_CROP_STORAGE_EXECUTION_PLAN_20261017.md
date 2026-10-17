@@ -1,6 +1,6 @@
 ---
 title: Przycinanie zarządzanych oryginałów do siatek — plan wykonania
-status: proposed
+status: accepted
 last_updated: 2026-10-17
 ---
 
@@ -8,9 +8,15 @@ last_updated: 2026-10-17
 
 Plan następczy po [TASK-1016](../tasks/completed/1016-photo-crop-preview.md)
 i [raporcie P1](../quality/PHOTO_CROP_PREVIEW_20261014.md). Autor: Claude Code
-(`claude-opus-5-5`), 2026-10-17. Status `proposed`: do akceptacji operatora.
-Akceptacja planu nie jest zgodą na migrację bazy operatora, uruchomienie jobów na
-danych operatora, usuwanie oryginałów, scalenie ani push.
+(`claude-opus-5-5`), 2026-10-17. Status `accepted` (operator, 2026-10-17):
+operator zlecił etap A (TASK-1043–1046) z audytami według tabeli i zgodził się
+na jego koszt. Etapy B i C wymagają osobnego polecenia. Akceptacja planu nie
+jest zgodą na migrację bazy operatora, uruchomienie jobów na danych operatora,
+usuwanie oryginałów, scalenie ani push.
+
+Rewizja 1 (2026-10-17, przed startem etapu A, bez zmiany decyzji operatora):
+R2 dostaje atest cropu zapisany obok pliku cropu (sekcja R2), bo
+`CanonicalSourceLoader` działa na ścieżce pliku, bez dostępu do bazy.
 
 ## 1. Stan obecny
 
@@ -162,6 +168,19 @@ verify_source_identity(frame, source_row)
   kind=crop     -> tożsamość oryginału z crop_row + suma pikseli cropu
 require_inside_valid_box(frame, quads) -> SOURCE_REGION_UNAVAILABLE, gdy quad wychodzi poza valid_box
 ```
+
+Atest (rewizja 1): obok `originals-cropped/<sha[:2]>/<orig_sha>.jpg` leży
+`<orig_sha>.json`, czyli kanoniczny JSON z tożsamością oryginału, tożsamością
+cropu, `crop_box_oriented`, wersją narzędzia i polem `attestationSha256` (SHA-256
+kanonicznego JSON pozostałych pól). Loader plikowy (`CanonicalSourceLoader`,
+`decode_canonical_source_bytes`) wyprowadza ścieżkę cropu i atestu z brakującej
+ścieżki oryginału, a nie z bazy. Wiersz `source_image_crops` zapisuje
+`attestation_sha256`, a joby porównują go z plikiem. `CanonicalSourceFrame`
+dostaje opcjonalne pole `crop` (atest i `valid_box`). Dla ramki z cropu
+`source` niesie tożsamość oryginału poświadczoną atestem, a niezmiennik pikseli
+sprawdza płótno względem sumy płótna zapisanej w ateście. Konsument
+porównujący sumę pikseli z bazą przechodzi tylko dzięki jawnemu atestowi, a
+każdy odczyt poza `valid_box` musi sprawdzić `frame.crop`.
 
 Dzięki temu wymiary, quady i renderowanie komórek działają bez zmian.
 Kontrole `oriented_width/height` przechodzą. Dotychczasowe porównania pełnej sumy

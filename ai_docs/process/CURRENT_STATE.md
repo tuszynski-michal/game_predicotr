@@ -35,12 +35,13 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
+| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 1; etap A zlecony z audytami (2026-10-17) | TASK-1043–1046 (etap A); 1047–1050 za osobnym poleceniem | `codex/photo-crop-p1` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
 ## Otwarte decyzje i pytania
 
-- Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planów `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`) i `PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` (`proposed`, przycinanie oryginałów P2–P4, TASK-1043–1050). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
+- Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
 - Pytania produktowe: `ai_docs/project/OPEN_QUESTIONS.md`; jedyne nierozstrzygnięte
   to Q-020 (zgoda właściciela na analizę aplikacji referencyjnej; nie blokuje
   bieżących prac).
@@ -52,6 +53,22 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1043 — D-562, dokumentacja i czyste funkcje kadru (todo)
+
+- Plik: `tasks/1043-source-crop-decision-and-region.md`. Następny krok: implementacja, pierwszy task etapu A planu przycinania.
+
+### TASK-1044 — Migracja `source_image_crops` i kwalifikacja blobów (todo)
+
+- Plik: `tasks/1044-source-image-crops-table-and-eligibility.md`. Po TASK-1043; migracja bazy operatora za osobną zgodą.
+
+### TASK-1045 — Ramka źródła z cropem w workerze (todo)
+
+- Plik: `tasks/1045-source-frame-worker.md`. Po TASK-1043.
+
+### TASK-1046 — Ramka źródła z cropem w API, serwowanie i blokady (todo)
+
+- Plik: `tasks/1046-source-frame-api.md`. Po TASK-1045.
 
 ## Ostatnie 10 ukończonych tasków
 

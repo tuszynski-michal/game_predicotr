@@ -467,7 +467,12 @@ odmalowywany podczas pracy, a nie pozostawał na `0/N` do finalizacji stagingu.
 - opcjonalna korekta jasności i kontrastu wyłącznie w kopii,
 - zachowanie oryginału bez modyfikacji,
 - ponowna weryfikacja discovery manifestu i SHA-256 przed dekodowaniem,
-- managed original pozostaje niezmiennym źródłem ponownego dekodowania,
+- managed original pozostaje niezmiennym źródłem ponownego dekodowania;
+  wyjątek D-562: kwalifikujący się oryginał może zostać zastąpiony
+  zweryfikowanym, bezstratnym cropem JPEG z atestem w `data/originals-cropped`.
+  Dopóki oryginał istnieje, ma pierwszeństwo. Bez niego wspólny loader odtwarza
+  płótno wymiarów oryginału z jawnym `valid_box`, a odczyt poza nim, reprocess
+  i ponowny preflight kończą się stabilnym błędem,
 - diagnostyka zawiera źródłowy SHA-256, checksumę pikseli, wymiary, tryb,
   orientację, transformację i wersję adaptera,
 - limit 50 000 000 pikseli na źródło ze stabilnym błędem.

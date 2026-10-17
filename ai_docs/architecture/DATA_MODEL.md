@@ -1266,6 +1266,11 @@ pozycji przyszłego datasetu.
 Unikalne są `(import_job_id, checksum_sha256)` oraz
 `(import_job_id, file_execution_key)`.
 
+D-562: `relative_path`, sumy i wymiary zawsze opisują pełny oryginał, także po
+jego zastąpieniu przyciętym wariantem. Crop i atest nie są kolumnami
+`source_images`; ich tożsamość niesie plik atestu obok cropu, a stan jobów
+przycinania prowadzi tabela `source_image_crops` (TASK-1044).
+
 `source_images` i kolejne tabele wyników są zakresem integracji etapów M7.2.
 Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
 pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość

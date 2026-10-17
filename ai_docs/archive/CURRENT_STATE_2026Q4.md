@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1043 — D-562, dokumentacja i czyste funkcje kadru (done)
+
+- Plik: [1043-source-crop-decision-and-region.md](../tasks/completed/1043-source-crop-decision-and-region.md); commit **v1.7.404** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 walidacja i kanonizacja atestu, 2 × P1 kod błędu i test JPEG progresywnego), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: D-562 (przycięty wariant zarządzanego oryginału) i czysty moduł `domain/source_crop.py`: plan kadru (obwiednia, margines 50 px, orientacje 1/3/6/8, wyrównanie iMCU), reguła weryfikacji pikseli R7, płótno, atest JSON z własną sumą i ścieżki rodzeństwa `data/originals-cropped`. Wymagania, architektura i model danych zaktualizowane.
+- Weryfikacja: 36 testów modułu PASS, ruff i format PASS; mypy bez błędów w nowych plikach (2 wcześniejsze błędy `source_lattice_geometry.py` jak na `main`).
+
 ### TASK-1016 — P1: galeria przycięcia zdjęć (done)
 
 - Plik: [1016-photo-crop-preview.md](../tasks/completed/1016-photo-crop-preview.md); raport [PHOTO_CROP_PREVIEW_20261014.md](../quality/PHOTO_CROP_PREVIEW_20261014.md). Gałąź `codex/photo-crop-p1`: dokumentacja v1.7.361 / `063f2590`, korekta numeracji (TASK-1007 → TASK-1016) v1.7.363 / `c36087bc`, poprawka nakładek v1.7.365 / `b0942152`. Numery v1.7.359–366 tej gałęzi kolidują z historią `main` (historia bez przepisywania); gałąź zsynchronizowana z `main` (v1.7.400) 2026-10-17 przez Claude Code.

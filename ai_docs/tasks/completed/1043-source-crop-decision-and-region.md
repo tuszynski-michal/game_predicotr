@@ -1,6 +1,6 @@
 ---
 title: TASK-1043 — Decision D-562, documentation and pure crop functions
-status: todo
+status: done
 last_updated: 2026-10-17
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-17
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -96,4 +96,70 @@ D:\game_predicotr\.venv\Scripts\python.exe -m mypy services/api/src/game_predict
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Commit: v1.7.404 (hash dopisuje kolejny commit).
+
+### Changed
+
+- New pure module `services/api/src/game_predictor_api/domain/source_crop.py`:
+  `PixelBox`/`ProtectedBox`, `protected_box_from_points`, `clamp_protected_box`
+  (padded quads may reach past the image border), `margin_box`, orientation
+  mapping (`oriented_to_raw_box`, `raw_to_oriented_box`, `raw_dimensions`;
+  EXIF 1/3/6/8, mirrored ones rejected), `imcu_size`, `align_raw_box`,
+  `plan_source_crop`, `is_crop_beneficial` (≥ 5%), `verify_crop_pixels`
+  (plan R7), `compose_canvas` (fill 0), `SourceCropAttestation` with
+  `encode_attestation`/`decode_attestation` (closed schema, self checksum
+  `attestationSha256`, consistency of raw/oriented boxes, iMCU alignment,
+  protected box inside the crop) and deterministic sibling paths
+  (`cropped_original_relative_paths`, `cropped_sibling_paths`).
+- D-562 (full entry and index row; D-533 row moved to the index archive),
+  `IMAGE_INGESTION.md` section 2, `SYSTEM_ARCHITECTURE.md` (normalization),
+  `DATA_MODEL.md` (`source_images` note), code map regenerated.
+
+### Verification results
+
+- `pytest services/api/tests/test_source_crop.py`: 29 passed (P1 example
+  `[43,0,775,478]` → `[32,0,784,480]`; mapping equals `ImageOps.exif_transpose`
+  for orientations 1/3/6/8 on random arrays; iMCU 8×8 and 16×8; ring-only
+  mismatches; image borders exact; protected quads near the ring; attestation
+  round trip and tamper cases; sibling paths).
+- `ruff check` and `ruff format --check` on both files: pass.
+- `mypy` (strict) on `source_crop.py` and its test: no errors in these files.
+  The run reports 2 errors in `schemas/source_lattice_geometry.py:36,38`,
+  identical on `main` v1.7.400 when checked the same way; pre-existing, outside scope.
+- `docs:check` scripts: decision links, window, startup budget, skill mirrors OK.
+
+### Audit
+
+Codex `gpt-6-astra` / `high`, round 1:
+[TASK-1043_AUDIT_gpt-6-astra.md](../quality/TASK-1043_AUDIT_gpt-6-astra.md),
+verdict REVISE (P0-1..3, P1-1..2). One fix round, all closed:
+
+- P0-1: the attestation now requires every stored edge on the iMCU grid unless
+  it is the image border, a protected box clamped to the original, and a crop
+  containing `margin_box(protected, margin_px)`; tests for unaligned
+  right/bottom, border edges and an insufficient margin.
+- P0-2: `ProtectedBox` normalizes coordinates to `float`; byte-identical round
+  trip for integer coordinates is tested.
+- P0-3: iMCU, margin and counters are type- and range-checked before any
+  arithmetic; a resealed document with a zero iMCU fails with
+  `SOURCE_CROP_ATTESTATION_INVALID`.
+- P1-1: protected quads near the ring now fail with
+  `SOURCE_CROP_VERIFICATION_FAILED` (plan R7), the reason stays in the message.
+- P1-2: `imcu_from_sampling_factors` and a progressive JPEG test (Pillow,
+  4:2:0, in memory) planning `[32,0,784,480]`.
+
+After fixes: `pytest services/api/tests/test_source_crop.py` 36 passed;
+`ruff check`/`ruff format --check` pass. No second audit round (not requested;
+fixes stay inside the reported findings).
+
+### Not completed
+
+- Nothing in scope. Loaders, DB and jobs follow in TASK-1044–1046.
+
+### Documentation updates
+
+D-562, requirements, architecture, data model, code map.
+
+### Recommended next task
+
+TASK-1044.

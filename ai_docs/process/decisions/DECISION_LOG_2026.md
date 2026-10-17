@@ -14,6 +14,15 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-562 — Przycięty wariant zarządzanego oryginału
+
+- **Date:** 2026-10-17.
+- **Status:** accepted; decyzje operatora z 2026-10-17 (czat, odbiór galerii TASK-1016) i zaakceptowany [plan przycinania](../../delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md), rewizja 1. Nie jest zgodą na migrację bazy operatora, uruchomienie jobów na jego danych, usunięcie oryginałów, scalenie ani push.
+- **Context:** `data/originals` zajmuje 35,77 GiB (166 150 plików, 2026-10-17). Zatwierdzone siatki zajmują część kadru; pomiar na 40 kopiach P1 dał −30,43% przy bezstratnym cropie JPEG. Wymaganie „managed original pozostaje niezmiennym źródłem ponownego dekodowania” i tożsamość pliku/pikseli są zapisane w rewizjach geometrii, render specach i manifestach.
+- **Decision:** kwalifikujący się oryginał (wszystkie siatki zatwierdzone, brak korekt w toku) może dostać zweryfikowany, bezstratny crop JPEG (`jpegtran -crop`, libjpeg-turbo) obejmujący wszystkie chronione quady plus 50 px, wyrównany na zewnątrz do siatki iMCU. Crop leży w `data/originals-cropped/<sha[:2]>/<sha>.jpg`, a obok niego kanoniczny atest JSON `<sha>.json` (`source-crop-attestation-v1`) z tożsamością oryginału i cropu, pudełkiem w `exif-normalized-rgb-pixels-v1`, sumą płótna i własną sumą `attestationSha256`. Współrzędne, rewizje, zatwierdzenia, manifesty i ich sumy pozostają bez zmian. Gdy oryginał istnieje, ma pierwszeństwo. Gdy go brak, wspólny loader odtwarza płótno wymiarów oryginału (crop w swoim pudełku, reszta wartością 0) i oznacza ramkę jawnym atestem z `valid_box`. Kontrola tożsamości przechodzi wyłącznie przez ten atest, a odczyt poza `valid_box` kończy się `SOURCE_REGION_UNAVAILABLE`. Weryfikacja dopuszcza różnice wyłącznie w pasie 1 px przy krawędziach cropu niebędących brzegiem obrazu (interpolacja chrominancji), przy chronionych quadach co najmniej 8 px od tego pasa. Oryginał usuwa osobny job po ponownej weryfikacji; operator zrezygnował z kopii zdjęć.
+- **Consequences:** po usunięciu oryginału obszar poza cropem jest nieodwracalnie utracony: reprocess i ponowny preflight zwracają `SOURCE_ORIGINAL_CROPPED`, a korekta geometrii poza `valid_box` jest niemożliwa. Ponowny import tego samego pliku przywraca pełny oryginał. Orientacje lustrzane EXIF (2, 4, 5, 7) i próbkowanie inne niż 1/2 nie są przycinane. Tabela `source_image_crops` (TASK-1044) prowadzi stan jobów i kwalifikację; loader plikowy nie wymaga bazy.
+- **Source:** TASK-1016, plan przycinania rewizja 1, TASK-1043; [raport P1](../../quality/PHOTO_CROP_PREVIEW_20261014.md).
+
 ## D-561 — Parity eksportu ONNX względna do wielkości wyjścia
 
 - **Date:** 2026-10-16.

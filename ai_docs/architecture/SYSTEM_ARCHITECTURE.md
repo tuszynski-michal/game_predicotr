@@ -715,6 +715,13 @@ korzysta ze wspólnego loadera i nie wymaga pełnowymiarowego `normalized.png`.
 Historyczny v1 pozostaje przypięty do starych jobów; brakujący PNG może zostać
 odbudowany wyłącznie przy identycznej checksumie oczekiwanych bajtów.
 
+Przycięty wariant (D-562): czyste reguły kadru, weryfikacji pikseli i atestu
+leżą w `game_predictor_api.domain.source_crop`. Crop i atest są rodzeństwem
+oryginału (`data/originals-cropped/<sha[:2]>/<sha>.jpg` i `.json`), więc loader
+plikowy znajduje je bez bazy. Ramka z cropu ma wymiary i tożsamość oryginału
+poświadczone atestem oraz `valid_box`; tożsamość pikseli płótna jest osobną
+sumą z atestu.
+
 Warstwa 0.10 rozdziela dekodowanie od renderowania. `CanonicalSourceLoader`
 wiąże jeden zweryfikowany managed original z kanoniczną macierzą RGB tylko do
 odczytu i utrzymuje jednoelementowy cache ograniczony do bieżącego wykonania.

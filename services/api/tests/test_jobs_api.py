@@ -1096,6 +1096,9 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.GRID_TRAINING,
         # TASK-0997: queued only by the grid-model evaluation route.
         JobType.GRID_MODEL_EVALUATION,
+        # TASK-1047: queued only by the source crop run routes.
+        JobType.SOURCE_CROP,
+        JobType.SOURCE_ORIGINAL_DELETION,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

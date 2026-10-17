@@ -495,7 +495,12 @@ procedura zastępcza i aktualizacja tej tabeli.
 | TASK-1044 | `claude-opus-5-5` | `high` | Migracja i zapytanie kwalifikacji decydują o tym, co zostanie nieodwracalnie usunięte. | Tak: Codex `gpt-6-astra` / `high` |
 | TASK-1045 | `claude-opus-5-5` | `high` | Wiele konsumentów workera, regresja bajtowa wyników. | Tak: Codex `gpt-6-astra` / `high` |
 | TASK-1046 | `claude-opus-5-5` | `high` | Pion API, serwowanie i blokady operacji geometrii. | Tak: Codex `gpt-6-astra` / `medium` |
-| TASK-1047 | `claude-opus-5-5` | `high` | Trwały job z checkpointem i narzędziem zewnętrznym. | Tak: Codex `gpt-6-astra` / `high` |
-| TASK-1048 | `claude-opus-5-5` | `xhigh` | Jedyny krok niszczący dane bez kopii; wyścigi i restart. | Tak: Codex `gpt-6-astra` / `high` |
+| TASK-1047 | `claude-opus-5-5` | `high` | Trwały job z checkpointem i narzędziem zewnętrznym. | Tak: Codex `gpt-6.1-sol` / `high` (zmiana operatora 2026-10-17) |
+| TASK-1048 | `claude-opus-5-5` | `xhigh` | Jedyny krok niszczący dane bez kopii; wyścigi i restart. | Tak: Codex `gpt-6.1-sol` / `high` (zmiana operatora 2026-10-17) |
 | TASK-1049 | `claude-sonnet-5-5` | `high` | UI według istniejącego wzorca panelu Storage; eskalacja do `claude-opus-5-5`, gdy potrzebna zmiana API. | Nie |
 | TASK-1050 | `claude-opus-5-5` | `high` | Operacje na danych operatora z kolejnymi zgodami i raportem. | Nie |
+
+Decyzja operatora 2026-10-17 (etap B): limit Codex był bliski wyczerpania,
+więc audyty etapu B wykonuje `gpt-6.1-sol` (`high` dla jobów TASK-1047/1048,
+`medium` dla pozostałych). Po całkowitym wyczerpaniu limitu prace idą dalej bez
+audytu, a `Outcome` taska odnotowuje jego brak.

@@ -21968,6 +21968,9 @@
                 "$ref": "#/components/schemas/StorageGcJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SourceCropJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/StorageInventoryJobPayload"
               },
               {
@@ -22113,7 +22116,9 @@
           "storage_pipeline_compaction",
           "super_game_series_derive",
           "grid_training",
-          "grid_model_evaluation"
+          "grid_model_evaluation",
+          "source_crop",
+          "source_original_deletion"
         ],
         "title": "JobType",
         "type": "string"
@@ -34696,6 +34701,432 @@
           "mobileReleaseId"
         ],
         "title": "SnapshotJobPayload",
+        "type": "object"
+      },
+      "SourceCropFailureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checksumSha256",
+          "code",
+          "message"
+        ],
+        "title": "SourceCropFailureResponse",
+        "type": "object"
+      },
+      "SourceCropJobPayload": {
+        "additionalProperties": false,
+        "description": "Plan or execute phase of a source crop or original-deletion run (D-562).",
+        "properties": {
+          "kind": {
+            "enum": [
+              "crop",
+              "original_deletion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestchecksumsha256"
+          },
+          "phase": {
+            "enum": [
+              "plan",
+              "execute"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceCropRunId": {
+            "format": "uuid",
+            "title": "Sourcecroprunid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceCropRunId",
+          "kind",
+          "phase"
+        ],
+        "title": "SourceCropJobPayload",
+        "type": "object"
+      },
+      "SourceCropPreviewCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "default": "crop",
+            "enum": [
+              "crop",
+              "original_deletion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SourceCropScopeModel"
+          }
+        },
+        "title": "SourceCropPreviewCreate",
+        "type": "object"
+      },
+      "SourceCropRunListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCropRunResponse"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "SourceCropRunListResponse",
+        "type": "object"
+      },
+      "SourceCropRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateBytes": {
+            "title": "Candidatebytes",
+            "type": "integer"
+          },
+          "checkpointIndex": {
+            "title": "Checkpointindex",
+            "type": "integer"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "eligibleCount": {
+            "title": "Eligiblecount",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "estimatedSavedBytes": {
+            "title": "Estimatedsavedbytes",
+            "type": "integer"
+          },
+          "excludedCount": {
+            "title": "Excludedcount",
+            "type": "integer"
+          },
+          "exclusionCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Exclusioncounts",
+            "type": "object"
+          },
+          "failedCount": {
+            "title": "Failedcount",
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCropFailureResponse"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "kind": {
+            "enum": [
+              "crop",
+              "original_deletion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestchecksumsha256"
+          },
+          "outcomeCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Outcomecounts",
+            "type": "object"
+          },
+          "planJobId": {
+            "format": "uuid",
+            "title": "Planjobid",
+            "type": "string"
+          },
+          "previewToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewtoken"
+          },
+          "processedCount": {
+            "title": "Processedcount",
+            "type": "integer"
+          },
+          "savedBytes": {
+            "title": "Savedbytes",
+            "type": "integer"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SourceCropScopeModel"
+          },
+          "skippedCount": {
+            "title": "Skippedcount",
+            "type": "integer"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "status": {
+            "enum": [
+              "planning",
+              "previewed",
+              "created",
+              "processing",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "succeededCount": {
+            "title": "Succeededcount",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "scope",
+          "planJobId",
+          "jobId",
+          "manifestChecksumSha256",
+          "previewToken",
+          "eligibleCount",
+          "excludedCount",
+          "exclusionCounts",
+          "candidateBytes",
+          "estimatedSavedBytes",
+          "processedCount",
+          "succeededCount",
+          "skippedCount",
+          "failedCount",
+          "savedBytes",
+          "checkpointIndex",
+          "outcomeCounts",
+          "failures",
+          "errorCode",
+          "errorMessage",
+          "createdAt",
+          "updatedAt",
+          "startedAt",
+          "finishedAt"
+        ],
+        "title": "SourceCropRunResponse",
+        "type": "object"
+      },
+      "SourceCropRunStart": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledgeIrreversible": {
+            "default": false,
+            "title": "Acknowledgeirreversible",
+            "type": "boolean"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifestChecksumSha256",
+          "previewToken",
+          "confirmed"
+        ],
+        "title": "SourceCropRunStart",
+        "type": "object"
+      },
+      "SourceCropScopeModel": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "onlyChecksums": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onlychecksums"
+          }
+        },
+        "title": "SourceCropScopeModel",
         "type": "object"
       },
       "SourceImageGeometryExceptionCommand": {
@@ -64904,6 +65335,316 @@
           }
         ],
         "summary": "Refresh the bounded managed image storage inventory",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/source-crop-previews": {
+      "post": {
+        "operationId": "createSourceCropPreview",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceCropPreviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCropRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Plan a crop or original-deletion run (worker builds the preview)",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/source-crop-previews/{preview_id}/start": {
+      "post": {
+        "operationId": "startSourceCropRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preview_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Preview Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceCropRunStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCropRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Execute a reviewed source crop preview after explicit confirmation",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/source-crop-runs": {
+      "get": {
+        "operationId": "listSourceCropRuns",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCropRunListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the newest source crop runs",
+        "tags": [
+          "image-storage"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage/source-crop-runs/{run_id}": {
+      "get": {
+        "operationId": "getSourceCropRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCropRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Source crop run conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one source crop run with its preview and progress",
         "tags": [
           "image-storage"
         ]

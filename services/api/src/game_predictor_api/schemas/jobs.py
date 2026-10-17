@@ -729,6 +729,16 @@ class StorageGcJobPayload(ApiModel):
     mode: Literal["manual", "automatic"]
 
 
+class SourceCropJobPayload(ApiModel):
+    """Plan or execute phase of a source crop or original-deletion run (D-562)."""
+
+    schema_version: Literal[1] = 1
+    source_crop_run_id: UUID
+    kind: Literal["crop", "original_deletion"]
+    phase: Literal["plan", "execute"]
+    manifest_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
 class StorageInventoryJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     inventory_kind: Literal["managed_image_storage"]
@@ -871,6 +881,7 @@ JobPayloadResponse = (
     | SymbolCellReviewBackfillJobPayload
     | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
+    | SourceCropJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
@@ -1427,6 +1438,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return ImageGeometryRolloutBackfillJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_GC:
         return StorageGcJobPayload.model_validate(job.input_payload)
+    if job.job_type in (JobType.SOURCE_CROP, JobType.SOURCE_ORIGINAL_DELETION):
+        return SourceCropJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_INVENTORY:
         return StorageInventoryJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_PIPELINE_COMPACTION:

@@ -294,9 +294,9 @@ def test_migration_registers_the_shared_table_and_guards_its_downgrade() -> None
         game = db.games["a"]
         with db.owner_engine.connect() as connection:
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0167_source_image_crops"
+                "0168_source_crop_runs"
             )
-            assert connection.scalar(text(_MANIFEST), {"g": game}) == "game-data-v2-manifest-v18"
+            assert connection.scalar(text(_MANIFEST), {"g": game}) == "game-data-v2-manifest-v19"
             assert (
                 connection.scalar(
                     text(

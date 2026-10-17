@@ -30,6 +30,10 @@ class JobType(StrEnum):
     SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
     GRID_TRAINING = "grid_training"
     GRID_MODEL_EVALUATION = "grid_model_evaluation"
+    # D-562 (TASK-1047/1048): lossless crops of managed originals and the
+    # separately confirmed deletion of originals whose crops were verified.
+    SOURCE_CROP = "source_crop"
+    SOURCE_ORIGINAL_DELETION = "source_original_deletion"
 
 
 class JobStatus(StrEnum):

@@ -3014,6 +3014,51 @@ Zwraca trwały postęp, odzyskane bajty, checkpoint oraz liczniki konfliktów i
 błędów. Worker ponownie sprawdza mtime, rozmiar, fingerprint drzewa, symlinki i
 aktywne zależności przed każdą partią.
 
+### Przebiegi przycinania oryginałów (TASK-1047, D-562)
+
+```text
+POST /api/v1/admin/image-storage/source-crop-previews
+POST /api/v1/admin/image-storage/source-crop-previews/{previewId}/start
+GET  /api/v1/admin/image-storage/source-crop-runs?limit=1..50
+GET  /api/v1/admin/image-storage/source-crop-runs/{runId}
+```
+
+`POST /source-crop-previews` przyjmuje `kind` (`crop` domyślnie albo
+`original_deletion`) i `scope` (`gameId`, `onlyChecksums` z 1–500 różnymi
+SHA-256 małymi literami, `limit` 1–1 000 000 kwalifikujących się oryginałów).
+Odpowiedź `201` to przebieg w stanie `planning` z jobem planu (`planJobId`).
+Worker liczy kwalifikację wszystkich gier, zapisuje niezmienny manifest
+`data/source-crop-runs/<runId>/manifest.json` i przestawia przebieg na
+`previewed` z `manifestChecksumSha256`, `previewToken`, licznikami według powodu
+(`exclusionCounts`, także `ALREADY_CROPPED`, `ORIGINAL_MISSING`,
+`ORIGINAL_HEADER_MISMATCH`, `CROP_PLAN_INVALID`), bajtami kandydatów i
+szacowaną oszczędnością. Drugi aktywny przebieg (`planning`, `created`,
+`processing`) zwraca `409 SOURCE_CROP_RUN_ACTIVE`; nowy podgląd zastępuje
+przebieg `previewed`, którego nikt nie uruchomił (stan `cancelled`, kod
+`SOURCE_CROP_PREVIEW_SUPERSEDED`). Do czasu handlera z TASK-1048 rodzaj
+`original_deletion` jest odrzucany przed utworzeniem joba
+(`409 SOURCE_CROP_KIND_UNSUPPORTED`).
+
+`POST /source-crop-previews/{previewId}/start` jest operacją high-impact
+(`X-Admin-Confirmation: confirmed`, `X-Admin-Target: source-crop-preview:{previewId}`)
+i wymaga `manifestChecksumSha256`, `previewToken` i `confirmed=true`; przebieg
+`original_deletion` wymaga dodatkowo `acknowledgeIrreversible=true`
+(`SOURCE_ORIGINAL_DELETION_ACKNOWLEDGEMENT_REQUIRED`). Brak potwierdzenia daje
+`SOURCE_CROP_CONFIRMATION_REQUIRED`, zmieniony token lub suma
+`SOURCE_CROP_PREVIEW_STALE`. Powtórzenie tego samego startu zwraca ten sam job
+wykonania. `GET` zwraca stan, postęp (`processedCount`, `succeededCount`,
+`skippedCount`, `failedCount`, `savedBytes`, `checkpointIndex`,
+`outcomeCounts`) i najwyżej 100 błędów pojedynczych oryginałów; nieznany
+przebieg to `404 SOURCE_CROP_RUN_NOT_FOUND`.
+
+Stan przebiegu podąża za jobem w tej samej transakcji co zmiana joba
+(`synchronize_source_crop_job`): anulowanie lub błąd joba kończy przebieg
+(`cancelled`/`failed` z kodem joba), także przy anulowaniu joba `created` i przy
+odzyskaniu wygasłej dzierżawy z żądaniem anulowania. Ogólny retry joba
+(`POST /api/v1/admin/jobs/{jobId}/retry`) otwiera przebieg ponownie z zachowanym
+checkpointem (`planning` albo `created`), a gdy aktywny jest inny przebieg,
+retry kończy się `409 SOURCE_CROP_RUN_ACTIVE` bez zmiany joba.
+
 ### POST `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports`
 
 Tworzy kanoniczny manifest `image-job-diagnostics-v1` z dokładnymi agregatami

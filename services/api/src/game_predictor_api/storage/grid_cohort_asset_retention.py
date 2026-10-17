@@ -16,7 +16,7 @@ from game_predictor_api.domain.storage_retention import (
     CohortAssetReferenceState,
     cohort_asset_path_identity,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v18 import (
+from game_predictor_api.storage.game_data_v2_manifest_v19 import (
     ADDED_GAME_TABLES,
     GAME_TABLES,
     VERSION,

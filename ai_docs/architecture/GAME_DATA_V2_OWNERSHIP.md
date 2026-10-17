@@ -120,6 +120,18 @@ bez bajtów obrazu, sekwencji, symboli i identyfikatorów gry. Kwalifikacja
 schematu z jawnym `game_data_v2.` i nie wiąże jednej gry. Downgrade odmawia przy
 dowolnym wierszu rejestru (`SOURCE_IMAGE_CROPS_DOWNGRADE_HAS_HISTORY`).
 
+## Manifest v19 — przebiegi przycinania oryginałów (TASK-1047, D-562)
+
+`game_data_v2_manifest_v19.py` i Alembic `0168_source_crop_runs` zachowują
+GAME/CREATE/MIGRATE/DELETE/PARTITIONED z v18 bez zmian i dodają jedną tabelę
+`shared` w `public`: `source_crop_runs`. Wiersz zawiera zakres, ścieżkę i sumę
+manifestu, token podglądu, liczniki i identyfikatory jobów, bez bajtów obrazu i
+bez danych gry. API zapisuje przebiegi rolą aplikacji; worker czyta kwalifikację
+sesją właściciela schematu w jednym snapshocie REPEATABLE READ i zapisuje
+wiersz `source_image_crops` w tej samej transakcji co końcowe sprawdzenie
+kwalifikacji. Jobs `source_crop` i `source_original_deletion` mają `game_id`
+NULL i należą do `NON_IMAGE_JOB_TYPES`, więc nie wykluczają własnych oryginałów.
+
 ## Reguły i granice
 
 - `catalog`: pojedynczy wspólny katalog/koordynator w `public`. `jobs` pozostaje

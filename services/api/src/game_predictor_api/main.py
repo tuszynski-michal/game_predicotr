@@ -37,6 +37,7 @@ from game_predictor_api.api.management_public_structure import (
 from game_predictor_api.api.management_sessions import create_management_sessions_router
 from game_predictor_api.api.management_stakes import create_management_stake_router
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.api.source_crop_runs import create_source_crop_runs_router
 from game_predictor_api.api.source_recording_groups import create_source_recording_groups_router
 from game_predictor_api.api.super_game_series import create_super_game_series_router
 from game_predictor_api.application.board_cell_geometry_pending import (
@@ -196,6 +197,7 @@ from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
 )
 from game_predictor_api.application.shared_grid_model_candidate import SharedGridCandidateService
+from game_predictor_api.application.source_crop_runs import SourceCropRunService
 from game_predictor_api.application.source_recording_groups import SourceRecordingGroupsService
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
@@ -488,6 +490,9 @@ from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepositor
 from game_predictor_api.storage.semi_automatic_image_selection_repository import (
     SqlAlchemySemiAutomaticSelectionRepository,
 )
+from game_predictor_api.storage.source_crop_run_repository import (
+    SqlAlchemySourceCropRunRepository,
+)
 from game_predictor_api.storage.source_recording_groups import SqlAlchemySourceRecordingRepository
 from game_predictor_api.storage.source_recording_providers import TrustedRecordingProviders
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
@@ -632,6 +637,7 @@ def create_app(
     image_sequence_canonical_service_dependency: Callable[..., object] | None = None,
     iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
+    source_crop_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_grid_review_service_dependency: Callable[..., object] | None = None,
     grid_shadow_service_dependency: Callable[..., object] | None = None,
@@ -2458,6 +2464,17 @@ def create_app(
 
     application.include_router(
         create_grid_model_evaluations_router(default_grid_model_evaluation_dependency)
+    )
+
+    def default_source_crop_dependency() -> SourceCropRunService:
+        # D-562 (TASK-1047): runs and their jobs are shared rows in ``public``.
+        return SourceCropRunService(SqlAlchemySourceCropRunRepository(session_factory))
+
+    application.include_router(
+        create_source_crop_runs_router(
+            source_crop_service_dependency or default_source_crop_dependency
+        ),
+        prefix="/api/v1",
     )
 
     @application.exception_handler(GridModelRegistryError)

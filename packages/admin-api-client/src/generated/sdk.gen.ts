@@ -216,6 +216,9 @@ import type {
   CreateSemiAutomaticImageSelectionData,
   CreateSemiAutomaticImageSelectionErrors,
   CreateSemiAutomaticImageSelectionResponses,
+  CreateSourceCropPreviewData,
+  CreateSourceCropPreviewErrors,
+  CreateSourceCropPreviewResponses,
   CreateStorageGcPreviewData,
   CreateStorageGcPreviewErrors,
   CreateStorageGcPreviewResponses,
@@ -621,6 +624,9 @@ import type {
   GetSemiAutomaticImageSelectionSourceAssetData,
   GetSemiAutomaticImageSelectionSourceAssetErrors,
   GetSemiAutomaticImageSelectionSourceAssetResponses,
+  GetSourceCropRunData,
+  GetSourceCropRunErrors,
+  GetSourceCropRunResponses,
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
@@ -866,6 +872,9 @@ import type {
   ListSemiAutomaticImageSelectionSourcesErrors,
   ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
+  ListSourceCropRunsData,
+  ListSourceCropRunsErrors,
+  ListSourceCropRunsResponses,
   ListSourceRecordingGroupsData,
   ListSourceRecordingGroupsErrors,
   ListSourceRecordingGroupsResponses,
@@ -1239,6 +1248,9 @@ import type {
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartSourceCropRunData,
+  StartSourceCropRunErrors,
+  StartSourceCropRunResponses,
   StartStorageGcRunData,
   StartStorageGcRunErrors,
   StartStorageGcRunResponses,
@@ -7071,6 +7083,89 @@ export const refreshImageStorageInventory = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-storage/inventory-refresh',
+    ...options,
+  });
+
+/**
+ * Plan a crop or original-deletion run (worker builds the preview)
+ */
+export const createSourceCropPreview = <ThrowOnError extends boolean = false>(
+  options: Options<CreateSourceCropPreviewData, ThrowOnError>,
+): RequestResult<
+  CreateSourceCropPreviewResponses,
+  CreateSourceCropPreviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSourceCropPreviewResponses,
+    CreateSourceCropPreviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/source-crop-previews',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Execute a reviewed source crop preview after explicit confirmation
+ */
+export const startSourceCropRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartSourceCropRunData, ThrowOnError>,
+): RequestResult<
+  StartSourceCropRunResponses,
+  StartSourceCropRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSourceCropRunResponses,
+    StartSourceCropRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-storage/source-crop-previews/{preview_id}/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List the newest source crop runs
+ */
+export const listSourceCropRuns = <ThrowOnError extends boolean = false>(
+  options?: Options<ListSourceCropRunsData, ThrowOnError>,
+): RequestResult<
+  ListSourceCropRunsResponses,
+  ListSourceCropRunsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListSourceCropRunsResponses,
+    ListSourceCropRunsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-storage/source-crop-runs', ...options });
+
+/**
+ * Read one source crop run with its preview and progress
+ */
+export const getSourceCropRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetSourceCropRunData, ThrowOnError>,
+): RequestResult<
+  GetSourceCropRunResponses,
+  GetSourceCropRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSourceCropRunResponses,
+    GetSourceCropRunErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-storage/source-crop-runs/{run_id}',
     ...options,
   });
 

@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1047 — Trwały job `source_crop` (plan i wykonanie) z API (done)
+
+- Plik: [1047-source-crop-job.md](../tasks/completed/1047-source-crop-job.md); commit **v1.7.410** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high` (zmiana operatora 2026-10-17): R1 REVISE (5 × P0 fencing dzierżawy, niejednoznaczny COMMIT, synchronizacja przebiegu z anulowaniem i retry joba, rodzaj bez handlera; 3 × P1 wersja i timeout jpegtran, test wznowienia w nowym procesie), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: migracja `0168_source_crop_runs` (manifest v19, typy jobów `source_crop` i `source_original_deletion`), pion API podglądu i startu przebiegu (high-impact), worker z manifestem planu, bezstratnym cropem `jpegtran` 3.2.0, weryfikacją R7, atestem i wierszem `verified` pod blokadą advisory i dzierżawą; stan przebiegu synchronizowany przy każdej zmianie joba. Oryginały tylko czytane.
+- Weryfikacja: worker 28 testów (w tym prawdziwy `jpegtran`), API 11, PostgreSQL 4 (wznowienie w nowym `LocalJobWorker`, fencing, anulowanie/retry/recovery), test żądania klienta, `openapi:check`, `docs:check`, ruff i mypy bez nowych błędów.
+
 ### TASK-1046 — Ramka źródła z cropem w API, serwowanie i blokady (done)
 
 - Plik: [1046-source-frame-api.md](../tasks/completed/1046-source-frame-api.md); commit **v1.7.407 / `401b371f4dd971fb248266e450c82b3333f82445`** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (2 × P0 klucz cache podglądu i status 422 zamiast 409, 3 × P1 testy HTTP, test interakcji Reviewera, opis ETag), jedna runda poprawek, wszystkie zamknięte.

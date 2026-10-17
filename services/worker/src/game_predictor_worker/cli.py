@@ -44,6 +44,9 @@ from game_predictor_api.storage.schema_readiness import (
     AlembicHeadMismatchError,
     require_alembic_head,
 )
+from game_predictor_api.storage.source_crop_run_repository import (
+    SqlAlchemySourceCropRunRepository,
+)
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
 from game_predictor_worker.images.geometry_guard_report_reconstruction import (
@@ -134,6 +137,7 @@ from game_predictor_worker.snapshots import (
     ProductionSnapshotGenerator,
     SqlAlchemyProductionSnapshotStore,
 )
+from game_predictor_worker.source_crop import SourceCropHandler, SqlSourceCropCatalog
 from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
 from game_predictor_worker.super_game_series import SuperGameSeriesDeriveHandler
@@ -552,6 +556,13 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 owner_engine,
             ),
             JobType.SUPER_GAME_SERIES_DERIVE: SuperGameSeriesDeriveHandler(session_factory),
+            # D-562 (TASK-1047): eligibility spans every game that shares an
+            # original, so it reads one REPEATABLE READ snapshot as schema owner.
+            JobType.SOURCE_CROP: SourceCropHandler(
+                SqlAlchemySourceCropRunRepository(session_factory),
+                SqlSourceCropCatalog(create_owner_session_factory(owner_engine)),
+                artifact_root,
+            ),
             JobType.GRID_MODEL_EVALUATION: _grid_model_evaluation_handler(
                 session_factory, engine, artifact_root, thread_budget
             ),

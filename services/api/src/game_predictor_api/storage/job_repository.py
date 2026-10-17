@@ -369,8 +369,12 @@ class SqlAlchemyJobRepository(JobRepository):
             )
         apply_job_to_record(record, job)
         from game_predictor_api.storage.grid_reinference import synchronize_grid_job
+        from game_predictor_api.storage.source_crop_run_repository import (
+            synchronize_source_crop_job,
+        )
 
         synchronize_grid_job(self._session, job)
+        synchronize_source_crop_job(self._session, job)
         synchronize_lab_import_iteration(self._session, job)
         if job.job_type is JobType.ANDROID_BUILD and job.status is JobStatus.CANCELLED:
             release = self._session.scalar(

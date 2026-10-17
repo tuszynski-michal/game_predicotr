@@ -46,6 +46,10 @@ class HighImpactOperation:
 
 
 HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
+    # D-562 (TASK-1047/1048): executing a crop or original-deletion preview.
+    ("POST", "/api/v1/admin/image-storage/source-crop-previews/{preview_id}/start"): (
+        HighImpactOperation("start-source-crop-run", "source-crop-preview:{preview_id}")
+    ),
     ("DELETE", "/api/v1/admin/games/{game_id}"): HighImpactOperation(
         "archive-game", "game:{game_id}"
     ),

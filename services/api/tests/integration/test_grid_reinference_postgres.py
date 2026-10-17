@@ -1200,7 +1200,7 @@ def test_browser_staging_detaches_only_live_link_and_keeps_guards(database, tmp_
 
 
 def test_superseded_preview_knows_exact_live_reference_and_other_foreign_keys(database):
-    from game_predictor_api.storage import game_data_v2_manifest_v18 as v14
+    from game_predictor_api.storage import game_data_v2_manifest_v19 as v14
     from game_predictor_api.storage.database import create_cross_game_owner_session_factory
     from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
     from game_predictor_api.storage.superseded_import_image_removal_repository import (

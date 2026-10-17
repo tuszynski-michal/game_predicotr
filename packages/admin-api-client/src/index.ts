@@ -443,6 +443,10 @@ import {
   createStorageGcPreview as createGeneratedStorageGcPreview,
   refreshImageStorageInventory as refreshGeneratedImageStorageInventory,
   startStorageGcRun as startGeneratedStorageGcRun,
+  createSourceCropPreview as createGeneratedSourceCropPreview,
+  startSourceCropRun as startGeneratedSourceCropRun,
+  getSourceCropRun as getGeneratedSourceCropRun,
+  listSourceCropRuns as listGeneratedSourceCropRuns,
   getSymbolCellReviewProjectionStatus as getGeneratedSymbolCellReviewProjectionStatus,
   getSemiAutomaticImageSelectionSourceAsset as getGeneratedSemiAutomaticImageSelectionSourceAsset,
   getV7LabelGeometryCalibrationSession as getGeneratedV7LabelGeometryCalibrationSession,
@@ -734,6 +738,8 @@ import type {
   SemiAutomaticSelectionSourceItemResponse,
   SemiAutomaticSelectionSourcePageResponse,
   StorageGcRunCreate,
+  SourceCropPreviewCreate,
+  SourceCropRunStart,
   VirtualCellPreviewBatchRequest,
   VirtualCellPreviewTileResponse,
   ResolveUnreadableCellRequest,
@@ -968,6 +974,11 @@ export type {
   StorageGcPreviewResponse,
   StorageGcRunCreate,
   StorageGcRunResponse,
+  SourceCropPreviewCreate,
+  SourceCropRunListResponse,
+  SourceCropRunResponse,
+  SourceCropRunStart,
+  SourceCropScopeModel,
   ImageStorageNamespaceResponse,
   ImageReviewAction,
   ImageReviewGridIssueView,
@@ -2868,6 +2879,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getStorageGcRun: (runId: string) =>
       getGeneratedStorageGcRun({ client, path: { run_id: runId } }),
+    // D-562 (TASK-1047): crop and original-deletion runs of managed originals.
+    createSourceCropPreview: (body: SourceCropPreviewCreate) =>
+      createGeneratedSourceCropPreview({ body, client }),
+    startSourceCropRun: (previewId: string, body: SourceCropRunStart) =>
+      startGeneratedSourceCropRun({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`source-crop-preview:${previewId}`),
+        path: { preview_id: previewId },
+      }),
+    getSourceCropRun: (runId: string) =>
+      getGeneratedSourceCropRun({ client, path: { run_id: runId } }),
+    listSourceCropRuns: (limit?: number) =>
+      listGeneratedSourceCropRuns({ client, query: { limit } }),
     listApprovedSymbolReferenceCandidates: (
       gameId: string,
       symbolId: string,

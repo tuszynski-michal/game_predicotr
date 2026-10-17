@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 from game_predictor_api.domain.storage_retention import cohort_asset_path_identity
 from game_predictor_api.storage import grid_cohort_asset_retention as module
-from game_predictor_api.storage.game_data_v2_manifest_v18 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v19 import GAME_TABLES, VERSION
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from sqlalchemy.exc import SQLAlchemyError
 

@@ -8,8 +8,8 @@ and writes rows.
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, SmallInteger, String
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from game_predictor_api.storage.metadata import Base
@@ -46,3 +46,39 @@ class SourceImageCropModel(Base):
     job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     original_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SourceCropRunModel(Base):
+    """One planned and optionally executed crop or original-deletion run (migration 0168)."""
+
+    __tablename__ = "source_crop_runs"
+    __table_args__ = ({"schema": "public"},)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(16))
+    scope: Mapped[dict[str, object]] = mapped_column(JSONB)
+    plan_job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
+    job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
+    manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    preview_token: Mapped[str | None] = mapped_column(String(64))
+    eligible_count: Mapped[int] = mapped_column(Integer, default=0)
+    excluded_count: Mapped[int] = mapped_column(Integer, default=0)
+    exclusion_counts: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    candidate_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    estimated_saved_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    processed_count: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded_count: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0)
+    saved_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    checkpoint_index: Mapped[int] = mapped_column(Integer, default=0)
+    outcome_counts: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    failures: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

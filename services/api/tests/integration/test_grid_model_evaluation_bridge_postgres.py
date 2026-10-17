@@ -48,7 +48,7 @@ def test_notice_marks_are_trigger_only_and_proofs_are_append_only() -> None:
         config = _config(db)
         with db.owner_engine.connect() as connection:
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0167_source_image_crops"
+                "0168_source_crop_runs"
             )
             assert (
                 "grid_model_evaluation"
@@ -59,7 +59,7 @@ def test_notice_marks_are_trigger_only_and_proofs_are_append_only() -> None:
                     text(MANIFEST),
                     {"g": game},
                 )
-                == "game-data-v2-manifest-v18"
+                == "game-data-v2-manifest-v19"
             )
             report = describe_application_role(connection, db.role)
             assert report.compliant, report.as_dict()

@@ -38,7 +38,7 @@ from game_predictor_api.domain.reviewer_work_assignments import (
 )
 from game_predictor_api.storage import management_session_models  # noqa: F401  (registers 0150)
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v18 import (
+from game_predictor_api.storage.game_data_v2_manifest_v19 import (
     CREATE_TABLES,
     GAME_TABLES,
     VERSION,

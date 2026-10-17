@@ -1280,6 +1280,37 @@ ważna przez 8 godzin, ma limit pięciu błędnych prób i może zostać uniewa�
 Nie wysyłaj lokalnego adresu `127.0.0.1`. Zdalny dostęp używa wyłącznie
 kontrolowanego trybu HTTPS opisanego niżej; nie przekierowuj portów routera.
 
+## Przycinanie oryginałów do siatki (TASK-1047, D-562)
+
+Job `source_crop` przycina bezstratnie zarządzane oryginały do zatwierdzonej
+geometrii z marginesem 50 px programem `jpegtran` z libjpeg-turbo. Worker
+szuka go w `GAME_PREDICTOR_JPEGTRAN_PATH`, a bez tej zmiennej w
+`.tooling\libjpeg-turbo-3.2.0\bin\jpegtran.exe` względem katalogu, z którego
+uruchomiono worker (dla skryptów npm: katalog repozytorium). Wymagana jest
+wersja 3.2.0; inną trzeba jawnie wskazać w `GAME_PREDICTOR_JPEGTRAN_VERSION`.
+Brak narzędzia albo inna wersja kończy job kodem
+`SOURCE_CROP_TOOL_UNAVAILABLE`, zanim powstanie jakikolwiek plik; po
+naprawie wystarczy retry joba w panelu. Sprawdzenie instalacji:
+
+```powershell
+.\.tooling\libjpeg-turbo-3.2.0\bin\jpegtran.exe -version
+```
+
+Instalacja jednorazowa: pobierz oficjalny instalator `libjpeg-turbo-3.2.0-vc-x64.exe`
+z wydań projektu libjpeg-turbo, sprawdź podpis (SignPath Foundation) i
+zainstaluj do `.tooling\libjpeg-turbo-3.2.0`. Katalog `.tooling` nie trafia do
+repozytorium.
+
+Przebieg wymaga migracji `0168` i restartu workera general lane po
+aktualizacji kodu. Najpierw powstaje podgląd (`POST
+/api/v1/admin/image-storage/source-crop-previews`); worker zapisuje manifest
+`artifacts\data\source-crop-runs\<runId>\manifest.json` i liczniki wykluczeń.
+Wykonanie startuje dopiero po potwierdzeniu tego podglądu tokenem. Job tylko
+czyta oryginały; pliki `data\originals-cropped\<sha[:2]>\<sha>.jpg` i `.json`
+oraz wiersz `source_image_crops` powstają po weryfikacji pikseli. Restart workera
+wznawia przebieg od ostatniego checkpointu (co 25 oryginałów). Usuwanie
+oryginałów to osobny, nieodwracalny przebieg (TASK-1048) z osobną zgodą.
+
 ## Zbudowanie mobilnego APK z bieżącego snapshotu
 
 Ta procedura buduje snapshot znajdujący się aktualnie w

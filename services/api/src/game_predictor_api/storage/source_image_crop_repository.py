@@ -42,6 +42,10 @@ NON_IMAGE_JOB_TYPES = (
     "validate",
     "super_game_series_derive",
     "storage_inventory",
+    # The crop and deletion runs re-check eligibility while they run themselves;
+    # only one of them is active at a time (uq_source_crop_runs_active).
+    "source_crop",
+    "source_original_deletion",
 )
 _SNAPSHOT_ISOLATION = frozenset({"repeatable read", "serializable"})
 

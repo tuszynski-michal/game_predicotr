@@ -51,7 +51,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v18 import GAME_TABLES, VERSION, ownership
+from game_predictor_api.storage.game_data_v2_manifest_v19 import GAME_TABLES, VERSION, ownership
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
 from game_predictor_api.storage.game_storage_routing import (
     VERSION as ROUTED_MANIFEST_VERSION,

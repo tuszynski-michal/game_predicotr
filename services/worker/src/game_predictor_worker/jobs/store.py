@@ -38,6 +38,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewBulkOperationModel,
     JobModel,
 )
+from game_predictor_api.storage.source_crop_run_repository import synchronize_source_crop_job
 from sqlalchemy import case, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -160,6 +161,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             session.flush()
             return updated
 
@@ -210,6 +212,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
             return updated
@@ -239,6 +242,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=completed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
@@ -274,6 +278,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=failed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
@@ -305,6 +310,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=paused_at)
             session.flush()
             _reconcile_board_search(session, updated)
@@ -336,6 +342,7 @@ class SqlAlchemyWorkerJobStore:
             )
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
+            synchronize_source_crop_job(session, updated)
             session.flush()
             return updated
 
@@ -394,6 +401,7 @@ class SqlAlchemyWorkerJobStore:
             recovered = recover_expired_job(current, recovered_at=recovered_at)
             apply_job_to_record(record, recovered)
             synchronize_grid_job(session, recovered)
+            synchronize_source_crop_job(session, recovered)
             _synchronize_bulk_operation_recovery(session, recovered)
             session.flush()
             return recovered
@@ -404,6 +412,7 @@ def _quarantine_missing_start(session: Session, record: JobModel, *, checked_at:
     quarantined = quarantine_unstarted_grid_job(job_from_record(record), checked_at=checked_at)
     apply_job_to_record(record, quarantined)
     synchronize_grid_job(session, quarantined)
+    synchronize_source_crop_job(session, quarantined)
     session.flush()
     _LOGGER.warning(
         "worker_job_candidate_quarantined job_id=%s code=%s", record.id, quarantined.error_code

@@ -55,10 +55,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1047 — Job `source_crop` (plan i wykonanie) z API (todo)
-
-- Plik: `tasks/1047-source-crop-job.md`. Następny krok: implementacja, pierwszy task etapu B.
-
 ### TASK-1048 — Job usuwania oryginałów, cleanup i strażnicy kotwic (todo)
 
 - Plik: `tasks/1048-source-original-deletion.md`. Po TASK-1047; jedyny krok niszczący.
@@ -69,6 +65,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 — tasks/completed/1047-source-crop-job.md
 - **TASK-1046** — Ramka źródła z cropem w API, serwowanie i blokady — v1.7.407 / `401b371f` — tasks/completed/1046-source-frame-api.md
 - **TASK-1045** — Ramka źródła z cropem w workerze — v1.7.406 / `279a22ce` — tasks/completed/1045-source-frame-worker.md
 - **TASK-1044** — Migracja source_image_crops i kwalifikacja blobów — v1.7.405 / `a0727612` — tasks/completed/1044-source-image-crops-table-and-eligibility.md
@@ -78,4 +75,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
 - **TASK-1041** — Zdjęcia V3 bez przypisania plansz są jawne — v1.7.388 / `c93eb54e` — tasks/completed/1041-v3-import-unbound-photos-visible.md
 - **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md
-- **TASK-1040** — Hooki Claude Code i subagent `repo-explorer` — v1.7.386 / `ce72b7e7` — tasks/completed/1040-claude-code-hooks-and-explorer.md

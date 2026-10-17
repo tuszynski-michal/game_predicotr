@@ -12325,6 +12325,7 @@ export type JobResponse = {
     | SymbolCellReviewBackfillJobPayload
     | ImageGeometryRolloutBackfillJobPayload
     | StorageGcJobPayload
+    | SourceCropJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
@@ -12391,7 +12392,9 @@ export type JobType =
   | 'storage_pipeline_compaction'
   | 'super_game_series_derive'
   | 'grid_training'
-  | 'grid_model_evaluation';
+  | 'grid_model_evaluation'
+  | 'source_crop'
+  | 'source_original_deletion';
 
 /**
  * LabSymbolCandidateImportJobPayloadResponse
@@ -19589,6 +19592,235 @@ export type SnapshotJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+};
+
+/**
+ * SourceCropFailureResponse
+ */
+export type SourceCropFailureResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Message
+   */
+  message: string;
+};
+
+/**
+ * SourceCropJobPayload
+ *
+ * Plan or execute phase of a source crop or original-deletion run (D-562).
+ */
+export type SourceCropJobPayload = {
+  /**
+   * Kind
+   */
+  kind: 'crop' | 'original_deletion';
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256?: string | null;
+  /**
+   * Phase
+   */
+  phase: 'plan' | 'execute';
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourcecroprunid
+   */
+  sourceCropRunId: string;
+};
+
+/**
+ * SourceCropPreviewCreate
+ */
+export type SourceCropPreviewCreate = {
+  /**
+   * Kind
+   */
+  kind?: 'crop' | 'original_deletion';
+  scope?: SourceCropScopeModel;
+};
+
+/**
+ * SourceCropRunListResponse
+ */
+export type SourceCropRunListResponse = {
+  /**
+   * Runs
+   */
+  runs: Array<SourceCropRunResponse>;
+};
+
+/**
+ * SourceCropRunResponse
+ */
+export type SourceCropRunResponse = {
+  /**
+   * Candidatebytes
+   */
+  candidateBytes: number;
+  /**
+   * Checkpointindex
+   */
+  checkpointIndex: number;
+  /**
+   * Createdat
+   */
+  createdAt: string | null;
+  /**
+   * Eligiblecount
+   */
+  eligibleCount: number;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Estimatedsavedbytes
+   */
+  estimatedSavedBytes: number;
+  /**
+   * Excludedcount
+   */
+  excludedCount: number;
+  /**
+   * Exclusioncounts
+   */
+  exclusionCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Failedcount
+   */
+  failedCount: number;
+  /**
+   * Failures
+   */
+  failures: Array<SourceCropFailureResponse>;
+  /**
+   * Finishedat
+   */
+  finishedAt: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'crop' | 'original_deletion';
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string | null;
+  /**
+   * Outcomecounts
+   */
+  outcomeCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Planjobid
+   */
+  planJobId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string | null;
+  /**
+   * Processedcount
+   */
+  processedCount: number;
+  /**
+   * Savedbytes
+   */
+  savedBytes: number;
+  scope: SourceCropScopeModel;
+  /**
+   * Skippedcount
+   */
+  skippedCount: number;
+  /**
+   * Startedat
+   */
+  startedAt: string | null;
+  /**
+   * Status
+   */
+  status:
+    | 'planning'
+    | 'previewed'
+    | 'created'
+    | 'processing'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
+  /**
+   * Succeededcount
+   */
+  succeededCount: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string | null;
+};
+
+/**
+ * SourceCropRunStart
+ */
+export type SourceCropRunStart = {
+  /**
+   * Acknowledgeirreversible
+   */
+  acknowledgeIrreversible?: boolean;
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * SourceCropScopeModel
+ */
+export type SourceCropScopeModel = {
+  /**
+   * Gameid
+   */
+  gameId?: string | null;
+  /**
+   * Limit
+   */
+  limit?: number | null;
+  /**
+   * Onlychecksums
+   */
+  onlyChecksums?: Array<string> | null;
 };
 
 /**
@@ -35540,6 +35772,173 @@ export type RefreshImageStorageInventoryResponses = {
 
 export type RefreshImageStorageInventoryResponse =
   RefreshImageStorageInventoryResponses[keyof RefreshImageStorageInventoryResponses];
+
+export type CreateSourceCropPreviewData = {
+  body: SourceCropPreviewCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-storage/source-crop-previews';
+};
+
+export type CreateSourceCropPreviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Source crop run not found
+   */
+  404: ErrorResponse;
+  /**
+   * Source crop run conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateSourceCropPreviewError =
+  CreateSourceCropPreviewErrors[keyof CreateSourceCropPreviewErrors];
+
+export type CreateSourceCropPreviewResponses = {
+  /**
+   * Successful Response
+   */
+  201: SourceCropRunResponse;
+};
+
+export type CreateSourceCropPreviewResponse =
+  CreateSourceCropPreviewResponses[keyof CreateSourceCropPreviewResponses];
+
+export type StartSourceCropRunData = {
+  body: SourceCropRunStart;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Preview Id
+     */
+    preview_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-storage/source-crop-previews/{preview_id}/start';
+};
+
+export type StartSourceCropRunErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Source crop run not found
+   */
+  404: ErrorResponse;
+  /**
+   * Source crop run conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartSourceCropRunError =
+  StartSourceCropRunErrors[keyof StartSourceCropRunErrors];
+
+export type StartSourceCropRunResponses = {
+  /**
+   * Successful Response
+   */
+  201: SourceCropRunResponse;
+};
+
+export type StartSourceCropRunResponse =
+  StartSourceCropRunResponses[keyof StartSourceCropRunResponses];
+
+export type ListSourceCropRunsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-storage/source-crop-runs';
+};
+
+export type ListSourceCropRunsErrors = {
+  /**
+   * Source crop run not found
+   */
+  404: ErrorResponse;
+  /**
+   * Source crop run conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListSourceCropRunsError =
+  ListSourceCropRunsErrors[keyof ListSourceCropRunsErrors];
+
+export type ListSourceCropRunsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceCropRunListResponse;
+};
+
+export type ListSourceCropRunsResponse =
+  ListSourceCropRunsResponses[keyof ListSourceCropRunsResponses];
+
+export type GetSourceCropRunData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-storage/source-crop-runs/{run_id}';
+};
+
+export type GetSourceCropRunErrors = {
+  /**
+   * Source crop run not found
+   */
+  404: ErrorResponse;
+  /**
+   * Source crop run conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetSourceCropRunError =
+  GetSourceCropRunErrors[keyof GetSourceCropRunErrors];
+
+export type GetSourceCropRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceCropRunResponse;
+};
+
+export type GetSourceCropRunResponse =
+  GetSourceCropRunResponses[keyof GetSourceCropRunResponses];
 
 export type ListJobsData = {
   body?: never;

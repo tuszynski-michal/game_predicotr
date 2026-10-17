@@ -1285,6 +1285,24 @@ orientacja 1/3/6/8), crop i atest (`originals-cropped/<sha[:2]>/<sha>.jpg` i
 CHECK wymusza ścieżki wyprowadzone z sumy, crop mniejszy od oryginału, pudełko
 w obrazie i obszar chroniony w cropie.
 
+### `public.source_crop_runs` (migracja 0168, manifest v19, `shared`)
+
+Jeden wiersz na przebieg przycinania (`kind='crop'`) albo usuwania oryginałów
+(`kind='original_deletion'`, TASK-1048). Stany: `planning` → `previewed` →
+`created` → `processing` → `completed`, z wyjściem do `failed` albo `cancelled`.
+`plan_job_id` (NOT NULL) i `job_id` są FK do `jobs` (typy `source_crop` i
+`source_original_deletion`); `scope` (jsonb) to zakres podglądu. Po planie
+kolumny `manifest_relative_path`, `manifest_checksum_sha256` i `preview_token`
+są wymagane (`ck_source_crop_runs_preview`), a stany od `created` wymagają
+`job_id` (`ck_source_crop_runs_execution`). Liczniki planu
+(`eligible_count`, `excluded_count`, `exclusion_counts`, `candidate_bytes`,
+`estimated_saved_bytes`) i wykonania (`processed_count` = `succeeded_count` +
+`skipped_count` + `failed_count` ≤ `checkpoint_index`, `saved_bytes`,
+`outcome_counts`, `failures` ≤ 100) są nieujemne. Unikalny indeks częściowy
+`uq_source_crop_runs_active` dopuszcza jeden aktywny przebieg. Migracja kopiuje
+ACL `storage_gc_runs` dla roli aplikacji; downgrade odmawia przy dowolnym
+przebiegu albo jobie tych typów (`SOURCE_CROP_RUNS_DOWNGRADE_HAS_HISTORY`).
+
 `source_images` i kolejne tabele wyników są zakresem integracji etapów M7.2.
 Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
 pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość

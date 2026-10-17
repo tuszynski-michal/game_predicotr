@@ -20,7 +20,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from game_predictor_api.application.image_review_assets import (
-    resolve_grid_review_source_asset,
+    resolve_grid_review_source_path,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_correction_reverts import (
@@ -165,7 +165,7 @@ class VirtualRestoredRenderVerifier:
 
         if not request.render_specs:
             return {}
-        path = resolve_grid_review_source_asset(
+        path = resolve_grid_review_source_path(
             ImageGridReviewSourceAsset(
                 review_item_id=request.review_item_id,
                 source_image_id=request.source_image_id,
@@ -178,8 +178,8 @@ class VirtualRestoredRenderVerifier:
                 topology=request.topology,
             ),
             self._artifact_root,
-        ).path
-        loader = CanonicalSourceLoader()
+        )
+        loader = CanonicalSourceLoader(allow_crop=True)
         try:
             frame = loader.load(
                 path, expected_source_checksum_sha256=request.source_checksum_sha256
@@ -193,6 +193,12 @@ class VirtualRestoredRenderVerifier:
             VirtualCellExtractionError,
             SymbolCellReviewError,
         ) as error:
+            if getattr(error, "code", None) == "SOURCE_REGION_UNAVAILABLE":
+                # D-562: the restored cells lie outside the retained crop.
+                raise ImageReviewConflictError(
+                    "SOURCE_REGION_UNAVAILABLE",
+                    "Przywracane komórki leżą poza zachowanym kadrem oryginału.",
+                ) from error
             raise ImageReviewConflictError(
                 GEOMETRY_REVERT_RENDER_FAILED,
                 "Nie udało się odtworzyć renderu przywracanych komórek: "

@@ -14,7 +14,7 @@ from uuid import UUID
 from PIL import Image
 
 from game_predictor_api.application.image_review_assets import (
-    resolve_grid_review_source_asset,
+    resolve_grid_review_source_path,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
@@ -1207,11 +1207,11 @@ class VirtualGridGeometryService:
             VirtualCellRenderer,
         )
 
-        source_path = resolve_grid_review_source_asset(
+        source_path = resolve_grid_review_source_path(
             base_context.source_asset,
             self._artifact_root,
-        ).path
-        loader = CanonicalSourceLoader()
+        )
+        loader = CanonicalSourceLoader(allow_crop=True)
         rendered_by_item: dict[UUID, tuple[VirtualCellRender, ...]] = {}
         try:
             frame = loader.load(
@@ -1475,11 +1475,11 @@ class VirtualGridGeometryService:
             source_height=expected_source_height,
             topology=BoardTopology(rows=expected_grid_rows, columns=expected_grid_columns),
         )
-        source_path = resolve_grid_review_source_asset(
+        source_path = resolve_grid_review_source_path(
             context.source_asset,
             self._artifact_root,
-        ).path
-        loader = CanonicalSourceLoader()
+        )
+        loader = CanonicalSourceLoader(allow_crop=True)
         try:
             frame = loader.load(
                 source_path,

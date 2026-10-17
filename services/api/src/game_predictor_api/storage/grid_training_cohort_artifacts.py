@@ -144,6 +144,14 @@ class GridCohortArtifactStore:
         relative = source["relative_path"]
         path = self.safe("data/" + relative)
         if not path.is_file():
+            from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+            # D-562: geometry training needs the whole frame, never a crop canvas.
+            if managed_original_is_cropped(path, source["checksum_sha256"]):
+                raise GridCohortError(
+                    "SOURCE_ORIGINAL_CROPPED",
+                    "The selected original was replaced by its crop; cohorts need the full frame.",
+                )
             raise GridCohortError(
                 "SOURCE_BYTES_UNAVAILABLE", "The selected original is unavailable."
             )

@@ -79,6 +79,34 @@ def resolve_managed_preflight_source(
     return checksum, browser_checksum
 
 
+def require_full_managed_originals(source: Job, *, artifact_root: Path) -> None:
+    """Refuse to reprocess an import whose originals were replaced by crops (D-562).
+
+    Reprocessing re-detects page and board geometry on whole frames; a crop
+    canvas would silently produce different geometry.
+    """
+
+    from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+    root = artifact_root.resolve()
+    _, originals = _load_managed_source_manifest(root, source)
+    for item in originals:
+        path = _managed_path(root, _managed_original_relative(item.checksum_sha256))
+        if managed_original_is_cropped(path, item.checksum_sha256):
+            raise _original_cropped()
+
+
+def _managed_original_relative(checksum: str) -> PurePosixPath:
+    return PurePosixPath("data", "originals", checksum[:2], f"{checksum}.jpg")
+
+
+def _original_cropped() -> ManagedReprocessEvidenceError:
+    return ManagedReprocessEvidenceError(
+        "SOURCE_ORIGINAL_CROPPED",
+        "A managed original of this import was replaced by its crop; it needs the full frame.",
+    )
+
+
 def resolve_managed_page_source(
     source: Job,
     *,
@@ -103,6 +131,10 @@ def resolve_managed_page_source(
             "data", "originals", source_checksum_sha256[:2], f"{source_checksum_sha256}.jpg"
         ),
     )
+    from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+    if managed_original_is_cropped(path, source_checksum_sha256):
+        raise _original_cropped()
     content = _read_bytes(path, "The managed source image is unavailable.")
     if hashlib.sha256(content).hexdigest() != source_checksum_sha256:
         raise _incompatible("The managed source image checksum changed.")
@@ -151,6 +183,10 @@ def resolve_managed_browser_selection(
         )
         path = _managed_path(artifact_root.resolve(), PurePosixPath(managed_relative))
         if not path.is_file():
+            from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+            if managed_original_is_cropped(path, original.checksum_sha256):
+                raise _original_cropped()
             raise _incompatible("A managed source image is unavailable.")
         files.append(
             BrowserSequenceSource(
@@ -509,5 +545,6 @@ def _incompatible(message: str) -> ManagedReprocessEvidenceError:
 __all__ = [
     "ManagedReprocessEvidence",
     "ManagedReprocessEvidenceError",
+    "require_full_managed_originals",
     "resolve_managed_reprocess_evidence",
 ]

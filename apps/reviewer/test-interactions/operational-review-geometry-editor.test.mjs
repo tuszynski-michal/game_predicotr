@@ -200,3 +200,33 @@ test('a revision conflict keeps the editor open with a reload hint', async () =>
   assert.equal(saved.length, 0);
   await act(async () => root.unmount());
 });
+
+test('a grid outside the retained crop of a replaced original is refused visibly (D-562)', async () => {
+  // The source endpoint serves a cropped original at its full natural size
+  // (620x420 here), so the editor draws exactly as for the original; only a
+  // grid reaching past the retained crop is refused by the API.
+  const { api, calls } = fakeApi();
+  api.previewOperationalImageReviewGeometry = async (id, scope, body) => {
+    calls.preview.push({ body, id, scope });
+    return {
+      error: {
+        code: 'SOURCE_REGION_UNAVAILABLE',
+        message: 'Siatka wychodzi poza zachowany kadr zdjęcia.',
+      },
+    };
+  };
+  const saved = [];
+  const root = await openEditor(api, saved);
+
+  assert.equal(images.at(-1).naturalWidth, item().sourceWidth);
+  assert.equal(images.at(-1).naturalHeight, item().sourceHeight);
+  assert.equal(document.querySelector('dialog').open, true);
+  assert.match(
+    document.body.textContent,
+    /Siatka wychodzi poza zachowany kadr zdjęcia\./,
+  );
+  assert.equal(calls.preview.length, 1);
+  assert.equal(calls.save.length, 0);
+  assert.equal(saved.length, 0);
+  await act(async () => root.unmount());
+});

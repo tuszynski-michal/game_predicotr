@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (409 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (410 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (113 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy

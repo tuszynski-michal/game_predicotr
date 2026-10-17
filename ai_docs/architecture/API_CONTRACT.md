@@ -3294,7 +3294,8 @@ Używa tego samego resolvera co `getOperationalImageReviewSourceAsset`
 zwykły bez symlinku, typ obrazu, suma `checksum_sha256` z `source_images`) i
 tych samych kodów błędów (`404 IMAGE_REVIEW_ASSET_PATH_UNSAFE |
 IMAGE_REVIEW_ASSET_NOT_FOUND | IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED |
-IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT`). Zdjęcie innej gry albo nieznany
+IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT`; źródło zastąpione cropem D-562 serwuje
+pełnoklatkowy podgląd z cropu, opis przy reprocess). Zdjęcie innej gry albo nieznany
 identyfikator daje `404 IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND`,
 nieznana gra `404 IMAGE_REVIEW_GAME_NOT_FOUND`. Endpoint jest tylko dla Admina
 (bez sesji Reviewera).
@@ -5036,6 +5037,26 @@ same-game łańcucha jobów i waliduje go przed zapisem. Brak dowodu zwraca
 preflight albo cykl zwraca
 `IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE`. Historyczne odpowiedzi
 schema v4 pozostają czytelne bez zmiany wire contractu.
+
+D-562 (TASK-1046): import, którego managed original zastąpiono zweryfikowanym
+cropem, nie może zostać ponownie przetworzony (`409 SOURCE_ORIGINAL_CROPPED`);
+ten sam kod zwracają managed page source i managed browser selection takiego
+importu. Kohorta V3 odmawia źródła z cropem (`SOURCE_ORIGINAL_CROPPED`), a
+korekta, propozycja albo cofnięcie geometrii z quadem poza zachowanym kadrem
+kończą się kodem `SOURCE_REGION_UNAVAILABLE` w dotychczasowej kopercie błędu.
+Endpointy obrazu źródłowego (`.../assets/source`, `.../source-asset`,
+`.../images/{sourceImageId}/source`, `.../{pendingId}/source`) serwują dla
+takiego źródła JPEG pełnej klatki o wymiarach oryginału: crop na płótnie z
+wypełnieniem, z pliku roboczego
+`data/working/source-frame-previews/<attestation_sha256>.jpg` (odtwarzalny, bez
+EXIF; nazwa z sumy atestu wiąże oryginał, pudełko i crop). Ścieżki, statusy,
+`Content-Type` i `Cache-Control` pozostają bez zmian. ETag: endpoint
+`.../{pendingId}/source` dalej jawnie podaje `source_checksum_sha256` (logiczne
+zdjęcie); pozostałe endpointy, jak dotąd, nie ustawiają go jawnie, więc ETag
+Starlette wynika z serwowanego pliku i dla podglądu jest inny niż dla oryginału.
+Kopia pełnego oryginału w cache przeglądarki (`immutable`) pozostaje poprawna,
+bo ma te same wymiary i współrzędne. Bez cropów odpowiedzi są bajtowo jak
+wcześniej.
 
 Przy wyborze v1.0/v1.1 historyczny preflight bez przypiętego
 `lateral_partial_geometry` zwraca

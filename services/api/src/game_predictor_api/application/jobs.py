@@ -61,6 +61,7 @@ from game_predictor_worker.images.structured_geometry import (
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.application.managed_reprocess_evidence import (
     ManagedReprocessEvidenceError,
+    require_full_managed_originals,
     resolve_managed_preflight_source,
     resolve_managed_reprocess_evidence,
 )
@@ -1269,6 +1270,7 @@ class JobService:
                 get_job=self._repository.get_job,
                 page_geometry_manifest=page_geometry_manifest,
             )
+            require_full_managed_originals(source, artifact_root=self._artifact_root)
         except ManagedReprocessEvidenceError as error:
             raise JobConflictError(error.code, error.message) from error
         if geometry_engine_variant is not None:

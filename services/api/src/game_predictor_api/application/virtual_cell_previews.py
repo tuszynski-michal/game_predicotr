@@ -31,6 +31,7 @@ from game_predictor_worker.images.virtual_cell_extraction import (
 from numpy.typing import NDArray
 from PIL import Image
 
+from game_predictor_api.domain.canonical_source import require_inside_valid_box
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAsset,
@@ -292,7 +293,7 @@ class VirtualCellPreviewService:
         renderer_version: str,
         renderer_fingerprint_sha256: str,
     ) -> _CachedAtlas:
-        loader = CanonicalSourceLoader()
+        loader = CanonicalSourceLoader(allow_crop=True)
         frames: dict[str, object] = {}
         descriptors: list[VirtualCellPreviewTile] = []
         columns = min(10, len(assets))
@@ -552,7 +553,7 @@ class VirtualSymbolCellImageRenderer:
 
     def __init__(self, artifact_root: Path) -> None:
         self._artifact_root = artifact_root.resolve()
-        self._loader = CanonicalSourceLoader()
+        self._loader = CanonicalSourceLoader(allow_crop=True)
         self._frame: CanonicalSourceFrame | None = None
 
     def __enter__(self) -> VirtualSymbolCellImageRenderer:
@@ -620,9 +621,12 @@ def render_spec_cell_rgb(
     configuration = _mapping(render_spec.get("configuration"), "configuration")
     width = _positive_int(configuration.get("outputWidth"), "outputWidth")
     height = _positive_int(configuration.get("outputHeight"), "outputHeight")
+    padded_quad = _quad(render_spec.get("paddedSourceQuad"))
+    # D-562: a crop canvas holds original pixels only inside its valid box.
+    require_inside_valid_box(frame, padded_quad)
     return source_direct_warp_rgb(
         frame.rgb,
-        source_quad=_quad(render_spec.get("paddedSourceQuad")),
+        source_quad=padded_quad,
         output_width=width,
         output_height=height,
     )
@@ -633,6 +637,12 @@ def _managed_virtual_source_path(artifact_root: Path, asset: SymbolCellReviewAss
     relative = Path("data") / "originals" / checksum[:2] / f"{checksum}.jpg"
     candidate = (artifact_root / relative).resolve()
     data_root = (artifact_root / "data").resolve()
+    if candidate.is_relative_to(data_root) and not candidate.exists():
+        from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+        # D-562: the loader (``allow_crop=True``) verifies the attested crop.
+        if managed_original_is_cropped(candidate, checksum):
+            return candidate
     if not candidate.is_relative_to(data_root) or not candidate.is_file() or candidate.is_symlink():
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_UNAVAILABLE",

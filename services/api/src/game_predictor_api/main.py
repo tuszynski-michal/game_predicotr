@@ -2667,6 +2667,9 @@ def create_app(
             "IMAGE_REVIEW_SUPERSEDED",
             # TASK-0966: a retry of a reverted correction is refused.
             "GEOMETRY_CORRECTION_REVERTED",
+            # D-562: the geometry reaches past the retained crop of its source.
+            "SOURCE_REGION_UNAVAILABLE",
+            "SOURCE_ORIGINAL_CROPPED",
         }:
             status_code = 409
         return JSONResponse(

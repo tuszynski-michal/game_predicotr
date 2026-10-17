@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1046 — Ramka źródła z cropem w API, serwowanie i blokady (done)
+
+- Plik: [1046-source-frame-api.md](../tasks/completed/1046-source-frame-api.md); commit **v1.7.407** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (2 × P0 klucz cache podglądu i status 422 zamiast 409, 3 × P1 testy HTTP, test interakcji Reviewera, opis ETag), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: endpointy obrazu źródłowego serwują dla oryginału zastąpionego cropem pełnoklatkowy JPEG z płótna (`data/working/source-frame-previews/<attestation_sha256>.jpg`), frontendy bez zmian; podglądy komórek, korekty, propozycje i cofnięcia używają cropu z kontrolą `valid_box` (`409 SOURCE_REGION_UNAVAILABLE`); reprocess, managed page source i kohorty V3 odmawiają (`SOURCE_ORIGINAL_CROPPED`). OpenAPI bez zmian.
+- Weryfikacja: 15 testów API (w tym HTTP przez `create_app`), regresja 621 testów API zmienionych modułów, test interakcji Reviewera 3/3, ruff i mypy bez nowych błędów.
+
 ### TASK-1045 — Ramka źródła z cropem w workerze (done)
 
-- Plik: [1045-source-frame-worker.md](../tasks/completed/1045-source-frame-worker.md); commit **v1.7.406** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (2 × P0 dataset symboli i render zapisanych komórek bez `valid_box`, 1 × P2 tabela R4), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1045-source-frame-worker.md](../tasks/completed/1045-source-frame-worker.md); commit **v1.7.406 / `279a22cec42feac3fa9e42b992d914b8ef3c16a9`** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (2 × P0 dataset symboli i render zapisanych komórek bez `valid_box`, 1 × P2 tabela R4), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: `CanonicalSourceFrame.crop`, `decode_cropped_source_bytes`, `require_inside_valid_box`; `CanonicalSourceLoader(allow_crop=...)` serwuje zweryfikowany crop tylko po jawnej zgodzie (trening i ponowne rozpoznanie symboli, reinference siatek), a analiza całej klatki (pipeline, preflight, kotwice, shadow) dostaje `SOURCE_ORIGINAL_CROPPED`. Rewizja 2 planu i uzupełnienie D-562: kotwice rejestracji stron wykluczone z przycinania (`PAGE_REGISTRATION_ANCHOR`), wymagania dla TASK-1048.
 - Weryfikacja: 14 testów ramek z cropu (orientacje 1 i 6, komórki identyczne z oryginałem, odmowy), dataset symboli z cropu, regresja workera 169 PASS i 2 testy shadow zależne od czasu (PASS osobno i na `main`); kwalifikacja z kotwicą w PostgreSQL PASS; ruff i mypy bez nowych błędów.
 

@@ -36,6 +36,7 @@ from game_predictor_worker.geometry_core.preprocessing import ByteImage
 from game_predictor_worker.geometry_core.proposal_runtime import CPUGridProposalRunner
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
+from .normalization import SOURCE_ORIGINAL_CROPPED, managed_original_is_cropped
 from .page_geometry_incremental import PageGeometryCheckpointStore, source_inventory_checksum
 from .source_ingestion import ManagedOriginal, ManagedOriginalStore
 
@@ -250,6 +251,13 @@ class NeuralPageGeometryPreflightHandler:
         )
         if managed_reprepare:
             for original in manifest.originals:
+                if managed_original_is_cropped(
+                    self._root / original.managed_relative_path, original.checksum_sha256
+                ):
+                    raise JobHandlerError(
+                        SOURCE_ORIGINAL_CROPPED,
+                        "Neural page geometry preflight needs the full managed original.",
+                    )
                 originals.ensure_original(manifest, original)
             manifest = replace(
                 manifest,

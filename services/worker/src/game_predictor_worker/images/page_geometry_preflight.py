@@ -30,6 +30,7 @@ from .contrast_frame_grid_v12 import (
 )
 from .geometry import Point, Quad
 from .lateral_partial_contract import LateralPartialContractError, LateralPartialGeometrySnapshot
+from .normalization import SOURCE_ORIGINAL_CROPPED, managed_original_is_cropped
 from .page_geometry_incremental import (
     BasePageGeometryManifestDescriptor,
     LoadedPageGeometryCheckpoint,
@@ -273,6 +274,11 @@ class PageGeometryPreflightHandler:
             if managed_reprepare:
                 for original in managed.originals:
                     path = self._artifact_root / original.managed_relative_path
+                    if managed_original_is_cropped(path, original.checksum_sha256):
+                        raise JobHandlerError(
+                            SOURCE_ORIGINAL_CROPPED,
+                            "Page geometry preflight needs the full managed original.",
+                        )
                     if not path.is_file():
                         raise JobHandlerError(
                             "IMAGE_PAGE_GEOMETRY_SOURCE_UNAVAILABLE",
@@ -1013,6 +1019,12 @@ class PageGeometryPreflightHandler:
 
     def _load_anchor_rgb(self, checksum_sha256: str) -> np.ndarray:
         path = self._managed_anchor_path(checksum_sha256)
+        if managed_original_is_cropped(path, checksum_sha256):
+            # D-562: registration matches the whole anchor frame; a crop cannot stand in.
+            raise JobHandlerError(
+                SOURCE_ORIGINAL_CROPPED,
+                "A page-registration anchor was replaced by its crop.",
+            )
         try:
             with Image.open(path) as image:
                 image.load()

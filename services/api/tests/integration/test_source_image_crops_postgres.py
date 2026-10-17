@@ -396,6 +396,7 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
         excluded = _sha("page-excluded")
         proposed = _sha("proposed")
         busy = _sha("busy")
+        anchored = _sha("anchored")
         _seed_source(engine, game_a, eligible)
         _seed_source(engine, game_a, shared)
         _seed_source(engine, game_b, shared, approved=False)
@@ -407,6 +408,24 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
         _seed_source(engine, game_b, excluded)
         _, proposed_import = _seed_source(engine, game_b, proposed)
         _seed_source(engine, game_c, busy)
+        _seed_source(engine, game_b, anchored)
+        # A pinned page-registration anchor of game a keeps game b's shared blob whole.
+        _without_foreign_keys(
+            engine,
+            "INSERT INTO game_data_v2.grid_calibration_profiles (id, game_id, cohort_id, "
+            "profile_number, status, profile_checksum_sha256, profile_payload, gate_metrics, "
+            "rejection_reasons) VALUES (:id, :owner, :cohort, 1, 'candidate_ready', :c, "
+            "jsonb_build_object('anchorSourceChecksums', "
+            "jsonb_build_array(CAST(:anchor AS text))), "
+            "'{}'::jsonb, '{}')",
+            {
+                "id": uuid4(),
+                "owner": game_a,
+                "cohort": uuid4(),
+                "c": _sha("profile"),
+                "anchor": anchored,
+            },
+        )
         _without_foreign_keys(
             engine,
             "INSERT INTO game_data_v2.image_page_source_exclusions (id, game_id, "
@@ -472,6 +491,7 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
             excluded: CropExclusion.PAGE_SOURCE_EXCLUDED,
             proposed: CropExclusion.PENDING_GRID_PROPOSAL,
             busy: CropExclusion.ACTIVE_IMAGE_JOB,
+            anchored: CropExclusion.PAGE_REGISTRATION_ANCHOR,
         }
         for checksum, reason in expected.items():
             assert results[checksum].exclusions == (reason,), (reason, results[checksum])

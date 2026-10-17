@@ -54,17 +54,14 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1045 — Ramka źródła z cropem w workerze (todo)
-
-- Plik: `tasks/1045-source-frame-worker.md`. Po TASK-1043.
-
 ### TASK-1046 — Ramka źródła z cropem w API, serwowanie i blokady (todo)
 
 - Plik: `tasks/1046-source-frame-api.md`. Po TASK-1045.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1044** — Migracja source_image_crops i kwalifikacja blobów — v1.7.405 — tasks/completed/1044-source-image-crops-table-and-eligibility.md
+- **TASK-1045** — Ramka źródła z cropem w workerze — v1.7.406 — tasks/completed/1045-source-frame-worker.md
+- **TASK-1044** — Migracja source_image_crops i kwalifikacja blobów — v1.7.405 / `a0727612` — tasks/completed/1044-source-image-crops-table-and-eligibility.md
 - **TASK-1043** — D-562, dokumentacja i czyste funkcje kadru — v1.7.404 / `415b093d` — tasks/completed/1043-source-crop-decision-and-region.md
 - **TASK-1016** — P1: galeria przycięcia zdjęć — v1.7.361 / `063f2590` — tasks/completed/1016-photo-crop-preview.md
 - **TASK-1042** — Czyszczenie zakresów usuwa oryginały — v1.7.399 / `6253c296` — tasks/completed/1042-board-source-cleanup-originals.md
@@ -73,4 +70,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md
 - **TASK-1040** — Hooki Claude Code i subagent `repo-explorer` — v1.7.386 / `ce72b7e7` — tasks/completed/1040-claude-code-hooks-and-explorer.md
 - **TASK-1006** — Kandydat wspólnej geometrii Mumii i 777a2 — v1.7.390 / `9bf3a4b9` — tasks/completed/1006-shared-grid-model-candidate.md
-- **TASK-0997** — Ocena per gra i bramka kandydata — v1.7.389 / 88b2ab82 — tasks/completed/0997-grid-model-evaluation.md

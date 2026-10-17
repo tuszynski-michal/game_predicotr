@@ -23,11 +23,13 @@ from game_predictor_api.domain.canonical_source import (
 )
 from game_predictor_api.domain.canonical_source import (
     decode_canonical_source_bytes,
+    decode_cropped_source_bytes,
     validate_source_checksum_sha256,
 )
 from game_predictor_api.domain.canonical_source import (
     rgb_pixel_checksum_sha256 as rgb_pixel_checksum_sha256,
 )
+from game_predictor_api.domain.source_crop import SourceCropError, cropped_sibling_paths
 from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL import __version__ as pillow_version
 
@@ -59,10 +61,22 @@ class CanonicalSourceLoader:
 
     version = CANONICAL_SOURCE_LOADER_VERSION
 
-    def __init__(self, *, max_source_pixels: int = MAX_SOURCE_PIXELS) -> None:
+    def __init__(
+        self, *, max_source_pixels: int = MAX_SOURCE_PIXELS, allow_crop: bool = False
+    ) -> None:
+        """``allow_crop`` opts in to D-562 crop frames.
+
+        Only consumers that read pixels at known quads and check them with
+        ``require_inside_valid_box`` may opt in. Whole-frame analysis (import
+        pipeline, geometry engines, shadow comparison, training datasets)
+        keeps the default and gets ``SOURCE_ORIGINAL_CROPPED`` for a replaced
+        original instead of a fill-padded canvas.
+        """
+
         if max_source_pixels < 1:
             raise ValueError("max_source_pixels must be positive")
         self._max_source_pixels = max_source_pixels
+        self._allow_crop = allow_crop
         self._cache_key: tuple[Path, str] | None = None
         self._cached_frame: CanonicalSourceFrame | None = None
 
@@ -76,6 +90,12 @@ class CanonicalSourceLoader:
         try:
             resolved = source_path.resolve(strict=True)
         except OSError as error:
+            # D-562: a replaced managed original is served from its attested crop.
+            siblings = _existing_crop_siblings(source_path, expected_source_checksum_sha256)
+            if siblings is not None:
+                if not self._allow_crop:
+                    raise original_cropped_error() from error
+                return self._load_crop(*siblings, expected_source_checksum_sha256)
             raise CanonicalSourceLoadError(
                 "IMAGE_CANONICAL_SOURCE_NOT_FOUND",
                 "The managed source image does not exist or cannot be resolved.",
@@ -108,11 +128,73 @@ class CanonicalSourceLoader:
         self._cached_frame = frame
         return frame
 
+    def _load_crop(
+        self, crop_path: Path, attestation_path: Path, expected_source_checksum_sha256: str
+    ) -> CanonicalSourceFrame:
+        cache_key = (crop_path, expected_source_checksum_sha256)
+        if self._cache_key == cache_key and self._cached_frame is not None:
+            return self._cached_frame
+        try:
+            crop_content = crop_path.read_bytes()
+            attestation_content = attestation_path.read_bytes()
+        except OSError as error:
+            raise CanonicalSourceLoadError(
+                "IMAGE_SOURCE_UNREADABLE", "Source image crop cannot be read."
+            ) from error
+        frame = decode_cropped_source_bytes(
+            crop_content,
+            attestation_content,
+            expected_source_checksum_sha256=expected_source_checksum_sha256,
+            max_source_pixels=self._max_source_pixels,
+            normalization_adapter_version=self.version,
+        )
+        self._cache_key = cache_key
+        self._cached_frame = frame
+        return frame
+
     def clear(self) -> None:
         """Release the execution-scoped source before processing the next file."""
 
         self._cache_key = None
         self._cached_frame = None
+
+
+def _existing_crop_siblings(source_path: Path, checksum_sha256: str) -> tuple[Path, Path] | None:
+    siblings = cropped_sibling_paths(source_path, checksum_sha256)
+    if siblings is None:
+        return None
+    for path in siblings:
+        if path.is_symlink() or not path.is_file():
+            return None
+    return siblings
+
+
+SOURCE_ORIGINAL_CROPPED = "SOURCE_ORIGINAL_CROPPED"
+
+
+def original_cropped_error() -> CanonicalSourceLoadError:
+    return CanonicalSourceLoadError(
+        SOURCE_ORIGINAL_CROPPED,
+        "The managed original was replaced by its crop; this operation needs the full frame.",
+    )
+
+
+def managed_original_is_cropped(source_path: Path, checksum_sha256: str | None = None) -> bool:
+    """True when a managed original is gone and only its attested crop remains.
+
+    Readers that need the full frame (page preflight, page-registration
+    anchors, legacy normalization) use this to fail with
+    ``SOURCE_ORIGINAL_CROPPED`` instead of a generic missing-file error.
+    Without ``checksum_sha256`` the content address in the file name is used.
+    """
+
+    if source_path.exists():
+        return False
+    checksum = checksum_sha256 if checksum_sha256 is not None else source_path.stem
+    try:
+        return _existing_crop_siblings(source_path, checksum) is not None
+    except SourceCropError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)

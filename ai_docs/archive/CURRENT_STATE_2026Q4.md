@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1045 — Ramka źródła z cropem w workerze (done)
+
+- Plik: [1045-source-frame-worker.md](../tasks/completed/1045-source-frame-worker.md); commit **v1.7.406** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (2 × P0 dataset symboli i render zapisanych komórek bez `valid_box`, 1 × P2 tabela R4), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: `CanonicalSourceFrame.crop`, `decode_cropped_source_bytes`, `require_inside_valid_box`; `CanonicalSourceLoader(allow_crop=...)` serwuje zweryfikowany crop tylko po jawnej zgodzie (trening i ponowne rozpoznanie symboli, reinference siatek), a analiza całej klatki (pipeline, preflight, kotwice, shadow) dostaje `SOURCE_ORIGINAL_CROPPED`. Rewizja 2 planu i uzupełnienie D-562: kotwice rejestracji stron wykluczone z przycinania (`PAGE_REGISTRATION_ANCHOR`), wymagania dla TASK-1048.
+- Weryfikacja: 14 testów ramek z cropu (orientacje 1 i 6, komórki identyczne z oryginałem, odmowy), dataset symboli z cropu, regresja workera 169 PASS i 2 testy shadow zależne od czasu (PASS osobno i na `main`); kwalifikacja z kotwicą w PostgreSQL PASS; ruff i mypy bez nowych błędów.
+
 ### TASK-1044 — Migracja `source_image_crops` i kwalifikacja blobów (done)
 
-- Plik: [1044-source-image-crops-table-and-eligibility.md](../tasks/completed/1044-source-image-crops-table-and-eligibility.md); commit **v1.7.405** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 aktywne joby, geometria per plansza, porównanie P1; 1 × P1 przypadki PostgreSQL; 2 × P2 CHECK i migawka), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1044-source-image-crops-table-and-eligibility.md](../tasks/completed/1044-source-image-crops-table-and-eligibility.md); commit **v1.7.405 / `a07276127b83a9954f69062a7fdcbe973587089e`** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 aktywne joby, geometria per plansza, porównanie P1; 1 × P1 przypadki PostgreSQL; 2 × P2 CHECK i migawka), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: migracja `0167_source_image_crops` (tabela `shared` w `public`, manifest v18, downgrade blokowany przy historii), model ORM, czysta klasyfikacja `classify_blob` z 18 powodami wykluczenia, repozytorium kwalifikacji między grami (sesja właściciela, jawne `game_data_v2.`, wymagana migawka REPEATABLE READ) i zapisów rejestru. Raport porównawczy P1: plan kadru równy zmierzonemu kadrowi bezstratnemu 40/40.
 - Weryfikacja: PostgreSQL na bazach `*_test` 4/4 (wszystkie wykluczenia, w tym rzeczywisty `grid_issue`), wcześniej 67 testów migracji i manifestu; testy jednostkowe 85; ruff i mypy bez nowych błędów. Migracja bazy operatora nie została wykonana (osobna zgoda).
 

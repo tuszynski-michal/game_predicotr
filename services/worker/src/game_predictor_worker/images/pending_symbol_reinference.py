@@ -176,7 +176,7 @@ class PendingSymbolReinferenceHandler:
         if not rows:
             checkpoint(last_row=cursor)
             return
-        source_loader = CanonicalSourceLoader()
+        source_loader = CanonicalSourceLoader(allow_crop=True)
         try:
             for item, board, source in rows:
                 predictions, crop_manifest_checksum = self._infer_board(

@@ -23,6 +23,7 @@ from game_predictor_worker.filesystem import long_path_aware
 from game_predictor_worker.images.normalization import (
     CanonicalSourceLoader,
     CanonicalSourceLoadError,
+    managed_original_is_cropped,
     rgb_pixel_checksum_sha256,
 )
 from game_predictor_worker.images.virtual_cell_extraction import (
@@ -403,6 +404,25 @@ def _managed_crop(data_root: Path, relative_path: str, checksum: str) -> Path:
     return resolved
 
 
+def _managed_source(data_root: Path, relative_path: str, checksum: str) -> Path:
+    """The managed original of a virtual cell, or its path when only a crop remains.
+
+    D-562: a replaced original is gone, but its attested crop still renders the
+    cell; the canonical loader verifies the crop, its attestation and the
+    original identity, and refuses a cell outside the retained region.
+    """
+
+    try:
+        return _managed_crop(data_root, relative_path, checksum)
+    except TrainingDatasetBuildError as error:
+        if error.code != "TRAINING_DATASET_CROP_MISSING":
+            raise
+        unresolved = data_root.joinpath(*PurePosixPath(relative_path).parts)
+        if not managed_original_is_cropped(unresolved, checksum):
+            raise
+        return unresolved
+
+
 def _parse_virtual_crop_source(
     cell: Mapping[str, object],
     *,
@@ -415,7 +435,7 @@ def _parse_virtual_crop_source(
     source_relative_path = _safe_relative_path(
         source.get("relativePath"), "cell.source.relativePath"
     )
-    source_path = _managed_crop(data_root, source_relative_path, source_checksum)
+    source_path = _managed_source(data_root, source_relative_path, source_checksum)
     rendered_pixel_checksum = _sha256(
         cell.get("renderedPixelChecksumSha256"),
         "cell.renderedPixelChecksumSha256",
@@ -1096,7 +1116,7 @@ def _materialize_sample_asset(sample: _Sample, destination: Path) -> None:
             "TRAINING_DATASET_ASSET_MODE_UNSUPPORTED",
             "A training sample has incomplete virtual asset provenance.",
         )
-    loader = CanonicalSourceLoader()
+    loader = CanonicalSourceLoader(allow_crop=True)
     temporary: Path | None = None
     try:
         frame = loader.load(

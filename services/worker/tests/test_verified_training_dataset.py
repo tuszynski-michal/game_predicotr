@@ -574,3 +574,96 @@ def test_build_stops_when_cohort_manifest_changed(work_root: Path) -> None:
         )
 
     assert error.value.code == "TRAINING_DATASET_COHORT_CHECKSUM_MISMATCH"
+
+
+def test_v4_virtual_cell_cohort_renders_from_the_crop_of_a_removed_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-562: a replaced original still trains from its attested crop."""
+
+    from game_predictor_worker.symbols import training_dataset as module
+    from test_source_crop_frame import _write_managed
+
+    source_path, source_checksum, _oriented, attestation = _write_managed(tmp_path, None)
+    source_path.unlink()
+    rendered = np.full((16, 16, 3), (40, 120, 220), dtype=np.uint8)
+    crop_checksum = rgb_pixel_checksum_sha256(rendered)
+    render_spec = {"renderIdentityV2Sha256": "8" * 64}
+    render_spec_checksum = hashlib.sha256(_canonical(render_spec)[:-1]).hexdigest()
+    sample_id = hashlib.sha256(b"virtual-crop-sample").hexdigest()
+    revision_id = str(uuid4())
+    crop_fields = {
+        "assetMode": "virtual_source",
+        "cropChecksumSha256": crop_checksum,
+        "cropSampleId": sample_id,
+        "geometryRevision": 1,
+        "renderSpecChecksumSha256": render_spec_checksum,
+        "renderedPixelChecksumSha256": crop_checksum,
+        "sourceGeometryRevisionId": revision_id,
+    }
+    payload = {
+        "cells": [
+            {
+                **crop_fields,
+                "approvedCrop": crop_fields,
+                "cellIndex": 0,
+                "cellReviewId": str(uuid4()),
+                "cellRevision": 2,
+                "cropperVersion": "structured-v0.10",
+                "extractorVersion": "fixture-renderer-v1",
+                "geometryChecksumSha256": "7" * 64,
+                "importJobId": str(uuid4()),
+                "logicalCellKeySha256": "5" * 64,
+                "logicalCellKeyV2Sha256": "6" * 64,
+                "normalizedPixelChecksumSha256": (
+                    attestation.original_normalized_pixel_checksum_sha256
+                ),
+                "recognizedBoardId": str(uuid4()),
+                "renderIdentityV2Sha256": "8" * 64,
+                "renderSpec": render_spec,
+                "reviewItemId": str(uuid4()),
+                "selectionReason": "diverse_approval",
+                "sequenceNumber": 1,
+                "source": {
+                    "checksumSha256": source_checksum,
+                    "relativePath": f"originals/{source_checksum[:2]}/{source_checksum}.jpg",
+                },
+                "sourceImageId": str(uuid4()),
+                "symbolCode": "A",
+            }
+        ],
+        "counts": {"cellSamples": 1, "sourceImages": 1},
+        "datasetKind": "verified-symbol-cell-training-cohort-v4-virtual-provenance",
+        "exclusions": {
+            "changedCrop": 0,
+            "gridIssue": 0,
+            "missingAsset": 0,
+            "unknown": 0,
+            "unreadable": 0,
+        },
+        "gameId": "00000000-0000-0000-0000-000000000001",
+        "schemaVersion": 4,
+        "trainingEligibilityVersion": "symbol-cell-training-eligible-v1",
+    }
+    cohort_content = _canonical(payload)
+    cohort_path = tmp_path / "data" / "training" / "virtual-crop-cohort.json"
+    cohort_path.parent.mkdir(parents=True, exist_ok=True)
+    cohort_path.write_bytes(cohort_content)
+    frames = []
+
+    def render(frame: object, **_kwargs: object) -> np.ndarray:
+        frames.append(frame)
+        return rendered
+
+    monkeypatch.setattr(module, "render_persisted_virtual_cell_rgb", render)
+
+    result = build_cumulative_training_dataset(
+        cohort_path=cohort_path,
+        expected_cohort_checksum_sha256=hashlib.sha256(cohort_content).hexdigest(),
+        artifact_root=tmp_path,
+        game_code="fixture-game-crop",
+        symbols=(TrainingSymbol(id="symbol-a", code="A"),),
+    )
+
+    assert result.sample_count == 1
+    assert len(frames) == 1 and getattr(frames[0], "crop", None) is not None

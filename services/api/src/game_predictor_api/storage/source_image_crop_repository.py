@@ -98,7 +98,22 @@ SELECT s.game_id, s.id AS source_image_id, s.import_job_id, s.checksum_sha256,
     WHERE a.status IN ('created', 'processing')
       AND (a.game_id = s.game_id OR a.game_id IS NULL)
       AND a.job_type::text <> ALL(CAST(:non_image_job_types AS text[])))
-    AS active_image_job_count
+    AS active_image_job_count,
+  -- Page-registration anchors of any game: pinned in a calibration profile,
+  -- every cohort source of a historical profile without pinned anchors (it
+  -- chose the first seven by checksum), and manual page geometry overrides.
+  (SELECT count(*) FROM game_data_v2.grid_calibration_profiles gp
+    LEFT JOIN game_data_v2.grid_geometry_cohorts gc
+      ON gc.game_id = gp.game_id AND gc.id = gp.cohort_id
+    WHERE CASE WHEN gp.profile_payload -> 'anchorSourceChecksums' IS NOT NULL
+      THEN gp.profile_payload -> 'anchorSourceChecksums' @> jsonb_build_array(s.checksum_sha256)
+      ELSE COALESCE(jsonb_path_exists(gc.manifest_payload,
+        '$.samples[*] ? (@.sourceChecksumSha256 == $c)',
+        jsonb_build_object('c', s.checksum_sha256)), true)
+    END)
+  + (SELECT count(*) FROM game_data_v2.image_page_geometry_overrides o
+    WHERE o.source_checksum_sha256 = s.checksum_sha256)
+    AS registration_anchor_count
 FROM game_data_v2.source_images s
 JOIN public.jobs j ON j.id = s.import_job_id
 LEFT JOIN public.game_storage_locations loc ON loc.game_id = s.game_id
@@ -203,6 +218,7 @@ class SourceImageCropRepository:
                     pending_proposal_count=int(row["pending_proposal_count"]),
                     page_exclusion_count=int(row["page_exclusion_count"]),
                     active_image_job_count=int(row["active_image_job_count"]),
+                    registration_anchor_count=int(row["registration_anchor_count"]),
                 )
             )
         boards: dict[str, list[CropBoardGeometry]] = defaultdict(list)

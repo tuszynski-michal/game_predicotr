@@ -39,6 +39,7 @@ class CropExclusion(StrEnum):
     GRID_ISSUE = "GRID_ISSUE"
     PENDING_GRID_PROPOSAL = "PENDING_GRID_PROPOSAL"
     ACTIVE_IMAGE_JOB = "ACTIVE_IMAGE_JOB"
+    PAGE_REGISTRATION_ANCHOR = "PAGE_REGISTRATION_ANCHOR"
     PAGE_SOURCE_EXCLUDED = "PAGE_SOURCE_EXCLUDED"
     NO_PROTECTED_QUADS = "NO_PROTECTED_QUADS"
     PROTECTED_QUADS_INVALID = "PROTECTED_QUADS_INVALID"
@@ -71,6 +72,8 @@ class CropSourceFacts:
     pending_proposal_count: int
     page_exclusion_count: int
     active_image_job_count: int
+    # Page-registration anchors match ORB features on the whole frame (plan rev. 2).
+    registration_anchor_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +210,7 @@ def _source_reasons(source: CropSourceFacts, expected_path: str) -> set[CropExcl
         (source.pending_proposal_count, CropExclusion.PENDING_GRID_PROPOSAL),
         (source.page_exclusion_count, CropExclusion.PAGE_SOURCE_EXCLUDED),
         (source.active_image_job_count, CropExclusion.ACTIVE_IMAGE_JOB),
+        (source.registration_anchor_count, CropExclusion.PAGE_REGISTRATION_ANCHOR),
     ):
         if count:
             reasons.add(reason)

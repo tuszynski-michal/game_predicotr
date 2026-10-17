@@ -40,6 +40,7 @@ def _facts(**changes: object) -> CropSourceFacts:
         "pending_proposal_count": 0,
         "page_exclusion_count": 0,
         "active_image_job_count": 0,
+        "registration_anchor_count": 0,
     }
     values.update(changes)
     return CropSourceFacts(**values)  # type: ignore[arg-type]
@@ -82,6 +83,7 @@ def test_a_fully_approved_blob_is_eligible_with_its_quads() -> None:
         ({"pending_proposal_count": 1}, CropExclusion.PENDING_GRID_PROPOSAL),
         ({"page_exclusion_count": 1}, CropExclusion.PAGE_SOURCE_EXCLUDED),
         ({"active_image_job_count": 1}, CropExclusion.ACTIVE_IMAGE_JOB),
+        ({"registration_anchor_count": 1}, CropExclusion.PAGE_REGISTRATION_ANCHOR),
     ],
 )
 def test_each_source_condition_excludes_the_blob(

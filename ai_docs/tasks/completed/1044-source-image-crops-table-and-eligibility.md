@@ -85,7 +85,7 @@ D:\game_predicotr\.venv\Scripts\python.exe -m pytest services/api/tests/integrat
 
 ## Outcome
 
-Commit: v1.7.405 (hash dopisuje kolejny commit).
+Commit: v1.7.405 / `a07276127b83a9954f69062a7fdcbe973587089e`.
 
 ### Changed
 

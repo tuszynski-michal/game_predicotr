@@ -98,7 +98,13 @@ from .large_import_geometry_guard import (
     run_large_import_geometry_guard,
     validate_large_import_geometry_guard_resolutions,
 )
-from .normalization import CanonicalSourceFrame, CanonicalSourceLoader, CanonicalSourceLoadError
+from .normalization import (
+    SOURCE_ORIGINAL_CROPPED,
+    CanonicalSourceFrame,
+    CanonicalSourceLoader,
+    CanonicalSourceLoadError,
+    managed_original_is_cropped,
+)
 from .orchestration import ImageBatchHandler, ImageFileRegistration
 from .orchestration_store import SqlAlchemyImageBatchStore
 from .page_geometry_registration import (
@@ -1083,6 +1089,7 @@ class ProductionImageStageAdapterSuite:
                 "width": frame.source.width,
             }
         source = self._artifacts.path(context.source_relative_path)
+        _refuse_cropped_original(source)
         try:
             with Image.open(source) as image:
                 image.load()
@@ -2996,6 +3003,7 @@ class _ManagedImageArtifacts:
 
     def load_rgb(self, relative_path: str) -> NDArray[np.uint8]:
         path = self.path(relative_path)
+        _refuse_cropped_original(path)
         try:
             with Image.open(path) as image:
                 image.load()
@@ -4061,3 +4069,13 @@ def _source_quad(value: object) -> SourceQuad:
 
 
 __all__ = ["ProductionImageImportWorkflow", "ProductionImageStageAdapterSuite"]
+
+
+def _refuse_cropped_original(path: Path) -> None:
+    """Whole-frame stages cannot run on a managed original replaced by its crop (D-562)."""
+
+    if managed_original_is_cropped(path):
+        raise ImagePipelineExecutionError(
+            SOURCE_ORIGINAL_CROPPED,
+            "The managed original was replaced by its crop; the import pipeline needs it.",
+        )

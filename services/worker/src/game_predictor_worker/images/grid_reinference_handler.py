@@ -30,6 +30,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometryService,
     VirtualGridGeometrySourceCommand,
 )
+from game_predictor_api.domain.canonical_source import require_inside_valid_box
 from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     SourceLatticeNodes,
@@ -433,7 +434,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             return self.save_checkpoint(
                 operation_id, ordinal, {"outcome": "conflict", "byPosition": {}}
             )
-        loader = CanonicalSourceLoader()
+        loader = CanonicalSourceLoader(allow_crop=True)
         try:
             frame = loader.load(path, expected_source_checksum_sha256=source["checksum_sha256"])
         except CanonicalSourceLoadError as error:
@@ -501,6 +502,24 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 detection = by_id[assignment["detectionId"]]
                 if all(item == "full" for item in detection["cellVisibility"]):
                     by_position[str(assignment["positionIndex"])] = detection
+        if frame.crop is not None and by_position:
+            # D-562: a crop canvas holds original pixels only inside its box, so a
+            # proposal reaching past it cannot be rendered from the retained crop.
+            try:
+                require_inside_valid_box(
+                    frame,
+                    (
+                        (float(node["x"]), float(node["y"]))
+                        for detection in by_position.values()
+                        for node in detection.get("latticeNodes") or ()
+                    ),
+                )
+            except CanonicalSourceLoadError as error:
+                return self.save_checkpoint(
+                    operation_id,
+                    ordinal,
+                    {"outcome": "conflict", "reason": error.code, "byPosition": {}},
+                )
         return self.save_checkpoint(
             operation_id,
             ordinal,

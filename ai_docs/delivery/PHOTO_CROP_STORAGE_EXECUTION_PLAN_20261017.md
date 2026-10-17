@@ -18,6 +18,28 @@ Rewizja 1 (2026-10-17, przed startem etapu A, bez zmiany decyzji operatora):
 R2 dostaje atest cropu zapisany obok pliku cropu (sekcja R2), bo
 `CanonicalSourceLoader` działa na ścieżce pliku, bez dostępu do bazy.
 
+Rewizja 2 (2026-10-17, TASK-1045, ustalenia z kodu, bez zmiany decyzji
+operatora; zmniejsza tylko pulę i zakres użycia cropów):
+
+- Rejestracja stron (`page_geometry_registration`, wersja v1) liczy cechy ORB
+  na całej klatce kotwicy, a preflight nowych importów czyta kotwice z
+  `data/originals`. Kwalifikacja wyklucza więc kotwice (`PAGE_REGISTRATION_ANCHOR`):
+  checksumy przypięte w dowolnym profilu kalibracji, wszystkie źródła kohorty
+  profilu historycznego bez przypiętych kotwic oraz źródła z ręcznym
+  override'em geometrii strony, we wszystkich grach.
+- Loader przyjmuje crop tylko po jawnym `allow_crop=True`, a robią to wyłącznie
+  konsumenci renderujący znane quady z kontrolą `valid_box`: trening symboli,
+  ponowne rozpoznanie symboli, reinference siatek, a w API podglądy, cofnięcie
+  korekty i geometria wirtualna (TASK-1046). Analiza całej klatki (pipeline
+  importu, preflight, shadow siatek, kohorty i datasety V3) dostaje
+  `SOURCE_ORIGINAL_CROPPED`, a nie płótno z wypełnieniem. Wiersz R4 „Budowa
+  kohorty V3” zmienia się z „kopiuje plik cropu” na „odmowa
+  `SOURCE_ORIGINAL_CROPPED`”.
+- Wymaganie dla TASK-1048: przed usunięciem pierwszego oryginału wybór kotwic
+  nowego profilu kalibracji (`domain/grid_calibration.py`) i budowa kohort V3
+  muszą pomijać bloby w stanie `original_deleted`, inaczej przyszła kalibracja
+  albo kohorta zakończy się błędem braku pliku.
+
 ## 1. Stan obecny
 
 ### Fakty z kodu (sprawdzone 2026-10-17 na `main` v1.7.400)
@@ -207,8 +229,9 @@ to pełny oryginał w tych samych współrzędnych, więc jest nieszkodliwa.
 | Korekta/override geometrii strony, propozycja siatki, reinference | dozwolone, jeśli wszystkie nowe quady (z `paddedSourceQuad`) mieszczą się w `valid_box`; inaczej 409 / błąd joba `SOURCE_REGION_UNAVAILABLE` |
 | Revert korekty geometrii | jak wyżej, kontrola quadów przywracanej rewizji |
 | Ponowny preflight strony (klasyczny i neuronowy) | błąd `SOURCE_ORIGINAL_CROPPED` (preflight szuka plansz w całym kadrze) |
-| Budowa kohorty V3 | kopiuje plik cropu i zapisuje tożsamość cropu; dataset ładuje przez R2 |
-| Trening symboli, podglądy komórek, shadow siatek | R2, bez zmiany wyników |
+| Budowa kohorty V3 i dataset geometrii | odmowa `SOURCE_ORIGINAL_CROPPED` (rewizja 2: trening geometrii analizuje całą klatkę) |
+| Shadow siatek, pipeline importu, rejestracja z kotwicą | odmowa `SOURCE_ORIGINAL_CROPPED` (rewizja 2) |
+| Trening symboli, ponowne rozpoznanie symboli, podglądy komórek | R2 z `allow_crop=True`, bez zmiany wyników |
 
 Kwalifikacja (R5) wyklucza źródła w trakcie korekty, więc te blokady chronią
 głównie przed przyszłymi korektami.

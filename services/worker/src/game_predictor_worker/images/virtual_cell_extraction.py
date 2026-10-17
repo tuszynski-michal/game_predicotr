@@ -12,6 +12,7 @@ from typing import NoReturn, cast
 
 import cv2
 import numpy as np
+from game_predictor_api.domain.canonical_source import require_inside_valid_box
 from game_predictor_api.domain.image_geometry_v2 import (
     BOARD_SLOT_SEMANTICS_VERSION,
     BOARD_TOPOLOGY_FINGERPRINT_VERSION,
@@ -32,6 +33,7 @@ from numpy.typing import NDArray
 from .normalization import (
     RGB_PIXEL_CHECKSUM_VERSION,
     CanonicalSourceFrame,
+    CanonicalSourceLoadError,
     rgb_pixel_checksum_sha256,
 )
 from .pipeline_contract import VIRTUAL_CELL_RENDERER_VERSION
@@ -176,7 +178,7 @@ class VirtualCellRenderer:
                 "IMAGE_VIRTUAL_CELL_COORDINATE_SPACE_MISMATCH",
                 "Virtual cells require the canonical EXIF-normalized RGB coordinate space.",
             )
-        if rgb_pixel_checksum_sha256(frame.rgb) != frame.source.normalized_pixel_checksum_sha256:
+        if rgb_pixel_checksum_sha256(frame.rgb) != frame.pixel_checksum_sha256:
             raise VirtualCellExtractionError(
                 "IMAGE_VIRTUAL_CELL_SOURCE_PIXEL_DRIFT",
                 "Canonical source pixels changed after loading.",
@@ -226,6 +228,17 @@ class VirtualCellRenderer:
                 transform = _canonical_board_to_source_transform(cell)
                 board_transforms[geometry_key] = transform
             padded_quad = _padded_cell_quad(cell, transform)
+            # D-562: a crop frame holds original pixels only inside its box.
+            try:
+                require_inside_valid_box(
+                    frame,
+                    (
+                        (point.x, point.y)
+                        for point in (*padded_quad.corners, *cell.source_quad.corners)
+                    ),
+                )
+            except CanonicalSourceLoadError as error:
+                raise VirtualCellExtractionError(error.code, str(error)) from error
             if cell.partially_visible:
                 # Same footprint rule as ``derive_virtual_cells``: a sliver
                 # narrower than the padding keeps real pixels in the cell
@@ -382,6 +395,11 @@ def render_persisted_virtual_cell_rgb(
     if width < 1 or height < 1:
         _render_spec_invalid("Persisted virtual-cell dimensions must be positive.")
     padded_quad = _persisted_quad(spec.get("paddedSourceQuad"))
+    # D-562: refuse before the warp, so fill pixels can never pass the checksum.
+    try:
+        require_inside_valid_box(frame, padded_quad)
+    except CanonicalSourceLoadError as error:
+        raise VirtualCellExtractionError(error.code, str(error)) from error
     rgb = source_direct_warp_rgb(
         frame.rgb,
         source_quad=padded_quad,

@@ -41,9 +41,7 @@ class GeometryCutoverEvidence:
         if any(value < 0 for value in values):
             raise ValueError("geometry cutover counts cannot be negative")
         if self.boards_accepted_without_correction > self.active_board_count:
-            raise ValueError(
-                "boards accepted without correction cannot exceed active boards"
-            )
+            raise ValueError("boards accepted without correction cannot exceed active boards")
 
     @property
     def board_level_automatic_correctness(self) -> float | None:

@@ -150,9 +150,7 @@ def test_cohort_records_audited_label_conflicts_without_adding_them_to_boards() 
             required_stagings=STAGINGS,
             model=MODEL,
             training_dataset=TRAINING,
-            audited_label_conflicts=(
-                {**conflicts[0], "sequenceNumber": 1},
-            ),
+            audited_label_conflicts=({**conflicts[0], "sequenceNumber": 1},),
         )
 
     assert included_error.value.code == "V19_SYMBOL_COHORT_AUDITED_CONFLICT_INCLUDED"
@@ -207,10 +205,7 @@ def test_cohort_rejects_unknown_symbol_and_unsafe_crop_path() -> None:
 def test_evaluation_classifies_unseen_source_confusion_as_m2_and_retrain() -> None:
     cohort = _cohort()
     boards = cohort["boards"]
-    mistakes = {
-        (board["boardId"], 0): ("star", 0.995)
-        for board in boards[:50]
-    }
+    mistakes = {(board["boardId"], 0): ("star", 0.995) for board in boards[:50]}
 
     report = build_evaluation_document(
         cohort,

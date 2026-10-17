@@ -742,12 +742,8 @@ def verify_split_boundary(
         _fail("SHAPE_GEOMETRY_V2_BOUNDARY_INVALID", "Acceptance manifest visibility is required.")
     executor = executor_manifest.freeze_inventory()
     acceptance = acceptance_manifest.freeze_inventory()
-    executor_hashes = {
-        cast(str, source["sourceChecksumSha256"]) for source in executor.sources
-    }
-    acceptance_hashes = {
-        cast(str, source["sourceChecksumSha256"]) for source in acceptance.sources
-    }
+    executor_hashes = {cast(str, source["sourceChecksumSha256"]) for source in executor.sources}
+    acceptance_hashes = {cast(str, source["sourceChecksumSha256"]) for source in acceptance.sources}
     if executor_hashes & acceptance_hashes:
         _fail(
             "SHAPE_GEOMETRY_V2_CHECKSUM_SPLIT_LEAKAGE",
@@ -1091,9 +1087,7 @@ def run_v11_baseline(
             game.v11_profile,
             game_sources_by_checksum,
         )
-        source_results = [
-            _evaluate_v11_source(manifest, source, registrar) for source in selected
-        ]
+        source_results = [_evaluate_v11_source(manifest, source, registrar) for source in selected]
         games.append(
             {
                 "gameId": game_id,

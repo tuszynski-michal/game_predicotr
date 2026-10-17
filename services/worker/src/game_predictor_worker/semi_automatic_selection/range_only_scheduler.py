@@ -112,18 +112,11 @@ class AdaptiveRangeOcrProbeScheduler:
             should_probe, reason = True, "first_source"
         elif self._force_next_probe:
             should_probe, reason = True, "after_unavailable_source"
-        elif (
-            (adjacent is not None and adjacent >= self._policy.strong_boundary_distance)
-            or (
-                from_probe is not None
-                and from_probe >= self._policy.strong_boundary_distance
-            )
+        elif (adjacent is not None and adjacent >= self._policy.strong_boundary_distance) or (
+            from_probe is not None and from_probe >= self._policy.strong_boundary_distance
         ):
             should_probe, reason = True, "visual_boundary"
-        elif (
-            source_index - self._last_probe_source_index
-            >= self._policy.maximum_probe_interval
-        ):
+        elif source_index - self._last_probe_source_index >= self._policy.maximum_probe_interval:
             should_probe, reason = True, "bounded_interval"
         else:
             should_probe, reason = False, "visual_redundancy"
@@ -185,8 +178,7 @@ class AdaptiveRangeOcrProbeScheduler:
     def _restore(self, value: Mapping[str, object]) -> None:
         try:
             if (
-                value.get("schemaVersion")
-                != RANGE_ONLY_OCR_SCHEDULER_CHECKPOINT_SCHEMA_VERSION
+                value.get("schemaVersion") != RANGE_ONLY_OCR_SCHEDULER_CHECKPOINT_SCHEMA_VERSION
                 or value.get("policyFingerprint") != self._policy_fingerprint
             ):
                 raise ValueError("contract mismatch")

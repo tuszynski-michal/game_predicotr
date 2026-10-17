@@ -185,12 +185,7 @@ def lateral_candidate_from_entry(
             raise ValueError("Invalid recovery classification.")
         review_required_slots = tuple(review_required_slots_raw)
         if recovery_kind == "standalone_frame_lines":
-            common_valid = (
-                inliers == 0
-                and features == 0
-                and ratio == 0.0
-                and residual == 0.0
-            )
+            common_valid = inliers == 0 and features == 0 and ratio == 0.0 and residual == 0.0
         else:
             common_valid = (
                 inliers >= thresholds.minimum_inliers

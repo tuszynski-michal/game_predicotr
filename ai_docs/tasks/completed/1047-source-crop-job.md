@@ -120,7 +120,7 @@ D:\game_predicotr\.venv\Scripts\python.exe -m pytest services/api/tests -k sourc
 
 ## Outcome
 
-Commit: v1.7.410 (hash dopisuje kolejny commit).
+Commit: v1.7.410 / `4d157a61d33a908d3020907aaafacf86b3f6d337`.
 
 ### Changed
 

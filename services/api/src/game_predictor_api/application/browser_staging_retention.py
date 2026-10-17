@@ -7,9 +7,7 @@ from datetime import datetime
 from typing import Literal, Protocol
 from uuid import UUID
 
-BrowserStagingBoardImportStatus = Literal[
-    "ready", "importing", "boards_imported", "failed"
-]
+BrowserStagingBoardImportStatus = Literal["ready", "importing", "boards_imported", "failed"]
 
 
 @dataclass(frozen=True, slots=True)

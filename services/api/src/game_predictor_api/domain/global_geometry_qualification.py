@@ -149,8 +149,12 @@ def build_global_geometry_qualification_report(
             "Qualification checksums must be lowercase SHA-256 digests.",
         )
     contributors = tuple(sorted(contributor_game_refs))
-    if not contributors or len(set(contributors)) != len(contributors) or any(
-        not isinstance(value, str) or not _GAME_REF.fullmatch(value) for value in contributors
+    if (
+        not contributors
+        or len(set(contributors)) != len(contributors)
+        or any(
+            not isinstance(value, str) or not _GAME_REF.fullmatch(value) for value in contributors
+        )
     ):
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_QUALIFICATION_CONTRIBUTORS_INVALID",
@@ -182,10 +186,8 @@ def build_global_geometry_qualification_report(
         )
     if (
         replay_automatic_incorrect_source_count > replay_evaluated_source_count
-        or regression_baseline_automatic_incorrect_source_count
-        > regression_evaluated_source_count
-        or regression_candidate_automatic_incorrect_source_count
-        > regression_evaluated_source_count
+        or regression_baseline_automatic_incorrect_source_count > regression_evaluated_source_count
+        or regression_candidate_automatic_incorrect_source_count > regression_evaluated_source_count
         or transfer_automatic_incorrect_source_count > transfer_evaluated_source_count
     ):
         raise GlobalGeometryLibraryError(

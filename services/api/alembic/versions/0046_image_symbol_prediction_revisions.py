@@ -40,9 +40,7 @@ def upgrade() -> None:
             name="ck_image_symbol_prediction_revisions_crop_manifest",
         ),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(
-            ["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["recognized_board_id"], ["recognized_boards.id"], ondelete="RESTRICT"
         ),

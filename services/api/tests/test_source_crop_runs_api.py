@@ -192,33 +192,23 @@ def test_only_one_run_is_active(client: TestClient) -> None:
     assert second.status_code == 409 and second.json()["code"] == "SOURCE_CROP_RUN_ACTIVE"
 
 
-def test_original_deletion_previews_are_refused_until_a_handler_exists(
-    client: TestClient, repository: MemoryRuns
-) -> None:
-    with client:
-        refused = client.post(f"{ROOT}/source-crop-previews", json={"kind": "original_deletion"})
-    assert refused.status_code == 409
-    assert refused.json()["code"] == "SOURCE_CROP_KIND_UNSUPPORTED"
-    assert repository.runs == {}
-
-
 def test_original_deletion_needs_an_irreversibility_acknowledgement(
     client: TestClient, repository: MemoryRuns
 ) -> None:
-    # Created directly: the HTTP preview of this kind waits for its handler.
-    run = repository.create_planning_run(
-        run_id=uuid4(), kind="original_deletion", scope=SourceCropScope()
-    )
-    repository.preview(run.id)
     with client:
-        refused = client.post(f"{ROOT}/source-crop-previews/{run.id}/start", json=_start_body())
+        created = client.post(f"{ROOT}/source-crop-previews", json={"kind": "original_deletion"})
+        run_id = UUID(created.json()["id"])
+        repository.preview(run_id)
+        refused = client.post(f"{ROOT}/source-crop-previews/{run_id}/start", json=_start_body())
         accepted = client.post(
-            f"{ROOT}/source-crop-previews/{run.id}/start",
+            f"{ROOT}/source-crop-previews/{run_id}/start",
             json=_start_body(acknowledgeIrreversible=True),
         )
 
+    assert created.status_code == 201 and created.json()["kind"] == "original_deletion"
     assert refused.status_code == 409
     assert refused.json()["code"] == "SOURCE_ORIGINAL_DELETION_ACKNOWLEDGEMENT_REQUIRED"
+    assert repository.runs[run_id].job_id is not None
     assert accepted.status_code == 201
 
 

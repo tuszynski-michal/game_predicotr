@@ -46,6 +46,8 @@ class SourceImageCropModel(Base):
     job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"))
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     original_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Migration 0168 (TASK-1048): the deletion job that removed the original.
+    deletion_job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id"))
 
 
 class SourceCropRunModel(Base):

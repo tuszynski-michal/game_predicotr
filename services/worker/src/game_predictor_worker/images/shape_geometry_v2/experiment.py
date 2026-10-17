@@ -239,6 +239,7 @@ def load_shape_geometry_experiment_observations(
     """Load observations only after the caller has admitted an executor corpus."""
 
     from json import JSONDecodeError, loads
+
     try:
         raw = loads(path.read_text(encoding="utf-8"))
     except (OSError, JSONDecodeError) as error:
@@ -309,17 +310,14 @@ def run_shape_geometry_experiment(
                 "An experiment observation does not match a measurement corpus source.",
             )
         if (
-            observation.variant
-            is ShapeGeometryExperimentVariant.SHAPE_CONTRAST_SHARED_PROFILE
+            observation.variant is ShapeGeometryExperimentVariant.SHAPE_CONTRAST_SHARED_PROFILE
             and observation.game_id in observation.profile_contributor_game_ids
         ):
             _fail(
                 "SHAPE_GEOMETRY_V2_SHARED_PROFILE_TARGET_LEAKAGE",
                 "A shared profile cannot contain contributions from its evaluated game.",
             )
-        observations_by_game_variant[(observation.game_id, observation.variant)].append(
-            observation
-        )
+        observations_by_game_variant[(observation.game_id, observation.variant)].append(observation)
 
     anchor_selection = select_v2_anchors(manifest, annotations)
     anchors_by_game = {
@@ -332,8 +330,7 @@ def run_shape_geometry_experiment(
             (
                 source
                 for source in manifest.sources
-                if source.game_id == game.game_id
-                and source.corpus_role is CorpusRole.MEASUREMENT
+                if source.game_id == game.game_id and source.corpus_role is CorpusRole.MEASUREMENT
             ),
             key=lambda value: (
                 value.capture_family_id,
@@ -366,13 +363,10 @@ def run_shape_geometry_experiment(
                 anchors_by_game[game.game_id] is None
             ):
                 reasons.append("LOCAL_ANCHOR_UNAVAILABLE")
-            contributor_sets = {
-                value.profile_contributor_game_ids for value in evaluated
-            }
+            contributor_sets = {value.profile_contributor_game_ids for value in evaluated}
             profile_fingerprints = {value.profile_fingerprint for value in evaluated}
-            if (
-                variant is ShapeGeometryExperimentVariant.SHAPE_CONTRAST_SHARED_PROFILE
-                and (len(contributor_sets) > 1 or len(profile_fingerprints) > 1)
+            if variant is ShapeGeometryExperimentVariant.SHAPE_CONTRAST_SHARED_PROFILE and (
+                len(contributor_sets) > 1 or len(profile_fingerprints) > 1
             ):
                 _fail(
                     "SHAPE_GEOMETRY_V2_SHARED_PROFILE_PROVENANCE_INVALID",
@@ -415,14 +409,10 @@ def run_shape_geometry_experiment(
                         value.active_operator_seconds for value in evaluated
                     ),
                     "profileContributorGameIds": (
-                        []
-                        if not contributor_sets
-                        else list(next(iter(contributor_sets)))
+                        [] if not contributor_sets else list(next(iter(contributor_sets)))
                     ),
                     "profileFingerprint": (
-                        None
-                        if not profile_fingerprints
-                        else next(iter(profile_fingerprints))
+                        None if not profile_fingerprints else next(iter(profile_fingerprints))
                     ),
                     "reasons": reasons,
                     "reviewRequiredSourceCount": review_required,

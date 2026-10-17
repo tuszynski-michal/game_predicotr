@@ -198,8 +198,7 @@ def test_v2_uses_exact_checksum_bound_preflight_quads_as_initialization() -> Non
     assert all(board.lines == () for board in detected.boards)
     assert all(board.evidence.pinned_preflight_certified for board in detected.boards)
     assert all(
-        board.confidence_components.pinned_preflight_score == 1.0
-        for board in detected.boards
+        board.confidence_components.pinned_preflight_score == 1.0 for board in detected.boards
     )
 
 

@@ -3035,9 +3035,26 @@ Worker liczy kwalifikację wszystkich gier, zapisuje niezmienny manifest
 szacowaną oszczędnością. Drugi aktywny przebieg (`planning`, `created`,
 `processing`) zwraca `409 SOURCE_CROP_RUN_ACTIVE`; nowy podgląd zastępuje
 przebieg `previewed`, którego nikt nie uruchomił (stan `cancelled`, kod
-`SOURCE_CROP_PREVIEW_SUPERSEDED`). Do czasu handlera z TASK-1048 rodzaj
-`original_deletion` jest odrzucany przed utworzeniem joba
-(`409 SOURCE_CROP_KIND_UNSUPPORTED`).
+`SOURCE_CROP_PREVIEW_SUPERSEDED`).
+
+Podgląd `original_deletion` (TASK-1048) liczy tylko bloby kwalifikujące się w
+chwili planu z wierszem `verified`; manifest ma `irreversible: true`, a każdy
+wpis podaje rozmiar oryginału i `attestationSha256`. Dodatkowe powody
+wykluczenia to `NOT_CROPPED` i `ALREADY_DELETED`. Wykonanie dla każdego
+oryginału pod blokadą bloba sprawdza wiersz `verified` z atestem planu, crop i
+atest przyjmowane przez loader z płótnem zgodnym z atestem oraz SHA-256 i
+rozmiar oryginału. Następnie bierze wyłącznie blokadę zapisu (fence
+`GameStorageRouter`) każdej gry bloba, więc żaden zapis danych tych gier nie
+trwa ani nie zaczyna się do COMMIT, i w świeżej migawce sprawdza dzierżawę,
+kwalifikację (te same gry) oraz to, czy atestowany kadr z marginesem nadal
+obejmuje bieżące chronione quady. Usunięcie pliku (`unlink`, bez kwarantanny) i
+stan `original_deleted` z `deletion_job_id` są jedną transakcją; oryginał bez
+pliku przy wierszu `verified` jest uzgadniany po ponownej weryfikacji cropu, a
+oryginał usunięty przez ten sam job przed checkpointem liczy się raz. Wyniki:
+`deleted`, pominięcia `notCropped`, `alreadyDeleted`, `cropChanged`,
+`cropOutdated` (geometria poza kadrem), `gameBusy` (zapis gry trwał dłużej niż
+120 s), `notEligible` i błędy (`ORIGINAL_CHANGED`, `SOURCE_CROP_FILES_MISSING`,
+kody loadera); oryginał zostaje przy każdym pominięciu i błędzie.
 
 `POST /source-crop-previews/{previewId}/start` jest operacją high-impact
 (`X-Admin-Confirmation: confirmed`, `X-Admin-Target: source-crop-preview:{previewId}`)
@@ -4748,6 +4765,13 @@ albo gdy job importu źródła (lub job przypięty do niego przez
 `waiting_for_review`. Token preview obejmuje rozwiązany stan dysku. Reset gry i
 usuwanie wydań nie korzystają z tego rozwiązywania.
 
+D-562 R10 (TASK-1048): gdy cleanup usuwa oryginał
+`originals/<sha[:2]>/<sha>.jpg` (ostatnia referencja), usuwa też jego crop i
+atest (`originals-cropped/<sha[:2]>/<sha>.jpg` i `.json`, w `artifactPaths`) oraz
+wiersz `public.source_image_crops`. Zachowany oryginał zachowuje też swój crop.
+Kwarantanna cleanupu używa ścieżek długich Windows (`\\?\`), bo klucz operacji
+i ścieżka cropu przekraczają `MAX_PATH`.
+
 Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
 APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,
 ale usuwa game-scoped importy, obrazy robocze, review, symbole, reguły, datasety,
@@ -5086,7 +5110,13 @@ schema v4 pozostają czytelne bez zmiany wire contractu.
 D-562 (TASK-1046): import, którego managed original zastąpiono zweryfikowanym
 cropem, nie może zostać ponownie przetworzony (`409 SOURCE_ORIGINAL_CROPPED`);
 ten sam kod zwracają managed page source i managed browser selection takiego
-importu. Kohorta V3 odmawia źródła z cropem (`SOURCE_ORIGINAL_CROPPED`), a
+importu. Kohorta V3 odmawia źródła z cropem (`SOURCE_ORIGINAL_CROPPED`); od
+TASK-1048 pierwsza strona materializacji sprawdza w rejestrze wszystkie użyte
+źródła kohorty, zanim skopiuje jakikolwiek plik, a kolejne strony swoje źródła.
+Nowy profil kalibracji siatki nie przypina jako kotwicy rejestracji źródła w
+stanie `original_deleted` (źródło nadal liczy się do treningu i walidacji);
+kalibracja i materializacja kohorty biorą blokadę zapisu gry przed odczytem
+rejestru, więc przebieg usuwania nie wchodzi między odczyt a zapis profilu, a
 korekta, propozycja albo cofnięcie geometrii z quadem poza zachowanym kadrem
 kończą się kodem `SOURCE_REGION_UNAVAILABLE` w dotychczasowej kopercie błędu.
 Endpointy obrazu źródłowego (`.../assets/source`, `.../source-asset`,

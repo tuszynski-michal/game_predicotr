@@ -591,6 +591,39 @@ class SourceCropAttestation:
         }
 
 
+def crop_covers_points(
+    attestation: SourceCropAttestation, points: Iterable[tuple[float, float]]
+) -> bool:
+    """Whether an attested crop still keeps today's protected quads (TASK-1048).
+
+    The crop must contain the clamped protected box of ``points`` grown by the
+    attested margin, and the protected box must stay clear of the edge ring on
+    every crop edge that is not an image border, exactly as R7 required when
+    the crop was made. Geometry approved after the crop may fall outside it.
+    """
+
+    width, height = attestation.original_width, attestation.original_height
+    try:
+        protected = clamp_protected_box(
+            protected_box_from_points(points), width=width, height=height
+        )
+        required = margin_box(
+            protected, margin_px=attestation.margin_px, width=width, height=height
+        )
+    except SourceCropError:
+        return False
+    box = attestation.crop_box
+    if not box.contains(required):
+        return False
+    clearance = EDGE_RING_PX + MIN_PROTECTED_DISTANCE_FROM_RING_PX
+    return not (
+        (box.left > 0 and protected.left < box.left + clearance)
+        or (box.top > 0 and protected.top < box.top + clearance)
+        or (box.right < width and protected.right > box.right - clearance)
+        or (box.bottom < height and protected.bottom > box.bottom - clearance)
+    )
+
+
 def encode_attestation(attestation: SourceCropAttestation) -> bytes:
     """Canonical JSON bytes with a checksum over every other field."""
 

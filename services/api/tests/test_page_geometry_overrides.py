@@ -122,9 +122,7 @@ def test_v12_partial_slot_may_have_a_frame_outside_the_source() -> None:
     frames = list(_frame_quads())
     frames[0] = tuple({"x": point["x"] - 4, "y": point["y"]} for point in frames[0])
     decisions = [GeometryQualification().to_dict() for _ in range(9)]
-    decisions[0] = GeometryQualification(
-        "pending_partial", (0,), True, "missing_pixels"
-    ).to_dict()
+    decisions[0] = GeometryQualification("pending_partial", (0,), True, "missing_pixels").to_dict()
     service = PageGeometryOverrideService(MemoryPageGeometryOverrideRepository())
     value, created = service.save(
         game_id=uuid4(),

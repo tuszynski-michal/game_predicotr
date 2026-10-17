@@ -161,9 +161,7 @@ def test_passed_qualification_retires_previous_active_and_activates_candidate() 
         candidate, number=8, status=GlobalGeometryProfileStatus.CANDIDATE
     )
     previous_model = _profile_model(previous, number=7, status=GlobalGeometryProfileStatus.ACTIVE)
-    session, added = _qualification_session(
-        candidate_model, candidate, previous_model, previous
-    )
+    session, added = _qualification_session(candidate_model, candidate, previous_model, previous)
     repository = SqlAlchemyGlobalGeometryLibraryRepository(session)
 
     result, created = repository.qualify_candidate(
@@ -281,9 +279,7 @@ def test_idempotent_retry_returns_receipted_result_and_payload_mismatch_conflict
 
 def test_concurrent_retry_rechecks_the_receipt_after_waiting_for_scope_lock() -> None:
     candidate = _candidate()
-    candidate_model = _profile_model(
-        candidate, number=8, status=GlobalGeometryProfileStatus.ACTIVE
-    )
+    candidate_model = _profile_model(candidate, number=8, status=GlobalGeometryProfileStatus.ACTIVE)
     report = _report(candidate, baseline=None)
     receipt = SimpleNamespace(
         command_sha256=qualification_command_sha256(profile_id=candidate_model.id, report=report),

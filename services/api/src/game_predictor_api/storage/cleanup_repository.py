@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import cast
 from uuid import UUID
 
@@ -22,6 +24,10 @@ from game_predictor_api.domain.cleanup import (
     CleanupResult,
     CleanupSnapshot,
 )
+from game_predictor_api.domain.source_crop import (
+    ORIGINALS_DIRECTORY,
+    cropped_original_relative_paths,
+)
 from game_predictor_api.storage.models import (
     CleanupOperationModel,
     GameModel,
@@ -30,6 +36,8 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
+
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class SqlAlchemyCleanupRepository(CleanupRepository):
@@ -275,6 +283,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
+        self._delete_crop_registry(snapshot.artifact_paths)
         record_super_game_input_change(
             self._session, snapshot.target_id, source="game_layout_reset"
         )
@@ -306,6 +315,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             )
 
         self._delete_board_source_graph(scope)
+        self._delete_crop_registry(scope.artifact_paths)
         self._record(result)
 
     def _record(self, result: CleanupResult) -> None:
@@ -354,7 +364,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 retained += 1
             else:
                 deleted.append(cast(str, row["path"]))
-        return tuple(sorted(set(deleted))), retained
+        return _with_crop_siblings(tuple(sorted(set(deleted)))), retained
 
     def _board_source_scope(
         self,
@@ -552,7 +562,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             board_ids=board_ids,
             import_job_ids=import_job_ids,
         )
-        artifact_paths = tuple(path for path in artifact_paths if path not in retained_paths)
+        artifact_paths = _with_crop_siblings(
+            tuple(path for path in artifact_paths if path not in retained_paths)
+        )
         return _BoardSourceScope(
             game_id=game_id,
             ranges=ranges,
@@ -1096,6 +1108,20 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             if value is not None
         )
 
+    def _delete_crop_registry(self, artifact_paths: Sequence[str]) -> None:
+        """R10 (D-562): the last reference to an original takes its crop row too."""
+
+        self._delete(
+            "DELETE FROM public.source_image_crops WHERE original_checksum_sha256 IN :checksums",
+            checksums=tuple(
+                sorted(
+                    checksum
+                    for checksum in map(_managed_original_checksum, artifact_paths)
+                    if checksum is not None
+                )
+            ),
+        )
+
     def _delete(self, statement: str, **parameters: object) -> None:
         if any(isinstance(value, tuple) and not value for value in parameters.values()):
             return
@@ -1110,6 +1136,36 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 if isinstance(value, tuple)
             )
         )
+
+
+def _managed_original_checksum(relative_path: str) -> str | None:
+    """The checksum of a content-addressed managed original path, else ``None``."""
+
+    parts = PurePosixPath(relative_path).parts
+    if parts[:1] == ("data",):
+        parts = parts[1:]
+    if len(parts) != 3 or parts[0] != ORIGINALS_DIRECTORY:
+        return None
+    checksum = parts[2].removesuffix(".jpg")
+    if _SHA256.fullmatch(checksum) is None or parts[1] != checksum[:2] or parts[2] == checksum:
+        return None
+    return checksum
+
+
+def _with_crop_siblings(paths: tuple[str, ...]) -> tuple[str, ...]:
+    """R10 (D-562): deleting the last reference to an original removes its crop.
+
+    The crop and its attestation follow the original only when the original
+    itself is deleted, so the TASK-1042 sharing rules apply to them unchanged.
+    """
+
+    siblings = {
+        sibling.as_posix()
+        for checksum in map(_managed_original_checksum, paths)
+        if checksum is not None
+        for sibling in cropped_original_relative_paths(checksum)
+    }
+    return tuple(sorted(set(paths) | siblings))
 
 
 @dataclass(frozen=True, slots=True)

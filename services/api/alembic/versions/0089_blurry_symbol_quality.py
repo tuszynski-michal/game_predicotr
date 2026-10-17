@@ -56,8 +56,7 @@ def upgrade() -> None:
     _replace_check_constraint_without_table_scan(
         "image_symbol_review_bulk_operations",
         "ck_image_symbol_review_bulk_operations_action",
-        "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', "
-        "'mark_unreadable')",
+        "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', 'mark_unreadable')",
     )
 
 

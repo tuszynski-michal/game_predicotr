@@ -1283,7 +1283,11 @@ orientacja 1/3/6/8), crop i atest (`originals-cropped/<sha[:2]>/<sha>.jpg` i
 `tool_version`, `policy_version='source-crop-v1'`, `job_id` (FK `jobs`),
 `state` (`verified` albo `original_deleted` z `original_deleted_at ≥ verified_at`).
 CHECK wymusza ścieżki wyprowadzone z sumy, crop mniejszy od oryginału, pudełko
-w obrazie i obszar chroniony w cropie.
+w obrazie i obszar chroniony w cropie. Stan `original_deleted` ustawia wyłącznie
+job `source_original_deletion` w transakcji, w której usuwa plik oryginału
+(TASK-1048), i zapisuje go w `deletion_job_id` (FK `jobs`, migracja 0168, CHECK:
+tylko przy `original_deleted`); cleanup usuwa wiersz razem z ostatnią
+referencją do oryginału (R10).
 
 ### `public.source_crop_runs` (migracja 0168, manifest v19, `shared`)
 

@@ -7,9 +7,7 @@ from game_predictor_api.domain.image_geometry_cutover import (
 )
 
 
-def _evidence(
-    *, accepted: int, boards: int = 500, sources: int = 100
-) -> GeometryCutoverEvidence:
+def _evidence(*, accepted: int, boards: int = 500, sources: int = 100) -> GeometryCutoverEvidence:
     return GeometryCutoverEvidence(
         source_count=sources,
         active_board_count=boards,

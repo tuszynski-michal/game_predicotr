@@ -21,6 +21,7 @@ from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.source_crop import cropped_original_relative_paths
 from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
 from game_predictor_api.storage.database import (
     create_cross_game_owner_session_factory,
@@ -40,11 +41,13 @@ from game_predictor_api.storage.models import (
     RulesVersionModel,
     SymbolModel,
 )
+from game_predictor_api.storage.source_image_crop_repository import SourceImageCropRepository
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
 from test_image_batch_store import PIPELINE, _add_review_projection_source, _image_job
+from test_source_image_crops_postgres import _attestation
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -526,6 +529,25 @@ def test_source_cleanup_removes_data_relative_originals_only_when_unreferenced(
         target = tmp_path / "data" / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"managed original")
+    # D-562 R10 (TASK-1048): the shared original has a verified crop.
+    crop_relative, attestation_relative = cropped_original_relative_paths(shared_checksum)
+    crop_files = [tmp_path / "data" / crop_relative, tmp_path / "data" / attestation_relative]
+    for crop_file in crop_files:
+        crop_file.parent.mkdir(parents=True, exist_ok=True)
+        crop_file.write_bytes(b"crop")
+    with Session(engine) as session, session.begin():
+        SourceImageCropRepository(session).record_verified(
+            _attestation(shared_checksum),
+            attestation_sha256="d" * 64,
+            job_id=None,
+            verified_at=now,
+        )
+
+    def crop_row_state() -> str | None:
+        with Session(engine) as session:
+            row = SourceImageCropRepository(session).get(shared_checksum)
+            return None if row is None else row.state
+
     try:
         # Job admission allows one active image job per game, and only an active
         # job registers files: build each import, then finish it.
@@ -629,12 +651,24 @@ def test_source_cleanup_removes_data_relative_originals_only_when_unreferenced(
         counts, retained, warnings = clean(10)
         assert (counts["managed_artifacts"], retained) == (0, 1)
         assert (tmp_path / "data" / shared_path).exists()
+        # A retained original keeps its crop, attestation and registry row.
+        assert all(crop_file.exists() for crop_file in crop_files)
+        assert crop_row_state() == "verified"
 
-        # The last reference goes: the file really leaves `data/originals`.
+        # The original was already replaced by its crop (deletion run).
+        (tmp_path / "data" / shared_path).unlink()
+        with Session(engine) as session, session.begin():
+            SourceImageCropRepository(session).mark_original_deleted(
+                shared_checksum, deleted_at=now + timedelta(seconds=1)
+            )
+
+        # The last reference goes: the crop, its attestation and the row go too.
         counts, retained, warnings = clean(19)
-        assert (counts["managed_artifacts"], counts["missing_artifacts"], retained) == (1, 0, 0)
+        assert (counts["managed_artifacts"], counts["missing_artifacts"], retained) == (2, 1, 0)
         assert "SOURCE_ORIGINALS_RETAINED" not in warnings
         assert not (tmp_path / "data" / shared_path).exists()
+        assert not any(crop_file.exists() for crop_file in crop_files)
+        assert crop_row_state() is None
         assert not (tmp_path / "cleanup-quarantine").exists() or not any(
             (tmp_path / "cleanup-quarantine").iterdir()
         )

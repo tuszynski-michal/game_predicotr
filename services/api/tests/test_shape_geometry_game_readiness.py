@@ -42,13 +42,12 @@ class _UnreadableProfiles:
     def list_active_profiles_with_evidence(
         self, *, geometry_family: str
     ) -> tuple[GlobalGeometryProfileWithEvidence, ...]:
-        raise GlobalGeometryLibraryError(
-            "GLOBAL_GEOMETRY_PROFILE_INVALID", "bad descriptor"
-        )
+        raise GlobalGeometryLibraryError("GLOBAL_GEOMETRY_PROFILE_INVALID", "bad descriptor")
 
 
 def _profile(
-    *, status: GlobalGeometryProfileStatus = GlobalGeometryProfileStatus.ACTIVE,
+    *,
+    status: GlobalGeometryProfileStatus = GlobalGeometryProfileStatus.ACTIVE,
     number: int = 7,
 ) -> GlobalGeometryProfileWithEvidence:
     topology = GlobalGeometryTopology(3, 3, 3, 5)
@@ -170,12 +169,8 @@ def test_framed_page_never_uses_candidate_rejected_or_retired_profile() -> None:
     )
 
     for status in statuses:
-        resolver = GlobalShapeGeometryReadinessResolver(
-            _Profiles((_profile(status=status),))
-        )
-        readiness = resolver.resolve(
-            GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2
-        )
+        resolver = GlobalShapeGeometryReadinessResolver(_Profiles((_profile(status=status),)))
+        readiness = resolver.resolve(GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2)
 
         assert readiness.status is ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED
         assert readiness.reason_code == "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED"

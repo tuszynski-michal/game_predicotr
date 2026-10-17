@@ -41,8 +41,7 @@ def test_scheduler_probes_a_strong_visual_boundary() -> None:
     assert decision.reason == "visual_boundary"
     assert decision.adjacent_distance is not None
     assert (
-        decision.adjacent_distance
-        >= RANGE_ONLY_OCR_SCHEDULING_POLICY_V3.strong_boundary_distance
+        decision.adjacent_distance >= RANGE_ONLY_OCR_SCHEDULING_POLICY_V3.strong_boundary_distance
     )
 
 

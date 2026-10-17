@@ -169,11 +169,14 @@ class ShapeGeometryV2Result:
     input_height: int
     frame_candidate_count: int
     frame_quad: _QUAD | None
-    source_to_canonical_homography: tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        tuple[float, float, float],
-    ] | None
+    source_to_canonical_homography: (
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float, float],
+            tuple[float, float, float],
+        ]
+        | None
+    )
     structural_score: float | None
     color_evidence: ShapeGeometryV2ColorEvidence | None
     grid_evidence: ShapeGeometryV2GridEvidence | None
@@ -188,9 +191,7 @@ class ShapeGeometryV2Result:
             "coreVersion": SHAPE_GEOMETRY_V2_CORE_VERSION,
             "frameCandidateCount": self.frame_candidate_count,
             "frameQuad": None if self.frame_quad is None else _quad_dict(self.frame_quad),
-            "gridEvidence": (
-                None if self.grid_evidence is None else self.grid_evidence.as_dict()
-            ),
+            "gridEvidence": (None if self.grid_evidence is None else self.grid_evidence.as_dict()),
             "inputHeight": self.input_height,
             "inputWidth": self.input_width,
             "reasonCodes": [reason.value for reason in self.reason_codes],
@@ -198,8 +199,7 @@ class ShapeGeometryV2Result:
                 None
                 if self.source_to_canonical_homography is None
                 else [
-                    [_round(value) for value in row]
-                    for row in self.source_to_canonical_homography
+                    [_round(value) for value in row] for row in self.source_to_canonical_homography
                 ]
             ),
             "status": self.status.value,
@@ -396,20 +396,20 @@ def _cross(
 
 
 def _polygon_area(quad: _QUAD) -> float:
-    return abs(
-        sum(
-            quad[index][0] * quad[(index + 1) % 4][1]
-            - quad[(index + 1) % 4][0] * quad[index][1]
-            for index in range(4)
+    return (
+        abs(
+            sum(
+                quad[index][0] * quad[(index + 1) % 4][1]
+                - quad[(index + 1) % 4][0] * quad[index][1]
+                for index in range(4)
+            )
         )
-    ) / 2.0
+        / 2.0
+    )
 
 
 def _quad_shape_score(quad: _QUAD) -> float:
-    edges = [
-        math.dist(quad[index], quad[(index + 1) % 4])
-        for index in range(4)
-    ]
+    edges = [math.dist(quad[index], quad[(index + 1) % 4]) for index in range(4)]
     if min(edges) <= 1.0:
         return 0.0
     opposite_balance = min(edges[0], edges[2]) / max(edges[0], edges[2])
@@ -485,8 +485,7 @@ def _is_complete_frame(
 ) -> bool:
     required_margin = min(width, height) * config.minimum_complete_margin_fraction
     return all(
-        min(x, y, float(width - 1) - x, float(height - 1) - y) >= required_margin
-        for x, y in quad
+        min(x, y, float(width - 1) - x, float(height - 1) - y) >= required_margin for x, y in quad
     )
 
 
@@ -557,9 +556,7 @@ def _grid_evidence(
         horizontal_support=_supported_fraction(
             horizontal_scores, config.minimum_grid_line_contrast
         ),
-        vertical_support=_supported_fraction(
-            vertical_scores, config.minimum_grid_line_contrast
-        ),
+        vertical_support=_supported_fraction(vertical_scores, config.minimum_grid_line_contrast),
         board_support=tuple(board_support),
         expected_horizontal_lines=len(horizontal_scores),
         expected_vertical_lines=len(vertical_scores),
@@ -618,16 +615,12 @@ def _derive_boards(
             cells = tuple(
                 _project_quad(
                     _canonical_rect(
-                        (board_column + cell_column / _CELL_COLUMNS)
-                        * width_extent
-                        / _PAGE_COLUMNS,
+                        (board_column + cell_column / _CELL_COLUMNS) * width_extent / _PAGE_COLUMNS,
                         (board_row + cell_row / _CELL_ROWS) * height_extent / _PAGE_ROWS,
                         (board_column + (cell_column + 1) / _CELL_COLUMNS)
                         * width_extent
                         / _PAGE_COLUMNS,
-                        (board_row + (cell_row + 1) / _CELL_ROWS)
-                        * height_extent
-                        / _PAGE_ROWS,
+                        (board_row + (cell_row + 1) / _CELL_ROWS) * height_extent / _PAGE_ROWS,
                     ),
                     canonical_to_source,
                 )

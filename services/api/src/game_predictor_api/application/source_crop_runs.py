@@ -20,7 +20,7 @@ SourceCropRunKind = Literal["crop", "original_deletion"]
 SOURCE_CROP_RUN_KINDS: Final = ("crop", "original_deletion")
 # Kinds whose worker handler is registered; a preview of any other kind would
 # queue a job that no worker claims and block every later run.
-EXECUTABLE_RUN_KINDS: Final = ("crop",)
+EXECUTABLE_RUN_KINDS: Final = ("crop", "original_deletion")
 MAX_SCOPE_CHECKSUMS: Final = 500
 MAX_SCOPE_LIMIT: Final = 1_000_000
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

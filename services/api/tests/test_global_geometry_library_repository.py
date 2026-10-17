@@ -106,9 +106,7 @@ def test_create_candidate_writes_only_global_control_plane_models() -> None:
     session.add.side_effect = add
     repository = SqlAlchemyGlobalGeometryLibraryRepository(session)
 
-    profile, created = repository.create_candidate(
-        candidate=candidate, idempotency_key=uuid4()
-    )
+    profile, created = repository.create_candidate(candidate=candidate, idempotency_key=uuid4())
 
     assert created is True
     assert profile.profile_number == 1
@@ -140,9 +138,7 @@ def test_retry_returns_receipted_profile_without_new_write() -> None:
 def test_reused_idempotency_key_with_different_command_is_conflict() -> None:
     candidate = _candidate()
     session = Mock()
-    session.scalar.return_value = SimpleNamespace(
-        profile_id=uuid4(), command_sha256="0" * 64
-    )
+    session.scalar.return_value = SimpleNamespace(profile_id=uuid4(), command_sha256="0" * 64)
     repository = SqlAlchemyGlobalGeometryLibraryRepository(session)
 
     with pytest.raises(GlobalGeometryLibraryConflictError) as error:

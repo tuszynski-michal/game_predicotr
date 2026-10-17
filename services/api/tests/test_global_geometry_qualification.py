@@ -27,9 +27,7 @@ from game_predictor_api.domain.global_geometry_qualification import (
 )
 
 
-def _stored_candidate(
-    *, evidence_count: int = 1
-) -> GlobalGeometryProfileWithEvidence:
+def _stored_candidate(*, evidence_count: int = 1) -> GlobalGeometryProfileWithEvidence:
     topology = GlobalGeometryTopology(3, 3, 3, 5)
     candidate = build_global_geometry_candidate(
         geometry_family=SUPPORTED_GEOMETRY_FAMILY,

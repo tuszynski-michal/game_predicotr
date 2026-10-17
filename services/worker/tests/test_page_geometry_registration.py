@@ -264,9 +264,7 @@ def test_registration_fails_closed_when_weak_board_projection_breaks_the_grid(
     real_is_complete_ordered_grid = page_geometry_registration.is_complete_ordered_grid
     call_count = {"n": 0}
 
-    def flaky_is_complete_ordered_grid(
-        quads_arg: object, width: int, height: int
-    ) -> bool:
+    def flaky_is_complete_ordered_grid(quads_arg: object, width: int, height: int) -> bool:
         call_count["n"] += 1
         # Each retry (1000/1500/3000 ORB features) makes exactly two calls:
         # the first validates the snapped grid (must stay real so the page

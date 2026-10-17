@@ -155,9 +155,7 @@ class _AddedLookup:
         return interval.start <= point <= interval.end
 
 
-def _reason_sweep(
-    points: Sequence[int], reasons: Sequence[ReasonSpan]
-) -> dict[int, ReasonSpan]:
+def _reason_sweep(points: Sequence[int], reasons: Sequence[ReasonSpan]) -> dict[int, ReasonSpan]:
     """Map each of ``points`` to its highest-priority active span, if any.
 
     A classic interval sweep with a lazily-cleaned priority heap: O((len(

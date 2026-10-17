@@ -220,9 +220,7 @@ def test_admin_recovery_endpoint_is_bounded_and_path_free(tmp_path: Path) -> Non
     )
     recovery = RemoteManualSelectionRecoveryService(repository, host, now=lambda: NOW)
     app = create_app(
-        ApiSettings.from_environment(
-            {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
-        ),
+        ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}),
         remote_manual_selection_recovery_service_dependency=lambda: recovery,
     )
 
@@ -328,8 +326,7 @@ def _fixture(
             verified_checksum_sha256=verified_checksum,
         ),
         temp_relative_path=(
-            f".game-predictor/remote-selection-v1/transfers/{FILE_ID}/1/"
-            f"{TRANSFER_ID}.verified"
+            f".game-predictor/remote-selection-v1/transfers/{FILE_ID}/1/{TRANSFER_ID}.verified"
             if transfer_status is RemoteManualSelectionTransferStatus.VERIFIED
             else None
         ),

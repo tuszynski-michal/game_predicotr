@@ -199,9 +199,7 @@ class TestCountMissingByReason:
         assert sum(counts.values()) == 20 - (5 + 8)  # expected - added count
 
     def test_zero_when_everything_added(self) -> None:
-        counts = count_missing_by_reason(
-            expected=5, added=[SequenceInterval(1, 5)], reasons=[]
-        )
+        counts = count_missing_by_reason(expected=5, added=[SequenceInterval(1, 5)], reasons=[])
         assert sum(counts.values()) == 0
 
 

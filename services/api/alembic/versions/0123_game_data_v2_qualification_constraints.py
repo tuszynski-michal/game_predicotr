@@ -50,9 +50,7 @@ _RECOGNIZED_BOARDS_EXPRESSION = (
 
 _GUARD_DECISIONS_EXPRESSION = (
     "geometry_qualification IS NULL OR ((jsonb_typeof(geometry_qualification) = "
-    "'object' AND "
-    + _VERSION_CLAUSE
-    + " AND geometry_qualification->'unavailableCellIndices' = "
+    "'object' AND " + _VERSION_CLAUSE + " AND geometry_qualification->'unavailableCellIndices' = "
     "to_jsonb(unavailable_cell_indices) AND ((disposition = 'partial' AND "
     "geometry_qualification->>'completenessStatus' = 'pending_partial' AND "
     "geometry_qualification->'excludeFromGeometryTraining' = 'true'::jsonb AND "

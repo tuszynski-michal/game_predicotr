@@ -54,12 +54,14 @@ from game_predictor_api.domain.source_crop import (
 )
 from game_predictor_api.domain.source_crop_eligibility import CropBlobEligibility
 from game_predictor_api.storage.source_crop_run_repository import assert_job_lease
+from game_predictor_api.storage.source_image_crop_models import SourceImageCropModel
 from game_predictor_api.storage.source_image_crop_repository import (
     MAX_ELIGIBILITY_PAGE,
     SourceImageCropRepository,
 )
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.images.jpegtran import (
@@ -71,9 +73,11 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 
 MANIFEST_SCHEMA_VERSION: Final = 1
 MANIFEST_DIRECTORY: Final = PurePosixPath("data", "source-crop-runs")
-CHECKPOINT_EVERY: Final = 25
+CHECKPOINT_EVERY_DEFAULT: Final = 25
+CHECKPOINT_EVERY = CHECKPOINT_EVERY_DEFAULT
 PLAN_PAGE_SIZE: Final = MAX_ELIGIBILITY_PAGE
 MAX_RUN_FAILURES: Final = 100
+_LOCK_NOT_AVAILABLE: Final = "55P03"
 # Plan-only reasons next to the eligibility exclusions (CropExclusion).
 ALREADY_CROPPED: Final = "ALREADY_CROPPED"
 ORIGINAL_MISSING: Final = "ORIGINAL_MISSING"
@@ -96,6 +100,7 @@ class RegisteredCrop:
     crop_size_bytes: int
     attestation_sha256: str = ""
     state: str = "verified"
+    deletion_job_id: UUID | None = None
 
 
 class SourceCropCatalog(Protocol):
@@ -265,6 +270,90 @@ class SqlSourceCropCatalog:
         with self._session_factory.begin() as session:
             assert_job_lease(session, job_id, lease_token)
 
+    def delete_original_if_still_eligible(
+        self,
+        checksum: str,
+        *,
+        attestation_sha256: str,
+        game_ids: Sequence[UUID],
+        still_covered: Callable[[tuple[tuple[float, float], ...]], bool],
+        job_id: UUID,
+        lease_token: UUID,
+        deleted_at: datetime,
+        unlink: Callable[[], None],
+    ) -> str:
+        """TASK-1048 (R8): unlink and ``original_deleted`` in one transaction.
+
+        Every game-data write holds the shared storage write fence of its game
+        until COMMIT (``GameStorageRouter``). The exclusive fence of each game
+        of the blob is taken first, on a separate connection, so no write in
+        those games is in flight while the snapshot is read and none starts
+        until this COMMIT. Then the lease, the current eligibility (the same
+        games), the coverage of today's protected quads by the attested crop
+        and the locked ``verified`` row with the planned attestation are
+        checked; the file is removed inside the transaction and the row is
+        marked before COMMIT. A COMMIT that fails after the unlink leaves
+        ``verified`` with no original, which the next attempt reconciles after
+        verifying the crop again. Returns ``deleted``, ``not_eligible``,
+        ``crop_outdated`` or ``game_busy`` (a fence wait timed out).
+        """
+
+        try:
+            with self._game_fences(game_ids), self._snapshot() as session:
+                assert_job_lease(session, job_id, lease_token)
+                repository = SourceImageCropRepository(session)
+                page = repository.eligibility(page_size=1, only_checksums=(checksum,))
+                row = session.scalar(
+                    select(SourceImageCropModel)
+                    .where(SourceImageCropModel.original_checksum_sha256 == checksum)
+                    .with_for_update()
+                )
+                if (
+                    not page
+                    or not page[0].eligible
+                    or not set(page[0].game_ids) <= set(game_ids)
+                    or row is None
+                    or row.state != "verified"
+                    or row.attestation_sha256 != attestation_sha256
+                ):
+                    return "not_eligible"
+                if not still_covered(page[0].protected_points):
+                    return "crop_outdated"
+                unlink()
+                repository.mark_original_deleted(
+                    checksum, deleted_at=deleted_at, deletion_job_id=job_id
+                )
+                return "deleted"
+        except OperationalError as error:
+            if getattr(error.orig, "sqlstate", None) == _LOCK_NOT_AVAILABLE:
+                return "game_busy"
+            raise
+
+    @contextmanager
+    def _game_fences(self, game_ids: Sequence[UUID]) -> Iterator[None]:
+        engine = cast(Engine, self._session_factory.kw["bind"])
+        keys = sorted({str(game_id) for game_id in game_ids})
+        with engine.connect() as connection:
+            connection.execute(text("SET lock_timeout = '120s'"))
+            held: list[str] = []
+            try:
+                for key in keys:  # one global order: no deadlock between two runs
+                    connection.execute(
+                        text("SELECT pg_advisory_lock(hashtextextended(:key, 519))"),
+                        {"key": key},
+                    )
+                    held.append(key)
+                connection.commit()
+                yield
+            finally:
+                connection.rollback()
+                for key in held:
+                    connection.execute(
+                        text("SELECT pg_advisory_unlock(hashtextextended(:key, 519))"),
+                        {"key": key},
+                    )
+                connection.commit()
+
 
 @dataclass(slots=True)
 class _Progress:
@@ -275,14 +364,16 @@ class _Progress:
     failed: int
     saved_bytes: int
     failures: list[dict[str, object]]
+    success_outcome: str = CROPPED
+    skipped_outcomes: frozenset[str] = _SKIPPED_OUTCOMES
 
     def add(self, outcome: str, saved: int, failure: Mapping[str, object] | None) -> None:
         self.index += 1
         self.outcomes[outcome] = self.outcomes.get(outcome, 0) + 1
-        if outcome == CROPPED:
+        if outcome == self.success_outcome:
             self.succeeded += 1
             self.saved_bytes += saved
-        elif outcome in _SKIPPED_OUTCOMES:
+        elif outcome in self.skipped_outcomes:
             self.skipped += 1
         else:
             self.failed += 1
@@ -830,6 +921,7 @@ def _registered(row: Any) -> RegisteredCrop:
         crop_size_bytes=int(row.crop_size_bytes),
         attestation_sha256=str(row.attestation_sha256),
         state=str(row.state),
+        deletion_job_id=row.deletion_job_id,
     )
 
 

@@ -150,9 +150,9 @@ def test_reviewer_start_controllers_replace_stale_build_and_track_listener() -> 
     local_source = (REPOSITORY_ROOT / "scripts" / "start_local_reviewer.ps1").read_text(
         encoding="utf-8"
     )
-    remote_source = (
-        REPOSITORY_ROOT / "scripts" / "start_remote_reviewer_tunnel.ps1"
-    ).read_text(encoding="utf-8")
+    remote_source = (REPOSITORY_ROOT / "scripts" / "start_remote_reviewer_tunnel.ps1").read_text(
+        encoding="utf-8"
+    )
 
     for source in (local_source, remote_source):
         assert "Test-ReviewerBuildCurrent" in source

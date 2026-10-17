@@ -55,17 +55,14 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1048 — Job usuwania oryginałów, cleanup i strażnicy kotwic (todo)
-
-- Plik: `tasks/1048-source-original-deletion.md`. Po TASK-1047; jedyny krok niszczący.
-
 ### TASK-1049 — Panel Storage: przycinanie i usuwanie oryginałów (todo)
 
 - Plik: `tasks/1049-storage-panel-photo-crop.md`. Po TASK-1048; delegacja `claude-sonnet-5-5`.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 — tasks/completed/1047-source-crop-job.md
+- **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 — tasks/completed/1048-source-original-deletion.md
+- **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 / `4d157a61` — tasks/completed/1047-source-crop-job.md
 - **TASK-1046** — Ramka źródła z cropem w API, serwowanie i blokady — v1.7.407 / `401b371f` — tasks/completed/1046-source-frame-api.md
 - **TASK-1045** — Ramka źródła z cropem w workerze — v1.7.406 / `279a22ce` — tasks/completed/1045-source-frame-worker.md
 - **TASK-1044** — Migracja source_image_crops i kwalifikacja blobów — v1.7.405 / `a0727612` — tasks/completed/1044-source-image-crops-table-and-eligibility.md
@@ -74,4 +71,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1042** — Czyszczenie zakresów usuwa oryginały — v1.7.399 / `6253c296` — tasks/completed/1042-board-source-cleanup-originals.md
 - **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
 - **TASK-1041** — Zdjęcia V3 bez przypisania plansz są jawne — v1.7.388 / `c93eb54e` — tasks/completed/1041-v3-import-unbound-photos-visible.md
-- **TASK-1000** — Pełna sekcja „Geometria V3” — v1.7.392 / `eb212629` — tasks/completed/1000-v3-grid-model-workspace.md

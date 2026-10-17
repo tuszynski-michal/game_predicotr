@@ -33,9 +33,7 @@ from .core import (
 SHAPE_GEOMETRY_V2_PREFLIGHT_PROFILE_VERSION = "shape-geometry-v2-preflight-profile-v1"
 SHAPE_GEOMETRY_V2_LOCAL_VERIFICATION_VERSION = "shape-geometry-v2-local-verification-v1"
 SHAPE_GEOMETRY_V2_LOCAL_POLICY_VERSION = "shape-geometry-v2-local-policy-v1"
-SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION = (
-    "page-geometry-preflight-v4-shape-geometry-v2-profile"
-)
+SHAPE_GEOMETRY_V2_PREFLIGHT_POLICY_VERSION = "page-geometry-preflight-v4-shape-geometry-v2-profile"
 _CHECKSUM = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -89,9 +87,7 @@ class ShapeGeometryV2LocalVerification:
             "verdict": self.verdict,
             "reasonCode": self.reason_code,
             "observedAspectRatio": (
-                None
-                if self.observed_aspect_ratio is None
-                else round(self.observed_aspect_ratio, 8)
+                None if self.observed_aspect_ratio is None else round(self.observed_aspect_ratio, 8)
             ),
             "coreResult": _json_object(self.core_result),
         }

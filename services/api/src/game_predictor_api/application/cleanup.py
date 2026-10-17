@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from dataclasses import dataclass, replace
@@ -268,7 +269,9 @@ class ManagedCleanupArtifactStore:
                 "CLEANUP_ARTIFACT_QUARANTINE_UNSAFE",
                 "Cleanup quarantine target is outside managed storage.",
             )
-        return target
+        # The quarantine nests a 64-character key above each artifact path; a
+        # crop (``originals-cropped/<sha[:2]>/<sha>.jpg``) can exceed MAX_PATH.
+        return _long_path(target)
 
     @staticmethod
     def _validate_operation_key(operation_key: str) -> None:
@@ -533,3 +536,14 @@ __all__ = [
     "ManagedCleanupArtifactStore",
     "ResolvedCleanupArtifacts",
 ]
+
+
+def _long_path(path: Path) -> Path:
+    """An absolute path that bypasses the legacy Windows ``MAX_PATH`` limit."""
+
+    if os.name != "nt":
+        return path
+    value = str(path)
+    if value.startswith("\\\\?\\"):
+        return path
+    return Path("\\\\?\\UNC\\" + value[2:] if value.startswith("\\\\") else "\\\\?\\" + value)

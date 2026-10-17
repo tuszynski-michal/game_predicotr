@@ -127,6 +127,17 @@ def upgrade() -> None:
                 grant_row.privilege_type,grant_row.rolname);
         END LOOP;
     END $grants$""")
+    # TASK-1048: the deletion job that removed an original, so a restart after
+    # the state write and before the run checkpoint counts it exactly once.
+    op.execute(
+        "ALTER TABLE public.source_image_crops ADD COLUMN deletion_job_id uuid "
+        "REFERENCES public.jobs(id) ON DELETE RESTRICT"
+    )
+    op.execute(
+        "ALTER TABLE public.source_image_crops ADD CONSTRAINT "
+        "ck_source_image_crops_deletion_job CHECK(state='original_deleted' "
+        "OR deletion_job_id IS NULL)"
+    )
     op.execute(
         "INSERT INTO public.game_storage_table_manifest SELECT 'game-data-v2-manifest-v19',"
         "table_name,ownership,partitioned FROM public.game_storage_table_manifest "
@@ -150,6 +161,7 @@ def downgrade() -> None:
         THEN RAISE EXCEPTION 'SOURCE_CROP_RUNS_DOWNGRADE_HAS_HISTORY'; END IF;
     END $history$""")
     op.execute(f"DROP TABLE public.{TABLE}")
+    op.execute("ALTER TABLE public.source_image_crops DROP COLUMN deletion_job_id")
     _manifest(19, 18)
     op.execute(
         "DELETE FROM public.game_storage_table_manifest "

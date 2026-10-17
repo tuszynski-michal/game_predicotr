@@ -160,10 +160,7 @@ def test_omitted_variant_defaults_to_v1_1() -> None:
         game_id=uuid4(), manifest_checksum_sha256="a" * 64, preflight_checksum_sha256="b" * 64
     )
     for request in (report_request, preflight_request, start_request):
-        assert (
-            request.geometry_engine_variant
-            is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
-        )
+        assert request.geometry_engine_variant is GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
 
 
 def test_v1_1_snapshot_and_api_contract_are_distinct() -> None:

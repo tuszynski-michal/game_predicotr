@@ -168,8 +168,7 @@ class SemiAutomaticSequenceBounds:
 
     def expected_ranges(self) -> tuple[SemiAutomaticSelectionRange, ...]:
         return tuple(
-            self.range_for_expected_index(index)
-            for index in range(self.expected_range_count)
+            self.range_for_expected_index(index) for index in range(self.expected_range_count)
         )
 
     def expected_index_for_range(self, value: SemiAutomaticSelectionRange) -> int | None:
@@ -188,11 +187,7 @@ class SemiAutomaticSequenceBounds:
         expected_index = offset // self.full_range_size
         if expected_index >= self.expected_range_count:
             return None
-        return (
-            expected_index
-            if self.range_for_expected_index(expected_index) == value
-            else None
-        )
+        return expected_index if self.range_for_expected_index(expected_index) == value else None
 
     def contains_sequence_range(self, value: SemiAutomaticSelectionRange) -> bool:
         lower = min(self.first_sequence_number, self.last_sequence_number)
@@ -511,9 +506,7 @@ def _with_reason(reason_codes: tuple[str, ...], required_reason: str) -> tuple[s
 
 
 def _validate_reason_codes(values: tuple[str, ...]) -> None:
-    has_invalid_value = any(
-        not _REASON_CODE_PATTERN.fullmatch(value) for value in values
-    )
+    has_invalid_value = any(not _REASON_CODE_PATTERN.fullmatch(value) for value in values)
     if len(set(values)) != len(values) or has_invalid_value:
         _fail(
             "SEMI_AUTOMATIC_SELECTION_REASON_CODES_INVALID",

@@ -33,9 +33,7 @@ def _gate_report(
     sources.sort(key=lambda item: item["sourceChecksumSha256"])
     corpus = {"schemaVersion": 1, "sources": sources}
     corpus_checksum = hashlib.sha256(
-        json.dumps(corpus, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
-            "ascii"
-        )
+        json.dumps(corpus, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     ).hexdigest()
     return {
         "schemaVersion": "grid-profile-end-to-end-gate-report-v1",
@@ -224,9 +222,7 @@ def test_legacy_manifest_keeps_the_offset_profile_replay_contract() -> None:
 def test_v2_profile_without_end_to_end_report_is_not_ready() -> None:
     manifest, _checksum = build_geometry_manifest(
         uuid4(),
-        _page("0" * 64, offset=1.0)
-        + _page("8" * 64, offset=1.0)
-        + _page("f" * 64, offset=1.0),
+        _page("0" * 64, offset=1.0) + _page("8" * 64, offset=1.0) + _page("f" * 64, offset=1.0),
     )
 
     profile, metrics, reasons = train_grid_profile(manifest)
@@ -240,9 +236,7 @@ def test_v2_profile_without_end_to_end_report_is_not_ready() -> None:
 def test_complete_36_corner_candidate_with_two_of_19800_final_grids_is_rejected() -> None:
     manifest, checksum = build_geometry_manifest(
         uuid4(),
-        _page("0" * 64, offset=1.0)
-        + _page("8" * 64, offset=1.0)
-        + _page("f" * 64, offset=1.0),
+        _page("0" * 64, offset=1.0) + _page("8" * 64, offset=1.0) + _page("f" * 64, offset=1.0),
     )
 
     _profile, metrics, reasons = train_grid_profile(

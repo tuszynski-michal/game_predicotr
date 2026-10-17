@@ -46,9 +46,7 @@ class SymbolCellReviewBulkHandler:
                     },
                     stage="symbol_cell_review_bulk",
                     current=(
-                        operation.applied_count
-                        + operation.conflict_count
-                        + operation.failed_count
+                        operation.applied_count + operation.conflict_count + operation.failed_count
                     ),
                     total=operation.target_count,
                     success_count=operation.applied_count,

@@ -177,12 +177,22 @@ def train_grid_profile(
     manifest: dict[str, object],
     *,
     end_to_end_report: dict[str, object] | None = None,
+    unavailable_anchor_checksums: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
+    """Train a candidate profile from a geometry cohort manifest.
+
+    ``unavailable_anchor_checksums`` names sources whose managed original was
+    replaced by a crop (D-562, TASK-1048). Page registration reads the whole
+    anchor frame, so such sources are never pinned as anchors; they still count
+    as training and validation pages.
+    """
+
     if manifest.get("schemaVersion") == 1:
         return _train_legacy_grid_profile_v1(manifest)
     return _train_source_specific_grid_profile_v2(
         manifest,
         end_to_end_report=end_to_end_report,
+        unavailable_anchor_checksums=unavailable_anchor_checksums,
     )
 
 
@@ -190,6 +200,7 @@ def _train_source_specific_grid_profile_v2(
     manifest: dict[str, object],
     *,
     end_to_end_report: dict[str, object] | None,
+    unavailable_anchor_checksums: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, object], dict[str, object], tuple[str, ...]]:
     raw_samples = manifest.get("samples")
     if not isinstance(raw_samples, list):
@@ -199,7 +210,11 @@ def _train_source_specific_grid_profile_v2(
     training_pages = [page for page in complete_pages if page[0].get("split") == "training"]
     validation_pages = [page for page in complete_pages if page[0].get("split") == "validation"]
     anchor_checksums = _select_geometry_diverse_anchors(
-        training_pages,
+        [
+            page
+            for page in training_pages
+            if str(page[0]["sourceChecksumSha256"]) not in unavailable_anchor_checksums
+        ],
         limit=GRID_MAX_REGISTRATION_ANCHORS,
     )
     baseline_errors = [_source_page_error(page) for page in complete_pages]
@@ -212,10 +227,7 @@ def _train_source_specific_grid_profile_v2(
         reasons.append("TRAINING_SOURCE_SET_INSUFFICIENT")
     if not validation_pages:
         reasons.append("VALIDATION_SOURCE_SET_EMPTY")
-    training_checksums = {
-        str(page[0]["sourceChecksumSha256"])
-        for page in training_pages
-    }
+    training_checksums = {str(page[0]["sourceChecksumSha256"]) for page in training_pages}
     report_metrics, report_reasons, report_checksum = _end_to_end_gate_metrics(
         end_to_end_report,
         cohort_checksum_sha256=_checksum(manifest),

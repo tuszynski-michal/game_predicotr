@@ -299,7 +299,13 @@ class SourceImageCropRepository:
         self._session.flush()
         return row
 
-    def mark_original_deleted(self, original_checksum_sha256: str, *, deleted_at: datetime) -> None:
+    def mark_original_deleted(
+        self,
+        original_checksum_sha256: str,
+        *,
+        deleted_at: datetime,
+        deletion_job_id: UUID | None = None,
+    ) -> None:
         """Record that the original file is gone; only a verified row may move."""
 
         row = self._session.scalar(
@@ -311,4 +317,5 @@ class SourceImageCropRepository:
             raise ValueError("SOURCE_IMAGE_CROP_NOT_VERIFIED")
         row.state = "original_deleted"
         row.original_deleted_at = deleted_at
+        row.deletion_job_id = deletion_job_id
         self._session.flush()

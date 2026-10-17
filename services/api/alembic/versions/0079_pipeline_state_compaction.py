@@ -17,9 +17,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER TYPE job_type ADD VALUE IF NOT EXISTS 'storage_pipeline_compaction'"
-    )
+    op.execute("ALTER TYPE job_type ADD VALUE IF NOT EXISTS 'storage_pipeline_compaction'")
     op.create_table(
         "image_pipeline_terminal_manifests",
         sa.Column("id", sa.Uuid(), nullable=False),

@@ -963,9 +963,7 @@ def _evaluate_final_registration(
             else quads[slot]
             for slot in range(len(quads))
         )
-        if not is_complete_ordered_grid(
-            final_quads, target_rgb.shape[1], target_rgb.shape[0]
-        ):
+        if not is_complete_ordered_grid(final_quads, target_rgb.shape[1], target_rgb.shape[0]):
             return None, PageRegistrationAttemptDiagnostic(
                 reason_code="PAGE_GEOMETRY_QUADS_INVALID",
                 feature_count=feature_count,
@@ -1018,9 +1016,14 @@ def _relaxed_red_edge_accepted(
         return False
     if min_coverage < thresholds.relaxed_minimum_board_red_edge_coverage:
         return False
-    if sum(
-        1 for value in coverage if value < thresholds.relaxed_minimum_other_boards_red_edge_coverage
-    ) > 1:
+    if (
+        sum(
+            1
+            for value in coverage
+            if value < thresholds.relaxed_minimum_other_boards_red_edge_coverage
+        )
+        > 1
+    ):
         return False
     return min_coverage < thresholds.minimum_board_red_edge_coverage
 

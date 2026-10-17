@@ -24,7 +24,8 @@ def test_prediction_revision_fk_index_is_additive_and_matches_orm() -> None:
     assert "delete from" not in sql
     assert "update image_symbol_review_cells" not in sql
     index = next(
-        index for index in cast(Table, ImageSymbolReviewCellModel.__table__).indexes
+        index
+        for index in cast(Table, ImageSymbolReviewCellModel.__table__).indexes
         if index.name == name
     )
     assert [column.name for column in index.columns] == ["prediction_revision_id"]

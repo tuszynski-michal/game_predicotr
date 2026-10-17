@@ -117,8 +117,7 @@ class RowExpectedRangeEntry:
             "rangeEnd": self.sequence_range.end,
             "rangeStart": self.sequence_range.start,
             "rows": [
-                {"offset": row.value, "values": list(values)}
-                for row, values in self.row_values
+                {"offset": row.value, "values": list(values)} for row, values in self.row_values
             ],
             "sequenceFilename": self.sequence_filename,
         }

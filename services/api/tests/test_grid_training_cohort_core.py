@@ -768,6 +768,7 @@ def test_materialize_excluded_member_never_reads_pixels_or_generates_negatives(t
         session=session,
         next_materialization=lambda row: 0,
         members=lambda *args: [source],
+        iter_members=lambda *args: iter([source]),
         bind=lambda *args, **kwargs: None,
         cohort=lambda *args, **kwargs: row,
         cas=lambda *args: None,

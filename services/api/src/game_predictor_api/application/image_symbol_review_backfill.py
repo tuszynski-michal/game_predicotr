@@ -8,9 +8,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job
 
-SymbolCellReviewProjectionState = Literal[
-    "not_started", "rebuilding", "ready", "failed"
-]
+SymbolCellReviewProjectionState = Literal["not_started", "rebuilding", "ready", "failed"]
 
 
 @dataclass(frozen=True, slots=True)

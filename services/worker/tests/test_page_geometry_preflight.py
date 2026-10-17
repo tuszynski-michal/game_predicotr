@@ -342,6 +342,7 @@ def test_preflight_falls_back_to_standalone_frame_lines(
         return result
 
     from game_predictor_worker.images import page_geometry_preflight
+
     monkeypatch.setattr(
         page_geometry_preflight, "_standalone_frame_line_candidate", patched_standalone
     )
@@ -396,6 +397,7 @@ def test_preflight_accepts_snake_case_lateral_partial_geometry(
         return result
 
     from game_predictor_worker.images import page_geometry_preflight
+
     monkeypatch.setattr(
         page_geometry_preflight,
         "_standalone_frame_line_candidate",
@@ -407,9 +409,7 @@ def test_preflight_accepts_snake_case_lateral_partial_geometry(
 
     checkpoint = context.checkpoints[-1]["checkpoint_payload"]
     output = (
-        tmp_path
-        / "artifacts"
-        / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
+        tmp_path / "artifacts" / Path(*checkpoint["geometry_manifest_relative_path"].split("/"))
     )
     manifest = json.loads(output.read_text(encoding="utf-8"))
     entry = manifest["entries"][checksums[0]]

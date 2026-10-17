@@ -205,8 +205,10 @@ def validate_global_geometry_profile_for_preflight(
 ) -> tuple[GlobalGeometryTopology, dict[str, JSONValue], dict[str, JSONValue]]:
     """Validate the immutable descriptor subset available on a stored profile."""
 
-    if not isinstance(profile.id, UUID) or not isinstance(profile.profile_number, int) or (
-        isinstance(profile.profile_number, bool) or profile.profile_number < 1
+    if (
+        not isinstance(profile.id, UUID)
+        or not isinstance(profile.profile_number, int)
+        or (isinstance(profile.profile_number, bool) or profile.profile_number < 1)
     ):
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_PROFILE_REFERENCE_INVALID",
@@ -377,9 +379,7 @@ def build_global_geometry_candidate(
     )
 
 
-def _build_evidence(
-    source_game_ref: str, payload: Mapping[str, object]
-) -> GlobalGeometryEvidence:
+def _build_evidence(source_game_ref: str, payload: Mapping[str, object]) -> GlobalGeometryEvidence:
     if not _GAME_REF.fullmatch(source_game_ref):
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_SOURCE_GAME_REF_INVALID",
@@ -430,9 +430,7 @@ def canonicalize_global_geometry_candidate(
     )
     if tuple(
         (item.source_game_ref, item.evidence_checksum_sha256) for item in candidate.evidence
-    ) != tuple(
-        (item.source_game_ref, item.evidence_checksum_sha256) for item in rebuilt.evidence
-    ):
+    ) != tuple((item.source_game_ref, item.evidence_checksum_sha256) for item in rebuilt.evidence):
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_EVIDENCE_CHECKSUM_MISMATCH",
             "The global geometry evidence differs from its supplied checksum.",
@@ -445,9 +443,7 @@ def canonicalize_global_geometry_candidate(
     return rebuilt
 
 
-def _validate_template(
-    payload: Mapping[str, JSONValue], topology: GlobalGeometryTopology
-) -> None:
+def _validate_template(payload: Mapping[str, JSONValue], topology: GlobalGeometryTopology) -> None:
     _require_exact_fields(
         payload,
         {"schemaVersion", "topology", "frameQuad", "aspectRatioRange"},
@@ -472,10 +468,7 @@ def _validate_template(
         )
     points: list[tuple[float, float]] = []
     for point in frame_quad:
-        if (
-            not isinstance(point, list)
-            or len(point) != 2
-        ):
+        if not isinstance(point, list) or len(point) != 2:
             raise GlobalGeometryLibraryError(
                 "GLOBAL_GEOMETRY_TEMPLATE_QUAD_INVALID",
                 "Each normalized frame point must contain two finite numeric coordinates.",
@@ -662,8 +655,7 @@ def _validate_evidence_summary(payload: Mapping[str, JSONValue]) -> None:
             "Evidence summary must name at least one source-game provenance label.",
         )
     if any(
-        not isinstance(value, str) or not _GAME_REF.fullmatch(value)
-        for value in source_game_refs
+        not isinstance(value, str) or not _GAME_REF.fullmatch(value) for value in source_game_refs
     ):
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_EVIDENCE_SUMMARY_INVALID",
@@ -693,10 +685,7 @@ def _validate_summary_against_evidence(
 ) -> None:
     full_count = sum(item.evidence_payload["coverageKind"] == "full" for item in evidence)
     partial_count = sum(item.evidence_payload["coverageKind"] == "partial" for item in evidence)
-    if (
-        summary["fullSourceCount"] != full_count
-        or summary["partialSourceCount"] != partial_count
-    ):
+    if summary["fullSourceCount"] != full_count or summary["partialSourceCount"] != partial_count:
         raise GlobalGeometryLibraryError(
             "GLOBAL_GEOMETRY_EVIDENCE_SUMMARY_COUNT_MISMATCH",
             "Evidence summary counts must equal the descriptor-only evidence samples.",
@@ -822,9 +811,9 @@ def _validate_canonical_frame_quad(points: Sequence[tuple[float, float]]) -> Non
 def _cross_product(
     first: tuple[float, float], second: tuple[float, float], third: tuple[float, float]
 ) -> float:
-    return (second[0] - first[0]) * (third[1] - second[1]) - (
-        second[1] - first[1]
-    ) * (third[0] - second[0])
+    return (second[0] - first[0]) * (third[1] - second[1]) - (second[1] - first[1]) * (
+        third[0] - second[0]
+    )
 
 
 def _validate_numeric_vector(
@@ -846,9 +835,7 @@ def _validate_numeric_vector(
         if isinstance(item, int | float) and not isinstance(item, bool)
     ]
     if len(values) != length or any(
-        not math.isfinite(item)
-        or item < minimum
-        or item > maximum
+        not math.isfinite(item) or item < minimum or item > maximum
         for item, minimum, maximum in zip(values, minimums, maximums, strict=True)
     ):
         raise GlobalGeometryLibraryError(
@@ -857,9 +844,7 @@ def _validate_numeric_vector(
         )
 
 
-def _numeric_mapping_values(
-    payload: Mapping[str, JSONValue], *, name: str
-) -> dict[str, float]:
+def _numeric_mapping_values(payload: Mapping[str, JSONValue], *, name: str) -> dict[str, float]:
     values: dict[str, float] = {}
     for key, value in payload.items():
         if (

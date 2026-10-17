@@ -243,8 +243,7 @@ def test_experiment_rejects_target_game_contribution_to_transfer_profile(
     shared = next(
         value
         for value in observation_mapping["observations"]
-        if value["variant"] == "shape_contrast_shared_profile_v1"
-        and value["gameId"] == "mummies"
+        if value["variant"] == "shape_contrast_shared_profile_v1" and value["gameId"] == "mummies"
     )
     shared["profileContributorGameIds"] = ["mummies"]
 
@@ -261,8 +260,7 @@ def test_experiment_marks_missing_variant_observation_not_evaluable(tmp_path: Pa
         value
         for value in observation_mapping["observations"]
         if not (
-            value["gameId"] == "mummies"
-            and value["variant"] == "shape_contrast_local_anchor_v1"
+            value["gameId"] == "mummies" and value["variant"] == "shape_contrast_local_anchor_v1"
         )
     ]
 
@@ -306,14 +304,12 @@ def test_experiment_marks_missing_measurement_annotation_not_evaluable(tmp_path:
 
     mummies = next(value for value in report["games"] if value["gameId"] == "mummies")
     assert mummies["status"] == "not_evaluable"
-    assert {
-        tuple(value["reasons"])
-        for value in mummies["variants"]
-    } == {("MEASUREMENT_ANNOTATIONS_INCOMPLETE",)}
-    assert {
-        tuple(value["missingAnnotationSourceIds"])
-        for value in mummies["variants"]
-    } == {("mummies-measurement",)}
+    assert {tuple(value["reasons"]) for value in mummies["variants"]} == {
+        ("MEASUREMENT_ANNOTATIONS_INCOMPLETE",)
+    }
+    assert {tuple(value["missingAnnotationSourceIds"]) for value in mummies["variants"]} == {
+        ("mummies-measurement",)
+    }
 
 
 def test_experiment_counts_confirmation_only_as_automatic(tmp_path: Path) -> None:

@@ -29,6 +29,7 @@ from game_predictor_api.domain.grid_calibration import (
     train_grid_profile,
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobNotFoundError
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
     GameModel,
@@ -41,6 +42,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.source_original_availability import deleted_original_checksums
 
 
 class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
@@ -59,9 +61,16 @@ class SqlAlchemyGridCalibrationRepository(GridCalibrationRepository):
                 "No accepted or corrected geometry is available for calibration.",
             )
         manifest, manifest_checksum = build_geometry_manifest(game_id, samples)
+        # The shared write fence of the game is held until COMMIT, so a deletion
+        # run (which takes it exclusively) cannot remove an anchor in between.
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.WRITE)
         profile_payload, gate_metrics, rejection_reasons = train_grid_profile(
             manifest,
             end_to_end_report=end_to_end_report,
+            # D-562 (TASK-1048): page registration reads the whole anchor frame.
+            unavailable_anchor_checksums=deleted_original_checksums(
+                self._session, (sample.source_checksum_sha256 for sample in samples)
+            ),
         )
         candidate_checksum = profile_checksum(profile_payload)
         existing = self._session.scalar(

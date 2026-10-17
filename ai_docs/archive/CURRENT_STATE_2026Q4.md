@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1048 — Job `source_original_deletion`, cleanup i strażnicy kotwic oraz kohort (done)
+
+- Plik: [1048-source-original-deletion.md](../tasks/completed/1048-source-original-deletion.md); commit **v1.7.411** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P0 pokrycie bieżącej geometrii przez crop, wyścig z zapisami gier i kalibracją, liczenie wznowienia; 1 × P1 test cleanupu przez workflow), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: nieodwracalne usunięcie oryginałów zweryfikowanych cropów z własnym podglądem, tokenem i `acknowledgeIrreversible`; unlink i `original_deleted` (z `deletion_job_id`) w jednej transakcji pod wyłączną blokadą zapisu gier bloba, z kontrolą pokrycia quadów i uzgodnieniem po restarcie. Cleanup R10 usuwa crop, atest i wiersz z ostatnią referencją (kwarantanna ze ścieżkami długimi Windows); kalibracja nie przypina usuniętych kotwic, kohorty V3 odmawiają przed kopiowaniem.
+- Weryfikacja: worker 38 testów, API (cleanup 38, kalibracja/kohorty/źródła 200), PostgreSQL usuwania e2e, cleanup 5, przebiegi 4; szerszy zestaw PostgreSQL 55 passed, 4 znane błędy spoza zakresu; ruff i mypy bez nowych błędów.
+
 ### TASK-1047 — Trwały job `source_crop` (plan i wykonanie) z API (done)
 
-- Plik: [1047-source-crop-job.md](../tasks/completed/1047-source-crop-job.md); commit **v1.7.410** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high` (zmiana operatora 2026-10-17): R1 REVISE (5 × P0 fencing dzierżawy, niejednoznaczny COMMIT, synchronizacja przebiegu z anulowaniem i retry joba, rodzaj bez handlera; 3 × P1 wersja i timeout jpegtran, test wznowienia w nowym procesie), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1047-source-crop-job.md](../tasks/completed/1047-source-crop-job.md); commit **v1.7.410 / `4d157a61d33a908d3020907aaafacf86b3f6d337`** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high` (zmiana operatora 2026-10-17): R1 REVISE (5 × P0 fencing dzierżawy, niejednoznaczny COMMIT, synchronizacja przebiegu z anulowaniem i retry joba, rodzaj bez handlera; 3 × P1 wersja i timeout jpegtran, test wznowienia w nowym procesie), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: migracja `0168_source_crop_runs` (manifest v19, typy jobów `source_crop` i `source_original_deletion`), pion API podglądu i startu przebiegu (high-impact), worker z manifestem planu, bezstratnym cropem `jpegtran` 3.2.0, weryfikacją R7, atestem i wierszem `verified` pod blokadą advisory i dzierżawą; stan przebiegu synchronizowany przy każdej zmianie joba. Oryginały tylko czytane.
 - Weryfikacja: worker 28 testów (w tym prawdziwy `jpegtran`), API 11, PostgreSQL 4 (wznowienie w nowym `LocalJobWorker`, fencing, anulowanie/retry/recovery), test żądania klienta, `openapi:check`, `docs:check`, ruff i mypy bez nowych błędów.
 

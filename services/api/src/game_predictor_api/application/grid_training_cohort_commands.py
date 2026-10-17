@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
@@ -30,6 +30,7 @@ from game_predictor_api.storage.grid_training_cohort_models import (
     GridTrainingCohortPageModel as Page,
 )
 from game_predictor_api.storage.grid_training_cohort_repository import CohortDeadline
+from game_predictor_api.storage.source_original_availability import deleted_original_checksums
 from game_predictor_api.storage.source_recording_groups import SqlAlchemySourceRecordingRepository
 
 if TYPE_CHECKING:
@@ -271,6 +272,21 @@ def _capture(
         locked.revision += 1
 
 
+def _refuse_deleted_originals(repo: Any, members: Iterable[Any]) -> None:
+    """D-562 (TASK-1048): cohorts copy whole frames, never a crop canvas."""
+
+    checksums = [
+        str(member.frozen["source"]["checksum_sha256"])
+        for member in members
+        if member.frozen and member.frozen.get("used")
+    ]
+    if deleted_original_checksums(repo.session, checksums):
+        raise GridCohortError(
+            "SOURCE_ORIGINAL_CROPPED",
+            "A selected original was replaced by its crop; cohorts need the full frame.",
+        )
+
+
 def _materialize(
     service: GridTrainingCohortService,
     game: UUID,
@@ -288,7 +304,16 @@ def _materialize(
     sources = []
     from game_predictor_api.storage.grid_training_cohort_currentness import check_member
 
-    for member in repo.members(game, row.id, cursor, MATERIALIZATION_PAGE_SIZE):
+    page = repo.members(game, row.id, cursor, MATERIALIZATION_PAGE_SIZE)
+    # The shared write fence (held until COMMIT) orders this check with deletion runs.
+    repo.bind(game, write=True)
+    _refuse_deleted_originals(
+        repo,
+        # The first page checks the whole cohort, so no copy starts for a cohort
+        # that cannot finish; later pages re-check their own members.
+        repo.iter_members(game, row.id) if row.status == "preview_ready" else page,
+    )
+    for member in page:
         deadline.check(repo.session)
         frozen = member.frozen
         original = None

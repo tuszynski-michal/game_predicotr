@@ -1135,8 +1135,7 @@ class SqlAlchemyRemoteManualSelectionRepository:
             select(RemoteManualSelectionTransferModel, RemoteManualSelectionFileModel)
             .join(
                 RemoteManualSelectionFileModel,
-                RemoteManualSelectionFileModel.id
-                == RemoteManualSelectionTransferModel.file_id,
+                RemoteManualSelectionFileModel.id == RemoteManualSelectionTransferModel.file_id,
             )
             .where(
                 RemoteManualSelectionTransferModel.status.in_(
@@ -1248,16 +1247,12 @@ class SqlAlchemyRemoteManualSelectionRepository:
         )
         if transfer is None or file is None or batch is None:
             return False
-        if (
-            transfer.updated_at != candidate.updated_at
-            or transfer.status
-            not in {
-                RemoteManualSelectionTransferStatus.QUEUED.value,
-                RemoteManualSelectionTransferStatus.UPLOADING.value,
-                RemoteManualSelectionTransferStatus.STORED_TEMP.value,
-                RemoteManualSelectionTransferStatus.RETRYING.value,
-            }
-        ):
+        if transfer.updated_at != candidate.updated_at or transfer.status not in {
+            RemoteManualSelectionTransferStatus.QUEUED.value,
+            RemoteManualSelectionTransferStatus.UPLOADING.value,
+            RemoteManualSelectionTransferStatus.STORED_TEMP.value,
+            RemoteManualSelectionTransferStatus.RETRYING.value,
+        }:
             return False
         transfer.status = RemoteManualSelectionTransferStatus.FAILED.value
         transfer.retry_at = None
@@ -3241,9 +3236,7 @@ class InMemoryRemoteManualSelectionRepository:
                     RemoteManualSelectionOperationStatus.RETRY,
                 }
             ),
-            uploading_transfer_count=sum(
-                1 for item in transfers if item.status in active_transfer
-            ),
+            uploading_transfer_count=sum(1 for item in transfers if item.status in active_transfer),
             pending_transfer_bytes=sum(
                 item.declared_bytes - item.received_bytes
                 for item in transfers

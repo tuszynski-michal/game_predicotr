@@ -25,8 +25,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DELETE FROM cleanup_operations WHERE operation_type = 'board_source_ranges'"
-    )
+    op.execute("DELETE FROM cleanup_operations WHERE operation_type = 'board_source_ranges'")
     op.drop_constraint(_CONSTRAINT, "cleanup_operations", type_="check")
     op.create_check_constraint(_CONSTRAINT, "cleanup_operations", _PREVIOUS)

@@ -138,6 +138,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 from game_predictor_worker.source_crop import SourceCropHandler, SqlSourceCropCatalog
+from game_predictor_worker.source_original_deletion import SourceOriginalDeletionHandler
 from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
 from game_predictor_worker.super_game_series import SuperGameSeriesDeriveHandler
@@ -559,6 +560,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
             # D-562 (TASK-1047): eligibility spans every game that shares an
             # original, so it reads one REPEATABLE READ snapshot as schema owner.
             JobType.SOURCE_CROP: SourceCropHandler(
+                SqlAlchemySourceCropRunRepository(session_factory),
+                SqlSourceCropCatalog(create_owner_session_factory(owner_engine)),
+                artifact_root,
+            ),
+            # D-562 (TASK-1048): the irreversible deletion of cropped originals.
+            JobType.SOURCE_ORIGINAL_DELETION: SourceOriginalDeletionHandler(
                 SqlAlchemySourceCropRunRepository(session_factory),
                 SqlSourceCropCatalog(create_owner_session_factory(owner_engine)),
                 artifact_root,

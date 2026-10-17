@@ -162,9 +162,7 @@ def test_core_never_uses_colour_without_structural_frame_evidence() -> None:
 
 
 def test_core_rejects_page_too_close_to_image_edge_as_incomplete() -> None:
-    result = detect_shape_geometry_v2(
-        _framed_page(frame_color=(230, 180, 20), left_margin=8)
-    )
+    result = detect_shape_geometry_v2(_framed_page(frame_color=(230, 180, 20), left_margin=8))
 
     assert result.status is ShapeGeometryV2Status.NEEDS_MANUAL_REVIEW
     assert result.boards == ()

@@ -13,9 +13,7 @@ PREVIOUS = "0114_v7_semi_automatic_activation_gate"
 
 def _config(output: StringIO) -> Config:
     result = Config(str(ROOT / "alembic.ini"), output_buffer=output)
-    result.set_main_option(
-        "sqlalchemy.url", "postgresql+psycopg://unused:unused@localhost/unused"
-    )
+    result.set_main_option("sqlalchemy.url", "postgresql+psycopg://unused:unused@localhost/unused")
     return result
 
 

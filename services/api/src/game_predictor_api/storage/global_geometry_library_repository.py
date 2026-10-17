@@ -170,8 +170,9 @@ class SqlAlchemyGlobalGeometryLibraryRepository:
             return existing, False
 
         candidate = self._session.scalar(
-            select(GlobalGeometryProfileVersionModel)
-            .where(GlobalGeometryProfileVersionModel.id == profile_id)
+            select(GlobalGeometryProfileVersionModel).where(
+                GlobalGeometryProfileVersionModel.id == profile_id
+            )
         )
         if candidate is None:
             raise GlobalGeometryLibraryConflictError(
@@ -223,9 +224,7 @@ class SqlAlchemyGlobalGeometryLibraryRepository:
         previous_active = active[0] if active else None
         stored_candidate = self._profile_with_evidence(candidate)
         previous_checksum = (
-            None
-            if previous_active is None
-            else previous_active.profile_checksum_sha256
+            None if previous_active is None else previous_active.profile_checksum_sha256
         )
         if previous_active is None:
             decision = evaluate_global_geometry_candidate(
@@ -267,9 +266,7 @@ class SqlAlchemyGlobalGeometryLibraryRepository:
         result = GlobalGeometryProfileQualificationResultModel(
             id=uuid4(),
             profile_id=candidate.id,
-            previous_active_profile_id=(
-                None if previous_active is None else previous_active.id
-            ),
+            previous_active_profile_id=(None if previous_active is None else previous_active.id),
             outcome=decision.outcome.value,
             reason_codes=list(decision.reason_codes),
             report_payload=None if report is None else report.as_dict(),

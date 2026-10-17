@@ -18,8 +18,7 @@ _CONSTRAINTS = (
     (
         "image_symbol_review_cells",
         "ck_image_symbol_review_cells_source",
-        "assignment_source IN "
-        "('model', 'human', 'board_decision', 'backfill', 'geometry_partial')",
+        "assignment_source IN ('model', 'human', 'board_decision', 'backfill', 'geometry_partial')",
     ),
     (
         "image_symbol_review_cells",

@@ -50,9 +50,7 @@ def upgrade() -> None:
             r"AND image_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
             name="ck_symbol_reference_images_relative_path",
         ),
-        sa.ForeignKeyConstraint(
-            ["symbol_id"], ["symbols.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["symbol_id"], ["symbols.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["source_review_item_id"], ["image_review_items.id"], ondelete="RESTRICT"

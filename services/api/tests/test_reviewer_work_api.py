@@ -211,16 +211,17 @@ def test_three_online_and_one_local_scope_share_one_reviewer_across_reload() -> 
     assert third.status_code == 200
     assert local.status_code == 200
     assert sorted(item["created"] for item in repeated_second) == [False, True]
-    assert len(
-        {item["assignment"]["assignmentId"] for item in repeated_second}  # type: ignore[index]
-    ) == 1
+    assert (
+        len(
+            {item["assignment"]["assignmentId"] for item in repeated_second}  # type: ignore[index]
+        )
+        == 1
+    )
     assert ingress.start_count == 1
 
     restarted_client = TestClient(client.app)
     with restarted_client:
-        overview = restarted_client.get(
-            f"/api/v1/admin/games/{game_id}/reviewer-work-assignments"
-        )
+        overview = restarted_client.get(f"/api/v1/admin/games/{game_id}/reviewer-work-assignments")
 
     assert overview.status_code == 200
     overview_payload = overview.json()

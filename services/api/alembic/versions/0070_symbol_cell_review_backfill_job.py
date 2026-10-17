@@ -15,9 +15,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER TYPE job_type ADD VALUE IF NOT EXISTS 'image_symbol_review_backfill'"
-    )
+    op.execute("ALTER TYPE job_type ADD VALUE IF NOT EXISTS 'image_symbol_review_backfill'")
 
 
 def downgrade() -> None:

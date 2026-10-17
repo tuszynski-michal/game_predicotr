@@ -54,7 +54,8 @@ def upgrade() -> None:
             "game_id", "iteration_number", name="uq_representative_ranking_cohorts_iteration"
         ),
         sa.UniqueConstraint(
-            "game_id", "manifest_checksum_sha256",
+            "game_id",
+            "manifest_checksum_sha256",
             name="uq_representative_ranking_cohorts_manifest",
         ),
     )
@@ -89,7 +90,8 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="pk_representative_ranking_iterations"),
         sa.UniqueConstraint(
-            "cohort_id", "model_checksum_sha256",
+            "cohort_id",
+            "model_checksum_sha256",
             name="uq_representative_ranking_iterations_model",
         ),
     )
@@ -132,11 +134,13 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="pk_representative_ranking_activations"),
         sa.UniqueConstraint(
-            "game_id", "activation_number",
+            "game_id",
+            "activation_number",
             name="uq_representative_ranking_activations_number",
         ),
         sa.UniqueConstraint(
-            "game_id", "idempotency_key",
+            "game_id",
+            "idempotency_key",
             name="uq_representative_ranking_activations_idempotency",
         ),
     )

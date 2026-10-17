@@ -36,7 +36,8 @@ class _Profiles:
 
 
 def _profile(
-    *, status: GlobalGeometryProfileStatus = GlobalGeometryProfileStatus.ACTIVE,
+    *,
+    status: GlobalGeometryProfileStatus = GlobalGeometryProfileStatus.ACTIVE,
     number: int = 7,
 ) -> GlobalGeometryProfileWithEvidence:
     topology = GlobalGeometryTopology(3, 3, 3, 5)

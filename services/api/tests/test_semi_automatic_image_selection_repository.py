@@ -125,7 +125,5 @@ def test_v7_configuration_read_rejects_version_or_calibration_fingerprint_drift(
             v7_calibration_fingerprint=fingerprint,
         )
         with pytest.raises(SemiAutomaticSelectionConflictError) as raised:
-            _v7_configuration_from_record(
-                cast(SemiAutomaticImageSelectionRunModel, invalid_record)
-            )
+            _v7_configuration_from_record(cast(SemiAutomaticImageSelectionRunModel, invalid_record))
         assert raised.value.code == "SEMI_AUTOMATIC_SELECTION_V7_CONFIGURATION_INVALID"

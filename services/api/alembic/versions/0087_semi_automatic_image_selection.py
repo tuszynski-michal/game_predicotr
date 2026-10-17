@@ -102,8 +102,7 @@ def upgrade() -> None:
             name="ck_semi_automatic_selection_runs_bounds",
         ),
         sa.CheckConstraint(
-            "direction IN ('ascending', 'descending') AND "
-            "range_convention = 'seq-inclusive-v1'",
+            "direction IN ('ascending', 'descending') AND range_convention = 'seq-inclusive-v1'",
             name="ck_semi_automatic_selection_runs_contract",
         ),
         sa.CheckConstraint(

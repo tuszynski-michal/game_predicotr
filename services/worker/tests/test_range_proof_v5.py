@@ -85,9 +85,7 @@ def test_one_exact_row_is_provisional_not_an_automatic_candidate() -> None:
 def test_two_agreeing_visible_rows_verify_a_candidate() -> None:
     resolver = RowFirstExactResolver(_table())
     top = resolver.resolve(_proof(RangeRowOffset.TOP, ("21169", "21170", "21171")))
-    middle = resolver.resolve(
-        _proof(RangeRowOffset.MIDDLE, ("21172", "21173", "21174"))
-    )
+    middle = resolver.resolve(_proof(RangeRowOffset.MIDDLE, ("21172", "21173", "21174")))
     clipped_bottom = resolver.resolve(
         _proof(
             RangeRowOffset.BOTTOM,
@@ -106,15 +104,9 @@ def test_two_agreeing_visible_rows_verify_a_candidate() -> None:
 def test_mixed_transition_rows_are_rejected_even_when_two_rows_agree() -> None:
     table = _table(first=43_480, last=43_497)
     resolver = RowFirstExactResolver(table)
-    old_middle = resolver.resolve(
-        _proof(RangeRowOffset.MIDDLE, ("43483", "43484", "43485"))
-    )
-    old_bottom = resolver.resolve(
-        _proof(RangeRowOffset.BOTTOM, ("43486", "43487", "43488"))
-    )
-    next_top = resolver.resolve(
-        _proof(RangeRowOffset.TOP, ("43489", "43490", "43491"))
-    )
+    old_middle = resolver.resolve(_proof(RangeRowOffset.MIDDLE, ("43483", "43484", "43485")))
+    old_bottom = resolver.resolve(_proof(RangeRowOffset.BOTTOM, ("43486", "43487", "43488")))
+    next_top = resolver.resolve(_proof(RangeRowOffset.TOP, ("43489", "43490", "43491")))
 
     result = verify_range_candidate((next_top, old_middle, old_bottom))
 
@@ -125,12 +117,8 @@ def test_mixed_transition_rows_are_rejected_even_when_two_rows_agree() -> None:
 def test_complete_row_that_cannot_be_read_vetoes_final_selection() -> None:
     resolver = RowFirstExactResolver(_table())
     top = resolver.resolve(_proof(RangeRowOffset.TOP, ("21169", "21170", "21171")))
-    middle = resolver.resolve(
-        _proof(RangeRowOffset.MIDDLE, ("21172", "21173", "21174"))
-    )
-    unreadable_bottom = resolver.resolve(
-        _proof(RangeRowOffset.BOTTOM, ("", "", ""))
-    )
+    middle = resolver.resolve(_proof(RangeRowOffset.MIDDLE, ("21172", "21173", "21174")))
+    unreadable_bottom = resolver.resolve(_proof(RangeRowOffset.BOTTOM, ("", "", "")))
 
     result = verify_range_candidate((top, middle, unreadable_bottom))
 
@@ -152,9 +140,7 @@ def test_partial_final_range_requires_manual_review() -> None:
 def test_resolver_rejects_fuzzy_or_low_confidence_values() -> None:
     resolver = RowFirstExactResolver(_table())
 
-    inconsistent = resolver.resolve(
-        _proof(RangeRowOffset.MIDDLE, ("21172", "21174", "21175"))
-    )
+    inconsistent = resolver.resolve(_proof(RangeRowOffset.MIDDLE, ("21172", "21174", "21175")))
     low_confidence = resolver.resolve(
         _proof(
             RangeRowOffset.MIDDLE,

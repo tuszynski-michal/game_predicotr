@@ -33,9 +33,7 @@ class StorageCapacityGuard:
     def check_image_write(self, input_bytes: int) -> StorageCapacityDecision:
         decision = evaluate_storage_capacity(
             self._roots,
-            estimated_bytes=conservative_image_storage_estimate(
-                input_bytes, policy=self._policy
-            ),
+            estimated_bytes=conservative_image_storage_estimate(input_bytes, policy=self._policy),
             policy=self._policy,
         )
         if decision.automatic_gc_required and self._ensure_automatic_gc is not None:

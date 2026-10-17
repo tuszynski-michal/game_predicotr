@@ -7,8 +7,7 @@ def test_unknown_layout_cells_migration_is_bounded_and_reversible() -> None:
     source = MIGRATION.read_text(encoding="utf-8")
 
     expected_down_revision = (
-        'down_revision: str | Sequence[str] | None = '
-        '"0073_topology_geometry_crop_provenance"'
+        'down_revision: str | Sequence[str] | None = "0073_topology_geometry_crop_provenance"'
     )
     assert expected_down_revision in source
     assert "cardinality(cells) > 0 AND 0 <= ALL(cells)" in source

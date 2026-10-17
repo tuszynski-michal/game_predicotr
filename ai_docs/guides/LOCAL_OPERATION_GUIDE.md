@@ -1308,8 +1308,18 @@ aktualizacji kodu. Najpierw powstaje podgląd (`POST
 Wykonanie startuje dopiero po potwierdzeniu tego podglądu tokenem. Job tylko
 czyta oryginały; pliki `data\originals-cropped\<sha[:2]>\<sha>.jpg` i `.json`
 oraz wiersz `source_image_crops` powstają po weryfikacji pikseli. Restart workera
-wznawia przebieg od ostatniego checkpointu (co 25 oryginałów). Usuwanie
-oryginałów to osobny, nieodwracalny przebieg (TASK-1048) z osobną zgodą.
+wznawia przebieg od ostatniego checkpointu (co 25 oryginałów).
+
+**Uwaga: usunięcie oryginałów jest nieodwracalne, a kopii zdjęć nie ma.**
+Przebieg `original_deletion` (TASK-1048) ma własny podgląd (`kind:
+"original_deletion"`), listę blobów z bajtami do zwolnienia i token. Start
+wymaga `confirmed: true` oraz `acknowledgeIrreversible: true`. Przed usunięciem
+każdego pliku job ponownie sprawdza kwalifikację, wiersz `verified`, crop z
+atestem i sumę oryginału; każda rozbieżność zostawia oryginał. Przerwanie po
+usunięciu pliku, a przed zapisem stanu, uzgadnia retry joba albo następny
+przebieg. Po usunięciu oryginału obrazy źródłowe w Adminie i Reviewerze pokazują
+pełną klatkę z cropu, a operacje wymagające całej klatki (ponowne przetworzenie
+importu, kohorty V3, kotwice kalibracji) odmawiają albo pomijają takie źródło.
 
 ## Zbudowanie mobilnego APK z bieżącego snapshotu
 

@@ -219,6 +219,7 @@ def test_suggestions_are_payload_only_and_never_create_a_decision(
     tmp_path: Path,
 ) -> None:
     require_local_corpus(CROP_ROOT)
+
     class Provider:
         def for_sample(self, sample):
             return {

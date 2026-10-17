@@ -30,3 +30,24 @@ test('shows protected categories and remains in observe-only mode', () => {
   assert.match(source, /Blokady ochronne/);
   assert.match(source, /Oryginały, cropy z referencjami i modele są chronione/);
 });
+
+const cropPanel = await readFile(
+  new URL('../src/features/storage/source-crop-panel.tsx', import.meta.url),
+  'utf8',
+);
+
+test('mounts the photo crop panel without replacing inventory or cleanup', () => {
+  assert.match(source, /<SourceCropPanel apiBaseUrl=\{apiBaseUrl\} \/>/);
+  assert.match(source, /Przygotuj raport czyszczenia/);
+  assert.match(source, /startStorageGcRun/);
+});
+
+test('crop panel separates deletion, warns about missing backup and gates start', () => {
+  assert.match(cropPanel, /Przycinanie zdjęć/);
+  assert.match(cropPanel, /Usuń oryginały przyciętych zdjęć/);
+  assert.match(cropPanel, /Brak kopii zdjęć — operacji nie można cofnąć/);
+  assert.match(cropPanel, /canStartRun\(run, acknowledged\)/);
+  assert.match(cropPanel, /type="checkbox"/);
+  assert.match(cropPanel, /role="dialog"/);
+  assert.doesNotMatch(cropPanel, /fetch\(/);
+});

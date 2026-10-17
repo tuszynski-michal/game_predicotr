@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
+import { SourceCropPanel } from './source-crop-panel';
 import styles from './storage-workspace.module.css';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
@@ -237,6 +238,7 @@ export function StorageWorkspace({
           </span>
         </section>
       )}
+      <SourceCropPanel apiBaseUrl={apiBaseUrl} />
       {preview === null ? null : (
         <div aria-modal="true" className={styles.backdrop} role="dialog">
           <section className={styles.modal}>

@@ -25,7 +25,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Odłożone braki `npm run quality`** (TASK-0940): 3 pomijane testy historycznych migracji, testy korpusów M5 bez korpusu, test junction tylko w worktree, 4 stare testy CLI (TASK-0928). Nie naprawiaj ich w innym zadaniu bez decyzji. Źródło: `tasks/completed/0940-green-quality-gate.md`.
 - **Aplikacja mobilna offline:** jedynym źródłem jest wersjonowany snapshot SQLite w APK, bez `INTERNET` w wydaniu. Plan przybliżonego snapshotu mobilnego jest `deferred` do nowej decyzji (proponowana D-463); do tego czasu zmiany tylko w aplikacji webowej. Źródło: `CLAUDE.md`; `delivery/APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`.
 - **Przycinanie zdjęć P1 / TASK-1016 (2026-10-14, odbiór 2026-10-17):** galeria 40 zdjęć powstała wyłącznie na kopiach i została zaakceptowana. Pomiar nie jest zgodą na podmianę ani usunięcie oryginałów, nie jest też prognozą dla całej biblioteki. P2–P4 wymagają zaakceptowanego planu i zgody. Źródło: `tasks/completed/1016-photo-crop-preview.md`.
-- **Przycinanie oryginałów, etap A (2026-10-17):** w `main` i na origin (`06657169`), baza operatora zmigrowana do `0167_source_image_crops` (manifest v18, 16 s); nie istnieje żaden crop i żaden oryginał nie został usunięty. Etap B na `claude/photo-crop-stage-b` (zgoda na koszt 2026-10-17); joby na danych operatora, migracja `0168` i scalenie mają osobne zgody. Źródło: plan przycinania, rewizja 2, D-562.
+- **Przycinanie oryginałów, etap A (2026-10-17):** w `main` i na origin (`06657169`), baza operatora zmigrowana do `0167_source_image_crops` (manifest v18, 16 s); nie istnieje żaden crop i żaden oryginał nie został usunięty. Etap B (TASK-1047–1049) gotowy na `claude/photo-crop-stage-b`, czeka na akceptację; joby na danych operatora, migracja `0168` i scalenie mają osobne zgody. Źródło: plan przycinania, rewizja 2, D-562.
 - **Narzędzia tokenowe:** hook blokuje `Read` pliku > 200 KB bez `offset`/`limit`; task zmieniający moduły regeneruje mapę kodu (`scripts/generate_code_map.py`, kontrola `npm run code-map:check`). Serena i Graphify nie są stałym narzędziem (pilot TASK-0939 zamknięty bez pomiaru). Źródło: `guides/TOKEN_TOOLING.md`.
 - **Plan V3 rewizja 6** (`codex/v3-grid-fine-tuning`, accepted 2026-10-14): cały zakres i koszt zlecone; od TASK-1005 wykonuje Claude Code `claude-opus-5-5`/`high` (zamiennik `claude-fable-5-1` wybrany przez wykonawcę po sugestii operatora 2026-10-16; 0997 na `xhigh`), audytuje Codex `gpt-6-astra`. GPU smoke, trening, publikacja, aktywacja, migracje i operacje danych operatora oraz scalenie do `main` mają osobne zgody; kopia `D:\game_predictor_backup` wystarcza, bez nowego backupu. Źródło: plan sekcje 1, 3 i 8; D-552.
 - **Integracja V3 (2026-10-16, zgoda operatora):** `codex/v3-grid-fine-tuning` w `main` i na origin (v1.7.396 `b263c738`); baza operatora zmigrowana `0155_board_search_panels` → `0166` przez `npm run db:migrate` (13 s), 4 lokalizacje gier na manifeście v17, przypisania Mumii, 777a2 i 777v2 zachowane, brak wersji domyślnej (wymaga jawnej publikacji). Usługi zrestartowane z `main`; lane `grid-training` używa `D:\game_predicotr\.venv-vision-lab` (torch cu130), które skrypt lane znajduje sam; środowisko na C nie jest już potrzebne. Źródło: [raport odbioru](../quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md), sekcja 6.
@@ -36,7 +36,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
-| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etap A w `main`; etap B zlecony z audytami (2026-10-17) | TASK-1047–1049 (etap B); TASK-1050 (etap C) za osobnym poleceniem | `claude/photo-crop-stage-b` |
+| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etap A w `main`; etap B wykonany, czeka na akceptację | TASK-1050 (etap C) za osobnym poleceniem | `claude/photo-crop-stage-b` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -55,13 +55,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1049 — Panel Storage: przycinanie i usuwanie oryginałów (todo)
-
-- Plik: `tasks/1049-storage-panel-photo-crop.md`. Po TASK-1048; delegacja `claude-sonnet-5-5`.
-
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 — tasks/completed/1048-source-original-deletion.md
+- **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 — tasks/completed/1049-storage-panel-photo-crop.md
+- **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md
 - **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 / `4d157a61` — tasks/completed/1047-source-crop-job.md
 - **TASK-1046** — Ramka źródła z cropem w API, serwowanie i blokady — v1.7.407 / `401b371f` — tasks/completed/1046-source-frame-api.md
 - **TASK-1045** — Ramka źródła z cropem w workerze — v1.7.406 / `279a22ce` — tasks/completed/1045-source-frame-worker.md
@@ -70,4 +67,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1016** — P1: galeria przycięcia zdjęć — v1.7.361 / `063f2590` — tasks/completed/1016-photo-crop-preview.md
 - **TASK-1042** — Czyszczenie zakresów usuwa oryginały — v1.7.399 / `6253c296` — tasks/completed/1042-board-source-cleanup-originals.md
 - **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md
-- **TASK-1041** — Zdjęcia V3 bez przypisania plansz są jawne — v1.7.388 / `c93eb54e` — tasks/completed/1041-v3-import-unbound-photos-visible.md

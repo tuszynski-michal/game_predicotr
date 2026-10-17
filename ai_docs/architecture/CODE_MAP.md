@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (195 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (198 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+29)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
@@ -161,7 +161,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `rules/` (13 plików): PaylinesClient, SavePaylineIntent, SavePaylineResult, savePayline, ArchivePaylineResult, archivePayline, DeletePaylineResult, deletePayline (+73)
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
   - `sharing/` (3 plików): PanelKey, PanelKeys, loadPanelKeys, storePanelKeys, panelShareUrl, panelErrorMessage, BoardSearchSharingClient, BoardSearchSharingWorkspace
-  - `storage/` (1 plików): StorageWorkspace
+  - `storage/` (4 plików): SourceCropClient, SourceCropRunResult, planSourceCrop, refreshSourceCropRun, startSourceCrop, LoadRunsResult, loadSourceCropRuns, SourceCropPanel (+29)
   - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+72)
   - `symbol-reviews/` (13 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+95)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
@@ -180,8 +180,8 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (120 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (35 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (122 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (37 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy

@@ -33,6 +33,8 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   super_game_series_derive: 'Wyprowadzanie serii supergry',
   grid_training: 'Trening geometrii V3',
   grid_model_evaluation: 'Ocena modelu geometrii V3',
+  source_crop: 'Przycinanie oryginalnych zdjęć',
+  source_original_deletion: 'Usuwanie oryginałów przyciętych zdjęć',
 };
 
 export const JOB_STATUS_OPTIONS = Object.keys(

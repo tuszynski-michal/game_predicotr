@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1049 — Panel Storage: przycinanie zdjęć i usuwanie oryginałów (done)
+
+- Plik: [1049-storage-panel-photo-crop.md](../tasks/completed/1049-storage-panel-photo-crop.md); commit **v1.7.412** na `claude/photo-crop-stage-b`; wykonawca delegowany `claude-sonnet-5-5`/`high`, przegląd i weryfikacja `claude-opus-5-5`; bez audytu (tabela planu).
+- Wynik: sekcja „Przycinanie zdjęć” (zakres, plan, podgląd z powodami wykluczeń, potwierdzenie, postęp, wynik) i oddzielna, ostrzegająca sekcja „Usuń oryginały przyciętych zdjęć” (stałe ostrzeżenie o braku kopii, checkbox potwierdzenia, dialog). Inwentarz i GC bez zmian.
+- Weryfikacja: 799 testów Admina, 12 testów interakcji panelu i regresji GC, lint 0 błędów, typecheck z mapowaniem klienta na worktree czysty.
+
 ### TASK-1048 — Job `source_original_deletion`, cleanup i strażnicy kotwic oraz kohort (done)
 
-- Plik: [1048-source-original-deletion.md](../tasks/completed/1048-source-original-deletion.md); commit **v1.7.411** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P0 pokrycie bieżącej geometrii przez crop, wyścig z zapisami gier i kalibracją, liczenie wznowienia; 1 × P1 test cleanupu przez workflow), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1048-source-original-deletion.md](../tasks/completed/1048-source-original-deletion.md); commit **v1.7.411 / `f78cb876980ba3213fd40993f8191f239ed2af6a`** na `claude/photo-crop-stage-b`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P0 pokrycie bieżącej geometrii przez crop, wyścig z zapisami gier i kalibracją, liczenie wznowienia; 1 × P1 test cleanupu przez workflow), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: nieodwracalne usunięcie oryginałów zweryfikowanych cropów z własnym podglądem, tokenem i `acknowledgeIrreversible`; unlink i `original_deleted` (z `deletion_job_id`) w jednej transakcji pod wyłączną blokadą zapisu gier bloba, z kontrolą pokrycia quadów i uzgodnieniem po restarcie. Cleanup R10 usuwa crop, atest i wiersz z ostatnią referencją (kwarantanna ze ścieżkami długimi Windows); kalibracja nie przypina usuniętych kotwic, kohorty V3 odmawiają przed kopiowaniem.
 - Weryfikacja: worker 38 testów, API (cleanup 38, kalibracja/kohorty/źródła 200), PostgreSQL usuwania e2e, cleanup 5, przebiegi 4; szerszy zestaw PostgreSQL 55 passed, 4 znane błędy spoza zakresu; ruff i mypy bez nowych błędów.
 

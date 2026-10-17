@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source:
-          '/((?!manual-selection(?:/|$)|selection-api(?:/|$)|board-search(?:/|$)|board-search-api(?:/|$)|management(?:/|$)|management-api(?:/|$)).*)',
+          '/((?!manual-selection(?:/|$)|selection-api(?:/|$)|board-search(?:/|$)|board-search-api(?:/|$)|board-search-panel(?:/|$)|board-search-panel-api(?:/|$)|management(?:/|$)|management-api(?:/|$)).*)',
         headers: securityHeaders(reviewerContentSecurityPolicy),
       },
       {
@@ -43,6 +43,14 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/board-search-api/:path*',
+        headers: securityHeaders(boardSearchShareContentSecurityPolicy),
+      },
+      {
+        source: '/board-search-panel',
+        headers: securityHeaders(boardSearchShareContentSecurityPolicy),
+      },
+      {
+        source: '/board-search-panel-api/:path*',
         headers: securityHeaders(boardSearchShareContentSecurityPolicy),
       },
       {

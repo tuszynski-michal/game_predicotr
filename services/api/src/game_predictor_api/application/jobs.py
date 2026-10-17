@@ -94,6 +94,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     bootstrap_symbol_model_snapshot,
 )
+from game_predictor_api.domain.v3_engine_acceptance import pin_v3_engine_acceptance_policy
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 
 PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
@@ -851,6 +852,9 @@ class JobService:
         effective_pipeline_fingerprint = pin_neural_crop_policy(
             input_payload, effective_pipeline_fingerprint
         )
+        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
+            input_payload, effective_pipeline_fingerprint
+        )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
@@ -867,6 +871,17 @@ class JobService:
             game_already_validated=True,
         )
 
+    def _legacy_symbol_bootstrap(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        known = getattr(self._repository, "game_uses_neural_grid", None)
+        profile = getattr(self._grid_profile_snapshot_resolver, "neural_grid_profile", None)
+        if (callable(known) and known(game_id)) or (
+            callable(profile) and profile(game_id=game_id) is not None
+        ):
+            raise JobConflictError(
+                "SYMBOL_MODEL_RESOLVER_REQUIRED", "V3 requires the game-scoped symbol resolver."
+            )
+        return bootstrap_symbol_model_snapshot()
+
     def _resolve_import_symbol_snapshot(
         self,
         *,
@@ -874,7 +889,7 @@ class JobService:
         allow_unclassified_cold_start: bool,
     ) -> SymbolModelJobSnapshot:
         if self._symbol_model_snapshot_resolver is None:
-            return bootstrap_symbol_model_snapshot()
+            return self._legacy_symbol_bootstrap(game_id=game_id)
         try:
             return self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         except JobConflictError as error:
@@ -1057,7 +1072,7 @@ class JobService:
                 details={"gameId": str(game_id)},
             )
         snapshot = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1082,7 +1097,7 @@ class JobService:
                 details={"gameId": str(game_id)},
             )
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1141,7 +1156,7 @@ class JobService:
                 "The curated image manifest slice is invalid.",
             )
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1357,7 +1372,7 @@ class JobService:
                     raise
                 return existing
         symbol_model = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=source.game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=source.game_id)
         )
@@ -1454,6 +1469,9 @@ class JobService:
             geometry_engine_variant=geometry_engine_variant,
         )
         effective_pipeline_fingerprint = pin_neural_crop_policy(
+            payload, effective_pipeline_fingerprint
+        )
+        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
             payload, effective_pipeline_fingerprint
         )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
@@ -1728,7 +1746,7 @@ class JobService:
 
     def current_image_import_model_fingerprints(self, *, game_id: UUID) -> tuple[str, str]:
         symbol = (
-            bootstrap_symbol_model_snapshot()
+            self._legacy_symbol_bootstrap(game_id=game_id)
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
@@ -1756,7 +1774,7 @@ class JobService:
         symbol_snapshot_fingerprint: str | None = None
         try:
             symbol = (
-                bootstrap_symbol_model_snapshot()
+                self._legacy_symbol_bootstrap(game_id=game_id)
                 if self._symbol_model_snapshot_resolver is None
                 else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
             )
@@ -2229,6 +2247,11 @@ class JobService:
 
     def _neural_profile_matches_game(self, *, game_id: UUID, snapshot: NeuralGridSnapshot) -> bool:
         """A frozen proposal is reused only by a game that still has its profile (D-544)."""
+        matches = getattr(
+            self._grid_profile_snapshot_resolver, "neural_snapshot_matches_game", None
+        )
+        if callable(matches):
+            return bool(matches(game_id=game_id, snapshot=snapshot))
         resolve = getattr(self._grid_profile_snapshot_resolver, "neural_grid_profile", None)
         if not callable(resolve):
             return True
@@ -2486,6 +2509,10 @@ class JobService:
         return self._repository.save_job(updated)
 
     def retry_job(self, job_id: UUID) -> Job:
+        before_lock = self._repository.get_job(job_id)
+        guard = getattr(self._repository, "authorize_retry", None)
+        if before_lock is not None and callable(guard):
+            guard(before_lock)
         job = self._repository.get_job_for_update(job_id)
         if job is None:
             raise JobNotFoundError(

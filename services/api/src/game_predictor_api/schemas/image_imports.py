@@ -219,6 +219,14 @@ class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
     geometry_preflight_artifact_blocker_code: str | None = None
     geometry_preflight_artifact_blocker_message: str | None = None
     existing_import_job: JobResponse | None = None
+    # TASK-1041: completed V3 preflight sources without a slot binding. A V3
+    # import skips them, so start requires confirmedNeuralUnboundSourceCount.
+    neural_unbound_source_count: int = Field(default=0, ge=0)
+    neural_unbound_attested_board_count: int = Field(default=0, ge=0)
+    neural_unbound_count_preflight_job_id: UUID | None = Field(
+        default=None,
+        description="Completed V3 geometry preflight whose frozen manifest gave the counts.",
+    )
 
 
 class BrowserPageGeometryPreflightResponse(ApiModel):
@@ -673,6 +681,14 @@ class BrowserImageImportStart(ApiModel):
     ) = None
     image_engine_policy: ImageImportEnginePolicy | None = None
     image_engine_policy_revision: int | None = Field(default=None, ge=0)
+    confirmed_neural_unbound_source_count: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Explicit operator confirmation that the pinned V3 manifest's sources "
+            "without a slot binding are skipped; must equal their current count."
+        ),
+    )
 
     # D-467 (TASK-0790): name a removed legacy engine with its explicit code.
     _reject_removed_policy = field_validator(

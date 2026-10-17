@@ -297,6 +297,53 @@ def test_image_import_exposes_source_progress_separately_from_sample() -> None:
     assert response["progress"]["imageImport"] == counts
 
 
+def test_image_import_exposes_sources_skipped_without_slot_binding() -> None:
+    """TASK-1041: the V3 skip summary written by the worker is a typed result."""
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": "C:/photos",
+            "pipeline_fingerprint": "a" * 64,
+        },
+    )
+    sample = [
+        {
+            "sourceRelativePath": "seq_1-9.jpg",
+            "sequenceRangeStart": 1,
+            "sequenceRangeEnd": 9,
+            "reasonCode": "NEURAL_GRID_SLOT_BINDING_REQUIRED",
+        }
+    ]
+    summary = {
+        "sourceCount": 1962,
+        "attestedBoardCount": 17658,
+        "reasonCounts": {"NEURAL_GRID_SLOT_BINDING_REQUIRED": 1962},
+        "reportChecksumSha256": "d" * 64,
+        "reportRelativePath": f"data/image-import-unbound-sources/{job.id}.json",
+        "sample": sample,
+    }
+    job = replace(
+        job,
+        checkpoint_payload={
+            "neural_unbound_sources": {"version": "neural-unbound-sources-v1", **summary}
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["neuralUnboundSources"] == summary
+    invalid = replace(
+        job, checkpoint_payload={"neural_unbound_sources": {**summary, "sourceCount": 0}}
+    )
+    assert (
+        "neuralUnboundSources"
+        not in JobResponse.from_domain(invalid).model_dump(mode="json", by_alias=True)["progress"]
+    )
+
+
 def test_pending_grid_reinference_pins_the_accepted_v19_recrop_snapshot(
     tmp_path: Path,
 ) -> None:
@@ -1045,6 +1092,10 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         JobType.STORAGE_PIPELINE_COMPACTION,
         # TASK-0933: queued only by its own route and by input changes.
         JobType.SUPER_GAME_SERIES_DERIVE,
+        # TASK-0996: queued only by the grid-training run route.
+        JobType.GRID_TRAINING,
+        # TASK-0997: queued only by the grid-model evaluation route.
+        JobType.GRID_MODEL_EVALUATION,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

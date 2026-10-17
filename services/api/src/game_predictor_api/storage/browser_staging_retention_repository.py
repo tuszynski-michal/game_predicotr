@@ -413,6 +413,13 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                             ImageSourceGeometryRevisionModel.source_image_id.in_(source_image_ids)
                         )
                     )
+                from game_predictor_api.storage.grid_reinference_retention import (
+                    detach_grid_source_links,
+                )
+
+                if source_image_ids:
+                    assert game_id is not None
+                    detach_grid_source_links(session, game_id, source_image_ids)
                 session.execute(
                     delete(SourceImageModel).where(SourceImageModel.import_job_id.in_(job_ids))
                 )

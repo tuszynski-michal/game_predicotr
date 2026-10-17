@@ -11,6 +11,7 @@ is shared by staging, source correction and the deferred production importer.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 import statistics
@@ -25,6 +26,8 @@ from .grid_engine_profiles import (
     grid_engine_manifest,
     neural_import_profile,
 )
+from .grid_model_registry import GridModelRegistryError, descriptor_sha256
+from .grid_model_snapshots import catalogue_model_version, uses_neural_grid
 from .image_geometry_v2 import (
     AttestedSequenceRange,
     ImageGeometryContractError,
@@ -38,6 +41,7 @@ from .image_geometry_v2 import (
 NEURAL_GRID_PREFLIGHT_POLICY_VERSION = "page-geometry-preflight-v13-neural-mumie-pilot"
 NEURAL_GRID_MANIFEST_SCHEMA_VERSION = 5
 NEURAL_GRID_SNAPSHOT_VERSION = "neural-grid-proposal-snapshot-v1"
+NEURAL_GRID_DYNAMIC_SNAPSHOT_VERSION = "neural-grid-proposal-snapshot-v2"
 NEURAL_SOURCE_PROPOSAL_VERSION = "neural-source-proposal-v1"
 NEURAL_SOURCE_BINDING_VERSION = "neural-source-binding-v1"
 NEURAL_GRID_REVIEW_REASON = "NEURAL_GRID_GATE_UNCALIBRATED"
@@ -95,12 +99,28 @@ def _range(value: object) -> AttestedSequenceRange:
 class NeuralGridSnapshot:
     expected_layout_count: int
     version: GridEngineModelVersion
+    game_id: str | None = None
+    game_configuration: str | None = None
 
     def __post_init__(self) -> None:
         _integer(self.expected_layout_count)
+        if self.version.catalogue_manifest_json is not None:
+            _uuid(self.game_id)
+            if not uses_neural_grid(self.game_configuration):
+                raise _invalid("The catalogue snapshot requires a V3 game configuration.")
+            descriptor = json.loads(self.version.catalogue_manifest_json)
+            if catalogue_model_version(descriptor) != self.version:
+                raise _invalid("Catalogue version fields differ from its descriptor.")
+            return
+        if self.game_id is not None or self.game_configuration is not None:
+            raise _invalid("Legacy snapshots cannot carry catalogue ownership.")
         profile = neural_import_profile(self.version.profile.value)
         if profile is None or self.version not in profile.versions:
             raise _invalid("The neural folder import requires a registered grid engine profile.")
+
+    def require_game(self, game_id: str) -> None:
+        if self.game_id is not None and self.game_id != game_id:
+            raise _invalid("The catalogue snapshot belongs to another game.")
 
     @property
     def profile(self) -> GameShapeGeometryConfiguration:
@@ -114,6 +134,11 @@ class NeuralGridSnapshot:
 
     @classmethod
     def from_payload(cls, value: object) -> NeuralGridSnapshot:
+        if (
+            isinstance(value, Mapping)
+            and value.get("contractVersion") == NEURAL_GRID_DYNAMIC_SNAPSHOT_VERSION
+        ):
+            return cls._from_catalogue_payload(value)
         raw = _object(value, {"contractVersion", "expectedLayoutCount", "model"}, "Neural snapshot")
         if raw["contractVersion"] != NEURAL_GRID_SNAPSHOT_VERSION:
             raise _invalid("The neural snapshot version is unsupported.")
@@ -130,7 +155,69 @@ class NeuralGridSnapshot:
             "NEURAL_GRID_MODEL_SNAPSHOT_DRIFT", "The frozen neural model differs from the registry."
         )
 
+    @classmethod
+    def from_catalogue(
+        cls,
+        *,
+        game_id: str,
+        game_configuration: str,
+        expected_layout_count: int,
+        descriptor: dict[str, object],
+    ) -> NeuralGridSnapshot:
+        return cls.from_payload(
+            {
+                "contractVersion": NEURAL_GRID_DYNAMIC_SNAPSHOT_VERSION,
+                "expectedLayoutCount": expected_layout_count,
+                "gameId": game_id,
+                "gameConfiguration": game_configuration,
+                "catalogueManifest": descriptor,
+                "catalogueManifestSha256": descriptor_sha256(descriptor),
+            }
+        )
+
+    @classmethod
+    def _from_catalogue_payload(cls, value: Mapping[str, object]) -> NeuralGridSnapshot:
+        raw = _object(
+            value,
+            {
+                "contractVersion",
+                "expectedLayoutCount",
+                "gameId",
+                "gameConfiguration",
+                "catalogueManifest",
+                "catalogueManifestSha256",
+            },
+            "Catalogue neural snapshot",
+        )
+        try:
+            descriptor = raw["catalogueManifest"]
+            if not isinstance(descriptor, dict):
+                raise ValueError("Catalogue descriptor must be an object.")
+            if _checksum(raw["catalogueManifestSha256"]) != descriptor_sha256(descriptor):
+                raise ValueError("Catalogue descriptor checksum differs.")
+            configuration = raw["gameConfiguration"]
+            if not isinstance(configuration, str):
+                raise ValueError("Catalogue configuration must be a string.")
+            return cls(
+                _integer(raw["expectedLayoutCount"]),
+                catalogue_model_version(descriptor),
+                _uuid(raw["gameId"]),
+                configuration,
+            )
+        except (ValueError, TypeError, KeyError, AttributeError, GridModelRegistryError) as error:
+            raise _invalid(str(error)) from error
+
     def to_payload(self) -> dict[str, object]:
+        if self.version.catalogue_manifest_json is not None:
+            descriptor = json.loads(self.version.catalogue_manifest_json)
+            return {
+                "contractVersion": NEURAL_GRID_DYNAMIC_SNAPSHOT_VERSION,
+                "expectedLayoutCount": self.expected_layout_count,
+                "gameId": self.game_id,
+                "gameConfiguration": self.game_configuration,
+                "catalogueManifest": descriptor,
+                "catalogueManifestSha256": descriptor_sha256(descriptor),
+            }
         return {
             "contractVersion": NEURAL_GRID_SNAPSHOT_VERSION,
             "expectedLayoutCount": self.expected_layout_count,
@@ -237,7 +324,7 @@ def validate_neural_source_proposal(value: object) -> Mapping[str, object]:
     _checksum(raw["sourceChecksumSha256"])
     width, height = _integer(raw["sourceWidth"]), _integer(raw["sourceHeight"])
     _range(raw["originalRange"])
-    NeuralGridSnapshot.from_payload(raw["engineSnapshot"])
+    NeuralGridSnapshot.from_payload(raw["engineSnapshot"]).require_game(str(raw["gameId"]))
     checksum = _checksum(raw["proposalChecksumSha256"])
     if checksum != proposal_checksum_sha256(raw):
         raise NeuralGridProposalError(

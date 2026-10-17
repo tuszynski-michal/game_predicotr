@@ -1377,3 +1377,20 @@ a:focus-visible {
     align-items: stretch;
   }
 }
+/* Multi-game recipient selector; ordinary single-game shares keep their header. */
+.boardSearchPanelGame {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.boardSearchPanelGame select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+  font: inherit;
+}

@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 import numpy as np
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -52,7 +53,7 @@ from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v17 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -127,6 +128,10 @@ class _Seed:
 
 @pytest.fixture
 def database() -> Iterator[_Database]:
+    yield from _owned_database()
+
+
+def _owned_database(revision: str = "head") -> Iterator[_Database]:
     name = "game_predictor_task0760_" + uuid4().hex[:12] + "_test"
     assert re.fullmatch(r"game_predictor_task0760_[0-9a-f]{12}_test", name)
     url = make_url(ApiSettings.from_environment().owner_database_url)
@@ -140,10 +145,12 @@ def database() -> Iterator[_Database]:
     engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
     config = Config(str(_ALEMBIC_INI))
     config.set_main_option("sqlalchemy.url", rendered.replace("%", "%%"))
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.create_database(connection)
     try:
-        command.upgrade(config, "head")
+        recording_capability_fixture.provision(revision, config)
+        command.upgrade(config, revision)
         yield _Database(engine=engine, config=config, url=rendered)
     finally:
         engine.dispose()
@@ -158,7 +165,7 @@ def database() -> Iterator[_Database]:
                     break
                 time.sleep(0.1)
             assert active == 0, "Refusing DROP while a test connection remains"
-            connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 

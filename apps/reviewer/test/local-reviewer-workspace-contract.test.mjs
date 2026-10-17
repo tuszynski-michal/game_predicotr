@@ -46,7 +46,11 @@ test('the local reviewer is only the correction screen; remote stays restricted'
   assert.match(page, /gridValidationEnabled=\{localMode\}/);
   assert.doesNotMatch(page, /REVIEWER_GRID_VALIDATION/);
   assert.doesNotMatch(proxy, /\/grid-reviews/);
-  assert.doesNotMatch(proxy, /\/image-reviews\//);
+  // D-555 (TASK-1009): only the scoped explicit geometry approval of one review item
+  // passes; every other image-reviews route stays closed to the Reviewer.
+  const approval = '`^/api/v1/admin/image-reviews/${UUID}/geometry-approvals$`';
+  assert.equal(proxy.split(approval).length, 2);
+  assert.doesNotMatch(proxy.split(approval).join(''), /\/image-reviews\//);
 });
 
 test('the local reviewer has the correction and gaps tabs over one mounted editor (TASK-0962)', () => {

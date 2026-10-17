@@ -16,7 +16,7 @@ from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.domain.symbol_model_snapshots import LAB_RGB_SYMBOL_MODEL_VERSION
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.grid_shadow import GridShadowJobPayloadResponse
-from game_predictor_api.schemas.neural_grid_proposals import NeuralGridSnapshotPayload
+from game_predictor_api.schemas.neural_grid_proposals import NeuralGridSnapshotContract
 from game_predictor_api.schemas.v7_selection_delivery import V7PilotSnapshotResponse
 
 
@@ -283,7 +283,7 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
 
 class ImageImportJobPayload(ApiModel):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
-    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -342,7 +342,7 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
 
 class BrowserImageImportJobPayload(ApiModel):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
-    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID
@@ -366,7 +366,7 @@ class BrowserImageImportJobPayload(ApiModel):
 
 class ResolvedBrowserImageImportJobPayload(ApiModel):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
-    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    neural_grid_proposal: NeuralGridSnapshotContract | None = None
     managed_source_job_id: UUID | None = None
     managed_source_manifest_checksum_sha256: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$"
@@ -436,7 +436,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
 
 class PinnedManagedImageReprocessJobPayload(ApiModel):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
-    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[6]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID
@@ -574,7 +574,7 @@ class BasePageGeometryManifestPayload(ApiModel):
 
 
 class PageGeometryPreflightJobPayload(ApiModel):
-    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
     preflight_policy_version: (
@@ -695,6 +695,15 @@ class BoardCellRecropJobSnapshotPayload(ApiModel):
     thresholds_version: str = Field(min_length=1, max_length=150)
 
 
+class GridReinferenceJobPayload(ApiModel):
+    schema_version: Literal[3]
+    inference_kind: Literal["grid-reinference-v1"]
+    operation_id: UUID
+    model_snapshot: dict[str, object]
+    runtime_policy: Literal["grid-reinference-runtime-v1"]
+    acceptance_policy: Literal["v3-engine-acceptance-v1"]
+
+
 class PendingGridReinferenceJobPayload(ApiModel):
     schema_version: Literal[1, 2]
     inference_kind: Literal["pending_grid_only"]
@@ -741,6 +750,56 @@ class SuperGameSeriesDeriveJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     reason: str = Field(min_length=1, max_length=64)
     request_id: UUID
+
+
+class GridSharedCohortPin(ApiModel):
+    game_id: UUID
+    cohort_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class GridTrainingJobPayload(ApiModel):
+    """Pinned application grid-training run (TASK-0996); created only by its own route.
+
+    A shared run (TASK-1006) also pins one frozen cohort of every other game and the SHA
+    of its joint plan.
+    """
+
+    schema_version: Literal[1] = 1
+    training_kind: Literal["grid-training-run-v1", "grid-shared-training-run-v1"]
+    idempotency_key: UUID
+    cohort_id: UUID
+    cohort_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mode: Literal["grid-only", "screen+grid"]
+    family_id: UUID
+    base_version_id: UUID
+    preset_id: str = Field(min_length=1, max_length=64)
+    preset_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    seed: int = Field(ge=0, le=2**31 - 1)
+    planned_steps: int = Field(ge=1, le=1_000_000)
+    shared_cohorts: list[GridSharedCohortPin] | None = Field(None, min_length=1, max_length=7)
+    joint_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
+
+
+class GridModelEvaluationCohortPin(ApiModel):
+    game_id: UUID
+    cohort_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class GridModelEvaluationJobPayload(ApiModel):
+    """Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route."""
+
+    schema_version: Literal[1] = 1
+    evaluation_kind: Literal["grid-model-evaluation-v1"]
+    idempotency_key: UUID
+    version_id: UUID
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    base_version_id: UUID
+    base_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    family_id: UUID
+    training_game_id: UUID
+    cohorts: list[GridModelEvaluationCohortPin] = Field(min_length=1, max_length=100)
 
 
 class ImportJobCreate(ApiModel):
@@ -815,8 +874,11 @@ JobPayloadResponse = (
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
+    | GridTrainingJobPayload
+    | GridModelEvaluationJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
+    | GridReinferenceJobPayload
 )
 
 
@@ -888,6 +950,24 @@ class ImageImportPipelineProgressResponse(ApiModel):
     review_sources: int = Field(ge=0)
 
 
+class NeuralUnboundSourceResponse(ApiModel):
+    source_relative_path: str = Field(min_length=1, max_length=1000)
+    sequence_range_start: int | None = Field(default=None, ge=1)
+    sequence_range_end: int | None = Field(default=None, ge=1)
+    reason_code: str = Field(min_length=1, max_length=120)
+
+
+class NeuralUnboundSourcesJobProgressResponse(ApiModel):
+    """TASK-1041: V3 sources the import skipped because no slot binding exists."""
+
+    source_count: int = Field(ge=1)
+    attested_board_count: int = Field(ge=0)
+    reason_counts: dict[str, int]
+    report_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    report_relative_path: str = Field(min_length=1, max_length=2048)
+    sample: list[NeuralUnboundSourceResponse]
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -896,6 +976,10 @@ class JobProgressResponse(ApiModel):
     failed: int
     review: int
     image_import: ImageImportPipelineProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    neural_unbound_sources: NeuralUnboundSourcesJobProgressResponse | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
     )
@@ -1016,6 +1100,7 @@ class JobResponse(ApiModel):
                 board_cell_geometry=_board_cell_geometry_progress(job),
                 geometry_systemic_guard=_geometry_systemic_guard_progress(job),
                 image_import=_image_import_progress(job),
+                neural_unbound_sources=_neural_unbound_sources_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -1125,6 +1210,22 @@ def _image_import_progress(job: Job) -> ImageImportPipelineProgressResponse | No
         return None
     try:
         return ImageImportPipelineProgressResponse.model_validate(raw)
+    except ValueError:
+        return None
+
+
+def _neural_unbound_sources_progress(
+    job: Job,
+) -> NeuralUnboundSourcesJobProgressResponse | None:
+    if job.job_type is not JobType.IMPORT or not job.checkpoint_payload:
+        return None
+    raw = job.checkpoint_payload.get("neural_unbound_sources")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return NeuralUnboundSourcesJobProgressResponse.model_validate(
+            {key: value for key, value in raw.items() if key != "version"}
+        )
     except ValueError:
         return None
 
@@ -1269,19 +1370,30 @@ def _image_selection_counters(value: object) -> dict[str, int] | None:
 def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMPORT:
         if job.input_payload.get("import_kind") == "image_directory":
+            # Engine acceptance is an internal execution pin, not a new public
+            # request/response field. Keep strict validation of every other key.
+            from game_predictor_api.domain.v3_engine_acceptance import (
+                V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
+            )
+
+            payload = {
+                key: value
+                for key, value in job.input_payload.items()
+                if key != V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY
+            }
             if job.input_payload.get("schema_version") == 1:
-                return LegacyImageImportJobPayload.model_validate(job.input_payload)
+                return LegacyImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 3:
-                return CuratedImageImportJobPayload.model_validate(job.input_payload)
+                return CuratedImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 4:
-                return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
+                return ManagedImageReprocessJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 5:
-                return BrowserImageImportJobPayload.model_validate(job.input_payload)
+                return BrowserImageImportJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 6:
-                return PinnedManagedImageReprocessJobPayload.model_validate(job.input_payload)
+                return PinnedManagedImageReprocessJobPayload.model_validate(payload)
             if job.input_payload.get("schema_version") == 7:
-                return ResolvedBrowserImageImportJobPayload.model_validate(job.input_payload)
-            return ImageImportJobPayload.model_validate(job.input_payload)
+                return ResolvedBrowserImageImportJobPayload.model_validate(payload)
+            return ImageImportJobPayload.model_validate(payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
         return ImageSelectionJobPayload.model_validate(job.input_payload)
@@ -1324,7 +1436,13 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
+        if job.input_payload.get("inference_kind") == "grid-reinference-v1":
+            return GridReinferenceJobPayload.model_validate(job.input_payload)
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.GRID_TRAINING:
+        return GridTrainingJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.GRID_MODEL_EVALUATION:
+        return GridModelEvaluationJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 
 

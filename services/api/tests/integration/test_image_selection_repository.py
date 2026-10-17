@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -79,14 +80,18 @@ def isolated_image_selection_database() -> Iterator[URL]:
     )
     database_url = _database_url(TEST_DATABASE_NAME)
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 
@@ -101,6 +106,7 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-selection-test",
                 name="Image selection test",
                 status=GameStatus.DRAFT,
@@ -228,6 +234,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="atomic-projection-test",
                 name="Atomic projection test",
                 status=GameStatus.DRAFT,
@@ -346,6 +353,7 @@ def test_proof_first_projection_keeps_review_candidate_eligible(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="proof-first-review-candidate-test",
                 name="Proof-first review candidate test",
                 status=GameStatus.DRAFT,

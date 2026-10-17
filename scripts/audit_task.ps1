@@ -9,7 +9,8 @@ against a base ref plus uncommitted and untracked changes, and the verification
 lines from the task Outcome. It is written to
 artifacts/audits/TASK-NNNN_BRIEF_<auditor>.md (the directory is git-ignored).
 
-When the auditor CLI (codex or claude) is on PATH the audit runs read-only with
+When the auditor CLI is on PATH (or Claude Code is discovered in its Windows
+installation directories) the audit runs read-only with
 a timeout and the validated report is stored as
 ai_docs/quality/TASK-NNNN_AUDIT_<model>.md. Without the CLI the script stops
 after writing the brief ("brief-only mode", exit code 0) so the operator can
@@ -37,7 +38,7 @@ Git ref the committed diff is taken against (base...HEAD). The default HEAD
 audits uncommitted work before the commit (the committed diff is then empty and
 the work is covered by the uncommitted and untracked sections). For a
 post-commit audit pass the ref before the task, for example
-v1.1-vision-lab-hybrid-geometry or HEAD~1.
+main or HEAD~1.
 
 .PARAMETER Plan
 Optional path to the accepted plan; sections that mention the task are quoted.
@@ -59,7 +60,7 @@ Write the brief and print what would be executed; never start the auditor.
 
 .PARAMETER Effort
 Reasoning effort passed to the Codex auditor (low, medium, high; default medium,
-the quick audit of AGENTS.md "Audyt krzyżowy"). Ignored for the Claude auditor.
+the quick audit of the audit-task skill, "Zasady"). Ignored for the Claude auditor.
 
 .PARAMETER CodexWindowsSandbox
 Windows sandbox mode for the Codex CLI run (default unelevated; the elevated mode
@@ -304,11 +305,39 @@ function Test-BinaryContent {
 }
 
 function Resolve-AuditorCli {
-    param([string]$Name)
+    param([string]$Name, [string]$UserProfile = $env:USERPROFILE)
     $command = Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
-    if ($null -eq $command) { return $null }
-    return $command.Source
+    if ($null -ne $command) { return $command.Source }
+    if ($Name -ne 'claude' -or [string]::IsNullOrWhiteSpace($UserProfile)) { return $null }
+
+    $nativeCli = Join-Path $UserProfile '.local\bin\claude.exe'
+    if (Test-Path -LiteralPath $nativeCli -PathType Leaf) { return $nativeCli }
+
+    # Windows-packaged Claude exposes a virtual Roaming path in process metadata.
+    # Resolve the physical LocalCache path instead; never pin a version/hash.
+    $roots = @((Join-Path $UserProfile 'AppData\Roaming\Claude\claude-code'))
+    $packages = Join-Path $UserProfile 'AppData\Local\Packages'
+    if (Test-Path -LiteralPath $packages -PathType Container) {
+        $roots += @(Get-ChildItem -LiteralPath $packages -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName 'LocalCache\Roaming\Claude\claude-code' })
+    }
+    $candidates = @(foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        foreach ($directory in (Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+            $version = $null
+            if (-not [version]::TryParse($directory.Name, [ref]$version)) { continue }
+            foreach ($build in (Get-ChildItem -LiteralPath $directory.FullName -Directory -ErrorAction SilentlyContinue)) {
+                $executable = Join-Path $build.FullName 'claude.exe'
+                if (Test-Path -LiteralPath $executable -PathType Leaf) {
+                    [pscustomobject]@{ Version = $version; Path = $executable }
+                }
+            }
+        }
+    })
+    $selected = $candidates | Sort-Object @{ Expression = 'Version'; Descending = $true }, Path | Select-Object -First 1
+    if ($null -eq $selected) { return $null }
+    return $selected.Path
 }
 
 try {
@@ -480,10 +509,10 @@ Rules:
 
     $cliPath = Resolve-AuditorCli -Name $Auditor
     if ($null -eq $cliPath) {
-        Write-Host "CLI '$Auditor' not found on PATH: brief-only mode, the auditor was not run."
+        Write-Host "CLI '$Auditor' not found on PATH or in supported installation directories: brief-only mode, the auditor was not run."
         Write-Host "Open $briefRelative in the second application (the $Auditor side), paste it as the prompt"
         Write-Host "and save the answer as $reportRelative."
-        Write-Host 'Install: npm i -g @openai/codex @anthropic-ai/claude-code, then log in to both CLIs (operator step).'
+        Write-Host 'Check CLI location/access first; missing discovery is not proof of a missing installation. Installation/login remain operator steps.'
         exit 0
     }
 

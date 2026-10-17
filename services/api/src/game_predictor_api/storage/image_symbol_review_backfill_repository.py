@@ -51,6 +51,14 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
         return self._status(game_id)
 
     def start(self, game_id: UUID) -> SymbolCellReviewProjectionStart:
+        from game_predictor_api.storage.job_admission import acquire_job_admission
+
+        active_before_lock = self._active_job(game_id)
+        acquire_job_admission(
+            self._session,
+            game_id,
+            exclude_job_id=None if active_before_lock is None else active_before_lock.id,
+        )
         self._require_game(game_id, lock=True)
         active = self._active_job(game_id)
         if active is not None:
@@ -66,9 +74,7 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             game_id,
             with_for_update=True,
         )
-        preserve_ready_projection = (
-            current_state is not None and current_state.status == "ready"
-        )
+        preserve_ready_projection = current_state is not None and current_state.status == "ready"
         try:
             report = (
                 projection_repository.state_for_game(game_id)
@@ -88,15 +94,18 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
                 job=None,
                 created=False,
             )
-        generation = int(
-            self._session.scalar(
-                select(func.count(JobModel.id)).where(
-                    JobModel.game_id == game_id,
-                    JobModel.job_type == JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        generation = (
+            int(
+                self._session.scalar(
+                    select(func.count(JobModel.id)).where(
+                        JobModel.game_id == game_id,
+                        JobModel.job_type == JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+                    )
                 )
+                or 0
             )
-            or 0
-        ) + 1
+            + 1
+        )
         table_bytes, index_bytes, database_free_bytes = self._storage_metrics()
         job = create_job(
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
@@ -142,9 +151,7 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
         latest = active if active is not None else self._latest_job_record(game_id)
         baseline = {} if latest is None else latest.input_payload
         checkpoint = (
-            {}
-            if latest is None or latest.checkpoint_payload is None
-            else latest.checkpoint_payload
+            {} if latest is None or latest.checkpoint_payload is None else latest.checkpoint_payload
         )
         processed_board_count = (
             0
@@ -181,12 +188,8 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
             failure_message=None if state is None else state.failure_message,
             sample_problem_review_item_ids=tuple(problem_ids),
             active_job_id=None if active is None else active.id,
-            table_bytes_before=_optional_non_negative_int(
-                baseline.get("table_bytes_before")
-            ),
-            index_bytes_before=_optional_non_negative_int(
-                baseline.get("index_bytes_before")
-            ),
+            table_bytes_before=_optional_non_negative_int(baseline.get("table_bytes_before")),
+            index_bytes_before=_optional_non_negative_int(baseline.get("index_bytes_before")),
             table_bytes_current=table_bytes,
             index_bytes_current=index_bytes,
             database_free_bytes_current=database_free_bytes,

@@ -1,4 +1,188 @@
 import {
+  listGridTrainingCohorts as listGeneratedGridTrainingCohorts,
+  getGridTrainingCohort as getGeneratedGridTrainingCohort,
+  getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
+  getGridTrainingCohortEligibility as getGeneratedGridTrainingCohortEligibility,
+  previewGridTrainingRun as previewGeneratedGridTrainingRun,
+  createGridTrainingRun as createGeneratedGridTrainingRun,
+  listGridTrainingRuns as listGeneratedGridTrainingRuns,
+  getGridTrainingRun as getGeneratedGridTrainingRun,
+  cancelGridTrainingRun as cancelGeneratedGridTrainingRun,
+  resumeGridTrainingRun as resumeGeneratedGridTrainingRun,
+  createGridModelEvaluation as createGeneratedGridModelEvaluation,
+  listGridModelEvaluations as listGeneratedGridModelEvaluations,
+  getGridModelEvaluation as getGeneratedGridModelEvaluation,
+  verifyGridModelEvaluationCurrentness as verifyGeneratedGridModelEvaluationCurrentness,
+  prepareGridTrainingCohort as prepareGeneratedGridTrainingCohort,
+  prepareGridTrainingCohortPage as prepareGeneratedGridTrainingCohortPage,
+  materializeGridTrainingCohortPage as materializeGeneratedGridTrainingCohortPage,
+  freezeGridTrainingCohort as freezeGeneratedGridTrainingCohort,
+  cancelGridTrainingCohort as cancelGeneratedGridTrainingCohort,
+  completeGridSourceIdentities as completeGeneratedGridSourceIdentities,
+  listGridQualityMeasurements as listGeneratedGridQualityMeasurements,
+  getGridQualityMeasurement as getGeneratedGridQualityMeasurement,
+  captureGridQualityMeasurement as captureGeneratedGridQualityMeasurement,
+  assessGridQualityMeasurement as assessGeneratedGridQualityMeasurement,
+  approveOperationalGeometry as approveGeneratedOperationalGeometry,
+  listSourceRecordingGroups as listGeneratedSourceRecordingGroups,
+  commandSourceRecordingGroups as commandGeneratedSourceRecordingGroups,
+  listOperationalGridGeometryProposals as listGeneratedOperationalGridGeometryProposals,
+  getOperationalGridGeometryProposal as getGeneratedOperationalGridGeometryProposal,
+  createOperationalGridGeometryProposal as createGeneratedOperationalGridGeometryProposal,
+  acceptOperationalGridGeometryProposal as acceptGeneratedOperationalGridGeometryProposal,
+  rejectOperationalGridGeometryProposal as rejectGeneratedOperationalGridGeometryProposal,
+  prepareGridReinference as prepareGeneratedGridReinference,
+  getGridReinference as getGeneratedGridReinference,
+  getGridReinferenceTargets as getGeneratedGridReinferenceTargets,
+  freezeGridReinference as freezeGeneratedGridReinference,
+  acknowledgeGridReinferencePilot as acknowledgeGeneratedGridReinferencePilot,
+  startGridReinference as startGeneratedGridReinference,
+  resumeGridReinference as resumeGeneratedGridReinference,
+  cancelGridReinference as cancelGeneratedGridReinference,
+  listGridReinferenceOperations as listGeneratedGridReinferenceOperations,
+  listGridModelVersions as listGeneratedGridModelVersions,
+  registerGridModelVersion as registerGeneratedGridModelVersion,
+  getGameGridModelAssignment as getGeneratedGameGridModelAssignment,
+  publishGridModelVersion as publishGeneratedGridModelVersion,
+  activateGameGridModel as activateGeneratedGameGridModel,
+  rollbackGameGridModel as rollbackGeneratedGameGridModel,
+  getGridModelDefault as getGeneratedGridModelDefault,
+  setGridModelDefault as setGeneratedGridModelDefault,
+  getGridModelHistory as getGeneratedGridModelHistory,
+  getGameGridModelHistory as getGeneratedGameGridModelHistory,
+} from './generated/sdk.gen';
+import type {
+  GridCohortPrepareCommand,
+  GridTrainingRunCreate,
+  GridModelEvaluationCreate,
+  GridCohortPageCommand,
+  GridCohortFreezeCommand,
+  GridCohortRevisionCommand,
+  GridSourceIdentityCompleteCommand,
+  QualityCaptureCommand,
+  QualityAssessCommand,
+  GeometryApprovalCommand,
+  SourceRecordingCommandRequest,
+  ProposalCreateCommand,
+  ProposalAcceptCommand,
+  ProposalRejectCommand,
+  GridReinferencePrepare,
+  GridReinferenceFreeze,
+  GridReinferencePilotAck,
+  GridReinferenceStart,
+  GridReinferenceResume,
+  GridReinferenceCommand,
+  GridModelRegisterRequest,
+  GridModelPublishCommand,
+  GridModelAssignmentCommand,
+} from './generated/types.gen';
+export type {
+  GridCohortPrepareCommand,
+  GridCohortPageCommand,
+  GridCohortFreezeCommand,
+  GridCohortRevisionCommand,
+  GridSourceIdentityCompleteCommand,
+  GridCohortRecording,
+  GridCohortSelector,
+  GridCohortHeader,
+  GridCohortSummary,
+  GridCohortRoleSummary,
+  GridCohortMember,
+  GridCohortList,
+  GridCohortMembers,
+  GridCohortEligibility,
+  GridTrainingRunPreview,
+  GridTrainingRunCreate,
+  GridTrainingRunView,
+  GridTrainingRunList,
+  GridTrainingRunBudget,
+  GridTrainingPresetView,
+  GridTrainingRunCost,
+  GridModelEvaluationCreate,
+  GridModelEvaluationView,
+  GridModelEvaluationList,
+  GridModelEvaluationReport,
+  GridModelEvaluationGame,
+  GridModelEvaluationRole,
+  GridModelEvaluationMetrics,
+  GridModelEvaluationRecording,
+  GridModelEvaluationCurrentness,
+  GridModelEvaluationCurrentnessResult,
+  GridCohortReceipt,
+  GridCohortCommandResponse,
+  GridSourceIdentityResponse,
+  QualityCaptureCommand,
+  QualityAssessCommand,
+  GeometryApprovalCommand,
+  GeometryApprovalResponse,
+  QualityMeasurementResponse,
+  QualityMeasurementSummary,
+  QualityMemberResponse,
+  QualityPositionResponse,
+  QualityPositionJudgment,
+  QualityUnexpectedJudgment,
+  QualityObservation,
+  QualityMeasurementPage,
+  QualityCommandResponse,
+  SourceRecordingCommandRequest,
+  SourceRecordingCommandResponse,
+  SourceRecordingGroupResponse,
+  SourceRecordingGroupListResponse,
+  GridGeometryProposalResponse,
+  ProposalCandidatesResponse,
+  ProposalCommandResponse,
+  ProposalCreateCommand,
+  ProposalAcceptCommand,
+  ProposalRejectCommand,
+  ProposalCandidateResponse,
+  ProposalDiscoveryResponse,
+  GridReinferencePrepare,
+  GridReinferenceFreeze,
+  GridReinferencePilotAck,
+  GridReinferenceStart,
+  GridReinferenceResume,
+  GridReinferenceCommand,
+  GridReinferenceResponse,
+  GridReinferenceSelector,
+  GridReinferenceScopeStats,
+  GridReinferenceEffectStats,
+  GridReinferenceOperationPage,
+  GridReinferenceTargetPage,
+  GridModelManifest,
+  GridModelRegisterRequest,
+  GridModelVersionResponse,
+  GameGridModelAssignmentResponse,
+  GridModelPublishCommand,
+  GridModelAssignmentCommand,
+  GridModelControlReceipt,
+  GridModelDefaultResponse,
+  GridModelHistoryEvent,
+} from './generated/types.gen';
+import {
+  createHistoricalGridAcceptance as createGeneratedHistoricalGridAcceptance,
+  previewHistoricalGridAcceptanceNext as previewGeneratedHistoricalGridAcceptanceNext,
+  confirmHistoricalGridAcceptance as confirmGeneratedHistoricalGridAcceptance,
+  runHistoricalGridAcceptanceNext as runGeneratedHistoricalGridAcceptanceNext,
+  getHistoricalGridAcceptance as getGeneratedHistoricalGridAcceptance,
+} from './generated/sdk.gen';
+import type {
+  HistoricalAcceptanceCreateCommand,
+  HistoricalAcceptancePreviewCommand,
+  HistoricalAcceptanceConfirmCommand,
+  HistoricalAcceptanceRunCommand,
+} from './generated/types.gen';
+export type {
+  HistoricalAcceptanceCreateCommand,
+  HistoricalAcceptancePreviewCommand,
+  HistoricalAcceptanceConfirmCommand,
+  HistoricalAcceptanceRunCommand,
+  HistoricalAcceptanceResponse,
+  HistoricalAcceptanceItemResponse,
+} from './generated/types.gen';
+import {
+  createBoardSearchPanel as createGeneratedBoardSearchPanel,
+  listBoardSearchPanels as listGeneratedBoardSearchPanels,
+  revokeBoardSearchPanel as revokeGeneratedBoardSearchPanel,
   getManagementSnapshot,
   listManagementStakes,
   getManagementStake,
@@ -23,6 +207,7 @@ import {
   previewManagementMachineUpdate,
 } from './generated/sdk.gen';
 import type {
+  BoardSearchPanelCreate,
   ManagementStake,
   ManagementSearchCommand,
   ManagementSaveCommand,
@@ -31,6 +216,11 @@ import type {
   ManagementCorrectionCommand,
 } from './generated/types.gen';
 export type {
+  BoardSearchPanelCreate,
+  BoardSearchPanelResponse,
+  BoardSearchPanelCreatedResponse,
+  BoardSearchPanelListResponse,
+  BoardSearchPanelContextResponse,
   ManagementStake,
   ManagementSearchCommand,
   ManagementSaveCommand,
@@ -77,6 +267,7 @@ export type {
   SourceLatticePoint,
   NeuralDetectionPayload,
   NeuralGridSnapshotPayload,
+  CatalogueNeuralGridSnapshotPayload,
   NeuralSourceProposalPayload,
   NeuralSourceBindingPayload,
   NeuralSourceAssignmentPayload,
@@ -745,6 +936,7 @@ export type {
   ImageDatasetCompletenessResponse,
   BoardImportCoverageView,
   BoardImportCoverageResponse,
+  GridDiagnosticsResponse,
   BoardImportCoverageCountsResponse,
   BoardImportCoverageNoticesResponse,
   BoardImportCoverageRangeResponse,
@@ -785,6 +977,8 @@ export type {
   ImageSequenceSourceSelectionResponse,
   JobErrorResponse,
   JobProgressResponse,
+  NeuralUnboundSourceResponse,
+  NeuralUnboundSourcesJobProgressResponse,
   JobResponse,
   JobStatus,
   JobType,
@@ -1068,6 +1262,7 @@ export interface ListImageGridReviewsOptions {
 
 export interface GetBoardImportCoverageOptions {
   readonly gameId: string;
+  readonly includeDiagnostics?: boolean;
   readonly view?: BoardImportCoverageView;
   readonly from?: number;
   readonly to?: number;
@@ -1244,6 +1439,179 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
   });
 
   return {
+    listGridTrainingCohorts: (
+      gameId: string,
+      options: { cursor?: string; limit?: number } = {},
+    ) =>
+      listGeneratedGridTrainingCohorts({
+        client,
+        path: { game_id: gameId },
+        query: options,
+      }),
+    getGridTrainingCohort: (gameId: string, cohortId: string) =>
+      getGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    getGridTrainingCohortMembers: (
+      gameId: string,
+      cohortId: string,
+      options: { cursor?: number; limit?: number } = {},
+    ) =>
+      getGeneratedGridTrainingCohortMembers({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        query: options,
+      }),
+    getGridTrainingCohortEligibility: (gameId: string, cohortId: string) =>
+      getGeneratedGridTrainingCohortEligibility({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    previewGridTrainingRun: (gameId: string, cohortId: string) =>
+      previewGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+      }),
+    createGridTrainingRun: (gameId: string, body: GridTrainingRunCreate) =>
+      createGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    listGridTrainingRuns: (gameId: string) =>
+      listGeneratedGridTrainingRuns({ client, path: { game_id: gameId } }),
+    getGridTrainingRun: (gameId: string, runId: string) =>
+      getGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
+    cancelGridTrainingRun: (gameId: string, runId: string) =>
+      cancelGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
+    resumeGridTrainingRun: (gameId: string, runId: string) =>
+      resumeGeneratedGridTrainingRun({
+        client,
+        path: { game_id: gameId, run_id: runId },
+      }),
+    createGridModelEvaluation: (body: GridModelEvaluationCreate) =>
+      createGeneratedGridModelEvaluation({ client, body }),
+    listGridModelEvaluations: (versionId: string) =>
+      listGeneratedGridModelEvaluations({ client, query: { versionId } }),
+    getGridModelEvaluation: (evaluationId: string) =>
+      getGeneratedGridModelEvaluation({
+        client,
+        path: { evaluation_id: evaluationId },
+      }),
+    verifyGridModelEvaluationCurrentness: (reportId: string) =>
+      verifyGeneratedGridModelEvaluationCurrentness({
+        client,
+        path: { report_id: reportId },
+      }),
+    prepareGridTrainingCohort: (
+      gameId: string,
+      body: GridCohortPrepareCommand,
+    ) =>
+      prepareGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    prepareGridTrainingCohortPage: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortPageCommand,
+    ) =>
+      prepareGeneratedGridTrainingCohortPage({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    materializeGridTrainingCohortPage: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortPageCommand,
+    ) =>
+      materializeGeneratedGridTrainingCohortPage({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    freezeGridTrainingCohort: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortFreezeCommand,
+    ) =>
+      freezeGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    cancelGridTrainingCohort: (
+      gameId: string,
+      cohortId: string,
+      body: GridCohortRevisionCommand,
+    ) =>
+      cancelGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId, cohort_id: cohortId },
+        body,
+      }),
+    completeGridSourceIdentities: (
+      gameId: string,
+      body: GridSourceIdentityCompleteCommand,
+    ) =>
+      completeGeneratedGridSourceIdentities({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    listGridQualityMeasurements: (
+      gameId: string,
+      options: { cursor?: string; limit?: number } = {},
+    ) =>
+      listGeneratedGridQualityMeasurements({
+        client,
+        path: { game_id: gameId },
+        query: options,
+      }),
+    getGridQualityMeasurement: (gameId: string, measurementId: string) =>
+      getGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId, measurement_id: measurementId },
+      }),
+    captureGridQualityMeasurement: (
+      gameId: string,
+      body: QualityCaptureCommand,
+    ) =>
+      captureGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    assessGridQualityMeasurement: (
+      gameId: string,
+      measurementId: string,
+      body: QualityAssessCommand,
+    ) =>
+      assessGeneratedGridQualityMeasurement({
+        client,
+        path: { game_id: gameId, measurement_id: measurementId },
+        body,
+      }),
+    approveOperationalGeometry: (
+      reviewItemId: string,
+      scope: { gameId: string; importJobId: string },
+      body: GeometryApprovalCommand,
+    ) =>
+      approveGeneratedOperationalGeometry({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: scope,
+        body,
+      }),
     getManagementSnapshot: () => getManagementSnapshot({ client }),
     previewManagementPointDeletion: (
       pointId: string,
@@ -1711,6 +2079,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId },
       }),
     /** Create one online board-search share link (D-492). */
+    createBoardSearchPanel: (body: BoardSearchPanelCreate) =>
+      createGeneratedBoardSearchPanel({
+        body,
+        client,
+        headers: confirmedTargetHeaders('board-search-panel:new'),
+      }),
+    listBoardSearchPanels: () => listGeneratedBoardSearchPanels({ client }),
+    revokeBoardSearchPanel: (panelId: string) =>
+      revokeGeneratedBoardSearchPanel({
+        client,
+        path: { panel_id: panelId },
+        headers: confirmedTargetHeaders(`board-search-panel:${panelId}`),
+      }),
     createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
       createGeneratedBoardSearchShareSession({
         body,
@@ -2542,6 +2923,55 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           game_id: gameId,
         },
       }),
+    createHistoricalGridAcceptance: (
+      gameId: string,
+      body: HistoricalAcceptanceCreateCommand,
+    ) =>
+      createGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    previewHistoricalGridAcceptanceNext: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptancePreviewCommand,
+    ) =>
+      previewGeneratedHistoricalGridAcceptanceNext({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    confirmHistoricalGridAcceptance: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptanceConfirmCommand,
+    ) =>
+      confirmGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    runHistoricalGridAcceptanceNext: (
+      gameId: string,
+      operationId: string,
+      body: HistoricalAcceptanceRunCommand,
+    ) =>
+      runGeneratedHistoricalGridAcceptanceNext({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        body,
+      }),
+    getHistoricalGridAcceptance: (
+      gameId: string,
+      operationId: string,
+      afterOrdinal?: number,
+    ) =>
+      getGeneratedHistoricalGridAcceptance({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        query: afterOrdinal === undefined ? {} : { afterOrdinal },
+      }),
     getImageDatasetCompleteness: (gameId: string) =>
       getGeneratedImageDatasetCompleteness({
         client,
@@ -2552,6 +2982,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: options.gameId },
         query: {
+          ...(options.includeDiagnostics === undefined
+            ? {}
+            : { includeDiagnostics: options.includeDiagnostics }),
           ...(options.view === undefined ? {} : { view: options.view }),
           ...(options.from === undefined ? {} : { from: options.from }),
           ...(options.to === undefined ? {} : { to: options.to }),
@@ -3024,6 +3457,115 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { game_id: gameId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    listGridReinferenceOperations: (
+      gameId: string,
+      options: {
+        readonly cursor?: string;
+        readonly limit?: number;
+        readonly compatibleWithOperationId?: string;
+      } = {},
+    ) =>
+      listGeneratedGridReinferenceOperations({
+        client,
+        path: { game_id: gameId },
+        query: {
+          ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.compatibleWithOperationId === undefined
+            ? {}
+            : {
+                compatible_with_operation_id: options.compatibleWithOperationId,
+              }),
+        },
+      }),
+    prepareGridReinference: (gameId: string, body: GridReinferencePrepare) =>
+      prepareGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`grid-reinference:${gameId}:prepare`),
+      }),
+    getGridReinference: (gameId: string, operationId: string) =>
+      getGeneratedGridReinference({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+      }),
+    getGridReinferenceTargets: (
+      gameId: string,
+      operationId: string,
+      cursor?: string,
+      limit = 100,
+    ) =>
+      getGeneratedGridReinferenceTargets({
+        client,
+        path: { game_id: gameId, operation_id: operationId },
+        query: { cursor, limit },
+      }),
+    freezeGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceFreeze,
+    ) =>
+      freezeGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    acknowledgeGridReinferencePilot: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferencePilotAck,
+    ) =>
+      acknowledgeGeneratedGridReinferencePilot({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    startGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceStart,
+    ) =>
+      startGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    resumeGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceResume,
+    ) =>
+      resumeGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
+    cancelGridReinference: (
+      gameId: string,
+      operationId: string,
+      body: GridReinferenceCommand,
+    ) =>
+      cancelGeneratedGridReinference({
+        client,
+        body,
+        path: { game_id: gameId, operation_id: operationId },
+        headers: confirmedTargetHeaders(
+          `grid-reinference:${gameId}:${operationId}`,
+        ),
+      }),
     startPendingGridReinference: (gameId: string) =>
       startGeneratedPendingGridReinference({
         client,
@@ -3098,6 +3640,60 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { review_item_id: reviewItemId },
         query: context,
+      }),
+    listOperationalGridGeometryProposals: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      listGeneratedOperationalGridGeometryProposals({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    getOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+      }),
+    createOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalCreateCommand,
+    ) =>
+      createGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+        body,
+      }),
+    acceptOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalAcceptCommand,
+    ) =>
+      acceptGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+        body,
+      }),
+    rejectOperationalGridGeometryProposal: (
+      reviewItemId: string,
+      proposalId: string,
+      context: OperationalImageReviewContext,
+      body: ProposalRejectCommand,
+    ) =>
+      rejectGeneratedOperationalGridGeometryProposal({
+        client,
+        path: { review_item_id: reviewItemId, proposal_id: proposalId },
+        query: context,
+        body,
       }),
     listImageGridReviews: (options: ListImageGridReviewsOptions) =>
       listGeneratedImageGridReviews({
@@ -3751,6 +4347,69 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     updateGame: (gameId: string, body: GameUpdate) =>
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
     listGridEngineProfiles: () => listGeneratedGridEngineProfiles({ client }),
+    listGridModelVersions: () => listGeneratedGridModelVersions({ client }),
+    registerGridModelVersion: (body: GridModelRegisterRequest) =>
+      registerGeneratedGridModelVersion({ body, client }),
+    getGameGridModelAssignment: (gameId: string) =>
+      getGeneratedGameGridModelAssignment({
+        client,
+        path: { game_id: gameId },
+      }),
+    listSourceRecordingGroups: (
+      gameId: string,
+      options: {
+        familyId?: string;
+        groupId?: string;
+        sourceId?: string;
+        limit?: number;
+        after?: string;
+        signal?: AbortSignal;
+      } = {},
+    ) => {
+      const { signal, ...query } = options;
+      return listGeneratedSourceRecordingGroups({
+        client,
+        path: { game_id: gameId },
+        query,
+        signal,
+      });
+    },
+    commandSourceRecordingGroups: (
+      gameId: string,
+      body: SourceRecordingCommandRequest,
+    ) =>
+      commandGeneratedSourceRecordingGroups({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    publishGridModelVersion: (
+      versionId: string,
+      body: GridModelPublishCommand,
+    ) =>
+      publishGeneratedGridModelVersion({
+        client,
+        path: { version_id: versionId },
+        body,
+      }),
+    activateGameGridModel: (gameId: string, body: GridModelAssignmentCommand) =>
+      activateGeneratedGameGridModel({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    rollbackGameGridModel: (gameId: string, body: GridModelAssignmentCommand) =>
+      rollbackGeneratedGameGridModel({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    getGridModelDefault: () => getGeneratedGridModelDefault({ client }),
+    setGridModelDefault: (body: GridModelAssignmentCommand) =>
+      setGeneratedGridModelDefault({ client, body }),
+    getGridModelHistory: () => getGeneratedGridModelHistory({ client }),
+    getGameGridModelHistory: (gameId: string) =>
+      getGeneratedGameGridModelHistory({ client, path: { game_id: gameId } }),
     listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
     // TASK-0933: published super game series of a game (D-535).
     listSuperGameSeries: (

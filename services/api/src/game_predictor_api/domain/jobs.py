@@ -28,6 +28,8 @@ class JobType(StrEnum):
     STORAGE_INVENTORY = "storage_inventory"
     STORAGE_PIPELINE_COMPACTION = "storage_pipeline_compaction"
     SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
+    GRID_TRAINING = "grid_training"
+    GRID_MODEL_EVALUATION = "grid_model_evaluation"
 
 
 class JobStatus(StrEnum):
@@ -42,6 +44,7 @@ class JobStatus(StrEnum):
 class JobExecutionSlot(IntEnum):
     GENERAL = 1
     IMAGE_SELECTION = 2
+    GRID_TRAINING = 3
 
 
 class JobError(ValueError):
@@ -116,11 +119,18 @@ def create_job(
         and job_type is JobType.VALIDATE
         and input_payload.get("validation_kind") == "page_geometry_preflight"
     )
-    supports_pending_grid_reinference_v2 = (
-        schema_version == 2
-        and job_type is JobType.IMAGE_GRID_REINFERENCE
-        and input_payload.get("inference_kind") == "pending_grid_only"
-    )
+    supports_pending_grid_reinference_v2 = job_type is JobType.IMAGE_GRID_REINFERENCE and (
+        schema_version,
+        input_payload.get("inference_kind"),
+    ) in {(2, "pending_grid_only"), (3, "grid-reinference-v1")}
+    supports_grid_training_v1 = job_type is JobType.GRID_TRAINING and (
+        schema_version,
+        input_payload.get("training_kind"),
+    ) in {(1, "grid-training-run-v1"), (1, "grid-shared-training-run-v1")}
+    supports_grid_model_evaluation_v1 = job_type is JobType.GRID_MODEL_EVALUATION and (
+        schema_version,
+        input_payload.get("evaluation_kind"),
+    ) == (1, "grid-model-evaluation-v1")
     supports_semi_automatic_selection_v2_v4 = (
         schema_version in {2, 3, 4} and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
     )
@@ -131,7 +141,14 @@ def create_job(
         and not supports_page_geometry_preflight_v2
         and not supports_pending_grid_reinference_v2
         and not supports_semi_automatic_selection_v2_v4
+        and not supports_grid_training_v1
     ):
+        raise JobError(
+            "UNSUPPORTED_JOB_PAYLOAD_VERSION",
+            "Job inputPayload must use a supported schema version.",
+            details={"schemaVersion": schema_version},
+        )
+    if job_type is JobType.GRID_MODEL_EVALUATION and not supports_grid_model_evaluation_v1:
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
             "Job inputPayload must use a supported schema version.",
@@ -205,6 +222,15 @@ def job_input_key(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def execution_slot_for(job_type: JobType) -> JobExecutionSlot:
+    """Image selection and GPU grid training run in their own lanes (D-558)."""
+    if job_type in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}:
+        return JobExecutionSlot.IMAGE_SELECTION
+    if job_type is JobType.GRID_TRAINING:
+        return JobExecutionSlot.GRID_TRAINING
+    return JobExecutionSlot.GENERAL
+
+
 def start_job(
     job: Job,
     *,
@@ -217,11 +243,7 @@ def start_job(
 ) -> Job:
     if job.status is not JobStatus.CREATED:
         _raise_invalid_transition(job, JobStatus.PROCESSING)
-    expected_slot = (
-        JobExecutionSlot.IMAGE_SELECTION
-        if job.job_type in {JobType.IMAGE_SELECTION, JobType.SEMI_AUTOMATIC_IMAGE_SELECTION}
-        else JobExecutionSlot.GENERAL
-    )
+    expected_slot = execution_slot_for(job.job_type)
     if execution_slot is not expected_slot:
         raise JobError(
             "INVALID_JOB_EXECUTION_SLOT",
@@ -648,6 +670,44 @@ def recover_expired_job(
             job,
             status=JobStatus.CREATED,
             updated_at=now,
+        )
+    )
+
+
+def quarantine_unstarted_grid_job(job: Job, *, checked_at: datetime) -> Job:
+    """Fail closed only a new grid job with caller-proven missing start authorization.
+
+    Recovery validates real expiry; this never pretends an expired lease is active.
+    The locked operation's START_REQUIRED proof belongs to the storage caller.
+    """
+    if (
+        job.job_type is not JobType.IMAGE_GRID_REINFERENCE
+        or job.input_payload.get("schema_version") != 3
+        or job.input_payload.get("inference_kind") != "grid-reinference-v1"
+    ):
+        raise JobConflictError(
+            "JOB_QUARANTINE_INVALID", "Only the selected grid contract can be quarantined."
+        )
+    if job.status is JobStatus.PROCESSING:
+        job = recover_expired_job(job, recovered_at=checked_at)
+    elif job.status is not JobStatus.CREATED:
+        raise JobConflictError(
+            "JOB_QUARANTINE_INVALID", "Only queued or expired work can be quarantined."
+        )
+    if job.status is JobStatus.CANCELLED:
+        return job
+    if job.cancel_requested_at is not None:
+        return _without_lease(
+            replace(job, status=JobStatus.CANCELLED, finished_at=checked_at, updated_at=checked_at)
+        )
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.FAILED,
+            error_code="GRID_REINFERENCE_START_REQUIRED",
+            error_message="Missing explicit start authorization; create a new frozen operation.",
+            updated_at=checked_at,
+            finished_at=checked_at,
         )
     )
 

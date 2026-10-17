@@ -1,929 +1,779 @@
 ---
-title: Doszkalanie siatek V3 z korekt w aplikacji
-status: proposed
-last_updated: 2026-10-14
-revision: 2
+title: Doszkalanie geometrii V3 - rewizja 6
+status: accepted
+last_updated: 2026-10-16
 ---
 
-# Doszkalanie siatek V3 z korekt w aplikacji
-
-## Cel i status
-
-Operator poprawia siatki w Reviewerze, przygotowuje dane, doszkala model,
-porównuje wynik, aktywuje wybraną wersję i ponownie rozpoznaje pozostałe
-siatki z poziomu wybranej gry. Nie musi używać skryptów laboratorium ani
-przenosić ręcznie plików. Edytor udostępnia cztery rogi oraz opcjonalną
-edycję wszystkich 24 punktów siatki 5 × 3.
-
-Plan jest propozycją, nie zgodą na implementację, trening, migrację bazy
-operatora, aktywację ani masową zmianę danych. Polecenie operatora obejmuje
-usunięcie starego bloku „Ulepszanie geometrii / Cięcie siatki” w ramach tego
-planu. Doprecyzowanie z 2026-10-14: sekcja jest dostępna w każdej grze,
-ale historyczna gra „777” (kod `7`) pozostaje archiwalna. Nie przełączamy
-jej na V3 i nie przetwarzamy ponownie jej zakończonych danych.
-
-Rewizja 2 uwzględnia raport
-`quality/V3_GRID_FINE_TUNING_PLAN_REVIEW_CLAUDE_20261014.md` (REVISE).
-Raport pierwszej wersji pozostaje bez zmian. Ścieżka tworzenia nowych gier
-oraz osobny odbiór zakresu ponownego rozpoznania są teraz pełnymi taskami.
-Operator wybrał wykonawcę Codex i audytora Claude Code. Wskazał też kierunek
-wspólnego modelu geometrii Mumii i 777, zamiast automatycznego zakładania
-oddzielnej rodziny dla każdej nowej gry. TASK-1006 sprawdza taki model przed
-publikacją; rozpoczęcie implementacji i koszt nadal wymagają akceptacji planu.
-
-## Stan obecny i potwierdzone miejsca zmiany
-
-| Obszar | Istniejący plik i symbol | Wniosek |
-| --- | --- | --- |
-| Stary panel | `apps/admin/src/features/model-quality/model-quality-workspace.tsx::ModelQualityWorkspace`, okolice 878–906; `grid-quality-panel.tsx::GridQualityPanel` | „Cięcie siatki” korzysta z klasycznej kalibracji, a nie z doszkalania sieci V3. |
-| Nawigacja gry | `apps/admin/src/features/catalog/catalog-workspace.tsx::CatalogWorkspace`; `admin-navigation-state.ts::GAME_SECTIONS` | Panel jakości i wejście do korekty są już osadzone w zakresie wybranej gry. Stała nawigacji jest w osobnym module. |
-| Nowa gra | API `domain/catalog.py::GameShapeGeometryConfiguration`, `schemas/catalog.py::GameCreate`, `application/catalog.py`; Admin `features/games/game-catalog.tsx`, `game-catalog-state.ts`, `game-catalog-actions.ts` | Zamknięty enum wybiera obecnie także profil. Formularz nie potrafi wybrać konkretnej opublikowanej wersji ani utworzyć własnej rodziny od wersji bazowej. |
-| Edytor planszy | `apps/reviewer/src/features/operational-reviews/deferred-board-cell-geometry-editor.tsx::BoardGeometryCorrectionEditor`, także `DeferredBoardCellGeometryEditor` | Dokładna siatka 24 punktów oraz cztery rogi już istnieją. Obecna akcja zamiany na szkic usuwa dokładne węzły i zaokrągla obrys; trzeba ją zastąpić. |
-| Stan geometrii | `board-lattice-state.ts::parseBoardLattice`, `boardLatticeCorners`; `board-lattice-draft-storage.ts::BoardLatticeDraft` w tym samym katalogu | Zachowane są dokładne punkty, walidacja 15 komórek i lokalny szkic. |
-| Eksport korekt | `scripts/vision_lab_geometry_export.py::_exact_lattice`, `_build_row`; `vision_lab/production_geometry.py::derive_consistent_lattice_nodes` | Eksporter potrafi odczytać zatwierdzone 24 punkty, lecz wybiera tylko zdjęcia `geometry_complete`. |
-| Model | `services/worker/src/game_predictor_worker/vision_lab/neural_grid_model.py`; `neural_grid_training.py::compute_losses`, `train_run` | Sieć ma etap wykrywania plansz na zdjęciu i etap 24 węzłów na cropie planszy. Obecne straty zakładają kompletną anotację wejścia. |
-| Trwały trening | `vision_lab/neural_grid_finetune.py::train_iteration`, `export_iteration`; `vision_lab/production_snapshot.py::build_snapshot`; `training_core/` | Istnieją checkpointy, niezmienne wejścia i eksport ONNX. Orkiestracja fine-tune jest specyficzna dla Mumii i wymaga adaptera produkcyjnego. |
-| Wybór wag | `services/api/src/game_predictor_api/domain/grid_engine_profiles.py`; `storage/grid_profile_snapshot_resolver.py::resolve_neural_grid_proposal`; `domain/neural_grid_proposal.py::NeuralGridSnapshot` | Profile 777 v2 i Mumii wskazują zamrożone pakiety. Nie ma jeszcze dynamicznego rejestru wersji V3 z aktywacją per gra. |
-| Bezpieczny zapis | `application/image_grid_reviews.py::ImageGridReviewService`; rewizje i zdarzenia geometrii w `storage/models.py`; `geometry_core/` | Korekta, rendering, ochrona sekwencji i historia mają już właścicieli. Nowy przebieg musi użyć tych samych reguł. |
-
-Ścieżki `vision_lab/`, `training_core/` i `geometry_core/` w tabeli są
-względem `services/worker/src/game_predictor_worker/`. Pozycje w dalszych
-sekcjach oznaczone „nowe” są proponowane, nie istnieją w chwili planowania.
-
-Źródła: D-522–D-527, D-541, D-544; wymagania `ADMIN_APP.md`,
-`SUPERVISED_MODEL_IMPROVEMENT.md`, `IMAGE_INGESTION.md`, `VISION_LAB.md`;
-architektura `SUPERVISED_MODEL_IMPROVEMENT.md`, `VISION_LAB.md`;
-`APP_V3_FUNCTIONAL_INVENTORY.md`, MODEL-06, MODEL-07, MODEL-09 i MODEL-10.
-TASK-0802 opisuje historyczny trening modelu bazowego; ten plan nie wznawia
-jego budżetu ani nie zmienia jego wyników. TASK-0991 jest osobną operacją
-rozpoznawania symboli; nie jest częścią tego zakresu.
-
-### Stan danych operatora i artefaktów bazowych
-
-Poniższe liczby pochodzą z odczytu bazy tylko do odczytu wykonanego przez
-audytora Claude 2026-10-14. Nie są gwarancją bieżącego stanu przy wdrożeniu;
-preview ma pobrać je ponownie w prawidłowym zakresie gry/RLS.
-
-| Gra | Plansze | Geometrie zatwierdzone ręcznie | Zdjęcia `geometry_complete` | Zdjęcia `geometry_incomplete` |
-| --- | --- | --- | --- | --- |
-|777a2|341 564|0|0|37 990 z 37 993|
-|Mumie|492 215|44|4|54 790|
-
-W 777a2 wszystkie plansze mają `completeness_status=complete`, natomiast
-odroczona kolejka ma 373 wiersze. Nie znamy jeszcze pełnego rozkładu pozycji
-`ok/uncertain/missing/partial/deferred/superseded`; liczniki te ma zbudować
-TASK-0999. Z `geometry_incomplete` nie wolno wyprowadzić liczby błędnych
-siatek ani zakresu recropu. Aktualna kohorta ręcznych korekt 777a2 jest pusta.
-
-Pierwszy run 777a2 po zgromadzeniu minimalnych korekt będzie **grid-only**,
-dopóki nie ma pełnych ręcznych anotacji zdjęć. Cztery kompletne zdjęcia Mumii
-nie dowodzą jeszcze minimalnego pokrycia ani niezależności nagrań.
-
-Bazowy checkpoint 777 v2 zweryfikowany w odczycie plików jest pod
-`C:/Users/tuszy/Documents/game_predictor_vision_data/neural-grid-runs/43933ac8d7d443c8b9079630a83de2e6/attempt-1/2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8.pt`:
-106 729 511 B, SHA-256
-`2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8`.
-Eksport `exports/2cd19738367121e6-round3/bundle.json` ma SHA
-`64d815d8af168f79fd53f0dcb9e80823c3006ebae3e08225fc9e25f178c27b7b`.
-Pakiet produkcyjny na D zawiera ONNX i manifest, lecz nie ten checkpoint.
-TASK-0994 kopiuje potrzebne checkpointy/manifesty na D z kontrolą hashów;
-nie kopiuje automatycznie całych około 7 GB runów i snapshotów. Analogicznie
-weryfikuje bazę Mumii. `VISION_LAB_DATA_ROOT` jest konfiguracją laboratorium,
-a nie źródłem ścieżek produkcyjnego trenera.
-
-## Docelowy przebieg operatora
-
-Nowa sekcja gry nazywa się **Doszkalanie siatek V3**. Pokazuje bieżący model,
-nowe korekty od poprzedniego snapshotu, kwalifikowane i wykluczone plansze,
-pochodzenie zdjęć, niezależne dane oceny, stan zadania i historię wersji.
-
-0. **Przygotuj przykłady** pokazuje brakujące liczby plansz, zdjęć i nagrań.
-   Minimalny pierwszy run opisano poniżej: 30 plansz TRAIN, 15 VALIDATION,
-   15 REGRESSION z niezależnych grup. Kontrolne pule bazowe mogą zmniejszyć
-   liczbę nowych korekt dopiero po potwierdzeniu zgodności i proweniencji.
-   Bez pełnych anotacji zdjęć uczymy tylko położenie węzłów, nie odzysk
-   niewykrytych plansz.
-1. **Popraw siatki** otwiera istniejący Reviewer z wybraną grą.
-2. **Przygotuj dane** pokazuje podgląd kwalifikacji i zamraża snapshot po
-   potwierdzeniu. Wyjaśnia braki, bez uruchamiania treningu przy wejściu.
-3. **Doszkol model** uruchamia jeden ograniczony run od przypiętej wersji.
-   Operator widzi postęp, limit czasu, błąd, anulowanie i wznowienie.
-4. **Porównaj wynik** pokazuje te same kontrolne zdjęcia dla wersji bieżącej
-   i kandydata, metryki i konkretne pogorszenia.
-5. **Aktywuj w tej grze** zmienia tylko jej przypisanie wersji. Odrębna
-   publikacja udostępnia ocenioną wersję zgodnym grom. Powrót do wcześniejszej
-   wersji jest osobną akcją z historią.
-6. **Rozpoznaj ponownie pozostałe siatki** pokazuje rozkład stanów pozycji,
-   zakres, możliwe zmiany cropów i pominięcia. Domyślne filtry to
-   `uncertain` i `deferred`, z ograniczoną pierwszą próbą do 100 zdjęć;
-   szeroki zakres oraz „wszystkie automatyczne” wymagają jawnego wyboru,
-   następnie uruchamia trwałe zadanie na oryginalnych zdjęciach. Wynik
-   raportuje poprawione automatycznie, nadal wymagające korekty, chronione
-   i zmienione w czasie przebiegu.
-
-W każdej grze widoczność sekcji wynika z nawigacji, a możliwość działania
-z kontraktu backendu, nie z nazwy gry. Obecne modele V3 obsługują 5 × 3.
-Dla innej topologii sekcja podaje brak zgodnego modelu i wyłącza działania;
-nie dopełnia planszy do 15 pól. Implementacja nowej sieci 3 × 3/16 węzłów
-nie jest częścią tego planu. Historyczna 777 pokazuje status archiwalny.
-
-Stary blok jest usunięty globalnie ze wspólnego komponentu. „Ulepsz
-rozpoznawanie” dla symboli, korekta siatek, diagnostyka i ich historia
-pozostają. Usunięcie UI nie usuwa klasycznych profili, tabel, endpointów ani
-artefaktów potrzebnych do odtworzenia zakończonych importów.
-Archiwalna 777 zachowuje w nowej sekcji jedynie odczyt nazwy aktywnego
-klasycznego profilu oraz historii przypisań. Nie pozostawiamy przycisków
-treningu, aktywacji, cofania lub ponownego przetwarzania klasycznej geometrii.
-
-### Nowa gra bez własnych korekt
-
-Formularz tworzenia gry wybiera format strony/topologię osobno od modelu.
-Katalog backendu pokazuje wyłącznie opublikowane kompatybilne wersje:
-rodzinę, wersję, pochodzenie, wyniki oceny, obsługiwaną topologię i kontrakt
-wejścia. Nowe pole `gridModelVersionId` zastępuje używanie enumu profilu
-do wyboru wag. Enum `shapeGeometryConfiguration` pozostaje opisem formatu
-strony oraz zgodnym odczytem danych historycznych; nowe wartości enumu
-nie powstają dla kolejnych modeli.
-
-Opcjonalna akcja **Utwórz własną rodzinę z tej wersji** tworzy rodzinę,
-jej wersję początkową oraz grę/przypisanie w jednej idempotentnej transakcji.
-Wersja początkowa wskazuje te same niezmienne pliki i parentVersionId,
-bez kopiowania wag lub etykiet gry bazowej. Gang może zacząć od modelu 777 v2,
-gdy kontrakt geometryczny jest zgodny. Domyślny kierunek to dołączenie do
-zgodnej rodziny, docelowo wspólnej rodziny geometrii z TASK-1006. Nowa rodzina
-jest opcją izolacji, nie obowiązkiem dla nowej nazwy gry. Operator widzi
-docelową pulę korekt przed zapisem. Nie zmienia to istniejących przypisań
-777a2 ani Mumii; przełączenie jest zawsze osobną aktywacją.
-
-Nowa rodzina dziedziczy wyłączenia źródeł kontrolnych i aliasów całej linii
-wersji bazowych. Fork nie pozwala wykorzystać w TRAIN holdoutu rodzica.
-Wyniki Reels 29/30 i Treasure 30/30 przy bazie 777 v2 opisują historyczną ocenę,
-nie stanowią dowodu zgodności każdej nowej gry ani zgody na użycie tych
-holdoutów jako danych treningowych lub wielokrotnej walidacji.
-Bez własnych korekt gra może importować z przypiętą bazą, ale przycisk
-doszkalania pokazuje `GRID_TRAINING_COVERAGE_INSUFFICIENT`.
-
-Migracja wypełnia jawne przypisania istniejących gier z dwóch dotychczasowych
-profili, z kontrolą wersji i hashów. Nie przełącza archiwalnej 777 na V3.
-Testy creation/update obejmują pełny pion API/OpenAPI/klient/formularz.
-
-### Wspólny model geometrii Mumii i 777
-
-Oba istniejące modele przewidują siatkę 5 × 3 i mają wspólne pochodzenie
-architektury; fine-tune Mumii korzystał również z danych 777. Różne ramki
-nie przesądzają o konieczności oddzielnych wag. Sprawdzamy możliwość jednego
-modelu geometrii, niezależnie od osobnych modeli symboli i zasad wypłat.
-
-TASK-1006 tworzy nową rodzinę wspólnej geometrii i jednego kandydata od
-zweryfikowanego bazowego checkpointu, a nie średnią wag dwóch modeli.
-Zgodność preprocessing/topologii obu pakietów jest warunkiem startu.
-Bazę777 i bazę Mumie porównuje się na zamrożonej VALIDATION obu gier,
-a wybór jednej bazy/presetu zostaje zapisany przed treningiem. Korekty TRAIN
-obu gier są próbkowane z równą wagą gry, potem równą wagą nagrania i planszy;
-duża kolekcja 777 nie może zagłuszyć Mumii. Samo powielenie etykiety nie
-zwiększa liczby przykładów ani pokrycia.
-
-Candidate wspólny musi przejść bramkę osobno dla 777 i Mumii względem ich
-bieżących modeli, na tych samych niezależnych danych każdej gry. Wymagana
-jest poprawa przynajmniej jednej miary walidacyjnej i brak regresji w każdej
-grze; średnia łączna nie maskuje pogorszenia jednej z nich. Gdy nie przejdzie,
-aplikacja zachowuje dwa dotychczasowe modele i przedstawia wynik próby,
-zamiast wymuszać połączenie. Nowe gry wybierają zgodną opublikowaną wersję;
-brak etykiet nowej gry oznacza „jakość niezmierzona dla tej gry”, nie PASS.
-
-Rodzina wspólna dziedziczy wszystkie wyłączenia i role kontrolne obu linii
-bazowych, także po aliasie między grami/rodzinami. Akceptacja planu wymaga
-zapisania decyzji rozszerzającej rozdział rodzin geometrii z D-527; modele
-symboli pozostają poza tym połączeniem. Historyczna777 pozostaje archiwalna.
-
-## Reguły edytora czterech rogów i 24 punktów
-
-- Domyślny tryb interakcji: **4 rogi**. Przełącznik **Dokładna korekta —
-  24 punkty** zmienia uchwyty, a nie zapisane współrzędne.
-- Wczytanie zapisanej lub proponowanej siatki zachowuje wszystkie 24 punkty
-  z pełną precyzją. Samo przełączenie trybu niczego nie przebudowuje.
-- Przeciągnięcie całej siatki przesuwa wszystkie punkty o ten sam wektor.
-  Zmiana rogu stosuje homografię między starym i nowym obrysem do wszystkich
-  24 punktów, zachowując wcześniejsze lokalne odchylenia. Aktualizacja tylko
-  czterech węzłów przy nieruchomych pozostałych jest niedopuszczalna.
-- **Wyznacz od nowa z 4 rogów** pozwala wskazać kolejno TL, TR, BR, BL
-  zewnętrznych granic symboli i generuje regularną siatkę projekcyjną.
-  Jest świadomym resetem lokalnego kształtu z możliwością cofnięcia w szkicu.
-  Nie należy wskazywać zewnętrznej czerwonej ramki maszyny.
-- W trybie dokładnym można przesuwać każdy punkt niezależnie. Powrót do
-  4 rogów zachowuje te poprawki. Przywrócenie sugestii pozostaje osobną akcją.
-- Każdy ruch waliduje obrys i wszystkie komórki: brak przecięcia,
-  odwrócenia, degeneracji i liczb niefinitywnych. Niepoprawny ruch nie
-  zastępuje ostatniej poprawnej geometrii ani nie umożliwia zapisu.
-- Zapis dla V3 zawsze przekazuje dokładne 24 punkty wraz z istniejącymi
-  tokenami rewizji, kwalifikacją, bindingiem propozycji i checksumami.
-  Podgląd 15 cropów musi odpowiadać dokładnie bieżącej geometrii.
-- Szkic utrwala tryb i dokładną geometrię. Stare szkice mają domyślny tryb
-  4 rogów, lecz nie tracą węzłów. Zmiana źródła/rewizji unieważnia szkic
-  zgodnie z istniejącym bindingiem. Dotyk, zoom i przeciąganie zachowują
-  obecny workflow kwalifikacji planszy częściowej.
-
-## Dane uczące i niezależna ocena
-
-Źródłem etykiety jest aktualna zatwierdzona przez człowieka geometria
-konkretnej planszy, związana z grą, zdjęciem, sekwencją, rewizją i renderem.
-Predykcje, stara rewizja po cofnięciu korekty i samo kliknięcie „Zła siatka”
-nie są etykietami. Kohorta jest kumulatywna; „nowe korekty” to informacja
-o różnicy względem poprzedniej kohorty, nie nakaz trenowania tylko na różnicy.
-
-### Korekta jednej planszy na niekompletnym zdjęciu
-
-Nowy adapter kwalifikuje pojedyncze pełne, zatwierdzone plansze niezależnie
-od stanu pozostałych slotów zdjęcia. Nie zmienia bramki operacyjnej zdjęcia.
-Snapshot rozdziela dwa rodzaje nadzoru:
-
-| Rodzaj próbki | Etap treningu | Ochrona przed fałszywą etykietą |
-| --- | --- | --- |
-| Pełna zatwierdzona plansza, inne sloty nieznane | Etap węzłów na cropie tej planszy | Pozostałe plansze nie są przykładami braku detekcji. Straty i stan etapu ekranu są zamrożone, także BatchNorm. |
-| Zdjęcie z zatwierdzonym kompletnym zestawem oczekiwanych plansz | Etap ekranu oraz etap węzłów | Liczba i pozycje muszą być jednoznacznie powiązane z sekwencją; żaden slot nie jest dorabiany. |
-| Plansza częściowa, odrzucona lub bez aktualnego approval | Wykluczona z pierwszej wersji treningu | UI pokazuje konkretny powód; ekstrapolowane niewidoczne węzły nie są pełnymi targetami. |
-
-Przy braku kompletnej anotacji zdjęć można doszkolić sam etap węzłów. Panel
-wyraźnie informuje, że taki run nie uczy odzyskiwania niewykrytych plansz.
-Odzysk brakujących plansz wymaga próbek pełnych zdjęć i treningu etapu
-ekranu. Nie wymuszamy ręcznej korekty całej kolekcji, żeby poprawić przesunięcia.
-
-### Tożsamość, podział i zamrożenie
-
-Proponowany minimalny próg dopuszczenia pierwszego runu, wymagający
-zatwierdzenia przy akceptacji planu:
-
-| Rola | Pełne ręcznie zatwierdzone plansze | Różne zdjęcia | Niezależne nagrania |
-| --- | --- | --- | --- |
-|TRAIN|30|10|co najmniej 1|
-|VALIDATION|15|5|co najmniej 1, rozłączne z TRAIN|
-|REGRESSION|15|5|co najmniej 1, rozłączne z TRAIN i VALIDATION|
-
-W obu rolach kontrolnych wymagamy również pięciu w pełni anotowanych
-zdjęć, aby mierzyć kompletność D-483, także przy treningu grid-only. Limit
-15 plansz jest dolną granicą; dla zdjęć z 9 planszami daje to faktycznie
-45 plansz VALIDATION i 45 REGRESSION. Z 30 planszami TRAIN operator przygotowuje
-co najmniej 120 plansz na 20 zdjęciach z trzech niezależnych nagrań, jeżeli
-wszystkie pule buduje od początku. To próg technicznego pilota,
-nie statystyczna gwarancja poprawy kolekcji. Gdy kompatybilne kontrolne
-pule już istnieją i mają dowód niezależności, operator poprawia przynajmniej
-30 plansz TRAIN z 10 zdjęć, a wymagania obu ról kontrolnych nie maleją.
-Nie wolno przenosić chronionych zestawów final_test/unseen_game do walidacji.
-
-Preview zwraca `required/eligible/missing` dla plansz, zdjęć i nagrań każdej
-roli oraz przyczyny wykluczeń. TRAIN bez VALIDATION/REGRESSION nie uruchamia
-runu. Dla treningu etapu ekranu dodatkowe minimum to 10 kompletnych zdjęć
-TRAIN i 5 kompletnych zdjęć dla każdej roli kontrolnej, z etykietą każdego
-oczekiwanego slotu. Brak tego pokrycia nie blokuje prawidłowego grid-only,
-lecz wyłącza etap ekranu i pełną metrykę detekcji dla nowych źródeł.
-
-- Deduplikacja: SHA pliku oraz SHA zorientowanych pikseli, identyfikator
-  źródła i grupa nagrania. Aliasy w różnych grach tej samej rodziny należą
-  do tej samej partycji. Obecne rodziny pozostają oddzielne do zatwierdzenia
-  wspólnego kandydata TASK-1006; jego wyłączenia obejmują obie linie bazowe.
-- Nowe pojęcie **nagranie źródłowe** ma trwały identyfikator w bazie.
-  Operator przypisuje istniejące importy/zdjęcia do nagrania w panelu.
-  Nazwa katalogu jest propozycją powiązania, nie dowodem niezależnego filmu.
-  Nieznane grupy nie kwalifikują się jako niezależna ocena.
-- Podział całymi nagraniami na TRAIN, VALIDATION i REGRESSION jest trwały
-  dla rodziny. Źródło i alias raz kontrolne nie przechodzą później do TRAIN.
-  Nowe korekty kontrolnego źródła aktualizują przyszłą ocenę, a nie trening.
-- Niezależna kontrola nie może pochodzić z nagrania użytego w TRAIN
-  którejkolwiek wersji bazowej, także gdy nowy run nie czyta już jej dawnych
-  targetów. Rejestracja bazy zachowuje manifesty ról i inventory źródeł
-  z całej linii checkpointów. Preview wyklucza `seen_by_base_training`;
-  brak udowodnionej tożsamości nagrania daje brak niezależności, nie PASS.
-  Dawny foto-disjoint holdout Mumii nie staje się przez samą nazwę
-  niezależnym filmem w nowej policy.
-- Pierwszy rozdział wybiera deterministycznie TRAIN/VALIDATION według
-  zamrożonego seedu, z docelowym udziałem 80/20 całych grup. REGRESSION jest
-  osobną, jawnie przypiętą pulą kontrolną modelu bazowego albo nową grupą
-  operatora. Każda rola musi zawierać dane; brak niezależnych grup daje
-  `GRID_TRAINING_COVERAGE_INSUFFICIENT` przed runem. Nie dzielimy sąsiednich
-  klatek tego samego filmu między uczenie i kontrolę.
-- Można użyć istniejącej kompatybilnej puli kontrolnej rodziny po sprawdzeniu
-  jej pochodzenia, praw i wyłączeń. Nie używamy automatycznie historycznego
-  GOLD/test ani nie odblokowujemy holdoutów Reels/Treasure D-456.
-- Kohorta zamraża źródła, targety, role, dostępność anotacji ekranu, 24 punkty,
-  revisions, approval events, preprocessing, model bazowy i policy version.
-  Zatwierdzenia są weryfikowane przed publikacją snapshotu. Dane po freeze
-  nie są odczytywane jako nowsze etykiety tego samego runu.
-- Snapshot przechowuje pliki na dysku z checksumami i atomowym publish.
-  Obejmuje niezmienne kopie używanych obrazów, adresowane treścią i sprawdzone
-  po skopiowaniu; nie zależy od późniejszej dostępności aktywnej tabeli źródeł.
-  Baza zawiera metadane, ścieżki i hashe. Utrata odpowiedzi zwraca tę samą
-  kohortę/run po powtórzeniu operationId, a nie kolejną kopię.
-- Cofnięcie/usunięcie etykiety po freeze nie zmienia historycznego snapshotu;
-  zaznacza jego dowód jako wycofany. Taki kandydat wymaga nowej kwalifikacji
-  przed aktywacją, zamiast wykorzystać zakwestionowaną etykietę po cichu.
-
-Nowy feedback policy dopuszcza ręczne korekty G do TRAIN, jeśli mają rolę
-TRAIN. Jest to proponowane rozszerzenie ograniczenia D-480 dla historycznego
-snapshotu. Przy akceptacji planu trzeba zapisać nową decyzję; historyczne
-snapshoty i role G nie zostają przeklasyfikowane.
-
-## Rejestr modeli, zadania i kontrakt API
-
-### Właściciele i schemat
-
-Backend utrzymuje jeden rejestr modeli siatek: rodzina, niezmienna wersja
-i przypisanie wersji do gry. Adaptujemy istniejący resolver profili i format
-pakietu `GridEngineModelVersion`; nie umieszczamy wag w klasycznych tabelach
-`GridCalibrationProfileModel` ani w rejestrze klasyfikatorów symboli.
-
-Proponowane nowe encje, nazwy do utrzymania w taskach implementacyjnych:
-
-- `grid_model_families`, `grid_model_versions`, `game_grid_model_assignments`
-  i append-only `game_grid_model_activation_events` w rejestrze wspólnym;
-- `source_recording_groups` i powiązania źródeł z grupą, z pochodzeniem
-  deklaracji operatora i ochroną aliasów;
-- `grid_training_cohorts`, `grid_training_samples` i trwałe przypisania ról
-  grup do rodziny; jednoznaczny klucz próbki obejmuje approval/revision;
-- `grid_training_runs` oraz `grid_reinference_operations`, powiązane z
-  istniejącymi `jobs`; wyniki i cel przebiegu mają stabilne klucze idempotencji.
-
-Rodzina nie jest nazwą gry. Wersja ma `kind=neural_grid`, topologię, wejście,
-preprocessing, wersję decode/gate, bazowy model, snapshot i podział danych,
-metryki, pochodzenie, ścieżki/hashe checkpointów i ONNX. Gra zachowuje profil
-zgodności; efektywna wersja jest jej jawnie wybranym przypisaniem. Historyczny
-profil daje domyślną wersję tylko przy braku nowego przypisania. Błąd
-przypisanego pakietu nie uruchamia cichego fallbacku.
-
-Doszkalanie wymaga również checkpointu PyTorch, z którego wyeksportowano
-przypięte wagi ONNX, oraz zgodnego opisu architektury. Podczas rejestracji
-bazowych pakietów należy odnaleźć i zweryfikować ten checkpoint na podstawie
-manifestu eksportu/runu. Sam plik ONNX nie jest wejściem trenera. Brak dowodu
-lub checkpointu daje `GRID_BASE_CHECKPOINT_UNAVAILABLE`; nie wybieramy
-innego runu o podobnej nazwie ani nie uruchamiamy treningu od zera.
-
-Migracje Alembic są addytywne. Rejestracja bazowych wersji 777/Mumie sprawdza
-niezmienione hashe istniejących pakietów i nie zmienia decyzji operatora.
-Numerów migracji nie rezerwujemy na podstawie tego planu; ostatni plik w
-chwili odczytu to `0154`. Przed implementacją sprawdzić aktualne heads.
-
-### Proponowany pion HTTP
-
-Przestrzeń `/admin/games/{gameId}/grid-models` jest właścicielem operacji.
-Wszystkie nazwy poniżej są propozycją nowego API, nie istniejącymi trasami.
-
-| Operacja | Kontrakt |
-| --- | --- |
-| GET overview, versions, capabilities | Lekki odczyt metadanych i rzeczywistego aktywnego pakietu, bez budowania kohorty, dekodowania obrazów i GPU. |
-| POST cohort-preview, cohorts | Podgląd kwalifikacji; freeze z operationId i tokenem aktualności. Zmiana danych daje 409 i nowy preview. |
-| POST runs; GET runs/{id}; POST resume/cancel | Snapshot, baseVersionId i budżet niezmienne; idempotencja, checkpoint i konkretne statusy. |
-| GET versions/{id}/comparison | Metryki i zdjęcia kontrolne z tego samego manifestu dla obu modeli, z błędami per przypadek. |
-| POST activate, rollback, publish | Oddzielne jawne operacje; expectedAssignmentRevision, operationId, zgodność i zaliczona bramka. |
-| POST reinference-preview, reinference-operations; GET operation/{id} | Zamrożony zakres, wersja, rewizje i checksumy; rozpoczęcie i wznowienie osobno od treningu/aktywacji. |
-| GET/POST recording-groups i bindings | Odczyt/propozycje oraz świadome deklaracje nagrań i aliasów, bez zmiany nazw/plików/sekwencji. |
-
-Katalog przed utworzeniem gry używa nowego globalnego
-`GET /admin/grid-models/catalog` z filtrem topologii/kontraktu. Istniejący
-`POST /admin/games` przyjmuje nowe pole wersji i tryb join/fork; nie wymaga
-gameId przed utworzeniem gry. Registry obsługuje rodzinę/wersję w jednym
-use case, a tworzenie gry i jej przypisania jest jedną transakcją.
-
-Nowe żądanie tworzenia z przypisaniem modelu ma operationId/checksum;
-formularz przechowuje klucz do rozstrzygnięcia utraconej odpowiedzi.
-Powtórzenie zwraca zapisany wynik tej samej gry, a inne polecenie z tym
-samym kluczem daje konflikt. Dotychczasowy create bez nowego przypisania
-zachowuje kontrakt legacy. Warstwa zgodności mapuje stare wartości enumu
-profilu na format strony; nowe wagi wybiera wyłącznie jawne przypisanie.
-
-Read-only overview archiwalnej 777 obejmuje klasyczny profil i historię
-istniejących aktywacji bez podłączania dawnego panelu działań.
-
-Backend/OpenAPI definiują odpowiedzi, frontend używa wygenerowanego klienta
-i wrappera. Preview/start/status muszą działać po utracie odpowiedzi oraz
-odświeżeniu strony. Każdy kontrakt zmieniający API ma test żądania w tym samym
-tasku. Lokalne joby wymagają tego samego zakresu gry i autoryzacji co obecny Admin.
-
-### Trening i ocena
-
-Model bazowy jest aktualną wersją gry przypiętą przy tworzeniu runu.
-Wyjątkiem jest jawny run wspólny TASK-1006: targetFamilyId, lista
-sourceGameIds i dwie wersje porównawcze są zamrożone przed treningiem,
-a jedna baza zostaje wybrana zgodnie z jego protokołem walidacji.
-Zgodne gry mogą dostarczyć korekty do tego kandydata przed przełączeniem
-swoich aktywnych przypisań. Snapshot zachowuje ich gameId oraz proweniencję.
-API sprawdza uprawnienia do każdej gry; eksporter odczytuje ją w oddzielnej
-krótkiej transakcji związanej z jej game storage scope/RLS. Nie używa
-wyłączenia RLS ani globalnego zapytania obchodzącego zakres gry.
-Adapter produkcyjny korzysta z wydzielonych neutralnych funkcji istniejącego
-trenera oraz `training_core`; laboratorium pozostaje konsumentem tych samych
-funkcji. Kod produkcyjny nie importuje jego store anotacji, CLI Mumii ani
-specyficznego ledgera presetów D/E/F.
-
-Nie utrzymujemy arbitralnego presetu 20 epok/5000 kroków/30 min. TASK-1005
-przygotowuje preset na podstawie raportów iteracji Mumii i aktualnej kohorty.
-W iteracji03 raport podaje próby 443/666/728 kroków (1837 łącznie), wybór
-pierwszej próby i 900,328 s treningu na 16 zdjęciach TRAIN/4 holdout.
-To historyczna obserwacja, nie uniwersalny limit dla innych gier.
-TASK-1005 wylicza kroki z liczby unikalnych targetów, batch size i wymaganych
-przejść danych; limit czasu uwzględnia zmierzony koszt kroku w ograniczonym
-smoke. Raport zawiera wcześniejszy koszt/best-step oraz uzasadnienie nowego
-max_steps/max_epochs/max_seconds i early stopping. Brak zatwierdzonego
-presetu blokuje start runu. UI pokazuje liczby i koszt przed potwierdzeniem.
-Domyślnie jeden run; budżet obejmuje wszystkie wznowienia. Zwiększenie limitu
-jest jawną operacją operatora, nie retry. Dawne D-481 nie daje nowego budżetu.
-Parametry jakości i tolerancje decode dziedziczymy z przypiętego pakietu
-bazowego i zamrażamy przed treningiem. Zmiana tworzy nowy policy/preset.
-
-Pierwsza wersja wyklucza równoległe joby treningu siatek w aplikacji przez
-ich wspólną trwałą dzierżawę. Nie obiecuje blokady wszystkich programów GPU.
-Aktualny `symbols/training_job.py` pracuje na CPU; jego algorytmu nie zmieniamy.
-Operator rezerwuje okno GPU bez równoległych treningów laboratoryjnych
-lub innych programów CUDA. Kontrola gotowości sprawdza aktywne runy aplikacji
-i zgłasza rozpoznaną obcą pracę GPU. Nie kończy jej procesu. Wspólna dzierżawa
-obejmująca przyszłe CUDA treningi symboli pozostaje poza tą wersją.
-GPU nie pracuje w procesie API. Job używa istniejącego runtime workera;
-postęp nigdy nie maleje. Checkpoint zawiera model, optimizer, sampler/RNG,
-epoch/step, wykorzystany budżet i pełny fingerprint. Anulowanie jest
-kontrolowane, z ostatnim poprawnym checkpointem. Brak GPU albo niezgodny
-runtime jest widocznym stanem `blocked`, bez cichego wielogodzinnego CPU runu.
-
-Lifecycle: `queued → snapshot_building → training → evaluating → exporting
-→ candidate_ready`, z `failed`, `cancelled`, `blocked` i kontrolowanym resume.
-Samo `trained` nie oznacza działającego kandydata. Eksport dwóch etapów ONNX
-i zgodność CPU PyTorch–ONNX muszą być potwierdzone przed `candidate_ready`.
-
-Bramka porównuje bazę i kandydata na identycznych danych VALIDATION oraz
-stałej REGRESSION. Najpierw mierzy odsetek zdjęć z kompletem poprawnych
-plansz (D-483), następnie image-macro z kosztem braku 1, odzysk plansz,
-NME p95 i poprawność komórek. Pełne metryki zdjęcia liczy wyłącznie na
-kompletnych ręcznych anotacjach zdjęć. Test pojedynczej planszy nie dowodzi
-kompletności pozostałych plansz.
-
-Proponowana bramka: brak pogorszenia każdej powyższej miary na niezależnych
-grupach oraz istniejącym kompatybilnym zestawie regresji; co najmniej jedna
-miara VALIDATION musi poprawić się ściśle. Tolerancje geometryczne i parity
-pochodzą z niezmiennego protokołu bazowego. Brak porównywalnej miary oznacza
-brak dowodu, nie zero błędów. Checkpoint wybierany jest wyłącznie na VALIDATION;
-REGRESSION nie służy do strojenia ani do wyboru checkpointu. Niezaliczony
-kandydat zostaje zapisany z raportem, lecz nie można go aktywować/publikować.
-
-Publikacja dodaje wersję do katalogu zgodnych modeli. Nie aktywuje jej
-w pozostałych grach rodziny. Wybór wersji dla nowej gry korzysta z tego
-samego rejestru, nie dodaje stałej opcji dla każdej iteracji.
-
-## Ponowne rozpoznanie pozostałych siatek
-
-Preview liczy aktualne stany każdej pozycji według istniejącej funkcji
-`domain/image_geometry_completeness.py::classify_position`, bez zmiany D-484:
-`ok`, `uncertain`, `partial`, `missing`, `deferred`, `superseded`.
-`uncertain` to również pełna automatyczna siatka bez human/engine acceptance;
-nie oznacza dowiedzionego błędu. Pełne cropy V3 i stan kompletności zdjęcia
-to odrębne pojęcia. UI pokazuje liczby pozycji, zdjęć i komórek dla każdej
-kategorii, powody odroczeń oraz liczbę zgłoszeń „Zła siatka”.
-
-Domyślny filtr obejmuje tylko pozycje `uncertain` i `deferred`, nigdy całe
-zdjęcie ze wszystkimi jego planszami na podstawie `geometry_incomplete`.
-Pierwsza próba wybiera stabilnie do 100 zdjęć i wyłącznie wybrane sloty.
-Może się okazać, że prawie wszystkie plansze 777a2 są `uncertain`; wtedy
-preview pokazuje pełną skalę, a limit pierwszej próby zapobiega przypadkowemu
-recropowi 341 tys. plansz. Ograniczenie do 100 jest proponowaną ochroną
-pierwszego odbioru, nie limitem wielkości całej gry.
-
-Poszerzenie do całego przefiltrowanego zakresu oraz tryb **Wszystkie
-automatyczne** wymagają osobnego świadomego wyboru i aktualnego preview.
-Tryb wszystkich może obejmować także automatyczne `ok`, ale nie chronione
-ręczne geometrie ani odrzucone/superseded/kanoniczne pozycje.
-`missing` i `partial` mają osobne jawne filtry; nie są po cichu włączane
-przez stan zdjęcia. Liczby przewidywanej inferencji, wybranych plansz,
-15-komórkowych recropów i potencjalnie unieważnionych approvals są osobne.
-Zdjęcie trafia do inferencji raz; zapis dotyczy tylko slotów frozen planu.
-
-Przed preview/start/resume należy sprawdzić aktywne zadania symboli,
-importu i inne przebiegi geometrii w tym samym zakresie. Aktywny runner
-typu użytego w TASK-0991 lub inna operacja dotycząca tych zdjęć blokuje start,
-aż operator potwierdzi ukończenie albo osobno zatrzyma operację. Nie
-przejmujemy ani nie kończymy jej procesu. Start jobów aplikacji stosuje
-wspólny guard w `application/jobs.py` dla kolidujących operacji gry;
-ta wąska zmiana admission jest w zakresie TASK-0999. Ukończony TASK-0991
-sam w sobie nie blokuje operacji; zawsze liczy się świeży status jobów.
-Algorytmy rozpoznawania
-symboli pozostają bez zmian. CAS każdego zapisu chroni także przed nową
-zewnętrzną zmianą, której nie obejmuje guard aplikacji.
-
-Jednostką inferencji jest zdjęcie źródłowe; wynik przypisujemy do istniejących
-slotów przez jednoznaczne bindingi i `sequence_number`. Brak bindingu nie
-przesuwa numerów sąsiadów, nie tworzy nowego kanonu i pozostaje do korekty.
-Ręcznie poprawione sąsiednie plansze pozostają chronione; nie blokują
-rozpoznania innych slotów tego zdjęcia. Konflikt rewizji planszy pomija
-ten cel, natomiast zmiana źródła unieważnia wszystkie cele z tego zdjęcia.
-
-Przed startem freeze zapisuje model/decode/policy, source SHA, zakres zdjęć
-i slotów, expected source/board geometry revisions, human approval,
-rejection i ownership revisions. Worker strumieniuje manifest po stabilnym
-kluczu; nie ładuje całej kolekcji do pamięci i nie używa offset pagination.
-Jedna inferencja zdjęcia, a zapis w krótkiej transakcji tego zdjęcia z
-istniejącą globalną kolejnością blokad D-543. Artefakty są publikowane
-przed wskazaniem ich w bazie. Ponowienie wykorzystuje receipt tej samej
-wersji i tego samego stanu źródła.
-
-| Stan celu przy zapisie | Zachowanie |
-| --- | --- |
-| Nadal automatyczny, rewizje zgodne, pełne węzły i pewny binding | Nowa automatyczna rewizja V3, dokładne 24 punkty i cropy przez obecny renderer. Nie tworzy human approval ani etykiet treningowych. |
-| Ręczna geometria, nowy approval lub szkic aktywnie chroniony przez istniejący kontrakt | Pominięcie `human_geometry_protected`; nie nadpisujemy korekty. |
-| Zmieniona rewizja/źródło, nowa decyzja symbolu albo odrzucenie | Pominięcie `state_changed`; raport pozwala przygotować nowy preview. Nie retry ze starą rewizją. |
-| Niepełne węzły, ucięta plansza, konflikt sekwencji/bindingu | Zapis propozycji/odroczenia i powód, bez zmiany właściciela sekwencji ani cropów wymagających pewnego bindingu. |
-| Odrzucona, superseded, canonical/accepted chroniona pozycja | Pominięcie z powodem; nie ponawiamy przyjęcia ani przejęcia sekwencji. |
-
-Decyzje człowieka dla symboli nie są nadpisywane inferencją. Recrop stosuje
-D-462: identyczne piksele/tożsamość zachowują approval; zmieniony crop zachowuje
-wybrany symbol i historię, ale wymaga ponownego zatwierdzenia tych pikseli.
-Preview uprzedza o liczbie pól, których crop może zmienić się. Automatyczne
-podpowiedzi dla nowych cropów używają przypiętej bieżącej wersji modelu
-symboli, bez jego doszkalania lub aktywacji w tym przebiegu.
-
-Zmiana przypisania modelu w trakcie joba nie zmienia zamrożonych wag.
-Rollback modelu wpływa na przyszłe zadania/importy; nie odwraca automatycznie
-recropów zakończonego przebiegu. Ich rewizje i historia pozostają dostępne.
-
-Na skali z ekranów operatora (około 38 tys. zdjęć) manifest, wyniki i postęp
-są strumieniowane; jedna krótka transakcja odczytu/zapisu, bez transakcji
-na całą grę. Roboczy limit to jedno zdjęcie w części wykonawczej i bounded
-prefetch do 8 zdjęć. Indeksy scope/status/cursor weryfikuje plan zapytań.
-ETA jest wyliczane po pierwszych rzeczywistych zdjęciach, nie obiecywane
-z góry. Rezerwa dysku 5 GiB D-530/D-534 obowiązuje również przy snapshotach,
-checkpointach, eksporcie i recropie. Brak miejsca daje trwałe wznowienie.
-
-## Zadania i kolejność wykonania
-
-Wszystkie taski mają status `todo`. Istniejące numery 0993–1001 pozostają
-zgodne z raportem audytu; dodane taski 1002–1006 nie zmieniają ich znaczenia.
-Przed utworzeniem aktywnych plików sprawdzić ponownie kolizje numerów.
-Kolejność zależności poniżej jest ważniejsza od rosnących numerów.
-
-Wspólne Relevant docs: AGENTS.md, README.md, CURRENT_STATE.md, DECISION_LOG.md,
-ten plan, TASK_TEMPLATE.md i DEFINITION_OF_DONE.md. Każdy task otrzymuje
-przed startem osobny plik w ai_docs/tasks/. Poniższe nowe moduły i symbole
-są propozycjami. Ścieżki API/worker/Admin są względem ich katalogów src.
-Wspólne kryterium: pełny pion OpenAPI/generowany klient przy zmianie API,
-testy, wymagany audyt Claude, Outcome, osobny commit i aktualizacja stanu.
-Testy w taskach są planowane, nie zaliczone.
-
-
-### Etap A — korekta, rejestr i dane
-
-
-### TASK-0993 — Edytor czterech rogów i dokładnych 24 punktów
+# Doszkalanie geometrii V3 — zaakceptowana rewizja 6
+
+## 1. Status i zmiany po audycie
+
+Plan obejmuje geometrię Mumii, 777a2 i przyszłych gier V3: czytelne liczniki, edytor 4/24 punktów, uczenie na zatwierdzonych korektach, wspólny model geometrii oraz kontrolowane ponowne rozpoznanie. Modele symboli pozostają osobne dla każdej gry.
+
+**Status: accepted; implementation authorized.** Operator 2026-10-14 zaakceptował rewizję 6 i zlecił realizację całego planu, wraz z kosztem orientacyjnym 12–28 dni roboczych. Zgoda obejmuje wykonanie i audyty według tabeli, nie automatyczne scalenie, push, migracje operatora, trening ani masowe operacje danych. TASK-1015 utrwalił pięć propozycji D-548–D-552; D-549/D-550/D-552 przyjęto przed zależnymi taskami na podstawie zaakceptowanej instrukcji operatora. D-551 przyjęto przed TASK-0999; D-548 przyjęto2026-10-16 przed TASK-0995 z jawnego zlecenia całej rewizji6, bez domniemania wyników jakości lub zgód operacyjnych.
+
+Uwzględnione uwagi rundy 3:
+
+| Uwaga                                       | Rozstrzygnięcie                                                                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1-7: brak trwałego startu i wznowienia     | Nowy TASK-1015: worktree, aktualny plan, 23 pliki tasków, decyzje, instrukcja wznowienia i commit dokumentacyjny.                                                                                       |
+| P1-8: zbyt skrótowe taski                   | Każdy task ma poniżej zakres, zależności, miejsca zmian, kryteria, testy i sposób weryfikacji.                                                                                                          |
+| P2-11: ponowne rozpoznanie czeka na trening | Przebieg aktualną przypisaną bazą jest dozwolony. TASK-0999 nie zależy od zakończenia treningu. Nowy kandydat wymaga osobno zaliczonej bramki.                                                          |
+| P2-12: zmiana D-480                         | Osobna proponowana decyzja dla doszkalania z korekt: ręcznie zatwierdzone geometrie mogą tworzyć TRAIN; automatyczna akceptacja nie jest etykietą. Historyczne eksperymenty zachowują pierwotne zasady. |
+| P2-13: liczba brakujących plansz Mumii      | Aktualna liczba pozostaje nieustalona do pomiaru po unikalnych sekwencjach. Ani obserwowane około 8000, ani oszacowanie około 2000 nie zastępują tego pomiaru.                                          |
+| P2-14: baza i wersjonowanie                 | Operator wybrał `main`, następnie jawnie doprecyzował bazę do v1.7.360 / `171e23799ebdbee4ed4590a53376bf870c6741c2`.                                                                                    |
+| P2-15: dostępność audytora                  | Dostępność `claude-fable-5-1` potwierdzono raportem Claude rundy 3.                                                                                                                                     |
+
+W trakcie planowania powstał zewnętrzny commit v1.7.360. Zawiera starszy plan, raporty i powiązane wpisy dokumentacyjne. Dlatego TASK-1015 **aktualizuje istniejącą dokumentację w nowym worktree**; nie przenosi już niezacommitowanych dokumentów z głównego checkoutu.
+
+Historyczny przegląd planowania obejmował odczyty dokumentacji, kodu i historii Git bez zmian plików lub danych. TASK-1015 utrwalił dokumentację w niezależnym worktree. Opisy kontroli poniżej określają wymagania wykonania; faktyczne wyniki, ograniczenia i raporty audytu zapisuje Outcome każdego taska oraz CURRENT_STATE. Sam opis planu nie jest dowodem zaliczenia testu.
+
+Dla Claude Code: kolejny audyt może skupić się na zmianach procesowych, pełnych opisach tasków, zależnościach ponownego rozpoznania oraz zgodności z decyzją o bazie. Poprzednie raporty pozostają dowodami dotyczącymi swoich rewizji, bez przepisywania ich werdyktów.
+
+## 2. Wiążące zachowanie produktu
+
+### 2.1. Zakres i ochrona istniejących danych
+
+- Mumie i 777a2 otrzymują te same możliwości aplikacji, lecz przyczyny błędów i jakość modelu mierzymy osobno.
+- Współdzielimy wyłącznie geometrię. Katalogi, etykiety, kohorty, klasyfikatory i aktywacje symboli pozostają per gra.
+- Historyczna 777, kod `7`, pozostaje archiwalna. Ten plan nie migruje jej do V3 ani nie przetwarza jej danych.
+- Usuwamy zatwierdzone pozostałości klasycznego silnika z ekranów V3 i tworzenia nowych gier. Historyczne kontrakty i raporty potrzebne starej 777 pozostają obsługiwane.
+- Nowa gra otrzymuje przypiętą opublikowaną wersję domyślną, jeżeli jest dostępna i zgodna. Bez zatwierdzonego default zwykły formularz może utworzyć draft bez assignment; import pozostaje zablokowany do zgodnego przypisania. Zaawansowany wybór jawnej opublikowanej wersji umożliwia utworzenie przypisanej gry.
+- Zwykły formularz nie zawiera wyboru modelu ani `shapeGeometryConfiguration`. Backend zapisuje proponowany neutralny format `GameShapeGeometryConfiguration.NEURAL_GRID_V3 = "neural_grid_v3"`, niezależny od rodziny i przypiętej wersji. Ustawienia zaawansowane umożliwiają zgodny wybór/fork, bez zmiany formatu. Tworzenie gry i dostępnego assignment/forka jest atomowe.
+- Nowe klasyczne gry są zablokowane; historyczny odczyt/aktualizacja, wszystkie dotychczasowe wartości formatu i istniejące gry pozostają zachowane. Addytywne rozszerzenie CHECK tabeli `games` nastąpi wyłącznie przez Alembic w TASK-0994; bootstrap nie zmienia kodu ani schematu.
+- Zmiana wersji domyślnej nie przełącza istniejących gier ani rozpoczętych zadań.
+- Brak zatwierdzonej wersji domyślnej blokuje import V3 z wyjaśnieniem.
+- Wspólny model powstaje przez doszkolenie jednej wskazanej bazy na danych obu gier. Nie uśredniamy checkpointów.
+- Publikacja, aktywacja, trening, historyczny backfill i masowe przetwarzanie są odrębnymi operacjami.
+
+### 2.2. Liczniki
+
+UI rozdziela pięć obszarów:
+
+| Obszar                    | Jednostka i znaczenie                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| Brakujące plansze         | Unikalne numery sekwencji bez kwalifikującego się wyniku w oczekiwanym zakresie.        |
+| Odroczone pozycje         | Sloty zdjęć, dla których silnik nie zapisał użytecznej planszy.                         |
+| Zgłoszone błędne siatki   | Plansze oznaczone przez operatora jako wymagające poprawy geometrii.                    |
+| Brak akceptacji geometrii | Stan zatwierdzania zdjęcia lub planszy, niezależny od zmierzonej jakości.               |
+| Problemy symboli          | Komórki nierozpoznane, nieczytelne, o niskiej pewności lub oczekujące na zatwierdzenie. |
+
+Kategorie mogą się przecinać. Nie wolno sumować ich jako niezależnych braków.
+
+„Dodane plansze” liczymy po unikalnych sekwencjach, uwzględniając aktualne kwalifikujące się wyniki i dane kanoniczne bez duplikatów. Rozpoznanie wszystkich symboli nie jest warunkiem istnienia planszy.
+
+Dla brakującego numeru wskazujemy dominującą przyczynę: trwający import, oczekiwanie na geometrię, częściowe źródło, błąd przetwarzania, odrzucenie, przyczyna nierozstrzygnięta albo brak źródła. Inne przyczyny pozostają w szczegółach.
+
+TASK-1010 uzgadnia rzeczywiste wyniki obu gier z licznikami importu, Reviewera, geometrii i symboli. Przed tym pomiarem nie deklarujemy liczby brakujących plansz Mumii.
+
+### 2.3. Akceptacja silnika
+
+Automatyczna akceptacja rewizji wymaga rozliczenia oczekiwanych pozycji, zgodnej geometrii, poprawnego przypisania sekwencji i zgodnego pochodzenia modelu. Odroczenia, częściowe pozycje, konflikty i aktualne zgłoszenia błędów blokują akceptację objętego nimi zakresu.
+
+Akceptacja silnika ma własne pochodzenie. Nie ustawia ręcznego zatwierdzenia i nie tworzy etykiety treningowej.
+
+Historyczny backfill otrzymuje podgląd osobno dla każdej gry. Po potwierdzeniu:
+
+- aktualizuje stan akceptacji i zapisuje zdarzenie;
+- zachowuje payload geometrii, hashe, wycinki i decyzje człowieka;
+- przelicza kompletność oraz synchronizuje istniejące projekcje wyszukiwania w jednej transakcji źródła;
+- nie uruchamia modelu ani materializacji nowych komórek;
+- pomija niejednoznaczne powiązania rewizji z konkretnym powodem.
+
+Liczba niekompletnych zdjęć nie musi zrównać się z liczbą odroczonych slotów.
+
+### 2.4. Edytor
+
+Domyślnie operator przesuwa cztery zewnętrzne rogi. „Dokładna korekta” pokazuje 24 węzły siatki 5×3.
+
+- Przełączenie trybu zachowuje wszystkie współrzędne.
+- Przesunięcie całej siatki przenosi wszystkie węzły.
+- Ruch rogu przekształca wszystkie węzły homografią między starym i nowym obrysem.
+- Osobna akcja wyznacza regularną siatkę z czterech rogów; ma podgląd i cofnięcie.
+- Pusty szkic można zbudować z czterech rogów.
+- Zapis wymaga poprawnej orientacji i nieprzecinających się komórek.
+- Trwały szkic jest przypięty do źródła i rewizji. Nie nadpisuje nowszego stanu serwera.
+- Podgląd i zapis używają wspólnych reguł renderowania.
+
+### 2.5. Ponowne rozpoznanie
+
+Domyślny zakres obejmuje zgłoszone błędne siatki i odroczone sloty. Siatki tylko niepotwierdzone oraz wszystkie automatyczne pozostają osobnymi zakresami.
+
+**Przebieg aktualnym modelem przypisanym do gry jest dostępny bez nowego treningu.** Może nie przynieść poprawy; identyczny wynik nie jest raportowany jako naprawa. Użycie nowego kandydata wymaga publikacji i jawnego wyboru zatwierdzonej wersji.
+
+| Stan celu                                             | Działanie                                                                              |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Zgłoszona „Zła siatka”                                | Trwała propozycja do zatwierdzenia. Aktualne wycinki i zgłoszenie pozostają bez zmian. |
+| Chroniona geometria lub decyzje człowieka             | Brak automatycznego nadpisania; raport przyczyny ochrony.                              |
+| Odroczony slot bez konfliktu                          | Zapis po bramce i ponownej kontroli aktualnego stanu.                                  |
+| Niechroniona automatyczna plansza z wybranego zakresu | Zapis po bramce i sprawdzeniu rewizji oraz właściciela.                                |
+| Zmienione źródło, rewizja lub właściciel              | Konflikt; brak zapisu starego wyniku.                                                  |
+
+Jedno zdjęcie jest rozpoznawane raz, a zapis obejmuje wyłącznie wybrane cele. Przed szerszym przetwarzaniem wykonuje się pilot do 100 zdjęć i ocenia raport.
+
+Przyjęcie propozycji korzysta z istniejącej ścieżki ręcznej korekty. Dopiero ta akcja zapisuje zatwierdzenie człowieka i zamyka właściwe zgłoszenie. Odrzucenie propozycji nie zamyka zgłoszenia.
+
+Historia symboli pozostaje zachowana. Zmienione piksele wymagają ponownej oceny zgodnie z D-462. Automatyczne operacje nie zmieniają chronionych etykiet ani właściciela danych kanonicznych.
+
+### 2.6. Dane, trening i ocena
+
+Do nowego doszkalania z korekt kwalifikują się aktualne geometrie zatwierdzone przez człowieka: poprawione albo sprawdzone bez zmiany. Mają różne oznaczenie pochodzenia.
+
+- **Grid-only:** pełna zatwierdzona plansza może pochodzić z niekompletnego zdjęcia. Detektor plansz i jego statystyki pozostają zamrożone.
+- **Screen+grid:** wymaga pełnej anotacji zdjęcia. Nieoznaczona plansza nie staje się przykładem negatywnym.
+- Pierwszy pilot wyklucza częściowe i wyłącznie ekstrapolowane etykiety.
+- Podział odbywa się całymi nagraniami, z aliasami między grami, deduplikacją plików/pikseli i wyłączeniami przodków modelu.
+- Chronione zbiory `final_test`, `unseen_game`, Reels/Treasure i pozostałe zapisane holdouty nie trafiają do TRAIN.
+- Snapshot danych jest niezmienny. Cofnięte zatwierdzenie oznacza zależnego kandydata jako nieaktualnego, bez przepisywania historii.
+
+Minimum technicznego pilota per oceniana gra:
+
+| Rola              | Minimum                                                                |
+| ----------------- | ---------------------------------------------------------------------- |
+| TRAIN grid-only   | 30 plansz z co najmniej 10 zdjęć                                       |
+| VALIDATION        | Co najmniej 15 plansz i 5 całkowicie opisanych zdjęć, osobne nagranie  |
+| REGRESSION        | Co najmniej 15 plansz i 5 całkowicie opisanych zdjęć, kolejne nagranie |
+| TRAIN screen+grid | Co najmniej 10 całkowicie opisanych zdjęć treningowych                 |
+
+Przy dziewięciu planszach na zdjęciu kontrolne części wymagają po 45 etykiet, więc minimum grid-only wynosi co najmniej 120 plansz z 20 zdjęć. To próg techniczny, nie gwarancja jakości.
+
+Początkowe ważenie korekt względem zatwierdzeń bez zmian wynosi 4:1 jako wersjonowany parametr pilota. Wspólna kohorta równoważy gry i nagrania.
+
+Preset czasu i liczby kroków wynika z raportów wcześniejszych iteracji oraz ograniczonego pomiaru. Trening zachowuje budżet, optymalizator, RNG, sampler i checkpoint po restarcie.
+
+Ocena zaczyna się od oryginalnego zdjęcia, bez podawania poprawnych rogów. Baza i kandydat otrzymują identyczne źródła kontrolne. Raport obejmuje kompletne poprawne zdjęcia, brakujące i nadmiarowe detekcje, błąd geometrii/P95 oraz poprawność komórek. Brakująca plansza nie znika z mianownika.
+
+Publikacja nowego kandydata wymaga braku pogorszenia wymaganych miar w każdej grze i poprawy miary właściwej dla celu treningu na walidacji. REGRESSION nie służy do wyboru checkpointu. Brak porównywalnych danych nie daje PASS.
+
+Historyczna baza zachowuje historyczny raport i ograniczenia; nie otrzymuje fikcyjnego wyniku nowej bramki.
+
+## 3. Baza, utrwalenie planu i wznowienie pracy
+
+### 3.1. Ustalona baza
+
+- **Istniejąca kopia danych operatora:** `D:\game_predictor_backup`, wskazana przez operatora 2026-10-14 jako wystarczająco aktualna. Nie tworzymy nowego snapshotu ani dodatkowego backupu bazy w ramach tego planu. Potwierdzono dostępność katalogu; nie wykonywano odtwarzania. Niezmienne snapshoty kohort treningowych są odrębnymi artefaktami i pozostają wymagane.
+
+- Repozytorium główne: `D:\game_predicotr`.
+- Oryginalna baza: `main`, commit `171e23799ebdbee4ed4590a53376bf870c6741c2`, v1.7.360.
+- Operator zatwierdził włączenie upstream main v1.7.362 / `885ba12fb56305a47871daf743973c84469ad23d` 2026-10-14; worktree przewinięto fast-forward do tego HEAD przed commitem bootstrapu. Bootstrap utrwalono jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`; wcześniejszy przydział v1.7.363 zajęła równoległa praca. Nasza akceptacja silnika została przemianowana TASK-1007 → TASK-1017; historyczny ukończony TASK-1007 wykrywania CLI pozostaje bez zmian.
+- Worktree wykonawczy: `D:\game_predicotr\worktrees\v3-grid-fine-tuning`.
+- Gałąź robocza: `codex/v3-grid-fine-tuning`.
+- Wybór `main` dotyczy bazy tego planu. Nie zmienia automatycznie globalnej polityki integracji ani nie upoważnia do scalenia.
+- Gałęzią integracyjną jest od 2026-10-16 `main` (decyzja operatora zapisana w `AGENTS.md`); `v1.1-vision-lab-hybrid-geometry` jest w `main`. Na polecenie operatora 2026-10-16 scalono `main` v1.7.376 / `0c0f64de` do gałęzi roboczej (commit scalenia v1.7.387 / `9b6b25dce9a2670afb3b4abcbe8b3e1b88d1a6f5`; komunikat commita błędnie podaje v1.7.374), aby końcowa integracja mogła być fast-forwardem `main`. Przed scaleniem trzeba przedstawić zakres commitów gałęzi względem `main`.
+
+Przed utworzeniem worktree sprawdzić, czy wskazana ścieżka i gałąź nie należą już do innej pracy. Nie resetować istniejącego checkoutu.
+
+Stan zastany obejmuje odwołania do dwóch innych worktree zapisane w v1.7.360 i zmianę wewnątrz `worktrees/multi-game-share`. Są poza zakresem. Kryterium startu brzmi: **brak nowych zmian tego planu w głównym checkoucie**, a nie wymuszenie globalnie czystego statusu kosztem cudzej pracy.
+
+### 3.2. Dokumenty utrwalane przez TASK-1015
+
+W nowym worktree:
+
+- pełna rewizja 6 zastępuje starszą treść pliku planu;
+- raporty Claude z rund 1–3 pozostają zachowane;
+- odpowiedź Codexa otrzymuje rozliczenie uwag i zmian rewizji 6;
+- README, CURRENT_STATE, inwentarz V3 i TASK-0957 wskazują aktualny zakres;
+- powstają 22 pliki tasków funkcjonalnych oraz TASK-1015;
+- powstają wpisy `proposed` w Decision Log.
+
+Nowe decyzje opisują:
+
+1. Doszkalanie z ręcznych korekt jako odrębny zakres D-480: dopuszczenie takich danych do TRAIN i wykluczenie automatycznej akceptacji jako samodzielnej etykiety.
+2. Wspólną geometrię, domyślny model i zaawansowany wybór wersji — rozszerzenie D-527.
+3. Akceptację silnika, historyczny podgląd i statusowy backfill — doprecyzowanie D-484/D-541 z zachowaniem późniejszych wyjątków V3.
+4. Propozycje dla „Złej siatki” i zatwierdzenie przez człowieka — zgodność z ochroną D-462/D-543.
+5. Bazę i sposób prowadzenia tego planu.
+
+Numery decyzji wybrać po sprawdzeniu aktualnego indeksu. Nie nadpisywać istniejących decyzji ani przedstawiać propozycji jako przyjętych.
+
+### 3.3. Wznowienie w nowej sesji
+
+Każda nowa sesja Codex lub Claude:
+
+1. Weryfikuje worktree, gałąź, HEAD i zastane zmiany.
+2. Czyta AGENTS, README, CURRENT_STATE, indeks decyzji i pięć najnowszych wpisów.
+3. Czyta aktualny plan, właściwy task i jego `Relevant docs`.
+4. Sprawdza zapisany etap wykonania oraz ostatni raport audytu.
+5. Potwierdza, że zakres został zlecony i model odpowiada tabeli.
+6. Przygotowuje środowisko worktree przed komendami Verification: własne zależności npm i venv albo jawne, sprawdzone junction `.venv` do `D:\game_predicotr\.venv`, zgodnie z praktyką repo. Zapisuje wynik i ograniczenia w Outcome, nie zakłada dostępności środowiska głównego checkoutu z samego istnienia worktree. Przygotowanie nie uruchamia usług.
+7. Przed rozpoczęciem każdego taska rozwija jego `Technical notes` o konkretne walidacje, kolejność zapisów/blokad, granice transakcji, błędy/retry oraz dokładne pliki i symbole. Nie powtarza Scope. Stosuje rozstrzygnięcia sekcji 2/4 planu i istniejące kontrakty; niewskazana decyzja biznesowa lub zmiana architektury wymaga jawnego rozstrzygnięcia, bez ukrytych założeń.
+
+Status taska pozostaje jednym z: `todo`, `in_progress`, `blocked`, `done`.
+
+W `Outcome` zapisujemy dodatkowo:
+
+- `Execution phase`: implementacja, weryfikacja, oczekiwanie na audyt, poprawki audytu, gotowe do commita, oczekiwanie na integrację;
+- bazowy commit i listę plików taska;
+- wykonane kontrole z wynikiem;
+- ścieżkę raportu audytu i otwarte identyfikatory uwag;
+- dokładny następny krok;
+- wersję i hash commita po jego utworzeniu.
+
+Skrypt w zatwierdzonej bazie przekazuje `Effort` tylko do Codex. Dla Claude lead buduje ten sam ograniczony brief przez `scripts/audit_task.ps1 -DryRun`, następnie uruchamia wykryty CLI z jawnymi `--model claude-fable-5-1 --effort medium` albo `high` według tabeli, `--permission-mode plan` i wyłącznie narzędziami odczytu `Read,Glob,Grep`. Launcher przekazuje prompt jako argument i jawnie zamyka stdin (np. `stdin=subprocess.DEVNULL` w Python), tak jak `Invoke-BoundedProcess` oficjalnego skryptu; nie dziedziczy otwartego wejścia terminala. Operator 2026-10-15 polecił dać Claude więcej czasu na audyty: limit tego planu wynosi teraz do 1200 s (20 minut) zamiast 480 s; uruchamiać jako kontrolowany proces w tle, z odczytami stanu do 60 s i zachowaniem jednej rundy audytu/poprawek. Wcześniejsze notatki timeout 480 pozostają historyczne. Nadzorca sprawdza także termin według zegara ściennego w krótkich oczekiwaniach (do 1 s), w tym po wznowieniu komputera. Sam długi Windows process.wait może nie rozliczać czasu zawieszenia. Po przerwaniu sprawdzić własny PID i brak osieroconych procesów; brak raportu opisać bez PASS. Wywołanie zapisuje w `artifacts/audits/TASK-NNNN_AUDIT_INVOCATION.json`, a otrzymany raport w wymaganej ścieżce quality. Nie przypina fizycznej wersji instalacji i nie stosuje fallbacku modelu. Brak obsługi żądanego poziomu wymaga rozstrzygnięcia, nie cichego pominięcia. Ten jawny sposób wywołania działa także z nowego procesu i nie jest zmianą skryptu w TASK-1010.
+
+Wykonawca przed audytem zapisuje wyniki kontroli i ograniczony zakres diffu. Audytor ocenia kod tylko do odczytu i zwraca raport według szablonu. Raport z zewnętrznej sesji zostaje zapisany w worktree bez zmiany ustaleń audytora.
+
+Po `REVISE` task pozostaje `in_progress`, z fazą „poprawki audytu”. Otwarte P0/P1 blokują commit. Brak raportu nie jest PASS. Stosujemy zasady repo dotyczące limitu audytu, jednej rundy poprawek i ponownego audytu tylko w wymaganych przypadkach.
+
+Operator2026-10-15 po R2 TASK-0999 polecił dalszą autonomiczną realizację zadanie po zadaniu z audytami Claude Code. Zatwierdził tym dodatkową ograniczoną rundę R2-P1-1 oraz audyt R3 zmienionego fragmentu do1200s; raporty wcześniejsze pozostają niezmienione, a P0/P1 nadal blokują commit. Zgoda nie obejmuje wcześniejszego niezależnego resetu ani operacji danych.
+
+Po commicie wykonawca wpisuje pełny hash do taska i CURRENT_STATE. Zgodnie z AGENTS zapis własnego hasha może wejść do następnego commita; do tego czasu te dwie zmiany dokumentacyjne pozostają jawnie opisane. Nie wykonujemy amend tylko po to, aby próbować zapisać hash commita w nim samym.
+
+Dokumenty czytamy i zapisujemy z jawnym UTF-8. W Windows PowerShell 5.1 nie
+stosujemy domyślnego `Get-Content` do tekstu, który będzie ponownie zapisany;
+używamy `-Encoding UTF8` albo jawnego `encoding="utf-8"` w Pythonie. Po zmianie
+taska odczytujemy go w nowym procesie z UTF-8 i sprawdzamy tytuł, polskie znaki,
+kryteria oraz Outcome. Sam `docs:check` nie wykrywa poprawnego UTF-8 zawierającego
+wcześniej uszkodzony tekst. Regułę dopisano po P1-1 audytu TASK-1009.
+
+### 3.4. Wersjonowanie
+
+Po zatwierdzonym włączeniu upstream v1.7.362 bootstrap utrwalono jako v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. Oryginalna propozycja v1.7.361 została jawnie zastąpiona decyzją operatora; istniejących commitów nie renumerujemy. Przed każdym commitem:
+
+- sprawdzić ostatnią wersję na gałęzi roboczej;
+- wyznaczyć następny patch;
+- sprawdzić, czy inna linia nie użyła go dla innego commita;
+- przy kolizji zastosować zatwierdzony automatyczny przydział kolejnego wolnego numeru i zapisać przyczynę oraz mapowanie; zmian zakresu nie rozstrzygać przez renumerację.
+
+Nie renumerujemy istniejących commitów. Analogiczna kontrola dotyczy tasków i decyzji.
+
+## 4. Kontrakty techniczne i miejsca zmian
+
+### 4.1. Rejestr i snapshoty
+
+Proponowany rejestr przechowuje rodziny, niezmienne wersje, pochodzenie, bazę, możliwości/topologię, manifest artefaktów, przypisania gier i zdarzenia publikacji/aktywacji.
+
+Nowy snapshot zadania przypina wersję, manifest, hashe, preprocessing i politykę dekodowania. Stare snapshoty nadal odczytujemy według ich dotychczasowego kontraktu. Worker nigdy nie pobiera zmiennej „najnowszej wersji” podczas wykonywania zadania.
+
+Dostępność plików, dopuszczenie bazy historycznej, zaliczenie bramki nowego kandydata, publikacja i aktywacja są różnymi stanami.
+
+Proponowane `GameShapeGeometryConfiguration.NEURAL_GRID_V3 = "neural_grid_v3"` identyfikuje format/silnik, nie rodzinę checkpointu. TASK-0994 rozszerza enum i CHECK `games` addytywnie przez Alembic, zachowując wszystkie stare wartości bez przepisywania istniejących gier. GameCreate zachowuje dotychczasowy domyślny status DRAFT. Jawnie wskazany status nie jest po cichu zmieniany; dostępność modelu kontroluje import, bez nowej polityki GameStatus.ACTIVE. TASK-1004 pozwala zwykłemu GameCreate pominąć `shapeGeometryConfiguration`; serwer nadaje neutralne V3 i osobno przypina zgodny opublikowany model. Brak default dopuszcza grę unassigned (domyślnie draft), z blokadą importu do assignment; jawny zaawansowany wybór zgodnej opublikowanej wersji może dostarczyć assignment. Gra, assignment i ewentualny fork powstają atomowo, gdy model jest dostępny. Nowe klasyczne tworzenie jest zablokowane, historyczny odczyt/update starej 777 zachowuje dawny kontrakt. Wszystkie te zmiany są projektowane, niewdrożone przez TASK-1015.
+
+### 4.2. Propozycje korekt
+
+Proponowane tabele w magazynie właściwej gry:
+
+- `grid_geometry_proposals`: identyfikator, operacja, źródło, plansza, wersja modelu, dokładne węzły, kwalifikacja, hashe i oczekiwane rewizje;
+- `grid_geometry_proposal_events`: zdarzenia utworzenia, przyjęcia, odrzucenia i utraty aktualności.
+
+Unikalność propozycji obejmuje operację i cel. Ponowienie tego samego polecenia odtwarza wynik. Zmieniona treść pod tym samym kluczem jest konfliktem.
+
+Przyjęcie blokuje właściwe źródło i właściciela, sprawdza rewizje, wywołuje istniejący zapis ręcznej korekty i zapisuje zdarzenie przyjęcia w tej samej transakcji. Nieaktualna propozycja zwraca konflikt bez zmiany geometrii.
+
+### 4.3. Granice API i danych
+
+Rozszerzamy istniejące API, zachowując jeden pion: backend → OpenAPI → wygenerowany klient → wrapper → test żądania.
+
+Nowe możliwości obejmują diagnostykę, katalog, przypisania, nagrania, kohorty, trening, ocenę, akceptację historyczną, ponowne rozpoznanie i propozycje.
+
+Mutacje mają klucz idempotencji, hash polecenia i kontrolę rewizji. Powiązania między grami są jawne i ograniczone uprawnieniami; dane jednej gry nie mogą być dostępne przez identyfikator w zakresie innej.
+
+Duże artefakty pozostają plikami. Migracje wykonujemy przez Alembic. Operacje masowe używają stabilnego kursora, krótkich transakcji i trwałych receiptów. Nie ładujemy całego zbioru zdjęć do pamięci.
+
+### 4.4. Mapa sprawdzonych punktów wejścia
+
+Poniższe oznaczenia służą do jednoznacznego wskazywania plików w opisach tasków.
+
+| Oznaczenie | Istniejący plik i symbol                                                                                                                                                                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1         | [board_import_coverage_repository.py](../../services/api/src/game_predictor_api/storage/board_import_coverage_repository.py) — `SqlAlchemyBoardImportCoverageRepository`                                                                                                                                                             |
+| F2         | [image_geometry_completeness_repository.py](../../services/api/src/game_predictor_api/storage/image_geometry_completeness_repository.py) — raport i klasyfikacja kompletności                                                                                                                                                        |
+| F3         | [image_geometry_completeness_state_repository.py](../../services/api/src/game_predictor_api/storage/image_geometry_completeness_state_repository.py) — `recompute_source_image_geometry_completeness`                                                                                                                                |
+| F4         | [board_search_projection_repository.py](../../services/api/src/game_predictor_api/storage/board_search_projection_repository.py) — `sync_review_items`, `stale_review_item_ids`                                                                                                                                                      |
+| F5         | [neural_pending_geometry.py](../../services/worker/src/game_predictor_worker/images/neural_pending_geometry.py) — `neural_pending_payload`; konsument: `images/production_workflow.py`                                                                                                                                               |
+| F6         | [virtual_grid_geometry.py](../../services/api/src/game_predictor_api/application/virtual_grid_geometry.py) — `VirtualGridGeometryService.save_review_item`, `save_pending_slot`                                                                                                                                                      |
+| F7         | [virtual_grid_geometry_repository.py](../../services/api/src/game_predictor_api/storage/virtual_grid_geometry_repository.py) — `save_virtual_geometry_revision`                                                                                                                                                                      |
+| F8         | [image_review_repository.py](../../services/api/src/game_predictor_api/storage/image_review_repository.py) — ochrona decyzji człowieka, licznik korekt                                                                                                                                                                               |
+| F9         | [neural_grid_proposal.py](../../services/api/src/game_predictor_api/domain/neural_grid_proposal.py) — `NeuralGridSnapshot`                                                                                                                                                                                                           |
+| F10        | [grid_profile_snapshot_resolver.py](../../services/api/src/game_predictor_api/storage/grid_profile_snapshot_resolver.py) — `resolve_neural_grid_proposal`, routing profilu                                                                                                                                                           |
+| F11        | [grid_engine_model_store.py](../../services/api/src/game_predictor_api/storage/grid_engine_model_store.py) — `ManagedGridEngineModelStore`; [instalator](../../scripts/install_grid_engine_models.py) — `install_version`                                                                                                            |
+| F12        | [jobs.py](../../services/api/src/game_predictor_api/application/jobs.py) — preflight, snapshoty, admission i start zadań                                                                                                                                                                                                             |
+| F13        | [board-lattice-state.ts](../../apps/reviewer/src/features/operational-reviews/board-lattice-state.ts) — `boardLatticePayload`, `translatedBoardLattice`; [edytor](../../apps/reviewer/src/features/operational-reviews/deferred-board-cell-geometry-editor.tsx) — `BoardGeometryCorrectionEditor`, `DeferredBoardCellGeometryEditor` |
+| F14        | [board-lattice-draft-storage.ts](../../apps/reviewer/src/features/operational-reviews/board-lattice-draft-storage.ts) — odczyt i zapis szkiców                                                                                                                                                                                       |
+| F15        | [model-quality-workspace.tsx](../../apps/admin/src/features/model-quality/model-quality-workspace.tsx) — `ModelQualityWorkspace`, montowanie klasycznego panelu                                                                                                                                                                      |
+| F16        | [game-catalog.tsx](../../apps/admin/src/features/games/game-catalog.tsx) — komunikat klasycznej gotowości i formularz                                                                                                                                                                                                                |
+| F17        | [game-catalog-state.ts](../../apps/admin/src/features/games/game-catalog-state.ts) — `SHAPE_GEOMETRY_CONFIGURATION_LABELS`                                                                                                                                                                                                           |
+| F18        | [neural_grid_training.py](../../services/worker/src/game_predictor_worker/vision_lab/neural_grid_training.py) — `compute_losses`, `train_run`, `evaluate_network`                                                                                                                                                                    |
+| F19        | [neural_grid_finetune.py](../../services/worker/src/game_predictor_worker/vision_lab/neural_grid_finetune.py) — `MixedBatchSampler`, `train_iteration`, wybór kandydata                                                                                                                                                              |
+| F20        | [checkpoint.py](../../services/worker/src/game_predictor_worker/training_core/checkpoint.py) — zapis, odczyt i odtworzenie checkpointu                                                                                                                                                                                               |
+| F21        | [gate.py](../../services/worker/src/game_predictor_worker/geometry_core/gate.py) — `GateThresholds`, `compare`, `decide`, `gate_photo`                                                                                                                                                                                               |
+| F22        | [catalog.py](../../services/api/src/game_predictor_api/application/catalog.py) i [schematy katalogu](../../services/api/src/game_predictor_api/schemas/catalog.py) — tworzenie i aktualizacja gry                                                                                                                                    |
+| F23        | [symbol_model_snapshot_resolver.py](../../services/api/src/game_predictor_api/storage/symbol_model_snapshot_resolver.py) — `resolve_unclassified_cold_start`                                                                                                                                                                         |
+| F24        | [models.py](../../services/api/src/game_predictor_api/storage/models.py) — encje i relacje magazynu                                                                                                                                                                                                                                  |
+
+Nowe pliki wymienione w taskach są **proponowane**. Ich ścieżki podano względem nowego worktree. To nie są deklaracje istniejącej implementacji.
+
+## 5. Weryfikacja wspólna dla tasków
+
+W TASK-1015 utworzono 23 osobne pliki według `TASK_TEMPLATE.md`. Aktualne statusy, fazę wykonania i commity prowadzą pliki tasków oraz CURRENT_STATE; opis taska poniżej określa zaakceptowany zakres, a nie bieżący status. Kolejność wykonania wyznacza tabela modeli i zależności poniżej.
+
+Każdy plik zawiera `Outcome`: Changed, Verification results, Not completed, Documentation updates, Recommended next task oraz dane wznowienia z sekcji 3. Wyników nie wpisujemy przed wykonaniem.
+
+Skróty weryfikacji używane poniżej:
+
+- **DOC:** `npm run docs:check`, kontrola kompletności tasków według szablonu, `git diff --check`; przed commitem również `git diff --cached --check` i kontrola staged listy.
+- **API:** skoncentrowane testy `pytest`, Ruff i mypy zmienionych modułów; test HTTP oraz `npm run openapi:check` przy zmianie API.
+- **WORKER:** skoncentrowane testy `pytest`, Ruff i mypy modułów workera; test zgodności produkcyjnego i laboratoryjnego adaptera.
+- **ADMIN:** `test`, `test:geometry`, `lint`, `typecheck` w workspace `@game-predictor/admin`, dobierane do zmienionego pionu.
+- **REVIEWER:** analogiczne polecenia w workspace `@game-predictor/reviewer`.
+- **MIG:** upgrade i kontrola schematu na izolowanej bazie testowej; weryfikacja zakresu gry i istniejących rekordów. Bez migracji bazy operatora.
+- **MAP:** regeneracja mapy po zmianie modułu/publicznego symbolu i `npm run code-map:check`.
+
+Polecenia uruchamiamy z nowego worktree, z jego skonfigurowanym środowiskiem. Przykładowe sprawdzone formy:
+
+```powershell
+npm run docs:check
+npm run openapi:check
+npm run code-map:check
+npm run test --workspace @game-predictor/admin
+npm run test:geometry --workspace @game-predictor/reviewer
+.\.venv\Scripts\python.exe -m pytest services/api/tests/test_neural_grid_proposal.py
+.\.venv\Scripts\python.exe -m ruff check services/api/src/game_predictor_api/domain/neural_grid_proposal.py
+git diff --cached --check
+```
+
+Każde uruchomienie ma twardy timeout, domyślnie do 120 sekund. Szersze testy dzielimy na właściwe zestawy. Dłuższy znany build wymaga zapowiedzi czasu. Audyt ma limit zgodny z AGENTS. Nie uruchamiamy usług ani pełnych przebiegów produkcyjnych jako części tych kontroli.
+
+`docs:check` sprawdza obecnie linki i okno stanu; nie zastępuje kontroli wszystkich sekcji szablonu taska.
+
+## 6. Pełne opisy zadań
+
+### Etap 0 — trwały start
+
+### TASK-1015 — Utrwalenie planu i przygotowanie wznowienia
+
+- **Status:** `done`.
+- **Goal / Context:** Przygotować komplet dokumentów wykonawczych dostępnych bez historii czatu.
+- **Dependencies / entry conditions:** Akceptacja rewizji planu i osobne zlecenie tego taska; wybrana baza v1.7.360; wolna ścieżka worktree i gałąź.
+- **Recommended execution:** `gpt-6.1-sol`, `medium`; ryzyko dotyczy zachowania dokumentów i poprawnego stanu przekazania. Konflikt własności plików zatrzymuje operację.
+- **Relevant docs:** AGENTS, PLAN_STANDARD, TASK_TEMPLATE, raport Claude round3, niniejszy plan.
+- **Scope / Technical notes:** Utworzyć worktree z przypiętego commita. Zastąpić starszy plan rewizją 6, zachować raporty, uzupełnić odpowiedź Codexa i indeksy. Utworzyć 23 taski z pełną treścią oraz proponowane decyzje. Zapisać ścieżkę, bazę, kolejność i stan wznowienia.
+- **Expected files:** istniejące dokumenty planu i raportów w `ai_docs/delivery` oraz `ai_docs/quality`; README, CURRENT_STATE, DECISION_LOG z pełnymi wpisami, inwentarz V3, TASK-0957; nowe `ai_docs/tasks/0993-…` do `1015-…` z wyłączeniem `1007-…` oraz `1017-…`.
+- **Acceptance criteria / Test cases:** Nowa sesja z samych plików identyfikuje worktree, aktywny task i następny krok. Wszystkie taski mają model, zakres, pliki, kryteria, testy i Outcome. Raporty historyczne pozostają zachowane. Jeden commit dokumentacyjny, bez kodu i danych.
+- **Verification:** DOC oraz porównanie aktualnego planu z rozliczeniem P1-7/P1-8. Test wznowienia jest odczytem dokumentów, bez uruchamiania implementacji.
+- **Risks / Out of scope:** Nie czyścić innych worktree, nie zmieniać gitlinków, nie uruchamiać kolejnego taska bez zleconego zakresu.
+- **Outcome:** pełne pola z sekcji 5; po commicie dopisać hash zgodnie z zasadą bez samoodwołania.
+
+### Etap A — diagnoza, akceptacja i korekta
+
+### TASK-1010 — Jednoznaczne liczniki i diagnoza obu gier
 
 - **Status:** `todo`.
-- **Goal / Context:** Edytor czterech rogów i dokładnych 24 punktów. Istniejący kontrakt i edytor; głównym ryzykiem jest utrata dokładnych węzłów.
-- **Dependencies / entry conditions:** Akceptacja reguł edytora; niezależny od migracji rejestru.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Istniejący kontrakt i edytor; głównym ryzykiem jest utrata dokładnych węzłów. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/ADMIN_APP.md (korekta), architecture/API_CONTRACT.md (preview/save).
-- **Scope / Technical notes:** Oddzielić tryb uchwytów od geometrii. Ruch rogu transformuje wszystkie węzły homografią. Osobna rekonstrukcja z 4 rogów, cofnięcie i trwały szkic. Preview i zapis V3 używają dokładnych 24 punktów.
-- **Expected files:** Reviewer: istniejące deferred-board-cell-geometry-editor.tsx, board-lattice-state.ts, board-lattice-draft-storage.ts, operational-review-state.ts; nowe testy interakcji w test-interactions/.
-- **Acceptance criteria / Test cases:** Przełączenie 24→4→24 zachowuje wszystkie liczby. Ruch rogu i translacja zmieniają także wnętrze. Reset/cofnięcie, błędny quad, dotyk, reload i zmiana źródła są sprawdzone. Preview i zapis używają tych samych24 punktów. Starsza korekta4 i wybory symboli zachowują regresję.
-- **Verification:** Reviewer test/test:geometry/lint/typecheck oraz test transportu przy zmianie żądania. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Goal / Context:** Wyjaśnić różnice liczników przez wspólne jednostki i konkretne przyczyny.
+- **Dependencies:** TASK-1015; odczyt bazy we właściwym zakresie gry. Brak dostępu blokuje pomiar rzeczywistych liczb, nie testy logiki.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; kilka źródeł prawdy i nakładające się stany.
+- **Relevant docs:** IMAGE_INGESTION, ADMIN_APP, DATA_MODEL, D-484/D-541/D-543.
+- **Scope / Technical notes:** Rozszerzyć istniejący raport pokrycia i diagnostykę, zachowując unikalność sekwencji. Dodać rozkład przyczyn i przecięcia kategorii. Raport Mumii/777a2 zawiera czas pomiaru i zakres danych.
+- **Expected files:** F1, F2, F8; istniejące schematy `image_reviews.py`; nowy proponowany `application/grid_diagnostics.py` i panel diagnostyki w Adminie.
+- **Acceptance / Tests:** Duplikaty, dane kanoniczne, pending, rejected, deferred i nieznane symbole mają jednoznaczne liczniki. Brak symbolu nie udaje braku planszy. Wszystkie różnice rzeczywistego raportu mają powód albo kategorię nierozstrzygniętą.
+- **Verification:** API, ADMIN, DOC; odczyty rzeczywistych danych bez zmian.
+- **Risks / Out of scope:** Nie wnioskować o jakości z liczby niepotwierdzonych zdjęć; nie poprawiać danych podczas diagnozy.
+- **Outcome:** wyniki uzgodnienia, ograniczenia odczytu i dalsze przypadki wymagające korekty.
 
-
-### TASK-0994 — Rejestr modeli, przypisania istniejących gier i zabezpieczenie checkpointów na D
-
-- **Status:** `todo`.
-- **Goal / Context:** Rejestr modeli, przypisania istniejących gier i zabezpieczenie checkpointów na D. Migracje, pochodzenie checkpointów i zgodność zamrożonych importów.
-- **Dependencies / entry conditions:** Akceptacja encji; aktualne Alembic heads; inwentaryzacja dokładnych bazowych artefaktów.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Migracje, pochodzenie checkpointów i zgodność zamrożonych importów. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** architecture/DATA_MODEL.md, API_CONTRACT.md, SUPERVISED_MODEL_IMPROVEMENT.md; tasks/0957-disk-d-cleanup-and-job-paths.md.
-- **Scope / Technical notes:** Addytywny registry rodzin/wersji/assignments/events. Backfill dwóch profili w istniejących grach bez zmiany wag; archiwalna 777 bez neural assignment. Kopia wybranych .pt, weights, export/deployment manifests i potrzebnych metadanych na D przez staging, SHA i atomowy publish. Registry przechowuje wyłącznie zarządzane ścieżki produkcyjne na D. Receipt kopii odblokowuje późniejszą osobną ocenę sprzątania C.
-- **Expected files:** API: istniejące domain/grid_engine_profiles.py, domain/neural_grid_proposal.py, storage/grid_profile_snapshot_resolver.py, storage/grid_engine_model_store.py, storage/models.py i api/router.py. Nowe domain/grid_model_registry.py, application/grid_model_registry.py, storage/grid_model_registry.py, schemas/grid_models.py, api/grid_models.py, migracja Alembic i adapter importu bazowego checkpointu. OpenAPI/klient/wrapper.
-- **Acceptance criteria / Test cases:** Brak checkpointu lub niezgodny hash blokuje rejestrację. Przerwany publish i powtórzenie kopii nie tworzą drugiej wersji ani nie nadpisują obcego pakietu. Nowy proces odczytuje wyłącznie D. Backfill/up/down na bazie testowej zachowują istniejące wersje i zamrożone preflighty; archiwalna 777 nie przechodzi na V3.
-- **Verification:** Focused API registry/resolver/migration/manifest tests, lint/typecheck/OpenAPI; bez migracji operatora i bez kopiowania całych 7 GB korpusu. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
-
-
-### TASK-1002 — Nagrania, aliasy i trwałe role kontrolne
+### TASK-1017 — Akceptacja nowych wyników przez silnik V3
 
 - **Status:** `todo`.
-- **Goal / Context:** Nagrania, aliasy i trwałe role kontrolne. Proweniencja danych i ochrona przed przeciekiem między nagraniami oraz liniami modeli.
-- **Dependencies / entry conditions:** TASK-0994 i zaakceptowane reguły ról/nagrań.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Proweniencja danych i ochrona przed przeciekiem między nagraniami oraz liniami modeli. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/VISION_LAB.md, SUPERVISED_MODEL_IMPROVEMENT.md (D-527), architecture/VISION_LAB.md.
-- **Scope / Technical notes:** Trwałe grupy nagrań, deklaracje operatora, deduplikacja SHA pliku/pikseli i przypisania TRAIN/VALIDATION/REGRESSION. Folder jest propozycją, nie dowodem niezależności. Dziedziczenie wyłączeń rodziców przy fork/wspólnej rodzinie. API oraz niewielki panel deklaracji nagrań stanowią jeden pion.
-- **Expected files:** Nowe API domain/source_recording_groups.py, application/source_recording_groups.py, storage/source_recording_groups.py, encje/migracja/schema/router/client; nowe Admin recording-groups-panel.tsx w features/model-quality/.
-- **Acceptance criteria / Test cases:** Dwa katalogi jednego filmu i alias zdjęcia w innej grze mają wspólną rolę. Brak deklaracji nie dowodzi niezależności. Holdout rodzica nie trafia do TRAIN dziecka; film wcześniejszego TRAIN nie staje się niezależną kontrolą. Role i idempotencja przetrwają restart. Zmiana chronionej roli jest blokowana.
-- **Verification:** Focused API/domain/UI tests, lint/typecheck/OpenAPI; deklaracje użytkownika bez zmiany plików/sekwencji. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Goal / Context:** Nowa poprawna rewizja otrzymuje właściwy stan akceptacji silnika.
+- **Dependencies:** TASK-1010 i akceptacja decyzji doprecyzowującej D-484/D-541.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; zmiana kwalifikacji danych produkcyjnych.
+- **Relevant docs:** IMAGE_INGESTION, VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP, D-484/D-523/D-541.
+- **Scope / Technical notes:** Zastąpić bezwarunkowe `needs_review` oceną kompletu pozycji i pochodzenia. Zachować odrębność engine/human approval. Aktualizacja statusu i projekcji należy do transakcji istniejącego zapisu.
+- **Expected files:** F5 i jego produkcyjny konsument, F3; walidatory payloadu geometrii. Nowa proponowana czysta funkcja kwalifikacji akceptacji V3.
+- **Acceptance / Tests:** Komplet zgodnych pozycji może zostać przyjęty; deferred, partial, konflikt lub błąd blokuje akceptację. Żaden przypadek nie ustawia ręcznego zatwierdzenia. Stare snapshoty pozostają czytelne.
+- **Verification:** WORKER, API; regresje `test_neural_folder_correction_pipeline.py` i produkcyjnego importu.
+- **Risks / Out of scope:** Bez historycznego backfillu i bez poluzowania bramki jakości.
+- **Outcome:** wersja polityki, pokryte przyczyny i dowody ochrony zatwierdzeń.
 
+### TASK-1008 — Historyczna akceptacja bez ponownego cięcia
+
+- **Status:** `todo`.
+- **Goal / Context:** Uzgodnić historyczne statusy przy zachowaniu istniejącej geometrii.
+- **Dependencies:** TASK-1017; wykonanie na danych operatora dopiero po podglądzie i potwierdzeniu.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; masowa operacja na stanach i projekcjach.
+- **Relevant docs:** D-484/D-485/D-541, DATA_MODEL, zasady operacji danych.
+- **Scope / Technical notes:** Podgląd, zamrożony zakres, idempotentne uruchomienie, kursor i raport. Dla źródła jedna transakcja: kontrola rewizji, akceptacja, `materialize=False`, synchronizacja istniejących dokumentów wyszukiwania, receipt.
+- **Expected files:** F2–F4; istniejący `scripts/backfill_image_geometry_completeness.py` jako wzorzec wznowienia; nowe proponowane `application/grid_engine_acceptance.py`, repozytorium operacji i UI podglądu.
+- **Acceptance / Tests:** Awaria między statusem a projekcją cofa całość. Powtórzenie nie dubluje zdarzeń. Wycinki, approval, payloady i właściciele są identyczni przed/po. Mieszane rewizje nie są akceptowane na skróty.
+- **Verification:** API, MIG dla nowych zapisów operacji, ADMIN, DOC.
+- **Risks / Out of scope:** Bez modelu, recropu i tworzenia komórek; brak automatycznego wykonania na całej grze.
+- **Outcome:** dowody niezmienności, podgląd skutków i ewentualne operacyjne wykonanie opisane oddzielnie.
+
+### TASK-0993 — Edytor czterech rogów i 24 punktów
+
+- **Status:** `todo`.
+- **Goal / Context:** Przyspieszyć korekty przesuniętej siatki bez utraty dokładnych węzłów.
+- **Dependencies:** TASK-1015.
+- **Recommended execution:** `gpt-6.1-sol`, `medium`; istniejący kontrakt i ograniczona geometria.
+- **Relevant docs:** ADMIN_APP, API_CONTRACT, reguły edytora w tym planie.
+- **Scope / Technical notes:** Oddzielić tryb uchwytów od danych. Dodać transformację wszystkich węzłów, przesunięcie całości, jawny reset, undo i konflikt szkicu.
+- **Expected files:** F13–F14; testy interakcji Reviewera; opcjonalne rozszerzenie transportu tylko jeśli obecny kontrakt nie przenosi wymaganych danych.
+- **Acceptance / Tests:** Roundtrip 24→4→24 zachowuje liczby. Homografia, translacja, reset/undo, błędny quad, dotyk i reload są sprawdzone. Podgląd i zapis mają zgodne wycinki.
+- **Verification:** REVIEWER, API przy zmianie transportu, MAP.
+- **Risks / Out of scope:** Bez zmiany topologii, danych operatora i klasyfikacji symboli.
+- **Outcome:** interakcje, testy regresji i ograniczenia obsługiwanych geometrii.
+
+### Etap B — artefakty, wersje i nowe gry
+
+### TASK-1014 — Zarządzane checkpointy na D
+
+- **Status:** `todo`.
+- **Goal / Context:** Uniezależnić użycie baz od jedynej kopii checkpointu na C.
+- **Dependencies:** TASK-1015; odczyt manifestów i dostępność miejsca.
+- **Recommended execution:** `gpt-6.1-sol`, `medium`; kontrolowana kopia z hashami.
+- **Relevant docs:** TASK-0957, VISION_LAB, zasady przechowywania modeli.
+- **Scope / Technical notes:** Rozszerzyć instalator o potrzebne artefakty treningowe i receipt pochodzenia. Staging, weryfikacja, atomowa publikacja; wznowienie nie nadpisuje odmiennego pakietu.
+- **Expected files:** F11; nowy proponowany manifest receipt kopii i test instalatora. F20 tylko do sprawdzenia odczytu checkpointu.
+- **Acceptance / Tests:** Zgodny hash i rozmiar; przerwana kopia wznawia się; obcy katalog nie jest nadpisywany; nowy proces odczytuje bazę z D.
+- **Verification:** API/WORKER dla kontraktu artefaktów, test instalatora, DOC.
+- **Risks / Out of scope:** Bez usuwania C, kopiowania całego korpusu i wykonywania treningu.
+- **Outcome:** źródło, docelowe ścieżki, hashe i receipt; brak zgody na cleanup odnotowany.
+
+### TASK-0994 — Rejestr rodzin, wersji i przypisań
+
+- **Status:** `todo`.
+- **Goal / Context:** Zastąpić statyczny wybór wersji trwałym katalogiem.
+- **Dependencies:** TASK-1014; aktualne Alembic heads.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; migracja i zgodność istniejących gier.
+- **Relevant docs:** DATA_MODEL, API_CONTRACT, D-527/D-544.
+- **Scope / Technical notes:** Addytywne encje rodzin, wersji, przypisań i zdarzeń. Zarejestrować bazy historyczne bez fikcyjnych kohort i PASS. Przypisania istniejących V3 odzwierciedlają dotychczasowe wersje.
+- **Expected files:** F24, `domain/grid_engine_profiles.py`; nowe proponowane `domain/grid_model_registry.py`, `application/grid_model_registry.py`, `storage/grid_model_registry.py`, schema/router i migracja.
+- **Acceptance / Tests:** Migracja zachowuje modele obu gier, stara 777 nie otrzymuje neural assignment. Brak artefaktu blokuje udostępnienie. Powtórna rejestracja jest idempotentna. Gra nie odczytuje cudzych danych przez błędny zakres.
+- **Verification:** API, MIG, OpenAPI, MAP, DOC.
+- **Risks / Out of scope:** Bez aktywacji nowych modeli i migracji bazy operatora.
+- **Outcome:** schemat, mapowanie istniejących profili i wyniki migracji testowej.
+
+### TASK-1012 — Dynamiczne snapshoty i spójny routing V3
+
+- **Status:** `todo`.
+- **Goal / Context:** Nowe wersje z katalogu działają bez dopisywania do statycznego rejestru.
+- **Dependencies:** TASK-0994.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; zgodność rozpoczętych zadań i wielu konsumentów.
+- **Relevant docs:** IMAGE_INGESTION, API_CONTRACT, D-544, kontrakt snapshotu tego planu.
+- **Scope / Technical notes:** Nowa wersja snapshotu oraz czytnik starej. Jeden resolver możliwości dla preflightu, importu, ponownego użycia, workera i własności sekwencji.
+- **Expected files:** F9–F12; `storage/image_sequence_canonical_repository.py::uses_neural_grid_pilot`; konsumenci snapshotów w workerze.
+- **Acceptance / Tests:** Trzecia rodzina działa; stary job wznawia się po zmianie aktywacji; stary preflight nie uruchamia innej wersji; brak lub zmiana hashy nie powoduje fallbacku.
+- **Verification:** API, WORKER, testy snapshotów/resolvera/importu, MAP.
+- **Risks / Out of scope:** Bez przepisywania historycznych payloadów i ukrytych aliasów starego profilu.
+- **Outcome:** obsługiwane wersje kontraktu i lista zweryfikowanych konsumentów.
+
+### TASK-0998 — Publikacja, aktywacja, domyślna wersja i rollback
+
+- **Status:** `todo`.
+- **Goal / Context:** Jawnie kontrolować wersję używaną przez grę i nowe zadania.
+- **Dependencies:** TASK-1012. Kontrakt oceny jest wdrożony teraz; realny PASS nowego kandydata dostarczy TASK-0997.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; wyścigi aktywacji i niezmienność zadań.
+- **Relevant docs:** D-527/D-544, API_CONTRACT, kontrakt rejestru.
+- **Scope / Technical notes:** Odrębne polecenia publish, activate, set-default i rollback. CAS przypisania, idempotencja i historia. Bazy historyczne wymagają jawnego dopuszczenia z istniejącym raportem; nowi kandydaci wymagają nowej bramki.
+- **Expected files:** moduły rejestru z TASK-0994, F10, API/schema/klient; testy aktywacji i preflightu.
+- **Acceptance / Tests:** Dwie konkurencyjne aktywacje nie nadpisują się; brak PASS blokuje nowego kandydata; rozpoczęty job zachowuje wersję; rollback nie zmienia wycinków.
+- **Verification:** API, OpenAPI, DOC.
+- **Risks / Out of scope:** Bez żywej aktywacji i bez zmiany domyślnej wersji bez decyzji operatora.
+- **Outcome:** historia poleceń i dowody rozdziału bazy historycznej od kandydata.
+
+### TASK-1004 — Tworzenie gry z domyślną geometrią V3
+
+- **Status:** `todo`.
+- **Goal / Context:** Nowa gra korzysta z opublikowanej geometrii bez treningu od zera.
+- **Dependencies:** TASK-0998.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; spójny pion tworzenia i izolacja symboli.
+- **Relevant docs:** ADMIN_APP, D-527, wymagania cold-start symboli.
+- **Scope / Technical notes:** Backend przypina domyślną wersję. Zaawansowany wybór/fork kontroluje zgodność i dziedziczy wyłączenia. Utworzenie gry i przypisania jest atomowe. Format danych strony nie pełni funkcji identyfikatora checkpointu.
+- **Doprecyzowanie przed kodem, 2026-10-15 / D-549:** Istniejący GameCreate otrzymuje wymagany idempotencyKey i zamknięty wybór default/published/fork. Gra, MIGRATING/lifecycle, assignment/fork i immutable create receipt powstają przed pierwszym commitem restartowalnego provisioningu; retry odzyskuje tę samą rezerwację bez ponownego default. Fork wskazuje opublikowaną bazę bez sklonowanej wersji/wag, zachowuje trainingFamily i protected ancestry; unresolved nie oznacza pustych wyłączeń. Jawny initial_transfer pozwala później przypisać eligible wersję wyłącznie nowej neutralnej grze bez assignment/historii. Proponowana0158/frozenv11 obejmuje publiczne rejestry tworzenia/forka, nie partycje danych gry. Szczegółowy kontrakt w Technical notes taska i D-549.
+- **Expected files:** F16–F17, F22–F23, `game-catalog-actions.ts`; klient i testy żądań.
+- **Izolacja symboli:** zweryfikowany global bootstrap przy identycznych classCodes poprzedza cold-start w F23 i F12. Guard nowych wyborów wszystkich formatów V3 wyłącza ten obcy fallback, zachowując własne aktywacje, historyczne piny/replay i starą777. Brak resolvera dla znanej V3 nie może utworzyć globalnego snapshotu. Testy muszą objąć trzy formaty V3 i regresję legacy; jest to realizacja istniejącego wymogu modeli symboli per gra.
+- **Routing importu neutralnej V3:** statyczne członkostwo dwóch profili w `game-catalog-state.ts` nie może rozstrzygać silnika w `image-folder-import-panel.tsx`. Neutralna gra otrzymuje istniejące sterowanie V3, bez radia V1.1 i klasycznego photo geometry; przełączenie gry nie zachowuje konfliktowego wyboru. Funkcje historycznej777 i rzeczywisty katalog statycznych profili pozostają. D-549 zapisuje przed zmianą UI jawne rozstrzygnięcie tego błędu; nie rozszerza usuwania innych funkcji. Regresje trzech V3, legacy i przełączenia gry są częścią1004.
+- **Formularz i historia:** zwykłe tworzenie oraz edycja V3 bez pickera formatu/profilu; zaawansowany wybór wersji pozostaje. Edycja archiwalnej777 i innych gier klasycznych oraz historyczne GET/PATCH zachowują dotychczasowe wartości. Predykat uwzględnia kod gry7; nowe create nie dopuszcza neutralnej konfiguracji kierowanej następnie klasycznie. D-549 zapisany przed zmianą UI.
+- **Recovery po R1, przed poprawką:** zamknięty serwerowy dowód createRecovery/v1 z pasującym UUID może zwolnić pending dopiero po rollback i ponownym katalogowym sprawdzeniu braku receiptu. Istniejący receipt, niejednoznaczność i5xx go nie dają. Jawne porzucenie wymaga potwierdzenia i trwałego archiwum surowego wpisu/namespace/czasu przed clear, także przy uszkodzeniu; błąd archiwum zachowuje pending. Bez kasowania serwera i adopcji po code/name. Szczegóły D-549 i task1004.
+- **Acceptance / Tests:** Brak default blokuje import; fork nie kopiuje etykiet ani wag. Nowa gra ma własny katalog i cold-start symboli, bez modelu obcej gry. Retry nie tworzy drugiej gry.
+- **Verification:** API, ADMIN, OpenAPI, DOC.
+- **Risks / Out of scope:** Bez tworzenia rzeczywistych gier i przełączania istniejących przypisań.
+- **Outcome:** ścieżka nowej gry i test izolacji symboli.
+
+### TASK-1011 — Usunięcie zatwierdzonych pozostałości V1.1 z V3
+
+- **Status:** `todo`.
+- **Goal / Context:** Ekrany V3 pokazują właściwy model i dostępne działania.
+- **Dependencies:** TASK-1004.
+- **Recommended execution:** `gpt-6.1-sol`, `medium`; ograniczona zmiana UI z regresją starej gry.
+- **Relevant docs:** ADMIN_APP, APP_V3_FUNCTIONAL_INVENTORY, D-541/D-544.
+- **Scope / Technical notes:** Usunąć klasyczny panel z F15, klasyczną gotowość z F16 i stare opcje tworzenia z F17. Dokładne stare wartości to `framed_full_page_v2` i `requires_clarification`. Zwykły formularz traci również wybór dwóch profili V3 na rzecz default.
+- **Expected files:** F15–F17; testy `model-quality-workspace-contract`, `game-catalog-state`, `game-catalog-contract`.
+- **Acceptance / Tests:** V3 nie pokazuje klasycznych działań; pokazuje stan przypisanej wersji. Stara 777 nadal poprawnie odczytuje historyczne wartości i raporty.
+- **Verification:** ADMIN, DOC; odbiór obu rodzajów gry.
+- **Risks / Out of scope:** Nie usuwać historycznych enumów z odczytu API ani backendu klasycznego. Inne pozostałości wpisać do listy decyzji operatora.
+- **Outcome:** trzy usunięte miejsca i lista pozostałych zależności poza zakresem.
+
+### Etap C — ponowne rozpoznanie aktualnym modelem
+
+### TASK-0999 — Backend ponownego rozpoznania wybranego zakresu
+
+- **Status:** `todo`.
+- **Goal / Context:** Przeliczyć wskazane cele z trwałym postępem i ochroną danych.
+- **Dependencies:** TASK-1017, TASK-1012, TASK-0998; bez zależności od treningu.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; zapis geometrii, wycinków i kontrola właściciela.
+- **Relevant docs:** IMAGE_INGESTION, D-462/D-523/D-543, VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.
+- **Scope / Technical notes:** Preview, zamrożony manifest, jeden inference na zdjęcie, zapis tylko wybranych celów. Dla zgłoszeń wynik pozostaje propozycją przekazywaną do TASK-1013. Admission uwzględnia kolidujące zadania geometrii i symboli.
+- **Expected files:** F8, F12, istniejące blokady własności i runtime geometrii; nowe proponowane `application/grid_reinference.py`, `storage/grid_reinference.py`, `images/grid_reinference_handler.py` oraz migracja receipts.
+- **Acceptance / Tests:** Aktualna baza działa bez treningu. Chronione decyzje pozostają identyczne. Brak środkowego slotu nie przesuwa sekwencji. Restart nie dubluje zapisu; identyczny wynik nie jest „naprawą”.
+- **Verification:** API, WORKER, MIG, renderer parity, OpenAPI, MAP.
+- **Risks / Out of scope:** Bez automatycznego przejęcia kanonu i uruchamiania pełnej gry.
+- **Outcome:** zakres, konflikty, receipts i rozdzielenie zapisów automatycznych od propozycji.
+- **Poprawki po R1 (kontrakt przed zmianą):** nowe enqueue/start/retry/resume zachowują blokadę CREATED+PROCESSING; worker claim/recovery istniejących jobów sprawdza PROCESSING innych jobów i ograniczoną partię kolejnych kandydatów, z diagnostyką pominięcia i mutexem przed job row lock. Historyczne CREATED nie mogą wzajemnie zatrzymywać lane, a START_REQUIRED nie może uruchomić infer ani blokować innych gier. Wspólny kod to GAME_JOB_ADMISSION_CONFLICT. Worker potwierdza cancel przez istniejący checkpoint i sprząta runner, zachowując receipts. Domenowe fences nie konfliktują od samych operational timestamps; obcy żywy pending blokuje przed mutacją. Obowiązkowe production-model i cursor/membership tests nie mogą nadpisywać testowanej metody. R1 REVISE zachowujemy; jedna runda poprawek, R2 dotyczy zmienionego P1 zachowania. Niezależny reset FAIL pozostaje jawny, bez xfail i bez niezatwierdzonego fixu. Nieautoryzowane nowe CREATED albo rzeczywiście expired PROCESSING otrzymują kwarantannę wykonania FAILED/START_REQUIRED po domenowej walidacji expiry; cancel ma pierwszeństwo. Nie wolno użyć wygasłego tokenu do fail_job. executionQuarantine zachowuje frozen dowody, blokuje retry/resume i wymaga nowej operacji z pełnym freeze/start. Zwykły lock nie kwalifikuje do kwarantanny; test101 nieautoryzowanych przed poprawnym jobem wykazuje postęp kolejnych bounded scan100.
+- **Zgodność z istniejącym cleanup (przed poprawką schematu):** immutable source_image_id w tabeli operacji jest historyczną tożsamością bez FK do żywego source_images; nullable live_source_image_id ma composite game/live FK RESTRICT. Dotychczasowe jawne cleanupy atomowo odłączają tylko tę znaną referencję z zachowaniem preview/CAS/blokerów; historia/manifest/SHA/receipts pozostają identyczne. Bez CASCADE, ukrytego blokowania usuwania i automatycznego reattach. Worker oraz przyjęcie propozycji sprawdzają zgodny live/frozen ID i istnienie źródła; brak to source_missing/conflict, bez odtwarzania. Wymagane regresje trzech potwierdzonych cleanupów (wybrane źródła, superseded import i browser staging retention) oraz czwartego wejścia layout-data reset w cleanup_repository, rollback linku, zachowanie obcych FK oraz izolacja gry. Reset według istniejącego API zachowuje joby i historię operacji; odłącza live referencje, nie purguje operations/sources/targets. Resume po usunięciu źródła nie odtwarza danych. Whole-game lifecycle pozostaje osobną ścieżką usuwającą game-owned tabele. Operacyjny cleanup/reset nadal wymaga swojej zgody.
+- **Końcowa akceptacja źródła (doprecyzowanie przed kodem):** automatic write zapisuje początkowe needs_review, po czym osobny finalizer0999 w tej samej transakcji stosuje istniejącą czystą qualify_v3_engine_acceptance na wszystkich aktywnych pozycjach z przypiętą v3-engine-acceptance-v1. Puste blockers pozwalają przyjąć pełne zgodne źródło bez human approval. Deferred/partial/issue, niezgodny selector/owner albo niepotwierdzone mieszane bindings pozostawiają needs_review z trwałymi konkretnymi powodami; sam zapis subsetu nie daje accepted całego źródła. Nie używamy pierwotnego writera1017 ograniczonego do revision0. Status/provenance/receipt/recompute/projekcje są atomowe; niewybrane geometrie i decyzje nie są nadpisywane. Kontrole obejmują oba wyniki kwalifikacji i rollback.
+- **Kontrakt przed kodem (2026-10-15):** D-551 accepted; pełne Technical notes [TASK-0999](../tasks/0999-grid-reinference-backend.md) wiążą ten pion. Jeden trwały job prepare/infer, addytywne trasy w istniejącym routerze, osobne receipts prepare/freeze/pilot-ack/start/resume/cancel; immutable model/payload i manifest SHA. Prepared oddaje lease do waiting_for_review; generic retry bez wcześniejszego startu daje START_REQUIRED. Jeden INSERT SELECT utrwala membership wystąpień import/source/execution/slot, strony100 utrwalają fences/ordinal; czas capture i okno przygotowania są rozdzielone. Pilot do100 i świeży broad manifest wymagają zgodnego signature, actor/report SHA ack i jawnego startu. Aktualna unpublished baza assignment jest dopuszczona, inna wymaga published/per-game eligibility. Oddzielny automatic writer chroni decyzje, własność i niewybrane sloty; source transaction zapisuje effects/receipts/progress atomowo, materialize=False i selected-only sync. Target konflikt nie blokuje poprawnego rodzeństwa, source drift blokuje całe źródło, infra failure cofa całość. Proposal-ready jest materiałem targetResultId dla1013, nie naprawą. Admission obejmuje symetrycznie kolidujące start/retry/resume z opisaną kolejnością blokad. Plan0159/frozenv12 obejmuje trzy tabele gry i lifecycle/RLS/central ORM; dawne manifesty niezmienne. Scenariusze restartu/utraconej odpowiedzi/pilota/rodzeństwa są wymaganiami, nie wynikami kontroli.
+
+### TASK-1013 — Trwałe propozycje dla „Złej siatki”
+
+- **Status:** `todo`.
+- **Goal / Context:** Model przygotowuje korektę, a operator decyduje o jej zastosowaniu.
+- **Dependencies:** TASK-0993, TASK-0999.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; ochrona zgłoszenia i atomowy zapis decyzji.
+- **Relevant docs:** D-462/D-543, API_CONTRACT, schemat propozycji z sekcji 4.
+- **Scope / Technical notes:** Wdrożyć tabele propozycji i zdarzeń. Reviewer pokazuje porównanie, przyjęcie, edycję i odrzucenie. Przyjęcie korzysta z `VirtualGridGeometryService.save_review_item`, a nie z usługi samych liczników.
+- **Expected files:** F6–F8, F24; nowe proponowane `application/grid_geometry_proposals.py`, `storage/grid_geometry_proposals.py`, schema/router, migracja oraz komponent propozycji w Reviewerze.
+- **Acceptance / Tests:** Utworzenie nie zmienia cropów ani zgłoszenia. Przyjęcie działa raz, zapisuje autora i zamyka właściwy problem. Zmieniona rewizja daje konflikt. Odrzucenie pozostawia zgłoszenie otwarte.
+- **Verification:** API, MIG, REVIEWER, OpenAPI; integracja rzeczywistej ścieżki zapisu geometrii.
+- **Risks / Out of scope:** Automatyczny wynik nie może zostać oznaczony jako ręczny przed decyzją operatora.
+- **Outcome:** tabela stanów, dowody idempotencji i stale-proposal conflict.
+
+### TASK-1003 — Podgląd i raport ponownego rozpoznania
+
+- **Status:** `todo`.
+- **Goal / Context:** Operator rozumie zakres, koszt i wynik przebiegu.
+- **Dependencies:** TASK-0999, TASK-1013.
+- **Recommended execution:** `gpt-6.1-sol`, `medium`; gotowy kontrakt backendu.
+- **Relevant docs:** ADMIN_APP, D-541, zakresy z sekcji 2.
+- **Scope / Technical notes:** Oddzielne liczby zdjęć, slotów, plansz i komórek; domyślny zakres, pilot do 100, jawny szeroki wybór, postęp i wznowienie. Raport rozróżnia propozycje, automatyczne zapisy, ochronę, brak zmiany i konflikty.
+- **Expected files:** nowe proponowane `grid-reinference-preview.tsx`, `grid-reinference-report.tsx`, stan i akcje w Adminie; istniejące linki do jobów.
+- **Acceptance / Tests:** Stary preview daje konflikt; utrata odpowiedzi odtwarza tę samą operację; zmiana gry nie miesza stanu; wszystkie automatyczne nie są domyślnie zaznaczone. HTTP409 oznacza nieaktualną komendę/revision/manifest, nie pełny skan żywych celów przy start. Późniejszy drift celu jest osobnym wynikiem conflict raportu. UI rozdziela membershipCapturedAt i okno przygotowania oraz jawne freeze, pilot acknowledgement i start; generic retry nie uruchamia niezatwierdzonego infer.
+- **Verification:** ADMIN, test transportu, DOC.
+- **Risks / Out of scope:** Frontend nie wylicza samodzielnie kwalifikacji ani zakresu na podstawie jednego licznika.
+- **Outcome:** podglądy i raport dla aktualnej bazy oraz przykłady błędów.
+
+### Etap D — dane i pomiar jakości
+
+### TASK-1002 — Nagrania, aliasy i role kontrolne
+
+- **Status:** `done`.
+- **Goal / Context:** Zapobiec przeciekowi między treningiem i oceną.
+- **Dependencies:** TASK-0994.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; pochodzenie danych między grami i rodzinami.
+- **Relevant docs:** VISION_LAB, D-480/D-527, reguły kohorty tego planu.
+- **Scope / Technical notes:** Trwałe grupy nagrań, deklaracje operatora, aliasy, byte/pixel SHA, TRAIN/VALIDATION/REGRESSION i wyłączenia przodków. Folder jest sugestią, nie dowodem niezależności.
+- **Kontrakt przed kodem (2026-10-15):** D-554 oraz pełne Technical notes1002 określają minimalny geometry-only rejestr5 tabel, zaufane aliasy, provisional/permanent role, wąskie capability z exact reprovision compliance, provisioner przed migracją i dependent-only invalidation. Missing lineage/deklaracja/provider blokuje kwalifikację.1002 nie fabrykuje cohort/report producerów0995/0997. Baza wykonawcza v1.7.381 / `477bf91ae3d3ab81bf6fc8d96cec38bc0dfef192`; brak operator runs.
+- **Rozliczenie R1 (2026-10-15):** Claude high zwrócił REVISE: aktualne testy manifestu, historyczne fixture PG oraz kanoniczna kolejność provisioningu wymagają korekty zgodności. Jedna runda poprawek obejmuje te zależności, warunkowy downgrade wyłącznie pustego rejestru i kontrolę całego właściwego zestawu w ograniczonych partiach. Historia ochrony nadal blokuje downgrade; skrypty migracji/resetu nie są wykonywane na bazie operatora. Raport R1 pozostaje niezmieniony; zmiana zachowania P1 wymaga ponownego audytu.
+- **Expected files:** nowe proponowane `domain/source_recording_groups.py`, warstwa application/storage, migracja, API i `recording-groups-panel.tsx`.
+- **Acceptance / Tests:** Alias w innej grze zachowuje rolę. Holdout rodzica nie trafia do TRAIN dziecka. Brak deklaracji nie daje niezależności. Role przeżywają restart.
+- **Verification:** API, MIG, ADMIN, OpenAPI, MAP.
+- **Risks / Out of scope:** Bez przenoszenia plików źródłowych i zmiany sekwencji.
+- **Outcome:** pochodzenie grup, nierozstrzygnięte nagrania i blokady kwalifikacji.
+
+- **Wynik wykonania:** v1.7.382 przygotowany; Claude high R2 PASS789.063s, brak P0/P1. Szersze zestawy mają jawne FAIL i24 niezweryfikowane nodeIDs; rejestr obowiązków wymaga osobnej korekty zgodności wcześniejszych pionów przed1001. Nie wykonano operacji operatora.
+
+### TASK-1018 — Zgodność narzędzi i regresji po zmianach V3
+
+- **Status:** `done`; konieczna korekta wcześniejszych pionów, zlecona w zakresie całego planu, po1002/przed1009. Baza v1.7.382 / `f0e457ea78b825063e460fcd0023b01e2cb27fd2`.
+- **Goal / Context:** Przywrócić zgodność manifestów, admission, historycznych fixture i narzędzi z obecnym head, bez poluzowania ochrony danych.
+- **Dependencies:** TASK-1002 done/Claude high R2 PASS; pełny [task1018](../tasks/completed/1018-v3-head-compatibility-regressions.md) zapisany przed kodem według TASK_TEMPLATE. Numer wolny po kontroli24 refs i fizycznych tasków; zgoda operatora na automatyczną numerację pozostaje.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; niezależny `claude-fable-5-1`, `high`, do1200s, ze względu na role/RLS i dane dowodowe.
+- **Relevant docs:** rejestr obowiązków V3, R2 TASK1002 P2-1/4/5, owner docs wskazane w pełnym tasku.
+- **Scope / Expected files:** Cztery stare unit fixtures, actual-role create/diagnostyka, baseline0158 i przypięte historyczne guardy, aktualny manifest archiwalnego preview, pięć acceptance/benchmark runnerów i24 dokładne wcześniej niezweryfikowane nodeIDs. Pełne ścieżki/symbole, testy i ograniczenia w tasku; hipotetyczne engine/locking przyczyny wymagają dowodu przed zmianą.
+- **Rozstrzygnięcie locking po dowodzie1018:** Własny PG potwierdził odmowę nowego niezależnego bulk command przy pierwszym jobie CREATED (`GAME_JOB_ADMISSION_CONFLICT`, właściwy `existingJobId`). To przyjęte D-551/0999, które zastępuje wcześniejsze założenie równoległego startu w tej samej grze. Przed korektą testów zapisujemy nowy kontrakt: podczas board lock jawna odmowa admission bez deadlock; po rzeczywistym terminalnym pierwszym jobie niezależny start albo dotychczasowe stale explicit/filter rejection. Zachować5s, replay, brak duplikatów i końcowe asercje. Bez zmiany guardu, sztucznego zakończenia aktywnego joba ani testowego obejścia admission udającego pełny workflow. Oryginalne3 FAIL pozostają dowodem wcześniejszego kontraktu, nie nowymi awariami modelu.
+- **Analogiczny publication proof przed korektą1018:** Test dwóch preflightów ma najpierw zachować dowód, że aktywacja nie zmienia pinu pierwszego PROCESSING joba. Następnie kończy ten job przez prawdziwe `store.complete` z ważnym lease i dopiero tworzy drugi job z nowym pinem. Oba piny/replay nadal sprawdzamy; pierwszy job kończy jako COMPLETED. Nie utrzymujemy sprzecznego z D-551 równoległego nowego startu, nie omijamy admission i nie zmieniamy produkcyjnej aktywacji.
+- **Acceptance:** Rzeczywiste201/RLS, zachowane admission/sequence/symbol isolation i historyczne guardy, capability przed head, własny cleanup i trwałe wyniki. Bez zmiany polityki0158, osłabienia asercji, benchmarków lub operatorops.
+- **Verification / Outcome:** Implementacja i scoped kontrole zakończone:24/24 zaległych celów PASS; dokładne nakładające się zestawy, Ruff/mypy/DOC/MAP/diff i ograniczenia w Outcome1018. Freeze44 własnych plików/157 bezpiecznych dowodów, SHA manifestu `ad548c653c2ade96e5684f5c2d5d3e397350aa919f8da164e5704f7a1d323a85`. Brak deklaracji full614/473PASS. Claude high R1 PASS678.683s; brak P0/P1. P2-1 poprawiony (31PASS), P2-2/5 instrukcja uzupełniona, P2-3/4 przyjęte ograniczenia. Przygotowany osobny commit v1.7.383; R2 nie wymagany. Rozliczenie w quality/TASK-1018_RESPONSE_CODEX.md.
+
+### TASK-1009 — Losowa kontrola Mumii i 777a2
+
+- **Status:** `done`.
+- **Goal / Context:** Zmierzyć rodzaje błędów zamiast opierać decyzję o treningu na liczniku.
+- **Dependencies:** TASK-1010, TASK-0993, TASK-1002, TASK-1018; kontrola operatora jest warunkiem raportu rzeczywistej jakości.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; poprawna populacja, próba i interpretacja.
+- **Relevant docs:** VISION_LAB, ADMIN_APP, sekcja pomiaru w tym planie.
+- **Scope / Technical notes:** Zamrożona losowa próba do 100 zdjęć per gra, pełna kontrola oczekiwanych pozycji, osobny zbiór trudnych przypadków. Wyniki zapisane z wersją i pochodzeniem.
+- **Zatwierdzona kontrola symboli:** Decyzja operatora2026-10-15: kontrola geometrii wszystkich9 pozycji obowiązkowa; symbole wyłącznie według istniejących aktualnych ręcznych zatwierdzeń, pozostałe nieocenione. Brak zatwierdzeń symboli nie blokuje kontroli geometrii i nie tworzy fikcyjnej jakości ani etykiety. Modele symboli pozostają per gra.
+- **Expected files:** nowe proponowane `application/grid_quality_measurements.py`, repozytorium i manifest pomiaru, schema/router oraz panel kontroli; F6 dla zapisanych korekt.
+- **Acceptance / Tests:** Ten sam seed i populacja odtwarzają próbę. Trudne przykłady nie zmieniają częstości z próby losowej. Brak pełnej kontroli zdjęcia jest widoczny. Raport rozdziela detekcję, geometrię, symbole i sekwencję.
+- **Verification:** API, ADMIN/REVIEWER, test deterministycznego próbkowania, DOC.
+- **Risks / Out of scope:** Nie deklarować niezależności filmów bez dowodów ani jakości całej gry na podstawie celowo trudnych przykładów.
+- **Outcome:** wynik pomiaru albo jawny stan oczekiwania na anotacje.
+
+- **Kontrakt przed kodem (D-555,2026-10-16):** pełne Technical notes1009 na bazie383 rozdzielają opisowy frozen random/hard pomiar, original producer/coverage gap i aktualne canonical approval-only bez recropu. RR capture do60s/statement30s/strony500/O100, all9 obowiązkowe, symbols manual-only. Pięć game-owned tabel0162/currentv15, zachowanie source cleanup/retained history. Own-sourceId selector wymaga forward-only SQL/perms_v2 bez zmiany0161/v1 i exact grants. Wymagany Claude **high** dla schematu/dowodów, do1200s; to zgodne techniczne rozwinięcie całego planu, bez operatorops. Szczegółowe źródła prawdy, transakcje, błędy, pliki i testy w tasku.
+
+- **Baseline uściślony przed odczytem:** własny exact auto producent aktualnego celu albo najnowszy udowodniony automatyczny przodek przed korektą człowieka; nie arbitralnie pierwsza rewizja zdjęcia. Brak lineage daje coverage gap, bez podstawienia starszego importu za nowszą reinferencję. Raport zachowuje producer/coverage i nie myli mieszanej populacji z jakością aktywnego modelu. Szczegóły i regresja dwóch auto wersji w Technical notes1009/D-555.
+
+- **Baseline approval-only uściślony przed poprawką guardu:** osobne jawne zatwierdzenie obejmuje pokazaną frozen current geometrię, również current-only przy braku historycznego producer. Original model quality nadal ma coverage gap. Backend porównuje exact live/frozen current i zachowuje wszystkie source/revision/owner/issue/checksum guards; nie przyjmuje zmienionego targetu, nie recropuje i nie zmienia symboli/kanonu. To realizacja zaakceptowanego checked-unchanged label, nie utożsamienie z oceną modelu.
+
+- **Real-writer sibling repoint:** zachowanie niezmienionych sąsiadów wymaga dodatniego server-only old/new source identity/render/decision proof i canonical manual save innego targetu; nie globalnego ignorowania aggregate checksum/pointer. Nowy capture bez exact producenta daje gap. Obowiązkowy test real save_review_item i szczegóły D-555/Technical notes1009 zapisano przed poprawką fence.
+
+- **Zamknięcie:** przygotowany v1.7.384; Claude high R1 REVISE719.665858s. P1-1 kodowania/checklist zamknięty, wszystkie P2 poprawione i sprawdzone, brak otwartychP0/P1. Jedna runda; R2 nie wymagany dla dokumentowego P1 i poprawek P2. Rzeczywiste anotacje/pomiar oczekują. Pełne rozliczenie i ograniczenia w Outcome oraz quality/TASK-1009_RESPONSE_CODEX.md.
 
 ### TASK-0995 — Kwalifikacja korekt i niezmienny snapshot
 
-- **Status:** `todo`.
-- **Goal / Context:** Kwalifikacja korekt i niezmienny snapshot. Dokładne etykiety, current approval i zamrożone dane dowodowe.
-- **Dependencies / entry conditions:** TASK-0993/0994/1002; decyzja rozszerzająca D-480 przy akceptacji.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Dokładne etykiety, current approval i zamrożone dane dowodowe. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** guides/VISION_LAB_EXPORT.md, requirements/VISION_LAB.md, architecture/VISION_LAB.md.
-- **Scope / Technical notes:** Preview required/eligible/missing dla każdej roli i per gra. Current human-approved exact lattice także na niekompletnym zdjęciu. Board targets oddzielone od pełnych screen targets. Freeze/copie źródeł/policy/preprocessing/base/checksums/roles/CAS. Stare snapshoty i stary eksporter bez zmiany domyślnej semantyki. Cofnięte dowody blokują nową aktywację.
-- **Expected files:** Istniejące scripts/vision_lab_geometry_export.py, worker vision_lab/production_geometry.py i production_snapshot.py jako wzorce. Nowe API domain/grid_training_cohorts.py, application/grid_training_cohorts.py, storage/grid_training_cohorts.py, encje/migracja; neutralny training_core/grid_dataset.py; pełny API pion. Nowy Admin grid-cohort-preview.tsx w features/model-quality/ pokazuje kwalifikację i braki przed treningiem oraz ma test interakcji.
-- **Acceptance criteria / Test cases:** Zero korekt 777a2 zwraca brakujące liczby. Stare approval, partial i rejected nie są etykietami. Jedna poprawiona plansza z 9 daje tylko targety węzłów; pełne 9 może dać targety ekranu. Źródła/role są rozłączne. Zmiana podczas freeze daje 409. Kopia źródła, rezerwa 5 GiB, cofnięcie dowodu, restart i utrata odpowiedzi są sprawdzone.
-- **Verification:** Focused kwalifikacja/freeze/renderer parity i regresje historycznego eksportera; OpenAPI. Bez budowania snapshotu całej kolekcji przy wejściu do UI. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Status:** `done` — v1.7.385, ClaudeR2PASS, brakP0/P1; bez integracji.
+- **Goal / Context:** Dostarczyć trenerowi odtwarzalny zbiór z czytelną listą braków.
+- **Dependencies:** TASK-1002, TASK-1009; przyjęta decyzja rozszerzająca D-480.
+- **Recommended execution:** `gpt-6.1-sol`, `high`; aktualność etykiet i dane dowodowe.
+- **Relevant docs:** VISION_LAB_EXPORT, VISION_LAB, DATA_MODEL.
+- **Scope / Technical notes:** Preview required/eligible/missing per gra i rola. Osobne targety board/screen. Freeze źródeł, rewizji, preprocessing, base, ról i hashy. Cofnięte dowody unieważniają kwalifikację kandydata.
+- **Expected files:** istniejący eksporter geometrii jako wzorzec; nowe proponowane `domain/grid_training_cohorts.py`, application/storage, migracja, `images/grid_cohort_dataset.py`, `grid-cohort-preview.tsx`.
+- **Acceptance / Tests:** Pełna plansza z niekompletnego zdjęcia działa w grid-only. Niepełne zdjęcie nie jest screen targetem. Auto-accept nie tworzy etykiety. Drift między preview/freeze blokuje zapis.
+- **Verification:** API, WORKER, MIG, ADMIN, OpenAPI, MAP.
+- **Risks / Out of scope:** Stary eksporter zachowuje dotychczasową domyślną semantykę; bez treningu.
+- **Outcome:** manifest, liczby braków i dowody kwalifikacji.
 
+- **Retencja plików:** bounded adapter istniejącego preview/GC/quarantine sprawdza rzeczywiste refs pod per-cohort exclusive guardem; publication bierze shared guard do receipt commit. Query failure nie oznacza pustych refs. Kontrakt i rzeczywisty concurrency test w Technical notes0995/D-556; bez wykonania cleanupu.
 
-### Etap B — zasoby, trening i modele
+- **Granica neutralnego rdzenia:** proponowany czytnik kohort przeniesiono do images/grid_cohort_dataset.py, ponieważ neutralny training_core ma istniejący guard zabraniający importów game_predictor. Guard bez zmian;0996 otrzyma adapter przez kompozycję. Exact katalogowe checksum/preprocessing pins i bezpieczne Windows native I/O zachowują swoje dotychczasowe kontrakty.
 
+- **Kontrakt przed kodem (D-556,2026-10-16):** pełny Technical notes w pliku0995 jest samodzielnym źródłem wykonawczym. Jedna kohorta na grę, exact24nodes/current human proof, grid-only bez wymagania complete photo/15cells/symbol approvals. Nieznany historyczny producer nie odbiera current label; nieznany approval proof pozostaje unresolved. Pure canonical decoder i all-NULL completion zachowują worker lease/wyniki. Jawna completion1–5source/64MiB/50Mpx/60s, bez GET hash sweep.
+- **Trwałość i bezpieczeństwo:** sześć game-owned tabel i forward0163/v16 po kontroli heads; strony200/copy5, atomowe pliki przed receipts, osobny metadata-only READ COMMITTED freeze60s, catalog→registry przed ownership i rosnącymi sequence/source locks. Dokładne freshness/proof, actual use i control protection atomowo, preproof==postproof albo rollback. Dwa exact v3 capability entry points bez private runtime grants, narrow real-report validation seam. Nie fabrykujemy0997 report bindings.
+- **Aktualność i retencja:** lokalne indeksowane notices obejmują actual events i current projections, w tym repoint bez approval event; exact verifier nie stala niezmienionego sąsiada. Usunięcie source, cofnięcie zatwierdzenia i brak snapshot JPEG to oddzielne osie. Game partition deletion i oddzielny physical GC zachowują obecny kontrakt, bez pełnego wiecznego archiwum. Operator2026-10-16 wybrał zachowanie historii i blokadę nowego użycia frozen copy po source cleanup. Samo usunięcie nie dowodzi cofnięcia oceny człowieka. Zależna aplikacyjna i prywatna walidacja actual use ma zwracać jawną blokadę zamiast wcześniejszego tymczasowego unresolved; historia i oddzielne osie kwalifikacji pozostają zachowane. Pełne pliki/API/lock order/błędy/testy w0995.
 
-### TASK-1005 — Preset i dopuszczenie zasobów na podstawie danych iteracji
+- **Zamknięcie:** R1 REVISE648.089326s, jedna korekta, R2 PASS288.719457s/high/do1200s. P1-1 i P2-1–4 zamknięte. NoweP2-5 przyjęto jako niskie ryzyko testglob i przekazano1001. Outcome i quality/TASK-0995_RESPONSE_CODEX.md zawierają actual checks i ograniczenia. Operator polecił przekazanie ról po tym commicie;1005 nie rozpoczęto.
 
-- **Status:** `todo`.
-- **Goal / Context:** Preset i dopuszczenie zasobów na podstawie danych iteracji. Istniejące raporty oraz ograniczony pomiar pozwalają wycenić jeden run bez arbitralnych limitów.
-- **Dependencies / entry conditions:** TASK-0994/0995; rzeczywista liczność kohorty; zgoda na ograniczony smoke GPU.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Istniejące raporty oraz ograniczony pomiar pozwalają wycenić jeden run bez arbitralnych limitów. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** architecture/VISION_LAB.md; finetune-D/ledger.json i iterations/03/report.json wskazane w sekcji treningu, traktowane jako dane.
-- **Scope / Technical notes:** Odczyt raportów Mumii z krokami, wybranym checkpointem i czasem. Zapisać uzasadniony preset: batch size, liczba przejść, max_steps/max_epochs/max_seconds i early stopping. Oddzielić grid-only od screen+grid. Smoke do 50 kroków lub 120 s kończy się po pierwszym limicie. Jedna dzierżawa dla app grid runs; operator rezerwuje wyłączne okno względem innych CUDA programów. Żadnej obietnicy globalnej dzierżawy ani zmiany trenera symboli.
-- **Expected files:** Istniejące worker vision_lab/neural_grid_protocol.py, neural_grid_runs.py, run_worker.py; nowe training_core/grid_training_admission.py, wersjonowane presety i API admission/report.
-- **Acceptance criteria / Test cases:** Brak GPU, niezgodny runtime, inny aktywny run lub niezatwierdzony preset blokuje start. Duża kohorta nie odnawia dawnego budżetu. Smoke ma limit i czyszczenie własnego procesu. Parametry są zamrożone przed treningiem; resume nie resetuje wykorzystanego czasu. Dwa tryby treningu mają osobne uzasadnienia.
-- **Verification:** Unit admission/runtime/limit tests; bounded GPU smoke tylko za zgodą, bez pełnego runu lub benchmarku. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+### Etap E — trening i ocena
 
+### TASK-1005 — Preset i dopuszczenie zasobów
 
-### TASK-0996 — Trwałe doszkalanie V3 w aplikacji
+- **Status:** `done` — v1.7.386, Codex R2 PASS, D-557; bez integracji.
+- **Goal / Context:** Ustalić jawny budżet runu na podstawie danych.
+- **Dependencies:** TASK-0995; osobna zgoda na ograniczony pomiar GPU.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; parametry wynikają z raportów i mierzalnego testu.
+- **Relevant docs:** VISION_LAB i raporty dotychczasowych iteracji Mumii.
+- **Scope / Technical notes:** Osobne presety grid-only/screen+grid, koszt kohorty, early stopping i limit czasu/kroków. Smoke kończy się po 50 krokach albo 120 sekundach, zależnie co nastąpi pierwsze. Dzierżawa obejmuje app grid runs.
+- **Expected files:** F19, istniejące protokoły runów; nowy proponowany `training_core/grid_training_admission.py`, presety i API podglądu.
+- **Acceptance / Tests:** Brak GPU, niezgodny runtime, zajęta dzierżawa lub brak zatwierdzonego presetu blokuje run. Resume nie odnawia budżetu.
+- **Verification:** WORKER, API; ograniczony smoke tylko po zgodzie.
+- **Risks / Out of scope:** Bez obietnicy kontroli wszystkich zewnętrznych procesów CUDA i bez zmian trenera symboli.
+- **Outcome:** uzasadniony preset, wynik pomiaru i ograniczenia.
 
-- **Status:** `todo`.
-- **Goal / Context:** Trwałe doszkalanie V3 w aplikacji. Dwa etapy, checkpoint/RNG i trwały budżet runu.
-- **Dependencies / entry conditions:** TASK-0994/0995/1005; kwalifikowane dane i zatwierdzony preset dla runu.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Dwa etapy, checkpoint/RNG i trwały budżet runu. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** architecture/VISION_LAB.md, requirements/VISION_LAB.md; TASK-0802 tylko jako opis modelu bazowego.
-- **Scope / Technical notes:** Wydzielić neutralne funkcje istniejącego fine-tune; produkcja i lab są konsumentami tego samego rdzenia. Job/lease/checkpoint/progress/cancel/resume/export. Grid-only zamraża screen, także BatchNorm. Model version wskazuje ukończony checkpoint-bound export, bez automatycznej aktywacji.
-- **Expected files:** Istniejące worker vision_lab/neural_grid_training.py, neural_grid_finetune.py, neural_grid_data.py, neural_grid_model.py, neural_grid_onnx.py, training_core/checkpoint.py i jobs/. Nowe training_core/grid_training.py, images/grid_training_handler.py, API application/grid_training_runs.py i repository/schema/router/client.
-- **Acceptance criteria / Test cases:** Restart odtwarza checkpoint, sampler/RNG i lease. Crash po eksporcie przed receipt nie tworzy drugiej wersji. Budżet i postęp nie zerują się. VALIDATION nie trafia do TRAIN. Grid-only nie zmienia parametrów ani statystyk etapu ekranu. Uszkodzony checkpoint nie daje candidate_ready. CPU parity i dotychczasowy lab mają regresje.
-- **Verification:** Focused API/worker/unit tests, lint/typecheck/OpenAPI; ograniczony GPU odbiór dopiero po danych/preset/zgodzie. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+### TASK-0996 — Trwały trening V3 w aplikacji
 
+- **Status:** `done` — v1.7.388, Codex R5 PASS, D-558; bez integracji.
+- **Goal / Context:** Wykonać odtwarzalny run z checkpointem i wznowieniem.
+- **Dependencies:** TASK-0995, TASK-1005, TASK-1012.
+- **Recommended execution:** `claude-fable-5-1`, `high`; stan treningu i maskowanie danych.
+- **Relevant docs:** VISION_LAB, architektura workera i kontrakt kohort.
+- **Scope / Technical notes:** Wydzielić wspólny rdzeń z istniejącego treningu. Grid-only zamraża detektor i BatchNorm. Obsłużyć lease, postęp, cancel/resume, eksport i trwały budżet.
+- **Expected files:** F18–F20, model i data adapter laboratorium; nowe proponowane `training_core/grid_training.py`, `images/grid_training_handler.py`, `application/grid_training_runs.py` i repozytorium runów.
+- **Acceptance / Tests:** Restart odtwarza RNG/sampler/optimizer; crash po eksporcie nie dubluje wersji; uszkodzony checkpoint nie daje gotowego kandydata; lab i produkcja używają zgodnej logiki.
+- **Verification:** WORKER, API, MIG przy encjach runów, OpenAPI, MAP.
+- **Risks / Out of scope:** Bez automatycznego rzeczywistego treningu lub aktywacji.
+- **Outcome:** kontrakt checkpointu, testy wznowienia i ewentualny run opisany osobno.
 
-### TASK-0997 — Ocena osobno dla każdej gry i bramka kandydata
+### TASK-0997 — Ocena per gra i bramka kandydata
 
-- **Status:** `todo`.
-- **Goal / Context:** Ocena osobno dla każdej gry i bramka kandydata. Pogorszenie jednej gry nie może zostać ukryte przez średnią wspólnego modelu.
-- **Dependencies / entry conditions:** TASK-0996; zamrożone niezależne pełne zdjęcia kontrolne i tolerancje.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Pogorszenie jednej gry nie może zostać ukryte przez średnią wspólnego modelu. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** D-483/D-480/D-527; architecture/VISION_LAB.md; quality/GRID_V3_COMPARISON_REPORT_20261004.md.
-- **Scope / Technical notes:** Identyczne VALIDATION/REGRESSION dla bieżącego i nowego modelu. D-483 pierwszy, potem image-macro/recall/NMEp95. Per-game/per-recording wyniki i dokładne overlays. Checkpoint wybierany tylko na VALIDATION. Brak porównywalnego dowodu nie jest PASS. UI comparison stanowi część tego pionu.
-- **Expected files:** Istniejące worker vision_lab/neural_grid_metrics.py, geometry_core/metrics.py i gate.py. Nowe training_core/grid_evaluation.py, API application/grid_model_evaluation.py i Admin grid-model-comparison.tsx plus API klient.
-- **Acceptance criteria / Test cases:** Poprawa średniej przy pogorszeniu 777 lub Mumii blokuje kandydata. Brak planszy ma koszt 1. Niepełna anotacja nie dowodzi kompletności zdjęcia. Kandydat bez poprawy, błąd parity i wycofany dowód blokują aktywację. REGRESSION nie służy do wyboru checkpointu.
-- **Verification:** Focused metryki/gate/HTTP/UI tests; raporty z rozdzieleniem znanej i niezmierzonej jakości. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Status:** `done` — v1.7.389, Codex R2 PASS, D-559; bez integracji.
+- **Goal / Context:** Zapobiec publikacji poprawy jednej gry kosztem drugiej.
+- **Dependencies:** TASK-0996 i niezależne, kompletne dane kontrolne.
+- **Recommended execution:** `claude-fable-5-1`, `high`; metryki i kwalifikacja publikacji.
+- **Relevant docs:** D-483, VISION_LAB, reguły oceny tego planu.
+- **Scope / Technical notes:** Identyczne źródła dla bazy i kandydata, pełny inference od zdjęcia, wyniki per gra/nagranie. Wersjonowane definicje metryk. REGRESSION tylko do końcowej kontroli.
+- **Expected files:** F18/F21 i istniejące metryki; nowe proponowane `training_core/grid_evaluation.py`, `application/grid_model_evaluation.py`, `grid-model-comparison.tsx`.
+- **Acceptance / Tests:** Regresja dowolnej gry blokuje wspólny PASS. Brak detekcji ma koszt. Brak danych, parity lub aktualnych dowodów blokuje publikację. Dobór checkpointu nie używa REGRESSION.
+- **Verification:** WORKER, API, ADMIN, OpenAPI.
+- **Risks / Out of scope:** Nie zastępować nieznanej jakości zerowym błędem.
+- **Outcome:** porównanie, wersja polityki i powody PASS/REVISE/braku możliwości oceny.
 
+- **Doprecyzowanie0995/D-556 przed zależnym SQL:** przyszły report używa grid-model-evaluation-read-v2 z dotychczasowym trusted producer/policy i exact cohort refs;0997 dostarcza writer i addytywny publication reader z regresją v1. Własne bindingi kohort są trwałe/idempotentne w osobnych game transakcjach, bez cross-game rebind. Publikacja v2 wymaga pełnego i aktualnego zestawu dowodów; most notices/proofs dla kilku gier wymaga pełnego kontraktu przed kodem0997. Awaria lub brak jednego bindingu nie daje PASS. Audyt high obejmuje nowe dane dowodowe zgodnie z AGENTS; nie jest to dodatkowa runda audytu.
 
-### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777
+### TASK-1006 — Kandydat wspólnej geometrii Mumii i 777a2
 
-- **Status:** `todo`.
-- **Goal / Context:** Kandydat wspólnej geometrii Mumii i 777. Kwalifikacja wielu źródeł i linii bazowych oraz ryzyko regresji między grami.
-- **Dependencies / entry conditions:** TASK-0994/0995/0996/0997/1005; decyzja rozszerzająca D-527; pokrycie obu gier i oddzielna zgoda na jeden run.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Kwalifikacja wielu źródeł i linii bazowych oraz ryzyko regresji między grami. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** Sekcja wspólnego modelu tego planu; requirements/SUPERVISED_MODEL_IMPROVEMENT.md; D-527; architecture/VISION_LAB.md.
-- **Scope / Technical notes:** Nowa wspólna rodzina geometryczna po zgodności input/topology. Wybór bazowego checkpointu 777 albo Mumie na zamrożonej VALIDATION i jeden joint fine-tune, bez uśredniania wag. TRAIN z obu gier z równymi wagami gier/nagrań; inherited protected sets obu rodziców. Wszystkie approvals zachowują gameId. Publikacja dopiero po per-game gate; brak PASS pozostawia dotychczasowe dwa modele.
-- **Expected files:** Rejestr/cohort/trainer/evaluation z poprzednich tasków; nowe API application/shared_grid_model_candidate.py i wersjonowana joint policy; testy mieszanej kohorty. Bez zmiany modeli symboli i wypłat.
-- **Acceptance criteria / Test cases:** Kontrolny alias jednej gry nie trafia do TRAIN drugiej. Większa gra nie dominuje próbkowania. Regresja dowolnej gry blokuje publikację wspólną. Nie ma automatycznej zmiany przypisań. Brak etykiet nowej gry oznacza jakość niezmierzoną. Restart zachowuje wspólną policy i lineage.
-- **Verification:** Focused mixed-cohort/sampler/lineage/gate tests; jeden faktyczny run tylko za zgodą z przygotowanymi danymi, nie automatyczna pętla eksperymentów. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Status:** `done` — v1.7.390, Codex R1 PASS, D-560; mechanizm bez rzeczywistego eksperymentu.
+- **Goal / Context:** Udostępnić kontrolowany trening geometrii obu gier.
+- **Dependencies:** TASK-0997; kohorty obu gier; osobne zlecenie i budżet rzeczywistego runu.
+- **Recommended execution:** `claude-fable-5-1`, `high`; wspólne dane i ryzyko regresji.
+- **Relevant docs:** rozszerzenie D-527, VISION_LAB, reguły wspólnej kohorty.
+- **Scope / Technical notes:** Wybór jednej bazy na VALIDATION, równoważenie gier/nagrań, dziedziczenie wyłączeń obu linii danych. Jeden jawny eksperyment, bez automatycznej pętli.
+- **Expected files:** rejestr, kohorty, trener i ocena poprzednich tasków; nowy proponowany `application/shared_grid_model_candidate.py` i wersjonowana joint policy.
+- **Acceptance / Tests:** Duża gra nie dominuje. Alias kontrolny nie trafia do treningu drugiej gry. Regresja blokuje publikację. Wynik nie przełącza gier automatycznie.
+- **Verification:** API, WORKER; rzeczywisty run tylko po zgodzie i spełnieniu warunków.
+- **Risks / Out of scope:** Brak dobrego wspólnego kandydata nie blokuje panelu i pracy na dotychczasowych wersjach.
+- **Outcome:** mechanizm i wynik eksperymentu rozdzielone; brak pomiaru nie jest PASS.
 
+### Etap F — pełny panel i odbiór
 
-### TASK-0998 — Aktywacja, publikacja i powrót do wersji
-
-- **Status:** `todo`.
-- **Goal / Context:** Aktywacja, publikacja i powrót do wersji. CAS, immutable snapshots rozpoczętych importów i historia aktywacji.
-- **Dependencies / entry conditions:** TASK-0994/0997; wspólny kandydat opcjonalnie z TASK-1006, gdy zaliczony.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. CAS, immutable snapshots rozpoczętych importów i historia aktywacji. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/IMAGE_INGESTION.md; D-544/D-527; architecture/API_CONTRACT.md i DATA_MODEL.md.
-- **Scope / Technical notes:** Activate jednej wskazanej gry/wersji z expectedAssignmentRevision i operationId. Publish oraz rollback oddzielne. Dynamic resolver bierze assignment, nie profile.current. Błąd pakietu bez fallbacku. Baseline katalogu dopuszczony istniejącymi dowodami i jawną publikacją operatora, bez nowego treningu.
-- **Expected files:** Registry i resolver/neural snapshot z TASK-0994, worker geometry_core/proposal_runtime.py; API/schema/client i HTTP testy preflight/start/activate.
-- **Acceptance criteria / Test cases:** Wyścig aktywacji/preflightu i dwie aktywacje mają poprawnyCAS. Utrata odpowiedzi jest idempotentna. Niezaliczona bramka blokuje aktywację. Nowy job wybiera nową wersję, rozpoczęty zachowuje starą. Rollback nie zmienia cropów. Brak ONNX blokuje bez fallbacku. Publikacja nie aktywuje innych gier; archiwalna 777 bez zmian.
-- **Verification:** Focused registry/resolver/import/activation HTTP tests i OpenAPI; bez aktywacji na żywej bazie. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
-
-
-### Etap C — nowe gry, pozostałe siatki i panel
-
-
-### TASK-1004 — Wybór modelu i rodziny przy tworzeniu nowej gry
+### TASK-1000 — Pełna sekcja „Geometria V3”
 
 - **Status:** `todo`.
-- **Goal / Context:** Wybór modelu i rodziny przy tworzeniu nowej gry. Spójny pion tworzenia gry, migracja legacy enumów i dziedziczenie modeli/wyłączeń.
-- **Dependencies / entry conditions:** TASK-0994/0998; opublikowane wersje bazowe; decyzja operatora o zgodności/przynależności.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Spójny pion tworzenia gry, migracja legacy enumów i dziedziczenie modeli/wyłączeń. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/ADMIN_APP.md, SUPERVISED_MODEL_IMPROVEMENT.md (D-527/MODEL-10); architecture/DATA_MODEL.md i API_CONTRACT.md.
-- **Scope / Technical notes:** Rozdzielić format strony od version selection. GameCreate dodaje gridModelVersionId, gridModelFamilyMode join/fork i opcjonalną nazwę rodziny. Domyślnie join zgodnej rodziny; fork jest świadomą opcją. Utworzenie gry, fork/root version i assignment w jednej idempotentnej transakcji. GameUpdate nie omija activation gate. Grid snapshot routing opiera się na assignment/capabilities, bez nowego enumu dla każdej wersji. Katalog pokazuje dostępność, zgodność oraz znany zakres oceny.
-- **Expected files:** Istniejące API domain/catalog.py, schemas/catalog.py, api/catalog.py, application/catalog.py, storage/catalog_repository.py, domain/grid_engine_profiles.py i resolver. Admin games/game-catalog.tsx, game-catalog-state.ts, game-catalog-actions.ts; OpenAPI/generated client/wrapper; nowe testy creation/model assignment i katalogu.
-- **Acceptance criteria / Test cases:** Gang/Treasure bez korekt importuje z jawnie wybranej zgodnej bazy. Brak modelu symboli nie blokuje geometrii. Nieopublikowana lub niezgodna wersja jest blokowana. Fork nie kopiuje wag ani etykiet. Utrata odpowiedzi nie tworzy drugiej gry. Korekty trafiają do jawnie wybranej rodziny, a holdouty rodziców pozostają chronione. Legacy create/update i archiwalna 777 mają regresje.
-- **Verification:** Focused API creation/update/request/OpenAPI oraz Admin formularz/actions tests, lint/typecheck; migracyjny backfill zweryfikowany z TASK-0994. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Goal / Context:** Udostępnić cały proces z poziomu gry.
+- **Dependencies:** TASK-0995, TASK-0997, TASK-0998, TASK-1003, TASK-1011; bez zależności od pozytywnego wyniku TASK-1006.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; integracja gotowych kontraktów.
+- **Relevant docs:** ADMIN_APP, APP_V3_FUNCTIONAL_INVENTORY, D-527/D-541.
+- **Scope / Technical notes:** Diagnostyka, próbka, korekty, dane, run, porównanie, wersje i ponowne rozpoznanie. Backend określa dostępność działań. Brak danych pokazuje konkretne wymagania.
+- **Expected files:** F15, istniejąca nawigacja; nowe proponowane `grid-model-workspace.tsx`, `grid-model-state.ts`, `grid-model-client.ts`; wcześniejsze panele.
+- **Acceptance / Tests:** Proces działa bez skryptów operatora i ręcznego wpisywania technicznych UUID; importy, nagrania i zgodne wersje wybiera się po nazwach z istniejących katalogów. Pomocnicze formularze poprzednich tasków są zastąpione finalnym przebiegiem. Wejście na ekran nie uruchamia joba. Zmiana gry/reload zachowuje właściwy stan. Panel działa z dwiema bazami i odrzuconym wspólnym kandydatem.
+- **Verification:** ADMIN, testy transportu i interakcji, DOC.
+- **Risks / Out of scope:** Bez połączenia treningu symboli z geometrią i bez przebudowy archiwalnej 777.
+- **Outcome:** ścieżki operatora i jawne stany blokujące.
 
-
-### TASK-0999 — Backend wybranego zakresu ponownego rozpoznania
-
-- **Status:** `todo`.
-- **Goal / Context:** Backend wybranego zakresu ponownego rozpoznania. Zmiana geometrii/cropów, sekwencje, blokady i wznowienie na dużym zbiorze.
-- **Dependencies / entry conditions:** TASK-0994/0998; brak kolidującego aktywnego runnera, w tym TASK-0991.
-- **Recommended execution:** `gpt-6.1-sol`, `high`; audyt `claude-fable-5-1`, `high`, w sesji Claude Code. Zmiana geometrii/cropów, sekwencje, blokady i wznowienie na dużym zbiorze. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/ADMIN_APP.md, IMAGE_INGESTION.md; architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md, DATA_MODEL.md; D-462/D-523/D-543.
-- **Scope / Technical notes:** Rozkład state/reason i liczb zdjęć/slotów/komórek. Default uncertain+deferred z pierwszą próbą do 100, wszystkie jako opt-in. Freeze wybranych slotów, onephoto inference i zapisy tylko selected. Preview collision guard + atomic job admission dla geometrii/symbolinference. CAS, sequenceownership, renderer, receipts/checkpoint; potwierdzenia człowieka nie są nadpisywane.
-- **Expected files:** Istniejące API application/image_grid_reviews.py, managed_reprocess_evidence.py, image_imports.py, jobs.py, domain/image_geometry_completeness.py, storage/sequence_ownership_lock.py oraz worker geometry_core/proposal_runtime.py i renderer. Nowe application/grid_reinference.py, storage/grid_reinference.py, images/grid_reinference_handler.py; schema/router/client.
-- **Acceptance criteria / Test cases:** uncertain nie jest dowodem błędnego cropa. Niekompletne zdjęcie nie wybiera wszystkich sąsiadów. Histogramy i pilot 100 są zgodne z zamrożonym planem. Kolidujący runner i wyścig nowych jobów blokują start. CAS chroni geometrię i symbole. Brak środkowego slotu nie przesuwa sekwencji. Odrzucone, superseded i kanon są chronione. Zmieniony crop zachowuje etykietę/historię; identyczny zachowuje approval. Restart/utrata odpowiedzi/brak miejsca nie powtarzają recropu ani nie cofają postępu.
-- **Verification:** Focused API/worker/integration i renderer parity; ograniczony pilot na źródłach operatora po osobnym preview/zgodzie, bez benchmarku 38 tys. zdjęć. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
-
-
-### TASK-1003 — Podgląd, potwierdzenie i raport ponownego rozpoznania w UI
+### TASK-1001 — Odbiór procesu i instrukcja operatora
 
 - **Status:** `todo`.
-- **Goal / Context:** Podgląd, potwierdzenie i raport ponownego rozpoznania w UI. Gotowy kontrakt pozwala oddzielnie ocenić zakres oraz koszty recropu.
-- **Dependencies / entry conditions:** TASK-0999 i jego wygenerowany klient.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Gotowy kontrakt pozwala oddzielnie ocenić zakres oraz koszty recropu. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/ADMIN_APP.md; D-541; sekcja rozpoznania tego planu.
-- **Scope / Technical notes:** State/reason histogram, domyślne wybrane filtry i pilot, jawny szeroki opt-in, potencjalnie zmienione crop approvals, blocked-by-job z linkiem do postępu. Frozen operationId po utracie odpowiedzi, progress/resume/report i powrót do korekt. UI nie tworzy geometrii ani nie zgaduje zakresu z liczby niekompletnych zdjęć.
-- **Expected files:** Nowe Admin features/model-quality/grid-reinference-preview.tsx, grid-reinference-report.tsx i stan/akcje klienta; istniejące jobs UI jako link; nowe interaction tests.
-- **Acceptance criteria / Test cases:** ok nie jest wybrane domyślnie; uncertain/deferred i limit 100 są widoczne. Liczby zdjęć, slotów i komórek są osobne. Szeroki zakres wymaga opt-in. Stary preview daje 409. Zmiana gry, blokada przez TASK-0991, utrata odpowiedzi, resume i raport zachowują właściwy stan. Komunikat zmiany cropa wyjaśnia ponowną weryfikację bez utraty etykiety. Klawiatura i mobile działają.
-- **Verification:** Admin focused test/test:geometry/lint/typecheck, snapshoty stanu i wizualny odbiór preview/raportu. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+- **Goal / Context:** Potwierdzić działanie całego procesu i możliwość dalszej pracy bez historii czatu.
+- **Dependencies:** Ukończone piony aplikacji i audyty. Odbiór na rzeczywistych danych wymaga właściwych zgód i anotacji; wynik wspólnego modelu raportowany oddzielnie.
+- **Recommended execution:** `claude-fable-5-1`, `medium`; integracja i dowody trwałości.
+- **Relevant docs:** DEFINITION_OF_DONE, AUDIT_REPORT_TEMPLATE, dokumenty właścicielskie tasków.
+- **Scope / Technical notes:** E2E na izolowanej bazie: korekta → kohorta → run → ocena → aktywacja → wybrany przebieg → restart. Osobno aktualna baza bez treningu, propozycja i przyjęcie przez człowieka.
+- **Expected files:** nowe proponowane `ai_docs/guides/V3_GRID_FINE_TUNING_OPERATOR.md`, `ai_docs/quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md`, testy odbiorowe; wymagania, architektura, mapy i stan.
+- **Acceptance / Tests:** Proces działa po restarcie i utracie odpowiedzi; obie gry i nowa gra zachowują izolację symboli. Stara 777 ma regresję. Rzeczywiste liczby i ograniczenia są opisane bez domniemanych wyników.
+- **Verification:** API, WORKER, ADMIN, REVIEWER, wymagane buildy, OpenAPI, DOC, MAP.
+- **Risks / Out of scope:** Bez automatycznego wdrożenia, push, migracji operatora i masowego przetwarzania.
+- **Outcome:** wyniki techniczne, odbiór operatora, zakres niewykonany, gałąź i dokładne commity gotowe do akceptacji.
 
+## 7. Pokrycie wymagań i warunki zakończenia
 
-### TASK-1000 — Pełna sekcja doszkalania i wycofanie starego panelu
+| Wymaganie                                  | Taski                  | Dowód odbioru                                                                |
+| ------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------- |
+| Trwały plan i wznowienie między modelami   | 1015                   | Nowa sesja ustala stan z plików i Git.                                       |
+| Czytelne różnice liczników obu gier        | 1010                   | Uzgodnione jednostki, przyczyny i przecięcia.                                |
+| Akceptacja silnika i historyczne statusy   | 1017, 1008             | Atomowy zapis, zgodne projekcje, brak recropu.                               |
+| Edytor 4/24                                | 0993                   | Roundtrip, transformacja, undo, restart.                                     |
+| Checkpointy na D                           | 1014                   | Hash, receipt i odczyt z nowego procesu.                                     |
+| Dynamiczne wersje i nowe gry               | 0994, 1012, 0998, 1004 | Trzecia rodzina, stare snapshoty, nowa gra bez obcego klasyfikatora symboli. |
+| Usunięcie zatwierdzonych pozostałości V1.1 | 1011                   | Trzy miejsca UI, regresja historycznej gry.                                  |
+| Ponowne rozpoznanie bez treningu           | 0999, 1013, 1003       | Przebieg aktualną bazą i ręczne przyjęcie propozycji.                        |
+| Kontrola jakości i dane do treningu        | 1002, 1009, 0995       | Niezależne role, pomiar i kwalifikacja etykiet.                              |
+| Trening i wspólna geometria                | 1005–1006, 0996–0997   | Trwały run, brak przecieku, bramka osobno per gra.                           |
+| Całość w aplikacji                         | 1000–1001              | E2E i instrukcja operatora.                                                  |
 
-- **Status:** `todo`.
-- **Goal / Context:** Pełna sekcja doszkalania i wycofanie starego panelu. Integracja gotowych pionów i regresja istniejącej jakości symboli/diagnostyki.
-- **Dependencies / entry conditions:** TASK-0993–0999, 1002–1006; backend capabilities/registry/cohort/run są źródłem prawdy.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Integracja gotowych pionów i regresja istniejącej jakości symboli/diagnostyki. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** requirements/ADMIN_APP.md, APP_V3_FUNCTIONAL_INVENTORY.md, SUPERVISED_MODEL_IMPROVEMENT.md; D-541/D-527.
-- **Scope / Technical notes:** Sekcja gry dane→train→comparison→activation→rescan, z panelami wcześniejszych tasków i informacją grid-only. Liczniki braku danych oraz źródeł/kohorty. Usunąć globalny mount starego GridQualityPanel. Archival777 zachowuje wyłącznie do odczytu active classical profile/history; symboltraining pozostaje oddzielny. Wejście nie uruchamia joba.
-- **Expected files:** Istniejące Admin model-quality-workspace.tsx, grid-quality-panel.tsx, model-quality-actions.ts, catalog/catalog-workspace.tsx i admin-navigation-state.ts; nowe grid-model-workspace.tsx, grid-model-client.ts, grid-model-state.ts; model-quality contract/loading/interactions tests.
-- **Acceptance criteria / Test cases:** Brak danych pokazuje liczby braków, nie uruchamia treningu. Archiwalna 777 ma czytelny profil bez dawnych działań. Stary blok znika, trening symboli pozostaje. Unsupported, zmiana gry i refresh podczas runu są sprawdzone. Bramka blokuje aktywację. Panel obsługuje oba modele bazowe i odrzuconego albo zaliczonego kandydata wspólnego. Cały workflow działa bez skryptów operatora.
-- **Verification:** Focused Admin tests/interactions/lint/typecheck i wizualny odbiór pełnego panelu; backend klasyczny i historia pozostają. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+Niepowodzenie wspólnego modelu jest dopuszczalnym wynikiem eksperymentu, jeżeli zostaje rzetelnie zmierzone. Nie jest podstawą do osłabiania bramki.
 
+Szacunek implementacji pozostaje orientacyjny: 12–28 dni roboczych, bez czasu anotacji i oczekiwania na runy. Operator jawnie potwierdził ten koszt i zlecił realizację całego planu 2026-10-14. Istotny wzrost kosztu wymaga ponownej zgody zgodnie z AGENTS.
 
-### Etap D — odbiór
+Aktualna faza: TASK-1015 done, bootstrap v1.7.367 / `b35a9ee7dadf3da485427f81a84149e63f0b8cfc`. TASK-1010 done po audycie Claude REVISE i jednej rundzie poprawek; brak otwartych P0/P1, bez przepisywania werdyktu. Commit TASK-1010: v1.7.368 / `02f38d6cb731dfc06001a1c6fc819ee4927acba1`. TASK-1017 done; TASK-1008 done; TASK-0993 done; TASK-1014 done; TASK-0994 done (v1.7.373 i korekta po audycie; Claude R2 PASS); TASK-1012 done (v1.7.375, Claude R2 PASS); TASK-0998 done (R1 REVISE, P1 zamknięte po poprawkach); TASK-1004 done (v1.7.377, Claude R2 PASS); TASK-1011 done (v1.7.378, Claude R1 PASS); TASK-0999 done (v1.7.379, Claude R3 PASS); TASK-1013 done (v1.7.380, Claude R2 PASS); TASK-1003 done (v1.7.381, Claude R2 PASS); TASK-1002 in_progress (jedna runda poprawek po Claude R1 REVISE; R2 jeszcze niewykonany). D-550/D-552 przyjęte przed implementacją TASK-1017. Cały plan jest zlecony; nie wymaga ponownej zgody po każdym tasku. Integracja i operacje danych zachowują osobne bramki. Wcześniejsze regresje wykryte przez kontrole1002 pozostają rozliczone osobno w [rejestrze obowiązków](../quality/V3_BACKEND_REGRESSION_OBLIGATIONS_20261015.md), przed odbiorem1001.
 
+## 8. Przypisanie modeli do zadań
 
-### TASK-1001 — Odbiór i instrukcja operatora
+Zmiana ról na jawne polecenie operatora2026-10-16: TASK-0995 kończy Codex z audytem Claude; po jego osobnym commicie następuje przekazanie. Pozostałe TASK-1005/0996/0997/1006/1000/1001 wykonuje Claude Code, a audytuje Codex gpt-6-astra, w oddzielnym kontekście i ograniczonym zakresie diffu. Historycznych wykonawców i raportów nie przepisujemy. Review0996 ma high dla trwałego stanu i dowodów. Reguły jednej rundy/poprawek, wersjonowania i osobnych zgód operacyjnych nadal obowiązują. Historyczna sesja `claude-fable-5-1` jest potwierdzona raportem rundy 3. Pakietowe CLI Claude wykryto pełnym resolverem z nowego main; --version działa, logowanie i wykonanie audytu wymagają osobnego rzeczywistego wyniku; zewnętrzny raport TASK-1015 otrzymano od operatora: PASS, brak P0/P1, cztery P2 do rozliczenia. Raport zapisano bez zmiany znalezisk w `ai_docs/quality/TASK-1015_AUDIT_claude-fable-5-1.md`. Audyt bootstrapu nie jest PASS aplikacji. Niedostępność przypisanej konfiguracji przy wykonaniu wymaga jawnego rozstrzygnięcia, bez ukrytego zamiennika.
 
-- **Status:** `todo`.
-- **Goal / Context:** Odbiór i instrukcja operatora. Spójny przepływ i dowody świeżego procesu zamiast deklaracji sukcesu.
-- **Dependencies / entry conditions:** Wszystkie wcześniejsze taski, audyty, zgoda na dane/GPU/migrację i etykiety operatora.
-- **Recommended execution:** `gpt-6.1-sol`, `medium`; audyt `claude-fable-5-1`, `medium`, w sesji Claude Code. Spójny przepływ i dowody świeżego procesu zamiast deklaracji sukcesu. Zmiana konfiguracji wymaga jawnej aktualizacji tabeli.
-- **Relevant docs:** process/DEFINITION_OF_DONE.md; wszystkie dokumenty właścicielskie wskazane wyżej; quality/AUDIT_REPORT_TEMPLATE.md.
-- **Scope / Technical notes:** Izolowany E2E na bazie testowej i ograniczony odbiór operatora: correction→cohort→training→comparison→activate→selected reinference→restart. Dwa game scopes, nowa gra i shared candidate. Dokumentacja, decyzje D-480/D-527/budżet, mapy oraz instrukcja migracji i powrotu. Odbiór wyniku i zgoda na integrację dopiero na końcu zleconego zakresu.
-- **Expected files:** Nowe guides/V3_GRID_FINE_TUNING_OPERATOR.md i quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md; acceptance test; wymagania ADMIN_APP/SUPERVISED_MODEL_IMPROVEMENT/IMAGE_INGESTION, architektura DATA_MODEL/API_CONTRACT/SUPERVISED_MODEL_IMPROVEMENT/VISION_LAB, inventory/mapy/stan.
-- **Acceptance criteria / Test cases:** E2E potwierdza dowody niezależności, ochronę ręcznych decyzji/symboli/sekwencji, utratę odpowiedzi i restart. Trener używa wyłącznie D. Pusta kohorta, budżet, tworzenie gry, fork, wspólny lineage i per-game gate są sprawdzone. Archiwalna 777 pozostaje identyczna. Recrop obejmuje tylko wybrane sloty i odpowiada liczbom preview.
-- **Verification:** Ograniczony E2E, lint/typecheck/build/OpenAPI/docs/code-map; operator lifecycle/migracja ręczne; bez gwarancji dla 38 tys. zdjęć z małego testu. Każda skończona kontrola ma twardy timeout według sekcji komend.
-- **Risks / Out of scope:** nie zmieniać danych operatora, nie rozszerzać topologii, nie wykonywać treningu ani inferencji bez właściwej bramki i budżetu.
-- **Outcome:** do uzupełnienia po wykonaniu: changed, verification results, not completed, documentation, wersja/hash commita.
+Zamiennik wykonawcy 2026-10-16: sesja Claude Code przejmująca TASK-1005/0996/0997/1006/1000/1001 działa na `claude-opus-5-5`. Operator wskazał możliwość użycia Opus 5.5 z wyższym poziomem rozumowania albo `claude-fable-5-1` tam, gdzie byłby wyraźnie lepszy, i pozostawił wybór wykonawcy. Wykonawca ocenił taski: TASK-1005 i TASK-0996 wykonano na `high`; TASK-0997 (definicje metryk, bramka publikacji per gra, aktualność dowodów wielu gier) otrzymuje `xhigh`; TASK-1006, TASK-1000 i TASK-1001 `high`. Brak przesłanek, że `claude-fable-5-1` dałby wyraźnie lepszy wynik, a ciągłość kontekstu sesji przemawia za jednym wykonawcą. Audyt każdego taska wykonuje Codex `gpt-6-astra` na poziomach z tabeli, przy braku dostępności `gpt-6.1-sol`. Limit czasu audytu Codex (decyzja po pytaniu operatora 2026-10-16): 1200 s dla poziomu `medium`, 2400 s dla `high` i tasków z dużym diffem; limit jest górną granicą, a brak raportu nie jest PASS. Pierwotne przypisanie `claude-fable-5-1` jest zachowane w historii Git tej sekcji.
 
-
-### Faza operatora O — przygotowanie etykiet przed pierwszym runem
-
-Kod wszystkich etapów może powstawać i być testowany na standardowych
-izolowanych fixture'ach bez oczekiwania na korekty żywej kolekcji. Pierwszy
-rzeczywisty run jest jednak zablokowany progami kohorty. Operator może zacząć
-zbieranie korekt po TASK-0993, a deklaracje/preview ról po TASK-1002/0995.
-Niezależne pule bazowe trzeba kwalifikować, nie zakładać ich dostępności.
-
-Planowanie pracy operatora: poprawić najpierw 10 plansz, zmierzyć czas,
-sprawdzić zapis i kwalifikację. Następnie preview wycenia brakującą liczbę
-plansz według mediany tego pomiaru plus czas deklaracji źródeł. Wstępny
-budżet dla samodzielnego przygotowania 120 plansz to 2–6 h przy założeniu
-1–3 min/plansza; to scenariusz do sprawdzenia, nie zmierzona wydajność.
-Dobór trzech niezależnych nagrań i ich zdobycie są osobnym czasem operatora.
-Wspólny model wymaga pokrycia obu gier osobno, więc preview nie sumuje
-ich etykiet do jednego minimum. UI pokazuje grid-only, dopóki TRAIN nie ma
-pełnych anotacji zdjęć potrzebnych etapowi ekranu.
-
-## Weryfikacja planowana i pokrycie wymagań
-
-| Wymaganie lub uwaga | Task | Dowód |
-| --- | --- | --- |
-| Edytor 4/24 bez utraty geometrii |0993| Roundtrip/homografia/restart/preview i zapis 24 punktów. |
-| P1-1: nowe gry i bazowa wersja bez korekt |0994/1004| Backfill, creation API/formularz, version selection, join/fork i izolacja. |
-| P1-2: pusta kohorta i praca operatora |1002/0995, faza O| required/eligible/missing, minimalne role i jawne przygotowanie danych. |
-| P1-3: stany pozycji i bezpieczny zakres |0999/1003| Histogram, domyślne uncertain/deferred, pilot 100, szeroki opt-in i admission guard. |
-| P1-4: checkpointy na D, ochrona C |0994/0957| Hash/receipt, immutable publish i nowy proces D-only. |
-| P1-5: wykonawca/audytor |Wszystkie| Codex wykonuje, Claude Code audytuje; tabela i każda rekomendacja spójne. |
-| P2-1: granulacja |1002/0995/0999/1003| Nagrania, snapshot, backend i UI rozdzielone. |
-| P2-2: rzeczywista koordynacja GPU |1005/0996| Wykluczenie app grid runs, jawne okno operatora; brak fikcyjnej globalnej dzierżawy. |
-| P2-3: klasyczny profil archiwalnej 777 |1000| Wyłącznie odczyt profilu/historii, bez starego workflow. |
-| P2-4: preset na podstawie danych |1005| Raporty iteracji, aktualna kohorta, ograniczony smoke, preset i budżet zatwierdzone. |
-| P2-5: prawidłowy moduł GAME_SECTIONS |1000| admin-navigation-state.ts i test regresji nawigacji. |
-| Wspólny model Mumii/777 — kierunek operatora |1006| Balanced TRAIN, inherited holdouts, bramka osobno w każdej grze. |
-| Trening/ocena/wersje w aplikacji |0996/0997/0998/1000| Checkpoint, per-game gate, CAS i frozen jobs. |
-| Cały proces i ochrona danych |1001| E2E po restarcie, operator guide, niezmienność archiwalnej 777/symboli/sekwencji. |
-
-Potwierdzone istniejące komendy, uruchamiane z `D:\game_predicotr`.
-Każdą skończoną komendę należy wykonać z twardym limitem procesu do 120 s,
-np. wrapperem poniżej. Nie uruchamiać wszystkich komend automatycznie
-w każdym tasku; najpierw focused tests, następnie lint/typecheck, dopiero
-potem wymagany szerszy zakres. Nowe testy opisane wyżej dopiero powstaną.
-
-```powershell
-function Invoke-PlanCheck([string]$File, [string[]]$Arguments) {
-  $p = Start-Process -FilePath $File -ArgumentList $Arguments -PassThru -NoNewWindow
-  if (-not $p.WaitForExit(120000)) {
-    taskkill.exe /PID $p.Id /T /F | Out-Null
-    throw 'Kontrola przekroczyła 120 s; sprawdź potomne procesy przed ponowieniem.'
-  }
-  if ($p.ExitCode -ne 0) { throw "Kontrola zakończyła się kodem $($p.ExitCode)." }
-}
-Invoke-PlanCheck 'npm.cmd' @('run','test','--workspace','@game-predictor/reviewer')
-Invoke-PlanCheck 'npm.cmd' @('run','test:geometry','--workspace','@game-predictor/reviewer')
-Invoke-PlanCheck 'npm.cmd' @('run','lint','--workspace','@game-predictor/reviewer')
-Invoke-PlanCheck 'npm.cmd' @('run','typecheck','--workspace','@game-predictor/reviewer')
-Invoke-PlanCheck 'npm.cmd' @('run','test','--workspace','@game-predictor/admin')
-Invoke-PlanCheck 'npm.cmd' @('run','test:geometry','--workspace','@game-predictor/admin')
-Invoke-PlanCheck 'npm.cmd' @('run','lint','--workspace','@game-predictor/admin')
-Invoke-PlanCheck 'npm.cmd' @('run','typecheck','--workspace','@game-predictor/admin')
-Invoke-PlanCheck 'npm.cmd' @('run','openapi:check')
-Invoke-PlanCheck 'npm.cmd' @('run','docs:check')
-Invoke-PlanCheck 'npm.cmd' @('run','code-map:check')
-```
-
-Python focused tests: `.venv\Scripts\python.exe -m pytest <test taska>`;
-ruff/mypy dla zmienionych modułów według repozytorium. GPU smoke używa
-zweryfikowanego środowiska treningowego, nie zakłada dawnej ścieżki na C.
-Wcześniejsze unrelated failures pozostają poza zakresem i są jawnie zapisane.
-
-## Bramki wykonania, koszty i zakres wyłączony
-
-Kontrole rewizji 2 (2026-10-14): `docs:check`, `git diff --check` i kontrola
-zgodności 14 tasków z końcową tabelą modeli zaliczone. To weryfikacja
-dokumentacji; testów aplikacji i nowego audytu Claude nie uruchamiano.
-
-- Raport Claude pierwszej wersji pozostaje REVISE. Odpowiedź na uwagi jest
-  w quality/V3_GRID_FINE_TUNING_PLAN_REMEDIATION_CODEX_20261014.md; nie jest
-  drugim niezależnym audytem ani deklaracją PASS.
-- Planowanie nie uruchomiło treningu, benchmarku, inferencji, migracji,
-  aktywacji ani usług. Liczby bazy przyjęto z datowanego raportu audytora;
-  dokładne artefakty checkpointu/eksportu zweryfikowano tylko do odczytu.
-- Operator wybrał Codex jako wykonawcę oraz Claude Code jako audytora.
-  Istniejąca sesja Claude Code jest dostępna według przekazanego raportu
-  (claude-fable-5-1/medium), a rekomendacja high dla danych/migracji jest
-  stosowana w repo. Brakclaude wPATH procesu Codex nie zatrzymuje startu.
-  Brief i diff mogą być przekazane tej sesji w trybie read-only; raport
-  ma format repo, zakres -Paths i jedną rundę. Nie logować/instalować CLI
-  ani zastępować audytu drugim modelem GPT bez zgody operatora.
-- Przed implementacją: akceptacja rewizji 2, kosztu i nowych propozycji
-  minimum kohorty/pilota; kontrola numerów; decyzje rozszerzające D-480
-  (ręczne TRAIN) oraz D-527 (wspólna geometria Mumii/777). Numery decyzji
-  sprawdzić przy zapisie, nie rezerwować D-548 z historycznego audytu.
-- Przed rzeczywistym treningiem: checkpointy na D, kwalifikowane etykiety,
-  niezależne pełne dane kontroli, runtime GPU, zatwierdzony preset i
-  wyłączne okno zasobów. Dawne budżety D-481 nie odnawiają się automatycznie.
-- Przed live reinference: aktualny preview liczb i wybranych slotów,
-  zakończenie/oddzielne zatrzymanie kolidujących runnerów, aktywna zgodna
-  wersja i jawny start. Migawka i CAS nadal chronią przed zmianą w trakcie.
-- Zaktualizowany zgrubny szacunek 14 tasków: około 9–21 dni roboczych
-  implementacji, kontroli i jednej rundy audytu na task. To korekta
-  optymistycznych 3–6 dni; więcej migracji/pionów HTTP i wspólny model
-  wymagają osobnej kwalifikacji. Faktyczny czas agentów będzie aktualizowany
-  po etapie A, bez obietnicy niezmiennego terminu. Koszt/tokeny pakietu nie
-  są wiarygodnie znane. Przed startem wymagana wyraźna zgoda na taki koszt.
-- Przygotowanie etykiet przez operatora jest osobną fazą O (scenariusz 2–6 h
-  dla 120 plansz od początku, do weryfikacji próbą 10); oczekiwanie na nagrania,
-  GPU i odbiór nie mieści się w szacunku implementacji.
-- Etapy uruchamia operator; task ma własny audit/commit/Outcome. Akceptacja
-  wyniku i zgoda na integrację dopiero na końcu zleconego taska/etapu/planu.
-  Brak automatycznego merge/push. Migracje i lifecycle usług ręczne oraz
-  oddzielnie autoryzowane; nie wykonujemy cleanupu C w tym planie.
-- Poza zakresem: uczenie/łączenie modeli symboli i wypłat, zmiana OCR lub
-  numeracji, przeniesienie archiwalnej 777 do V3, sieć 3 × 3, chmura/Redis/Celery,
-  globalna dzierżawa wszystkich programów CUDA, usuwanie danych, pętla
-  wielu runów i benchmark 38 tys. zdjęć. Wąski guard admission kolidujących
-  zadań symbolinference w TASK-0999 jest jawnie w zakresie.
-
-## Przypisanie modeli do zadań
-
-Wybór operatora: Codex wykonuje, sesja Claude Code audytuje. Dokładne
-konfiguracje poniżej obowiązują zarówno w taskach, jak i w ich briefach.
-Audyt jest z innej rodziny niż wykonawca; brak CLI w tym procesie nie
-wyklucza audytu w istniejącej sesji Claude. Same przypisania nie są zgodą
-na implementację lub delegowanie wykonawców.
-
-| Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
-| --- | --- | --- | --- | --- |
-|TASK-0993|gpt-6.1-sol|medium|Istniejący kontrakt i edytor; głównym ryzykiem jest utrata dokładnych węzłów.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-0994|gpt-6.1-sol|high|Migracje, pochodzenie checkpointów i zgodność zamrożonych importów.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-1002|gpt-6.1-sol|high|Proweniencja danych i ochrona przed przeciekiem między nagraniami oraz liniami modeli.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-0995|gpt-6.1-sol|high|Dokładne etykiety, current approval i zamrożone dane dowodowe.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-1005|gpt-6.1-sol|medium|Istniejące raporty oraz ograniczony pomiar pozwalają wycenić jeden run bez arbitralnych limitów.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-0996|gpt-6.1-sol|high|Dwa etapy, checkpoint/RNG i trwały budżet runu.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-0997|gpt-6.1-sol|high|Pogorszenie jednej gry nie może zostać ukryte przez średnią wspólnego modelu.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-1006|gpt-6.1-sol|high|Kwalifikacja wielu źródeł i linii bazowych oraz ryzyko regresji między grami.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-0998|gpt-6.1-sol|high|CAS, immutable snapshots rozpoczętych importów i historia aktywacji.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-1004|gpt-6.1-sol|high|Spójny pion tworzenia gry, migracja legacy enumów i dziedziczenie modeli/wyłączeń.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-0999|gpt-6.1-sol|high|Zmiana geometrii/cropów, sekwencje, blokady i wznowienie na dużym zbiorze.|claude-fable-5-1 high, read-only w sesji Claude Code.|
-|TASK-1003|gpt-6.1-sol|medium|Gotowy kontrakt pozwala oddzielnie ocenić zakres oraz koszty recropu.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-1000|gpt-6.1-sol|medium|Integracja gotowych pionów i regresja istniejącej jakości symboli/diagnostyki.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
-|TASK-1001|gpt-6.1-sol|medium|Spójny przepływ i dowody świeżego procesu zamiast deklaracji sukcesu.|claude-fable-5-1 medium, read-only w sesji Claude Code.|
+| Zadanie   | Model       | Reasoning | Uzasadnienie                                        | Dodatkowy review         |
+| --------- | ----------- | --------- | --------------------------------------------------- | ------------------------ |
+| TASK-1015 | gpt-6.1-sol | medium    | Dokumentacja, bezpieczny start i przekazanie stanu. | claude-fable-5-1, medium |
+| TASK-1010 | gpt-6.1-sol | high      | Kilka źródeł liczników i różne jednostki.           | claude-fable-5-1, medium |
+| TASK-1017 | gpt-6.1-sol | high      | Akceptacja silnika i pochodzenie danych.            | claude-fable-5-1, high   |
+| TASK-1008 | gpt-6.1-sol | high      | Historyczne statusy i atomowe projekcje.            | claude-fable-5-1, high   |
+| TASK-0993 | gpt-6.1-sol | medium    | Geometria edytora i zachowanie węzłów.              | claude-fable-5-1, medium |
+| TASK-1014 | gpt-6.1-sol | medium    | Trwałość i integralność artefaktów.                 | claude-fable-5-1, medium |
+| TASK-0994 | gpt-6.1-sol | high      | Rejestr i migracja przypisań.                       | claude-fable-5-1, high   |
+| TASK-1012 | gpt-6.1-sol | high      | Snapshoty i zgodność całego importu.                | claude-fable-5-1, high   |
+| TASK-0998 | gpt-6.1-sol | high      | Aktywacje, CAS i historia wersji.                   | claude-fable-5-1, medium |
+| TASK-1004 | gpt-6.1-sol | high      | Nowe gry i izolacja symboli.                        | claude-fable-5-1, high   |
+| TASK-1011 | gpt-6.1-sol | medium    | Ograniczone zmiany UI i regresja starej gry.        | claude-fable-5-1, medium |
+| TASK-0999 | gpt-6.1-sol | high      | Ponowne zapisy i ochrona sekwencji.                 | claude-fable-5-1, high   |
+| TASK-1013 | gpt-6.1-sol | high      | Decyzje człowieka i rewizje propozycji.             | claude-fable-5-1, high   |
+| TASK-1003 | gpt-6.1-sol | medium    | Podgląd zakresu i raport operacji.                  | claude-fable-5-1, medium |
+| TASK-1002 | gpt-6.1-sol | high      | Pochodzenie i niezależność nagrań.                  | claude-fable-5-1, high   |
+| TASK-1018 | gpt-6.1-sol | high | Zgodność historycznych kontraktów, rzeczywiste role i narzędzia lifecycle. | claude-fable-5-1, high |
+| TASK-1009 | gpt-6.1-sol | high      | Dobór próby i interpretacja wyników.                | claude-fable-5-1, high |
+| TASK-0995 | gpt-6.1-sol | high      | Kwalifikacja i niezmienne dane dowodowe.            | claude-fable-5-1, high   |
+| TASK-1005 | claude-opus-5-5 | high | Pomiar kosztu i wersjonowany preset. | gpt-6-astra, medium |
+| TASK-0996 | claude-opus-5-5 | high | Trener, checkpoint i wznowienie. | gpt-6-astra, high |
+| TASK-0997 | claude-opus-5-5 | xhigh | Metryki i bramka osobno dla gier. | gpt-6-astra, high |
+| TASK-1006 | claude-opus-5-5 | high | Wspólna kohorta i regresje między grami. | gpt-6-astra, high |
+| TASK-1000 | claude-opus-5-5 | high | Integracja gotowych funkcji panelu. | gpt-6-astra, medium |
+| TASK-1001 | claude-opus-5-5 | high | Odbiór procesu i dokumentacja trwałości. | gpt-6-astra, medium |

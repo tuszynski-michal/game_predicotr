@@ -263,6 +263,15 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 "The game gained protected geometry shadow history.",
                 details={"blockers": ["GRID_SHADOW_HISTORY_PRESENT"]},
             )
+        from game_predictor_api.storage.grid_reinference_retention import detach_grid_source_links
+
+        source_ids = tuple(
+            self._session.scalars(
+                text("SELECT id FROM source_images WHERE game_id=:game"),
+                {"game": snapshot.target_id},
+            )
+        )
+        detach_grid_source_links(self._session, snapshot.target_id, source_ids)
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
@@ -537,6 +546,13 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             verified_export_ids=verified_export_ids,
             source_rows=source_rows,
         )
+        retained_paths = self._retained_source_paths(
+            source_rows=source_rows,
+            source_ids=source_ids,
+            board_ids=board_ids,
+            import_job_ids=import_job_ids,
+        )
+        artifact_paths = tuple(path for path in artifact_paths if path not in retained_paths)
         return _BoardSourceScope(
             game_id=game_id,
             ranges=ranges,
@@ -562,8 +578,66 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 activation_rows, activation_ids
             ),
             artifact_paths=artifact_paths,
-            retained_shared_artifact_count=0,
+            retained_shared_artifact_count=len(retained_paths),
         )
+
+    def _retained_source_paths(
+        self,
+        *,
+        source_rows: list[tuple[UUID, str, str, str, UUID]],
+        source_ids: tuple[UUID, ...],
+        board_ids: tuple[UUID, ...],
+        import_job_ids: tuple[UUID, ...],
+    ) -> frozenset[str]:
+        """Originals that a surviving row or an unfinished job still needs.
+
+        TASK-1042: originals are content-addressed and may be shared by sources
+        of other imports or games. An unfinished import (or a job pinned to it
+        as ``managed_source_job_id``) re-verifies its whole originals manifest
+        when it resumes, so its originals stay until it ends.
+        """
+
+        source_paths = tuple(sorted({row[1] for row in source_rows}))
+        if not source_paths:
+            return frozenset()
+        referenced = self._cross_game_paths(
+            "SELECT relative_path FROM source_images "
+            "WHERE relative_path IN :paths AND id NOT IN :source_ids",
+            paths=source_paths,
+            source_ids=source_ids,
+        )
+        referenced |= (
+            self._cross_game_paths(
+                "SELECT board_relative_path FROM image_board_geometry_revisions "
+                "WHERE board_relative_path IN :paths "
+                "AND recognized_board_id NOT IN :board_ids",
+                paths=source_paths,
+                board_ids=board_ids,
+            )
+            if board_ids
+            else self._cross_game_paths(
+                "SELECT board_relative_path FROM image_board_geometry_revisions "
+                "WHERE board_relative_path IN :paths",
+                paths=source_paths,
+            )
+        )
+        unfinished = set(
+            self._ids(
+                "SELECT id FROM jobs WHERE id IN :import_job_ids "
+                "AND status IN ('created', 'processing', 'waiting_for_review')",
+                import_job_ids=import_job_ids,
+            )
+        )
+        unfinished.update(
+            UUID(value)
+            for value in self._paths(
+                "SELECT input_payload->>'managed_source_job_id' FROM jobs "
+                "WHERE status IN ('created', 'processing', 'waiting_for_review') "
+                "AND input_payload->>'managed_source_job_id' IN :job_ids",
+                job_ids=tuple(str(job_id) for job_id in import_job_ids),
+            )
+        )
+        return frozenset(referenced | {row[1] for row in source_rows if row[4] in unfinished})
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
@@ -614,8 +688,18 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return blockers
 
     def _board_source_warnings(self, scope: _BoardSourceScope) -> list[str]:
+        from game_predictor_api.storage.grid_reinference_retention import (
+            retained_grid_source_link_count,
+        )
+
+        retained = retained_grid_source_link_count(self._session, scope.game_id, scope.source_ids)
+        history = (
+            ["GRID_REINFERENCE_HISTORY_RETAINED_LIVE_SOURCE_LINKS_DETACHED"] if retained else []
+        )
+        if scope.retained_shared_artifact_count:
+            history.append("SOURCE_ORIGINALS_RETAINED")
         if scope.active_model_survives:
-            return []
+            return history
         exclusion = "AND id NOT IN :model_ids" if scope.model_ids else ""
         candidate_parameters: dict[str, object] = {"game_id": scope.game_id}
         if scope.model_ids:
@@ -629,8 +713,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             **candidate_parameters,
         )
         if surviving_candidate_count:
-            return ["SYMBOL_MODEL_ACTIVATION_REQUIRED"]
-        return ["SYMBOL_MODEL_BOOTSTRAP_AVAILABLE"]
+            return [*history, "SYMBOL_MODEL_ACTIVATION_REQUIRED"]
+        return [*history, "SYMBOL_MODEL_BOOTSTRAP_AVAILABLE"]
 
     @staticmethod
     def _board_source_counts(scope: _BoardSourceScope) -> tuple[CleanupCount, ...]:
@@ -888,6 +972,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "DELETE FROM image_source_geometry_revisions WHERE id IN :source_geometry_ids",
             source_geometry_ids=scope.source_geometry_ids,
         )
+        from game_predictor_api.storage.grid_reinference_retention import detach_grid_source_links
+
+        detach_grid_source_links(self._session, scope.game_id, scope.source_ids)
         self._delete(
             "DELETE FROM source_images WHERE id IN :source_ids", source_ids=scope.source_ids
         )
@@ -983,6 +1070,20 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             return int(
                 session.scalar(self._bound_statement(statement, parameters), parameters) or 0
             )
+
+    def _cross_game_paths(self, statement: str, **parameters: object) -> set[str]:
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return set()
+        if self._cross_game_session_factory is None:
+            return set(self._paths(statement, **parameters))
+        with self._cross_game_reader() as session:
+            return {
+                str(value)
+                for value in session.scalars(
+                    self._bound_statement(statement, parameters), parameters
+                )
+                if value is not None
+            }
 
     def _paths(self, statement: str, **parameters: object) -> tuple[str, ...]:
         if any(isinstance(value, tuple) and not value for value in parameters.values()):
@@ -1165,6 +1266,21 @@ SELECT
   (SELECT count(DISTINCT mobile_release_id) FROM mobile_release_games
     WHERE game_id = :game_id) AS mobile_releases,
   (SELECT count(*) FROM review_batches WHERE game_id = :game_id) AS review_batches,
+  (SELECT count(*) FROM grid_reinference_sources WHERE game_id = :game_id)
+    AS grid_reinference_history_preserved,
+  (SELECT count(*) FROM grid_reinference_sources
+    WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
+    AS grid_reinference_links_detached,
+  (SELECT count(*) FROM grid_quality_measurements WHERE game_id = :game_id)
+    AS grid_quality_history_preserved,
+  (SELECT count(*) FROM grid_quality_measurement_members
+    WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
+    AS grid_quality_links_detached,
+  (SELECT count(*) FROM grid_training_cohorts WHERE game_id = :game_id)
+    AS grid_training_cohort_history_preserved,
+  (SELECT count(*) FROM grid_training_cohort_members
+    WHERE game_id = :game_id AND live_source_image_id IS NOT NULL)
+    AS grid_training_cohort_links_detached,
   (SELECT count(*) FROM jobs WHERE game_id = :game_id) AS jobs_preserved
 """
 

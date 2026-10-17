@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
@@ -59,14 +60,18 @@ def migration_database() -> Iterator[URL]:
         _database_url("postgres"), isolation_level="AUTOCOMMIT", pool_pre_ping=True
     )
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(_database_url(TEST_DATABASE_NAME))
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield _database_url(TEST_DATABASE_NAME)
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 

@@ -11,6 +11,7 @@ from uuid import UUID
 class WorkerLaneName(StrEnum):
     GENERAL = "general"
     IMAGE_SELECTION = "image_selection"
+    GRID_TRAINING = "grid_training"
 
 
 class WorkerLaneState(StrEnum):

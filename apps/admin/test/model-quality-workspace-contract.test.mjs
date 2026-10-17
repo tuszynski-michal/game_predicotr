@@ -9,6 +9,13 @@ const source = await readFile(
   ),
   'utf8',
 );
+const v3Source = await readFile(
+  new URL(
+    '../src/features/model-quality/grid-model-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const gridSource = await readFile(
   new URL(
     '../src/features/model-quality/grid-quality-panel.tsx',
@@ -38,6 +45,13 @@ test('shows active model, deltas, all symbol coverage and advisory thresholds', 
 
 test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(source, /GridQualityPanel/);
+  assert.match(
+    source,
+    /usesNeuralGridConfiguration\(\s*props\.shapeGeometryConfiguration,\s*props\.gameCode/,
+  );
+  // TASK-1000: the V3 branch mounts one workspace with every geometry step.
+  assert.match(source, /<GridModelWorkspace/);
+  assert.match(v3Source, /<GridModelAssignmentSummary/);
   assert.match(source, /Rozpoznawanie symboli/);
   assert.match(source, /Cięcie siatki/);
   assert.match(source, /preview\.cellSampleCount/);
@@ -49,13 +63,6 @@ test('keeps grid calibration separate, gated and future-batch only', () => {
   assert.match(gridSource, /validationCornerCount/);
   assert.match(gridSource, /36-punktowe/);
   assert.match(gridSource, /meanNormalizedCornerError/);
-  assert.match(gridSource, /recalculableBoardCount/);
-  assert.match(gridSource, /currentV19BoardCount/);
-  assert.match(gridSource, /unsupportedVirtualBoardCount/);
-  assert.match(gridSource, /wirtualne v0\.10 do ręcznej/);
-  assert.match(gridSource, /plikowych siatek symboli 3×5 modułem v19/);
-  assert.match(gridSource, /geometryVersion/);
-  assert.match(gridSource, /cropperVersion/);
   assert.ok(
     source.indexOf('Ulepsz rozpoznawanie') < source.indexOf('Cięcie siatki'),
     'symbol actions must stay inside the symbol workflow before the grid workflow',

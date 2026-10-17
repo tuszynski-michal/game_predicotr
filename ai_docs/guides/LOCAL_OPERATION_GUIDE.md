@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-15
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -175,6 +175,63 @@ tabelach (bez zapisu `public.alembic_version`), `USAGE, SELECT` na
 sekwencjach, `EXECUTE` na funkcjach i domyślne uprawnienia dla obiektów,
 które właściciel utworzy później (migracje, partycje nowej gry). Gdy oba URL-e
 mają tego samego użytkownika (konfiguracja wycofania), skrypt nic nie robi.
+
+Od `0161_source_recording_groups` kanoniczne `npm run db:migrate` wykonuje
+trzy kroki w stałej kolejności: `scripts/provision_database_roles.py
+--recording-capability`, `alembic upgrade head`, a następnie domyślny
+`scripts/provision_database_roles.py`. Pierwszy krok provisionuje wyłącznie
+per-database nonlogin capability, nie rolę runtime. Z `--check` ta flaga tylko
+waliduje capability. Migracja nie wykonuje cluster-role DDL i odmawia pracy
+bez prawidłowej capability. Końcowy krok odtwarza zwykłe uprawnienia aplikacji
+oraz exact private deny rejestru po ogólnych/default grantach. `db:reset:local`
+stosuje tę samą kolejność po odtworzeniu schematu; nadal wymaga osobnej zgody
+na usunięcie danych i `-ConfirmReset`. Nie uruchamia się resetu w ramach
+zwykłego sprawdzenia jakości.
+
+Downgrade0161 jest możliwy tylko przy pustych wszystkich pięciu tabelach
+rejestru; dowolna historia lub receipt go blokuje. Restore/rename/clone zmienia
+tożsamość capability i może zablokować zgodność właścicieli. Sam provisioning
+nie naprawia własności obiektów, a narzędzie re-own obecnie nie istnieje.
+Takie wdrożenie wymaga osobnego jawnego rozwiązania; nie stosuj owner fallback
+w runtime rejestru. Szczegóły: [nagrania V3](SOURCE_RECORDING_GROUPS.md).
+
+Do dokładnych, krótkich kontroli pytest w worktree służy wersjonowany runner:
+
+```powershell
+$taskGitCommonDirectory = git rev-parse --path-format=absolute --git-common-dir
+$taskMainCheckout = Split-Path -Parent $taskGitCommonDirectory
+$taskPython = Join-Path $taskMainCheckout '.venv\Scripts\python.exe'
+& $taskPython scripts/run_scoped_python_tests.py --receipt artifacts/audits/grid-profile-check.json --timeout-seconds 120 -- services/api/tests/test_grid_engine_profiles_migration.py -q
+```
+
+Polecenia wykonuj z katalogu głównego bieżącego worktree. Powyższy przykład
+znajduje istniejący venv głównego checkoutu standardowego repozytorium; nie
+wymaga osobnego venv w worktree. Jeżeli środowisko ma inną lokalizację, jawnie
+ustaw `$taskPython` na jego sprawdzony interpreter. Nie wybieraj przypadkowego
+globalnego Pythona w zastępstwie brakującego środowiska.
+
+Runner ustawia ścieżki źródeł bieżącego worktree i używa nowego własnego UUID
+pod krótkim `artifacts/t` wspólnego repozytorium Git. TEMP/TMP dotyczą wyłącznie
+potomnego procesu testowego; konfiguracja systemu, terminala i PATH nie zmienia
+się. Receipt zapisuje dokładne node IDs, wyniki, limit, własne PID-y i cleanup.
+Log ma redakcję danych logowania URL. Limit wynosi1–120s; przekroczenie limitu
+lub błąd środowiska nie oznacza PASS. Runner kończy wyłącznie swoje drzewo
+procesów i usuwa własny potwierdzony TEMP. Nie uruchamia usług, nie włącza
+samodzielnie opt-in PostgreSQL i nie usuwa baz. Po przerwaniu PG należy sprawdzić
+receipt własności fixture; nie ponawiać testu przed rozliczeniem pozostałych
+własnych zasobów. Sandboxowa odmowa socketpair lub połączenia nie uprawnia do
+nieguardowanej próby na bazie operatora.
+
+`scripts/run_m4_import_acceptance.py` tworzy dla każdego przebiegu nową bazę
+UUID. `--database-name` jest etykietą, nie wskazaniem istniejącej bazy do
+ponownego użycia. Bez `--keep-database` sprzątane są własne zasoby zarówno po
+sukcesie, jak i po błędzie workloadu. Aby zachować bazę do analizy błędu, wybierz
+`--keep-database` przed uruchomieniem; flaga zachowuje także udany przebieg.
+Nie gwarantuje zachowania po błędzie samego provisioningu, który ma własne
+sprzątanie. Historyczne pole raportu `databaseRetainedForRetry` oznacza teraz
+retencję do inspekcji, a nie możliwość retry na tej samej bazie: następny run
+zawsze tworzy nowy UUID. Retencja nie daje zgody na adopcję ani usunięcie zasobu
+bez sprawdzenia jego zapisanej tożsamości.
 
 Cutover (wykonuje orkiestrator; schemat bez zmian, bez migracji):
 
@@ -1670,3 +1727,58 @@ Nie uruchamiać go z nową ścieżką raportu jako sposobu na obejście review.
 Nie wykonywać historycznego `run_v20_layout_import.py` z polityką `verified_v19`.
 
 Pełny odbiór i checksumy: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.
+
+## Rejestr modeli geometrii V3 — TASK-0994
+
+Kod TASK-0994 wymaga Alembic `0156_grid_model_registry` i ownership manifestv9.
+Migracja jest addytywna: zachowuje formaty gier i game-owned partycje/dane,
+rejestruje dwie bazy historyczne oraz dotychczasowe przypisania V3. Historyczna
+777 (code7) pozostaje unassigned. Migracja nie uruchamia modelu, treningu ani
+nowej aktywacji/default. Brak plików daje niedostępność, nigdy inną wersję.
+
+Migrację operatora wykonuje operator osobno, w istniejącej kolejności
+stop usług → zatwierdzona integracja → `npm run db:migrate` → start usług.
+Testowe zastosowanie migracji w disposable DB nie jest migracją operatora.
+`db:migrate` zachowuje istniejące provisionowanie roli aplikacyjnej; nowe
+immutable guards kontrolują jej zapisy. Nie ma bezstratnego downgrade0156.
+Rejestracja API wymaga zgodnego inference manifestu oraz training-base receipt
+z plikami i pinned SHA/size. Katalog GET/POST nie ładuje Torch/ONNX ani GPU.
+
+
+### Polecenia publikacji i przypisania — TASK-0998
+
+Stan TASK-0998 wymagał Alembic `0157_grid_model_publication` i manifest v10.
+Migracja dodaje control schema/history oraz pola receipt, ale nie publikuje
+modeli i nie ustawia default. Przed integracją i migracją operatora zachowaj
+powyższą ręczną kolejność usług. Test na disposable DB nie jest zgodą na
+migrację operatora. Downgrade 0157 odmawia utraty historii.
+
+Odrębne polecenia publish, activate(game), set-default i rollback(game) mają
+UUID idempotencyKey oraz expectedRevision. Pierwsza revision wynosi 0.
+Powtórzenie tego samego polecenia odtwarza receipt; po utracie odpowiedzi
+użyj tego samego klucza i payloadu. Nowy klucz nie naprawia konfliktu rewizji.
+Najpierw odczytaj bieżący assignment/default i świadomie wybierz target.
+
+Historyczna baza wymaga jawnego publish z istniejącym raportem; nie otrzymuje
+nowego PASS. Kandydat wymaga ID zaufanej oceny serwera TASK-0997. API nie
+przyjmuje PASS/metryk od klienta. Samo published nie oznacza aktualnej
+eligibility: sprawdź eligible/eligibilityReasonCode oraz dostępność plików.
+Invalidation blokuje nowe komendy i wybór default dla nowej gry, ale nie
+zdejmuje istniejącego assignment ani nie zmienia jobów. Rollback wymaga
+wcześniejszej opublikowanej i nadal dopuszczonej wersji w historii tej gry;
+zmienia tylko przypisanie. Rzeczywiste publikacje/aktywacje/default i runy
+wykonuje operator osobno; implementacja i testy nie wykonały ich na jego danych.
+
+## TASK-1004: rezerwacja nowej gry V3, głowa0158 i manifestv11
+
+Bieżący kod API i workera wymaga Alembic `0158_new_game_v3_bootstrap` oraz
+manifestv11. Migracja dodaje publiczny ledger tworzenia, immutable referencję
+bazy nowej rodziny oraz rodzinę treningową przypisania. Listy partycji danych
+pozostają identyczne jak wv10. Downgrade jest celowo zabroniony, aby nie usuwać
+historii rezerwacji i pochodzenia modeli.
+
+Migrację na bazie operatora wykonuje operator dopiero po świadomej decyzji,
+z uwzględnieniem istniejącej procedury migracji i jej warunków wstępnych.
+TASK-1004 nie wykonuje tej operacji ani restartu API/Admin/workerów.
+Przed migracją nie należy uruchamiać nowego kodu przeciw starej głowie;
+startup poprawnie blokuje niezgodność0157/v10 z wymaganiem0158/v11.

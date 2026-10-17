@@ -15,6 +15,8 @@ from typing import Any
 import numpy as np
 import torch
 
+from ..training_core.grid_training import OPSET as OPSET
+from ..training_core.grid_training import export_graphs as export_graphs
 from .neural_grid_data import PhotoSample, read_rgb
 from .neural_grid_inference import (
     BUNDLE_FILE,
@@ -22,46 +24,12 @@ from .neural_grid_inference import (
     file_sha256,
     onnx_engine,
 )
-from .neural_grid_model import BoardExport, NeuralGridNetwork, ScreenExport
+from .neural_grid_model import NeuralGridNetwork
 from .neural_grid_protocol import MODEL_VERSION, Preset
 
-OPSET = 18
 # T05 (hybrid_protocol): raw output delta 1e-4, source coordinates 0.1 px.
 RAW_TOLERANCE = 1e-4
 SOURCE_TOLERANCE_PX = 0.1
-
-
-def export_graphs(network: NeuralGridNetwork, preset: Preset, directory: Path) -> None:
-    network = network.cpu().eval()
-    canvas_w, canvas_h = preset.screen.train_canvas
-    batch = torch.export.Dim("batch", min=1, max=64)
-    height = torch.export.Dim("height32", min=2, max=64)
-    width = torch.export.Dim("width32", min=2, max=64)
-    torch.onnx.export(
-        ScreenExport(network.screen).eval(),
-        (torch.zeros((1, 3, canvas_h, canvas_w)),),
-        str(directory / "screen.onnx"),
-        input_names=["pixels"],
-        output_names=["heat", "offsets"],
-        opset_version=OPSET,
-        dynamo=True,
-        verbose=False,
-        external_data=False,
-        dynamic_shapes=({0: batch, 2: 32 * height, 3: 32 * width},),
-    )
-    board_w, board_h = preset.board.canvas
-    torch.onnx.export(
-        BoardExport(network.board).eval(),
-        (torch.zeros((2, 3, board_h, board_w)),),
-        str(directory / "board.onnx"),
-        input_names=["crops"],
-        output_names=["nodes", "peak", "visibility"],
-        opset_version=OPSET,
-        dynamo=True,
-        verbose=False,
-        external_data=False,
-        dynamic_shapes=({0: torch.export.Dim("crops", min=1, max=64)},),
-    )
 
 
 def _max_delta(left: np.ndarray, right: np.ndarray) -> float:

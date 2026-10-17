@@ -12,6 +12,7 @@ import type { DeferredBoardCellGeometryIdempotency } from './deferred-board-cell
 export interface BoardLatticeDraftScope {
   readonly targetKey: string;
   readonly sourceUrl: string;
+  readonly revisionKey?: string;
   readonly width: number;
   readonly height: number;
 }

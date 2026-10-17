@@ -9,9 +9,10 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import replace_virtual_geometry
 from alembic import command
 from alembic.config import Config
@@ -67,6 +68,7 @@ def _upgrade(engine: Engine) -> None:
     config.set_main_option(
         "sqlalchemy.url", engine.url.render_as_string(hide_password=False).replace("%", "%%")
     )
+    OwnedRecordingCapability.for_engine(engine).provision("head", config)
     command.upgrade(config, "head")
 
 
@@ -81,7 +83,10 @@ def _seed_board(engine: Engine, root: Path) -> tuple[UUID, UUID, UUID, UUID]:
     with sessions() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
-            code=f"reconcile-{root.name}", name="Reconcile", status=GameStatus.ACTIVE
+            idempotency_key=uuid4(),
+            code=f"reconcile-{root.name}",
+            name="Reconcile",
+            status=GameStatus.ACTIVE,
         )
         symbol = catalog.create_symbol(
             game.id,

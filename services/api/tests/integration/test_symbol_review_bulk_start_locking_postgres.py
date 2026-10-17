@@ -3,11 +3,12 @@
 import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from threading import Barrier, Event
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
@@ -21,7 +22,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
 )
-from game_predictor_api.domain.jobs import JobStatus
+from game_predictor_api.domain.jobs import JobConflictError, JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -45,7 +46,8 @@ from game_predictor_api.storage.models import (
     JobModel,
 )
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
-from sqlalchemy import Engine, create_engine, event, func, select, text
+from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
+from sqlalchemy import Engine, create_engine, event, func, select
 from test_image_batch_store import (
     PIPELINE,
     _add_review_projection_source,
@@ -60,21 +62,23 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def locking_database() -> Iterator[Engine]:
     name = "game_predictor_task0897_" + uuid4().hex[:12]
     maintenance = create_engine(_database_url("postgres"), isolation_level="AUTOCOMMIT")
     url = _database_url(name)
     engine = create_engine(url, connect_args={"options": "-c statement_timeout=10000"})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.execute(text(f'CREATE DATABASE "{name}"'))
+        recording_capability_fixture.create_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(_migration_config(url), "head")
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            connection.execute(text(f'DROP DATABASE "{name}"'))
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 
@@ -83,7 +87,10 @@ def _source(session_factory):
     with session_factory() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
-            code=uuid4().hex, name="Lock regression", status=GameStatus.ACTIVE
+            idempotency_key=uuid4(),
+            code=uuid4().hex,
+            name="Lock regression",
+            status=GameStatus.ACTIVE,
         )
         symbol = catalog.create_symbol(
             game.id,
@@ -151,6 +158,41 @@ def _source(session_factory):
     return game.id, symbol.id, targets, revision
 
 
+def test_created_bulk_job_rejects_an_independent_new_command_at_admission(
+    locking_database: Engine,
+) -> None:
+    """Diagnose the old concurrency fixture against D-551's current new-command gate."""
+    factory = create_session_factory(locking_database)
+    game_id, _symbol, targets, _revision = _source(factory)
+
+    def request(target):
+        return SymbolCellReviewBulkRequest(
+            action=SymbolCellReviewAction.APPROVE,
+            target_symbol_id=None,
+            explicit_targets=(target,),
+            filter_selection=None,
+            actor="admission-regression",
+        )
+
+    with game_storage_scope(game_id), factory() as session, session.begin():
+        first, created = SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+            game_id=game_id,
+            request=request(targets[0]),
+            idempotency_key=uuid4(),
+        )
+        assert created
+    with game_storage_scope(game_id), factory() as session, session.begin():
+        assert session.get(JobModel, first.job_id).status == JobStatus.CREATED
+        with pytest.raises(JobConflictError) as conflict:
+            SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+                game_id=game_id,
+                request=request(targets[1]),
+                idempotency_key=uuid4(),
+            )
+        assert conflict.value.code == "GAME_JOB_ADMISSION_CONFLICT"
+        assert conflict.value.details["existingJobId"] == str(first.job_id)
+
+
 @pytest.mark.parametrize("mode", ["explicit-independent", "explicit-stale", "filter-stale"])
 def test_start_while_worker_holds_board_revalidates_without_deadlock(
     locking_database: Engine,
@@ -178,6 +220,15 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
         )
         assert created
         first_job = SqlAlchemyJobRepository(session).get_job(first.job_id)
+    worker_store = SqlAlchemyWorkerJobStore(session_factory)
+    first_job = worker_store.claim_next(
+        worker_id="locking-regression",
+        worker_version="task1018",
+        lease_duration=timedelta(minutes=1),
+        claimed_at=datetime.now(UTC),
+        allowed_job_types=frozenset({first_job.job_type}),
+    )
+    assert first_job is not None and first_job.id == first.job_id
     second_request = (
         request(
             filtered=SymbolCellReviewBulkFilterSelection(
@@ -191,11 +242,12 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
     )
     board_locked = Event()
     targets_inserting = Event()
+    admission_refused = Event()
     original_ready = SqlAlchemySymbolCellReviewMutationRepository._require_ready_state
 
     def worker_ready(self, *args, **kwargs):
         board_locked.set()
-        assert targets_inserting.wait(5), "Start never reached the target FK check"
+        assert admission_refused.wait(5), "New command admission was not resolved"
         return original_ready(self, *args, **kwargs)
 
     def before_execute(_conn, _cursor, statement, _parameters, _context, _executemany):
@@ -233,14 +285,28 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
             worker_future = executor.submit(run_worker)
             assert board_locked.wait(5), "Worker never acquired the board"
             start_future = executor.submit(run_start)
+            try:
+                with pytest.raises(JobConflictError) as conflict:
+                    start_future.result(timeout=5)
+                assert conflict.value.code == "GAME_JOB_ADMISSION_CONFLICT"
+                assert conflict.value.details["existingJobId"] == str(first.job_id)
+                assert not targets_inserting.is_set(), "Rejected command inserted targets"
+            finally:
+                admission_refused.set()
             progress = worker_future.result(timeout=15)
             assert progress.operation.applied_count == 1
+            assert not progress.has_pending_targets
+            assert first_job.lease_token is not None
+            completed = worker_store.complete(
+                first_job.id, lease_token=first_job.lease_token, completed_at=datetime.now(UTC)
+            )
+            assert completed.status is JobStatus.COMPLETED
             if mode == "explicit-independent":
-                second, created = start_future.result(timeout=15)
+                second, created = run_start()
                 assert created and second.target_count == 1 and second.id != first.id
             else:
                 with pytest.raises(SymbolCellReviewError) as conflict:
-                    start_future.result(timeout=15)
+                    run_start()
                 assert conflict.value.code == (
                     "SYMBOL_CELL_REVIEW_BULK_FILTER_STALE"
                     if mode == "filter-stale"

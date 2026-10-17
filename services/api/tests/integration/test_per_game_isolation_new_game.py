@@ -51,8 +51,11 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v7 import GAME_TABLES, VERSION, ownership
+from game_predictor_api.storage.game_data_v2_manifest_v17 import GAME_TABLES, VERSION, ownership
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
+from game_predictor_api.storage.game_storage_routing import (
+    VERSION as ROUTED_MANIFEST_VERSION,
+)
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -83,6 +86,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from test_image_geometry_completeness_gate import _import, _state
 from test_reviewer_operational_geometry_postgres import _add_symbols
 from test_virtual_deferred_resolution_postgres import _factory, _Seed, _seed
+
+# TASK-1001: isolation is checked against the manifest the application routes with.
+assert VERSION == ROUTED_MANIFEST_VERSION, "isolation uses a stale game manifest"
 
 _REQUIRES_POSTGRES = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",

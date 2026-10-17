@@ -24,6 +24,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import (
     add_board_render_manifest_for,
     ensure_topology_rules_version,
@@ -32,7 +33,7 @@ from _virtual_board_fixtures import (
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.game_data_v2_manifest_v7 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v17 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -97,10 +98,12 @@ def database() -> Iterator[Engine]:
         connect_args={"connect_timeout": 5},
     )
     engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
-        connection.execute(text(f"CREATE DATABASE {_quote(name)}"))
+        recording_capability_fixture.create_database(connection)
     try:
+        recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
             "sqlalchemy.url",
@@ -111,7 +114,7 @@ def database() -> Iterator[Engine]:
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            connection.execute(text(f"DROP DATABASE {_quote(name)}"))
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 

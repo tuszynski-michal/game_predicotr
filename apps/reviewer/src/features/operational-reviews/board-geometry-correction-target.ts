@@ -90,6 +90,8 @@ export interface BoardGeometryCorrectionView {
   readonly suggestedCorners: OperationalReviewGeometryCorners;
   /** Full source lattice; absent for the established four-corner workflow. */
   readonly suggestedLatticeNodes?: BoardLatticeNodes;
+  /** Exact lattice transport supported for checksum-bound neural provenance. */
+  readonly supportsLatticeEditing?: boolean;
   readonly draftBindingKey?: string;
   readonly supportsPartial: boolean;
 }
@@ -105,6 +107,8 @@ export type BoardGeometryCorrectionFailure = DeferredBoardCellGeometryFailure;
 export interface BoardGeometryCorrectionTarget {
   /** Stable identity of the board version the editor was opened for. */
   readonly key: string;
+  /** Stable draft identity; revision is checked in storage scope. */
+  readonly draftKey?: string;
   /** Audit only: review preselected proposals and confirm them with Save. */
   readonly prefillSymbolSuggestions?: boolean;
   load(): Promise<
@@ -230,10 +234,14 @@ export function deferredBoardGeometryTarget(input: {
           sourceUrl: deferredBoardCellGeometrySourceUrl(input.apiBaseUrl, item),
           sourceWidth: result.context.sourceWidth,
           suggestedCorners: deferredBoardCellGeometryCorners(result.context),
-          ...(result.context.latticeNodes == null
+          supportsLatticeEditing:
+            result.context.latticeNodes != null ||
+            result.context.expectedProposalChecksumSha256 != null,
+          ...(result.context.latticeNodes == null &&
+          result.context.expectedProposalChecksumSha256 == null
             ? {}
             : {
-                suggestedLatticeNodes: result.context.latticeNodes,
+                suggestedLatticeNodes: result.context.latticeNodes ?? undefined,
                 draftBindingKey: JSON.stringify({
                   manifest: item.processingManifestChecksumSha256,
                   geometry: item.expectedGeometryRevision,
@@ -360,6 +368,7 @@ export function reportedBoardGeometryTarget(input: {
   });
   const reported = [...(item.reportedCellIndices ?? [])].sort((a, b) => a - b);
   return {
+    draftKey: `review:${item.slotId}`,
     key: `review:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
     async load() {
       if (reviewItemId === null) {
@@ -408,10 +417,14 @@ export function reportedBoardGeometryTarget(input: {
           ),
           sourceWidth: item.sourceWidth,
           suggestedCorners: copyCorners(gridReviewCorners(item)),
-          ...(item.latticeNodes == null
+          supportsLatticeEditing:
+            item.latticeNodes != null ||
+            item.expectedProposalChecksumSha256 != null,
+          ...(item.latticeNodes == null &&
+          item.expectedProposalChecksumSha256 == null
             ? {}
             : {
-                suggestedLatticeNodes: item.latticeNodes,
+                suggestedLatticeNodes: item.latticeNodes ?? undefined,
                 draftBindingKey: item.expectedProposalChecksumSha256 ?? '',
               }),
           supportsPartial: true,
@@ -706,6 +719,7 @@ export function operationalBoardGeometryTarget(input: {
   };
   const sequenceNumber = item.sequenceNumber ?? item.suggestedSequenceNumber;
   return {
+    draftKey: `operational:${item.id}`,
     key: `operational:${item.id}:${item.geometryRevision}:${item.resolutionRevision}`,
     async load() {
       if (item.sourceWidth == null || item.sourceHeight == null) {
@@ -760,10 +774,14 @@ export function operationalBoardGeometryTarget(input: {
             },
           ),
           sourceWidth: width,
-          ...(item.latticeNodes == null
+          supportsLatticeEditing:
+            item.latticeNodes != null ||
+            item.expectedProposalChecksumSha256 != null,
+          ...(item.latticeNodes == null &&
+          item.expectedProposalChecksumSha256 == null
             ? {}
             : {
-                suggestedLatticeNodes: item.latticeNodes,
+                suggestedLatticeNodes: item.latticeNodes ?? undefined,
                 draftBindingKey: JSON.stringify([
                   item.geometryRevision,
                   item.resolutionRevision,

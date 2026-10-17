@@ -46,12 +46,17 @@ test('game card exposes storage maintenance and disables mutations', () => {
   );
 });
 
-test('game editor records the page format and card exposes its shared-geometry readiness', () => {
+test('legacy editor records the page format and V3 card reads its assignment', () => {
   assert.match(source, /name="shapeGeometryConfiguration"/);
   assert.match(stateSource, /Pełna strona z ramką/);
   assert.match(source, /Pierwszy import nadal wymaga/);
   assert.match(source, /className="gameGeometryState"/);
   assert.match(source, /profil wspólny #/);
+  assert.match(source, /<GridModelAssignmentSummary/);
+  assert.match(
+    source,
+    /usesNeuralGridConfiguration\(\s*game\.shapeGeometryConfiguration,\s*game\.code/,
+  );
 });
 
 test('page format shows the grid engine profile, its model state and the 777 note', () => {
@@ -62,6 +67,10 @@ test('page format shows the grid engine profile, its model state and the 777 not
   assert.match(source, /loadGridEngineProfiles\(api\)/);
   assert.match(source, /className="gamePageFormat"/);
   assert.match(source, /Format strony:/);
+  assert.match(
+    source,
+    /filter\(\(\[configuration\]\) => configuration !== 'neural_grid_v3'\)/,
+  );
 });
 
 test('TASK-0931: create and edit forms select the super game kind from the API registry', () => {

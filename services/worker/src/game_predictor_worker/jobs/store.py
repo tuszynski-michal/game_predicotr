@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -16,6 +17,7 @@ from game_predictor_api.domain.jobs import (
     complete_job,
     defer_job_for_storage,
     fail_job,
+    quarantine_unstarted_grid_job,
     recover_expired_job,
     renew_job_lease,
     start_job,
@@ -25,6 +27,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.grid_reinference import synchronize_grid_job
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
@@ -39,9 +42,13 @@ from sqlalchemy import case, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+_LOGGER = logging.getLogger(__name__)
+CANDIDATE_SCAN_LIMIT = 100
+
 GENERAL_JOB_TYPES = frozenset(JobType) - {
     JobType.IMAGE_SELECTION,
     JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+    JobType.GRID_TRAINING,
 }
 
 
@@ -62,55 +69,77 @@ class SqlAlchemyWorkerJobStore:
         _validate_lease_duration(lease_duration)
         if not allowed_job_types:
             return None
+        with self._session_factory() as session, session.begin():
+            self._recover_one_expired(
+                session, recovered_at=claimed_at, execution_slot=execution_slot
+            )
+        # Candidate IDs only: each candidate owns a fresh short transaction and
+        # one game RLS binding. Quarantined rows commit before the next poll.
         with self._session_factory() as session:
-            try:
-                with session.begin():
-                    self._recover_one_expired(
-                        session,
-                        recovered_at=claimed_at,
-                        execution_slot=execution_slot,
+            if _slot_occupied(session, execution_slot):
+                return None
+            candidates = list(
+                session.scalars(
+                    select(JobModel.id)
+                    .where(
+                        JobModel.status == JobStatus.CREATED,
+                        JobModel.job_type.in_(tuple(allowed_job_types)),
                     )
-                    active = session.scalar(
-                        select(JobModel.id).where(
-                            JobModel.status == JobStatus.PROCESSING,
-                            JobModel.execution_slot == int(execution_slot),
+                    .order_by(
+                        case((JobModel.job_type == JobType.STORAGE_GC, 0), else_=1),
+                        JobModel.created_at,
+                        JobModel.id,
+                    )
+                    .limit(CANDIDATE_SCAN_LIMIT)
+                )
+            )
+        for candidate_id in candidates:
+            with self._session_factory() as session:
+                try:
+                    with session.begin():
+                        candidate = session.get(JobModel, candidate_id)
+                        if candidate is None or candidate.status is not JobStatus.CREATED:
+                            continue
+                        if not _admit_resume_candidate(session, candidate):
+                            continue
+                        record = session.scalar(
+                            select(JobModel)
+                            .where(
+                                JobModel.id == candidate_id,
+                                JobModel.status == JobStatus.CREATED,
+                            )
+                            .with_for_update(skip_locked=True)
+                            .execution_options(populate_existing=True)
                         )
-                    )
-                    if active is not None:
+                        if record is None:
+                            _LOGGER.warning(
+                                "worker_job_candidate_skipped job_id=%s code=JOB_ROW_LOCKED",
+                                candidate_id,
+                            )
+                            continue
+                        if not _resume_authorized(session, record):
+                            _quarantine_missing_start(session, record, checked_at=claimed_at)
+                            continue
+                        if _slot_occupied(session, execution_slot):
+                            return None
+                        claimed = start_job(
+                            job_from_record(record),
+                            worker_version=worker_version,
+                            worker_id=worker_id,
+                            lease_token=uuid4(),
+                            lease_expires_at=claimed_at + lease_duration,
+                            execution_slot=execution_slot,
+                            started_at=claimed_at,
+                        )
+                        apply_job_to_record(record, claimed)
+                        session.flush()
+                        return claimed
+                except IntegrityError as error:
+                    session.rollback()
+                    if _constraint_name(error) == "uq_jobs_execution_slot":
                         return None
-                    record = session.scalar(
-                        select(JobModel)
-                        .where(
-                            JobModel.status == JobStatus.CREATED,
-                            JobModel.job_type.in_(tuple(allowed_job_types)),
-                        )
-                        .order_by(
-                            case((JobModel.job_type == JobType.STORAGE_GC, 0), else_=1),
-                            JobModel.created_at,
-                            JobModel.id,
-                        )
-                        .limit(1)
-                        .with_for_update(skip_locked=True)
-                    )
-                    if record is None:
-                        return None
-                    claimed = start_job(
-                        job_from_record(record),
-                        worker_version=worker_version,
-                        worker_id=worker_id,
-                        lease_token=uuid4(),
-                        lease_expires_at=claimed_at + lease_duration,
-                        execution_slot=execution_slot,
-                        started_at=claimed_at,
-                    )
-                    apply_job_to_record(record, claimed)
-                    session.flush()
-                    return claimed
-            except IntegrityError as error:
-                session.rollback()
-                if _constraint_name(error) == "uq_jobs_execution_slot":
-                    return None
-                raise
+                    raise
+        return None
 
     def heartbeat(
         self,
@@ -130,6 +159,7 @@ class SqlAlchemyWorkerJobStore:
                 heartbeat_at=heartbeat_at,
             )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             session.flush()
             return updated
 
@@ -147,6 +177,7 @@ class SqlAlchemyWorkerJobStore:
         failure_count: int,
         review_count: int,
         checkpointed_at: datetime,
+        acknowledge_cancellation: bool = True,
     ) -> Job:
         _validate_lease_duration(lease_duration)
         with self._session_factory() as session, session.begin():
@@ -169,13 +200,16 @@ class SqlAlchemyWorkerJobStore:
                 review_count=review_count,
                 updated_at=checkpointed_at,
             )
-            if updated.cancel_requested_at is not None:
+            # A handler that must stop a child process first keeps the request pending and
+            # acknowledges it with a later checkpoint (TASK-0996 grid training).
+            if updated.cancel_requested_at is not None and acknowledge_cancellation:
                 updated = acknowledge_job_cancellation(
                     updated,
                     lease_token=lease_token,
                     finished_at=checkpointed_at,
                 )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
             return updated
@@ -204,6 +238,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=completed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
@@ -238,6 +273,7 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=failed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
@@ -268,10 +304,15 @@ class SqlAlchemyWorkerJobStore:
                 )
             )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             _record_browser_staging_board_status(session, updated, updated_at=paused_at)
             session.flush()
             _reconcile_board_search(session, updated)
-            if updated.status is JobStatus.WAITING_FOR_REVIEW and updated.game_id is not None:
+            if (
+                updated.status is JobStatus.WAITING_FOR_REVIEW
+                and updated.game_id is not None
+                and updated.input_payload.get("inference_kind") != "grid-reinference-v1"
+            ):
                 SqlAlchemyBoardSearchProjectionRepository(session).mark_live_projection_ready(
                     updated.game_id
                 )
@@ -294,6 +335,7 @@ class SqlAlchemyWorkerJobStore:
                 deferred_at=deferred_at,
             )
             apply_job_to_record(record, updated)
+            synchronize_grid_job(session, updated)
             session.flush()
             return updated
 
@@ -317,7 +359,7 @@ class SqlAlchemyWorkerJobStore:
         recovered_at: datetime,
         execution_slot: JobExecutionSlot,
     ) -> Job | None:
-        record = session.scalar(
+        candidate_query = (
             select(JobModel)
             .where(
                 JobModel.status == JobStatus.PROCESSING,
@@ -325,19 +367,88 @@ class SqlAlchemyWorkerJobStore:
                 JobModel.lease_expires_at <= recovered_at,
             )
             .order_by(JobModel.lease_expires_at, JobModel.id)
+            .limit(CANDIDATE_SCAN_LIMIT)
+        )
+        for candidate in session.scalars(candidate_query).all():
+            if not _admit_resume_candidate(session, candidate):
+                continue
+            record = session.scalar(
+                select(JobModel)
+                .where(
+                    JobModel.id == candidate.id,
+                    JobModel.status == JobStatus.PROCESSING,
+                    JobModel.execution_slot == int(execution_slot),
+                    JobModel.lease_expires_at <= recovered_at,
+                )
+                .with_for_update(skip_locked=True)
+                .execution_options(populate_existing=True)
+            )
+            if record is None:
+                _LOGGER.warning(
+                    "worker_job_candidate_skipped job_id=%s code=JOB_ROW_LOCKED", candidate.id
+                )
+                continue
+            current = job_from_record(record)
+            if current.cancel_requested_at is None and not _resume_authorized(session, record):
+                return _quarantine_missing_start(session, record, checked_at=recovered_at)
+            recovered = recover_expired_job(current, recovered_at=recovered_at)
+            apply_job_to_record(record, recovered)
+            synchronize_grid_job(session, recovered)
+            _synchronize_bulk_operation_recovery(session, recovered)
+            session.flush()
+            return recovered
+        return None
+
+
+def _quarantine_missing_start(session: Session, record: JobModel, *, checked_at: datetime) -> Job:
+    quarantined = quarantine_unstarted_grid_job(job_from_record(record), checked_at=checked_at)
+    apply_job_to_record(record, quarantined)
+    synchronize_grid_job(session, quarantined)
+    session.flush()
+    _LOGGER.warning(
+        "worker_job_candidate_quarantined job_id=%s code=%s", record.id, quarantined.error_code
+    )
+    return quarantined
+
+
+def _slot_occupied(session: Session, execution_slot: JobExecutionSlot) -> bool:
+    return (
+        session.scalar(
+            select(JobModel.id)
+            .where(
+                JobModel.status == JobStatus.PROCESSING,
+                JobModel.execution_slot == int(execution_slot),
+            )
             .limit(1)
-            .with_for_update(skip_locked=True)
         )
-        if record is None:
-            return None
-        recovered = recover_expired_job(
-            job_from_record(record),
-            recovered_at=recovered_at,
-        )
-        apply_job_to_record(record, recovered)
-        _synchronize_bulk_operation_recovery(session, recovered)
-        session.flush()
-        return recovered
+        is not None
+    )
+
+
+def _resume_authorized(session: Session, record: JobModel) -> bool:
+    from game_predictor_api.storage.grid_reinference import require_grid_retry_authorization
+
+    try:
+        require_grid_retry_authorization(session, job_from_record(record))
+    except JobConflictError as error:
+        if error.code == "GRID_REINFERENCE_START_REQUIRED":
+            _LOGGER.warning("worker_job_candidate_skipped job_id=%s code=%s", record.id, error.code)
+            return False
+        raise
+    return True
+
+
+def _admit_resume_candidate(session: Session, record: JobModel) -> bool:
+    from game_predictor_api.storage.job_admission import admit_job
+
+    try:
+        admit_job(session, job_from_record(record), worker_execution=True)
+    except JobConflictError as error:
+        if error.code == "GAME_JOB_ADMISSION_CONFLICT":
+            _LOGGER.warning("worker_job_candidate_skipped job_id=%s code=%s", record.id, error.code)
+            return False
+        raise
+    return True
 
 
 def _locked_job(session: Session, job_id: UUID) -> JobModel:

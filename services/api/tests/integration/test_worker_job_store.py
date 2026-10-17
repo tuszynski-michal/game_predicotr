@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -82,14 +83,18 @@ def isolated_worker_database() -> Iterator[URL]:
     )
     test_database_url = _database_url(TEST_DATABASE_NAME)
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield test_database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 
@@ -107,6 +112,7 @@ def test_worker_store_fences_cancellation_resume_and_concurrent_claims(
         with Session(engine, expire_on_commit=False) as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="worker-game",
                 name="Worker game",
                 status=GameStatus.ACTIVE,
@@ -356,6 +362,7 @@ def test_worker_store_claims_general_and_image_selection_lanes_independently(
     try:
         with Session(engine, expire_on_commit=False) as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="worker-lanes",
                 name="Worker lanes",
                 status=GameStatus.ACTIVE,
@@ -543,6 +550,7 @@ def test_worker_store_recovers_and_cancels_each_lane_independently(
     try:
         with Session(engine, expire_on_commit=False) as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="worker-lane-recovery",
                 name="Worker lane recovery",
                 status=GameStatus.ACTIVE,
@@ -760,6 +768,7 @@ def test_layout_import_staging_upsert_is_idempotent_on_postgres(
     try:
         with Session(engine, expire_on_commit=False) as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="import-game",
                 name="Import game",
                 status=GameStatus.ACTIVE,
@@ -828,6 +837,7 @@ def test_layout_import_staging_upsert_is_idempotent_on_postgres(
         assert rows[1].error_code == "import_record_invalid"
         with session_factory() as session:
             other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="other-import-game",
                 name="Other import game",
                 status=GameStatus.ACTIVE,
@@ -851,6 +861,7 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
             session = stack.enter_context(session_factory())
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="normalized-import-game",
                 name="Normalized import game",
                 status=GameStatus.ACTIVE,
@@ -979,6 +990,7 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
         assert records[1].cells == [1, 99, 1, 12]
         with session_factory() as session:
             other_game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="other-normalized-import-game",
                 name="Other normalized import game",
                 status=GameStatus.ACTIVE,

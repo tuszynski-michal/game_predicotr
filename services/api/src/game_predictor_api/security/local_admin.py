@@ -199,6 +199,12 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-management-session", "management-session:{session_id}"
     ),
     # D-471: a share link exposes one game's board search online.
+    ("POST", "/api/v1/admin/board-search-panels"): HighImpactOperation(
+        "create-board-search-panel", "board-search-panel:new"
+    ),
+    ("POST", "/api/v1/admin/board-search-panels/{panel_id}/revoke"): HighImpactOperation(
+        "revoke-board-search-panel", "board-search-panel:{panel_id}"
+    ),
     (
         "POST",
         "/api/v1/admin/board-search-shares/sessions",
@@ -240,15 +246,33 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ),
 }
 
+HIGH_IMPACT_OPERATIONS[
+    ("POST", "/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare")
+] = HighImpactOperation("grid-reinference-prepare", "grid-reinference:{game_id}:prepare")
+for _reinference_action in ("freeze", "pilot-ack", "start", "resume", "cancel"):
+    HIGH_IMPACT_OPERATIONS[
+        (
+            "POST",
+            "/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/"
+            + _reinference_action,
+        )
+    ] = HighImpactOperation(
+        "grid-reinference-" + _reinference_action, "grid-reinference:{game_id}:{operation_id}"
+    )
+
 _REVIEWER_MUTATION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
-        # D-462: the local Reviewer corrects one board at a time; there is
-        # no geometry approval and no whole-source save (TASK-0727).
+        # D-462: the local Reviewer corrects one board at a time. D-555 adds
+        # explicit approval-only for exact frozen current geometry; the
+        # removed singular approval and whole-source save remain absent.
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
+        r"^/api/v1/admin/image-reviews/[^/]+/geometry-approvals$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
+        r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals$",
+        r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals/[^/]+/(?:accept|reject)$",
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/geometry-preview$",
@@ -430,6 +454,9 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
             method=method,
             path=path,
         )
+        # A server-validated principal for new human commands. Safe requests and
+        # Bearer bypasses never receive this marker; their session is checked by API.
+        request.state.local_admin_actor = ADMIN_ACTOR
         response = await call_next(request)
         self._audit_log.append(
             action=action,

@@ -10,6 +10,7 @@ from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.remote_manual_selection_access import (
@@ -106,15 +107,19 @@ def remote_database() -> Iterator[URL]:
     )
     database_url = _database_url(TEST_DATABASE_NAME)
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         command.upgrade(_migration_config(database_url), "head")
         yield database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 

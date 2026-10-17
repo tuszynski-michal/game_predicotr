@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-10-09
+last_updated: 2026-10-15
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -68,6 +68,45 @@ historii cofnięć (wiersz audytu, rewizja źródła `reverted`, zdarzenie
 Tabele `management_*` należą do niezależnej kontroli zarządzania
 (`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
 w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
+
+## Public control plane version10 — TASK-0998
+
+`game_data_v2_manifest_v10.py` i Alembic `0157_grid_model_publication` zachowują
+partycjonowane GAME_TABLES/CREATE_TABLES/MIGRATE_TABLES/DELETE_TABLES v9 bez zmian.
+Dodają pięć publicznych tabel klasy shared: `grid_model_evaluation_reports`,
+`grid_model_evaluation_invalidations`, `grid_model_publications`,
+`grid_model_control_events`, `grid_model_default`. Są to dowody/proweniencja
+sterowania wspólną geometrią, bez obrazów, wag, sekwencji i etykiet symboli.
+Per-game IDs w zamkniętym raporcie są wyłącznie zakresem oceny; raport nie jest
+udostępniany przez globalny GET i nie przenosi własności danych gry.
+
+Istniejące `game_grid_model_assignments` i `game_grid_model_assignment_events`
+pozostają catalog w `public`, z jawnymi predykatami i strażnikiem scope sesji.
+Tylko mutable head jest aktualizowany; nowe eventy mają receipt/proweniencję,
+a historyczne eventy pozostają niezmienione. Cascade po usunięciu gry nie
+usuwa shared historii. Stan TASK-0998 importował v10; bieżący routing/lifecycle/katalog importują v11;
+frozen manifesty v1–v9 pozostają nienaruszone. Migracja aktualizuje wyłącznie
+control manifest/location revision, nie data-plane ani przypisania modeli.
+
+## Public catalogue version11 — TASK-1004
+
+`game_data_v2_manifest_v11.py` zachowuje całe GAME/CREATE/MIGRATE/DELETE/
+PARTITIONED z v10. Dodaje `game_create_receipts` jako catalog i
+`grid_model_family_forks` jako shared. Oba rejestry są jawnie w public,
+bez obrazów, wag, sekwencji lub etykiet. Receipt tworzenia przeżywa fizyczne
+usunięcie gry; nie ma FK uniemożliwiającego dotychczasowy delete.
+Nullable training_family_id i bootstrap events rozszerzają istniejący
+katalog przypisań. Migracja0158 zmienia manifest/location revision i
+startup head, bez przepisywania istniejących assignments lub partycji.
+
+Rezerwacja gry i modelu jest jedną transakcją przed pierwszym commitem
+restartowalnego lifecycle. Publiczne head/event/create receipt używają
+jawnych typowanych Core INSERT na connection tej samej Session i roli
+aplikacyjnej. Pozwala to zapisać katalog przed aktywacją partycji, bez
+uruchamiania game-owned ORM flush w MIGRATING i bez obejścia RLS dla danych
+gry. Owner factory pozostaje wyłącznie granicą partycyjnego DDL. Regresja
+PostgreSQL wymaga rollbacku całości przed pierwszym commitem oraz odzyskania
+rezerwacji z nowego procesu po trwałym checkpointcie partycji.
 
 ## Reguły i granice
 
@@ -312,3 +351,15 @@ zapis domyślnej polityki geometrii do partycji gry przełączają location na
 Brak location dla istniejącej gry jest dryfem i blokuje data-plane. Nie wolno
 już tworzyć produkcyjnego registry `public` ani kierować nowej gry do legacy.
 Puste historyczne tabele i migracje pozostają do osobnego planu ich usunięcia.
+
+## Public catalogue version9 — TASK-0994
+
+Frozen `game_data_v2_manifest_v9.py` inherits the exact game-table and partition
+lists from v8. It adds four shared geometry catalogue tables and two public
+catalogue assignment tables. Migration0156 changes control registry version
+and revision, and does not create, alter, copy or drop game partitions.
+Assignments contain no game-owned image/sequence/symbol data. Their explicit
+`game_id` predicates and public schema qualification remain mandatory even
+with the NOBYPASSRLS application role. Existing legal game deletion cascades
+only its assignment/events; shared immutable model history survives. Details:
+[DATA_MODEL](DATA_MODEL.md#trwały-rejestr-geometrii-v3--task-0994).

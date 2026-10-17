@@ -1,21 +1,15 @@
-"""Registry of the frozen grid engine models behind the game's page format (TASK-0830).
+"""Historical frozen grid engines and the worker-compatible version descriptor.
 
-A game's ``shape_geometry_configuration`` may name a grid engine profile
-(``grid_profile_777_v2``, ``grid_profile_mumie_v1``). Each profile points to a
-frozen ``neural_grid`` export (ONNX screen and board stages, the export bundle
-and its preset) copied once into the managed directory
-``<ARTIFACT_ROOT>/models/grid-engine/<profile>/<version>/`` by
-``scripts/install_grid_engine_models.py``. The repository keeps only this
-registry: the SHA-256 and metadata of every file. A missing file, a different
-SHA-256 or a manifest that differs from the registry is an explicit error;
-there is no fallback to another version, profile or engine.
-
-A newer model of the same game is a new ``GridEngineModelVersion`` of the same
-profile (and a new ``current_version``), never a new value of the game field.
+Legacy snapshot v1 keeps the in-code registry and historical profile meanings.
+New imports resolve explicit catalogue assignments and freeze descriptor JSON
+(TASK-1012). A catalogue-backed version uses its pinned managedDirectory and
+inferenceManifest; no current-version or profile lookup occurs during replay.
+Static catalogue/profile endpoints and historical installers remain supported.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -79,9 +73,14 @@ class GridEngineModelVersion:
     selection_reason: str
     report_results: tuple[GridEngineReportResult, ...]
     files: tuple[GridEngineModelFile, ...]
+    checkpoint_size_bytes: int = 0
+    weights_size_bytes: int = 0
+    catalogue_manifest_json: str | None = None
 
     @property
     def relative_directory(self) -> PurePosixPath:
+        if self.catalogue_manifest_json is not None:
+            return PurePosixPath(json.loads(self.catalogue_manifest_json)["managedDirectory"])
         return GRID_ENGINE_MODELS_RELATIVE_ROOT / self.profile.value / self.version
 
 
@@ -141,6 +140,8 @@ _PROFILE_777_V2_V1: Final = GridEngineModelVersion(
     preset_fingerprint="027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
     weights_sha256="19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9",
     checkpoint_sha256="2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+    checkpoint_size_bytes=106_729_511,
+    weights_size_bytes=26_815_171,
     snapshot_id=_SNAPSHOT_PRODUCTION_GEOMETRY_SPLIT_V2,
     frozen_on="2026-10-04",
     selection_reason=(
@@ -199,6 +200,8 @@ _PROFILE_MUMIE_V1_V1: Final = GridEngineModelVersion(
     preset_fingerprint="b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
     weights_sha256="473d773897aae999f2a86774d77c1139f62f36fc9b8eb80a17f68256016613a1",
     checkpoint_sha256="f896da7196431be2d6dc7b863cfa69f6ec27fd63cb3d3e00ff7acd1f2b745138",
+    checkpoint_size_bytes=53_663_320,
+    weights_size_bytes=26_815_171,
     snapshot_id=_SNAPSHOT_PRODUCTION_GEOMETRY_SPLIT_V2,
     frozen_on="2026-10-04",
     selection_reason=(
@@ -270,6 +273,13 @@ GRID_ENGINE_PROFILES: Final[tuple[GridEngineProfile, ...]] = (
 def grid_engine_profile_for(
     configuration: GameShapeGeometryConfiguration | None,
 ) -> GridEngineProfile | None:
+    if configuration == GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError(
+            "GRID_MODEL_DYNAMIC_ROUTING_REQUIRED",
+            "Neutral V3 requires the pinned catalogue resolver.",
+        )
     for profile in GRID_ENGINE_PROFILES:
         if profile.configuration is configuration:
             return profile
@@ -283,6 +293,13 @@ def neural_import_profile(configuration: str | None) -> GridEngineProfile | None
     model; the pilot started with Mumie (D-521). Other games stay classical.
     """
 
+    if configuration == GameShapeGeometryConfiguration.NEURAL_GRID_V3:
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError(
+            "GRID_MODEL_DYNAMIC_ROUTING_REQUIRED",
+            "Neutral V3 requires the pinned catalogue resolver.",
+        )
     for profile in GRID_ENGINE_PROFILES:
         if profile.configuration.value == configuration:
             return profile
@@ -292,6 +309,8 @@ def neural_import_profile(configuration: str | None) -> GridEngineProfile | None
 def grid_engine_manifest(version: GridEngineModelVersion) -> dict[str, object]:
     """The exact manifest stored next to the files; a pure function of the registry."""
 
+    if version.catalogue_manifest_json is not None:
+        return dict(json.loads(version.catalogue_manifest_json)["inferenceManifest"])
     return {
         "schemaVersion": GRID_ENGINE_MANIFEST_SCHEMA_VERSION,
         "profile": version.profile.value,

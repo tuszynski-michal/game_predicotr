@@ -54,10 +54,11 @@ const settle = () =>
   });
 const button = (text) =>
   [...document.querySelectorAll('button')].find((b) => b.textContent === text);
-async function pointer(canvas, type, x, y) {
+async function pointer(canvas, type, x, y, pointerType = 'mouse') {
   const e = new MouseEvent(type, { bubbles: true, button: 0 });
   Object.defineProperties(e, {
     pointerId: { value: 1 },
+    pointerType: { value: pointerType },
     clientX: { value: x },
     clientY: { value: y },
   });
@@ -146,7 +147,7 @@ test('full-node editor previews on open, changes symbol without redrawing grid a
   );
   await act(async () => root.unmount());
 });
-test('moving one internal node keeps the other23 float nodes; corner conversion is explicit and integer-compatible', async () => {
+test('moving an internal node survives 24/4 roundtrip, regularization undo and restart', async () => {
   localStorage.clear();
   const previews = [];
   const saves = [];
@@ -198,6 +199,7 @@ test('moving one internal node keeps the other23 float nodes; corner conversion 
   );
   await act(async () => images.at(-1).onload());
   await settle();
+  await act(async () => button('Dokładna korekta').click());
   const canvas = document.querySelector('canvas'),
     sx = draws.at(-1)[1],
     sy = draws.at(-1)[2],
@@ -234,15 +236,27 @@ test('moving one internal node keeps the other23 float nodes; corner conversion 
     'retry of dragged draft is exact after restart',
   );
   await act(async () => images.at(-1).onload());
+  await act(async () => button('Dokładna korekta').click());
+  await settle();
+  assert.deepEqual(previews.at(-1).latticeNodes, edited);
+  await act(async () => button('Cztery rogi').click());
+  await act(async () => button('Dokładna korekta').click());
+  assert.deepEqual(previews.at(-1).latticeNodes, edited, '24/4/24 is lossless');
   await act(async () =>
-    button('Zamień na szkic z czterech narożników').click(),
+    button('Wyznacz regularną siatkę z czterech rogów').click(),
   );
   await settle();
-  assert.equal(previews.at(-1).latticeNodes, undefined);
-  assert.ok(
-    previews
-      .at(-1)
-      .corners.every((p) => Number.isInteger(p.x) && Number.isInteger(p.y)),
+  assert.deepEqual(
+    previews.at(-1).latticeNodes,
+    nodes,
+    'explicit regularization has live crop preview',
+  );
+  await act(async () => button('Cofnij zmianę siatki').click());
+  await settle();
+  assert.deepEqual(
+    previews.at(-1).latticeNodes,
+    edited,
+    'undo restores every corrected float',
   );
   await act(async () => button('Przywróć sugestię').click());
   await settle();
@@ -326,5 +340,269 @@ test('all24 legal nodes remain visible outside the corner padding; viewport neve
     [nodes[0], nodes[5], nodes[23], nodes[18]],
     'fit rectangle is not saved as geometry',
   );
+  await act(async () => root.unmount());
+});
+
+test('touch corner transforms all nodes, translation is rigid, invalid quad is rejected and a newer revision blocks the draft', async () => {
+  localStorage.clear();
+  const corrected = structuredClone(nodes);
+  corrected[7].x += 4.25;
+  const previews = [],
+    saves = [];
+  function target(revision = 1) {
+    return {
+      key: `touch:${revision}`,
+      draftKey: 'touch',
+      load: async () => ({
+        ok: true,
+        view: {
+          initialFlags: {
+            partial: false,
+            exclude: false,
+            includeInPartialGridTraining: false,
+            manualUnavailable: [],
+          },
+          kind: 'reported',
+          metadata: [],
+          reportedCellIndices: [],
+          saveHint: 'test',
+          sourceWidth: 600,
+          sourceHeight: 400,
+          sourceUrl: 'http://localhost/touch',
+          suggestedCorners: [
+            corrected[0],
+            corrected[5],
+            corrected[23],
+            corrected[18],
+          ],
+          suggestedLatticeNodes: corrected,
+          draftBindingKey: `revision${revision}`,
+          supportsPartial: true,
+        },
+      }),
+      commandKey: (corners, flags, latticeNodes) =>
+        JSON.stringify({ corners, flags, latticeNodes }),
+      preview: async (corners, flags, latticeNodes) => {
+        previews.push(structuredClone({ corners, latticeNodes }));
+        return { ok: true, blob: new Blob(['png']) };
+      },
+      save: async (...args) => {
+        saves.push(structuredClone(args));
+        return { ok: false, error: 'lost', isConflict: false };
+      },
+    };
+  }
+  const props = { onSaved: async () => {}, onConflict: async () => {} };
+  let root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardGeometryCorrectionEditor, {
+        ...props,
+        target: target(),
+      }),
+    ),
+  );
+  await act(async () => images.at(-1).onload());
+  await settle();
+  assert.equal(
+    button('Dokładna korekta').getAttribute('aria-pressed'),
+    'false',
+  );
+  let canvas = document.querySelector('canvas'),
+    sx = draws.at(-1)[1],
+    sy = draws.at(-1)[2];
+  await pointer(
+    canvas,
+    'pointerdown',
+    corrected[0].x - sx,
+    corrected[0].y - sy,
+    'touch',
+  );
+  await pointer(
+    canvas,
+    'pointermove',
+    corrected[0].x - sx + 10.125,
+    corrected[0].y - sy + 8.375,
+    'touch',
+  );
+  await pointer(
+    canvas,
+    'pointerup',
+    corrected[0].x - sx + 10.125,
+    corrected[0].y - sy + 8.375,
+    'touch',
+  );
+  await settle();
+  const transformed = structuredClone(previews.at(-1).latticeNodes);
+  assert.deepEqual(transformed[0], {
+    x: corrected[0].x + 10.125,
+    y: corrected[0].y + 8.375,
+  });
+  assert.deepEqual(transformed[5], corrected[5]);
+  assert.notDeepEqual(
+    transformed[7],
+    corrected[7],
+    'internal corrections move with corner homography',
+  );
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  assert.deepEqual(
+    saves.at(-1)[4],
+    transformed,
+    'save consumes the exact previewed lattice',
+  );
+  sx = draws.at(-1)[1];
+  sy = draws.at(-1)[2];
+  await pointer(canvas, 'pointerdown', 280 - sx, 170 - sy, 'touch');
+  await pointer(canvas, 'pointerup', 283.125 - sx, 174.375 - sy, 'touch');
+  await settle();
+  const translated = structuredClone(previews.at(-1).latticeNodes);
+  translated.forEach((p, i) => {
+    assert.equal(p.x, transformed[i].x + 3.125);
+    assert.equal(p.y, transformed[i].y + 4.375);
+  });
+  await act(async () => button('Cofnij zmianę siatki').click());
+  await settle();
+  assert.deepEqual(previews.at(-1).latticeNodes, transformed);
+  sx = draws.at(-1)[1];
+  sy = draws.at(-1)[2];
+  await pointer(
+    canvas,
+    'pointerdown',
+    transformed[0].x - sx,
+    transformed[0].y - sy,
+  );
+  await pointer(
+    canvas,
+    'pointerup',
+    transformed[23].x - sx - 10,
+    transformed[23].y - sy - 10,
+  );
+  await settle();
+  assert.deepEqual(
+    previews.at(-1).latticeNodes,
+    transformed,
+    'crossed corner never changes geometry',
+  );
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardGeometryCorrectionEditor, {
+        ...props,
+        target: target(2),
+      }),
+    ),
+  );
+  await settle();
+  assert.match(document.body.textContent, /Nie można odtworzyć szkicu/);
+  assert.deepEqual(
+    previews.at(-1).latticeNodes,
+    corrected,
+    'new server view never inherits stale draft',
+  );
+  assert.equal(button('Zapisz geometrię i dalej').disabled, true);
+  await act(async () => button('Przywróć sugestię').click());
+  await settle();
+  assert.equal(button('Zapisz geometrię i dalej').disabled, false);
+  await act(async () => root.unmount());
+});
+
+test('empty neural sketch builds regular24 then edits exact internal nodes; legacy has no exact-node controls', async () => {
+  localStorage.clear();
+  const previews = [],
+    saves = [];
+  const props = { onSaved: async () => {}, onConflict: async () => {} };
+  function target(supportsLatticeEditing) {
+    return {
+      key: `empty:${supportsLatticeEditing}`,
+      load: async () => ({
+        ok: true,
+        view: {
+          initialFlags: {
+            partial: false,
+            exclude: false,
+            includeInPartialGridTraining: false,
+            manualUnavailable: [],
+          },
+          kind: 'deferred',
+          metadata: [],
+          reportedCellIndices: [],
+          saveHint: 'test',
+          sourceWidth: 600,
+          sourceHeight: 400,
+          sourceUrl: 'http://localhost/empty',
+          suggestedCorners: [nodes[0], nodes[5], nodes[23], nodes[18]],
+          supportsLatticeEditing,
+          draftBindingKey: 'neural-pin:revision1',
+          supportsPartial: true,
+        },
+      }),
+      commandKey: (corners, flags, latticeNodes) =>
+        JSON.stringify({ corners, flags, latticeNodes }),
+      preview: async (corners, flags, latticeNodes) => {
+        previews.push(structuredClone({ corners, latticeNodes }));
+        return { ok: true, blob: new Blob(['png']) };
+      },
+      save: async (...args) => {
+        saves.push(structuredClone(args));
+        return { ok: false, error: 'lost', isConflict: false };
+      },
+    };
+  }
+  let root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardGeometryCorrectionEditor, {
+        ...props,
+        target: target(true),
+      }),
+    ),
+  );
+  await act(async () => images.at(-1).onload());
+  await settle();
+  assert.equal(button('Dokładna korekta').disabled, true);
+  await act(async () =>
+    button('Wyznacz regularną siatkę z czterech rogów').click(),
+  );
+  await settle();
+  assert.deepEqual(previews.at(-1).latticeNodes, nodes);
+  await act(async () => button('Dokładna korekta').click());
+  const canvas = document.querySelector('canvas'),
+    sx = draws.at(-1)[1],
+    sy = draws.at(-1)[2];
+  await pointer(
+    canvas,
+    'pointerdown',
+    nodes[7].x - sx,
+    nodes[7].y - sy,
+    'touch',
+  );
+  await pointer(
+    canvas,
+    'pointerup',
+    nodes[7].x - sx + 1.125,
+    nodes[7].y - sy + 2.375,
+    'touch',
+  );
+  await settle();
+  assert.equal(previews.at(-1).latticeNodes[7].x, nodes[7].x + 1.125);
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  assert.deepEqual(saves.at(-1)[4], previews.at(-1).latticeNodes);
+  await act(async () => button('Cofnij zmianę siatki').click());
+  await settle();
+  assert.deepEqual(previews.at(-1).latticeNodes, nodes);
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardGeometryCorrectionEditor, {
+        ...props,
+        target: target(false),
+      }),
+    ),
+  );
+  await settle();
+  assert.equal(button('Dokładna korekta'), undefined);
+  assert.equal(button('Wyznacz regularną siatkę z czterech rogów'), undefined);
   await act(async () => root.unmount());
 });

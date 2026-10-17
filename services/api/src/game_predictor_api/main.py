@@ -21,6 +21,9 @@ from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration impor
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from game_predictor_api.api.board_search_panels import create_board_search_panels_router
+from game_predictor_api.api.grid_model_evaluations import create_grid_model_evaluations_router
+from game_predictor_api.api.grid_model_registry import create_grid_model_registry_router
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.management import create_management_router
 from game_predictor_api.api.management_public import (
@@ -34,6 +37,7 @@ from game_predictor_api.api.management_public_structure import (
 from game_predictor_api.api.management_sessions import create_management_sessions_router
 from game_predictor_api.api.management_stakes import create_management_stake_router
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.api.source_recording_groups import create_source_recording_groups_router
 from game_predictor_api.api.super_game_series import create_super_game_series_router
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
@@ -48,6 +52,7 @@ from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardViewCache,
     BoardSearchBoardViewService,
 )
+from game_predictor_api.application.board_search_panels import BoardSearchPanelService
 from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
     assert_board_search_share_ready,
@@ -79,7 +84,12 @@ from game_predictor_api.application.grid_audit_symbol_suggestions import (
     FileGridAuditSymbolSuggestionStore,
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.grid_engine_acceptance import HistoricalAcceptanceService
+from game_predictor_api.application.grid_model_evaluation import GridModelEvaluationService
+from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_shadow import GridShadowService
+from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
+from game_predictor_api.application.grid_training_runs import GridTrainingRunService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_import_geometry_guard import (
@@ -185,6 +195,8 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.semi_automatic_image_selections import (
     SemiAutomaticImageSelectionService,
 )
+from game_predictor_api.application.shared_grid_model_candidate import SharedGridCandidateService
+from game_predictor_api.application.source_recording_groups import SourceRecordingGroupsService
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
 from game_predictor_api.application.super_game_series import SuperGameSeriesService
@@ -232,7 +244,9 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_shadow import GridShadowError
+from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_import_engine_policy import (
     LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
@@ -289,6 +303,7 @@ from game_predictor_api.domain.rules import (
     RulesError,
     RulesNotFoundError,
 )
+from game_predictor_api.domain.source_recording_groups import RecordingError
 from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
 from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.super_game_series import (
@@ -314,6 +329,7 @@ from game_predictor_api.storage.board_import_coverage_repository import (
 from game_predictor_api.storage.board_search_approximate_win_repository import (
     SqlAlchemyBoardSearchApproximateWinRepository,
 )
+from game_predictor_api.storage.board_search_panels import SqlAlchemyBoardSearchPanelRepository
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -371,11 +387,22 @@ from game_predictor_api.storage.grid_audit_board_reader import SqlAlchemyGridAud
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
+from game_predictor_api.storage.grid_engine_acceptance_repository import (
+    SqlAlchemyHistoricalAcceptanceRepository,
+)
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
+from game_predictor_api.storage.grid_model_registry import (
+    GridModelArtifactInspector,
+    SqlAlchemyGridModelRegistryRepository,
+)
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
 from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepository
+from game_predictor_api.storage.grid_training_cohort_repository import (
+    SqlAlchemyGridTrainingCohortRepository,
+)
+from game_predictor_api.storage.grid_training_run_jobs import SqlAlchemyGridTrainingRunJobs
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     SqlAlchemyImageGeometryCompletenessRepository,
 )
@@ -437,6 +464,7 @@ from game_predictor_api.storage.management_stake_repository import (
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
+from game_predictor_api.storage.models import GameModel
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
@@ -460,6 +488,8 @@ from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepositor
 from game_predictor_api.storage.semi_automatic_image_selection_repository import (
     SqlAlchemySemiAutomaticSelectionRepository,
 )
+from game_predictor_api.storage.source_recording_groups import SqlAlchemySourceRecordingRepository
+from game_predictor_api.storage.source_recording_providers import TrustedRecordingProviders
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from game_predictor_api.storage.super_game_marker_repository import (
     SqlAlchemySuperGameMarkerRepository,
@@ -584,6 +614,7 @@ def create_app(
     board_search_board_detail_service_dependency: Callable[..., object] | None = None,
     board_search_board_view_service_dependency: Callable[..., object] | None = None,
     board_search_share_access_service_dependency: Callable[..., object] | None = None,
+    board_search_panel_service_dependency: Callable[..., object] | None = None,
     board_search_share_query_log: BoardSearchShareQueryLog | None = None,
     board_search_share_query_log_service_dependency: Callable[..., object] | None = None,
     board_search_share_correction_service_dependency: Callable[..., object] | None = None,
@@ -604,6 +635,7 @@ def create_app(
     image_review_service_dependency: Callable[..., object] | None = None,
     image_grid_review_service_dependency: Callable[..., object] | None = None,
     grid_shadow_service_dependency: Callable[..., object] | None = None,
+    grid_model_registry_service_dependency: Callable[..., object] | None = None,
     image_geometry_rollout_service_dependency: Callable[..., object] | None = None,
     virtual_grid_geometry_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -648,6 +680,7 @@ def create_app(
             board_search_board_detail_service_dependency,
             board_search_board_view_service_dependency,
             board_search_share_access_service_dependency,
+            board_search_panel_service_dependency,
             board_search_share_correction_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
@@ -665,6 +698,7 @@ def create_app(
             image_review_service_dependency,
             image_grid_review_service_dependency,
             grid_shadow_service_dependency,
+            grid_model_registry_service_dependency,
             image_geometry_rollout_service_dependency,
             virtual_grid_geometry_service_dependency,
             image_review_cohort_service_dependency,
@@ -718,6 +752,7 @@ def create_app(
                         session,
                         GameStorageRouter(),
                         partition_ddl_session_factory=owner_session_factory,
+                        artifact_root=resolved_settings.artifact_root,
                     ),
                     shape_geometry_readiness_resolver=GlobalShapeGeometryReadinessResolver(
                         SqlAlchemyGlobalGeometryLibraryRepository(session)
@@ -821,6 +856,43 @@ def create_app(
     resolved_board_search_share_access_dependency = (
         board_search_share_access_service_dependency
         or default_board_search_share_access_service_dependency
+    )
+
+    def panel_game_readiness(game_id: UUID) -> None:
+        # Match the Admin's available-games catalog; each game-data readiness
+        # read still owns a separate transaction and storage scope.
+        with session_factory() as session:
+            game = session.get(GameModel, game_id)
+            if game is None or game.status == "archived":
+                raise BoardSearchShareError(
+                    "BOARD_SEARCH_PANEL_GAME_UNAVAILABLE", "The selected game is unavailable."
+                )
+            game_name = game.name
+        try:
+            board_search_share_readiness(game_id)
+        except (BoardSearchError, GameStorageRoutingError) as error:
+            raise BoardSearchShareConflictError(
+                "BOARD_SEARCH_PANEL_GAME_NOT_READY",
+                "A selected game is not ready to share.",
+                {"gameName": game_name, "reasonCode": error.code},
+            ) from error
+
+    def default_board_search_panel_service_dependency() -> Iterator[BoardSearchPanelService]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchPanelService(
+                    SqlAlchemyBoardSearchPanelRepository(session),
+                    SqlAlchemyBoardSearchShareRepository(session),
+                    readiness=panel_game_readiness,
+                    enabled=resolved_settings.board_search_share_enabled,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_panel_dependency = (
+        board_search_panel_service_dependency or default_board_search_panel_service_dependency
     )
 
     def default_board_search_share_query_log_service_dependency() -> Iterator[
@@ -1457,12 +1529,58 @@ def create_app(
     )
 
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
+        from game_predictor_api.application.grid_geometry_approvals import (
+            GridGeometryApprovalService,
+        )
+        from game_predictor_api.application.grid_geometry_proposals import (
+            GridGeometryProposalService,
+        )
+        from game_predictor_api.application.grid_quality_measurements import (
+            GridQualityMeasurementService,
+        )
+        from game_predictor_api.application.grid_reinference import GridReinferenceService
+        from game_predictor_api.storage.grid_geometry_approvals import (
+            SqlAlchemyGridGeometryApprovalRepository,
+        )
+        from game_predictor_api.storage.grid_geometry_proposals import (
+            SqlAlchemyGridGeometryProposalRepository,
+        )
+        from game_predictor_api.storage.grid_quality_measurements import (
+            SqlAlchemyGridQualityMeasurementRepository,
+        )
+        from game_predictor_api.storage.grid_reinference import SqlAlchemyGridReinferenceRepository
+
         with session_factory() as session:
             try:
                 # D-467 S6 (TASK-0796): the Reviewer's board geometry
                 # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
+                    grid_quality_measurements=GridQualityMeasurementService(
+                        SqlAlchemyGridQualityMeasurementRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
+                    grid_geometry_approvals=GridGeometryApprovalService(
+                        SqlAlchemyGridGeometryApprovalRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
+                    grid_geometry_proposals=GridGeometryProposalService(
+                        SqlAlchemyGridGeometryProposalRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
+                    grid_reinference=GridReinferenceService(
+                        SqlAlchemyGridReinferenceRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
+                    historical_acceptance=HistoricalAcceptanceService(
+                        SqlAlchemyHistoricalAcceptanceRepository(
+                            session, resolved_settings.artifact_root
+                        )
+                    ),
                     virtual_geometry=VirtualGridGeometryService(
                         SqlAlchemyVirtualGridGeometryRepository(session),
                         resolved_settings.artifact_root,
@@ -2162,6 +2280,53 @@ def create_app(
     )
 
     application.state.database_engine = database_engine
+
+    def default_grid_training_cohort_dependency() -> Iterator[GridTrainingCohortService]:
+        with session_factory() as session:
+            try:
+                yield GridTrainingCohortService(
+                    SqlAlchemyGridTrainingCohortRepository(
+                        session, resolved_settings.artifact_root
+                    ),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    def default_grid_training_run_dependency() -> Iterator[GridTrainingRunService]:
+        with session_factory() as session:
+            try:
+                yield GridTrainingRunService(
+                    GridTrainingCohortService(
+                        SqlAlchemyGridTrainingCohortRepository(
+                            session, resolved_settings.artifact_root
+                        ),
+                        resolved_settings.artifact_root,
+                    ),
+                    SqlAlchemyGridTrainingRunJobs(session),
+                    # Other games of a shared run are read in their own transactions.
+                    SharedGridCandidateService(session_factory, resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    @application.exception_handler(GridCohortError)
+    async def grid_cohort_error_handler(_request: Request, error: GridCohortError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"code": error.code, "message": error.message, "details": {}},
+        )
+
+    application.include_router(
+        create_board_search_panels_router(
+            resolved_board_search_panel_dependency, resolved_reviewer_ingress_dependency
+        ),
+        prefix="/api/v1",
+    )
     application.include_router(
         create_api_router(
             resolved_settings,
@@ -2234,6 +2399,8 @@ def create_app(
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
             grid_shadow_service_dependency=resolved_grid_shadow_dependency,
             lab_symbol_candidate_import_service_dependency=resolved_lab_symbol_candidate_import_dependency,
+            grid_training_cohort_service_dependency=default_grid_training_cohort_dependency,
+            grid_training_run_service_dependency=default_grid_training_run_dependency,
         )
     )
     if not custom_service_dependency_supplied:
@@ -2262,6 +2429,71 @@ def create_app(
         application.router.add_event_handler(
             "startup",
             reconcile_remote_manual_selection_on_startup,
+        )
+
+    def default_grid_model_registry_dependency() -> Iterator[GridModelRegistryService]:
+        # Public catalogue has no game payload and must not enter GameStorageRouter.
+        with Session(database_engine) as session:
+            try:
+                yield GridModelRegistryService(
+                    SqlAlchemyGridModelRegistryRepository(session),
+                    GridModelArtifactInspector(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_grid_model_registry_router(
+            grid_model_registry_service_dependency or default_grid_model_registry_dependency
+        )
+    )
+
+    def default_grid_model_evaluation_dependency() -> GridModelEvaluationService:
+        # Each game is read in its own routed transaction; the catalogue in a plain one.
+        return GridModelEvaluationService(
+            database_engine, session_factory, resolved_settings.artifact_root
+        )
+
+    application.include_router(
+        create_grid_model_evaluations_router(default_grid_model_evaluation_dependency)
+    )
+
+    @application.exception_handler(GridModelRegistryError)
+    async def grid_model_registry_error_handler(
+        request: Request, error: GridModelRegistryError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    def default_source_recording_dependency() -> Iterator[SourceRecordingGroupsService]:
+        with Session(database_engine) as session:
+            try:
+                yield SourceRecordingGroupsService(
+                    SqlAlchemySourceRecordingRepository(session),
+                    resolved_settings.artifact_root,
+                    TrustedRecordingProviders(
+                        resolved_settings.artifact_root,
+                        resolved_settings.recording_provider_index_sha256,
+                    ),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_source_recording_groups_router(default_source_recording_dependency)
+    )
+
+    @application.exception_handler(RecordingError)
+    async def recording_error_handler(_request: Request, error: RecordingError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(CatalogError)

@@ -178,6 +178,11 @@ class SqlAlchemyImageJobOperationsRepository(
         retried_at: datetime,
         file_limit: int,
     ) -> ImageJobOperations:
+        from game_predictor_api.storage.job_admission import acquire_job_admission
+
+        initial = self._image_job(job_id, for_update=False)
+        if initial.game_id is not None:
+            acquire_job_admission(self._session, initial.game_id, exclude_job_id=job_id)
         job = self._image_job(job_id, for_update=True)
         if job.status not in {
             JobStatus.CREATED,

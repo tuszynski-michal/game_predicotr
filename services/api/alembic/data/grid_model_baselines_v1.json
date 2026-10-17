@@ -1,0 +1,328 @@
+[
+  {
+    "schemaVersion": "grid-model-catalogue-v1",
+    "familyId": "e147ddc8-77e8-54e7-a31b-cdde8f769789",
+    "familyCode": "grid_profile_777_v2",
+    "familyLabel": "777 v2",
+    "versionId": "9c4c74b6-c110-5033-8f23-32b7b2000510",
+    "version": "v1",
+    "modelKind": "neural_grid",
+    "modelVersion": "neural-grid-v1",
+    "bundleFormat": "neural-grid-bundle-v1",
+    "preprocessingVersion": "neural-grid-preprocessing-v1",
+    "decodingPolicyVersion": "neural-grid-decoding-v1",
+    "topology": {
+      "screenRows": 3,
+      "screenColumns": 3,
+      "boardRows": 5,
+      "boardColumns": 3
+    },
+    "capabilities": [
+      "screen_detector",
+      "grid_detector"
+    ],
+    "baseVersionId": null,
+    "cohortId": null,
+    "admission": "historical_baseline",
+    "provenance": {
+      "runId": "43933ac8d7d443c8b9079630a83de2e6",
+      "exportId": "2cd19738367121e6-round3",
+      "presetFingerprint": "027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
+      "weightsSha256": "19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9",
+      "checkpointSha256": "2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+      "snapshotId": "286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59"
+    },
+    "historicalReports": [
+      {
+        "dataset": "development 777 (600 photos)",
+        "result": "complete and correct 554/600 = 92.3%; image-macro 0.0029; false boards 0"
+      },
+      {
+        "dataset": "gold 777 (459 G boards)",
+        "result": "correct G boards 443/459 = 96.5%; all-G photos 21/22"
+      },
+      {
+        "dataset": "Reels holdout (final_test)",
+        "result": "correct boards 29/30"
+      },
+      {
+        "dataset": "Treasure holdout (unseen_game)",
+        "result": "correct boards 30/30"
+      },
+      {
+        "dataset": "Mumie holdout (D-490, 4 photos)",
+        "result": "complete and correct 4/4; boards 36/36; NME median 0.0067"
+      }
+    ],
+    "managedDirectory": "models/grid-engine/grid_profile_777_v2/v1",
+    "inferenceManifest": {
+      "schemaVersion": "grid-engine-model-manifest-v1",
+      "profile": "grid_profile_777_v2",
+      "version": "v1",
+      "modelKind": "neural_grid",
+      "modelVersion": "neural-grid-v1",
+      "bundleFormat": "neural-grid-bundle-v1",
+      "runId": "43933ac8d7d443c8b9079630a83de2e6",
+      "exportId": "2cd19738367121e6-round3",
+      "preset": "A",
+      "presetFingerprint": "027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
+      "weightsSha256": "19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9",
+      "checkpointSha256": "2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+      "snapshotId": "286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59",
+      "frozenOn": "2026-10-04",
+      "selectionReason": "Run 1, preset A, round 3: chosen on development before any holdout read; the hybrid_v3 gate thresholds were calibrated for this model (V3-C).",
+      "report": "ai_docs/quality/GRID_V3_COMPARISON_REPORT_20261004.md",
+      "reportResults": [
+        {
+          "dataset": "development 777 (600 photos)",
+          "result": "complete and correct 554/600 = 92.3%; image-macro 0.0029; false boards 0"
+        },
+        {
+          "dataset": "gold 777 (459 G boards)",
+          "result": "correct G boards 443/459 = 96.5%; all-G photos 21/22"
+        },
+        {
+          "dataset": "Reels holdout (final_test)",
+          "result": "correct boards 29/30"
+        },
+        {
+          "dataset": "Treasure holdout (unseen_game)",
+          "result": "correct boards 30/30"
+        },
+        {
+          "dataset": "Mumie holdout (D-490, 4 photos)",
+          "result": "complete and correct 4/4; boards 36/36; NME median 0.0067"
+        }
+      ],
+      "files": [
+        {
+          "name": "screen.onnx",
+          "sha256": "497fad194a6454d9ceb3edf8a1157d4f46c4676f407474cbfafd513d4608b3b4",
+          "sizeBytes": 13808279
+        },
+        {
+          "name": "board.onnx",
+          "sha256": "0ec72d16a0c666523f1e85b73288e017c3905a79d116331290973093f4576c92",
+          "sizeBytes": 13553174
+        },
+        {
+          "name": "bundle.json",
+          "sha256": "64d815d8af168f79fd53f0dcb9e80823c3006ebae3e08225fc9e25f178c27b7b",
+          "sizeBytes": 5336
+        },
+        {
+          "name": "preset.json",
+          "sha256": "77e6b9ce792798b58b4c403d6d482fdfd4be43d16d3455cfe8af1345dd7381d3",
+          "sizeBytes": 3637
+        }
+      ]
+    },
+    "files": [
+      {
+        "name": "screen.onnx",
+        "sha256": "497fad194a6454d9ceb3edf8a1157d4f46c4676f407474cbfafd513d4608b3b4",
+        "sizeBytes": 13808279
+      },
+      {
+        "name": "board.onnx",
+        "sha256": "0ec72d16a0c666523f1e85b73288e017c3905a79d116331290973093f4576c92",
+        "sizeBytes": 13553174
+      },
+      {
+        "name": "bundle.json",
+        "sha256": "64d815d8af168f79fd53f0dcb9e80823c3006ebae3e08225fc9e25f178c27b7b",
+        "sizeBytes": 5336
+      },
+      {
+        "name": "preset.json",
+        "sha256": "77e6b9ce792798b58b4c403d6d482fdfd4be43d16d3455cfe8af1345dd7381d3",
+        "sizeBytes": 3637
+      }
+    ],
+    "trainingArtifacts": [
+      {
+        "name": "checkpoint.pt",
+        "sha256": "2cd19738367121e6a36cf0630b4fd7d275d1966fbe25ca73d1329fa979183fe8",
+        "sizeBytes": 106729511
+      },
+      {
+        "name": "weights.pt",
+        "sha256": "19b8d1382d5fe13b7e054b2d4eb846c25f7a91f680fa113b7d1d30571cdc80f9",
+        "sizeBytes": 26815171
+      },
+      {
+        "name": "bundle.json",
+        "sha256": "64d815d8af168f79fd53f0dcb9e80823c3006ebae3e08225fc9e25f178c27b7b",
+        "sizeBytes": 5336
+      },
+      {
+        "name": "preset.json",
+        "sha256": "77e6b9ce792798b58b4c403d6d482fdfd4be43d16d3455cfe8af1345dd7381d3",
+        "sizeBytes": 3637
+      }
+    ]
+  },
+  {
+    "schemaVersion": "grid-model-catalogue-v1",
+    "familyId": "49c89cb3-3bec-52ba-8bbe-20bca5985fd6",
+    "familyCode": "grid_profile_mumie_v1",
+    "familyLabel": "Mumie",
+    "versionId": "158a740f-1f54-523f-94f3-508477dbea7a",
+    "version": "v1",
+    "modelKind": "neural_grid",
+    "modelVersion": "neural-grid-v1",
+    "bundleFormat": "neural-grid-bundle-v1",
+    "preprocessingVersion": "neural-grid-preprocessing-v1",
+    "decodingPolicyVersion": "neural-grid-decoding-v1",
+    "topology": {
+      "screenRows": 3,
+      "screenColumns": 3,
+      "boardRows": 5,
+      "boardColumns": 3
+    },
+    "capabilities": [
+      "screen_detector",
+      "grid_detector"
+    ],
+    "baseVersionId": null,
+    "cohortId": null,
+    "admission": "historical_baseline",
+    "provenance": {
+      "runId": "5bc981568c3f42bd96f6f9238e57aedc",
+      "exportId": "iteration03-f896da7196431be2",
+      "presetFingerprint": "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
+      "weightsSha256": "473d773897aae999f2a86774d77c1139f62f36fc9b8eb80a17f68256016613a1",
+      "checkpointSha256": "f896da7196431be2d6dc7b863cfa69f6ec27fd63cb3d3e00ff7acd1f2b745138",
+      "snapshotId": "286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59"
+    },
+    "historicalReports": [
+      {
+        "dataset": "development 777 (600 photos)",
+        "result": "complete and correct 546/600 = 91.0%; image-macro 0.0028; false boards 0"
+      },
+      {
+        "dataset": "gold 777 (459 G boards)",
+        "result": "correct G boards 446/459 = 97.2%; all-G photos 22/22"
+      },
+      {
+        "dataset": "Reels holdout (final_test)",
+        "result": "correct boards 29/30"
+      },
+      {
+        "dataset": "Treasure holdout (unseen_game)",
+        "result": "correct boards 30/30"
+      },
+      {
+        "dataset": "Mumie holdout (D-490, 4 photos)",
+        "result": "complete and correct 4/4; boards 36/36; NME median 0.0029"
+      }
+    ],
+    "managedDirectory": "models/grid-engine/grid_profile_mumie_v1/v1",
+    "inferenceManifest": {
+      "schemaVersion": "grid-engine-model-manifest-v1",
+      "profile": "grid_profile_mumie_v1",
+      "version": "v1",
+      "modelKind": "neural_grid",
+      "modelVersion": "neural-grid-v1",
+      "bundleFormat": "neural-grid-bundle-v1",
+      "runId": "5bc981568c3f42bd96f6f9238e57aedc",
+      "exportId": "iteration03-f896da7196431be2",
+      "preset": "D",
+      "presetFingerprint": "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
+      "weightsSha256": "473d773897aae999f2a86774d77c1139f62f36fc9b8eb80a17f68256016613a1",
+      "checkpointSha256": "f896da7196431be2d6dc7b863cfa69f6ec27fd63cb3d3e00ff7acd1f2b745138",
+      "snapshotId": "286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59",
+      "frozenOn": "2026-10-04",
+      "selectionReason": "Run 3 Mumie fine-tune (D-490), iteration 3: 79% of the proposals of the last batch accepted unchanged; Mumie holdout 36/36 (the holdout also selected the state of every iteration, so it is not an independent test).",
+      "report": "ai_docs/quality/GRID_V3_COMPARISON_REPORT_20261004.md",
+      "reportResults": [
+        {
+          "dataset": "development 777 (600 photos)",
+          "result": "complete and correct 546/600 = 91.0%; image-macro 0.0028; false boards 0"
+        },
+        {
+          "dataset": "gold 777 (459 G boards)",
+          "result": "correct G boards 446/459 = 97.2%; all-G photos 22/22"
+        },
+        {
+          "dataset": "Reels holdout (final_test)",
+          "result": "correct boards 29/30"
+        },
+        {
+          "dataset": "Treasure holdout (unseen_game)",
+          "result": "correct boards 30/30"
+        },
+        {
+          "dataset": "Mumie holdout (D-490, 4 photos)",
+          "result": "complete and correct 4/4; boards 36/36; NME median 0.0029"
+        }
+      ],
+      "files": [
+        {
+          "name": "screen.onnx",
+          "sha256": "877a2d4502022e4f99e80afe27ce438528864be2351cb3d402ee8daa9d54ca43",
+          "sizeBytes": 13808279
+        },
+        {
+          "name": "board.onnx",
+          "sha256": "3498733a8cc4a5faefa640c3acef21d06086d00d8524d1fb289b02a862bcdd7d",
+          "sizeBytes": 13553174
+        },
+        {
+          "name": "bundle.json",
+          "sha256": "024dc1f0d5bc46515cb4173e04c474ea864d730b4d48abd6f418bacfa9b43566",
+          "sizeBytes": 7243
+        },
+        {
+          "name": "preset.json",
+          "sha256": "946b5a6cb75d836c61f2a549d0e338f4175eae1e906d26a211428ec2f6181317",
+          "sizeBytes": 5398
+        }
+      ]
+    },
+    "files": [
+      {
+        "name": "screen.onnx",
+        "sha256": "877a2d4502022e4f99e80afe27ce438528864be2351cb3d402ee8daa9d54ca43",
+        "sizeBytes": 13808279
+      },
+      {
+        "name": "board.onnx",
+        "sha256": "3498733a8cc4a5faefa640c3acef21d06086d00d8524d1fb289b02a862bcdd7d",
+        "sizeBytes": 13553174
+      },
+      {
+        "name": "bundle.json",
+        "sha256": "024dc1f0d5bc46515cb4173e04c474ea864d730b4d48abd6f418bacfa9b43566",
+        "sizeBytes": 7243
+      },
+      {
+        "name": "preset.json",
+        "sha256": "946b5a6cb75d836c61f2a549d0e338f4175eae1e906d26a211428ec2f6181317",
+        "sizeBytes": 5398
+      }
+    ],
+    "trainingArtifacts": [
+      {
+        "name": "checkpoint.pt",
+        "sha256": "f896da7196431be2d6dc7b863cfa69f6ec27fd63cb3d3e00ff7acd1f2b745138",
+        "sizeBytes": 53663320
+      },
+      {
+        "name": "weights.pt",
+        "sha256": "473d773897aae999f2a86774d77c1139f62f36fc9b8eb80a17f68256016613a1",
+        "sizeBytes": 26815171
+      },
+      {
+        "name": "bundle.json",
+        "sha256": "024dc1f0d5bc46515cb4173e04c474ea864d730b4d48abd6f418bacfa9b43566",
+        "sizeBytes": 7243
+      },
+      {
+        "name": "preset.json",
+        "sha256": "946b5a6cb75d836c61f2a549d0e338f4175eae1e906d26a211428ec2f6181317",
+        "sizeBytes": 5398
+      }
+    ]
+  }
+]

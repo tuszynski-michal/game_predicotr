@@ -4,8 +4,10 @@ from contextlib import ExitStack
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -81,14 +83,18 @@ def isolated_import_report_database() -> Iterator[URL]:
     )
     test_database_url = _database_url(TEST_DATABASE_NAME)
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield test_database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 
@@ -110,6 +116,7 @@ def test_postgres_report_has_exact_counts_bounded_groups_and_filtered_rows(
             session = stack.enter_context(session_factory())
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="import-report-game",
                 name="Import report game",
                 status=GameStatus.ACTIVE,

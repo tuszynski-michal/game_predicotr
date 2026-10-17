@@ -1,10 +1,73 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-16
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Przypięcie wersji geometrii V3 — TASK-1012
+
+Nowe preflighty V3 odczytują jawne przypisanie gry z katalogu modeli. Dotyczy
+to `neural_grid_v3` oraz istniejących formatów `grid_profile_777_v2` i
+`grid_profile_mumie_v1`. Format określa możliwości silnika; nie wybiera już
+rodziny ani bieżącego checkpointu dla nowego zadania. Brak przypisania blokuje
+nowy preflight kodem `GRID_MODEL_ASSIGNMENT_REQUIRED`, bez klasycznego fallbacku.
+
+Snapshot v2 przypina grę, konfigurację, wersję, pełny manifest katalogu,
+SHA-256, preprocessing i politykę dekodowania. Zmiana przypisania po
+preflighcie nie przełącza startowanego importu, ponownego użycia ani wznowienia.
+Brak lub zmiana przypiętych artefaktów zatrzymuje zadanie. Nowy worker czyta
+również snapshot v1 według historycznego kontraktu własnego profilu.
+
+Historyczna gra 777 (kod `7`) pozostaje klasyczna. Symbole, ich modele i
+aktywacje pozostają per gra. TASK-1012 nie tworzy ani nie przełącza przypisań,
+nie publikuje wersji i nie ustawia domyślnego modelu; te operacje są odrębnym
+pionem TASK-0998. Wcześniejsze opisy przypięcia własnego statycznego modelu
+poniżej dokumentują również zachowanie zachowanych snapshotów v1.
+
+## Akceptacja silnika V3 — D-550 (TASK-1017)
+
+Nowy import neuronowy przypina politykę `v3-engine-acceptance-v1` razem
+z fingerprintem. Propozycja pozostaje `needs_review` do zapisania i kontroli
+wszystkich oczekiwanych plansz. Dopiero komplet pełnych, jednoznacznie
+przypisanych pozycji z aktualnej rewizji i zgodnego przypiętego modelu może
+otrzymać stan `accepted` źródłowej geometrii. Brak pozycji, odroczenie,
+częściowość, niezgodność źródła/modelu/geometrii, obcy właściciel sekwencji
+lub aktualne zgłoszenie `grid_issue` blokuje akceptację. Zgłoszenie dotyczy
+bieżącej geometrii i rewizji źródła komórki; historia zgłoszeń nie jest usuwana.
+
+Akceptacja silnika nie ustawia pól zatwierdzenia człowieka, nie zatwierdza
+symboli i nie tworzy etykiety treningowej. Diagnostyka
+`NEURAL_GRID_GATE_UNCALIBRATED` oraz wyjątek D-523 dla pełnych slotów pozostają
+zachowane. Status, przeliczenie kompletności i projekcje zapisują się w jednej
+transakcji rozpoznania. Błąd projekcji wycofuje także akceptację. Stary job bez
+tej polityki zachowuje wcześniejszy wynik przy retry. Historyczny backfill
+pozostaje oddzielną, wymagającą podglądu i potwierdzenia operacją TASK-1008.
+
+## Zdjęcia V3 bez przypisania plansz są jawne — TASK-1041
+
+Polityka wiązania się nie zmienia: import V3 materializuje tylko zdjęcia, których
+wykrycia sieci przypisano do plansz zakresu z nazwy pliku. Zdjęcie
+`slot_binding_required` (powód `NEURAL_GRID_SLOT_BINDING_REQUIRED` albo
+`NEURAL_GRID_SOURCE_TIME_LIMIT`) nie tworzy plansz, ale pominięcie nie jest już
+ciche:
+
+- raport importu po ukończonym preflighcie V3 podaje liczbę takich zdjęć i liczbę
+  plansz ich zakresów (bez zdjęć wykluczonych przez operatora); Admin pokazuje
+  ostrzeżenie, przycisk „Przypisz plansze ręcznie” (podgląd propozycji sieci z
+  ręcznym wiązaniem) i pole „Importuj bez tych N zdjęć”;
+- start importu bez potwierdzenia dokładnie tej liczby kończy się konfliktem
+  `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED`, także przy ponowieniu
+  istniejącego runu; nowy preflight po ręcznym wiązaniu wymaga nowego
+  potwierdzenia;
+- worker zapisuje niezmienny raport `data/image-import-unbound-sources/{jobId}.json`
+  (pełna lista: checksum, ścieżka, zakres, powód) i podsumowanie w postępie joba;
+  lista importów w Adminie pokazuje „Pominięte bez przypisania plansz: N zdjęć”,
+  powody, do 20 przykładów i ścieżkę pełnej listy.
+
+Częściowe automatyczne wiązanie przy mniej niż 9 wykryciach pozostaje poza
+zakresem: wymaga decyzji operatora i nowego wpisu D-.
 
 ## Profil 777 v2 importuje przez V3 — D-544 (TASK-0974)
 

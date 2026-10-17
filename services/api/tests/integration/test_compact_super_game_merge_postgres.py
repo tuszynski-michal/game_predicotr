@@ -4,6 +4,7 @@ import os
 
 import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.storage.database_roles import (
@@ -11,6 +12,7 @@ from game_predictor_api.storage.database_roles import (
     describe_application_role,
     provision_application_role,
 )
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from sqlalchemy import text
 
@@ -34,6 +36,7 @@ def test_existing_compact_branch_upgrades_to_combined_head(revision):
         config.set_main_option(
             "sqlalchemy.url", db.owner_url.render_as_string(hide_password=False).replace("%", "%%")
         )
+        OwnedRecordingCapability.for_engine(db.owner_engine).provision("head", config)
         command.upgrade(config, "head")
         with db.owner_engine.begin() as connection:
             # Match the documented rollout: V7 predecessors added after an old
@@ -54,7 +57,7 @@ def test_existing_compact_branch_upgrades_to_combined_head(revision):
                     ),
                     {"game": db.games["merge"]},
                 ).scalar_one()
-                == "game-data-v2-manifest-v7"
+                == ROUTED_MANIFEST_VERSION
             )
             protected = set(
                 connection.execute(

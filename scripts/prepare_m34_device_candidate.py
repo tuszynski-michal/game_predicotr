@@ -8,8 +8,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
-from alembic import command
-from alembic.config import Config
 from game_predictor_api.application.mobile_releases import MobileReleaseService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
@@ -34,6 +32,7 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SymbolModel,
 )
+from game_predictor_api.storage.owned_tool_database import OwnedToolDatabase
 from game_predictor_worker.jobs.runtime import JobExecutionResult, LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from game_predictor_worker.payouts.readiness import PayoutReadinessService
@@ -52,60 +51,12 @@ from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-CANDIDATE_DATABASE_NAME = "game_predictor_m34_device_candidate"
 DEFAULT_RELEASE_VERSION = "m3.4-acceptance.1"
 
 
 class _PayoutMustNotRun:
     def __call__(self, *_args: object) -> None:
         raise RuntimeError("The acceptance seed must contain complete payouts.")
-
-
-def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
-
-
-def _migration_config(database_url: URL) -> Config:
-    config = Config(str(ALEMBIC_INI))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database_url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    return config
-
-
-def _recreate_candidate_database() -> URL:
-    if CANDIDATE_DATABASE_NAME == "game_predictor":
-        raise RuntimeError("Refusing to replace the local application database.")
-    maintenance_engine = create_engine(
-        _database_url("postgres"),
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    identifier = f'"{CANDIDATE_DATABASE_NAME}"'
-    try:
-        with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-    finally:
-        maintenance_engine.dispose()
-    candidate_url = _database_url(CANDIDATE_DATABASE_NAME)
-    command.upgrade(_migration_config(candidate_url), "head")
-    return candidate_url
-
-
-def _drop_candidate_database() -> None:
-    maintenance_engine = create_engine(
-        _database_url("postgres"),
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    identifier = f'"{CANDIDATE_DATABASE_NAME}"'
-    try:
-        with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-    finally:
-        maintenance_engine.dispose()
 
 
 def _seed_source(session: Session) -> MobileReleaseGameInput:
@@ -303,11 +254,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--release-version", default=DEFAULT_RELEASE_VERSION)
     options = parser.parse_args()
-    candidate_url = _recreate_candidate_database()
-    try:
-        report = _build_candidate(options.release_version, candidate_url)
-    finally:
-        _drop_candidate_database()
+    with OwnedToolDatabase(
+        make_url(ApiSettings.from_environment().owner_database_url),
+        prefix="game_predictor_m34_candidate",
+        alembic_ini=ALEMBIC_INI,
+    ) as database:
+        report = _build_candidate(options.release_version, database.runtime_url)
 
     report_path = (
         REPOSITORY_ROOT

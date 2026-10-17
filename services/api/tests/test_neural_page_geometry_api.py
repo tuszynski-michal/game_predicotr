@@ -507,6 +507,9 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         ImageSelectionPurpose,
     )
     from game_predictor_api.application.jobs import _baseline_grid_profile_snapshot
+    from game_predictor_api.domain.symbol_model_snapshots import (
+        cold_start_unclassified_symbol_snapshot,
+    )
     from test_managed_reprocess_evidence import NOW
 
     value = proposal(4)
@@ -569,7 +572,28 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         "game_predictor_api.application.jobs.ManagedGridEngineModelStore.require",
         lambda *_: None,
     )
-    jobs = JobService(repository, artifact_root=tmp_path, grid_profile_snapshot_resolver=grid)
+    expected_game_id = game_id
+
+    def unavailable_symbols(*, game_id):
+        assert game_id == expected_game_id
+        from game_predictor_api.domain.jobs import JobConflictError
+
+        raise JobConflictError("SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED", "Use own-game cold start.")
+
+    symbols = SimpleNamespace(
+        resolve=unavailable_symbols,
+        resolve_unclassified_cold_start=lambda *, game_id: (
+            cold_start_unclassified_symbol_snapshot(("OWN_GAME_FIRST", "OWN_GAME_SECOND"))
+            if game_id == expected_game_id
+            else None
+        ),
+    )
+    jobs = JobService(
+        repository,
+        artifact_root=tmp_path,
+        grid_profile_snapshot_resolver=grid,
+        symbol_model_snapshot_resolver=symbols,
+    )
     assert (
         jobs.get_page_geometry_preflight_by_source_selection(
             game_id=game_id,
@@ -637,6 +661,11 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert preflight["geometryPreflightArtifactReady"] is True, preflight
     assert preflight["newSequenceCount"] == 0, json.dumps(preflight)
     assert preflight["geometryPreflightArtifactReady"] is True
+    # TASK-1041: the unbound source is reported before start and skipping it
+    # needs an explicit confirmation of that exact count.
+    assert preflight["neuralUnboundSourceCount"] == 1
+    assert preflight["neuralUnboundAttestedBoardCount"] == 5
+    assert preflight["neuralUnboundCountPreflightJobId"] == str(job.id)
     command = {
         "gameId": str(game_id),
         "manifestChecksumSha256": "b" * 64,
@@ -645,20 +674,45 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         "geometryManifestChecksumSha256": checksum,
         "startMode": "rerun_current_models",
     }
-    started = client.post(prefix + "/start", json=command)
+    for unconfirmed in (command, {**command, "confirmedNeuralUnboundSourceCount": 2}):
+        with pytest.raises(JobConflictError) as refused:
+            client.post(prefix + "/start", json=unconfirmed)
+        assert refused.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
+        assert refused.value.details["unboundSourceCount"] == 1
+    assert not [job for job in repository.items.values() if job.job_type is JobType.IMPORT]
+    confirmed_command = {**command, "confirmedNeuralUnboundSourceCount": 1}
+    started = client.post(prefix + "/start", json=confirmed_command)
     assert started.status_code == 201, started.text
     assert started.json()["created"] is True
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
     assert frozen.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
     assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
+    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == "v3-engine-acceptance-v1"
+    assert "v3EngineAcceptancePolicyVersion" not in started.json()["job"]["inputPayload"]
+    assert "v3_engine_acceptance_policy_version" not in started.json()["job"]["inputPayload"]
+    from game_predictor_api.schemas.jobs import JobResponse
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        JobResponse.from_domain(
+            replace(
+                frozen,
+                input_payload={**frozen.input_payload, "unexpected_execution_field": "forbidden"},
+            )
+        )
     assert (
         started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
         == "neural-auto-crop-v1"
     )
-    replay = client.post(prefix + "/start", json=command)
+    with pytest.raises(JobConflictError) as replay_refused:
+        client.post(prefix + "/start", json=command)
+    assert replay_refused.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
+    replay = client.post(prefix + "/start", json=confirmed_command)
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False
     assert replay.json()["job"]["id"] == started.json()["job"]["id"]
+    replayed = repository.get_job(UUID(replay.json()["job"]["id"]))
+    assert replayed.input_payload == frozen.input_payload
     assert len([job for job in repository.items.values() if job.job_type is JobType.IMPORT]) == 1
     # A new immutable binding descriptor must not race an active sibling run.
     content["entries"][source_sha]["neuralProposalBinding"] = binding(value)
@@ -683,6 +737,19 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     updated_report = client.post(prefix + "/preflight", json={"gameId": str(game_id)})
     assert updated_report.status_code == 200, updated_report.text
     assert updated_report.json()["newSequenceCount"] == 5
+    # A fully bound manifest needs no confirmation; a stale one is refused.
+    assert updated_report.json()["neuralUnboundSourceCount"] == 0
+    with pytest.raises(JobConflictError) as stale_confirmation:
+        client.post(
+            prefix + "/start",
+            json={
+                **confirmed_command,
+                "preflightChecksumSha256": updated_report.json()["preflightChecksumSha256"],
+                "geometryPreflightJobId": str(updated_job.id),
+                "geometryManifestChecksumSha256": updated_sha,
+            },
+        )
+    assert stale_confirmation.value.code == "NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED"
     updated_command = {
         **command,
         "preflightChecksumSha256": updated_report.json()["preflightChecksumSha256"],

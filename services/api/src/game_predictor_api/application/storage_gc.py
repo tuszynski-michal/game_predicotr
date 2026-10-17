@@ -15,6 +15,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.storage_retention import (
+    CohortAssetReferenceState,
     StorageArtifactClass,
     StorageArtifactObservation,
     StorageGcManifestEntry,
@@ -22,6 +23,7 @@ from game_predictor_api.domain.storage_retention import (
     StorageRetentionPolicy,
     StorageRootKind,
     canonical_gc_manifest_bytes,
+    cohort_asset_path_identity,
     evaluate_storage_retention,
     gc_manifest_checksum_sha256,
     gc_preview_token,
@@ -148,6 +150,7 @@ class StorageGcArtifactStore:
         observations = list(self._normalization_observations(repository))
         observations.extend(self._temporary_observations(repository))
         observations.extend(self._browser_staging_observations(repository))
+        observations.extend(self._cohort_asset_observations(repository))
         decisions = tuple(
             evaluate_storage_retention(item, policy=policy, now=now) for item in observations
         )
@@ -204,6 +207,64 @@ class StorageGcArtifactStore:
         finally:
             temporary.unlink(missing_ok=True)
         return relative, checksum, token
+
+    def _cohort_asset_observations(
+        self, repository: StorageGcRepository
+    ) -> Iterable[StorageArtifactObservation]:
+        guard = getattr(repository, "cohort_asset_gc_guard", None)
+        if not callable(guard):
+            return  # Legacy adapters do not authorize scanning a new namespace.
+        from game_predictor_api.storage.grid_training_cohort_artifacts import _native_io
+
+        root = self._artifact_root / "data" / "grid-training-cohorts"
+        native_root = _native_io(root)
+        if not native_root.is_dir() or native_root.is_symlink() or native_root.is_junction():
+            return
+        for directory, directories, files in os.walk(native_root, followlinks=False):
+            directories[:] = [
+                name
+                for name in sorted(directories)
+                if not (Path(directory) / name).is_symlink()
+                and not (Path(directory) / name).is_junction()
+            ]
+            for name in sorted(files):
+                # Convert the native spelling back to the known normal root;
+                # all public metadata keeps portable relative paths.
+                suffix = Path(directory).relative_to(native_root)
+                relative = (root / suffix / name).relative_to(self._artifact_root).as_posix()
+                if cohort_asset_path_identity(relative) is None:
+                    continue
+                with guard(relative) as state:
+                    observation = self.cohort_asset_observation(relative, state)
+                    if observation is not None:
+                        yield observation
+
+    def cohort_asset_observation(
+        self, relative: str, state: CohortAssetReferenceState
+    ) -> StorageArtifactObservation | None:
+        if cohort_asset_path_identity(relative) is None:
+            raise JobConflictError("STORAGE_GC_PATH_UNSAFE", "Invalid cohort asset namespace.")
+        from game_predictor_api.storage.grid_training_cohort_artifacts import (
+            GridCohortArtifactStore,
+        )
+
+        path = GridCohortArtifactStore(self._artifact_root).safe(relative)
+        if not path.exists():
+            return None
+        stat = path.stat(follow_symlinks=False)
+        if not path.is_file():
+            raise JobConflictError("STORAGE_GC_PATH_UNSAFE", "Cohort candidates must be files.")
+        return StorageArtifactObservation(
+            relative_path=relative,
+            size_bytes=stat.st_size,
+            modified_at=datetime.fromtimestamp(stat.st_mtime, UTC),
+            artifact_class=StorageArtifactClass.GRID_COHORT_ASSET,
+            last_dependency_at=state.latest_dependency_at,
+            retained_cohort_reference=state.referenced,
+            cohort_reference_unresolved=state.unresolved,
+            root_kind=StorageRootKind.ARTIFACT,
+            observation_checksum_sha256=_file_observation_checksum(path, stat),
+        )
 
     def _normalization_observations(
         self, repository: StorageGcRepository

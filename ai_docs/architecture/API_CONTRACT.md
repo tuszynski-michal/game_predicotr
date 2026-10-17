@@ -1,10 +1,184 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-16
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Tworzenie i pierwszy transfer geometrii V3 — TASK-1004
+
+Istniejący `POST /api/v1/admin/games` wymaga teraz `idempotencyKey: UUID`.
+To jawna zmiana kontraktu tworzenia; GET/PATCH historycznych gier pozostają
+zgodne ze starymi wartościami. Pominięty format oznacza `neural_grid_v3`;
+znana inna wartość daje409 `GAME_CREATE_V3_REQUIRED`, nieznana422. Kod `7`
+nowej gry daje409 `GAME_CREATE_HISTORICAL_CODE_RESERVED`. Status pominięty
+pozostaje DRAFT, a jawny status jest zachowany.
+
+Opcjonalne `gridModel` ma zamknięte warianty `default`, `published` z
+`versionId` oraz `fork` z `baseVersionId`, `familyCode`, `familyLabel`.
+Default rozwiązuje się raz pod blokadą katalogu. Brak default lub jawnie
+wylistowany błąd aktualności/dostępności pozwala na unassigned ze stabilnym
+blockerem. Uszkodzenie kontraktu, raportu lub infrastruktury przerywa zapis.
+Jawny wybór/fork wymaga zgodnej eligible published wersji i jest atomowy.
+Nowa gra nie potrzebuje fikcyjnego raportu zawierającego jej przyszły UUID.
+
+Create ledger ma odrębny globalny namespace `game-create-v1`. To samo
+polecenie/key odzyskuje tę samą grę i provisioning bez ponownego default.
+Zmiana treści daje409 `GAME_CREATE_IDEMPOTENCY_CONFLICT`; inny key przy
+zajętym code zachowuje `GAME_CODE_ALREADY_EXISTS`. Usunięty wynik daje
+`GAME_CREATE_RESULT_REMOVED`, bez utworzenia zastępstwa. Klient utrwala
+polecenie przed POST i powtarza je po utracie odpowiedzi/reload.
+
+Istniejący `activateGameGridModel` dopuszcza opcjonalne `mode=initial_transfer`.
+Wymaga expectedRevision0, neutralnej gry utworzonej tą ścieżką, pierwotnego
+unassigned receipt oraz braku assignment/historii. Zapisuje bootstrap revision1
+z `transfer_bootstrap`, `grid-model-transfer-v1` i `qualityScope=source-games-only`.
+Ponowienie odczytuje receipt przed CAS/eligibility. Pominięty/evaluated tryb
+zachowuje dotychczasowe canonical command/SHA i wymóg oceny per gra.
+Default i rollback odrzucają initial_transfer. GET przypisania dodaje
+`trainingFamilyId`, czytelną etykietę `trainingFamilyLabel` i `initialTransferAllowed`; historia obejmuje bootstrap
+z jawnym źródłem transferu. Fork nie tworzy wersji ani publikacji.
+
+## Jawne polecenia wersji geometrii V3 — TASK-0998
+
+Istniejący rejestr rozszerzają odrębne operacje Admina:
+
+- `POST /api/v1/admin/grid-model-versions/{versionId}/publish`
+  (`publishGridModelVersion`): `idempotencyKey`, `expectedRevision`, opcjonalne
+  `evaluationId`. Pierwsza publikacja wymaga revision 0; publikacja jest niezmienna.
+- `POST /api/v1/admin/games/{gameId}/grid-model-assignment/activate`
+  (`activateGameGridModel`) oraz `/rollback` (`rollbackGameGridModel`):
+  `idempotencyKey`, `expectedRevision`, `versionId`.
+- `GET /api/v1/admin/grid-model-default` (`getGridModelDefault`) i oddzielny
+  `POST` (`setGridModelDefault`) z takim samym poleceniem jak assignment.
+  Brak default oznacza revision 0 i nullable version. Zapis nie przełącza
+  istniejących gier ani jobów.
+- `GET /api/v1/admin/grid-model-history` (`getGridModelHistory`) i
+  `GET /api/v1/admin/games/{gameId}/grid-model-assignment/history`
+  (`getGameGridModelHistory`) zwracają najwyżej 200 najnowszych zdarzeń.
+  Pełna historia pozostaje w bazie. Historyczne zdarzenie przypisania zachowuje
+  brak dawnego receipt; nowe zdarzenia mają actor, czas i receipt.
+
+Receipt zawiera rodzaj/scope/target, klucz, expectedRevision i wynikową revision,
+kanoniczny commandSha256, manifestSha256, evidenceKind/evidenceSha256 i actor
+`local-owner` ze stałej strażnika Admina. Dokładny retry odtwarza pierwotny
+receipt także po restarcie, utracie odpowiedzi, zmianie head, utracie artefaktu
+lub invalidation dowodu. Nie wykonuje ponownie operacji ani nie oznacza
+aktualnej eligibility. W tych czterech poleceniach klucz ma jawny namespace:
+publish i set-default dzielą
+globalny ledger; activate i rollback dzielą ledger wskazanej gry. Inna gra ma
+osobny namespace. Ten sam UUID może istnieć w globalnym ledgerze i w kilku
+ledgerach gier jako niezależne operacje. Retry wymaga tego samego endpointu,
+game scope i payloadu; klient powinien nadawać nowy UUID dla nowego zamiaru.
+Rejestracja TASK-0994 zachowuje osobny ledger receiptów rejestracyjnych.
+Zmieniona treść pod tym samym kluczem w jednym namespace daje 409
+`GRID_MODEL_IDEMPOTENCY_CONFLICT`; nieaktualna revision daje 409
+`GRID_MODEL_REVISION_CONFLICT`. Event, receipt i head należą do jednej transakcji.
+
+Publikacja kandydata przyjmuje wyłącznie ID istniejącego server-owned raportu.
+Nie istnieje publiczny writer raportów; klient nie przesyła PASS, metryk,
+producenta, actor ani kohorty. Zamknięty read contract wymaga canonical JSON/SHA,
+obsługiwanego server producer/policy/schema, zgodnych pinów candidate/base/cohort
+oraz kompletnego PASS walidacji i regresji dla każdej wymaganej gry. Obliczenia
+miar i rzeczywiste zaufane wyniki dostarczy TASK-0997. Brak dowodu, niezgodność,
+niepełny zakres lub obca oceniana gra daje 409 `GRID_MODEL_EVALUATION_REQUIRED`;
+append-only invalidation daje 409 `GRID_MODEL_EVALUATION_STALE`.
+Zapisany kandydat bez bazy również daje 409 `GRID_MODEL_EVALUATION_REQUIRED`;
+nieobsługiwany kontrakt adaptera daje 409 `GRID_MODEL_CONTRACT_UNSUPPORTED`.
+Odmowa nie zapisuje publication ani receipt.
+
+Historyczna baza wymaga jawnego publish jako `historical_admission`: serwer
+sprawdza exact frozen descriptor oraz odczytuje istniejący raport repozytorium
+i zapisuje jego SHA z historycznymi wynikami. Nie powstaje nowy PASS/kohorta.
+Activate/default/rollback wymagają publikacji, aktualnego dowodu i zgodnych
+artefaktów; rollback dodatkowo wcześniejszego targetu w historii tej samej gry.
+Obcy scope sesji daje 409 `GRID_MODEL_GAME_SCOPE_CONFLICT`; brak gry 404.
+
+Version response addytywnie udostępnia `published: boolean`, `eligible` oraz
+`eligibilityReasonCode`, niezależnie od `available`/`reasonCode` plików.
+Immutable admission nadal ma `not_evaluated` lub `historical_baseline`.
+Invalidation nie zdejmuje istniejącego assignment: nowy preflight istniejącej
+gry zachowuje jego pin; start/reuse/restart zapisanej propozycji zachowuje swój
+snapshot. Istniejące historyczne assignments działają bez automatycznej
+publikacji. Status stale pozostaje jawny; panel TASK-1000 ma go pokazać.
+Read contract `GridModelPublicationService.eligible(versionId)` służy później
+TASK-1004 do bootstrapu zgodnej nowej gry z opublikowanego default/jawnej wersji.
+Nie wymaga UUID przyszłej gry ani nie deklaruje jej pomierzonej jakości.
+
+## Dynamiczny snapshot geometrii V3 — TASK-1012
+
+Istniejące pola `neuralGridProposal` jobów oraz `engineSnapshot` propozycji
+źródła akceptują addytywną, dyskryminowaną unię:
+
+- `neural-grid-proposal-snapshot-v1`: zachowane `expectedLayoutCount` i dokładny
+  `model` historycznego profilu. Odczyt nadal porównuje zamrożony rejestr.
+- `neural-grid-proposal-snapshot-v2`: `expectedLayoutCount`, `gameId`,
+  `gameConfiguration`, typed `catalogueManifest: GridModelManifest` oraz
+  `catalogueManifestSha256`. Descriptor zawiera versionId/familyId, topologię,
+  capabilities, manifest/pliki, managedDirectory, preprocessing i decoder.
+
+Nowy preflight rozwiązuje jawny assignment publicznego katalogu także dla
+dotychczasowych formatów V3. Sprawdza scope, version identity, kanoniczny
+descriptor/SHA, zgodność możliwości oraz pliki. Brak przypisania zwraca HTTP 409
+`GRID_MODEL_ASSIGNMENT_REQUIRED`; brak/drift artefaktów pozostaje kontrolowanym
+błędem bez fallbacku. Neutralny format nie wpada już do klasycznego importu.
+Preflight, start, reuse oraz worker korzystają ze wspólnej polityki możliwości
+i przypiętego kontraktu. Snapshot v2 musi należeć do tej samej gry i formatu.
+Start/reuse/wznowienie nie odczytuje aktualnej wersji assignment zamiast pinu.
+Nie ma nowego endpointu, migracji ani przepisania historycznych payloadów.
+Bramki publikacji/aktywacji/default należą do TASK-0998.
+
+## Trwały rejestr modeli geometrii V3 — TASK-0994
+
+- `GET /api/v1/admin/grid-model-versions` (`listGridModelVersions`) zwraca
+  immutable katalog wersji z family, topology/capabilities, base/provenance,
+  inference/training manifests i SHA, `available`, `reasonCode`, `published=false`.
+- `POST /api/v1/admin/grid-model-versions` (`registerGridModelVersion`) przyjmuje
+  UUID `idempotencyKey` oraz zamknięty typed `GridModelManifest`. Zgodna nowa
+  rodzina i niezmienna wersja są dozwolone. BaseVersionId jest obowiązkowe dla
+  not_evaluated; historical_baseline dotyczy tylko dwóch frozen baz.
+  Polecenie atomowo zapisuje family/version/event/receipt. Ten sam key/command
+  odzyskuje wynik po utracie odpowiedzi; zmieniony payload/key lub immutable
+  version identity daje 409. Missing/mismatch plików lub manifestu/receipt
+  blokuje zapis i retry409; wszystkie pliki wymagają pinned SHA oraz size.
+- `GET /api/v1/admin/games/{gameId}/grid-model-assignment`
+  (`getGameGridModelAssignment`) zwraca wyłącznie assignment tej gry:
+  `gameId`, nullable `revision`, nullable `version`, `eventCount`. Brak gry 404;
+  obca gra sesji409 GRID_MODEL_GAME_SCOPE_CONFLICT. Globalny GET nie zwraca
+  game assignments. Catalogue public schema jest odrębny od game data plane.
+
+Manifest pinuje kontrakty neural-grid-v1/bundle-v1, preprocessing-v1 i
+ decoding-v1, inferenceManifest oraz trainingArtifacts. InferenceManifest jest
+zamknięty i zachowuje pełny dotychczasowy manifest obu profili. Katalog nie
+zapisuje publikacji/default/aktywacji ani nowego PASS; te operacje należą do
+TASK-0998. Read availability jest liczona z aktualnych plików i nie oznacza
+wyniku bramki. Istniejący statyczny GET grid-engine-profiles pozostaje bez DB.
+Enum/CHECK games addytywnie dopuszcza neural_grid_v3. TASK-1012 rozwiązuje
+neutralny format przez jawny assignment i snapshot v2 opisany powyżej.
+Stare snapshoty zachowują kontrakt.
+
+## Zdjęcia V3 bez przypisania plansz — TASK-1041
+
+Addytywne pola istniejących operacji, bez nowych tras i migracji:
+
+- `previewReadyBrowserImageImport` zwraca `neuralUnboundSourceCount`,
+  `neuralUnboundAttestedBoardCount` i `neuralUnboundCountPreflightJobId` z
+  zamrożonego manifestu ostatniego ukończonego preflightu V3 (wpisy
+  `slot_binding_required`, bez źródeł wykluczonych przez operatora). Bez takiego
+  preflightu pola mają wartości `0`, `0`, `null`.
+- `startReadyBrowserImageImport` przyjmuje `confirmedNeuralUnboundSourceCount`.
+  Gdy przypięty manifest V3 ma N > 0 takich źródeł albo potwierdzenie jest
+  podane, musi ono równać się N; inaczej 409
+  `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED` z `details`
+  `unboundSourceCount` i `confirmedUnboundSourceCount`, zanim powstanie lub
+  zostanie zwrócony job.
+- `JobResponse.progress.neuralUnboundSources` (tylko job importu z pominiętymi
+  źródłami): `sourceCount`, `attestedBoardCount`, `reasonCounts`,
+  `reportChecksumSha256`, `reportRelativePath` i `sample` (≤ 20 pozycji:
+  `sourceRelativePath`, `sequenceRangeStart`, `sequenceRangeEnd`, `reasonCode`).
+  Pełna lista leży w niezmiennym raporcie pod `reportRelativePath` w katalogu
+  artefaktów.
 
 ## Shadow siatek V3 — TASK-0805
 
@@ -612,6 +786,65 @@ reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
 `_MEDIA_TYPE_UNSUPPORTED` / `_CHECKSUM_DRIFT`,
 `409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych
 parametrów.
+
+### Panel wielu gier (D-548, TASK-0991; przed wdrożeniem0155)
+
+Addytywna rodzina control-plane:
+
+```text
+POST /api/v1/admin/board-search-panels
+body: { gameIds: UUID[1..100], label?: string|null, lifetimeMinutes: 5..4320 = 480 }
+201: { panel: <metadane i gry>, linkKey: <losowy sekret zwracany raz> }
+GET /api/v1/admin/board-search-panels?limit=1..100
+200: { panels: [<metadane i gry bez sekretów>] }
+POST /api/v1/admin/board-search-panels/{panel_id}/revoke
+200: <metadane zatrzymanego panelu>; idempotentne
+POST /api/v1/board-search-panels/{panel_id}/open { linkKey }
+GET /api/v1/board-search-panels/{panel_id}/context
+200 public: { panelId, label, expiresAt, games: [{ sessionId, gameName }] }
+```
+
+Adminowe metadane zawierają panelId, label, status, createdAt, expiresAt,
+ready, shareUrl bez sekretu i games z gameId/gameName/sessionId. Lista nie
+zwraca linkKey ani hashów. Wrapper dodaje dotychczasowe nagłówki intencji
+i potwierdzenia z celem `board-search-panel:new` / `board-search-panel:{id}`.
+Opublikowany backendowy OpenAPI i generowany klient pozostają źródłem typów.
+
+Publiczne open/context wymagają `X-Board-Search-Panel-Proxy` o wartości
+`reviewer-board-search-panel-v1`. Open wydaje cookie `gp_board_search_panel`
+o wartości `panelId.secret`; proxy nadaje mu Secure, HttpOnly, SameSite=Strict
+i ścieżkę `/board-search-panel-api/panels/{panelId}`. Rodziny cookie są
+niezależne od dotychczasowej wyszukiwarki, Management i Reviewera.
+
+Panel nie dodaje drugiej implementacji wyszukiwania ani korekt. Proxy
+`/board-search-panel-api/panels/{panelId}/games/{sessionId}/api/v1/board-search-shares/...`
+wyprowadza HMAC-SHA256 credential konkretnego dziecka i deleguje do
+dotychczasowej allowlisty (bez unlock). Wiadomość HMAC jest dokładnie
+`board-search-panel-v1\n{panelId}\n{sessionId}`, z kanonicznymi UUID i kluczem
+ASCII secret. Hash credentialu jest zapisany w istniejącej sesji jednej gry;
+obce dziecko lub panel nie daje poprawnego tokenu. API dalej bierze game_id
+wyłącznie z uwierzytelnionej sesji. Dowolne gameId i draftowe rulesVersionId
+pozostają niedozwolone. Wielokrotne open nie rotują credentialów.
+
+Migracja0155 dodaje public.board_search_panels oraz nullable panel_id z FK
+RESTRICT i częściową unikalnością(panel_id, game_id) w dotychczasowych
+sesjach. Stare sesje pozostają NULL. Kontrola limitu liczy DISTINCT
+COALESCE(panel_id,id) pod dotychczasową blokadą tworzenia. Revoke blokuje
+parent, następnie dzieci według session_id i atomowo czyści wszystkie tokeny;
+serializuje się z korektami na wierszu dziecka. Legacy unlock i osobny
+revoke dziecka są odrzucane. Audyt i zdarzenia zachowują session_id/game_id.
+
+Walidacja całego wyboru poprzedza start ingress i jest powtórzona przed
+zapisem. Każdy odczyt gotowości gry ma osobną transakcję; tworzenie panelu
+jest jedną transakcją control-plane. Błędy wyboru:
+`BOARD_SEARCH_PANEL_GAMES_INVALID`, `_GAME_UNAVAILABLE`, `_GAME_NOT_READY`
+(409 z gameName/reasonCode). Pozostałe ograniczenia sesji, flagi, rate limit,
+wygaśnięcie i błędy korekt dziedziczą istniejący kontrakt.
+
+Zastosowanie0155 na bazie operatora i uruchomienie kodu wymagają osobnego
+przejścia. Downgrade nie usuwa historii; odtworzenie z backupu jest osobną
+operacją operatorską. Link ma postać `/board-search-panel?share={id}#key={secret}`;
+przy nowym origin przeglądarka Admina dokłada zachowaną lokalnie kopię sekretu.
 
 ### Sesje udostępniania wyszukiwarki online (D-471, TASK-0766)
 
@@ -3352,6 +3585,15 @@ pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422)
 symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
 tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
 
+TASK-0993 nie zmienia kontraktu HTTP: istniejące preview i save przenoszą
+`latticeNodes` i `expectedProposalChecksumSha256`. Wewnętrzna capability
+Reviewera `supportsLatticeEditing` zachowuje istniejące pełne lattice, także
+bez pinu; możliwość zbudowania pustej siatki wynika z obecnego pinu neural provenance
+w adapterach deferred/reported/operational, również gdy nodes jeszcze nie ma.
+Regularne24 węzły z czterech rogów i dokładne korekty zachowują ten pin,
+rewizje CAS i obecne reguły renderowania. Adapter audytu pozostaje quad-only.
+
+
 **D-522 (TASK-0885):** ten sam kontrakt zapisu obsługuje bieżącą ręcznie
 zatwierdzoną siatkę 24 punktów z przypiętą checksumą propozycji sieci. Jej
 własna projekcja komórek nie czeka na pozostałe sloty zdjęcia ani historyczny
@@ -3720,6 +3962,201 @@ wyłącznie po ponownej warunkowej kontroli itemu i planszy pod blokadą;
 równoległa decyzja człowieka jest raportowana jako pominięta, a nie jako błąd.
 Niepełna geometria trafia do licznika `needsManualGeometry` bez częściowych
 cropów.
+
+### Wybrana reinferencja V3 (TASK-0999, D-551)
+
+Nowy kontrakt schema v3 działa obok historycznego payloadu v2. Wszystkie
+ścieżki poniżej mają prefix `/api/v1/admin/image-review-items`:
+
+```text
+POST /grid-reinference/{gameId}/prepare
+GET  /grid-reinference/{gameId}/operations/{operationId}
+GET  /grid-reinference/{gameId}/operations/{operationId}/targets
+POST /grid-reinference/{gameId}/operations/{operationId}/freeze
+POST /grid-reinference/{gameId}/operations/{operationId}/pilot-ack
+POST /grid-reinference/{gameId}/operations/{operationId}/start
+POST /grid-reinference/{gameId}/operations/{operationId}/resume
+POST /grid-reinference/{gameId}/operations/{operationId}/cancel
+```
+
+Prepare przyjmuje `idempotencyKey`, zamknięty `selector`, opcjonalne
+`modelVersionId` i `executionScope: pilot | broader` (domyślnie pilot).
+Selector ma `categories` (domyślnie `grid_issue`, `deferred`; `unconfirmed`
+i `all_automatic` są osobnymi opt-in), `importJobIds` do 100 oraz opcjonalne
+obydwie granice `sequenceStart`/`sequenceEnd`. Pilot zamraża do 100 wystąpień
+zdjęć. Current przypina istniejące przypisanie modelu, także historyczne
+unpublished; jawnie inna wersja wymaga publikacji i eligibility tej gry.
+Nie ma treningu, publikacji ani aktywacji modelu. Kod gry `7` jest wykluczony.
+
+Jeden trwały job `image_grid_reinference` (`inference_kind=grid-reinference-v1`)
+przechodzi przygotowanie, `waiting_for_review` bez lease, jawny freeze i start
+oraz fazę infer. Przygotowanie utrwala membership pojedynczym INSERT SELECT
+snapshot, a następnie strony po 100 źródeł i selektory każdego celu. Preview
+pokazuje czas capture oraz przygotowania; nie jest atomowym snapshotem całej
+gry. Finalny manifest SHA i model/polityki są niezmienne. Targets mają stabilny
+kursor `operation:manifestSHA:ordinal`, limit 1–100. Odpowiedź operacji zawiera
+fazę, stan, rewizję, job/operation ID, manifest/report SHA, liczniki oraz receipt.
+
+Każda mutacja wymaga UUID idempotency key; kolejne komendy również
+`expectedRevision`. Freeze/start wymagają finalnego `manifestSha256`. Klucze
+mają namespace prepare per gra oraz rodzaj komendy per operacja. Ten sam
+klucz z identycznym payloadem odtwarza receipt po utracie odpowiedzi; inny
+payload daje 409. Broader tworzy świeży manifest i wymaga `pilotOperationId`,
+`pilotReportSha256`, zgodnego podpisu zakresu/modelu/polityk oraz jawnego
+`broadScopeConfirmed=true`. Potwierdzenie raportu pilota przypina aktora;
+nie jest PASS jakości modelu. Resume przyjmuje `expectedPhase` i wraca do
+już autoryzowanej fazy; generic retry nie zastępuje jawnego startu.
+
+Start 409 obejmuje konflikt rewizji/SHA, modelu/przypisania, admission albo
+brak wymaganych potwierdzeń. Późniejsza zmiana celu daje trwały wynik conflict
+tego celu; nie zmienia zakresu. Gate admission obejmuje oba kierunki startu
+geometrii i symboli oraz retry/recovery; created/processing, także cancellation
+processing, są aktywne. Oczekiwanie na człowieka bez lease nie blokuje gate.
+
+Wspólna kolizja geometrii/importu/symboli ma neutralny kod
+`GAME_JOB_ADMISSION_CONFLICT`. Nowe enqueue/API start/retry/resume sprawdzają
+CREATED i PROCESSING. Claim/recovery już opublikowanego joba sprawdza tylko
+PROCESSING innych ID. Worker rozpatruje najwyżej 100 kandydatów według
+priorytetu/created_at/ID; każdy ma osobną krótką session/transakcję i binding
+RLS gry. Nieblokujący mutex admission poprzedza job row lock; SKIP LOCKED oraz
+kodowane warningi pozwalają przejść do kolejnego kandydata. Globalna unikalność
+slotu wykonania nadal obowiązuje. START_REQUIRED dla uszkodzonego nowego joba
+nie uruchamia inference: queued albo rzeczywiście expired PROCESSING otrzymuje
+FAILED oraz executionQuarantine, ze zwolnionym lease/slotem i zachowanymi
+frozen dowodami. Cancel ma pierwszeństwo i daje CANCELLED. Kwarantanna wymaga
+udowodnionego braku jawnego startu, nigdy zwykłej kolizji lub row lock; blokuje
+generic retry/resume także fazy prepare. Naprawa wymaga nowej jawnej operacji
+freeze/start. Trwałe wyłączenie takich rekordów zapobiega zatorowi za limitem
+100 bez nowej kolejki ani tabeli. Aktywny lease nie może być kwarantannowany.
+
+Anulowanie processing jest potwierdzane istniejącym cancellation checkpoint
+na granicach capture/stron prepare/źródeł infer oraz w heartbeat kontrolowanego
+runnera. Potwierdzenie zamyka runner, zachowuje ukończone receipts/cursor/piny
+i zatrzymuje dalsze zapisy; resume kontynuuje tę samą autoryzowaną fazę.
+Fingerprinty owner/pending zawierają jawne pola domenowe, nie operacyjne
+updated_at/counters. Obcy żywy pending bez canonical daje protected/conflict
+przed mutacją. Cancel dla failed zwraca GRID_REINFERENCE_PHASE_CONFLICT.
+
+Inference deduplikuje plik/model/politykę, a binding i sequence pozostają osobne
+per occurrence import/source/file execution. Runtime CPU korzysta z jednego
+kontrolowanego runnera; wersjonowany limit 30 s na źródło daje jawny timeout,
+nie obietnicę wydajności. Jeden source transaction zapisuje wyłącznie wybrane
+niechronione automatic cele, wybrane projekcje, provenance, receipts i postęp.
+Nie przejmuje obcego kanonu, nie zatwierdza danych człowieka i nie zamyka
+`grid_issue`: wynik `proposal_ready` jest trwałym wejściem TASK-1013.
+
+Oddzielny finalizer przypiętej `v3-engine-acceptance-v1` kwalifikuje wszystkie
+aktywne pozycje przez pure D-550. Pełne zgodne źródło otrzymuje `accepted`;
+subset/mixed bindings/partial/issue/conflict pozostawia `needs_review` oraz
+konkretne blockers w receipt. Żaden status nie oznacza human approval.
+Recompute ma `materialize=False`; niewybrane pointers i decyzje są zachowane.
+
+Frozen identyfikator źródła i wyniki pozostają w trzech tabelach game-owned
+po jawnym usunięciu zdjęcia/importu lub layout-data resecie. Cleanup odpina
+oddzielny nullable live link w tej samej transakcji, z preview i dotychczasowymi
+guardami. Nie zmienia manifest SHA ani raportu i nie podłącza linku ponownie.
+Resume bez źródła daje `source_missing` i nie odtwarza danych. Pełne usunięcie
+gry korzysta z osobnego lifecycle.
+
+### Podgląd i raport reinferencji (TASK-1003)
+
+`GET /grid-reinference/{gameId}/operations` listuje wyłącznie zapisane metadane
+operacji. Przyjmuje `limit` 1–50 (domyślnie 20), `cursor` i opcjonalne
+`compatible_with_operation_id`. Zwraca `items: GridReinferenceResponse[]` oraz
+`nextCursor`. Keyset `(game_id,id) DESC` jest stabilnym porządkiem UUID, nie
+chronologią. Kursor wiąże grę, filtr, referencyjną operację i jej scopeSignature;
+niedopasowanie daje `GRID_REINFERENCE_CURSOR_INVALID` (409), obca referencja
+scoped `NOT_FOUND`. Odczyt używa READ/RLS i limitu zapytania 30 s; nie skanuje
+źródeł, zdjęć ani celów. Lista zgodnych ukończonych pilotów jest doradcza:
+dotychczasowe pilot-ack nadal ponownie waliduje aktualny raport i podpis.
+
+Detail i history ujawniają zapisane `executionScope`, `selector`,
+`pilotAcknowledgement`, `executionQuarantine` i czasy membership/przygotowania.
+`scopeStats` opisuje wystąpienia zdjęć, wybrane sloty, unikalne istniejące
+plansze i bieżące komórki, dostępne komórki oraz potencjalną pojemność topologii.
+Rozłączne klasy slotów to proposalOnly/protected/automaticCandidate.
+Przygotowanie zbiera liczniki stronami; końcowy operation-scoped JSONB
+`COUNT(DISTINCT)` domyka unikalność board/cell IDs, także przy przesunięciu
+żywej planszy między stronami. Dostępne IDs pozostają podzbiorem istniejących.
+To nie jest atomowy snapshot całej gry. Podczas przygotowania `scopeStats=null`;
+timeout finalizacji cofa manifest i finalne statystyki, zachowując trwałe strony
+do jawnego wznowienia. Wydajność szerokiego zakresu nie została zmierzona.
+
+`effectStats` rozdziela automatycznie zapisane i nowe plansze, nowe komórki,
+istniejące komórki ze zmienionym lub niezmienionym checksumem pikseli,
+porównania niedostępne i komórki nowo wymagające oceny. Ponowna ocena może
+nakładać się na zmienione piksele; tych liczników nie sumujemy. Collector
+obserwuje rzeczywisty stan wyłącznie wybranych komórek przed materializacją
+deferred i po dotychczasowym D-462 write-through, w tej samej transakcji źródła.
+Target result zawiera receipt `effectStats` i ewentualny `protectionReason`;
+agregat, outcome i progress zapisują się raz, atomowo. Nie zmienia to polityki
+geometrii, własności ani ochrony. Proposal-ready i zapis automatyczny nie są
+deklaracją poprawy jakości.
+
+`effectStats.notRecordedTargetCount` to bieżąca różnica frozen `targetCount`
+i `recordedTargetCount`, a nie addytywny efekt celu. Po finalizacji obejmuje
+cały zakres; source transaction i terminalny sync aktualizują ją atomowo,
+przed nowym report SHA. Ujemny lub nadmiarowy recorded count daje STATS_INVALID,
+bez maskowania przez clamp. Per-target receipt ma gap0, agregator nie sumuje
+tego pola. Przed finalnym manifestem nie ma gotowego mianownika; Admin nie
+prezentuje wtedy statystyk zakresu/efektów jako ukończonych, również po failure
+lub cancel przygotowania. Limit30s obowiązuje do końca krótkiej transakcji
+finalizacji, także późniejsze statementy; timeout wycofuje jej całość.
+
+Nowe prepare przypina `statsPolicy=grid-reinference-stats-v1` w dokumencie
+operacji oraz identyczne `stats_policy` w payloadzie joba. Oba absent oznaczają
+legacy, oba znane oznaczają nowy kontrakt; mieszany lub nieznany pin daje
+PAYLOAD_INVALID przed pracą. Replay/resume nie podnosi polityki. Dawne
+snapshoty, manifesty, model i scopeSignature pozostają identyczne. Stare
+raporty zachowują poprzedni algorytm SHA i `scopeStats/effectStats=null`
+(„nie zapisano”). Tylko nowe raporty wiążą SHA z pinem i końcowymi statystykami.
+
+### Trwałe propozycje błędnej siatki V3 (D-551, TASK-1013)
+
+W istniejącym `/api/v1/admin/image-review-items/{reviewItemId}`:
+
+```text
+GET  /grid-geometry-proposals?gameId=&importJobId=
+POST /grid-geometry-proposals?gameId=&importJobId=
+GET  /grid-geometry-proposals/{proposalId}?gameId=&importJobId=
+POST /grid-geometry-proposals/{proposalId}/accept?gameId=&importJobId=
+POST /grid-geometry-proposals/{proposalId}/reject?gameId=&importJobId=
+```
+
+Kolekcja tylko czyta: zwraca do100 zapisanych propozycji i do100 niezapisanych
+wyników `proposal_ready` konkretnej pozycji/importu, przez indeks review/target.
+Kolekcja pomija strukturalnie niepoprawny wynik; create dla takiego kandydata spotyka się z jawną odmową.
+Wejście na ekran nie tworzy propozycji. Świadoma akcja zapewnia create przez
+`targetResultId` i UUID polecenia, bez dodatkowej inferencji. Create wymaga
+żywego źródła i dokładnych frozen fences; po cleanup zwraca409 bez obiektu.
+
+Accept ma `expectedProposalRevision`, `expectedGeometryRevision`,
+`expectedResolutionRevision`, `originalCandidateSha256`, UUID i `mode`.
+`model` używa dokładnych24 węzłów kandydata; `edited` wymaga `geometry` ze
+schematu podglądu istniejącej ręcznej korekty. Oryginał i pin modelu są
+niezmienne. Osobny accepted zapis przechowuje faktycznie zapisaną geometrię,
+kwalifikację, SHA, autora i manual revision ID. Nie sprawdza nowego assignmentu
+w miejsce przypiętego modelu. Reject ma CAS propozycji i opcjonalną notatkę;
+pozostawia problem siatki otwarty.
+
+Mutacje używają zweryfikowanej sesji Reviewera albo serwerowego `local-owner`
+ustawionego dopiero po pełnych kontrolach middleware lokalnego Admina. Body nie
+wybiera autora. GET zachowuje lokalny odczyt bez unsafe markera oraz sprawdza
+zakres sesji online także dla zachowanej historii. Frozen import/review/game
+pozostają autorytatywne po usunięciu źródła.
+
+Pełne polecenie wiąże path IDs, scope, payload i principal. Ten sam UUID/hash
+odtwarza immutable receipt przed CAS; inna treść daje409. Odpowiedź rozdziela
+historyczny `receipt` i dzisiejszy `current`/`applicable`/`reasons`. Historyczne
+accepted po cofnięciu albo cleanup nie dowodzi aktywności dawnej geometrii.
+Stary CAS komendy nie unieważnia propozycji. Rzeczywisty drift przechodzi do
+`stale`; typed409 z normalnym wyjściem dependency utrwala receipt/event, bez
+commit w routerze. Nieoczekiwany błąd writera/eventu/projekcji cofa całość.
+
+Ręczna akceptacja używa tej samej sesji i `save_review_item`, z osobną opt-in
+polityką bieżących live slotów. Wspólna kolejność ownership/projection/sequence/
+source/rows poprzedza proposal row. Legalne nowsze rodzeństwo jest zachowane;
+globalna historyczna source revision nie zastępuje target/source/pixel fences.
 
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
@@ -4251,6 +4688,20 @@ Zarządzane pliki są najpierw przenoszone do durable kwarantanny powiązanej z
 `previewToken`; rollback przywraca je, a potwierdzony commit finalizuje usunięcie
 przy następnym recovery, jeśli odpowiedź procesu została przerwana.
 
+TASK-1042: zapisane ścieżki są względne do katalogu artefaktów albo do jego
+przestrzeni `data` (`source_images.relative_path` = `originals/...`). Preview
+źródeł plansz rozwiązuje je do istniejących plików: `artifactPaths` zawiera
+wyłącznie pliki obecne na dysku (postać `data/originals/...`),
+`managed_artifacts` to ich liczba, a nowy licznik `missing_artifacts` liczy
+ścieżki bez pliku, których nie raportuje się jako usuniętych. Plik obecny w obu
+lokalizacjach blokuje operację (`CLEANUP_ARTIFACT_PATH_AMBIGUOUS`). Oryginał
+zostaje (`retainedSharedArtifactCount`, ostrzeżenie `SOURCE_ORIGINALS_RETAINED`),
+gdy odwołuje się do niego zachowane źródło albo geometria planszy dowolnej gry,
+albo gdy job importu źródła (lub job przypięty do niego przez
+`managed_source_job_id`) jest w stanie `created`, `processing` albo
+`waiting_for_review`. Token preview obejmuje rozwiązany stan dysku. Reset gry i
+usuwanie wydań nie korzystają z tego rozwiązywania.
+
 Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
 APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,
 ale usuwa game-scoped importy, obrazy robocze, review, symbole, reguły, datasety,
@@ -4764,3 +5215,91 @@ może przejść do adopcji. Fingerprint inwentarza reportu obejmuje bezpiecznie
 rozwiązany fizyczny korzeń korpusu oraz pełny inwentarz; identyczne pliki w
 innym katalogu są driftem. Registry publikuje rekord razem z receiptem pod
 wspólną blokadą procesu/pliku, a obiekt bez receipt pozostaje niewidoczny.
+
+### Historyczna akceptacja siatek V3 — TASK-1008
+
+Istniejący router `image-review-items` udostępnia pion pod bazą
+`/api/v1/admin/image-review-items/geometry-completeness/{gameId}/historical-acceptance`:
+
+- `POST` z `idempotencyKey` tworzy operację podglądu tej gry.
+- `POST /{operationId}/preview-next` z `expectedCursor` przygotowuje dowód
+  albo kwalifikuje jedno źródło. Powtórzony zużyty kursor odczytuje stan;
+  kursor przyszły jest konfliktem. `previewed` zamyka zamrożony zakres.
+- `POST /{operationId}/confirm` wymaga `confirmed=true` i osobnego
+  `idempotencyKey`. Niedokończony podgląd nie może zostać potwierdzony.
+- `POST /{operationId}/run-next` wymaga klucza i `expectedCursor`.
+  Jedno źródło jest pojedynczą transakcją; receipt odtwarza ten sam klucz,
+  zmienione polecenie albo nowy klucz ze starym kursorem daje 409.
+- `GET /{operationId}?afterOrdinal=N` odczytuje trwały raport i maksymalnie
+  25 targetów z następnym kursorem szczegółów.
+
+Raport zawiera `statusOnly=true`, `materializesNewCells=false`, fazę i
+`preparationState`, kotwicę czasu, oba kursory oraz osobne liczniki źródeł,
+rewizji, kwalifikacji, akceptacji i skip. Powody podglądu i przebiegu są
+oddzielne i mogą dotyczyć tego samego zdjęcia. Nieukończony indeks nie
+przesuwa kursora ani nie daje akceptacji. Limit pełnego SHA zatrzymuje pętlę
+UI z jawnym stanem przygotowania; wznowienie korzysta z tego samego operationId.
+Klient jest generowany z OpenAPI; wrapper zachowuje komendy bez własnych typów.
+
+Nowe mutacje nie należą do zdalnej allowlisty Reviewera. Historyczna 777,
+kod `7`, jest wyłączona. Brak źródła/modelu, konflikt rewizji/właściciela,
+zgłoszenie lub mieszane rewizje jest jawnie pomijane. Run nie uruchamia
+modelu, recropu ani tworzenia komórek i nie nadaje human approval.
+
+Kontrolowany błąd tworzenia może zawierać `details.createRecovery` z
+`schemaVersion=game-create-recovery-v1`, dokładnym `idempotencyKey` i
+`reservation=not_created`. Dowód wymaga udanego rollback oraz ponownej blokady
+katalogu i potwierdzenia braku public receiptu. Konflikt istniejącego klucza,
+storage-not-ready,5xx i błąd kwalifikacji nie otrzymują dowodu. Klient bez
+dowodu zachowuje polecenie, również przy422. Potwierdzone porzucenie lokalne
+najpierw archiwizuje surowy wpis, namespace i czas, bez usuwania serwerowego
+receiptu; niepowodzenie archiwum zachowuje pending.
+
+## Opisowy pomiar siatek i zatwierdzenie bez zmiany (D-555, TASK-1009)
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements?cursor=&limit=
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}
+POST /api/v1/admin/games/{gameId}/grid-quality-measurements/capture
+POST /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}/assess
+GET  /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}/sources/{sourceId}/asset
+POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approvals?gameId=&importJobId=
+GET  /api/v1/admin/games/{gameId}/source-recording-groups?sourceId=
+```
+
+Zamknięty QualityCaptureCommand zawiera seed, sampleSize1–100, do100 jawnych
+hardSourceIds i UUID polecenia. Ocena wiąże manifest SHA, source/sample kind,
+rewizję CAS członka i dokładnie dziewięć różnych pozycji oraz każdą nadmiarową
+detekcję. Brak oryginalnej geometrii/producenta, drift źródła lub niedostępny plik
+nie otrzymuje pozornego sukcesu modelu. Raport rozdziela random/hard i producentów,
+mianowniki, pokrycie oraz niewiadome. Asset sprawdza niezmienną tożsamość i bajty
+przez istniejący resolver. GET nie wysyła poleceń ani nie zmienia anotacji.
+
+GeometryApprovalCommand zatwierdza dokładną FROZEN CURRENT geometrię pokazaną
+operatorowi, niezależnie od dostępności historycznego producenta. Zaufany lokalny
+lub scoped Reviewer actor jest sprawdzany przed replay, a replay przed CAS.
+Inna treść pod tym samym kluczem daje409. Fences obejmują source/target revision,
+właściciela, binding, nodes, issues i checksum; późniejsza inna geometria daje
+konflikt. Projection, prawdziwy event, receipt, kompletność materialize=False
+oraz wyszukiwanie mają jedną transakcję. Receipt jest historyczny i nie dowodzi
+bieżącego approval po korekcie/revert/cleanup. Nowa plural akcja nie przywraca
+usuniętej singular trasy TASK-0727. Zatwierdzenie current-only nie tworzy oceny
+oryginalnego modelu ani zmian symboli/cropów/właściciela kanonicznego.
+
+Capture zajmuje nonblocking transaction lock klucza na sesji żądania przed
+otwarciem REPEATABLE READ snapshotu. Zajęty klucz daje typowany409
+`GRID_QUALITY_CAPTURE_BUSY`; klient zachowuje dokładny UUID/body do jawnego
+retry. Nie powstaje drugi manifest. Po zwolnieniu klucza ponowienie odczytuje
+receipt pierwszego zapisu; inna treść nadal daje idempotency conflict.
+
+Pozycja zwraca server-owned `approvalEligible` i nullable `approvalBlocker`.
+Istniejący readonly writer context chroni również eligibility/import state;
+processing pending import może być mierzony, lecz nie jest zatwierdzany tą
+trasą. Wyjątek dla repoint niezmienionego frozen sąsiada wymaga dodatniego
+old/new source, canonical manual publication oraz pełnego cell/render/decision
+proof. Zwykła zmiana aggregate pointer/checksum nie wyłącza guardów globalnie.
+
+Opcjonalny sourceId wybiera wyłącznie własne członkostwo MAIN przed keyset/limit
+przez exact sześcioparametrowy resolver. Stary pięcioparametrowy resolver działa
+nadal. Brak wymaganego overloadu0162 jest blockerem wdrożenia; runtime nie ma
+bezpośredniego dostępu do prywatnych tabel rejestru nagrań.

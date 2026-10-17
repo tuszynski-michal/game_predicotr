@@ -194,6 +194,14 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         return self._engine_policy_snapshot(state)
 
     def start(self, game_id: UUID) -> ImageGeometryRolloutStart:
+        from game_predictor_api.storage.job_admission import acquire_job_admission
+
+        active_before_lock = self._active_job(game_id)
+        acquire_job_admission(
+            self._session,
+            game_id,
+            exclude_job_id=None if active_before_lock is None else active_before_lock.id,
+        )
         self._require_game(game_id, lock=True)
         state = self._require_state(game_id, lock=True)
         active = self._active_job(game_id)

@@ -15,6 +15,7 @@ from game_predictor_api.domain.neural_grid_proposal import (
     validate_neural_source_binding,
     validate_neural_source_proposal,
 )
+from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
 
 from .source_ingestion import ManagedOriginal
 
@@ -54,7 +55,11 @@ def bound_neural_originals(
 
 
 def neural_pending_payload(
-    manual: Mapping[str, object], entry: Mapping[str, object], *, automatic_crops: bool = False
+    manual: Mapping[str, object],
+    entry: Mapping[str, object],
+    *,
+    automatic_crops: bool = False,
+    engine_acceptance_policy: str | None = None,
 ) -> dict[str, object]:
     """Keep all active positions, including missing middle cells, in deferred review."""
     proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
@@ -152,6 +157,17 @@ def neural_pending_payload(
         "neuralProposalBinding": dict(binding),
     }
     structured.pop("resultChecksumSha256", None)
+    if engine_acceptance_policy == V3_ENGINE_ACCEPTANCE_POLICY:
+        # Only new policy-pinned executions mint this immutable evidence.
+        # Legacy checkpoints are replayed without reconstructing their payload.
+        structured["globalInitialization"] = {
+            **cast(Mapping[str, object], manual["globalInitialization"]),
+            "v3EngineAcceptance": {
+                "policyVersion": engine_acceptance_policy,
+                "proposal": dict(proposal),
+                "binding": dict(binding),
+            },
+        }
     structured["resultChecksumSha256"] = hashlib.sha256(
         canonical_json_bytes(structured)
     ).hexdigest()

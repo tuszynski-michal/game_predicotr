@@ -23,13 +23,16 @@ from game_predictor_api.domain.storage_retention import (
     StorageArtifactObservation,
     StorageRetentionPolicy,
     StorageRootKind,
+    cohort_asset_path_identity,
     evaluate_storage_retention,
 )
+from game_predictor_api.storage.grid_training_cohort_artifacts import GridCohortArtifactStore
 from game_predictor_api.storage.models import StorageGcRunModel
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from game_predictor_worker.filesystem import long_path_aware
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 MAX_BATCH_PATHS = 250
@@ -68,9 +71,7 @@ class StorageGcHandler:
             while index < len(entries):
                 batch_start = index
                 batch_end = _batch_end(entries, index)
-                current = self._current_observations(
-                    entries[index:batch_end], context.now()
-                )
+                current = self._current_observations(entries[index:batch_end], context.now())
                 for entry_index in range(index, batch_end):
                     entry = entries[entry_index]
                     outcome, size = self._process_entry(
@@ -162,9 +163,7 @@ class StorageGcHandler:
         statuses = self._repository.normalization_dependency_statuses(
             tuple(key for key in normalization_keys if key is not None)
         )
-        needs_staging = any(
-            entry.get("artifactClass") == "browser_staging" for entry in entries
-        )
+        needs_staging = any(entry.get("artifactClass") == "browser_staging" for entry in entries)
         staging = (
             {str(item.upload_id): item for item in self._repository.browser_staging_sources()}
             if needs_staging
@@ -172,12 +171,12 @@ class StorageGcHandler:
         )
         observations: dict[tuple[str, str], StorageArtifactObservation] = {}
         for entry in entries:
+            if entry.get("artifactClass") == StorageArtifactClass.GRID_COHORT_ASSET.value:
+                continue  # This class is re-read per target under its exclusive guard.
             root_kind = StorageRootKind(str(entry["rootKind"]))
             relative_path = str(entry["relativePath"])
             root = (
-                self._artifact_root
-                if root_kind is StorageRootKind.ARTIFACT
-                else self._import_root
+                self._artifact_root if root_kind is StorageRootKind.ARTIFACT else self._import_root
             )
             path = _safe_root_path(root, relative_path)
             if not path.exists():
@@ -232,6 +231,56 @@ class StorageGcHandler:
         policy: StorageRetentionPolicy,
         now: datetime,
     ) -> tuple[str, int]:
+        if entry.get("artifactClass") != StorageArtifactClass.GRID_COHORT_ASSET.value:
+            return self._process_entry_locked(
+                run_id, entry_index, entry, current=current, policy=policy, now=now
+            )
+        relative = str(entry.get("relativePath"))
+        if entry.get("rootKind") != "artifact" or cohort_asset_path_identity(relative) is None:
+            raise JobHandlerError("STORAGE_GC_PATH_UNSAFE", "Invalid cohort asset namespace.")
+        guard = getattr(self._repository, "cohort_asset_gc_guard", None)
+        if not callable(guard):
+            return "protectedCount", 0
+        with guard(relative) as state:
+            if state.referenced or state.unresolved:
+                return "protectedCount", 0
+            fresh = self._scanner.cohort_asset_observation(relative, state)
+            if fresh is None:
+                trash = _trash_path(self._artifact_root, run_id, entry_index, relative)
+                trash = GridCohortArtifactStore(self._artifact_root).safe(
+                    trash.relative_to(self._artifact_root).as_posix()
+                )
+                if trash.exists():
+                    stat = trash.stat(follow_symlinks=False)
+                    fresh = StorageArtifactObservation(
+                        relative_path=relative,
+                        size_bytes=stat.st_size,
+                        modified_at=datetime.fromtimestamp(stat.st_mtime, UTC),
+                        artifact_class=StorageArtifactClass.GRID_COHORT_ASSET,
+                        last_dependency_at=state.latest_dependency_at,
+                    )
+                    if not evaluate_storage_retention(fresh, policy=policy, now=now).eligible:
+                        return "protectedCount", 0
+                    fresh = None  # Existing resume checks its own quarantine receipt.
+            return self._process_entry_locked(
+                run_id,
+                entry_index,
+                entry,
+                current={} if fresh is None else {("artifact", relative): fresh},
+                policy=policy,
+                now=now,
+            )
+
+    def _process_entry_locked(
+        self,
+        run_id: UUID,
+        entry_index: int,
+        entry: Mapping[str, object],
+        *,
+        current: Mapping[tuple[str, str], StorageArtifactObservation],
+        policy: StorageRetentionPolicy,
+        now: datetime,
+    ) -> tuple[str, int]:
         root_kind = str(entry.get("rootKind"))
         relative_path = str(entry.get("relativePath"))
         if root_kind not in {"artifact", "import"}:
@@ -244,6 +293,10 @@ class StorageGcHandler:
         root = self._artifact_root if root_kind == "artifact" else self._import_root
         path = _safe_root_path(root, relative_path)
         trash = _trash_path(root, run_id, entry_index, relative_path)
+        if entry.get("artifactClass") == StorageArtifactClass.GRID_COHORT_ASSET.value:
+            assets = GridCohortArtifactStore(root)
+            path = assets.safe(relative_path)
+            trash = assets.safe(trash.relative_to(root).as_posix())
         marker = _deleted_marker(trash)
         size = _non_negative_manifest_integer(entry.get("sizeBytes", 0))
         if not path.exists() and (trash.exists() or marker.exists()):
@@ -278,7 +331,14 @@ class StorageGcHandler:
             os.replace(path, trash)
             _write_deleted_marker(marker, size)
             _delete_trash(trash)
-            _remove_empty_parents(path.parent, stop=root)
+            _remove_empty_parents(
+                path.parent,
+                stop=(
+                    long_path_aware(root)
+                    if entry.get("artifactClass") == StorageArtifactClass.GRID_COHORT_ASSET.value
+                    else root
+                ),
+            )
         except OSError as error:
             raise JobHandlerError(
                 "STORAGE_GC_DELETE_FAILED",
@@ -289,9 +349,7 @@ class StorageGcHandler:
     def _start_or_resume(self, run_id: UUID, now: datetime) -> dict[str, int]:
         with self._session_factory.begin() as session:
             row = session.execute(
-                select(StorageGcRunModel)
-                .where(StorageGcRunModel.id == run_id)
-                .with_for_update()
+                select(StorageGcRunModel).where(StorageGcRunModel.id == run_id).with_for_update()
             ).scalar_one()
             if row.status == "completed":
                 return {
@@ -431,9 +489,8 @@ def _validate_managed_candidate_path(
             and path.name == "normalized.png"
         )
     elif artifact_class == "temporary_file" and root_kind == "artifact":
-        valid = (
-            path.parts[:2] == ("data", "working")
-            and (path.name.startswith(".tmp") or path.suffix.casefold() == ".part")
+        valid = path.parts[:2] == ("data", "working") and (
+            path.name.startswith(".tmp") or path.suffix.casefold() == ".part"
         )
     elif artifact_class == "browser_staging" and root_kind == "import":
         try:
@@ -441,6 +498,8 @@ def _validate_managed_candidate_path(
             UUID(path.parts[1])
         except (ValueError, IndexError):
             valid = False
+    elif artifact_class == StorageArtifactClass.GRID_COHORT_ASSET.value and root_kind == "artifact":
+        valid = cohort_asset_path_identity(relative_path) is not None
     if not valid:
         raise JobHandlerError(
             "STORAGE_GC_PATH_UNSAFE",

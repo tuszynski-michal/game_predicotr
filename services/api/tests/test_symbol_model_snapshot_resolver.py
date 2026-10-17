@@ -49,6 +49,11 @@ class _Session:
     def scalars(self, _statement: object) -> tuple[str, ...]:
         return self.catalog_codes
 
+    def execute(self, _statement: object):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(one_or_none=lambda: None)
+
     def get(self, _model: object, _identifier: object) -> SymbolModelIterationModel | None:
         return self.iteration
 
@@ -296,3 +301,25 @@ def test_resolver_rejects_active_model_class_catalog_drift(tmp_path: Path) -> No
         resolver.resolve(game_id=iteration.game_id)
 
     assert error.value.code == "SYMBOL_MODEL_CLASS_CATALOG_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    "configuration", ["neural_grid_v3", "grid_profile_mumie_v1", "grid_profile_777_v2"]
+)
+def test_v3_never_selects_global_bootstrap_even_with_identical_class_codes(tmp_path, configuration):
+    from types import SimpleNamespace
+
+    from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
+
+    session = _Session(
+        None, None, catalog_codes=tuple(sorted(bootstrap_symbol_model_snapshot().class_codes))
+    )
+    session.execute = lambda _statement: SimpleNamespace(
+        one_or_none=lambda: SimpleNamespace(
+            code="own-new-game", shape_geometry_configuration=configuration
+        )
+    )
+    resolver = SqlAlchemySymbolModelSnapshotResolver(session, artifact_root=tmp_path)
+    with pytest.raises(JobConflictError) as failure:
+        resolver.resolve(game_id=uuid4())
+    assert failure.value.code == "SYMBOL_MODEL_COMPATIBLE_MODEL_REQUIRED"

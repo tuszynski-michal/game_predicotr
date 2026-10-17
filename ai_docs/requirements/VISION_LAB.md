@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-10-06
+last_updated: 2026-10-16
 ---
 
 # Laboratorium wizji
@@ -444,3 +444,122 @@ These decisions have batch_crop_review provenance in a separate store. They
 do not approve the photo, whole geometry or sequence and remain trainable=false
 until a separate qualification task satisfies geometry/split gates. Preserve
 the original lab history, training parts, models and immutable batch evidence.
+
+## V3 source recording qualification (D-554, TASK-1002)
+
+Geometry training uses explicitly declared whole recordings. Folder names,
+sequence ranges and unmatched checksums do not establish independence. Missing
+membership, declarations or ancestor mappings keep qualification unresolved.
+Byte and normalized pixel aliases carry protective roles across games; the
+response reveals only the selected game's groups. Historical game code `7`
+and symbol classifiers retain their separate workflows.
+
+The operator selects an import and registers its recording through one explicit
+action. Registration uses bounded pages, durable receipts, cancellation between
+pages and explicit resume. Reload reads state without resubmitting writes.
+Draft roles can be corrected. A provisional resolution does not consume a split;
+permanent protection begins with actual cohort freeze, evaluation, trusted
+holdout import or inherited use. Final test, unseen game, Reels and Treasure
+never qualify as TRAIN. Existing immutable reports and pins remain historical
+evidence; later relevant alias changes invalidate their eligibility separately.
+
+Laboratory descriptors require trusted deployment installation and explicit
+whole-recording mapping. Photo-only protection remains effective while identity
+is unresolved; a later proven mapping can resolve that state without erasing
+history. The application does not infer recordings or scan images automatically.
+
+## Descriptive production grid measurements (D-555, TASK-1009)
+
+Production measurements are independent of training split qualification. Missing
+recording identity remains unresolved for later cohort eligibility and does not
+remove difficult sources from descriptive sampling. Frozen original observations
+require exact source/target/producer lineage. A current human correction is not
+a model prediction. Mixed producers are reported separately; missing provenance
+does not become active-model accuracy. All nine positions require explicit
+geometry review. Symbol information uses only existing current human decisions
+from the same game, without assigning labels or sharing classifiers.
+
+## Application geometry cohorts (D-556, TASK-0995)
+
+One cohort belongs to one game and pins a base model, training family,
+preprocessing and whole-recording TRAIN, VALIDATION and REGRESSION roles.
+Unknown membership, declarations, providers or ancestor independence remain
+visible and unresolved. Selecting a source subset does not narrow the recording
+or global alias checks. Protected holdouts, final test, unseen game, Reels and
+Treasure never qualify as TRAIN. A control recording must also be independent
+of known ancestor TRAIN use.
+
+Only current human geometry evidence qualifies a target. A guarded manual save
+and a later unchanged approval preserve corrected origin; missing historical
+prediction attribution does not erase a real current label. The versioned pilot
+weight is four for proven manual corrections and one for checked unchanged
+geometry. Each complete board preserves all 24 exact nodes. Grid-only TRAIN can
+use complete boards from an incomplete photo without materialized symbol cells.
+Screen targets and control photos require all nine complete annotated boards.
+TRAIN requires at least 30 boards and ten photos. Each control role requires
+15 boards and five full photos from a separate independent recording; with
+nine boards per full photo the smallest complete cohort has 120 boards and
+20 photos. Counts, weights and topology are versioned policy.
+
+Preview retains every selected member with explicit reasons and a server-derived
+used flag. Excluded members contribute no image copy, negative example, minimum
+or actual recording use. After preview, drift fails explicitly and requires a
+new preview rather than silently shrinking the data. Freeze commits immutable
+evidence, replay receipts and permanent actual use for all three roles together.
+No quality result or training permission follows from descriptive judgments,
+preview counts or snapshot creation alone.
+
+Human label withdrawal, a live source link and snapshot byte availability are
+separate nullable facts. Metadata GET does not read image files and leaves byte
+availability unknown. Operational source removal blocks new training and
+evaluation use with `SOURCE_REMOVED_NEW_USE_BLOCKED`, while retaining history.
+It does not establish human label withdrawal. Removed used sources make metadata
+qualification blocked even alongside unresolved reasons; excluded sources do
+not block the actually used selection. Source and layout resets retain history
+with detached live links.
+Whole-game deletion follows existing partition deletion and separate approved
+reference-aware asset GC, without creating a permanent full image archive.
+The present preview has technical identity fields; TASK-1000 must integrate
+selection by understandable import, recording and family names into the final
+operator workflow.
+
+## Grid training presets and admission (D-557, TASK-1005)
+
+Grid-only and screen+grid runs use separate versioned presets with a fingerprint, a
+training-time range, a step limit, early stopping on VALIDATION and a charged run limit.
+A run is refused when no GPU is available, the runtime versions differ, VRAM is too
+small, the application GPU lease is held or unknown, the preset is unknown or not
+approved, the cohort is empty, of another mode or too costly, or the budget is spent.
+Resuming a run never renews its steps or seconds. A smoke ends after 50 steps or 120
+training seconds and produces no candidate. The preview reads metadata only; it starts
+no job and does not claim worker-side checks.
+
+## Durable application grid training (D-558, TASK-0996)
+
+An operator starts a run from a frozen, eligible cohort and the approved preset of its
+mode. The run is queued in its own lane and never blocks imports. It can be cancelled and
+resumed; resume keeps the spent budget and continues from the last valid checkpoint with
+the same data order. A damaged checkpoint, a removed source, a changed base or preset,
+missing GPU or a held GPU lease stops the run without a candidate. A finished run
+registers one not-evaluated candidate version, also after a crash and retry; it is never
+published or activated by the run.
+
+## Per-game candidate evaluation (D-559, TASK-0997)
+
+An operator evaluates a trained candidate against its base on the control photos of the
+training game and of every other game of its family. Both models analyse the same photos
+from the original image; results are shown per game, role and recording. A regression in
+any game, a missing board, a missing control photo, failed parity or a stale proof blocks
+publication; the training game must improve. REGRESSION photos are used only for the
+final non-regression check and never for checkpoint selection. When a control photo's
+geometry changes later, the candidate is blocked until the operator checks currentness
+again; a withdrawn label keeps it blocked. The evaluation never publishes or activates a
+model.
+
+## Shared candidate of several games (D-560, TASK-1006)
+
+An operator may train one candidate from the frozen cohorts of several games of one family
+and base. Every game and recording weighs the same, so a large game never dominates; a
+control photo of one game never becomes training data of another. The candidate is
+evaluated on every game it trained on; a regression in any game blocks publication, and the
+result never switches a game automatically.

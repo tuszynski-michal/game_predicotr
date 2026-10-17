@@ -62,6 +62,16 @@ class SqlAlchemyJobRepository(JobRepository):
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
 
+    def game_uses_neural_grid(self, game_id: UUID) -> bool:
+        from game_predictor_api.domain.grid_model_snapshots import uses_neural_grid
+
+        game = self._session.scalar(select(GameModel).where(GameModel.id == game_id))
+        return (
+            game is not None
+            and game.code != "7"
+            and uses_neural_grid(game.shape_geometry_configuration)
+        )
+
     def get_or_pin_board_topology(
         self,
         game_id: UUID,
@@ -154,6 +164,9 @@ class SqlAlchemyJobRepository(JobRepository):
         )
 
     def add_job(self, job: Job) -> Job:
+        from game_predictor_api.storage.job_admission import admit_job
+
+        admit_job(self._session, job)
         self._initialize_empty_neural_projection(job)
         record = job_record_from_domain(job)
         self._session.add(record)
@@ -166,6 +179,9 @@ class SqlAlchemyJobRepository(JobRepository):
         *,
         source_selection_id: UUID,
     ) -> Job:
+        from game_predictor_api.storage.job_admission import admit_job
+
+        admit_job(self._session, job)
         if job.game_id is not None:
             self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
         self._initialize_empty_neural_projection(job)
@@ -300,6 +316,11 @@ class SqlAlchemyJobRepository(JobRepository):
         record = self._session.scalar(select(JobModel).where(JobModel.input_key == input_key))
         return None if record is None else job_from_record(record)
 
+    def authorize_retry(self, job: Job) -> None:
+        from game_predictor_api.storage.grid_reinference import authorize_generic_retry
+
+        authorize_generic_retry(self._session, job)
+
     def get_image_import_by_source_selection(
         self,
         *,
@@ -347,6 +368,9 @@ class SqlAlchemyJobRepository(JobRepository):
                 details={"jobId": str(job.id)},
             )
         apply_job_to_record(record, job)
+        from game_predictor_api.storage.grid_reinference import synchronize_grid_job
+
+        synchronize_grid_job(self._session, job)
         synchronize_lab_import_iteration(self._session, job)
         if job.job_type is JobType.ANDROID_BUILD and job.status is JobStatus.CANCELLED:
             release = self._session.scalar(

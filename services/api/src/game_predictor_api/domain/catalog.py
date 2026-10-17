@@ -42,6 +42,7 @@ class GameShapeGeometryConfiguration(StrEnum):
     REQUIRES_CLARIFICATION = "requires_clarification"
     GRID_PROFILE_777_V2 = "grid_profile_777_v2"
     GRID_PROFILE_MUMIE_V1 = "grid_profile_mumie_v1"
+    NEURAL_GRID_V3 = "neural_grid_v3"
 
 
 # Values that declare the framed full-page format for the shared geometry
@@ -107,7 +108,7 @@ class Game:
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
-    storage_version: str = "game-data-v2-manifest-v7"
+    storage_version: str = "game-data-v2-manifest-v8"
     storage_schema: str = "game_data_v2"
     storage_generation: int = 2
     storage_status: str = "active"

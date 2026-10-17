@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.grid_audit_proposals import (
@@ -56,10 +57,13 @@ def database() -> Iterator[Engine]:
         connect_args={"connect_timeout": 5},
     )
     engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
         connection.execute(text(f'CREATE DATABASE "{name}"'))
+        recording_capability_fixture.record_created_database(connection)
     try:
+        recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
             "sqlalchemy.url",
@@ -71,7 +75,9 @@ def database() -> Iterator[Engine]:
         engine.dispose()
         with maintenance.connect() as connection:
             connection.execute(text("SET statement_timeout='10s'"))
+            recording_capability_fixture.assert_database_identity(connection)
             connection.execute(text(f'DROP DATABASE "{name}"'))
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 

@@ -87,8 +87,8 @@ Tabela jest źródłem prawdy dla przypisania wykonawczego i podlega regułom:
   modelu, uruchomienie agentów lub delegowanie pracy;
 - wyraźne polecenie uruchomienia etapu zaakceptowanego planu upoważnia do
   wykonania wszystkich jego tasków i delegowania według tabeli. Obowiązuje
-  reguła właścicielska `AGENTS.md`: osobny audyt, commit i Outcome każdego
-  taska oraz zatrzymanie na granicy etapu lub przy blokerze;
+  reguła właścicielska `AGENTS.md`: osobny audyt (gdy wymaga go plan), commit
+  i Outcome każdego taska oraz zatrzymanie na granicy etapu lub przy blokerze;
 - gdy przypisany model albo poziom nie jest dostępny, wykonawca zatrzymuje task
   i aktualizuje rekomendację w planie oraz tasku zamiast wybierać niejawny
   zamiennik.

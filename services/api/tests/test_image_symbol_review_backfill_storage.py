@@ -121,7 +121,9 @@ def test_start_marks_reconciliation_of_ready_projection_as_available(
 ) -> None:
     session = MagicMock()
     session.get.return_value = SimpleNamespace(status="ready")
-    session.scalar.return_value = 0
+    session.get_bind.return_value.dialect.name = "sqlite"
+    # Admission finds no active job; generation starts with zero prior jobs.
+    session.scalar.side_effect = [None, 0]
     repository = SqlAlchemySymbolCellReviewBackfillRepository(session)
     monkeypatch.setattr(repository, "_require_game", MagicMock())
     monkeypatch.setattr(repository, "_active_job", MagicMock(return_value=None))

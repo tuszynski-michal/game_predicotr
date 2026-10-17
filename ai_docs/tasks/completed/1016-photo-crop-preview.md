@@ -116,6 +116,29 @@ availability before assigning any new identifier.
 Added this task and the evidence report; updated CURRENT_STATE rolling window
 and README. No source-of-truth product behavior or architecture changed.
 
+### Synchronization with main (2026-10-17)
+
+Claude Code took over the track and merged `main` (v1.7.400 / `11b0ee3f`) into
+`codex/photo-crop-p1`, so the branch can fast-forward into `main`. Conflicts in
+`CURRENT_STATE.md`, its Q4 archive and `ai_docs/README.md` were resolved with
+the `main` versions; this task was re-recorded in the current window format and
+listed in `DOC_INDEX.md` instead of the README. TASK-1016 is already reserved
+for this track on `main`, so it keeps its number. Commit messages v1.7.359–366
+on this branch collide with `main` history and stay as they are, without
+rewriting history.
+
+### Operator acceptance and decisions (2026-10-17)
+
+The operator accepted the gallery (50 px margin, corrected overlays) and
+chose, for the follow-up plan: lossless JPEG crop (boundaries widened outward
+to the JPEG block grid) instead of re-encoding; deletion of originals after
+verification of the cropped variant, without a separate photo copy. The
+operator was told that `D:\game_predictor_backup` holds database dumps from
+2026-10-10 and repository copies but no `artifacts/data/originals`
+(166 150 files, 35.77 GiB on 2026-10-17), so deleted originals cannot be
+restored. Next step ordered: P2–P4 plan per PLAN_STANDARD plus a lossless-crop
+measurement on the 40 P1 copies, without changes to code, data or originals.
+
 ### Recommended next task
 
 Review the gallery. Decide whether to design P2 storage representation and

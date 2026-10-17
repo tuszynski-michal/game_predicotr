@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-11
+last_updated: 2026-10-15
 ---
 
 # Wymagania modułu administracyjnego
@@ -72,19 +72,40 @@ lub `blocked` wyświetla jawny tryb tylko do odczytu i blokuje mutacje katalogu;
 wybór gry i bezpieczne odczyty pozostają dostępne. Backend pozostaje źródłem
 prawdy i niezależnie od UI odrzuca zapis objęty maintenance.
 
-Przy tworzeniu i edycji gry panel wybiera format strony: pełną stronę z ramką
-albo format wymagający doprecyzowania. Karta katalogu pokazuje bieżący status
-wspólnej geometrii, konkretną przyczynę i, gdy jest bezpiecznie dostępny,
-numer profilu shared. Panel nie prosi o kolor ramki, lokalną kotwicę ani obraz;
-gotowość do preflightu nadal wymaga ręcznej weryfikacji pierwszego importu.
+Nowa gra korzysta z neutralnego formatu `neural_grid_v3`. Zwykły formularz
+tworzenia i edycji V3 nie pokazuje wyboru formatu ani dawnych profili modelu.
+Backend przypina raz dopuszczoną opublikowaną wersję domyślną. Bez niej gra
+może powstać bez przypisania, z blokadą importu i konkretną przyczyną. Status
+domyślny pozostaje szkicem; jawny status nie jest zmieniany z powodu modelu.
+Nowe klasyczne tworzenie oraz zastrzeżony historyczny kod `7` są odrzucane.
 
-Pole „Format strony” oferuje także profile silnika siatek „777 v2” i „Mumie”
-(TASK-0830). Profil wskazuje zamrożony model `neural_grid` w zarządzanym
-katalogu modeli; dla gotowości geometrii działa jak pełna strona z ramką. Pod
-polem panel opisuje model wybranego profilu, informuje, że profil 777 v2 służy
-także przyszłym wersjom gry 777, i pokazuje stan modelu z API (dostępny, brak
-plików, niezgodny SHA-256). Karta gry na liście pokazuje format strony, a dla
-profilu także stan jego modelu. Brak modelu nie blokuje zapisu gry.
+Zwinięte ustawienia zaawansowane pozwalają wybrać dopuszczoną opublikowaną
+wersję albo nową rodzinę z takiej bazy. Fork zachowuje referencję bazy i
+wyłączenia przodków, bez kopiowania wag, wersji lub etykiet. Wybrana rodzina
+treningowa jest widoczna; jawne późniejsze przypisanie zmienia ją na rodzinę
+wybranej wersji, zachowując historię forka. Pierwsze przypisanie utworzonej
+bez modelu neutralnej gry jest osobną jawną akcją. Przeniesienie bazy nie
+oznacza pomiaru jakości nowej gry; kolejne aktywacje wymagają oceny per gra.
+
+Polecenie tworzenia ma wymagany UUID. Panel zapisuje dokładne polecenie przed
+wysłaniem, zachowuje je przy utracie odpowiedzi i odtwarza po ponownym otwarciu.
+Retry zwraca tę samą grę; podobny kod lub nazwa nie służą do adopcji wyniku.
+Historyczne GET/PATCH zachowują wszystkie dawne wartości i NULL. Edycja
+klasycznej gry, w tym archiwalnej777, nadal ma dawny wybór i etykiety formatu.
+Karta pokazuje zapisany format i stan geometrii; preflight pozostaje bramką
+gotowości importu. W panelu importu wszystkie trzy formaty V3 korzystają z
+istniejącego sterowania V3. Przełączenie z klasycznej gry nie przenosi wyboru
+V1.1 do nowej neutralnej gry. Wyjątek historycznej777 pozostaje zachowany.
+
+Karty i sekcja jakości V3 pokazują przypisaną rodzinę oraz wersję geometrii
+z istniejącego odczytu assignment, zamiast klasycznej gotowości i panelu
+kalibracji. Loading i błąd nie oznaczają braku przypisania. Brak assignment
+wyjaśnia blokadę importu; brak artefaktów i nieaktualny dowód oceny mają
+niezależne komunikaty. Nieaktualny dowód nie usuwa przypisania, a historyczna
+wersja bez publikacji nie otrzymuje automatycznej blokady. Preflight sprawdza
+gotowość importu. Zmiana gry i ponowne otwarcie widoku odczytują właściwy pin.
+Historyczna777 zachowuje klasyczny panel, raporty i edycję; symbole pozostają
+odrębnym pionem. TASK-1011 nie uruchamia treningu geometrii ani aktywacji.
 
 Formularz tworzenia i edycji gry ma select „Supergra” (TASK-0931, D-535) z
 opcją „Brak” i rodzajami supergry z rejestru w kodzie
@@ -299,6 +320,18 @@ przepisania dokładnego identyfikatora importu oraz osobnego kliknięcia
 potwierdzającego. Operacja usuwa surowe i wszystkie znormalizowane wiersze tego
 importu, ale zachowuje joby jako audyt. Backend blokuje odrzucenie, gdy staging
 jest używany przez dataset albo przez aktywną walidację.
+
+### Diagnostyka liczników plansz i geometrii — TASK-1010
+
+Sekcja brakujących plansz udostępnia przycisk „Uzgodnij liczniki gry”. Odczyt
+jest jawny i pokazuje własny czas pomiaru oraz zakres całej gry; paginacja,
+filtry i zwykły polling pokrycia nie odczytują go ponownie. Zmiana gry usuwa
+poprzedni snapshot i ignoruje spóźnione odpowiedzi. UI rozdziela unikalne
+brakujące sekwencje, sloty odroczone, zgłoszone błędne siatki, brak akceptacji
+geometrii i problemy komórek symboli. Wyjaśnia przecięcia i nie sumuje ich jako
+niezależnych braków. Stan zapisany bramki oraz bieżąca klasyfikacja zdjęć są
+opisane osobno. Zatwierdzenie symboli nie jest warunkiem istnienia planszy;
+automatyczne cięcie lub brak ręcznej akceptacji nie dowodzą jakości pikseli.
 
 ### Jobs
 
@@ -702,6 +735,41 @@ wyłącznie do odczytu.
 
 ### Udostępnianie wyszukiwania online
 
+**D-548 / TASK-0991 — zakładka „Udostępnianie”.** Operator wybiera gry
+z obecnego katalogu niearchiwalnych gier (także gotowe drafty), nazwę linku
+i ważność 1/4/8/24/48/72 h, domyślnie 8 h. Jeden link otwiera panel odbiorcy
+bez ręcznego kodu. Lista wybranych gier pozostaje stała. Każda gra musi mieć
+gotową wyszukiwarkę i opublikowane reguły; niegotowa gra blokuje utworzenie
+całego linku z komunikatem wskazującym grę. Pojedynczy panel obejmuje do
+100 gier, jako jawny limit transportu i rozmiaru kontekstu.
+
+Odbiorca wybiera grę i korzysta z dokładnie tego samego wspólnego UI:
+wzoru, zakresu, liczby wyników, karuzeli, przybliżonej wygranej, wykresu,
+stawek, linii i poprawiania symboli. Zmiana gry otwiera świeży wzór jak
+w obecnym Adminie. Cache i niepotwierdzone poprawki są odseparowane per
+sesja gry; powrót do gry pozwala ponowić dokładnie poprzedni zapis po
+utracie odpowiedzi lub odświeżeniu. Zapytania i poprawki są rejestrowane.
+
+Każdy posiadacz linku ma dostęp do danych i poprawek wybranych gier.
+Losowy sekret znajduje się we fragmencie URL, jest usuwany po jego odczycie
+i wymieniany na osobne HttpOnly cookie panelu. Nie trafia do Referer ani
+zapytań URL. Ponowne otwarcie linku przez kolejnego odbiorcę nie wyrzuca
+poprzedniego. Dziennik operatora wybiera grę, zachowuje dotychczasowy
+przegląd poprawek oraz odtworzenie wyszukiwania. „Zatrzymaj link”, po
+potwierdzeniu, odwołuje wszystkie jego gry i zachowuje historię.
+
+Limit pięciu aktywnych linków wyszukiwarki obejmuje również panele,
+liczone po jednym. Obecny Quick Tunnel pozostaje współdzielony. Zmiana
+adresu tunelu nie przedłuża ważności: operator odświeża listę i kopiuje
+nowy adres tej samej sesji z lokalnie zachowanym sekretem. Brak tej kopii
+w przeglądarce wymaga zatrzymania i utworzenia nowego linku. Po utracie
+odpowiedzi tworzenia operator odświeża listę, zatrzymuje link bez sekretu
+i tworzy następny. Stały adres i gwarancja dostępności przez 72 h są poza
+zakresem. Dotychczasowe linki jednej gry z kodem zachowują swój kontrakt.
+
+Kod TASK-0991 jest w izolowanym worktree i czeka na audyt Claude operatora
+oraz osobno uzgodnioną migrację0155. Ten opis nie oznacza wdrożenia.
+
 **D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`; panel
 TASK-0769, aplikacja odbiorcy w Reviewerze TASK-0768).** Przycisk
 „Udostępnij online” w nagłówku sekcji „Wyszukaj plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
@@ -798,6 +866,21 @@ Licznik `Do korekty` oraz przyciski `Poprzednia` / `Pomiń na razie` służą
 wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonych i
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
+
+TASK-0993: dla istniejącej siatki 24 oraz pustego szkicu neural z przypiętą
+checksumą propozycji edytor domyślnie
+pokazuje cztery zewnętrzne uchwyty. „Dokładna korekta” pokazuje wszystkie
+24 węzły; przełączenie uchwytów zachowuje każdą współrzędną bez zaokrąglania.
+Ruch rogu przekształca wszystkie węzły homografią starego i nowego obrysu,
+a ruch wnętrza przesuwa je razem. „Wyznacz regularną siatkę z czterech rogów”
+jest osobną zmianą szkicu z automatycznym podglądem i przyciskiem „Cofnij zmianę
+siatki”. Pozwala także zbudować brakujące 24 węzły z czterech rogów.
+Dokładna korekta staje się dostępna po wyznaczeniu tych węzłów.
+Przecinający się obrys jest odrzucany; nieprawidłowy podział komórek blokuje
+podgląd i zapis. Szkic przechowuje źródło i rewizję. Konflikt lub stary format
+bez jawnej rewizji wymaga „Przywróć sugestię”; szkic nie nadpisuje nowszego
+serwera. Starsze cele quad-only i kolejka audytu zachowują cztery narożniki
+oraz dotychczasowy transport. Symbole nadal należą do jednej gry.
 
 Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0969, D-542): lista ostatnich
 zapisów korekty importu (godzina lokalna, sekwencja, pozycja, rodzaj `slot` /
@@ -1365,6 +1448,20 @@ niezależnie od innych slotów zdjęcia. Niekompletność całego zdjęcia nie
 oznacza niedostępności wszystkich jego cropów. Przeniesienie UI nie zmienia
 kwalifikacji kolejki, danych ani kontraktu API. Zmiana gry resetuje diagnostykę.
 
+Od TASK-1008 diagnostyka udostępnia osobną „Historyczną akceptację siatek”.
+Operator przygotowuje podgląd tylko wybranej gry. Panel rozdziela zdjęcia,
+rewizje, kwalifikujące się zdjęcia, akceptacje i pominięcia; wyjaśnia, że
+powody mogą się przecinać. Zamrożony podgląd wymaga zaznaczenia jawnego
+potwierdzenia przed przebiegiem. Podgląd nie zmienia statusów geometrii.
+Po potwierdzeniu panel automatycznie przetwarza kolejne krótkie kroki;
+operationId, kursor i klucze ponowień umożliwiają wznowienie po reload albo
+utraconej odpowiedzi bez utworzenia nowego zakresu. Przerwanie oczekiwania
+nie cofa już zatwierdzonych transakcji. Przygotowanie dowodu ma widoczny
+stan; przekroczenie limitu SHA zatrzymuje automatyczną pętlę i daje możliwość
+jawnego wznowienia. Panel deklaruje zmianę wyłącznie statusów, bez modelu,
+ponownego cięcia, nowych komórek lub ręcznych zatwierdzeń. Stara 777 jest
+wyłączona przez backend.
+
 Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
 ten sam przepis liczy SQL raportu):
 
@@ -1585,7 +1682,25 @@ nierozwiązanych plansz.
 
 Pełne zdjęcie źródłowe pozostaje dostępne wyłącznie w kontekście korekty
 geometrii. Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb
-czterech narożników granic siatki symboli na oryginalnym obrazie. Podgląd
+czterech narożników granic siatki symboli na oryginalnym obrazie.
+
+D-551/TASK-1013: przy zgłoszeniu złej siatki Reviewer pokazuje trwały wynik
+ponownego rozpoznania jako „Propozycja modelu”, z przypiętą wersją/SHA i
+porównaniem obecnej oraz proponowanej siatki. Odczyt nie zmienia zgłoszenia.
+„Przyjmij propozycję” zapisuje decyzję człowieka przez dotychczasową korektę;
+„Edytuj propozycję” otwiera ten sam edytor czterech rogów/24 węzłów i zachowuje
+oryginał modelu. „Odrzuć propozycję” pozostawia zgłoszenie otwarte. Szkic i UUID
+polecenia przeżywają przeładowanie oraz utraconą odpowiedź. Konflikt zachowuje
+szkic i wymaga odświeżenia. Historia przyjęcia nie potwierdza bieżącej geometrii
+po jej późniejszym cofnięciu albo usunięciu źródła.
+
+Sekcja propozycji jest montowana w widoku „Do poprawy siatki”; pozostałe
+widoki nie pobierają tej kolekcji. Edycja propozycji uzupełnia brakującą
+kwalifikację planszy kwalifikacją przypiętego kandydata. Oznaczenia niepełnej
+planszy i wykluczenia z treningu wyliczone w edytorze mają pierwszeństwo.
+Zmiana widoku nie usuwa trwałego szkicu ani tożsamości polecenia.
+
+Podgląd
 pokazuje projektową siatkę 5 × 3 oraz wszystkie 15 finalnych cropów bez
 pośredniego rastra planszy. Zapis geometrii tworzy nowe wersje plików
 i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
@@ -1906,3 +2021,133 @@ zwykłej planszy, ten sam rozszerzony zakres ±~7%, co przeciąganie
 narożnika, gdy którakolwiek plansza na stronie jest oznaczona „Niepełna”.
 Przeciąganie pojedynczego narożnika (uchwyty renderowane nad planszą)
 działa bez zmian.
+
+Tworzenie po kontrolowanym odrzuceniu wyboru może użyć nowego polecenia tylko
+po serwerowym dowodzie rollback/braku rezerwacji z dokładnie tym samym kluczem.
+Brak dowodu zachowuje retry, także dla422. Działanie „Porzuć zapisane polecenie”
+wymaga osobnego potwierdzenia i ostrzega, że gra lub przypisanie mogły zostać
+zapisane. Najpierw zachowuje surowy wpis z namespace/czasem w trwałym archiwum
+przeglądarki, następnie usuwa lokalne pending. Awaria archiwum zachowuje pending.
+Dotyczy też uszkodzonego wpisu. Nie usuwa rezerwacji serwera ani dawnych archiwów.
+
+
+## Ponowne rozpoznanie wybranego zakresu V3 (TASK-1003)
+
+Jeden panel zastępuje dawny pending-preview/start. Wejście i ponowne otwarcie
+odczytują wyłącznie historię, wybraną operację i gotowe strony wyników.
+Przygotowanie i każda kolejna mutacja wymagają jawnej akcji. Domyślny zakres
+to zgłoszenia Złej siatki i odroczone sloty; niepotwierdzone i wszystkie
+automatyczne pozostają osobnymi opt-in. Przygotowany zakres rozdziela zdjęcia
+(wystąpienia źródeł), sloty, istniejące plansze i komórki. Potencjalna pojemność
+nie oznacza liczby zapisów ani zmienionych pikseli. Okno przygotowania i czas
+utrwalenia członkostwa są widoczne; operacja nie obiecuje jednego snapshotu
+żywej gry ani czasu wykonania szerokiego zakresu.
+
+Pilot obejmuje do 100 wystąpień zdjęć. Operator jawnie przygotowuje zakres,
+zamraża manifest i uruchamia przebieg. Szerszy zakres ma osobną operację i
+manifest, wybór zgodnego ukończonego pilota z historii, potwierdzenie jego SHA
+raportu przez aktora oraz oddzielne potwierdzenie szerokiego startu. Raport
+pilota nie oznacza PASS jakości. Historia przechodzi stabilnie po UUID;
+kolejność nie jest chronologią. Ostateczną zgodność pilota sprawdza backend.
+
+Panel zapisuje dokładne body i UUID przed POST, w zakresie API/gry/operacji
+i rodzaju komendy. Utrata odpowiedzi, 5xx, reload i 409 zachowują polecenie;
+ponowienie jest jawne. Potwierdzone porzucenie najpierw trwale archiwizuje
+surowy wpis i dostępne metadane, następnie usuwa pending. Błąd archiwizacji
+zachowuje pending, również uszkodzony JSON. Porzucenie nie usuwa operacji
+serwera. Zmiana gry lub operacji unieważnia spóźnione odpowiedzi. Konflikt
+komendy 409 jest odrębny od późniejszego konfliktu celu w raporcie.
+
+Odświeżenie pokazuje postęp i liczniki należące do operacji; job jest linkiem
+kontekstowym. Dostępne są anulowanie oraz wznowienie przerwanej, dopuszczonej
+przez backend fazy. Kwarantanna wymaga nowej operacji i ukrywa wznowienie.
+Wyniki rozdzielają propozycje, zapisy automatyczne, ochronę, brak zmiany,
+konflikty i brak źródła. Szczegóły zachowują przyczyny i provenance. Link do
+istniejącej lokalnej Korekty cięcia siatki pozwala ocenić trwałe propozycje;
+dopiero jej decyzja człowieka stosuje korektę.
+
+Statystyki efektów pochodzą z atomowych receiptów backendu. Nowe komórki,
+rzeczywiście zmienione piksele, niezmienione piksele i niedostępne porównanie
+są odrębne. Ponowna ocena może obejmować te same komórki co zmienione piksele;
+nie sumujemy tych liczb. Starsze operacje bez statystyk pokazują „nie zapisano”,
+nigdy domyślne zero. Propozycja ani automatyczny zapis nie są nazwane naprawą
+lub dowodem poprawy jakości.
+
+
+**Doprecyzowanie po audycie TASK-1003:** liczba pozycji bez zapisanych statystyk
+jest bieżącym brakiem receiptów w zamrożonym zakresie, nie sumą efektów celów.
+Przed ukończeniem przygotowania panel pokazuje niedostępne statystyki zakresu
+i efektów także po błędzie albo anulowaniu przygotowania. Historyczne „nie
+zapisano” pozostaje odrębną informacją dla starszych operacji.
+
+## Opisowa kontrola siatek V3 (D-555, TASK-1009)
+
+Sekcja jakości gry zamraża losową próbę1–100 bieżących wystąpień źródeł według
+seed oraz osobną, jawną próbę trudnych przypadków. Wyłącza tylko całkowicie
+zastąpione źródła, zapisując ich liczbę i politykę. Braki rewizji, predykcji,
+plików, zakresów i częściowych pozycji pozostają widoczne. Każde zdjęcie zachowuje
+wszystkie dziewięć fizycznych pozycji, także środkowe luki.
+
+Oryginalny wynik automatyczny i bieżąca geometria mają osobne podglądy. Dziewięć
+pozycji wymaga jawnej oceny geometrii oraz oddzielnych ocen detekcji i sekwencji.
+Brak producenta lub obrazu pozostaje niewiadomą. Nadmiarowe detekcje mają osobną
+listę. Raporty losowe i trudne mają własne mianowniki, pokrycie i pochodzenie
+modelu. Istniejące aktualne ręczne potwierdzenia symboli są liczbą potwierdzeń,
+a nie skutecznością klasyfikatora ani nowymi etykietami.
+
+Capture i ocena są jawnymi poleceniami. Reload wykonuje tylko GET. Dokładny UUID
+i treść polecenia zapisują się przed POST; retry jest jawne, a porzucenie najpierw
+archiwizuje dane, także uszkodzony JSON. Spóźnione odpowiedzi są przypięte do gry
+i pomiaru. Rzeczywiste korekty korzystają z istniejącego Reviewera. Zatwierdzenie
+pokazanej niezmienionej bieżącej geometrii jest osobną akcją człowieka i może
+mieć current-only pochodzenie. Nie tworzy oceny oryginalnego modelu. Zapis oceny
+nie zmienia geometrii, kanonicznego właściciela, approval ani symboli. Bez anotacji
+operatora aplikacja nie deklaruje rzeczywistej jakości.
+
+Dostępność osobnego zatwierdzenia i powód blokady pochodzą z backendu. Trwający
+pending import nie omija istniejącej kwalifikacji Reviewera. Po korekcie sąsiada
+aplikacja zachowuje oceniany oryginał; techniczny repoint może zachować approval
+tylko przy dodatnim serwerowym dowodzie niezmienionego celu i jego renderów.
+
+## Pełna sekcja „Geometria V3” (TASK-1000)
+
+Gra V3 ma w jakości modelu jeden przebieg w kolejności pracy operatora: przypisana
+wersja, nagrania i role, kontrola jakości (próbka), dane do doszkalania (kohorty),
+trening, porównanie z bazą, wersje (publikacja, aktywacja, wersja domyślna,
+przywrócenie, historia) oraz ponowne rozpoznanie. Korekty geometrii pozostają w
+Reviewerze. Wejście na ekran, zmiana gry i reload wykonują wyłącznie odczyty;
+każda mutacja jest jawnym przyciskiem.
+
+Zwykły przebieg nie wymaga wpisywania identyfikatorów. Baza kohorty domyślnie
+pochodzi z przypisania gry; operator może wybrać po nazwie inną dostępną wersję z
+katalogu jako wspólną bazę kandydata wspólnego, bez zmiany przypisania gry (zgodność
+rodowodu sprawdza backend). Rodzinę treningową wybiera się po nazwie spośród rodziny
+bazy i rodzin treningowych (forków) gier przypisanych do tej bazy; domyślnie dla
+przypisanej bazy jest to rodzina treningowa gry, a dla innej — rodzina bazy. Dzięki
+temu gry z różnymi forkami tej samej bazy przygotują kohorty jednego kandydata
+wspólnego. Zdjęcia kohorty to importy wybranych nagrań — nagrania
+różnych ról zwykle pochodzą z różnych importów, więc jedna kohorta obejmuje kilka
+importów (`selector.importJobIds`, 2–50, każdy z własnymi zdjęciami gry) — plus
+opcjonalny import wybrany po nazwie i dacie. Nagrania z listy nagrań gry mają rolę,
+a kohorty, treningi, wersje, oceny i inne gry wybiera się po czytelnych etykietach.
+Listy kohort i nagrań są czytane w całości, strona po stronie. Dokładne
+identyfikatory zdjęć, trudne przykłady i uzupełnienie tożsamości starszych zdjęć są
+w zwiniętych sekcjach „Zaawansowane”.
+
+Dostępność działań określa backend: start runu tylko bez blokad podglądu (zajęte
+GPU tylko kolejkuje), anulowanie i wznowienie według stanu runu, publikacja tylko
+dla oceny PASS z aktualnymi dowodami wszystkich kohort, aktywacja i domyślna
+wersja tylko dla wersji kwalifikującej się, przywrócenie tylko do wersji z
+historii gry. Każda blokada ma etykietę powodu; nieznany kod ma fallback
+„Inny powód (KOD)”. Dostępność plików, publikacja, kwalifikacja i aktualność
+dowodu są odrębnymi informacjami. Polecenia runu i wersji zapisują klucz i treść
+przed wysłaniem; utracona odpowiedź (brak odpowiedzi albo 5xx) zachowuje polecenie
+do jawnego ponowienia z tym samym kluczem i treścią także po przeładowaniu, a
+odpowiedź odmowna 4xx (np. konflikt rewizji) usuwa je i odczytuje aktualny stan.
+Potwierdzona zmiana jednego kroku (nagranie, kohorta, run, ocena, wersja) odświeża
+listy pozostałych bez przeładowania strony. Zakończenie runu przez worker panel
+wykrywa samym odczytem (co 15 s, tylko gdy run czeka lub trwa, oraz przyciskiem
+„Odśwież stan treningów”), a nowa ocena wybranego kandydata pojawia się bez
+ponownego wyboru. Zmiana wyboru, także na pusty,
+unieważnia spóźnione odpowiedzi. Panel działa z wieloma rodzinami i bazami oraz z
+odrzuconym wspólnym kandydatem.

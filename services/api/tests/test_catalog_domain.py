@@ -19,6 +19,9 @@ from game_predictor_api.domain.catalog import (
 
 
 class EmptyCatalogRepository(CatalogRepository):
+    def geometry_assignment_available(self, game_id: UUID) -> bool:
+        return False
+
     def list_games(self) -> list[Game]:
         return []
 
@@ -86,9 +89,7 @@ class EmptyCatalogRepository(CatalogRepository):
     def add_manual_symbol(self, *, game_id: UUID, name: str, is_wildcard: bool) -> Symbol:
         raise AssertionError("Game existence must be checked first.")
 
-    def symbol_usage_summary(
-        self, *, game_id: UUID, symbol_id: UUID
-    ) -> SymbolUsageSummary | None:
+    def symbol_usage_summary(self, *, game_id: UUID, symbol_id: UUID) -> SymbolUsageSummary | None:
         return None
 
     def delete_unused_symbol(self, *, game_id: UUID, symbol_id: UUID) -> None:
@@ -100,7 +101,9 @@ def test_game_stable_code_validation_is_domain_owned(code: str) -> None:
     service = CatalogService(EmptyCatalogRepository())
 
     with pytest.raises(CatalogError) as error:
-        service.create_game(code=code, name="Game", status=GameStatus.DRAFT)
+        service.create_game(
+            idempotency_key=uuid4(), code=code, name="Game", status=GameStatus.DRAFT
+        )
 
     assert error.value.code == "INVALID_STABLE_CODE"
 

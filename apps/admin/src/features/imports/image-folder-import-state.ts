@@ -16,6 +16,9 @@ interface ReadyImportStartState {
   readonly geometryPreflightCompleted: boolean;
   readonly geometryPreflightRequired: boolean;
   readonly symbolModelAvailable: boolean;
+  /** TASK-1041: V3 sources the import would skip without a slot binding. */
+  readonly neuralUnboundSourceCount?: number;
+  readonly neuralUnboundSkipConfirmed?: boolean;
 }
 
 interface ReadyBoardImportLifecycleState {
@@ -185,7 +188,9 @@ export function canStartReadyImport(state: ReadyImportStartState): boolean {
         state.geometryManifestAvailable &&
         state.geometryPreflightArtifactReady)) &&
     (!state.geometryGuardResolutionRequired ||
-      state.geometryGuardResolutionManifestAvailable)
+      state.geometryGuardResolutionManifestAvailable) &&
+    ((state.neuralUnboundSourceCount ?? 0) === 0 ||
+      state.neuralUnboundSkipConfirmed === true)
   );
 }
 

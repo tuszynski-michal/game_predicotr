@@ -83,6 +83,12 @@ try {
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+    # The private recording capability is cluster-scoped and must be created
+    # explicitly before Alembic installs its database-owned objects.
+    & $pythonPath scripts/provision_database_roles.py --recording-capability
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
     & $pythonPath -m alembic upgrade head
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE

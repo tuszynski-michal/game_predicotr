@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,7 @@ from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import (
     VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
     add_board_render_manifest_for,
@@ -194,17 +196,35 @@ def isolated_image_batch_database() -> Iterator[URL]:
         isolation_level="AUTOCOMMIT",
         pool_pre_ping=True,
     )
-    test_database_url = _database_url(TEST_DATABASE_NAME)
-    identifier = f'"{TEST_DATABASE_NAME}"'
+    test_database_url = _database_url(f"game_predictor_image_batch_{uuid4().hex[:12]}_test")
+    recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.create_database(connection)
+            recording_capability_fixture.provision()
         yield test_database_url
     finally:
-        with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-        maintenance_engine.dispose()
+        original_error = sys.exception()
+        try:
+            if recording_capability_fixture.database_oid is not None:
+                with maintenance_engine.connect() as connection:
+                    recording_capability_fixture.drop_database(connection)
+        except Exception as cleanup_error:
+            if original_error is None:
+                raise
+            original_error.add_note(f"Owned image-batch cleanup failed: {cleanup_error}")
+        finally:
+            maintenance_engine.dispose()
+
+
+@pytest.fixture
+def no_job_admission(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fixture rows only: these tests model several imports or bulk operations of one game
+    at once, which the V3 game admission gate (TASK-0999, API_CONTRACT
+    ``GAME_JOB_ADMISSION_CONFLICT``) refuses by design and its own tests cover."""
+    from game_predictor_api.storage import job_admission
+
+    monkeypatch.setattr(job_admission, "admit_job", lambda *_args, **_kwargs: None)
 
 
 def _image_job(game_id: UUID, pipeline: str, created_at: datetime) -> Job:
@@ -347,6 +367,7 @@ def test_image_batch_store_registers_association_in_v2_store(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="image-batch-v2-store",
                 name="Image batch V2 store",
                 status=GameStatus.ACTIVE,
@@ -405,6 +426,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-backfill",
                 name="Symbol cell backfill",
                 status=GameStatus.ACTIVE,
@@ -716,6 +738,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-write-through",
                 name="Symbol cell write through",
                 status=GameStatus.ACTIVE,
@@ -1033,6 +1056,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-mutations",
                 name="Symbol cell mutations",
                 status=GameStatus.ACTIVE,
@@ -1611,6 +1635,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
     isolated_image_batch_database: URL,
     monkeypatch: pytest.MonkeyPatch,
@@ -1625,6 +1650,7 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-bulk",
                 name="Symbol cell bulk",
                 status=GameStatus.ACTIVE,
@@ -1998,6 +2024,7 @@ def test_symbol_cell_backfill_fails_closed_when_an_active_board_has_no_sequence(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="symbol-cell-no-sequence",
                 name="Symbol cell no sequence",
                 status=GameStatus.ACTIVE,
@@ -2254,6 +2281,7 @@ def test_image_review_queue_projection_tracks_durable_v2_state(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="review-queue-projection",
                 name="Review queue projection",
                 status=GameStatus.ACTIVE,
@@ -2487,6 +2515,7 @@ def test_review_queue_completes_and_reopens_image_import_job(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="review-job-lifecycle",
                 name="Review job lifecycle",
                 status=GameStatus.ACTIVE,
@@ -2637,6 +2666,7 @@ def test_review_job_completion_migration_backfills_resolved_import(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -2657,6 +2687,7 @@ def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="first-save-wins",
                 name="First save wins",
                 status=GameStatus.ACTIVE,
@@ -2831,6 +2862,7 @@ def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -2850,6 +2882,7 @@ def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="later-save-loses",
                 name="Later save loses",
                 status=GameStatus.ACTIVE,
@@ -2958,6 +2991,7 @@ def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save
 
 
 @pytest.mark.parametrize("same_photo", [True, False], ids=["same-photo", "other-photos"])
+@pytest.mark.usefixtures("no_job_admission")
 def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     isolated_image_batch_database: URL,
     same_photo: bool,
@@ -2977,6 +3011,7 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code=f"pending-sequence-owner-{same_photo}",
                 name="Pending sequence owner",
                 status=GameStatus.ACTIVE,
@@ -3119,6 +3154,7 @@ def test_pending_sequence_owner_is_the_newest_import_of_the_same_photo_only(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_image_batch_store_reuses_execution_and_fences_checkpoint(
     isolated_image_batch_database: URL,
 ) -> None:
@@ -3132,6 +3168,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-batch-game",
                 name="Image batch game",
                 status=GameStatus.ACTIVE,
@@ -3490,6 +3527,7 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="image-operations-game",
                 name="Image operations game",
                 status=GameStatus.ACTIVE,
@@ -3570,6 +3608,7 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
         engine.dispose()
 
 
+@pytest.mark.usefixtures("no_job_admission")
 def test_pending_reinference_excludes_cancelled_imports(
     isolated_image_batch_database: URL,
     tmp_path: Path,
@@ -3582,6 +3621,7 @@ def test_pending_reinference_excludes_cancelled_imports(
     try:
         with session_factory() as session:
             game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                idempotency_key=uuid4(),
                 code="pending-reinference-scope",
                 name="Pending reinference scope",
                 status=GameStatus.ACTIVE,

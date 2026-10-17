@@ -9,9 +9,18 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  AcceptOperationalGridGeometryProposalData,
+  AcceptOperationalGridGeometryProposalErrors,
+  AcceptOperationalGridGeometryProposalResponses,
+  AcknowledgeGridReinferencePilotData,
+  AcknowledgeGridReinferencePilotErrors,
+  AcknowledgeGridReinferencePilotResponses,
   AcknowledgeSemiAutomaticImageSelectionOutputData,
   AcknowledgeSemiAutomaticImageSelectionOutputErrors,
   AcknowledgeSemiAutomaticImageSelectionOutputResponses,
+  ActivateGameGridModelData,
+  ActivateGameGridModelErrors,
+  ActivateGameGridModelResponses,
   ActivateGridProfileData,
   ActivateGridProfileErrors,
   ActivateGridProfileResponses,
@@ -27,6 +36,9 @@ import type {
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
+  ApproveOperationalGeometryData,
+  ApproveOperationalGeometryErrors,
+  ApproveOperationalGeometryResponses,
   ArchiveDatasetVersionData,
   ArchiveDatasetVersionErrors,
   ArchiveDatasetVersionResponses,
@@ -42,18 +54,33 @@ import type {
   ArchiveRulesVersionData,
   ArchiveRulesVersionErrors,
   ArchiveRulesVersionResponses,
+  AssessGridQualityMeasurementData,
+  AssessGridQualityMeasurementErrors,
+  AssessGridQualityMeasurementResponses,
   BuildMobileReleaseData,
   BuildMobileReleaseErrors,
   BuildMobileReleaseResponses,
   CancelBrowserImageSelectionData,
   CancelBrowserImageSelectionErrors,
   CancelBrowserImageSelectionResponses,
+  CancelGridReinferenceData,
+  CancelGridReinferenceErrors,
+  CancelGridReinferenceResponses,
+  CancelGridTrainingCohortData,
+  CancelGridTrainingCohortErrors,
+  CancelGridTrainingCohortResponses,
+  CancelGridTrainingRunData,
+  CancelGridTrainingRunErrors,
+  CancelGridTrainingRunResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
   CancelSemiAutomaticImageSelectionData,
   CancelSemiAutomaticImageSelectionErrors,
   CancelSemiAutomaticImageSelectionResponses,
+  CaptureGridQualityMeasurementData,
+  CaptureGridQualityMeasurementErrors,
+  CaptureGridQualityMeasurementResponses,
   ClearManagementStakeData,
   ClearManagementStakeErrors,
   ClearManagementStakeResponses,
@@ -63,9 +90,18 @@ import type {
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
+  CommandSourceRecordingGroupsData,
+  CommandSourceRecordingGroupsErrors,
+  CommandSourceRecordingGroupsResponses,
+  CompleteGridSourceIdentitiesData,
+  CompleteGridSourceIdentitiesErrors,
+  CompleteGridSourceIdentitiesResponses,
   ConfirmBrowserPageGeometrySourceReplacementData,
   ConfirmBrowserPageGeometrySourceReplacementErrors,
   ConfirmBrowserPageGeometrySourceReplacementResponses,
+  ConfirmHistoricalGridAcceptanceData,
+  ConfirmHistoricalGridAcceptanceErrors,
+  ConfirmHistoricalGridAcceptanceResponses,
   ConfirmImageSelectionGroupRangeData,
   ConfirmImageSelectionGroupRangeErrors,
   ConfirmImageSelectionGroupRangeResponses,
@@ -81,6 +117,9 @@ import type {
   CorrectPublicManagementBoardCellData,
   CorrectPublicManagementBoardCellErrors,
   CorrectPublicManagementBoardCellResponses,
+  CreateBoardSearchPanelData,
+  CreateBoardSearchPanelErrors,
+  CreateBoardSearchPanelResponses,
   CreateBoardSearchShareSessionData,
   CreateBoardSearchShareSessionErrors,
   CreateBoardSearchShareSessionResponses,
@@ -96,6 +135,15 @@ import type {
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
+  CreateGridModelEvaluationData,
+  CreateGridModelEvaluationErrors,
+  CreateGridModelEvaluationResponses,
+  CreateGridTrainingRunData,
+  CreateGridTrainingRunErrors,
+  CreateGridTrainingRunResponses,
+  CreateHistoricalGridAcceptanceData,
+  CreateHistoricalGridAcceptanceErrors,
+  CreateHistoricalGridAcceptanceResponses,
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
@@ -126,6 +174,9 @@ import type {
   CreateNextCuratedImageImportBatchData,
   CreateNextCuratedImageImportBatchErrors,
   CreateNextCuratedImageImportBatchResponses,
+  CreateOperationalGridGeometryProposalData,
+  CreateOperationalGridGeometryProposalErrors,
+  CreateOperationalGridGeometryProposalResponses,
   CreateOperationalImageReviewGeometryRevisionData,
   CreateOperationalImageReviewGeometryRevisionErrors,
   CreateOperationalImageReviewGeometryRevisionResponses,
@@ -258,6 +309,12 @@ import type {
   FinalizeRemoteManualSelectionBatchData,
   FinalizeRemoteManualSelectionBatchErrors,
   FinalizeRemoteManualSelectionBatchResponses,
+  FreezeGridReinferenceData,
+  FreezeGridReinferenceErrors,
+  FreezeGridReinferenceResponses,
+  FreezeGridTrainingCohortData,
+  FreezeGridTrainingCohortErrors,
+  FreezeGridTrainingCohortResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -282,6 +339,9 @@ import type {
   GetBoardSearchBoardViewData,
   GetBoardSearchBoardViewErrors,
   GetBoardSearchBoardViewResponses,
+  GetBoardSearchPanelContextData,
+  GetBoardSearchPanelContextErrors,
+  GetBoardSearchPanelContextResponses,
   GetBoardSearchShareApproximateWinData,
   GetBoardSearchShareApproximateWinErrors,
   GetBoardSearchShareApproximateWinResponses,
@@ -320,6 +380,12 @@ import type {
   GetDatasetVersionResponses,
   GetGameData,
   GetGameErrors,
+  GetGameGridModelAssignmentData,
+  GetGameGridModelAssignmentErrors,
+  GetGameGridModelAssignmentResponses,
+  GetGameGridModelHistoryData,
+  GetGameGridModelHistoryErrors,
+  GetGameGridModelHistoryResponses,
   GetGameResponses,
   GetGridAuditProposalData,
   GetGridAuditProposalErrors,
@@ -327,11 +393,47 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridModelDefaultData,
+  GetGridModelDefaultErrors,
+  GetGridModelDefaultResponses,
+  GetGridModelEvaluationData,
+  GetGridModelEvaluationErrors,
+  GetGridModelEvaluationResponses,
+  GetGridModelHistoryData,
+  GetGridModelHistoryErrors,
+  GetGridModelHistoryResponses,
+  GetGridQualityMeasurementData,
+  GetGridQualityMeasurementErrors,
+  GetGridQualityMeasurementResponses,
+  GetGridQualityMeasurementSourceData,
+  GetGridQualityMeasurementSourceErrors,
+  GetGridQualityMeasurementSourceResponses,
+  GetGridReinferenceData,
+  GetGridReinferenceErrors,
+  GetGridReinferenceResponses,
+  GetGridReinferenceTargetsData,
+  GetGridReinferenceTargetsErrors,
+  GetGridReinferenceTargetsResponses,
   GetGridShadowResultData,
   GetGridShadowResultErrors,
   GetGridShadowResultResponses,
+  GetGridTrainingCohortData,
+  GetGridTrainingCohortEligibilityData,
+  GetGridTrainingCohortEligibilityErrors,
+  GetGridTrainingCohortEligibilityResponses,
+  GetGridTrainingCohortErrors,
+  GetGridTrainingCohortMembersData,
+  GetGridTrainingCohortMembersErrors,
+  GetGridTrainingCohortMembersResponses,
+  GetGridTrainingCohortResponses,
+  GetGridTrainingRunData,
+  GetGridTrainingRunErrors,
+  GetGridTrainingRunResponses,
   GetHealthData,
   GetHealthResponses,
+  GetHistoricalGridAcceptanceData,
+  GetHistoricalGridAcceptanceErrors,
+  GetHistoricalGridAcceptanceResponses,
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
@@ -416,6 +518,9 @@ import type {
   GetModelQualityData,
   GetModelQualityErrors,
   GetModelQualityResponses,
+  GetOperationalGridGeometryProposalData,
+  GetOperationalGridGeometryProposalErrors,
+  GetOperationalGridGeometryProposalResponses,
   GetOperationalImageReviewBoardAssetData,
   GetOperationalImageReviewBoardAssetErrors,
   GetOperationalImageReviewBoardAssetResponses,
@@ -579,6 +684,9 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchPanelsData,
+  ListBoardSearchPanelsErrors,
+  ListBoardSearchPanelsResponses,
   ListBoardSearchShareCorrectionsData,
   ListBoardSearchShareCorrectionsErrors,
   ListBoardSearchShareCorrectionsResponses,
@@ -619,12 +727,30 @@ import type {
   ListGridCalibrationProfilesResponses,
   ListGridEngineProfilesData,
   ListGridEngineProfilesResponses,
+  ListGridModelEvaluationsData,
+  ListGridModelEvaluationsErrors,
+  ListGridModelEvaluationsResponses,
+  ListGridModelVersionsData,
+  ListGridModelVersionsErrors,
+  ListGridModelVersionsResponses,
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
+  ListGridQualityMeasurementsData,
+  ListGridQualityMeasurementsErrors,
+  ListGridQualityMeasurementsResponses,
+  ListGridReinferenceOperationsData,
+  ListGridReinferenceOperationsErrors,
+  ListGridReinferenceOperationsResponses,
   ListGridShadowResultsData,
   ListGridShadowResultsErrors,
   ListGridShadowResultsResponses,
+  ListGridTrainingCohortsData,
+  ListGridTrainingCohortsErrors,
+  ListGridTrainingCohortsResponses,
+  ListGridTrainingRunsData,
+  ListGridTrainingRunsErrors,
+  ListGridTrainingRunsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -667,6 +793,9 @@ import type {
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
+  ListOperationalGridGeometryProposalsData,
+  ListOperationalGridGeometryProposalsErrors,
+  ListOperationalGridGeometryProposalsResponses,
   ListOperationalImageReviewItemsData,
   ListOperationalImageReviewItemsErrors,
   ListOperationalImageReviewItemsResponses,
@@ -737,6 +866,9 @@ import type {
   ListSemiAutomaticImageSelectionSourcesErrors,
   ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
+  ListSourceRecordingGroupsData,
+  ListSourceRecordingGroupsErrors,
+  ListSourceRecordingGroupsResponses,
   ListSuperGameKindsData,
   ListSuperGameKindsResponses,
   ListSuperGameSeriesBoardsData,
@@ -771,9 +903,15 @@ import type {
   ListVerifiedImageReviewCohortsResponses,
   ListWorkerLanesData,
   ListWorkerLanesResponses,
+  MaterializeGridTrainingCohortPageData,
+  MaterializeGridTrainingCohortPageErrors,
+  MaterializeGridTrainingCohortPageResponses,
   MutateV7LabelGeometryCalibrationSessionData,
   MutateV7LabelGeometryCalibrationSessionErrors,
   MutateV7LabelGeometryCalibrationSessionResponses,
+  OpenBoardSearchPanelData,
+  OpenBoardSearchPanelErrors,
+  OpenBoardSearchPanelResponses,
   OpenLocalReviewerWorkData,
   OpenLocalReviewerWorkErrors,
   OpenLocalReviewerWorkResponses,
@@ -789,6 +927,15 @@ import type {
   PlanBrowserImageSelectionUploadData,
   PlanBrowserImageSelectionUploadErrors,
   PlanBrowserImageSelectionUploadResponses,
+  PrepareGridReinferenceData,
+  PrepareGridReinferenceErrors,
+  PrepareGridReinferenceResponses,
+  PrepareGridTrainingCohortData,
+  PrepareGridTrainingCohortErrors,
+  PrepareGridTrainingCohortPageData,
+  PrepareGridTrainingCohortPageErrors,
+  PrepareGridTrainingCohortPageResponses,
+  PrepareGridTrainingCohortResponses,
   PreviewBoardSourceCleanupData,
   PreviewBoardSourceCleanupErrors,
   PreviewBoardSourceCleanupResponses,
@@ -801,6 +948,12 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewGridTrainingRunData,
+  PreviewGridTrainingRunErrors,
+  PreviewGridTrainingRunResponses,
+  PreviewHistoricalGridAcceptanceNextData,
+  PreviewHistoricalGridAcceptanceNextErrors,
+  PreviewHistoricalGridAcceptanceNextResponses,
   PreviewImageGeometryGuardDecisionData,
   PreviewImageGeometryGuardDecisionErrors,
   PreviewImageGeometryGuardDecisionResponses,
@@ -873,6 +1026,9 @@ import type {
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
+  PublishGridModelVersionData,
+  PublishGridModelVersionErrors,
+  PublishGridModelVersionResponses,
   PublishLayoutImportDatasetData,
   PublishLayoutImportDatasetErrors,
   PublishLayoutImportDatasetResponses,
@@ -903,6 +1059,9 @@ import type {
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
+  RegisterGridModelVersionData,
+  RegisterGridModelVersionErrors,
+  RegisterGridModelVersionResponses,
   RegisterRemoteManualSelectionSourceItemsData,
   RegisterRemoteManualSelectionSourceItemsErrors,
   RegisterRemoteManualSelectionSourceItemsResponses,
@@ -912,6 +1071,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RejectOperationalGridGeometryProposalData,
+  RejectOperationalGridGeometryProposalErrors,
+  RejectOperationalGridGeometryProposalResponses,
   RejectPendingBoardCellGeometryData,
   RejectPendingBoardCellGeometryErrors,
   RejectPendingBoardCellGeometryResponses,
@@ -945,6 +1107,12 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeGridReinferenceData,
+  ResumeGridReinferenceErrors,
+  ResumeGridReinferenceResponses,
+  ResumeGridTrainingRunData,
+  ResumeGridTrainingRunErrors,
+  ResumeGridTrainingRunResponses,
   ResumeSemiAutomaticImageSelectionData,
   ResumeSemiAutomaticImageSelectionErrors,
   ResumeSemiAutomaticImageSelectionResponses,
@@ -960,6 +1128,9 @@ import type {
   ReviewBoardSearchShareCorrectionData,
   ReviewBoardSearchShareCorrectionErrors,
   ReviewBoardSearchShareCorrectionResponses,
+  RevokeBoardSearchPanelData,
+  RevokeBoardSearchPanelErrors,
+  RevokeBoardSearchPanelResponses,
   RevokeBoardSearchShareSessionData,
   RevokeBoardSearchShareSessionErrors,
   RevokeBoardSearchShareSessionResponses,
@@ -972,12 +1143,18 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  RollbackGameGridModelData,
+  RollbackGameGridModelErrors,
+  RollbackGameGridModelResponses,
   RollbackGridProfileData,
   RollbackGridProfileErrors,
   RollbackGridProfileResponses,
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  RunHistoricalGridAcceptanceNextData,
+  RunHistoricalGridAcceptanceNextErrors,
+  RunHistoricalGridAcceptanceNextResponses,
   SaveManagementStakeData,
   SaveManagementStakeErrors,
   SaveManagementStakeResponses,
@@ -1020,6 +1197,9 @@ import type {
   SelectSymbolReferenceFromCellReviewData,
   SelectSymbolReferenceFromCellReviewErrors,
   SelectSymbolReferenceFromCellReviewResponses,
+  SetGridModelDefaultData,
+  SetGridModelDefaultErrors,
+  SetGridModelDefaultResponses,
   SetSourceImageGeometryExceptionData,
   SetSourceImageGeometryExceptionErrors,
   SetSourceImageGeometryExceptionResponses,
@@ -1032,6 +1212,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridReinferenceData,
+  StartGridReinferenceErrors,
+  StartGridReinferenceResponses,
   StartGridShadowJobData,
   StartGridShadowJobErrors,
   StartGridShadowJobResponses,
@@ -1128,6 +1311,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  VerifyGridModelEvaluationCurrentnessData,
+  VerifyGridModelEvaluationCurrentnessErrors,
+  VerifyGridModelEvaluationCurrentnessResponses,
   WithdrawSourceImageGeometryExceptionData,
   WithdrawSourceImageGeometryExceptionErrors,
   WithdrawSourceImageGeometryExceptionResponses,
@@ -1150,6 +1336,66 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List Panels
+ */
+export const listBoardSearchPanels = <ThrowOnError extends boolean = false>(
+  options?: Options<ListBoardSearchPanelsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchPanelsResponses,
+  ListBoardSearchPanelsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchPanelsResponses,
+    ListBoardSearchPanelsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-panels', ...options });
+
+/**
+ * Create
+ */
+export const createBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<CreateBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchPanelResponses,
+  CreateBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchPanelResponses,
+    CreateBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-panels',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Revoke
+ */
+export const revokeBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchPanelResponses,
+  RevokeBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchPanelResponses,
+    RevokeBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-panels/{panel_id}/revoke',
+    ...options,
+  });
 
 /**
  * Delete one query log entry; a search takes its follow-up entries with it
@@ -1901,6 +2147,204 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Game Assignment
+ */
+export const getGameGridModelAssignment = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGameGridModelAssignmentData, ThrowOnError>,
+): RequestResult<
+  GetGameGridModelAssignmentResponses,
+  GetGameGridModelAssignmentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGameGridModelAssignmentResponses,
+    GetGameGridModelAssignmentErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-model-assignment', ...options });
+
+/**
+ * Activate
+ */
+export const activateGameGridModel = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateGameGridModelData, ThrowOnError>,
+): RequestResult<
+  ActivateGameGridModelResponses,
+  ActivateGameGridModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateGameGridModelResponses,
+    ActivateGameGridModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Game History
+ */
+export const getGameGridModelHistory = <ThrowOnError extends boolean = false>(
+  options: Options<GetGameGridModelHistoryData, ThrowOnError>,
+): RequestResult<
+  GetGameGridModelHistoryResponses,
+  GetGameGridModelHistoryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGameGridModelHistoryResponses,
+    GetGameGridModelHistoryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/history',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackGameGridModel = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackGameGridModelData, ThrowOnError>,
+): RequestResult<
+  RollbackGameGridModelResponses,
+  RollbackGameGridModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackGameGridModelResponses,
+    RollbackGameGridModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-model-assignment/rollback',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Measurements
+ */
+export const listGridQualityMeasurements = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridQualityMeasurementsData, ThrowOnError>,
+): RequestResult<
+  ListGridQualityMeasurementsResponses,
+  ListGridQualityMeasurementsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridQualityMeasurementsResponses,
+    ListGridQualityMeasurementsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements',
+    ...options,
+  });
+
+/**
+ * Capture
+ */
+export const captureGridQualityMeasurement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CaptureGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  CaptureGridQualityMeasurementResponses,
+  CaptureGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CaptureGridQualityMeasurementResponses,
+    CaptureGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/capture',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Measurement
+ */
+export const getGridQualityMeasurement = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  GetGridQualityMeasurementResponses,
+  GetGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridQualityMeasurementResponses,
+    GetGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}',
+    ...options,
+  });
+
+/**
+ * Assess
+ */
+export const assessGridQualityMeasurement = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AssessGridQualityMeasurementData, ThrowOnError>,
+): RequestResult<
+  AssessGridQualityMeasurementResponses,
+  AssessGridQualityMeasurementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AssessGridQualityMeasurementResponses,
+    AssessGridQualityMeasurementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/assess',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Source Asset
+ */
+export const getGridQualityMeasurementSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridQualityMeasurementSourceData, ThrowOnError>,
+): RequestResult<
+  GetGridQualityMeasurementSourceResponses,
+  GetGridQualityMeasurementSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridQualityMeasurementSourceResponses,
+    GetGridQualityMeasurementSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/sources/{source_id}/asset',
+    ...options,
+  });
+
+/**
  * List current game-wide board geometries with bounded keyset pagination
  */
 export const listImageGridReviews = <ThrowOnError extends boolean = false>(
@@ -1972,6 +2416,351 @@ export const getGridShadowResult = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}',
+    ...options,
+  });
+
+/**
+ * Complete
+ */
+export const completeGridSourceIdentities = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CompleteGridSourceIdentitiesData, ThrowOnError>,
+): RequestResult<
+  CompleteGridSourceIdentitiesResponses,
+  CompleteGridSourceIdentitiesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CompleteGridSourceIdentitiesResponses,
+    CompleteGridSourceIdentitiesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-source-identities/complete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Cohorts
+ */
+export const listGridTrainingCohorts = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridTrainingCohortsData, ThrowOnError>,
+): RequestResult<
+  ListGridTrainingCohortsResponses,
+  ListGridTrainingCohortsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridTrainingCohortsResponses,
+    ListGridTrainingCohortsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-training-cohorts', ...options });
+
+/**
+ * Prepare
+ */
+export const prepareGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<PrepareGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  PrepareGridTrainingCohortResponses,
+  PrepareGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridTrainingCohortResponses,
+    PrepareGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/prepare',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get
+ */
+export const getGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortResponses,
+  GetGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortResponses,
+    GetGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  CancelGridTrainingCohortResponses,
+  CancelGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridTrainingCohortResponses,
+    CancelGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/cancel',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Eligibility
+ */
+export const getGridTrainingCohortEligibility = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridTrainingCohortEligibilityData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortEligibilityResponses,
+  GetGridTrainingCohortEligibilityErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortEligibilityResponses,
+    GetGridTrainingCohortEligibilityErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/eligibility',
+    ...options,
+  });
+
+/**
+ * Freeze
+ */
+export const freezeGridTrainingCohort = <ThrowOnError extends boolean = false>(
+  options: Options<FreezeGridTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  FreezeGridTrainingCohortResponses,
+  FreezeGridTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeGridTrainingCohortResponses,
+    FreezeGridTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/freeze',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Materialize Page
+ */
+export const materializeGridTrainingCohortPage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<MaterializeGridTrainingCohortPageData, ThrowOnError>,
+): RequestResult<
+  MaterializeGridTrainingCohortPageResponses,
+  MaterializeGridTrainingCohortPageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    MaterializeGridTrainingCohortPageResponses,
+    MaterializeGridTrainingCohortPageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/materialize-page',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Members
+ */
+export const getGridTrainingCohortMembers = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridTrainingCohortMembersData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingCohortMembersResponses,
+  GetGridTrainingCohortMembersErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingCohortMembersResponses,
+    GetGridTrainingCohortMembersErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/members',
+    ...options,
+  });
+
+/**
+ * Prepare Page
+ */
+export const prepareGridTrainingCohortPage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PrepareGridTrainingCohortPageData, ThrowOnError>,
+): RequestResult<
+  PrepareGridTrainingCohortPageResponses,
+  PrepareGridTrainingCohortPageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridTrainingCohortPageResponses,
+    PrepareGridTrainingCohortPageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/prepare-page',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Run Preview
+ */
+export const previewGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<PreviewGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  PreviewGridTrainingRunResponses,
+  PreviewGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGridTrainingRunResponses,
+    PreviewGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview',
+    ...options,
+  });
+
+/**
+ * List Runs
+ */
+export const listGridTrainingRuns = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridTrainingRunsData, ThrowOnError>,
+): RequestResult<
+  ListGridTrainingRunsResponses,
+  ListGridTrainingRunsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridTrainingRunsResponses,
+    ListGridTrainingRunsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-training-runs', ...options });
+
+/**
+ * Create
+ */
+export const createGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  CreateGridTrainingRunResponses,
+  CreateGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridTrainingRunResponses,
+    CreateGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get
+ */
+export const getGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  GetGridTrainingRunResponses,
+  GetGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridTrainingRunResponses,
+    GetGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  CancelGridTrainingRunResponses,
+  CancelGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridTrainingRunResponses,
+    CancelGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/cancel',
+    ...options,
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridTrainingRun = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeGridTrainingRunData, ThrowOnError>,
+): RequestResult<
+  ResumeGridTrainingRunResponses,
+  ResumeGridTrainingRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridTrainingRunResponses,
+    ResumeGridTrainingRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/resume',
     ...options,
   });
 
@@ -2515,6 +3304,51 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/rules-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Groups
+ */
+export const listSourceRecordingGroups = <ThrowOnError extends boolean = false>(
+  options: Options<ListSourceRecordingGroupsData, ThrowOnError>,
+): RequestResult<
+  ListSourceRecordingGroupsResponses,
+  ListSourceRecordingGroupsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSourceRecordingGroupsResponses,
+    ListSourceRecordingGroupsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/source-recording-groups',
+    ...options,
+  });
+
+/**
+ * Command Groups
+ */
+export const commandSourceRecordingGroups = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CommandSourceRecordingGroupsData, ThrowOnError>,
+): RequestResult<
+  CommandSourceRecordingGroupsResponses,
+  CommandSourceRecordingGroupsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CommandSourceRecordingGroupsResponses,
+    CommandSourceRecordingGroupsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/source-recording-groups/commands',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -3533,6 +4367,207 @@ export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
 
 /**
+ * Default
+ */
+export const getGridModelDefault = <ThrowOnError extends boolean = false>(
+  options?: Options<GetGridModelDefaultData, ThrowOnError>,
+): RequestResult<
+  GetGridModelDefaultResponses,
+  GetGridModelDefaultErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetGridModelDefaultResponses,
+    GetGridModelDefaultErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-default', ...options });
+
+/**
+ * Set Default
+ */
+export const setGridModelDefault = <ThrowOnError extends boolean = false>(
+  options: Options<SetGridModelDefaultData, ThrowOnError>,
+): RequestResult<
+  SetGridModelDefaultResponses,
+  SetGridModelDefaultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetGridModelDefaultResponses,
+    SetGridModelDefaultErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-default',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Evaluations
+ */
+export const listGridModelEvaluations = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridModelEvaluationsData, ThrowOnError>,
+): RequestResult<
+  ListGridModelEvaluationsResponses,
+  ListGridModelEvaluationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridModelEvaluationsResponses,
+    ListGridModelEvaluationsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-evaluations', ...options });
+
+/**
+ * Create
+ */
+export const createGridModelEvaluation = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGridModelEvaluationData, ThrowOnError>,
+): RequestResult<
+  CreateGridModelEvaluationResponses,
+  CreateGridModelEvaluationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridModelEvaluationResponses,
+    CreateGridModelEvaluationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-evaluations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Verify
+ */
+export const verifyGridModelEvaluationCurrentness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<VerifyGridModelEvaluationCurrentnessData, ThrowOnError>,
+): RequestResult<
+  VerifyGridModelEvaluationCurrentnessResponses,
+  VerifyGridModelEvaluationCurrentnessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    VerifyGridModelEvaluationCurrentnessResponses,
+    VerifyGridModelEvaluationCurrentnessErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-evaluations/reports/{report_id}/currentness',
+    ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridModelEvaluation = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridModelEvaluationData, ThrowOnError>,
+): RequestResult<
+  GetGridModelEvaluationResponses,
+  GetGridModelEvaluationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridModelEvaluationResponses,
+    GetGridModelEvaluationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/grid-model-evaluations/{evaluation_id}',
+    ...options,
+  });
+
+/**
+ * History
+ */
+export const getGridModelHistory = <ThrowOnError extends boolean = false>(
+  options?: Options<GetGridModelHistoryData, ThrowOnError>,
+): RequestResult<
+  GetGridModelHistoryResponses,
+  GetGridModelHistoryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetGridModelHistoryResponses,
+    GetGridModelHistoryErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-history', ...options });
+
+/**
+ * List Versions
+ */
+export const listGridModelVersions = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGridModelVersionsData, ThrowOnError>,
+): RequestResult<
+  ListGridModelVersionsResponses,
+  ListGridModelVersionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListGridModelVersionsResponses,
+    ListGridModelVersionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-model-versions', ...options });
+
+/**
+ * Register Version
+ */
+export const registerGridModelVersion = <ThrowOnError extends boolean = false>(
+  options: Options<RegisterGridModelVersionData, ThrowOnError>,
+): RequestResult<
+  RegisterGridModelVersionResponses,
+  RegisterGridModelVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterGridModelVersionResponses,
+    RegisterGridModelVersionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Publish
+ */
+export const publishGridModelVersion = <ThrowOnError extends boolean = false>(
+  options: Options<PublishGridModelVersionData, ThrowOnError>,
+): RequestResult<
+  PublishGridModelVersionResponses,
+  PublishGridModelVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PublishGridModelVersionResponses,
+    PublishGridModelVersionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-versions/{version_id}/publish',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List finalized browser staging folders ready for layout import
  */
 export const listReadyBrowserImageSelections = <
@@ -4467,6 +5502,131 @@ export const getImageGeometryCompleteness = <
   });
 
 /**
+ * Create Historical Grid Acceptance
+ */
+export const createHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  CreateHistoricalGridAcceptanceResponses,
+  CreateHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateHistoricalGridAcceptanceResponses,
+    CreateHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Historical Grid Acceptance
+ */
+export const getHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  GetHistoricalGridAcceptanceResponses,
+  GetHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetHistoricalGridAcceptanceResponses,
+    GetHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Confirm Historical Grid Acceptance
+ */
+export const confirmHistoricalGridAcceptance = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ConfirmHistoricalGridAcceptanceData, ThrowOnError>,
+): RequestResult<
+  ConfirmHistoricalGridAcceptanceResponses,
+  ConfirmHistoricalGridAcceptanceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ConfirmHistoricalGridAcceptanceResponses,
+    ConfirmHistoricalGridAcceptanceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/confirm',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Historical Grid Acceptance Next
+ */
+export const previewHistoricalGridAcceptanceNext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewHistoricalGridAcceptanceNextData, ThrowOnError>,
+): RequestResult<
+  PreviewHistoricalGridAcceptanceNextResponses,
+  PreviewHistoricalGridAcceptanceNextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewHistoricalGridAcceptanceNextResponses,
+    PreviewHistoricalGridAcceptanceNextErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/preview-next',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Run Historical Grid Acceptance Next
+ */
+export const runHistoricalGridAcceptanceNext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RunHistoricalGridAcceptanceNextData, ThrowOnError>,
+): RequestResult<
+  RunHistoricalGridAcceptanceNextResponses,
+  RunHistoricalGridAcceptanceNextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RunHistoricalGridAcceptanceNextResponses,
+    RunHistoricalGridAcceptanceNextErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/run-next',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Withdraw the geometry exception of a source image before human decisions
  */
 export const withdrawSourceImageGeometryException = <
@@ -4575,6 +5735,211 @@ export const getImageGeometryLowQualityBoards = <
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
     ...options,
+  });
+
+/**
+ * List Operations
+ */
+export const listGridReinferenceOperations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridReinferenceOperationsData, ThrowOnError>,
+): RequestResult<
+  ListGridReinferenceOperationsResponses,
+  ListGridReinferenceOperationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridReinferenceOperationsResponses,
+    ListGridReinferenceOperationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations',
+    ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  GetGridReinferenceResponses,
+  GetGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridReinferenceResponses,
+    GetGridReinferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<CancelGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  CancelGridReinferenceResponses,
+  CancelGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridReinferenceResponses,
+    CancelGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/cancel',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Freeze
+ */
+export const freezeGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<FreezeGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  FreezeGridReinferenceResponses,
+  FreezeGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeGridReinferenceResponses,
+    FreezeGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/freeze',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Ack
+ */
+export const acknowledgeGridReinferencePilot = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AcknowledgeGridReinferencePilotData, ThrowOnError>,
+): RequestResult<
+  AcknowledgeGridReinferencePilotResponses,
+  AcknowledgeGridReinferencePilotErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcknowledgeGridReinferencePilotResponses,
+    AcknowledgeGridReinferencePilotErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/pilot-ack',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  ResumeGridReinferenceResponses,
+  ResumeGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridReinferenceResponses,
+    ResumeGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/resume',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Start
+ */
+export const startGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<StartGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  StartGridReinferenceResponses,
+  StartGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartGridReinferenceResponses,
+    StartGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Targets
+ */
+export const getGridReinferenceTargets = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridReinferenceTargetsData, ThrowOnError>,
+): RequestResult<
+  GetGridReinferenceTargetsResponses,
+  GetGridReinferenceTargetsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridReinferenceTargetsResponses,
+    GetGridReinferenceTargetsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/targets',
+    ...options,
+  });
+
+/**
+ * Prepare
+ */
+export const prepareGridReinference = <ThrowOnError extends boolean = false>(
+  options: Options<PrepareGridReinferenceData, ThrowOnError>,
+): RequestResult<
+  PrepareGridReinferenceResponses,
+  PrepareGridReinferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PrepareGridReinferenceResponses,
+    PrepareGridReinferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -4852,6 +6217,128 @@ export const createOperationalImageReviewGeometryRevision = <
   });
 
 /**
+ * List Grid Geometry Proposals
+ */
+export const listOperationalGridGeometryProposals = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListOperationalGridGeometryProposalsData, ThrowOnError>,
+): RequestResult<
+  ListOperationalGridGeometryProposalsResponses,
+  ListOperationalGridGeometryProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListOperationalGridGeometryProposalsResponses,
+    ListOperationalGridGeometryProposalsErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals',
+    ...options,
+  });
+
+/**
+ * Create Grid Geometry Proposal
+ */
+export const createOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  CreateOperationalGridGeometryProposalResponses,
+  CreateOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateOperationalGridGeometryProposalResponses,
+    CreateOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get Grid Geometry Proposal
+ */
+export const getOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  GetOperationalGridGeometryProposalResponses,
+  GetOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalGridGeometryProposalResponses,
+    GetOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}',
+    ...options,
+  });
+
+/**
+ * Accept Grid Geometry Proposal
+ */
+export const acceptOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AcceptOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  AcceptOperationalGridGeometryProposalResponses,
+  AcceptOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcceptOperationalGridGeometryProposalResponses,
+    AcceptOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reject Grid Geometry Proposal
+ */
+export const rejectOperationalGridGeometryProposal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectOperationalGridGeometryProposalData, ThrowOnError>,
+): RequestResult<
+  RejectOperationalGridGeometryProposalResponses,
+  RejectOperationalGridGeometryProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectOperationalGridGeometryProposalResponses,
+    RejectOperationalGridGeometryProposalErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Atomically append and materialize one whole-board decision
  */
 export const resolveOperationalImageReviewItem = <
@@ -4921,6 +6408,32 @@ export const getImageGridReviewCorrectionSymbols = <
   >({
     url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols',
     ...options,
+  });
+
+/**
+ * Approve
+ */
+export const approveOperationalGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveOperationalGeometryData, ThrowOnError>,
+): RequestResult<
+  ApproveOperationalGeometryResponses,
+  ApproveOperationalGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveOperationalGeometryResponses,
+    ApproveOperationalGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approvals',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -8094,6 +9607,47 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/worker-lanes', ...options });
+
+/**
+ * Context
+ */
+export const getBoardSearchPanelContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchPanelContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchPanelContextResponses,
+  GetBoardSearchPanelContextErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchPanelContextResponses,
+    GetBoardSearchPanelContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-panels/{panel_id}/context', ...options });
+
+/**
+ * Open Panel
+ */
+export const openBoardSearchPanel = <ThrowOnError extends boolean = false>(
+  options: Options<OpenBoardSearchPanelData, ThrowOnError>,
+): RequestResult<
+  OpenBoardSearchPanelResponses,
+  OpenBoardSearchPanelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OpenBoardSearchPanelResponses,
+    OpenBoardSearchPanelErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-panels/{panel_id}/open',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Calculate the approximate win for a range of the shared game

@@ -1,7 +1,8 @@
 param(
     [ValidateSet('Create', 'Cuda', 'Dependencies', 'Project', 'Check')]
     [string]$Step = 'Check',
-    [ValidateRange(1, 120)][int]$TimeoutSeconds = 120
+    # 120 s by default; the first CUDA download (about 3 GB) may need an explicit longer limit.
+    [ValidateRange(1, 1800)][int]$TimeoutSeconds = 120
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -20,6 +21,8 @@ $argsList = switch ($Step) {
 }
 $executable = if ($Step -eq 'Create') { $basePython } else { $labPython }
 $process = Start-Process -FilePath $executable -ArgumentList $argsList -WorkingDirectory $repoRoot -PassThru -NoNewWindow
+# Windows PowerShell 5.1 reports no ExitCode after WaitForExit(timeout) unless the handle is opened first.
+$null = $process.Handle
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     # Terminate this process tree, never an unrelated service or an unverified PID.
     & taskkill.exe /PID $process.Id /T /F | Out-Null

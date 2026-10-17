@@ -345,10 +345,10 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
 
 test('shows V3 for every grid engine profile and keeps the classical default without deprecated radio choices', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
-  assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
+  assert.match(panelSource, /value: DEFAULT_GEOMETRY_ENGINE_VARIANT/);
   assert.match(
     panelSource,
-    /usesNeuralGrid = isGridEngineProfileConfiguration\(\s*shapeGeometryConfiguration,?\s*\)/,
+    /usesNeuralGrid = usesNeuralGridConfiguration\(\s*shapeGeometryConfiguration,\s*gameCode,?\s*\)/,
   );
   assert.match(
     panelSource,
@@ -512,4 +512,30 @@ test('polls board import coverage only while an import job is active', () => {
   assert.match(missingBoardsSectionSource, /window\.setInterval/);
   assert.match(missingBoardsSectionSource, /window\.clearInterval/);
   assert.match(missingBoardsSectionSource, /POLL_INTERVAL_MS = 15_000/);
+});
+
+test('V3 unbound sources are shown, confirmed and reported instead of skipped silently (TASK-1041)', () => {
+  // Before start: count, explicit checkbox and a way to bind a sample manually.
+  assert.match(panelSource, /zdjęć nie ma przypisania plansz/);
+  assert.match(panelSource, /Importuj bez tych/);
+  assert.match(
+    panelSource,
+    /setNeuralPreviewJobId\(geometryPreflightJob\.id\)/,
+  );
+  assert.match(
+    panelSource,
+    /neuralUnboundSkipConfirmed: neuralUnboundSkipAccepted/,
+  );
+  assert.match(
+    panelSource,
+    /neuralUnboundSourceCount > 0 \? neuralUnboundSourceCount : undefined/,
+  );
+  assert.match(
+    panelSource,
+    /result\.code === 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED'/,
+  );
+  // After start: the import list shows the durable skip summary.
+  assert.match(panelSource, /job\.progress\.neuralUnboundSources/);
+  assert.match(panelSource, /neuralUnboundSourcesLabel\(/);
+  assert.match(globalStyles, /\.neuralUnboundSourcesWarning \{/);
 });

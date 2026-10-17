@@ -1151,6 +1151,7 @@ export type BoardImportCoverageResponse = {
    */
   computedAt: string;
   counts: BoardImportCoverageCountsResponse;
+  diagnostics?: GridDiagnosticsResponse | null;
   /**
    * Expectedlayoutcount
    */
@@ -1520,6 +1521,149 @@ export type BoardSearchLineMatchResponse = {
    * Symbolcode
    */
   symbolCode: string;
+};
+
+/**
+ * BoardSearchPanelContextResponse
+ */
+export type BoardSearchPanelContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Games
+   */
+  games: Array<BoardSearchPanelPublicGameResponse>;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Panelid
+   */
+  panelId: string;
+};
+
+/**
+ * BoardSearchPanelCreate
+ */
+export type BoardSearchPanelCreate = {
+  /**
+   * Gameids
+   */
+  gameIds: Array<string>;
+  /**
+   * Label
+   */
+  label?: string | null;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * BoardSearchPanelCreatedResponse
+ */
+export type BoardSearchPanelCreatedResponse = {
+  /**
+   * Linkkey
+   *
+   * Shown once; stored only as a hash on the server.
+   */
+  linkKey: string;
+  panel: BoardSearchPanelResponse;
+};
+
+/**
+ * BoardSearchPanelGameResponse
+ */
+export type BoardSearchPanelGameResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchPanelListResponse
+ */
+export type BoardSearchPanelListResponse = {
+  /**
+   * Panels
+   */
+  panels: Array<BoardSearchPanelResponse>;
+};
+
+/**
+ * BoardSearchPanelOpen
+ */
+export type BoardSearchPanelOpen = {
+  /**
+   * Linkkey
+   */
+  linkKey: string;
+};
+
+/**
+ * BoardSearchPanelPublicGameResponse
+ */
+export type BoardSearchPanelPublicGameResponse = {
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchPanelResponse
+ */
+export type BoardSearchPanelResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Games
+   */
+  games: Array<BoardSearchPanelGameResponse>;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Panelid
+   */
+  panelId: string;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Shareurl
+   */
+  shareUrl: string | null;
+  /**
+   * Status
+   */
+  status: string;
 };
 
 /**
@@ -2336,7 +2480,17 @@ export type BrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -2465,6 +2619,20 @@ export type BrowserImageImportPreflightResponse = {
    */
   manifestChecksumSha256: string;
   /**
+   * Neuralunboundattestedboardcount
+   */
+  neuralUnboundAttestedBoardCount?: number;
+  /**
+   * Neuralunboundcountpreflightjobid
+   *
+   * Completed V3 geometry preflight whose frozen manifest gave the counts.
+   */
+  neuralUnboundCountPreflightJobId?: string | null;
+  /**
+   * Neuralunboundsourcecount
+   */
+  neuralUnboundSourceCount?: number;
+  /**
    * Newsequencecount
    */
   newSequenceCount: number;
@@ -2546,6 +2714,12 @@ export type BrowserImageImportStart = {
    */
   boardCellProcessingMode?:
     'structured_default' | 'structured_lattice_v3' | null;
+  /**
+   * Confirmedneuralunboundsourcecount
+   *
+   * Explicit operator confirmation that the pinned V3 manifest's sources without a slot binding are skipped; must equal their current count.
+   */
+  confirmedNeuralUnboundSourceCount?: number | null;
   /**
    * Gameid
    */
@@ -3246,6 +3420,34 @@ export type CanonicalImageReviewPageResponse = {
    * Previouscursor
    */
   previousCursor: string | null;
+};
+
+/**
+ * CatalogueNeuralGridSnapshotPayload
+ */
+export type CatalogueNeuralGridSnapshotPayload = {
+  catalogueManifest: GridModelManifest;
+  /**
+   * Cataloguemanifestsha256
+   */
+  catalogueManifestSha256: string;
+  /**
+   * Contractversion
+   */
+  contractVersion: 'neural-grid-proposal-snapshot-v2';
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
+   * Gameconfiguration
+   */
+  gameConfiguration:
+    'neural_grid_v3' | 'grid_profile_777_v2' | 'grid_profile_mumie_v1';
+  /**
+   * Gameid
+   */
+  gameId: string;
 };
 
 /**
@@ -3989,6 +4191,23 @@ export type GameCreate = {
    */
   expectedLayoutCount?: number;
   /**
+   * Gridmodel
+   */
+  gridModel?:
+    | ({
+        mode: 'default';
+      } & GameDefaultGridModel)
+    | ({
+        mode: 'published';
+      } & GamePublishedGridModel)
+    | ({
+        mode: 'fork';
+      } & GameForkGridModel);
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
    * Name
    */
   name: string;
@@ -3998,6 +4217,83 @@ export type GameCreate = {
    * Supergamekind
    */
   superGameKind?: string;
+};
+
+/**
+ * GameDefaultGridModel
+ */
+export type GameDefaultGridModel = {
+  /**
+   * Mode
+   */
+  mode?: 'default';
+};
+
+/**
+ * GameForkGridModel
+ */
+export type GameForkGridModel = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Familycode
+   */
+  familyCode: string;
+  /**
+   * Familylabel
+   */
+  familyLabel: string;
+  /**
+   * Mode
+   */
+  mode: 'fork';
+};
+
+/**
+ * GameGridModelAssignmentResponse
+ */
+export type GameGridModelAssignmentResponse = {
+  /**
+   * Eventcount
+   */
+  eventCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Initialtransferallowed
+   */
+  initialTransferAllowed?: boolean;
+  /**
+   * Revision
+   */
+  revision: number | null;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  /**
+   * Trainingfamilylabel
+   */
+  trainingFamilyLabel?: string | null;
+  version: GridModelVersionResponse | null;
+};
+
+/**
+ * GamePublishedGridModel
+ */
+export type GamePublishedGridModel = {
+  /**
+   * Mode
+   */
+  mode: 'published';
+  /**
+   * Versionid
+   */
+  versionId: string;
 };
 
 /**
@@ -4071,7 +4367,8 @@ export type GameShapeGeometryConfiguration =
   | 'framed_full_page_v2'
   | 'requires_clarification'
   | 'grid_profile_777_v2'
-  | 'grid_profile_mumie_v1';
+  | 'grid_profile_mumie_v1'
+  | 'neural_grid_v3';
 
 /**
  * GameStatus
@@ -4096,6 +4393,52 @@ export type GameUpdate = {
    * Supergamekind
    */
   superGameKind?: string | null;
+};
+
+/**
+ * GeometryApprovalCommand
+ */
+export type GeometryApprovalCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Targetsha256
+   */
+  targetSha256: string;
+};
+
+/**
+ * GeometryApprovalResponse
+ */
+export type GeometryApprovalResponse = {
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
 };
 
 /**
@@ -4982,6 +5325,385 @@ export type GridCalibrationProfileResponse = {
 };
 
 /**
+ * GridCohortCommandResponse
+ */
+export type GridCohortCommandResponse = {
+  cohort: GridCohortHeader;
+  receipt: GridCohortReceipt;
+};
+
+/**
+ * GridCohortEligibility
+ */
+export type GridCohortEligibility = {
+  /**
+   * Humanlabelwithdrawn
+   */
+  humanLabelWithdrawn: boolean | null;
+  /**
+   * Livesourcelinked
+   */
+  liveSourceLinked: boolean | null;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Qualification
+   */
+  qualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Snapshotbytesavailable
+   */
+  snapshotBytesAvailable: boolean | null;
+};
+
+/**
+ * GridCohortFreezeCommand
+ */
+export type GridCohortFreezeCommand = {
+  /**
+   * Expectedmanifestsha256
+   */
+  expectedManifestSha256: string;
+  /**
+   * Expectedpreviewsha256
+   */
+  expectedPreviewSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortHeader
+ */
+export type GridCohortHeader = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Nextcapturecursor
+   */
+  nextCaptureCursor: number | null;
+  /**
+   * Nextmaterializationcursor
+   */
+  nextMaterializationCursor: number | null;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status:
+    | 'preparing'
+    | 'preview_ready'
+    | 'materializing'
+    | 'ready_to_freeze'
+    | 'frozen'
+    | 'failed'
+    | 'canceled';
+  summary: GridCohortSummary;
+};
+
+/**
+ * GridCohortList
+ */
+export type GridCohortList = {
+  /**
+   * Items
+   */
+  items: Array<GridCohortHeader>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridCohortMember
+ */
+export type GridCohortMember = {
+  /**
+   * Boardeligiblecount
+   */
+  boardEligibleCount: number;
+  /**
+   * Metadatamissing
+   */
+  metadataMissing: boolean;
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Qualification
+   */
+  qualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
+  /**
+   * Screeneligible
+   */
+  screenEligible: boolean;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * GridCohortMembers
+ */
+export type GridCohortMembers = {
+  /**
+   * Items
+   */
+  items: Array<GridCohortMember>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: number | null;
+};
+
+/**
+ * GridCohortPageCommand
+ */
+export type GridCohortPageCommand = {
+  /**
+   * Cursor
+   */
+  cursor: number;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortPrepareCommand
+ */
+export type GridCohortPrepareCommand = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Recordings
+   */
+  recordings: Array<GridCohortRecording>;
+  selector: GridCohortSelector;
+};
+
+/**
+ * GridCohortReceipt
+ */
+export type GridCohortReceipt = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'prepare' | 'prepare-page' | 'materialize-page' | 'freeze' | 'cancel';
+  /**
+   * Outcome
+   */
+  outcome: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * GridCohortRecording
+ */
+export type GridCohortRecording = {
+  /**
+   * Groupid
+   */
+  groupId: string;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION';
+};
+
+/**
+ * GridCohortRevisionCommand
+ */
+export type GridCohortRevisionCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridCohortRoleSummary
+ */
+export type GridCohortRoleSummary = {
+  /**
+   * Eligibleboards
+   */
+  eligibleBoards: number;
+  /**
+   * Eligiblefullphotos
+   */
+  eligibleFullPhotos: number;
+  /**
+   * Eligiblephotos
+   */
+  eligiblePhotos: number;
+  /**
+   * Materializedboards
+   */
+  materializedBoards?: number;
+  /**
+   * Materializedfullphotos
+   */
+  materializedFullPhotos?: number;
+  /**
+   * Materializedphotos
+   */
+  materializedPhotos?: number;
+  /**
+   * Missingboards
+   */
+  missingBoards: number;
+  /**
+   * Missingfullphotos
+   */
+  missingFullPhotos: number;
+  /**
+   * Missingphotos
+   */
+  missingPhotos: number;
+  /**
+   * Recordingrequired
+   */
+  recordingRequired: boolean;
+  /**
+   * Requiredboards
+   */
+  requiredBoards: number;
+  /**
+   * Requiredfullphotos
+   */
+  requiredFullPhotos: number;
+  /**
+   * Requiredphotos
+   */
+  requiredPhotos: number;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION';
+};
+
+/**
+ * GridCohortSelector
+ */
+export type GridCohortSelector = {
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Importjobids
+   */
+  importJobIds?: Array<string> | null;
+  /**
+   * Sourceids
+   */
+  sourceIds?: Array<string> | null;
+};
+
+/**
+ * GridCohortSummary
+ */
+export type GridCohortSummary = {
+  /**
+   * Reasoncounts
+   */
+  reasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Roles
+   */
+  roles: Array<GridCohortRoleSummary>;
+};
+
+/**
  * GridCorrectionCellSymbolPayload
  *
  * One symbol the operator assigns to a cell while saving its grid (D-488).
@@ -5028,6 +5750,129 @@ export type GridCorrectionSymbolsResponse = {
    * Cells
    */
   cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
+};
+
+/**
+ * GridDiagnosticsResponse
+ *
+ * Whole-game populations: sequence, review row, source slot, board and cell.
+ *
+ * Categories and intersections overlap. Neither unconfirmed geometry nor
+ * unknown symbols imply a missing sequence or measured pixel correctness.
+ */
+export type GridDiagnosticsResponse = {
+  /**
+   * Canonicalreviewoverlap
+   */
+  canonicalReviewOverlap: number;
+  /**
+   * Canonicalsequences
+   */
+  canonicalSequences: number;
+  /**
+   * Deferredslotcoverage
+   */
+  deferredSlotCoverage: {
+    [key: string]: number;
+  };
+  /**
+   * Deferredslotsbyreason
+   */
+  deferredSlotsByReason: {
+    [key: string]: number;
+  };
+  /**
+   * Deferredslotsbystatus
+   */
+  deferredSlotsByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Duplicatequalifyingreviewrows
+   */
+  duplicateQualifyingReviewRows: number;
+  /**
+   * Flaggedgridboards
+   */
+  flaggedGridBoards: number;
+  /**
+   * Flaggedunconfirmedboards
+   */
+  flaggedUnconfirmedBoards: number;
+  /**
+   * Lowconfidencethreshold
+   */
+  lowConfidenceThreshold: number;
+  /**
+   * Missingreasonintersections
+   */
+  missingReasonIntersections: {
+    [key: string]: number;
+  };
+  /**
+   * Missingreasonsignals
+   */
+  missingReasonSignals: {
+    [key: string]: number;
+  };
+  /**
+   * Qualifyingreviewrows
+   */
+  qualifyingReviewRows: number;
+  /**
+   * Qualifyingreviewsequences
+   */
+  qualifyingReviewSequences: number;
+  /**
+   * Reviewrowsbystatus
+   */
+  reviewRowsByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Reviewsequencesbystatus
+   */
+  reviewSequencesByStatus: {
+    [key: string]: number;
+  };
+  /**
+   * Scope
+   */
+  scope?: 'whole_game';
+  /**
+   * Sourcegate
+   */
+  sourceGate: {
+    [key: string]: number;
+  };
+  /**
+   * Sourceimages
+   */
+  sourceImages: {
+    [key: string]: number;
+  };
+  /**
+   * Sourcepositions
+   */
+  sourcePositions: {
+    [key: string]: number;
+  };
+  /**
+   * Symbolcellintersections
+   */
+  symbolCellIntersections: {
+    [key: string]: number;
+  };
+  /**
+   * Symbolcells
+   */
+  symbolCells: {
+    [key: string]: number;
+  };
+  /**
+   * Unconfirmedgeometryboards
+   */
+  unconfirmedGeometryBoards: number;
 };
 
 /**
@@ -5237,6 +6082,1093 @@ export type GridEngineReportResultResponse = {
 };
 
 /**
+ * GridGeometryProposalResponse
+ *
+ * Candidate evidence stays separate from human geometry and applicability.
+ */
+export type GridGeometryProposalResponse = {
+  /**
+   * Accepted
+   */
+  accepted: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Applicable
+   */
+  applicable: boolean;
+  candidate: ProposalCandidateResponse;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * State
+   */
+  state: 'pending' | 'accepted' | 'rejected' | 'stale';
+};
+
+/**
+ * GridInferenceManifest
+ */
+export type GridInferenceManifest = {
+  /**
+   * Bundleformat
+   */
+  bundleFormat: string;
+  /**
+   * Checkpointsha256
+   */
+  checkpointSha256: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Files
+   */
+  files: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Frozenon
+   */
+  frozenOn: string;
+  /**
+   * Modelkind
+   */
+  modelKind: 'neural_grid';
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preset
+   */
+  preset: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Profile
+   */
+  profile: string;
+  /**
+   * Report
+   */
+  report: string;
+  /**
+   * Reportresults
+   */
+  reportResults: Array<GridModelHistoricalReport>;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-engine-model-manifest-v1';
+  /**
+   * Selectionreason
+   */
+  selectionReason: string;
+  /**
+   * Snapshotid
+   */
+  snapshotId: string;
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridModelArtifact
+ */
+export type GridModelArtifact = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+};
+
+/**
+ * GridModelAssignmentCommand
+ */
+export type GridModelAssignmentCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode?: 'evaluated' | 'initial_transfer';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelControlReceipt
+ */
+export type GridModelControlReceipt = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string | null;
+  /**
+   * Eventid
+   */
+  eventId?: string | null;
+  /**
+   * Evidencekind
+   */
+  evidenceKind:
+    'historical_admission' | 'evaluated_candidate' | 'transfer_bootstrap';
+  /**
+   * Evidencesha256
+   */
+  evidenceSha256: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'publish' | 'set_default' | 'activate' | 'rollback' | 'bootstrap';
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Mode
+   */
+  mode?: 'initial_transfer' | null;
+  /**
+   * Origin
+   */
+  origin?: 'game-create-v1' | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  transfer?: GridModelTransferProvenance | null;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelDefaultResponse
+ */
+export type GridModelDefaultResponse = {
+  /**
+   * Eligible
+   */
+  eligible: boolean;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  version: GridModelVersionResponse | null;
+};
+
+/**
+ * GridModelEvaluationCohortPin
+ */
+export type GridModelEvaluationCohortPin = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridModelEvaluationCohortRef
+ */
+export type GridModelEvaluationCohortRef = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridModelEvaluationCreate
+ */
+export type GridModelEvaluationCreate = {
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortRef>;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationCurrentness
+ */
+export type GridModelEvaluationCurrentness = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Noticecount
+   */
+  noticeCount: number;
+  /**
+   * Provenat
+   */
+  provenAt: string | null;
+  /**
+   * Provennoticecount
+   */
+  provenNoticeCount: number | null;
+  /**
+   * State
+   */
+  state: 'current' | 'stale' | 'missing' | 'unavailable';
+};
+
+/**
+ * GridModelEvaluationCurrentnessResult
+ */
+export type GridModelEvaluationCurrentnessResult = {
+  /**
+   * Currentness
+   */
+  currentness: Array<GridModelEvaluationCurrentness>;
+  /**
+   * Failures
+   */
+  failures: Array<GridModelEvaluationProofFailure>;
+  /**
+   * Reportid
+   */
+  reportId: string;
+};
+
+/**
+ * GridModelEvaluationDetail
+ */
+export type GridModelEvaluationDetail = {
+  /**
+   * Path
+   */
+  path: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+};
+
+/**
+ * GridModelEvaluationGame
+ */
+export type GridModelEvaluationGame = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Coverage
+   */
+  coverage: 'complete' | 'incomplete';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Regression
+   */
+  regression: 'pass' | 'fail' | 'not_evaluable';
+  roles: GridModelEvaluationRoles;
+  /**
+   * Targetmetric
+   */
+  targetMetric: string;
+  /**
+   * Validation
+   */
+  validation: 'pass' | 'fail' | 'not_evaluable';
+};
+
+/**
+ * GridModelEvaluationJobPayload
+ *
+ * Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route.
+ */
+export type GridModelEvaluationJobPayload = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Evaluationkind
+   */
+  evaluationKind: 'grid-model-evaluation-v1';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationList
+ */
+export type GridModelEvaluationList = {
+  /**
+   * Items
+   */
+  items: Array<GridModelEvaluationView>;
+};
+
+/**
+ * GridModelEvaluationMetrics
+ */
+export type GridModelEvaluationMetrics = {
+  /**
+   * Board Correct Rate
+   */
+  board_correct_rate: number | null;
+  /**
+   * Boards Correct
+   */
+  boards_correct: number;
+  /**
+   * Boards Expected
+   */
+  boards_expected: number;
+  /**
+   * Boards Matched
+   */
+  boards_matched: number;
+  /**
+   * Detection Recall
+   */
+  detection_recall: number | null;
+  /**
+   * Duplicate Predictions
+   */
+  duplicate_predictions: number;
+  /**
+   * False Boards
+   */
+  false_boards: number;
+  /**
+   * Image Macro
+   */
+  image_macro: number | null;
+  /**
+   * Max Node Error P95
+   */
+  max_node_error_p95: number | null;
+  /**
+   * Nme P95
+   */
+  nme_p95: number | null;
+  /**
+   * Photo Complete Correct
+   */
+  photo_complete_correct: number;
+  /**
+   * Photo Complete Correct Rate
+   */
+  photo_complete_correct_rate: number | null;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
+ * GridModelEvaluationParity
+ */
+export type GridModelEvaluationParity = {
+  /**
+   * Bundlesha256
+   */
+  bundleSha256: string;
+  /**
+   * Passed
+   */
+  passed: boolean;
+};
+
+/**
+ * GridModelEvaluationProofFailure
+ */
+export type GridModelEvaluationProofFailure = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridModelEvaluationRecording
+ */
+export type GridModelEvaluationRecording = {
+  base: GridModelEvaluationMetrics;
+  candidate: GridModelEvaluationMetrics;
+  /**
+   * Groupid
+   */
+  groupId: string;
+};
+
+/**
+ * GridModelEvaluationReport
+ */
+export type GridModelEvaluationReport = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<GridModelEvaluationGame>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  /**
+   * Policy
+   */
+  policy: {
+    [key: string]: unknown;
+  };
+  /**
+   * Policyversion
+   */
+  policyVersion: string;
+  /**
+   * Producer
+   */
+  producer: string;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v2';
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelEvaluationRole
+ */
+export type GridModelEvaluationRole = {
+  base: GridModelEvaluationMetrics;
+  candidate: GridModelEvaluationMetrics;
+  detail: GridModelEvaluationDetail;
+  /**
+   * Inputsha256
+   */
+  inputSha256: string;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Recordings
+   */
+  recordings: Array<GridModelEvaluationRecording>;
+};
+
+/**
+ * GridModelEvaluationRoles
+ */
+export type GridModelEvaluationRoles = {
+  REGRESSION: GridModelEvaluationRole;
+  VALIDATION: GridModelEvaluationRole;
+};
+
+/**
+ * GridModelEvaluationView
+ */
+export type GridModelEvaluationView = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cancelrequested
+   */
+  cancelRequested: boolean;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortRef>;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Currentness
+   */
+  currentness: Array<GridModelEvaluationCurrentness>;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string;
+  /**
+   * Progresscurrent
+   */
+  progressCurrent: number;
+  /**
+   * Progresstotal
+   */
+  progressTotal: number | null;
+  report: GridModelEvaluationReport | null;
+  /**
+   * Reportid
+   */
+  reportId: string;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  /**
+   * Status
+   */
+  status:
+    | 'created'
+    | 'processing'
+    | 'waiting_for_review'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE' | null;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelHistoricalReport
+ */
+export type GridModelHistoricalReport = {
+  /**
+   * Dataset
+   */
+  dataset: string;
+  /**
+   * Result
+   */
+  result: string;
+};
+
+/**
+ * GridModelHistoryEvent
+ */
+export type GridModelHistoryEvent = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Commandsha256
+   */
+  commandSha256?: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Evaluationid
+   */
+  evaluationId?: string | null;
+  /**
+   * Eventid
+   */
+  eventId?: string | null;
+  /**
+   * Evidencekind
+   */
+  evidenceKind?:
+    | 'historical_admission'
+    | 'evaluated_candidate'
+    | 'transfer_bootstrap'
+    | null;
+  /**
+   * Evidencesha256
+   */
+  evidenceSha256?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number | null;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey?: string | null;
+  /**
+   * Kind
+   */
+  kind:
+    | 'publish'
+    | 'set_default'
+    | 'activate'
+    | 'rollback'
+    | 'historical_assignment'
+    | 'bootstrap';
+  /**
+   * Manifestsha256
+   */
+  manifestSha256?: string | null;
+  /**
+   * Mode
+   */
+  mode?: 'initial_transfer' | null;
+  /**
+   * Origin
+   */
+  origin?: 'game-create-v1' | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId?: string | null;
+  transfer?: GridModelTransferProvenance | null;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelManifest
+ */
+export type GridModelManifest = {
+  /**
+   * Admission
+   */
+  admission: 'historical_baseline' | 'not_evaluated';
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string | null;
+  /**
+   * Bundleformat
+   */
+  bundleFormat: string;
+  /**
+   * Capabilities
+   */
+  capabilities: Array<'screen_detector' | 'grid_detector'>;
+  /**
+   * Cohortid
+   */
+  cohortId: string | null;
+  /**
+   * Decodingpolicyversion
+   */
+  decodingPolicyVersion: string;
+  /**
+   * Familycode
+   */
+  familyCode: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Familylabel
+   */
+  familyLabel: string;
+  /**
+   * Files
+   */
+  files: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Historicalreports
+   */
+  historicalReports: Array<GridModelHistoricalReport>;
+  inferenceManifest: GridInferenceManifest;
+  /**
+   * Manageddirectory
+   */
+  managedDirectory: string;
+  /**
+   * Modelkind
+   */
+  modelKind: 'neural_grid';
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preprocessingversion
+   */
+  preprocessingVersion: string;
+  provenance: GridModelProvenance;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-catalogue-v1';
+  topology: GridModelTopology;
+  /**
+   * Trainingartifacts
+   */
+  trainingArtifacts: [
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+    GridModelArtifact,
+  ];
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridModelProvenance
+ */
+export type GridModelProvenance = {
+  /**
+   * Checkpointsha256
+   */
+  checkpointSha256: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Snapshotid
+   */
+  snapshotId: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridModelPublishCommand
+ */
+export type GridModelPublishCommand = {
+  /**
+   * Evaluationid
+   */
+  evaluationId?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridModelRegisterRequest
+ */
+export type GridModelRegisterRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  manifest: GridModelManifest;
+};
+
+/**
+ * GridModelTopology
+ */
+export type GridModelTopology = {
+  /**
+   * Boardcolumns
+   */
+  boardColumns: number;
+  /**
+   * Boardrows
+   */
+  boardRows: number;
+  /**
+   * Screencolumns
+   */
+  screenColumns: number;
+  /**
+   * Screenrows
+   */
+  screenRows: number;
+};
+
+/**
+ * GridModelTransferProvenance
+ */
+export type GridModelTransferProvenance = {
+  /**
+   * Defaultrevision
+   */
+  defaultRevision: number | null;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'transfer_bootstrap';
+  /**
+   * Lineagesha256
+   */
+  lineageSha256: string;
+  /**
+   * Qualityscope
+   */
+  qualityScope: 'source-games-only';
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-transfer-v1';
+  /**
+   * Sourceevidencekind
+   */
+  sourceEvidenceKind: 'historical_admission' | 'evaluated_candidate';
+  /**
+   * Sourceevidencesha256
+   */
+  sourceEvidenceSha256: string;
+  /**
+   * Sourcefamilyid
+   */
+  sourceFamilyId: string;
+  /**
+   * Sourcemanifestsha256
+   */
+  sourceManifestSha256: string;
+  /**
+   * Sourceversionid
+   */
+  sourceVersionId: string;
+  /**
+   * Trainingfamilyid
+   */
+  trainingFamilyId: string;
+};
+
+/**
+ * GridModelVersionResponse
+ */
+export type GridModelVersionResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Eligibilityreasoncode
+   */
+  eligibilityReasonCode?: string;
+  /**
+   * Eligible
+   */
+  eligible?: boolean;
+  manifest: GridModelManifest;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Published
+   */
+  published?: boolean;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+};
+
+/**
  * GridProfileActivationAction
  */
 export type GridProfileActivationAction = 'activate' | 'rollback';
@@ -5390,6 +7322,489 @@ export type GridProfileJobSnapshotPayload = {
    * Profileversion
    */
   profileVersion: string;
+};
+
+/**
+ * GridReinferenceCommand
+ */
+export type GridReinferenceCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridReinferenceEffectStats
+ */
+export type GridReinferenceEffectStats = {
+  /**
+   * Automaticwrittenboardcount
+   */
+  automaticWrittenBoardCount: number;
+  /**
+   * Changedexistingpixelcellcount
+   */
+  changedExistingPixelCellCount: number;
+  /**
+   * Createdboardcount
+   */
+  createdBoardCount: number;
+  /**
+   * Createdcellcount
+   */
+  createdCellCount: number;
+  /**
+   * Newlyrequiresreviewcellcount
+   */
+  newlyRequiresReviewCellCount: number;
+  /**
+   * Notrecordedtargetcount
+   */
+  notRecordedTargetCount: number;
+  /**
+   * Pixelcomparisonunavailablecellcount
+   */
+  pixelComparisonUnavailableCellCount: number;
+  /**
+   * Recordedtargetcount
+   */
+  recordedTargetCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-reinference-effect-stats-v1';
+  /**
+   * Unchangedexistingpixelcellcount
+   */
+  unchangedExistingPixelCellCount: number;
+};
+
+/**
+ * GridReinferenceFreeze
+ */
+export type GridReinferenceFreeze = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridReinferenceJobPayload
+ */
+export type GridReinferenceJobPayload = {
+  /**
+   * Acceptancepolicy
+   */
+  acceptancePolicy: 'v3-engine-acceptance-v1';
+  /**
+   * Inferencekind
+   */
+  inferenceKind: 'grid-reinference-v1';
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Runtimepolicy
+   */
+  runtimePolicy: 'grid-reinference-runtime-v1';
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 3;
+};
+
+/**
+ * GridReinferenceOperationPage
+ */
+export type GridReinferenceOperationPage = {
+  /**
+   * Items
+   */
+  items: Array<GridReinferenceResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridReinferencePilotAck
+ */
+export type GridReinferencePilotAck = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Pilotoperationid
+   */
+  pilotOperationId: string;
+  /**
+   * Pilotreportsha256
+   */
+  pilotReportSha256: string;
+};
+
+/**
+ * GridReinferencePilotAcknowledgement
+ */
+export type GridReinferencePilotAcknowledgement = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * At
+   */
+  at: string;
+  /**
+   * Pilotoperationid
+   */
+  pilotOperationId: string;
+  /**
+   * Reportsha256
+   */
+  reportSha256: string;
+};
+
+/**
+ * GridReinferencePrepare
+ */
+export type GridReinferencePrepare = {
+  /**
+   * Executionscope
+   */
+  executionScope?: 'pilot' | 'broader';
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Modelversionid
+   */
+  modelVersionId?: string | null;
+  selector?: GridReinferenceSelector;
+};
+
+/**
+ * GridReinferenceQuarantine
+ */
+export type GridReinferenceQuarantine = {
+  /**
+   * At
+   */
+  at: string | null;
+  /**
+   * Code
+   */
+  code: string;
+};
+
+/**
+ * GridReinferenceResponse
+ */
+export type GridReinferenceResponse = {
+  /**
+   * Acceptancepolicy
+   */
+  acceptancePolicy: string;
+  effectStats?: GridReinferenceEffectStats | null;
+  executionQuarantine?: GridReinferenceQuarantine | null;
+  /**
+   * Executionscope
+   */
+  executionScope?: 'pilot' | 'broader';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string | null;
+  /**
+   * Membershipcapturedat
+   */
+  membershipCapturedAt: string | null;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Outcomes
+   */
+  outcomes: {
+    [key: string]: number;
+  };
+  /**
+   * Phase
+   */
+  phase: 'prepare' | 'infer';
+  pilotAcknowledgement?: GridReinferencePilotAcknowledgement | null;
+  /**
+   * Preparationfinishedat
+   */
+  preparationFinishedAt: string | null;
+  /**
+   * Preparationstartedat
+   */
+  preparationStartedAt: string;
+  /**
+   * Processedsources
+   */
+  processedSources: number;
+  /**
+   * Receipt
+   */
+  receipt?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Reportsha256
+   */
+  reportSha256: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runtimepolicy
+   */
+  runtimePolicy: string;
+  scopeStats?: GridReinferenceScopeStats | null;
+  selector?: GridReinferenceSelector;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Sourcestatuscounts
+   */
+  sourceStatusCounts?: {
+    [key: string]: number;
+  };
+  /**
+   * State
+   */
+  state:
+    | 'preparing'
+    | 'prepared'
+    | 'frozen'
+    | 'queued'
+    | 'running'
+    | 'cancel_requested'
+    | 'cancelled'
+    | 'failed'
+    | 'completed';
+  /**
+   * Statspolicy
+   */
+  statsPolicy?: 'grid-reinference-stats-v1' | null;
+  /**
+   * Targetcount
+   */
+  targetCount: number;
+};
+
+/**
+ * GridReinferenceResume
+ */
+export type GridReinferenceResume = {
+  /**
+   * Expectedphase
+   */
+  expectedPhase: 'prepare' | 'infer';
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GridReinferenceScopeStats
+ */
+export type GridReinferenceScopeStats = {
+  /**
+   * Automaticcandidateslotcount
+   */
+  automaticCandidateSlotCount: number;
+  /**
+   * Availablecellcount
+   */
+  availableCellCount: number;
+  /**
+   * Deferredslotcount
+   */
+  deferredSlotCount: number;
+  /**
+   * Existingboardcount
+   */
+  existingBoardCount: number;
+  /**
+   * Existingcellcount
+   */
+  existingCellCount: number;
+  /**
+   * Potentialcellcount
+   */
+  potentialCellCount: number;
+  /**
+   * Proposalonlyslotcount
+   */
+  proposalOnlySlotCount: number;
+  /**
+   * Protectedslotcount
+   */
+  protectedSlotCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-reinference-scope-stats-v1';
+  /**
+   * Selectedslotcount
+   */
+  selectedSlotCount: number;
+  /**
+   * Sourceoccurrencecount
+   */
+  sourceOccurrenceCount: number;
+};
+
+/**
+ * GridReinferenceSelector
+ */
+export type GridReinferenceSelector = {
+  /**
+   * Categories
+   */
+  categories?: Array<
+    'grid_issue' | 'deferred' | 'unconfirmed' | 'all_automatic'
+  >;
+  /**
+   * Importjobids
+   */
+  importJobIds?: Array<string>;
+  /**
+   * Sequenceend
+   */
+  sequenceEnd?: number | null;
+  /**
+   * Sequencestart
+   */
+  sequenceStart?: number | null;
+};
+
+/**
+ * GridReinferenceStart
+ */
+export type GridReinferenceStart = {
+  /**
+   * Broadscopeconfirmed
+   */
+  broadScopeConfirmed?: boolean;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridReinferenceTargetPage
+ */
+export type GridReinferenceTargetPage = {
+  /**
+   * Items
+   */
+  items: Array<GridReinferenceTargetResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridReinferenceTargetResponse
+ */
+export type GridReinferenceTargetResponse = {
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Outcome
+   */
+  outcome: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Result
+   */
+  result: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Snapshot
+   */
+  snapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
 };
 
 /**
@@ -5838,6 +8253,598 @@ export type GridShadowUnassignedDetectionResponse = {
 };
 
 /**
+ * GridSharedCohortPin
+ */
+export type GridSharedCohortPin = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+};
+
+/**
+ * GridSharedCohortRef
+ */
+export type GridSharedCohortRef = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridSourceIdentityCompleteCommand
+ */
+export type GridSourceIdentityCompleteCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Sources
+   */
+  sources: Array<GridSourceIdentityPin>;
+};
+
+/**
+ * GridSourceIdentityPin
+ */
+export type GridSourceIdentityPin = {
+  /**
+   * Expectedgeometrysha256
+   */
+  expectedGeometrySha256: string;
+  /**
+   * Expectedsourcegeometryrevisionid
+   */
+  expectedSourceGeometryRevisionId: string;
+  /**
+   * Expectedsourcesha256
+   */
+  expectedSourceSha256: string;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * GridSourceIdentityReceipt
+ */
+export type GridSourceIdentityReceipt = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'complete_identities';
+  /**
+   * Outcome
+   */
+  outcome: 'completed';
+  /**
+   * Results
+   */
+  results: Array<GridSourceIdentityResult>;
+};
+
+/**
+ * GridSourceIdentityResponse
+ */
+export type GridSourceIdentityResponse = {
+  receipt: GridSourceIdentityReceipt;
+};
+
+/**
+ * GridSourceIdentityResult
+ */
+export type GridSourceIdentityResult = {
+  /**
+   * Outcome
+   */
+  outcome: 'completed' | 'already_complete';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * GridTrainingEarlyStopping
+ */
+export type GridTrainingEarlyStopping = {
+  /**
+   * Direction
+   */
+  direction: 'maximize' | 'minimize';
+  /**
+   * Evaluationintervalseconds
+   */
+  evaluationIntervalSeconds: number;
+  /**
+   * Metric
+   */
+  metric: string;
+  /**
+   * Mindelta
+   */
+  minDelta: number;
+  /**
+   * Minevaluations
+   */
+  minEvaluations: number;
+  /**
+   * Patience
+   */
+  patience: number;
+};
+
+/**
+ * GridTrainingJobPayload
+ *
+ * Pinned application grid-training run (TASK-0996); created only by its own route.
+ *
+ * A shared run (TASK-1006) also pins one frozen cohort of every other game and the SHA
+ * of its joint plan.
+ */
+export type GridTrainingJobPayload = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Cohortmanifestsha256
+   */
+  cohortManifestSha256: string;
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Jointsha256
+   */
+  jointSha256?: string | null;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Seed
+   */
+  seed: number;
+  /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortPin> | null;
+  /**
+   * Trainingkind
+   */
+  trainingKind: 'grid-training-run-v1' | 'grid-shared-training-run-v1';
+};
+
+/**
+ * GridTrainingLeaseView
+ */
+export type GridTrainingLeaseView = {
+  /**
+   * Runkind
+   */
+  runKind: 'train' | 'smoke' | null;
+  /**
+   * State
+   */
+  state: 'free' | 'held' | 'stale' | 'unknown';
+};
+
+/**
+ * GridTrainingPresetView
+ */
+export type GridTrainingPresetView = {
+  /**
+   * Approvalbasis
+   */
+  approvalBasis: string;
+  /**
+   * Approved
+   */
+  approved: boolean;
+  /**
+   * Batchitems
+   */
+  batchItems: number;
+  /**
+   * Boardsperitem
+   */
+  boardsPerItem: number;
+  earlyStopping: GridTrainingEarlyStopping;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string;
+  /**
+   * Frozenmodules
+   */
+  frozenModules: Array<string>;
+  /**
+   * Learningrate
+   */
+  learningRate: number;
+  /**
+   * Maxrunseconds
+   */
+  maxRunSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Maxtrainseconds
+   */
+  maxTrainSeconds: number;
+  /**
+   * Minfreevrambytes
+   */
+  minFreeVramBytes: number;
+  /**
+   * Mintotalvrambytes
+   */
+  minTotalVramBytes: number;
+  /**
+   * Mintrainseconds
+   */
+  minTrainSeconds: number;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  runtime: GridTrainingRuntimeRequirement;
+  /**
+   * Stepspersecondestimate
+   */
+  stepsPerSecondEstimate: number;
+  /**
+   * Trainsecondspertrainphoto
+   */
+  trainSecondsPerTrainPhoto: number;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * GridTrainingRunBudget
+ */
+export type GridTrainingRunBudget = {
+  /**
+   * Maxseconds
+   */
+  maxSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Reservedsteps
+   */
+  reservedSteps: number;
+  /**
+   * Usedseconds
+   */
+  usedSeconds: number;
+};
+
+/**
+ * GridTrainingRunCost
+ */
+export type GridTrainingRunCost = {
+  /**
+   * Epochsplanned
+   */
+  epochsPlanned: number;
+  /**
+   * Estimatedrunseconds
+   */
+  estimatedRunSeconds: number;
+  /**
+   * Evaluationsplanned
+   */
+  evaluationsPlanned: number;
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Plannedtrainseconds
+   */
+  plannedTrainSeconds: number;
+  /**
+   * Stepsperepoch
+   */
+  stepsPerEpoch: number;
+  /**
+   * Trainitems
+   */
+  trainItems: number;
+  /**
+   * Withinbudget
+   */
+  withinBudget: boolean;
+};
+
+/**
+ * GridTrainingRunCreate
+ */
+export type GridTrainingRunCreate = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortRef> | null;
+};
+
+/**
+ * GridTrainingRunList
+ */
+export type GridTrainingRunList = {
+  /**
+   * Items
+   */
+  items: Array<GridTrainingRunView>;
+};
+
+/**
+ * GridTrainingRunPreview
+ */
+export type GridTrainingRunPreview = {
+  /**
+   * Apiblockers
+   */
+  apiBlockers: Array<string>;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Cohortmode
+   */
+  cohortMode: 'grid-only' | 'screen+grid';
+  /**
+   * Cohortqualification
+   */
+  cohortQualification: 'eligible' | 'blocked' | 'unresolved';
+  /**
+   * Cohortreasons
+   */
+  cohortReasons: Array<string>;
+  /**
+   * Cohortstatus
+   */
+  cohortStatus: string;
+  cost: GridTrainingRunCost | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  lease: GridTrainingLeaseView;
+  /**
+   * Pendingworkerchecks
+   */
+  pendingWorkerChecks: Array<string>;
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Presets
+   */
+  presets: Array<GridTrainingPresetView>;
+  /**
+   * Selectedpresetid
+   */
+  selectedPresetId: string | null;
+  smoke: GridTrainingSmokeLimits;
+};
+
+/**
+ * GridTrainingRunView
+ */
+export type GridTrainingRunView = {
+  /**
+   * Attempt
+   */
+  attempt: number;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  budget: GridTrainingRunBudget | null;
+  /**
+   * Cancelrequested
+   */
+  cancelRequested: boolean;
+  /**
+   * Candidateversionid
+   */
+  candidateVersionId: string | null;
+  /**
+   * Checkpointstep
+   */
+  checkpointStep: number | null;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Jointsha256
+   */
+  jointSha256?: string | null;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Plannedsteps
+   */
+  plannedSteps: number;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Progresscurrent
+   */
+  progressCurrent: number;
+  /**
+   * Progresstotal
+   */
+  progressTotal: number | null;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Sharedcohorts
+   */
+  sharedCohorts?: Array<GridSharedCohortRef>;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  /**
+   * Status
+   */
+  status:
+    | 'created'
+    | 'processing'
+    | 'waiting_for_review'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * GridTrainingRuntimeRequirement
+ */
+export type GridTrainingRuntimeRequirement = {
+  /**
+   * Cuda
+   */
+  cuda: string;
+  /**
+   * Torch
+   */
+  torch: string;
+  /**
+   * Torchvision
+   */
+  torchvision: string;
+};
+
+/**
+ * GridTrainingSmokeLimits
+ */
+export type GridTrainingSmokeLimits = {
+  /**
+   * Maxseconds
+   */
+  maxSeconds: number;
+  /**
+   * Maxsteps
+   */
+  maxSteps: number;
+  /**
+   * Startupseconds
+   */
+  startupSeconds: number;
+  /**
+   * Trainseconds
+   */
+  trainSeconds: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -5859,6 +8866,166 @@ export type HealthResponse = {
    * Version
    */
   version: string;
+};
+
+/**
+ * HistoricalAcceptanceConfirmCommand
+ */
+export type HistoricalAcceptanceConfirmCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * HistoricalAcceptanceCreateCommand
+ */
+export type HistoricalAcceptanceCreateCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * HistoricalAcceptanceItemResponse
+ */
+export type HistoricalAcceptanceItemResponse = {
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Outcome
+   */
+  outcome: 'accepted' | 'skipped' | null;
+  /**
+   * Previousstatus
+   */
+  previousStatus: string | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Revisionid
+   */
+  revisionId: string | null;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * HistoricalAcceptancePreviewCommand
+ */
+export type HistoricalAcceptancePreviewCommand = {
+  /**
+   * Expectedcursor
+   */
+  expectedCursor: number;
+};
+
+/**
+ * HistoricalAcceptanceResponse
+ */
+export type HistoricalAcceptanceResponse = {
+  /**
+   * Acceptedcount
+   */
+  acceptedCount: number;
+  /**
+   * Eligiblecount
+   */
+  eligibleCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<HistoricalAcceptanceItemResponse>;
+  /**
+   * Materializesnewcells
+   */
+  materializesNewCells?: false;
+  /**
+   * Nextitemcursor
+   */
+  nextItemCursor: number | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Phase
+   */
+  phase: 'previewing' | 'previewed' | 'running' | 'done';
+  /**
+   * Preparationstate
+   */
+  preparationState: string | null;
+  /**
+   * Previewcursor
+   */
+  previewCursor: number;
+  /**
+   * Previewreasons
+   */
+  previewReasons: {
+    [key: string]: number;
+  };
+  /**
+   * Revisioncount
+   */
+  revisionCount: number;
+  /**
+   * Runcursor
+   */
+  runCursor: number;
+  /**
+   * Runreasons
+   */
+  runReasons: {
+    [key: string]: number;
+  };
+  /**
+   * Skippedcount
+   */
+  skippedCount: number;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
+  /**
+   * Startedat
+   */
+  startedAt: string;
+  /**
+   * Statusonly
+   */
+  statusOnly?: true;
+};
+
+/**
+ * HistoricalAcceptanceRunCommand
+ */
+export type HistoricalAcceptanceRunCommand = {
+  /**
+   * Expectedcursor
+   */
+  expectedCursor: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
 };
 
 /**
@@ -7573,7 +10740,17 @@ export type ImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -9067,6 +12244,7 @@ export type JobProgressResponse = {
   geometrySystemicGuard?: ImageGeometrySystemicGuardJobProgressResponse | null;
   imageImport?: ImageImportPipelineProgressResponse | null;
   imageSelection?: ImageSelectionJobProgressResponse | null;
+  neuralUnboundSources?: NeuralUnboundSourcesJobProgressResponse | null;
   pageGeometryPreflight?: PageGeometryPreflightJobProgressResponse | null;
   /**
    * Review
@@ -9150,8 +12328,11 @@ export type JobResponse = {
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
     | SuperGameSeriesDeriveJobPayload
+    | GridTrainingJobPayload
+    | GridModelEvaluationJobPayload
     | PendingSymbolReinferenceJobPayload
-    | PendingGridReinferenceJobPayload;
+    | PendingGridReinferenceJobPayload
+    | GridReinferenceJobPayload;
   jobType: JobType;
   /**
    * Leaseexpiresat
@@ -9208,7 +12389,9 @@ export type JobType =
   | 'storage_gc'
   | 'storage_inventory'
   | 'storage_pipeline_compaction'
-  | 'super_game_series_derive';
+  | 'super_game_series_derive'
+  | 'grid_training'
+  | 'grid_model_evaluation';
 
 /**
  * LabSymbolCandidateImportJobPayloadResponse
@@ -11353,7 +14536,16 @@ export type NeuralSourceProposalPayload = {
    * Detections
    */
   detections: Array<NeuralDetectionPayload>;
-  engineSnapshot: NeuralGridSnapshotPayload;
+  /**
+   * Enginesnapshot
+   */
+  engineSnapshot:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload);
   /**
    * Gameid
    */
@@ -11393,6 +14585,62 @@ export type NeuralSourceRangePayload = {
    * Sequencerangestart
    */
   sequenceRangeStart: number;
+};
+
+/**
+ * NeuralUnboundSourceResponse
+ */
+export type NeuralUnboundSourceResponse = {
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd?: number | null;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart?: number | null;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+};
+
+/**
+ * NeuralUnboundSourcesJobProgressResponse
+ *
+ * TASK-1041: V3 sources the import skipped because no slot binding exists.
+ */
+export type NeuralUnboundSourcesJobProgressResponse = {
+  /**
+   * Attestedboardcount
+   */
+  attestedBoardCount: number;
+  /**
+   * Reasoncounts
+   */
+  reasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Reportchecksumsha256
+   */
+  reportChecksumSha256: string;
+  /**
+   * Reportrelativepath
+   */
+  reportRelativePath: string;
+  /**
+   * Sample
+   */
+  sample: Array<NeuralUnboundSourceResponse>;
+  /**
+   * Sourcecount
+   */
+  sourceCount: number;
 };
 
 /**
@@ -12090,7 +15338,17 @@ export type PageGeometryPreflightJobPayload = {
    * Managedsourcemanifestchecksumsha256
    */
   managedSourceManifestChecksumSha256?: string | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Pagegeometryoverrides
    */
@@ -12654,7 +15912,17 @@ export type PinnedManagedImageReprocessJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -12689,6 +15957,571 @@ export type PinnedManagedImageReprocessJobPayload = {
    */
   sourceSelectionId: string;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * ProposalAcceptCommand
+ */
+export type ProposalAcceptCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedproposalrevision
+   */
+  expectedProposalRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  geometry?: OperationalImageReviewGeometryPreviewCommand | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'model' | 'edited';
+  /**
+   * Originalcandidatesha256
+   */
+  originalCandidateSha256: string;
+};
+
+/**
+ * ProposalCandidateResponse
+ */
+export type ProposalCandidateResponse = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Originalcandidatesha256
+   */
+  originalCandidateSha256: string;
+  originalGeometry: OperationalImageReviewGeometryPreviewCommand;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Result
+   */
+  result: {
+    [key: string]: unknown;
+  };
+  /**
+   * Resultsha256
+   */
+  resultSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-geometry-proposal-v1';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Sourcefence
+   */
+  sourceFence: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Targetfence
+   */
+  targetFence: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * ProposalCandidatesResponse
+ */
+export type ProposalCandidatesResponse = {
+  /**
+   * Candidates
+   */
+  candidates: Array<ProposalDiscoveryResponse>;
+  /**
+   * Proposals
+   */
+  proposals: Array<GridGeometryProposalResponse>;
+};
+
+/**
+ * ProposalCommandResponse
+ */
+export type ProposalCommandResponse = {
+  current: GridGeometryProposalResponse | null;
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * ProposalCreateCommand
+ */
+export type ProposalCreateCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
+};
+
+/**
+ * ProposalDiscoveryResponse
+ */
+export type ProposalDiscoveryResponse = {
+  /**
+   * Applicable
+   */
+  applicable: boolean;
+  /**
+   * Modelsnapshot
+   */
+  modelSnapshot: {
+    [key: string]: unknown;
+  };
+  originalGeometry: OperationalImageReviewGeometryPreviewCommand;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Targetresultid
+   */
+  targetResultId: string;
+};
+
+/**
+ * ProposalRejectCommand
+ */
+export type ProposalRejectCommand = {
+  /**
+   * Expectedproposalrevision
+   */
+  expectedProposalRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Note
+   */
+  note?: string | null;
+};
+
+/**
+ * QualityAssessCommand
+ */
+export type QualityAssessCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Positions
+   */
+  positions: [
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+    QualityPositionJudgment,
+  ];
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Unexpected
+   */
+  unexpected?: Array<QualityUnexpectedJudgment>;
+};
+
+/**
+ * QualityCaptureCommand
+ */
+export type QualityCaptureCommand = {
+  /**
+   * Hardsourceids
+   */
+  hardSourceIds?: Array<string>;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Samplesize
+   */
+  sampleSize?: number;
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityCommandResponse
+ */
+export type QualityCommandResponse = {
+  current: QualityMeasurementResponse | null;
+  /**
+   * Receipt
+   */
+  receipt: {
+    [key: string]: unknown;
+  };
+};
+
+/**
+ * QualityMeasurementPage
+ */
+export type QualityMeasurementPage = {
+  /**
+   * Items
+   */
+  items: Array<QualityMeasurementSummary>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * QualityMeasurementResponse
+ */
+export type QualityMeasurementResponse = {
+  /**
+   * Capturedat
+   */
+  capturedAt: string;
+  /**
+   * Excludedsupersededcount
+   */
+  excludedSupersededCount: number;
+  /**
+   * Frozenpopulationcount
+   */
+  frozenPopulationCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manifestavailable
+   */
+  manifestAvailable: boolean;
+  /**
+   * Manifestblocker
+   */
+  manifestBlocker: string | null;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Members
+   */
+  members: Array<QualityMemberResponse>;
+  /**
+   * Policy
+   */
+  policy: string;
+  /**
+   * Populationpolicy
+   */
+  populationPolicy: string;
+  /**
+   * Populationsha256
+   */
+  populationSha256: string;
+  /**
+   * Report
+   */
+  report: {
+    [key: string]: unknown;
+  };
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityMeasurementSummary
+ */
+export type QualityMeasurementSummary = {
+  /**
+   * Capturedat
+   */
+  capturedAt: string;
+  /**
+   * Frozenpopulationcount
+   */
+  frozenPopulationCount: number;
+  /**
+   * Hardsamplecount
+   */
+  hardSampleCount: number;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Measurementid
+   */
+  measurementId: string;
+  /**
+   * Randomsamplecount
+   */
+  randomSampleCount: number;
+  /**
+   * Seed
+   */
+  seed: string;
+};
+
+/**
+ * QualityMemberResponse
+ */
+export type QualityMemberResponse = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Judgments
+   */
+  judgments: Array<QualityPositionJudgment>;
+  /**
+   * Positions
+   */
+  positions: Array<QualityPositionResponse>;
+  /**
+   * Recordingstatus
+   */
+  recordingStatus: 'declared' | 'unresolved';
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'random' | 'hard';
+  /**
+   * Source
+   */
+  source: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Unavailablereason
+   */
+  unavailableReason: string | null;
+  /**
+   * Unexpecteddetections
+   */
+  unexpectedDetections: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Unexpectedjudgments
+   */
+  unexpectedJudgments: Array<QualityUnexpectedJudgment>;
+};
+
+/**
+ * QualityObservation
+ */
+export type QualityObservation = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Geometry
+   */
+  geometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Nodes
+   */
+  nodes: Array<Array<QualityPoint>> | null;
+  /**
+   * Producer
+   */
+  producer: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Reason
+   */
+  reason: string | null;
+};
+
+/**
+ * QualityPoint
+ */
+export type QualityPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * QualityPositionJudgment
+ */
+export type QualityPositionJudgment = {
+  /**
+   * Detection
+   */
+  detection: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+  /**
+   * Geometry
+   */
+  geometry: 'correct' | 'incorrect' | 'not_assessable' | 'unreviewed';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sequence
+   */
+  sequence: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+};
+
+/**
+ * QualityPositionResponse
+ */
+export type QualityPositionResponse = {
+  /**
+   * Approvalblocker
+   */
+  approvalBlocker?: string | null;
+  /**
+   * Approvaleligible
+   */
+  approvalEligible: boolean;
+  current: QualityObservation;
+  /**
+   * Currentmanualsymbolcount
+   */
+  currentManualSymbolCount: number;
+  /**
+   * Currentsymbolcellcount
+   */
+  currentSymbolCellCount: number;
+  original: QualityObservation;
+  /**
+   * Ownership
+   */
+  ownership: 'own' | 'foreign' | 'unknown';
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Targetsha256
+   */
+  targetSha256: string;
+};
+
+/**
+ * QualityUnexpectedJudgment
+ */
+export type QualityUnexpectedJudgment = {
+  /**
+   * Index
+   */
+  index: number;
+  /**
+   * Verdict
+   */
+  verdict: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+};
+
+/**
+ * RecordingSelection
+ */
+export type RecordingSelection = {
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Sourceids
+   */
+  sourceIds?: Array<string> | null;
 };
 
 /**
@@ -13753,7 +17586,17 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
-  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
+   * Neuralgridproposal
+   */
+  neuralGridProposal?:
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v1';
+      } & NeuralGridSnapshotPayload)
+    | ({
+        contractVersion: 'neural-grid-proposal-snapshot-v2';
+      } & CatalogueNeuralGridSnapshotPayload)
+    | null;
   /**
    * Normalizationadapterversion
    */
@@ -15813,6 +19656,184 @@ export type SourceLatticePoint = {
    * Y
    */
   y: number;
+};
+
+/**
+ * SourceRecordingCommandRequest
+ */
+export type SourceRecordingCommandRequest = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number;
+  /**
+   * Familyid
+   */
+  familyId?: string | null;
+  /**
+   * Groupid
+   */
+  groupId?: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Independenceconfirmed
+   */
+  independenceConfirmed?: boolean | null;
+  /**
+   * Kind
+   */
+  kind:
+    | 'prepare'
+    | 'attach'
+    | 'complete'
+    | 'declare'
+    | 'assign_role'
+    | 'retract'
+    | 'alias'
+    | 'freeze';
+  /**
+   * Manifestid
+   */
+  manifestId?: string | null;
+  /**
+   * Othergroupid
+   */
+  otherGroupId?: string | null;
+  /**
+   * Pageindex
+   */
+  pageIndex?: number | null;
+  /**
+   * Role
+   */
+  role?: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
+  selection?: RecordingSelection | null;
+};
+
+/**
+ * SourceRecordingCommandResponse
+ */
+export type SourceRecordingCommandResponse = {
+  /**
+   * Commandkind
+   */
+  commandKind: string;
+  group: SourceRecordingGroupResponse;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Reasoncode
+   */
+  reasonCode?: string | null;
+  /**
+   * Resolutionid
+   */
+  resolutionId?: string | null;
+  /**
+   * Statuscode
+   */
+  statusCode: number;
+};
+
+/**
+ * SourceRecordingGroupListResponse
+ */
+export type SourceRecordingGroupListResponse = {
+  /**
+   * Items
+   */
+  items: Array<SourceRecordingGroupResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor?: string | null;
+};
+
+/**
+ * SourceRecordingGroupResponse
+ */
+export type SourceRecordingGroupResponse = {
+  /**
+   * Createdat
+   */
+  createdAt?: string;
+  /**
+   * Declared
+   */
+  declared: boolean;
+  /**
+   * Expectedsources
+   */
+  expectedSources: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
+   * Independent
+   */
+  independent: boolean;
+  /**
+   * Manifestid
+   */
+  manifestId: string;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Membershipcomplete
+   */
+  membershipComplete: boolean;
+  /**
+   * Nextpageindex
+   */
+  nextPageIndex?: number | null;
+  /**
+   * Pagecount
+   */
+  pageCount: number;
+  /**
+   * Qualification
+   */
+  qualification: 'unresolved' | 'blocked' | 'eligible';
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Registeredpages
+   */
+  registeredPages?: number;
+  /**
+   * Registeredsources
+   */
+  registeredSources: number;
+  /**
+   * Resolutionid
+   */
+  resolutionId?: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
 };
 
 /**
@@ -19248,7 +23269,7 @@ export type VirtualCellPreviewTileResponse = {
 /**
  * WorkerLaneName
  */
-export type WorkerLaneName = 'general' | 'image_selection';
+export type WorkerLaneName = 'general' | 'image_selection' | 'grid_training';
 
 /**
  * WorkerLaneState
@@ -19278,6 +23299,165 @@ export type WorkerLaneStatusResponse = {
    */
   workerVersion: string | null;
 };
+
+export type ListBoardSearchPanelsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-panels';
+};
+
+export type ListBoardSearchPanelsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchPanelsError =
+  ListBoardSearchPanelsErrors[keyof ListBoardSearchPanelsErrors];
+
+export type ListBoardSearchPanelsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelListResponse;
+};
+
+export type ListBoardSearchPanelsResponse =
+  ListBoardSearchPanelsResponses[keyof ListBoardSearchPanelsResponses];
+
+export type CreateBoardSearchPanelData = {
+  body: BoardSearchPanelCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/board-search-panels';
+};
+
+export type CreateBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CreateBoardSearchPanelError =
+  CreateBoardSearchPanelErrors[keyof CreateBoardSearchPanelErrors];
+
+export type CreateBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  201: BoardSearchPanelCreatedResponse;
+};
+
+export type CreateBoardSearchPanelResponse =
+  CreateBoardSearchPanelResponses[keyof CreateBoardSearchPanelResponses];
+
+export type RevokeBoardSearchPanelData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-panels/{panel_id}/revoke';
+};
+
+export type RevokeBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type RevokeBoardSearchPanelError =
+  RevokeBoardSearchPanelErrors[keyof RevokeBoardSearchPanelErrors];
+
+export type RevokeBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelResponse;
+};
+
+export type RevokeBoardSearchPanelResponse =
+  RevokeBoardSearchPanelResponses[keyof RevokeBoardSearchPanelResponses];
 
 export type DeleteBoardSearchShareQueryData = {
   body?: never;
@@ -20959,6 +25139,418 @@ export type RollbackGridProfileResponses = {
 export type RollbackGridProfileResponse =
   RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
 
+export type GetGameGridModelAssignmentData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment';
+};
+
+export type GetGameGridModelAssignmentErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGameGridModelAssignmentError =
+  GetGameGridModelAssignmentErrors[keyof GetGameGridModelAssignmentErrors];
+
+export type GetGameGridModelAssignmentResponses = {
+  /**
+   * Successful Response
+   */
+  200: GameGridModelAssignmentResponse;
+};
+
+export type GetGameGridModelAssignmentResponse =
+  GetGameGridModelAssignmentResponses[keyof GetGameGridModelAssignmentResponses];
+
+export type ActivateGameGridModelData = {
+  body: GridModelAssignmentCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/activate';
+};
+
+export type ActivateGameGridModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ActivateGameGridModelError =
+  ActivateGameGridModelErrors[keyof ActivateGameGridModelErrors];
+
+export type ActivateGameGridModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type ActivateGameGridModelResponse =
+  ActivateGameGridModelResponses[keyof ActivateGameGridModelResponses];
+
+export type GetGameGridModelHistoryData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/history';
+};
+
+export type GetGameGridModelHistoryErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGameGridModelHistoryError =
+  GetGameGridModelHistoryErrors[keyof GetGameGridModelHistoryErrors];
+
+export type GetGameGridModelHistoryResponses = {
+  /**
+   * Response Getgamegridmodelhistory
+   *
+   * Successful Response
+   */
+  200: Array<GridModelHistoryEvent>;
+};
+
+export type GetGameGridModelHistoryResponse =
+  GetGameGridModelHistoryResponses[keyof GetGameGridModelHistoryResponses];
+
+export type RollbackGameGridModelData = {
+  body: GridModelAssignmentCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-model-assignment/rollback';
+};
+
+export type RollbackGameGridModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RollbackGameGridModelError =
+  RollbackGameGridModelErrors[keyof RollbackGameGridModelErrors];
+
+export type RollbackGameGridModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type RollbackGameGridModelResponse =
+  RollbackGameGridModelResponses[keyof RollbackGameGridModelResponses];
+
+export type ListGridQualityMeasurementsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements';
+};
+
+export type ListGridQualityMeasurementsErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridQualityMeasurementsError =
+  ListGridQualityMeasurementsErrors[keyof ListGridQualityMeasurementsErrors];
+
+export type ListGridQualityMeasurementsResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityMeasurementPage;
+};
+
+export type ListGridQualityMeasurementsResponse =
+  ListGridQualityMeasurementsResponses[keyof ListGridQualityMeasurementsResponses];
+
+export type CaptureGridQualityMeasurementData = {
+  body: QualityCaptureCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/capture';
+};
+
+export type CaptureGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CaptureGridQualityMeasurementError =
+  CaptureGridQualityMeasurementErrors[keyof CaptureGridQualityMeasurementErrors];
+
+export type CaptureGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityCommandResponse;
+};
+
+export type CaptureGridQualityMeasurementResponse =
+  CaptureGridQualityMeasurementResponses[keyof CaptureGridQualityMeasurementResponses];
+
+export type GetGridQualityMeasurementData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}';
+};
+
+export type GetGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridQualityMeasurementError =
+  GetGridQualityMeasurementErrors[keyof GetGridQualityMeasurementErrors];
+
+export type GetGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityMeasurementResponse;
+};
+
+export type GetGridQualityMeasurementResponse =
+  GetGridQualityMeasurementResponses[keyof GetGridQualityMeasurementResponses];
+
+export type AssessGridQualityMeasurementData = {
+  body: QualityAssessCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/assess';
+};
+
+export type AssessGridQualityMeasurementErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AssessGridQualityMeasurementError =
+  AssessGridQualityMeasurementErrors[keyof AssessGridQualityMeasurementErrors];
+
+export type AssessGridQualityMeasurementResponses = {
+  /**
+   * Successful Response
+   */
+  200: QualityCommandResponse;
+};
+
+export type AssessGridQualityMeasurementResponse =
+  AssessGridQualityMeasurementResponses[keyof AssessGridQualityMeasurementResponses];
+
+export type GetGridQualityMeasurementSourceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Measurement Id
+     */
+    measurement_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/{measurement_id}/sources/{source_id}/asset';
+};
+
+export type GetGridQualityMeasurementSourceErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridQualityMeasurementSourceError =
+  GetGridQualityMeasurementSourceErrors[keyof GetGridQualityMeasurementSourceErrors];
+
+export type GetGridQualityMeasurementSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ListImageGridReviewsData = {
   body?: never;
   path: {
@@ -21177,6 +25769,772 @@ export type GetGridShadowResultResponses = {
 
 export type GetGridShadowResultResponse =
   GetGridShadowResultResponses[keyof GetGridShadowResultResponses];
+
+export type CompleteGridSourceIdentitiesData = {
+  body: GridSourceIdentityCompleteCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-source-identities/complete';
+};
+
+export type CompleteGridSourceIdentitiesErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CompleteGridSourceIdentitiesError =
+  CompleteGridSourceIdentitiesErrors[keyof CompleteGridSourceIdentitiesErrors];
+
+export type CompleteGridSourceIdentitiesResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridSourceIdentityResponse;
+};
+
+export type CompleteGridSourceIdentitiesResponse =
+  CompleteGridSourceIdentitiesResponses[keyof CompleteGridSourceIdentitiesResponses];
+
+export type ListGridTrainingCohortsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts';
+};
+
+export type ListGridTrainingCohortsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridTrainingCohortsError =
+  ListGridTrainingCohortsErrors[keyof ListGridTrainingCohortsErrors];
+
+export type ListGridTrainingCohortsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortList;
+};
+
+export type ListGridTrainingCohortsResponse =
+  ListGridTrainingCohortsResponses[keyof ListGridTrainingCohortsResponses];
+
+export type PrepareGridTrainingCohortData = {
+  body: GridCohortPrepareCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/prepare';
+};
+
+export type PrepareGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridTrainingCohortError =
+  PrepareGridTrainingCohortErrors[keyof PrepareGridTrainingCohortErrors];
+
+export type PrepareGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type PrepareGridTrainingCohortResponse =
+  PrepareGridTrainingCohortResponses[keyof PrepareGridTrainingCohortResponses];
+
+export type GetGridTrainingCohortData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}';
+};
+
+export type GetGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortError =
+  GetGridTrainingCohortErrors[keyof GetGridTrainingCohortErrors];
+
+export type GetGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortHeader;
+};
+
+export type GetGridTrainingCohortResponse =
+  GetGridTrainingCohortResponses[keyof GetGridTrainingCohortResponses];
+
+export type CancelGridTrainingCohortData = {
+  body: GridCohortRevisionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/cancel';
+};
+
+export type CancelGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridTrainingCohortError =
+  CancelGridTrainingCohortErrors[keyof CancelGridTrainingCohortErrors];
+
+export type CancelGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type CancelGridTrainingCohortResponse =
+  CancelGridTrainingCohortResponses[keyof CancelGridTrainingCohortResponses];
+
+export type GetGridTrainingCohortEligibilityData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/eligibility';
+};
+
+export type GetGridTrainingCohortEligibilityErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortEligibilityError =
+  GetGridTrainingCohortEligibilityErrors[keyof GetGridTrainingCohortEligibilityErrors];
+
+export type GetGridTrainingCohortEligibilityResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortEligibility;
+};
+
+export type GetGridTrainingCohortEligibilityResponse =
+  GetGridTrainingCohortEligibilityResponses[keyof GetGridTrainingCohortEligibilityResponses];
+
+export type FreezeGridTrainingCohortData = {
+  body: GridCohortFreezeCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/freeze';
+};
+
+export type FreezeGridTrainingCohortErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FreezeGridTrainingCohortError =
+  FreezeGridTrainingCohortErrors[keyof FreezeGridTrainingCohortErrors];
+
+export type FreezeGridTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type FreezeGridTrainingCohortResponse =
+  FreezeGridTrainingCohortResponses[keyof FreezeGridTrainingCohortResponses];
+
+export type MaterializeGridTrainingCohortPageData = {
+  body: GridCohortPageCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/materialize-page';
+};
+
+export type MaterializeGridTrainingCohortPageErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type MaterializeGridTrainingCohortPageError =
+  MaterializeGridTrainingCohortPageErrors[keyof MaterializeGridTrainingCohortPageErrors];
+
+export type MaterializeGridTrainingCohortPageResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type MaterializeGridTrainingCohortPageResponse =
+  MaterializeGridTrainingCohortPageResponses[keyof MaterializeGridTrainingCohortPageResponses];
+
+export type GetGridTrainingCohortMembersData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/members';
+};
+
+export type GetGridTrainingCohortMembersErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingCohortMembersError =
+  GetGridTrainingCohortMembersErrors[keyof GetGridTrainingCohortMembersErrors];
+
+export type GetGridTrainingCohortMembersResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortMembers;
+};
+
+export type GetGridTrainingCohortMembersResponse =
+  GetGridTrainingCohortMembersResponses[keyof GetGridTrainingCohortMembersResponses];
+
+export type PrepareGridTrainingCohortPageData = {
+  body: GridCohortPageCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/prepare-page';
+};
+
+export type PrepareGridTrainingCohortPageErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridTrainingCohortPageError =
+  PrepareGridTrainingCohortPageErrors[keyof PrepareGridTrainingCohortPageErrors];
+
+export type PrepareGridTrainingCohortPageResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCohortCommandResponse;
+};
+
+export type PrepareGridTrainingCohortPageResponse =
+  PrepareGridTrainingCohortPageResponses[keyof PrepareGridTrainingCohortPageResponses];
+
+export type PreviewGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cohort Id
+     */
+    cohort_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-cohorts/{cohort_id}/run-preview';
+};
+
+export type PreviewGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewGridTrainingRunError =
+  PreviewGridTrainingRunErrors[keyof PreviewGridTrainingRunErrors];
+
+export type PreviewGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunPreview;
+};
+
+export type PreviewGridTrainingRunResponse =
+  PreviewGridTrainingRunResponses[keyof PreviewGridTrainingRunResponses];
+
+export type ListGridTrainingRunsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs';
+};
+
+export type ListGridTrainingRunsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridTrainingRunsError =
+  ListGridTrainingRunsErrors[keyof ListGridTrainingRunsErrors];
+
+export type ListGridTrainingRunsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunList;
+};
+
+export type ListGridTrainingRunsResponse =
+  ListGridTrainingRunsResponses[keyof ListGridTrainingRunsResponses];
+
+export type CreateGridTrainingRunData = {
+  body: GridTrainingRunCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs';
+};
+
+export type CreateGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateGridTrainingRunError =
+  CreateGridTrainingRunErrors[keyof CreateGridTrainingRunErrors];
+
+export type CreateGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type CreateGridTrainingRunResponse =
+  CreateGridTrainingRunResponses[keyof CreateGridTrainingRunResponses];
+
+export type GetGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}';
+};
+
+export type GetGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridTrainingRunError =
+  GetGridTrainingRunErrors[keyof GetGridTrainingRunErrors];
+
+export type GetGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type GetGridTrainingRunResponse =
+  GetGridTrainingRunResponses[keyof GetGridTrainingRunResponses];
+
+export type CancelGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/cancel';
+};
+
+export type CancelGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridTrainingRunError =
+  CancelGridTrainingRunErrors[keyof CancelGridTrainingRunErrors];
+
+export type CancelGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type CancelGridTrainingRunResponse =
+  CancelGridTrainingRunResponses[keyof CancelGridTrainingRunResponses];
+
+export type ResumeGridTrainingRunData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-training-runs/{run_id}/resume';
+};
+
+export type ResumeGridTrainingRunErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridTrainingRunError =
+  ResumeGridTrainingRunErrors[keyof ResumeGridTrainingRunErrors];
+
+export type ResumeGridTrainingRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridTrainingRunView;
+};
+
+export type ResumeGridTrainingRunResponse =
+  ResumeGridTrainingRunResponses[keyof ResumeGridTrainingRunResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;
@@ -22292,6 +27650,123 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type ListSourceRecordingGroupsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Familyid
+     */
+    familyId?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * After
+     */
+    after?: string | null;
+    /**
+     * Groupid
+     */
+    groupId?: string | null;
+    /**
+     * Sourceid
+     */
+    sourceId?: string | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/source-recording-groups';
+};
+
+export type ListSourceRecordingGroupsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListSourceRecordingGroupsError =
+  ListSourceRecordingGroupsErrors[keyof ListSourceRecordingGroupsErrors];
+
+export type ListSourceRecordingGroupsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceRecordingGroupListResponse;
+};
+
+export type ListSourceRecordingGroupsResponse =
+  ListSourceRecordingGroupsResponses[keyof ListSourceRecordingGroupsResponses];
+
+export type CommandSourceRecordingGroupsData = {
+  body: SourceRecordingCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/source-recording-groups/commands';
+};
+
+export type CommandSourceRecordingGroupsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CommandSourceRecordingGroupsError =
+  CommandSourceRecordingGroupsErrors[keyof CommandSourceRecordingGroupsErrors];
+
+export type CommandSourceRecordingGroupsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceRecordingCommandResponse;
+};
+
+export type CommandSourceRecordingGroupsResponse =
+  CommandSourceRecordingGroupsResponses[keyof CommandSourceRecordingGroupsResponses];
 
 export type ListSuperGameSeriesData = {
   body?: never;
@@ -24582,6 +30057,408 @@ export type ListGridEngineProfilesResponses = {
 export type ListGridEngineProfilesResponse =
   ListGridEngineProfilesResponses[keyof ListGridEngineProfilesResponses];
 
+export type GetGridModelDefaultData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-default';
+};
+
+export type GetGridModelDefaultErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridModelDefaultError =
+  GetGridModelDefaultErrors[keyof GetGridModelDefaultErrors];
+
+export type GetGridModelDefaultResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelDefaultResponse;
+};
+
+export type GetGridModelDefaultResponse =
+  GetGridModelDefaultResponses[keyof GetGridModelDefaultResponses];
+
+export type SetGridModelDefaultData = {
+  body: GridModelAssignmentCommand;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-default';
+};
+
+export type SetGridModelDefaultErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type SetGridModelDefaultError =
+  SetGridModelDefaultErrors[keyof SetGridModelDefaultErrors];
+
+export type SetGridModelDefaultResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type SetGridModelDefaultResponse =
+  SetGridModelDefaultResponses[keyof SetGridModelDefaultResponses];
+
+export type ListGridModelEvaluationsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Versionid
+     */
+    versionId: string;
+  };
+  url: '/api/v1/admin/grid-model-evaluations';
+};
+
+export type ListGridModelEvaluationsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridModelEvaluationsError =
+  ListGridModelEvaluationsErrors[keyof ListGridModelEvaluationsErrors];
+
+export type ListGridModelEvaluationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationList;
+};
+
+export type ListGridModelEvaluationsResponse =
+  ListGridModelEvaluationsResponses[keyof ListGridModelEvaluationsResponses];
+
+export type CreateGridModelEvaluationData = {
+  body: GridModelEvaluationCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations';
+};
+
+export type CreateGridModelEvaluationErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateGridModelEvaluationError =
+  CreateGridModelEvaluationErrors[keyof CreateGridModelEvaluationErrors];
+
+export type CreateGridModelEvaluationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type CreateGridModelEvaluationResponse =
+  CreateGridModelEvaluationResponses[keyof CreateGridModelEvaluationResponses];
+
+export type VerifyGridModelEvaluationCurrentnessData = {
+  body?: never;
+  path: {
+    /**
+     * Report Id
+     */
+    report_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations/reports/{report_id}/currentness';
+};
+
+export type VerifyGridModelEvaluationCurrentnessErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type VerifyGridModelEvaluationCurrentnessError =
+  VerifyGridModelEvaluationCurrentnessErrors[keyof VerifyGridModelEvaluationCurrentnessErrors];
+
+export type VerifyGridModelEvaluationCurrentnessResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationCurrentnessResult;
+};
+
+export type VerifyGridModelEvaluationCurrentnessResponse =
+  VerifyGridModelEvaluationCurrentnessResponses[keyof VerifyGridModelEvaluationCurrentnessResponses];
+
+export type GetGridModelEvaluationData = {
+  body?: never;
+  path: {
+    /**
+     * Evaluation Id
+     */
+    evaluation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations/{evaluation_id}';
+};
+
+export type GetGridModelEvaluationErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridModelEvaluationError =
+  GetGridModelEvaluationErrors[keyof GetGridModelEvaluationErrors];
+
+export type GetGridModelEvaluationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type GetGridModelEvaluationResponse =
+  GetGridModelEvaluationResponses[keyof GetGridModelEvaluationResponses];
+
+export type GetGridModelHistoryData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-history';
+};
+
+export type GetGridModelHistoryErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridModelHistoryError =
+  GetGridModelHistoryErrors[keyof GetGridModelHistoryErrors];
+
+export type GetGridModelHistoryResponses = {
+  /**
+   * Response Getgridmodelhistory
+   *
+   * Successful Response
+   */
+  200: Array<GridModelHistoryEvent>;
+};
+
+export type GetGridModelHistoryResponse =
+  GetGridModelHistoryResponses[keyof GetGridModelHistoryResponses];
+
+export type ListGridModelVersionsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions';
+};
+
+export type ListGridModelVersionsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridModelVersionsError =
+  ListGridModelVersionsErrors[keyof ListGridModelVersionsErrors];
+
+export type ListGridModelVersionsResponses = {
+  /**
+   * Response Listgridmodelversions
+   *
+   * Successful Response
+   */
+  200: Array<GridModelVersionResponse>;
+};
+
+export type ListGridModelVersionsResponse =
+  ListGridModelVersionsResponses[keyof ListGridModelVersionsResponses];
+
+export type RegisterGridModelVersionData = {
+  body: GridModelRegisterRequest;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions';
+};
+
+export type RegisterGridModelVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RegisterGridModelVersionError =
+  RegisterGridModelVersionErrors[keyof RegisterGridModelVersionErrors];
+
+export type RegisterGridModelVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelVersionResponse;
+};
+
+export type RegisterGridModelVersionResponse =
+  RegisterGridModelVersionResponses[keyof RegisterGridModelVersionResponses];
+
+export type PublishGridModelVersionData = {
+  body: GridModelPublishCommand;
+  path: {
+    /**
+     * Version Id
+     */
+    version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/grid-model-versions/{version_id}/publish';
+};
+
+export type PublishGridModelVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type PublishGridModelVersionError =
+  PublishGridModelVersionErrors[keyof PublishGridModelVersionErrors];
+
+export type PublishGridModelVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelControlReceipt;
+};
+
+export type PublishGridModelVersionResponse =
+  PublishGridModelVersionResponses[keyof PublishGridModelVersionResponses];
+
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;
   path?: never;
@@ -26307,6 +32184,10 @@ export type GetBoardImportCoverageData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Includediagnostics
+     */
+    includeDiagnostics?: boolean;
   };
   url: '/api/v1/admin/image-review-items/board-import-coverage/{game_id}';
 };
@@ -26472,6 +32353,243 @@ export type GetImageGeometryCompletenessResponses = {
 
 export type GetImageGeometryCompletenessResponse =
   GetImageGeometryCompletenessResponses[keyof GetImageGeometryCompletenessResponses];
+
+export type CreateHistoricalGridAcceptanceData = {
+  body: HistoricalAcceptanceCreateCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance';
+};
+
+export type CreateHistoricalGridAcceptanceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateHistoricalGridAcceptanceError =
+  CreateHistoricalGridAcceptanceErrors[keyof CreateHistoricalGridAcceptanceErrors];
+
+export type CreateHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type CreateHistoricalGridAcceptanceResponse =
+  CreateHistoricalGridAcceptanceResponses[keyof CreateHistoricalGridAcceptanceResponses];
+
+export type GetHistoricalGridAcceptanceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: {
+    /**
+     * Afterordinal
+     */
+    afterOrdinal?: number;
+  };
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}';
+};
+
+export type GetHistoricalGridAcceptanceErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetHistoricalGridAcceptanceError =
+  GetHistoricalGridAcceptanceErrors[keyof GetHistoricalGridAcceptanceErrors];
+
+export type GetHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type GetHistoricalGridAcceptanceResponse =
+  GetHistoricalGridAcceptanceResponses[keyof GetHistoricalGridAcceptanceResponses];
+
+export type ConfirmHistoricalGridAcceptanceData = {
+  body: HistoricalAcceptanceConfirmCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/confirm';
+};
+
+export type ConfirmHistoricalGridAcceptanceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ConfirmHistoricalGridAcceptanceError =
+  ConfirmHistoricalGridAcceptanceErrors[keyof ConfirmHistoricalGridAcceptanceErrors];
+
+export type ConfirmHistoricalGridAcceptanceResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type ConfirmHistoricalGridAcceptanceResponse =
+  ConfirmHistoricalGridAcceptanceResponses[keyof ConfirmHistoricalGridAcceptanceResponses];
+
+export type PreviewHistoricalGridAcceptanceNextData = {
+  body: HistoricalAcceptancePreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/preview-next';
+};
+
+export type PreviewHistoricalGridAcceptanceNextErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewHistoricalGridAcceptanceNextError =
+  PreviewHistoricalGridAcceptanceNextErrors[keyof PreviewHistoricalGridAcceptanceNextErrors];
+
+export type PreviewHistoricalGridAcceptanceNextResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type PreviewHistoricalGridAcceptanceNextResponse =
+  PreviewHistoricalGridAcceptanceNextResponses[keyof PreviewHistoricalGridAcceptanceNextResponses];
+
+export type RunHistoricalGridAcceptanceNextData = {
+  body: HistoricalAcceptanceRunCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/historical-acceptance/{operation_id}/run-next';
+};
+
+export type RunHistoricalGridAcceptanceNextErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RunHistoricalGridAcceptanceNextError =
+  RunHistoricalGridAcceptanceNextErrors[keyof RunHistoricalGridAcceptanceNextErrors];
+
+export type RunHistoricalGridAcceptanceNextResponses = {
+  /**
+   * Successful Response
+   */
+  200: HistoricalAcceptanceResponse;
+};
+
+export type RunHistoricalGridAcceptanceNextResponse =
+  RunHistoricalGridAcceptanceNextResponses[keyof RunHistoricalGridAcceptanceNextResponses];
 
 export type WithdrawSourceImageGeometryExceptionData = {
   body?: never;
@@ -26741,6 +32859,392 @@ export type GetImageGeometryLowQualityBoardsResponses = {
 
 export type GetImageGeometryLowQualityBoardsResponse =
   GetImageGeometryLowQualityBoardsResponses[keyof GetImageGeometryLowQualityBoardsResponses];
+
+export type ListGridReinferenceOperationsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Compatible With Operation Id
+     */
+    compatible_with_operation_id?: string | null;
+  };
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations';
+};
+
+export type ListGridReinferenceOperationsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridReinferenceOperationsError =
+  ListGridReinferenceOperationsErrors[keyof ListGridReinferenceOperationsErrors];
+
+export type ListGridReinferenceOperationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceOperationPage;
+};
+
+export type ListGridReinferenceOperationsResponse =
+  ListGridReinferenceOperationsResponses[keyof ListGridReinferenceOperationsResponses];
+
+export type GetGridReinferenceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}';
+};
+
+export type GetGridReinferenceErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridReinferenceError =
+  GetGridReinferenceErrors[keyof GetGridReinferenceErrors];
+
+export type GetGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type GetGridReinferenceResponse =
+  GetGridReinferenceResponses[keyof GetGridReinferenceResponses];
+
+export type CancelGridReinferenceData = {
+  body: GridReinferenceCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/cancel';
+};
+
+export type CancelGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridReinferenceError =
+  CancelGridReinferenceErrors[keyof CancelGridReinferenceErrors];
+
+export type CancelGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type CancelGridReinferenceResponse =
+  CancelGridReinferenceResponses[keyof CancelGridReinferenceResponses];
+
+export type FreezeGridReinferenceData = {
+  body: GridReinferenceFreeze;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/freeze';
+};
+
+export type FreezeGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FreezeGridReinferenceError =
+  FreezeGridReinferenceErrors[keyof FreezeGridReinferenceErrors];
+
+export type FreezeGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type FreezeGridReinferenceResponse =
+  FreezeGridReinferenceResponses[keyof FreezeGridReinferenceResponses];
+
+export type AcknowledgeGridReinferencePilotData = {
+  body: GridReinferencePilotAck;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/pilot-ack';
+};
+
+export type AcknowledgeGridReinferencePilotErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AcknowledgeGridReinferencePilotError =
+  AcknowledgeGridReinferencePilotErrors[keyof AcknowledgeGridReinferencePilotErrors];
+
+export type AcknowledgeGridReinferencePilotResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type AcknowledgeGridReinferencePilotResponse =
+  AcknowledgeGridReinferencePilotResponses[keyof AcknowledgeGridReinferencePilotResponses];
+
+export type ResumeGridReinferenceData = {
+  body: GridReinferenceResume;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/resume';
+};
+
+export type ResumeGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridReinferenceError =
+  ResumeGridReinferenceErrors[keyof ResumeGridReinferenceErrors];
+
+export type ResumeGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type ResumeGridReinferenceResponse =
+  ResumeGridReinferenceResponses[keyof ResumeGridReinferenceResponses];
+
+export type StartGridReinferenceData = {
+  body: GridReinferenceStart;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/start';
+};
+
+export type StartGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartGridReinferenceError =
+  StartGridReinferenceErrors[keyof StartGridReinferenceErrors];
+
+export type StartGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type StartGridReinferenceResponse =
+  StartGridReinferenceResponses[keyof StartGridReinferenceResponses];
+
+export type GetGridReinferenceTargetsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+  };
+  query?: {
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/operations/{operation_id}/targets';
+};
+
+export type GetGridReinferenceTargetsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridReinferenceTargetsError =
+  GetGridReinferenceTargetsErrors[keyof GetGridReinferenceTargetsErrors];
+
+export type GetGridReinferenceTargetsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceTargetPage;
+};
+
+export type GetGridReinferenceTargetsResponse =
+  GetGridReinferenceTargetsResponses[keyof GetGridReinferenceTargetsResponses];
+
+export type PrepareGridReinferenceData = {
+  body: GridReinferencePrepare;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/grid-reinference/{game_id}/prepare';
+};
+
+export type PrepareGridReinferenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PrepareGridReinferenceError =
+  PrepareGridReinferenceErrors[keyof PrepareGridReinferenceErrors];
+
+export type PrepareGridReinferenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridReinferenceResponse;
+};
+
+export type PrepareGridReinferenceResponse =
+  PrepareGridReinferenceResponses[keyof PrepareGridReinferenceResponses];
 
 export type PreviewPendingGridReinferenceData = {
   body?: never;
@@ -27296,6 +33800,275 @@ export type CreateOperationalImageReviewGeometryRevisionResponses = {
 export type CreateOperationalImageReviewGeometryRevisionResponse =
   CreateOperationalImageReviewGeometryRevisionResponses[keyof CreateOperationalImageReviewGeometryRevisionResponses];
 
+export type ListOperationalGridGeometryProposalsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals';
+};
+
+export type ListOperationalGridGeometryProposalsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListOperationalGridGeometryProposalsError =
+  ListOperationalGridGeometryProposalsErrors[keyof ListOperationalGridGeometryProposalsErrors];
+
+export type ListOperationalGridGeometryProposalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCandidatesResponse;
+};
+
+export type ListOperationalGridGeometryProposalsResponse =
+  ListOperationalGridGeometryProposalsResponses[keyof ListOperationalGridGeometryProposalsResponses];
+
+export type CreateOperationalGridGeometryProposalData = {
+  body: ProposalCreateCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals';
+};
+
+export type CreateOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateOperationalGridGeometryProposalError =
+  CreateOperationalGridGeometryProposalErrors[keyof CreateOperationalGridGeometryProposalErrors];
+
+export type CreateOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type CreateOperationalGridGeometryProposalResponse =
+  CreateOperationalGridGeometryProposalResponses[keyof CreateOperationalGridGeometryProposalResponses];
+
+export type GetOperationalGridGeometryProposalData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}';
+};
+
+export type GetOperationalGridGeometryProposalErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalGridGeometryProposalError =
+  GetOperationalGridGeometryProposalErrors[keyof GetOperationalGridGeometryProposalErrors];
+
+export type GetOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridGeometryProposalResponse;
+};
+
+export type GetOperationalGridGeometryProposalResponse =
+  GetOperationalGridGeometryProposalResponses[keyof GetOperationalGridGeometryProposalResponses];
+
+export type AcceptOperationalGridGeometryProposalData = {
+  body: ProposalAcceptCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/accept';
+};
+
+export type AcceptOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type AcceptOperationalGridGeometryProposalError =
+  AcceptOperationalGridGeometryProposalErrors[keyof AcceptOperationalGridGeometryProposalErrors];
+
+export type AcceptOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type AcceptOperationalGridGeometryProposalResponse =
+  AcceptOperationalGridGeometryProposalResponses[keyof AcceptOperationalGridGeometryProposalResponses];
+
+export type RejectOperationalGridGeometryProposalData = {
+  body: ProposalRejectCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/grid-geometry-proposals/{proposal_id}/reject';
+};
+
+export type RejectOperationalGridGeometryProposalErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectOperationalGridGeometryProposalError =
+  RejectOperationalGridGeometryProposalErrors[keyof RejectOperationalGridGeometryProposalErrors];
+
+export type RejectOperationalGridGeometryProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ProposalCommandResponse;
+};
+
+export type RejectOperationalGridGeometryProposalResponse =
+  RejectOperationalGridGeometryProposalResponses[keyof RejectOperationalGridGeometryProposalResponses];
+
 export type ResolveOperationalImageReviewItemData = {
   body: OperationalImageReviewResolutionCommand;
   path: {
@@ -27444,6 +34217,59 @@ export type GetImageGridReviewCorrectionSymbolsResponses = {
 
 export type GetImageGridReviewCorrectionSymbolsResponse =
   GetImageGridReviewCorrectionSymbolsResponses[keyof GetImageGridReviewCorrectionSymbolsResponses];
+
+export type ApproveOperationalGeometryData = {
+  body: GeometryApprovalCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approvals';
+};
+
+export type ApproveOperationalGeometryErrors = {
+  /**
+   * Validated human scope required
+   */
+  403: ErrorResponse;
+  /**
+   * Frozen measurement or source unavailable
+   */
+  404: ErrorResponse;
+  /**
+   * Measurement command, identity or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ApproveOperationalGeometryError =
+  ApproveOperationalGeometryErrors[keyof ApproveOperationalGeometryErrors];
+
+export type ApproveOperationalGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryApprovalResponse;
+};
+
+export type ApproveOperationalGeometryResponse =
+  ApproveOperationalGeometryResponses[keyof ApproveOperationalGeometryResponses];
 
 export type PreviewImageGridReviewGeometryData = {
   body: ImageGridReviewGeometryPreviewCommand;
@@ -33848,6 +40674,122 @@ export type ListWorkerLanesResponses = {
 
 export type ListWorkerLanesResponse =
   ListWorkerLanesResponses[keyof ListWorkerLanesResponses];
+
+export type GetBoardSearchPanelContextData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Panel-Proxy
+     */
+    'X-Board-Search-Panel-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-panels/{panel_id}/context';
+};
+
+export type GetBoardSearchPanelContextErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchPanelContextError =
+  GetBoardSearchPanelContextErrors[keyof GetBoardSearchPanelContextErrors];
+
+export type GetBoardSearchPanelContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelContextResponse;
+};
+
+export type GetBoardSearchPanelContextResponse =
+  GetBoardSearchPanelContextResponses[keyof GetBoardSearchPanelContextResponses];
+
+export type OpenBoardSearchPanelData = {
+  body: BoardSearchPanelOpen;
+  headers?: {
+    /**
+     * X-Board-Search-Panel-Proxy
+     */
+    'X-Board-Search-Panel-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Panel Id
+     */
+    panel_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-panels/{panel_id}/open';
+};
+
+export type OpenBoardSearchPanelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: ErrorResponse;
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type OpenBoardSearchPanelError =
+  OpenBoardSearchPanelErrors[keyof OpenBoardSearchPanelErrors];
+
+export type OpenBoardSearchPanelResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchPanelContextResponse;
+};
+
+export type OpenBoardSearchPanelResponse =
+  OpenBoardSearchPanelResponses[keyof OpenBoardSearchPanelResponses];
 
 export type GetBoardSearchShareApproximateWinData = {
   body?: never;

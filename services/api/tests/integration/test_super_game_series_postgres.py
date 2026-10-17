@@ -25,7 +25,7 @@ import pytest
 from _application_role_database import ApplicationRoleDatabase, application_role_database
 from _virtual_board_fixtures import save_manual_virtual_geometry
 from game_predictor_api.application.catalog import CatalogService
-from game_predictor_api.application.cleanup import CleanupService
+from game_predictor_api.application.cleanup import CleanupService, ResolvedCleanupArtifacts
 from game_predictor_api.application.geometry_correction_reverts import (
     GeometryCorrectionRevertService,
     VirtualRestoredRenderVerifier,
@@ -62,6 +62,7 @@ from game_predictor_api.storage.database import (
     create_cross_game_owner_session_factory,
     create_session_factory,
 )
+from game_predictor_api.storage.game_storage_routing import VERSION as ROUTED_MANIFEST_VERSION
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.geometry_correction_revert_repository import (
     SqlAlchemyGeometryCorrectionRevertRepository,
@@ -620,14 +621,20 @@ def test_rejection_outcome_type_is_public() -> None:
     assert outcome.inserted == 0 and BoardTrigger(1, True).sequence_number == 1
 
 
-def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
+def test_migration_downgrade_refuses_decisions_and_round_trips(monkeypatch) -> None:
     from pathlib import Path
 
+    from _recording_capability_fixture import OwnedRecordingCapability
     from alembic import command
     from alembic.config import Config
+    from game_predictor_api.storage import game_data_v2_manifest_v6, game_storage_routing
     from game_predictor_api.storage.game_partition_lifecycle import partition_name
 
-    with application_role_database("t0933m", ("mumie-migration",)) as database:
+    monkeypatch.setattr(game_storage_routing, "VERSION", game_data_v2_manifest_v6.VERSION)
+
+    with application_role_database(
+        "t0933m", ("mumie-migration",), revision="0152_super_game_series"
+    ) as database:
         game_id = database.games["mumie-migration"]
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
@@ -661,13 +668,14 @@ def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
                 ).scalar_one()
                 is None
             )
+        OwnedRecordingCapability.for_engine(database.owner_engine).provision()
         command.upgrade(config, "head")
         with database.owner_engine.connect() as connection:
             assert (
                 connection.execute(
                     text("SELECT manifest_version FROM public.game_storage_locations")
                 ).scalar_one()
-                == "game-data-v2-manifest-v7"
+                == ROUTED_MANIFEST_VERSION
             )
             for table in (
                 "super_game_series",
@@ -750,6 +758,10 @@ def test_expected_layout_count_change_invalidates_and_rejects(fixture: Fixture) 
 
 
 class _NoArtifacts:
+    def resolve(self, relative_paths: tuple[str, ...]) -> ResolvedCleanupArtifacts:
+        # TASK-1042: no files on disk here; every persisted path counts as present.
+        return ResolvedCleanupArtifacts(tuple(sorted(set(relative_paths))), (), ())
+
     def delete(self, relative_paths: tuple[str, ...]) -> None:
         return None
 

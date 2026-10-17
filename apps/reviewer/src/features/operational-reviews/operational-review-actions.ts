@@ -42,7 +42,16 @@ export type OperationalReviewsClient = Pick<
   | 'listPendingBoardCellGeometry'
   | 'previewPendingBoardCellGeometryCorrection'
   | 'resolvePendingBoardCellGeometryManually'
->;
+> &
+  Partial<
+    Pick<
+      AdminApiClient,
+      | 'listOperationalGridGeometryProposals'
+      | 'createOperationalGridGeometryProposal'
+      | 'acceptOperationalGridGeometryProposal'
+      | 'rejectOperationalGridGeometryProposal'
+    >
+  >;
 
 export interface OperationalReviewGeometryOptions {
   readonly gameId: string;

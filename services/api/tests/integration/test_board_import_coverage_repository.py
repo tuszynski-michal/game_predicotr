@@ -9,20 +9,34 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import ensure_source_geometry, virtual_board_columns
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
+from game_predictor_api.application.image_reviews import (
+    OperationalImageReviewRepository,
+    OperationalImageReviewService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_import_coverage import MissingReason
+from game_predictor_api.main import create_app
+from game_predictor_api.storage import grid_diagnostics_repository
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
+from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database_roles import (
+    ApplicationRoleSpec,
+    provision_application_role,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v17 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -38,7 +52,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
@@ -54,29 +68,40 @@ def _quote(name: str) -> str:
 
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
-    name = "game_predictor_task0629_" + uuid4().hex[:12]
+    name = "game_predictor_task1010_" + uuid4().hex[:12] + "_test"
     url = make_url(ApiSettings.from_environment().owner_database_url)
+    assert name.endswith("_test") and name != url.database
+    # Print only the isolated target, never user/password-bearing DSNs.
+    print(f"PostgreSQL fixture target: {url.host}:{url.port}/{name}; credentials omitted")
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
         connect_args={"connect_timeout": 5},
     )
     engine = create_engine(url.set(database=name), connect_args={"connect_timeout": 5})
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.execute(text("SET statement_timeout='10s'"))
-        connection.execute(text(f"CREATE DATABASE {_quote(name)}"))
+        recording_capability_fixture.create_database(connection)
     try:
+        recording_capability_fixture.provision()
         config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
         config.set_main_option(
             "sqlalchemy.url",
             url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
         )
         command.upgrade(config, "head")
+        with engine.begin() as connection:
+            role = "coverage_" + uuid4().hex[:12]
+            recording_capability_fixture.create_runtime_role(connection, role)
+            provision_application_role(
+                connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
+            )
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            connection.execute(text(f"DROP DATABASE {_quote(name)}"))
+            recording_capability_fixture.drop_database(connection)
         maintenance.dispose()
 
 
@@ -599,3 +624,215 @@ def test_pending_complete_board_in_a_game_data_v2_routed_game_is_added(
         assert report.counts.added == 1
         assert report.counts.missing == 4
         assert all(segment.start > 1 or segment.end < 1 for segment in report.page.segments)
+
+
+def _diagnostics_slot(
+    session: Session,
+    *,
+    game: GameModel,
+    job: JobModel,
+    source: SourceImageModel,
+    rejected: bool,
+    position_index: int,
+) -> None:
+    session.add(
+        ImageBoardGeometryPendingModel(
+            game_id=game.id,
+            import_job_id=job.id,
+            source_image_id=source.id,
+            sequence_number=2,
+            position_index=position_index,
+            source_checksum_sha256=source.checksum_sha256,
+            source_relative_path=source.relative_path,
+            status="rejected" if rejected else "pending",
+            reason_code="incomplete_lattice",
+            processing_manifest_checksum_sha256="e" * 64,
+            processing_manifest_relative_path="manifests/2.json",
+            pipeline_fingerprint_sha256="b" * 64,
+            expected_geometry_revision=0,
+            expected_review_resolution_revision=0,
+            rejection_reason="cropped" if rejected else None,
+            rejected_at=datetime.now(UTC) if rejected else None,
+            rejected_by="fixture" if rejected else None,
+        )
+    )
+
+
+def test_rejected_slot_default_get_and_waiting_priority(database: Engine) -> None:
+    with Session(database, expire_on_commit=False) as seed, seed.begin():
+        game = GameModel(code="cov-rejected-1010", name="Rejected slot", expected_layout_count=3)
+        seed.add(game)
+        seed.flush()
+        _provision_v2_storage_location(seed, game_id=game.id)
+        job = _import_job(seed, game_id=game.id, status="completed")
+        source = _source(seed, job=job, relative_path="seq_1-3.jpg")
+        _add_complete_board(
+            seed, game_id=game.id, job=job, source=source, position=0, sequence_number=1
+        )
+        _diagnostics_slot(seed, game=game, job=job, source=source, rejected=True, position_index=1)
+
+    class NoopOperationalRepository(OperationalImageReviewRepository):
+        pass
+
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_DATABASE_URL": database.url.render_as_string(hide_password=False),
+            "GAME_PREDICTOR_OWNER_DATABASE_URL": database.url.render_as_string(hide_password=False),
+        }
+    )
+    assert make_url(settings.database_url).database.endswith("_test")
+    url = f"/api/v1/admin/image-review-items/board-import-coverage/{game.id}"
+    with create_session_factory(database)() as session:
+        service = OperationalImageReviewService(
+            NoopOperationalRepository(),
+            board_import_coverage_repository=SqlAlchemyBoardImportCoverageRepository(session),
+        )
+        with TestClient(
+            create_app(settings, image_review_service_dependency=lambda: service)
+        ) as client:
+            response = client.get(url)
+            assert response.status_code == 200
+            body = response.json()
+            assert body["diagnostics"] is None
+            assert body["counts"]["added"] == 1
+            assert body["missingByReason"]["rejected"] == 1
+            assert any(
+                s["start"] <= 2 <= s["end"] and s["state"] == "rejected" for s in body["segments"]
+            )
+
+    with Session(database) as seed, seed.begin():
+        GameStorageRouter().bind(seed, game.id, intent=GameStorageIntent.WRITE)
+        pending_source = _source(seed, job=job, relative_path="seq_2-2.jpg", order_index=1)
+        _diagnostics_slot(
+            seed, game=game, job=job, source=pending_source, rejected=False, position_index=0
+        )
+    with create_session_factory(database)() as session:
+        report = SqlAlchemyBoardImportCoverageRepository(session).board_import_coverage(
+            game.id, view="missing"
+        )
+        assert report is not None
+        assert report.counts.added == 1
+        assert report.missing_by_reason[MissingReason.WAITING_FOR_GEOMETRY] == 1
+        assert report.missing_by_reason[MissingReason.REJECTED] == 0
+
+
+def test_diagnostics_snapshot_rls_union_and_separate_request_session(
+    database: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    application_role_mode = OwnedRecordingCapability.for_engine(database).runtime_role_receipt
+    assert application_role_mode is not None and application_role_mode.created_here
+    game_ids = []
+    for index in range(2):
+        with Session(database, expire_on_commit=False) as seed, seed.begin():
+            game = GameModel(
+                code=f"cov-snapshot-1010-{index}", name="Snapshot", expected_layout_count=6
+            )
+            seed.add(game)
+            seed.flush()
+            _provision_v2_storage_location(seed, game_id=game.id)
+            job = _import_job(seed, game_id=game.id, status="completed")
+            source = _source(seed, job=job, relative_path="seq_1-6.jpg")
+            item = _add_complete_board(
+                seed, game_id=game.id, job=job, source=source, position=0, sequence_number=1
+            )
+            if index == 0:
+                seed.add(
+                    ImageSequenceCanonicalModel(
+                        game_id=game.id,
+                        sequence_number=1,
+                        review_item_id=item.id,
+                        recognized_board_id=item.recognized_board_id,
+                        import_job_id=job.id,
+                        source_image_id=source.id,
+                        source_checksum_sha256=source.checksum_sha256,
+                        board_checksum_sha256="b" * 64,
+                        status="accepted",
+                        resolution_revision=1,
+                        geometry_revision=0,
+                    )
+                )
+            else:
+                _add_complete_board(
+                    seed, game_id=game.id, job=job, source=source, position=1, sequence_number=2
+                )
+            game_ids.append(game.id)
+
+    original = grid_diagnostics_repository.read_grid_diagnostics
+    observed = []
+
+    def snapshot_application_role(connection: Connection) -> None:
+        # Production connects as the application role. The fixture logs in as
+        # owner for seeding, so enforce the real NOLOGIN test role for every
+        # later transaction, including the snapshot's plain Session.
+        connection.exec_driver_sql(f'SET LOCAL ROLE "{application_role_mode.role}"')
+
+    @contextmanager
+    def application_identity() -> Iterator[None]:
+        event.listen(database, "begin", snapshot_application_role)
+        try:
+            yield
+        finally:
+            event.remove(database, "begin", snapshot_application_role)
+
+    request_factory = create_session_factory(database)
+    with application_identity(), request_factory() as request:
+        request_connection = request.connection()
+        request_transaction = request.get_transaction()
+        assert request.scalar(text("SELECT current_setting('transaction_read_only')")) == "off"
+
+        def inspect_snapshot(snapshot: Session, **kwargs):
+            assert type(snapshot) is Session
+            assert snapshot is not request
+            assert snapshot.connection() is not request_connection
+            state = snapshot.execute(
+                text("""
+                SELECT current_setting('transaction_isolation'),
+                  current_setting('transaction_read_only'),
+                  current_setting('game_predictor.game_id'),
+                  current_setting('statement_timeout'), current_user,
+                  (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user)
+            """)
+            ).one()
+            assert state[:4] == ("repeatable read", "on", str(game_ids[0]), "30s")
+            assert state[4] == application_role_mode.role
+            assert state[5] is False
+            # Deliberately omit a same-game predicate: actual RLS must suppress
+            # the other game's seeded boards, not just the report's WHERE clause.
+            assert (
+                snapshot.scalar(
+                    text(
+                        "SELECT count(*) FROM game_data_v2.recognized_boards WHERE game_id=:foreign"
+                    ),
+                    {"foreign": game_ids[1]},
+                )
+                == 0
+            )
+            observed.append(state)
+            return original(snapshot, **kwargs)
+
+        monkeypatch.setattr(grid_diagnostics_repository, "read_grid_diagnostics", inspect_snapshot)
+        report = SqlAlchemyBoardImportCoverageRepository(request).board_import_coverage(
+            game_ids[0], view="missing", include_diagnostics=True
+        )
+        assert report is not None and report.diagnostics is not None
+        data = report.diagnostics
+        assert report.counts.added == 1
+        assert (
+            data.qualifying_review_sequences
+            + data.canonical_sequences
+            - data.canonical_review_overlap
+            == 1
+        )
+        assert data.review_rows_by_status == {"pending": 1}
+        assert len(observed) == 1
+        assert request.get_transaction() is request_transaction
+        assert request.scalar(text("SELECT current_setting('transaction_read_only')")) == "off"
+        assert (
+            request.scalar(text("SELECT current_setting('transaction_isolation')"))
+            == "read committed"
+        )
+        request.execute(
+            text("UPDATE public.games SET name='Request remains writable' WHERE id=:id"),
+            {"id": game_ids[0]},
+        )
+        request.rollback()

@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-10-06
+last_updated: 2026-10-16
 ---
 
 # Architektura laboratorium wizji
@@ -355,6 +355,15 @@ Nie zakłada się dziewięciu plansz; nieobecność, zasłonięcie i nieczytelno
 są osobnymi stanami. Bramka kontroluje kolejność, przecięcia, dodatnie pola
 i kompletność bez wymogu konkretnej techniki OpenCV.
 
+TASK-1014 zabezpiecza wymagane bazowe checkpointy i eksportowe wagi obu
+profili w osobnym `training-base` zarządzanej wersji na D. Opt-in instalator
+publikuje staging atomowo i wiąże receipt z niezmiennym rejestrem modelu,
+SHA-256, rozmiarami i historycznymi źródłami. Store weryfikuje komplet plików
+przed zwróceniem bazy, bez odczytu C. Inferencyjny manifest i aktywacja
+pozostają zgodne; retry wznawia tylko zweryfikowane kompletne pliki.
+[Instrukcja i kontrakt bazy](../guides/MANAGED_GRID_TRAINING_BASES.md)
+nie upoważniają do usunięcia źródeł, treningu ani kopiowania korpusu.
+
 T02 przyjmuje również dostarczony przez użytkownika folder zdjęć bez
 powiązania z DB. Importer plikowy tworzy osobno wersjonowany snapshot,
 lokalne identyfikatory, pochodzenie pliku, SHA-256 i zarządzane kopie.
@@ -615,3 +624,231 @@ reuses symbolWriteSession, freezes PNGs, updates only receipt-confirmed cases
 and keeps the next selection while a save is pending. Rereads remount PNGs
 and require their load events; image failure blocks approval. The sticky
 desktop panel and mobile layout expose the palette without opening a photo.
+
+## V3 recording registry (D-554, TASK-1002)
+
+`source_recording_groups` separates closed HTTP DTOs, domain qualification,
+managed immutable membership pages and fixed PostgreSQL capabilities. Alembic
+0161 installs five private shared tables: groups, occurrences, evidence,
+role heads and command receipts. MAIN identities use game RLS; LAB_DESCRIPTOR
+identities use opaque pinned references without fabricated game/source rows.
+Indexed byte/pixel identities and explicit alias evidence form bounded closure.
+No source partition query participates in cross-game closure.
+
+A separately provisioned database-specific nonlogin role owns these objects.
+Runtime has only three exact safe function signatures and no direct registry,
+ordinal or internal helper access. Provisioning re-applies exact exclusions
+after existing broad/default grants. Missing capability provisioning blocks
+migration; runtime never falls back to an owner connection.
+
+Commands authenticate scope before receipt replay and recheck replay/CAS under
+catalog9910994 then registry9921002 locks. Advisory receipt lookup takes neither
+global lock during membership file capture. Attach compares SQL-attested source
+identity with the frozen server page inside the writing statement. Related
+closure proofs invalidate only dependent resolutions and future bound reports;
+global revision changes alone do not stale unrelated candidates.
+
+Trusted deployment providers are SHA-pinned by persistent server configuration.
+SQL also requires the matching immutable installation proof; an envelope copy
+does not establish trust. Provisional resolutions store dependency bindings
+without manufacturing future cohort/use or quality PASS evidence. The future
+0995/0997 producers bind actual use and reports through this private boundary.
+See [deployment and operator workflow](../guides/SOURCE_RECORDING_GROUPS.md).
+
+## Production descriptive measurement boundary (D-555, TASK-1009)
+
+`grid_quality_measurements` captures on a separate restricted runtime connection
+in REPEATABLE READ READ WRITE with explicit WRITE/game/RLS routing. UUID keyset
+metadata pages contain at most500 occurrences. A 100-element SHA-ranked heap
+uses policy/seed/source occurrence key; full ordered metadata contributes to the
+population digest. The capture deadline is60s, each statement at most30s and
+locks5s. Timeout rolls back the complete sample. There is no image corpus sweep,
+inference or implicit training qualification.
+
+Selected evidence freezes all nine positions and exact producing source/job/model
+references or a coverage gap. Current board pointers prove an automatic result;
+manual ancestry requires explicit consistent cell before/after source links and
+board/review/revision identity. Chronology and node resemblance are insufficient.
+A canonical JSON manifest is fsynced and atomically published under its SHA before
+committing its reference and receipt. Cold replay verifies the same file and SHA.
+The recording six-argument resolver adds an indexed own-source membership lookup;
+SQL/permissions_v2 preserve the frozen0161/v1 boundary and exact old signature.
+
+## Application geometry snapshot boundary (D-556, TASK-0995)
+
+`GridTrainingCohortService` orchestrates one-game preparation, metadata capture,
+materialization and freeze. The domain module owns exact 24-node qualification,
+versioned minima and weights. `grid_training_cohort_evidence` proves current
+human events and exact approval receipt/manifest chains. Later cell materialization
+or symbol changes preserve a label only after exact derived cell-quad/render
+parity and the existing positive sibling-publication verifier. Pending grid
+issues, owner, actor, source, geometry and revert checks remain effective.
+The legacy geometry exporter and symbol workflows keep their defaults.
+
+Metadata uses ordinal keyset pages of at most 200 members. Identity completion
+and image materialization accept at most five sources and decode them sequentially;
+only metadata, proofs and paths survive the next decode. The pure canonical
+decoder and all-NULL/exact-equality metadata rules live in the API domain, with
+backward-compatible worker exports. EXIF orientation None is a valid expected
+value, not evidence of a partial canonical group. Completion requires the exact
+existing geometry revision and never invents an import lease or model revision.
+
+Content-addressed files under `data/grid-training-cohorts` are verified, fsynced
+and published on the same volume before the database reference and receipt.
+Public paths remain relative; containment and reparse checks precede native
+Windows long-path I/O. The immutable root pins the base catalogue descriptor,
+decoder, preprocessing and streamed page indexes. The application-specific worker
+adapter `images/grid_cohort_dataset.py` verifies these pins and exact nodes,
+checks roles before pixels and caches at most one canonical frame. It composes
+outside neutral `training_core` and performs no training or inference.
+
+Freeze uses a restricted READ COMMITTED runtime transaction with one 60-second
+budget, statements capped at the remaining budget/30 seconds and locks at five
+seconds. File verification precedes final write locks. Ordered catalog, recording,
+owner, game projection, sequence, source and target locks protect metadata-only
+revalidation, CAS, actual recording use and the immutable receipt atomically.
+The additive recording v3 capability preserves historical v1/v2 SQL and grants;
+runtime receives no direct private registry SELECT. Ordinary freeze creates no
+report binding. A future real evaluation read-v2 report uses the existing trusted
+producer and policy; TASK-0997 must provide its full reader, writer and joint
+publication currentness barrier before publication.
+
+Capture/materialization hold a transaction-scoped shared cohort asset guard
+through file publication and receipt commit. Existing GC takes its exclusive
+counterpart, then rechecks actual own-RLS page/root references before quarantine,
+retry or deletion. Retained references protect canceled and failed cohorts too.
+Unknown schema, routing, permissions or query results protect the file; absence
+of routing proves zero references only with a completed matching deletion receipt
+and absent catalog, route and own cohort partitions. Unreferenced staging expires
+24 hours after the latest real dependency or deletion receipt. GC performs no
+source/owner locking or bitmap scan. Physical cleanup remains separately approved.
+
+Eligibility GET combines bounded current metadata checks in one pass and performs
+no file I/O. A detached used source blocks new admission with
+`SOURCE_REMOVED_NEW_USE_BLOCKED` in both application currentness and the common
+private recording v3 guard. Metadata GET returns blocked, liveSourceLinked=false
+and humanLabelWithdrawn=null for that member; byte availability remains unknown.
+New detach notices record the same reason. Historical receipts, frozen payloads,
+actual-use protection and earlier notices remain unchanged. Receipt replay
+reads history and does not grant fresh admission.
+
+## Grid training admission and GPU lease (D-557, TASK-1005)
+
+`training_core/grid_training_admission.py` is neutral: it imports no application,
+database or laboratory module and loads `torch` only inside `probe_runtime`. It owns
+the versioned presets `grid-only-v1` and `screen-grid-v1`, whose SHA-256 fingerprint
+covers every training parameter but not the approval record. `estimate_cohort_cost`
+trains boards in grid-only and full photos in screen+grid; the training time is 60 s per
+TRAIN photo clamped to 300–1800 s, and the charged run limit is 3600 s.
+`evaluate_admission` is pure and lists every blocking reason in a fixed order: preset
+approval or fingerprint, cohort mode, empty cohort, cost over budget, GPU, runtime
+versions, VRAM, lease and budget. A training run needs an approved preset; a smoke
+needs only a known fingerprint.
+
+`RunBudget` is a checksummed envelope of steps, seconds and attempts. Resume increments
+only the attempt; a negative or non-finite charge (clock moved back) exhausts it. The
+durable record of a run budget belongs to TASK-0996.
+
+`training_core/gpu_lease.py` holds one application GPU lease at
+`<artifact_root>/grid-training/gpu-lease.json`. Each read-decide-write runs under a
+short `.lock` file lock and replaces the record atomically. A live owner keeps an expired
+lease; takeover needs a passed term and a missing process with the recorded PID and
+creation time. An unreadable record or an unknown process state blocks and is never
+removed automatically. The lease does not control foreign CUDA processes or laboratory
+runs. `process_identity` moved here; the laboratory module re-exports it.
+
+The bounded smoke `vision_lab/grid_training_smoke.py` runs in the isolated laboratory
+environment on the reference snapshot's `training` role. It takes the lease, passes the
+same admission with `purpose=smoke` and stops after 50 steps or 120 training seconds from
+the first step; start-up may take 300 s and the whole run 600 s. A stoppable watchdog
+thread enforces the three limits plus 30 s even when a batch blocks. It writes no checkpoint,
+candidate or export. The read-only `run-preview` route reports presets, cost, cohort
+qualification and lease state, and lists GPU, runtime, VRAM and budget as pending worker
+checks.
+
+## Durable application grid training (D-558, TASK-0996)
+
+Training runs are `grid_training` jobs in their own execution slot 3 and worker lane
+(`--lane grid-training`), so imports in the general lane are never blocked. The lane's
+supervisor `images/grid_training_handler.py` runs in the main environment: it renews the
+job lease, re-checks the frozen cohort and its D-556 eligibility, the base version's
+`training-base`, the preset and the runtime facts from `grid_training_child --probe`, and
+calls `evaluate_admission`. It then starts `images/grid_training_child.py` with the CUDA
+interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. The child opens no database; it
+reads the pinned `spec.json`, holds the D-557 GPU lease and stops on a cancel intent, its
+time limit or 60 seconds without a supervisor heartbeat.
+
+The neutral core holds the shared logic: `training_core/neural_grid_network.py` (network,
+graphs, losses), `training_core/neural_grid_augmentation.py` (jitter, photometric
+augmentation, training items) and `training_core/grid_training.py` (loop, sampler,
+checkpoints, early stopping, freezing, weighted node losses, export and parity). The
+laboratory re-exports the moved symbols and keeps its results. Every step is a pure
+function of `(seed, step)`, so a run resumed from a checkpoint continues with the indices
+and seeds of an uninterrupted run; checkpoints are immutable, re-read before the pointer in
+`jobs.checkpoint_payload` moves, and a damaged pointed file fails the run without a
+candidate. Grid-only trains only the board stage with the detector and BatchNorm frozen and
+the visibility loss masked; screen+grid trains the whole network.
+
+The best checkpoint is exported with ONNX parity (D-561: every torch/ONNX output difference
+divided by max(1, |torch|) stays within 1e-4, so pixel-space node coordinates are not
+rejected for fp32 rounding; a failed check leaves `parity-failed.json` in the run), installed under
+`models/grid-engine/<profile>/<version>` with its `training-base` receipt and registered
+`not_evaluated` with an identifier derived from the job and checkpoint, so a retry after a
+crash restores the same version. Budget, attempt, checkpoint pointer, export and candidate
+live in the job payload; a re-claim charges the unconfirmed interval up to the child's
+self-stop (at most 100 s); a whole-process watchdog in the child enforces that bound, and
+the child publishes a step checkpoint when it is cancelled, out of budget or loses its
+supervisor. A re-claim first waits for the previous trainer to end, then charges its time and
+reported steps, adopts a newer intact checkpoint and recovers a finished export without new
+budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
+(`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.
+
+## Per-game candidate evaluation and proof currentness (D-559, TASK-0997)
+
+A registered `not_evaluated` candidate is compared with its base by a
+`grid_model_evaluation` job in the general lane (CPU ONNX). The API
+`/admin/grid-model-evaluations` queues it only with the candidate's training cohort and
+the cohort of every game whose assignment trains in the candidate's family, each frozen,
+`eligible` and pinned to the same family and base, and only with a passing candidate
+parity. The handler `images/grid_model_evaluation_handler.py` measures one unit per
+(game, VALIDATION or REGRESSION): it re-reads the game's snapshot in that game's own
+session, runs both bundles on the same decoded frames from the original photo and scores
+them with `neural-grid-metrics-v1` through the neutral `training_core/grid_evaluation.py`.
+Each unit writes `grid-model-evaluations/<jobId>/<gameId>-<role>.json` atomically and
+checkpoints its summary; a restart skips finished units and rebuilds the same canonical
+report v2 (`domain/grid_model_evaluation.py`) under the identity `uuid5(jobId)`.
+
+The gate `grid-model-per-game-gate-v1` is one pure function shared by writer and reader:
+no regression in complete-correct photos, correct boards, detected boards, false boards,
+duplicate detections and image-macro (a missing board costs 1, an unknown value counts as the worst), a strict
+improvement of the target metric on the training game's VALIDATION, REGRESSION as the
+final non-regression check only, at least five photos per role measured by both models.
+The publication reader recomputes every decision and accepts only a v2 `PASS`.
+
+Cross-game currentness never reads a foreign partition. Migration 0166 (manifest v17)
+adds `public.grid_model_cohort_notice_marks`, appended only by a `SECURITY DEFINER`
+trigger on every `currentness_notice` and read-only for the application role, and the
+append-only `public.grid_model_evaluation_cohort_proofs`. `application/grid_model_evaluation.py`
+proves one game per transaction: read the notice count, check the exact eligibility,
+bind the report with `bind_existing_report` (replay on retry) and append the proof with
+the count read first and the game's active storage generation. Publication, activation,
+rollback, default and eligibility views of a v2 report require the latest proof of every
+cohort to equal today's count and an active store of the same generation
+(`GRID_MODEL_EVALUATION_STALE` otherwise, also for a deleted game, whose partitions are
+dropped without row triggers but whose storage location is removed); publication also requires every game of the
+family. The currentness command repeats the four steps; a withdrawn label is not proven
+again.
+
+## Shared candidate of several games (D-560, TASK-1006)
+
+A shared run is a `grid_training` job of kind `grid-shared-training-run-v1`: the primary
+game's route pins its cohort and one frozen, eligible cohort of each other game of the same
+family, base and mode. `domain/shared_grid_model_candidate.py` holds the pure joint policy
+`grid-shared-candidate-v1`: TRAIN and VALIDATION in every cohort, no recording group with two
+roles and no TRAIN photo sharing bytes, pixels or recording group with a control photo of
+any game. `images/grid_shared_candidate.py` applies it to pinned snapshot metadata; the API
+pins the plan SHA and the supervisor recomputes it at every claim. The trainer fine-tunes the
+one base on `JointPhotos` with `BalancedSampler` (each round visits every game once, then
+recordings in permutations) and stops early on the equal-weight mean of the games'
+VALIDATION scores. The candidate keeps the primary `cohortId`, its `snapshotId` is the plan
+SHA, and its D-559 evaluation must cover every cohort it trained on.

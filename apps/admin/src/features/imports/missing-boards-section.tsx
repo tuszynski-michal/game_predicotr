@@ -7,6 +7,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ImageFolderImportClient } from './image-folder-import-actions';
+import { GridDiagnosticsControl } from './grid-diagnostics-panel';
 import {
   formatSegmentRange,
   missingReasonLabel,
@@ -205,6 +206,7 @@ export function MissingBoardsSection({
               <dd>{report.counts.missing.toLocaleString('pl-PL')}</dd>
             </div>
           </dl>
+          <GridDiagnosticsControl key={gameId} api={api} gameId={gameId} />
           <p className="importSubsectionHeader">
             w tym zatwierdzone: {report.counts.approved.toLocaleString('pl-PL')}
             {report.counts.outOfRange > 0

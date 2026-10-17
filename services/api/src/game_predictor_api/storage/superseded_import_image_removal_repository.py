@@ -380,6 +380,7 @@ class RemovalPlan:
     plan_sha256: str
     completeness_images: Mapping[str, int]
     scope: _Scope = field(repr=False)
+    retained_grid_source_links: int = 0
 
     @property
     def kept(self) -> tuple[ImageDecision, ...]:
@@ -960,6 +961,18 @@ def _reference_blocks(
     blocks: dict[str, set[str]] = defaultdict(set)
     parent_cache: dict[tuple[str, str], dict[str, set[str]]] = {}
     for key in keys:
+        if (
+            key.child_root
+            in (
+                f"{GAME_SCHEMA}.grid_reinference_sources",
+                f"{GAME_SCHEMA}.grid_quality_measurement_members",
+                f"{GAME_SCHEMA}.grid_training_cohort_members",
+            )
+            and key.parent_root == f"{GAME_SCHEMA}.source_images"
+            and key.child_columns == ("game_id", "live_source_image_id")
+            and key.parent_columns == ("game_id", "id")
+        ):
+            continue  # D-551: this exact live link is detached, history is retained.
         parent = _OWNED_BY_NAME[key.parent_root]
         if parent.scope == "execution":
             continue  # shared executions are kept, not the image (see _deletable_keys)
@@ -1213,7 +1226,15 @@ def build_removal_plan(session: Session, game_id: UUID, import_job_id: UUID) -> 
     completeness = _completeness_images(
         SqlAlchemyImageGeometryCompletenessRepository(session).completeness_report(game_id)
     )
+    from game_predictor_api.storage.grid_reinference_retention import (
+        retained_grid_source_link_count,
+    )
+
+    retained_grid_links = retained_grid_source_link_count(
+        session, game_id, tuple(UUID(value) for value in scope.image_ids)
+    )
     digest_payload = {
+        "retainedGridSourceLinks": retained_grid_links,
         "schema": REMOVAL_SCHEMA,
         "gameId": str(game_id),
         "importJobId": str(import_job_id),
@@ -1240,6 +1261,7 @@ def build_removal_plan(session: Session, game_id: UUID, import_job_id: UUID) -> 
         plan_sha256=hashlib.sha256(canonical_json(digest_payload)).hexdigest(),
         completeness_images=completeness,
         scope=scope,
+        retained_grid_source_links=retained_grid_links,
     )
 
 
@@ -1274,6 +1296,10 @@ def plan_report(plan: RemovalPlan) -> dict[str, Any]:
             **plan.completeness_images,
             "total": plan.completeness_images["total"] - len(plan.image_ids),
             "superseded": plan.completeness_images["superseded"] - len(plan.image_ids),
+        },
+        "gridReinferenceHistory": {
+            "retainedSourceManifests": plan.retained_grid_source_links,
+            "detachedLiveSourceLinks": plan.retained_grid_source_links,
         },
         "foreignKeysChecked": list(plan.foreign_keys),
         "qualifyingImageIds": [str(value) for value in plan.image_ids],
@@ -1706,6 +1732,11 @@ class SupersededImportImageRemovalRepository:
             directory = backup_root / datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
             manifest = write_backup(session, plan, directory)
             params = plan.scope.params(game_id, import_job_id)
+            from game_predictor_api.storage.grid_reinference_retention import (
+                detach_grid_source_links,
+            )
+
+            detach_grid_source_links(session, game_id, plan.image_ids)
             deleted: dict[str, int] = {}
             for name in plan.delete_order:
                 table = _OWNED_BY_NAME[name]

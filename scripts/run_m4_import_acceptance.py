@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 API_SOURCE = REPOSITORY_ROOT / "services" / "api" / "src"
@@ -22,8 +22,6 @@ WORKER_SOURCE = REPOSITORY_ROOT / "services" / "worker" / "src"
 sys.path.insert(0, str(API_SOURCE))
 sys.path.insert(0, str(WORKER_SOURCE))
 
-from alembic import command  # noqa: E402
-from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from game_predictor_api.application.layout_imports import (  # noqa: E402
     LayoutImportSourceInspector,
@@ -38,6 +36,7 @@ from game_predictor_api.storage.models import (  # noqa: E402
     LayoutModel,
     LayoutPayoutModel,
 )
+from game_predictor_api.storage.owned_tool_database import OwnedToolDatabase  # noqa: E402
 from game_predictor_worker.benchmarks import PeakMemorySampler  # noqa: E402
 from game_predictor_worker.imports.fixtures import (  # noqa: E402
     DEFAULT_ACCEPTANCE_LAYOUT_COUNT,
@@ -250,39 +249,6 @@ def _database_url(database_name: str) -> URL:
     return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
-def _migration_config(database_url: URL) -> Config:
-    config = Config(str(ALEMBIC_INI))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database_url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    return config
-
-
-def _recreate_database(database_name: str) -> tuple[URL, Any]:
-    maintenance_engine = create_engine(
-        _database_url("game_predictor_m4_acceptance_test").set(database="postgres"),
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    database_url = _database_url(database_name)
-    identifier = f'"{database_name}"'
-    with maintenance_engine.connect() as connection:
-        connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-        connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-    command.upgrade(_migration_config(database_url), "head")
-    return database_url, maintenance_engine
-
-
-def _drop_database(maintenance_engine: Any, database_name: str) -> None:
-    if not _SAFE_DATABASE_NAME.fullmatch(database_name):
-        raise ValueError("Refusing to drop an unexpected database.")
-    identifier = f'"{database_name}"'
-    with maintenance_engine.connect() as connection:
-        connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
-    maintenance_engine.dispose()
-
-
 def _json(response: Any, expected_status: int) -> Any:
     if response.status_code != expected_status:
         raise RuntimeError(
@@ -296,6 +262,7 @@ def _create_rules(client: TestClient) -> tuple[str, str]:
         client.post(
             "/api/v1/admin/games",
             json={
+                "idempotencyKey": str(uuid4()),
                 "code": "m4-acceptance",
                 "name": "M4 Acceptance Game",
                 "status": "active",
@@ -635,18 +602,26 @@ def run_acceptance(
     }
 
     database_url: URL | None = None
-    maintenance_engine: Any | None = None
+    database = OwnedToolDatabase(
+        _database_url(database_name),
+        prefix=database_name[:29],
+        alembic_ini=ALEMBIC_INI,
+    )
     application: Any | None = None
     worker_engine: Any | None = None
-    succeeded = False
     try:
-        database_url, maintenance_engine = recorder.measure(
+        recorder.measure(
             "databaseMigration",
-            lambda: _recreate_database(database_name),
+            database.create,
         )
+        database_url = database.runtime_url
+        recorder.report["databaseName"] = database.database_name
         settings = ApiSettings.from_environment(
             {
                 "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(hide_password=False),
+                "GAME_PREDICTOR_OWNER_DATABASE_URL": database.owner_url.render_as_string(
+                    hide_password=False
+                ),
                 "GAME_PREDICTOR_IMPORT_ROOT": str(import_root.resolve()),
                 "GAME_PREDICTOR_IMPORT_MAX_BYTES": str(1024 * 1024 * 1024),
                 "GAME_PREDICTOR_ARTIFACT_ROOT": str(artifact_root.resolve()),
@@ -984,14 +959,13 @@ def run_acceptance(
             }
 
         recorder.finish("smoke_passed" if skip_android_build else "passed")
-        succeeded = True
         return recorder.report
     except BaseException as error:
         recorder.report["failure"] = {
             "message": str(error),
             "type": type(error).__name__,
         }
-        recorder.report["databaseRetainedForRetry"] = maintenance_engine is not None
+        recorder.report["databaseRetainedForRetry"] = keep_database and database.created_here
         recorder.finish("failed")
         raise AcceptanceRunFailed(recorder.report) from error
     finally:
@@ -999,10 +973,7 @@ def run_acceptance(
             application.state.database_engine.dispose()
         if worker_engine is not None:
             worker_engine.dispose()
-        if maintenance_engine is not None and succeeded and not keep_database:
-            _drop_database(maintenance_engine, database_name)
-        elif maintenance_engine is not None:
-            maintenance_engine.dispose()
+        database.close(sys.exception(), retain=keep_database)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -1013,7 +984,11 @@ def _parse_args() -> argparse.Namespace:
         default=DEFAULT_ACCEPTANCE_LAYOUT_COUNT,
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_ACCEPTANCE_SEED)
-    parser.add_argument("--database-name", default=DEFAULT_DATABASE_NAME)
+    parser.add_argument(
+        "--database-name",
+        default=DEFAULT_DATABASE_NAME,
+        help="Database label; every run uses a fresh UUID database and never reuses an old run.",
+    )
     parser.add_argument("--import-root", type=Path, default=DEFAULT_IMPORT_ROOT)
     parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

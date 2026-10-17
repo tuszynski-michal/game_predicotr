@@ -47,6 +47,7 @@ class ApiSettings:
     # database than its runtime sessions.
     configured_owner_database_url: str | None = field(default=None, repr=False)
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
+    recording_provider_index_sha256: str | None = None
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
     v7_label_geometry_runtime_root: Path = field(default_factory=lambda: Path(".runtime").resolve())
     v7_label_geometry_corpus_manifest: Path | None = None
@@ -141,6 +142,16 @@ class ApiSettings:
         if not artifact_root_value:
             raise ConfigurationError("GAME_PREDICTOR_ARTIFACT_ROOT cannot be empty.")
         artifact_root = Path(artifact_root_value).resolve()
+        recording_provider_index_sha256 = source.get(
+            "GAME_PREDICTOR_RECORDING_PROVIDER_INDEX_SHA256"
+        )
+        if recording_provider_index_sha256 is not None and (
+            len(recording_provider_index_sha256) != 64
+            or any(value not in "0123456789abcdef" for value in recording_provider_index_sha256)
+        ):
+            raise ConfigurationError(
+                "GAME_PREDICTOR_RECORDING_PROVIDER_INDEX_SHA256 must be lowercase SHA256."
+            )
         import_root_value = source.get("GAME_PREDICTOR_IMPORT_ROOT", "imports").strip()
         if not import_root_value:
             raise ConfigurationError("GAME_PREDICTOR_IMPORT_ROOT cannot be empty.")
@@ -315,6 +326,7 @@ class ApiSettings:
             database_url=database_url,
             configured_owner_database_url=owner_database_url,
             artifact_root=artifact_root,
+            recording_provider_index_sha256=recording_provider_index_sha256,
             import_root=import_root,
             v7_label_geometry_runtime_root=v7_runtime_root,
             v7_label_geometry_corpus_manifest=v7_corpus_manifest,

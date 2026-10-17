@@ -614,15 +614,19 @@ export async function startReadyBrowserImageImport(
   geometryGuardResolutionManifestChecksumSha256?: string,
   geometryEngineVariant?: GeometryEngineVariant,
   symbolModelSnapshotFingerprint?: string,
+  confirmedNeuralUnboundSourceCount?: number,
 ): Promise<
   | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
-  | Failure
+  | (Failure & { readonly code?: string })
 > {
   try {
     const result = await api.startReadyBrowserImageImport(uploadId, {
       gameId,
       manifestChecksumSha256,
       preflightChecksumSha256,
+      ...(confirmedNeuralUnboundSourceCount === undefined
+        ? {}
+        : { confirmedNeuralUnboundSourceCount }),
       ...(symbolModelInferenceFingerprint === undefined
         ? {}
         : { symbolModelInferenceFingerprint }),
@@ -652,12 +656,20 @@ export async function startReadyBrowserImageImport(
         : { imageEnginePolicyRevision }),
     });
     if (result.error !== undefined || result.data === undefined) {
+      const code =
+        typeof result.error === 'object' &&
+        result.error !== null &&
+        'code' in result.error &&
+        typeof result.error.code === 'string'
+          ? result.error.code
+          : undefined;
       return {
         error: apiErrorMessage(
           result.error,
           'Nie udało się utworzyć importu plansz.',
         ),
         ok: false,
+        ...(code === undefined ? {} : { code }),
       };
     }
     return { data: result.data, ok: true };

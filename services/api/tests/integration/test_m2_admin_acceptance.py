@@ -4,8 +4,10 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -45,15 +47,19 @@ def isolated_m2_database() -> Iterator[URL]:
     test_database_url = _database_url(TEST_DATABASE_NAME)
     identifier = f'"{TEST_DATABASE_NAME}"'
 
+    recording_capability_fixture = OwnedRecordingCapability(test_database_url)
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         command.upgrade(_migration_config(test_database_url), "head")
         yield test_database_url
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 
@@ -78,6 +84,8 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                 client.post(
                     "/api/v1/admin/games",
                     json={
+                        # TASK-1004: game creation is idempotent and needs its key.
+                        "idempotencyKey": str(uuid4()),
                         "code": "m2-game",
                         "name": "M2 Acceptance Game",
                         "status": "active",

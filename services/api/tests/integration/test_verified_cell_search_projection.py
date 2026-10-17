@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import (
     add_board_render_manifest_for,
     ensure_source_geometry,
@@ -110,14 +111,18 @@ def verified_cell_database() -> Iterator[URL]:
         pool_pre_ping=True,
     )
     identifier = f'"{TEST_DATABASE_NAME}"'
+    recording_capability_fixture = OwnedRecordingCapability(_database_url(TEST_DATABASE_NAME))
     try:
         with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
             connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
+            recording_capability_fixture.record_created_database(connection)
+            recording_capability_fixture.provision()
         yield _database_url(TEST_DATABASE_NAME)
     finally:
         with maintenance_engine.connect() as connection:
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
+            recording_capability_fixture.cleanup(connection)
         maintenance_engine.dispose()
 
 
@@ -255,6 +260,7 @@ def _seed_pending_board(
     with session_factory() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
+            idempotency_key=uuid4(),
             code="verified-cells",
             name="Verified cells",
             status=GameStatus.ACTIVE,

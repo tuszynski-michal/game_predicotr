@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from io import StringIO
 from pathlib import Path
 
@@ -25,8 +28,22 @@ from game_predictor_api.storage.game_data_v2_manifest_v5 import (
 from game_predictor_api.storage.game_data_v2_manifest_v6 import (
     GAME_TABLES as V6_GAME_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v7 import (
+from game_predictor_api.storage.game_data_v2_manifest_v7 import GAME_TABLES as V7_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v8 import (
     ADDED_GAME_TABLES,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v8 import GAME_TABLES as V8_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v8 import ownership as v8_ownership
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG as V9_CATALOG
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_SHARED as V9_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ownership as v9_ownership
+from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as V10_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v11 import (
+    ADDED_CATALOG,
+    ADDED_SHARED,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v17 import ADDED_SHARED as V17_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v17 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -35,6 +52,7 @@ from game_predictor_api.storage.game_data_v2_manifest_v7 import (
     MIGRATE_TABLES,
     PARTITIONED_TABLES,
     POST_V5_SHARED,
+    RECORDING_TABLES,
     SHARED,
     VERSION,
     ownership,
@@ -54,7 +72,21 @@ def config(output: StringIO) -> Config:
 
 
 def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
-    known = CATALOG | SHARED | POST_V5_SHARED | set(GAME_TABLES) | MANAGEMENT_SHARED
+    registry_tables = (
+        V9_CATALOG
+        | V9_SHARED
+        | V10_SHARED
+        | ADDED_CATALOG
+        | ADDED_SHARED
+        | V17_SHARED
+        | set(RECORDING_TABLES)
+    )
+    known = (
+        ((CATALOG | SHARED | POST_V5_SHARED) - registry_tables)
+        | set(GAME_TABLES)
+        | MANAGEMENT_SHARED
+        | {f"public.{name}" for name in registry_tables}
+    )
     assert not (CATALOG & SHARED or CATALOG & set(GAME_TABLES) or SHARED & set(GAME_TABLES))
     assert set(Base.metadata.tables) <= known
     assert known - set(Base.metadata.tables) == {
@@ -63,12 +95,13 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v7"
+    assert VERSION == "game-data-v2-manifest-v17"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
     assert len(V6_GAME_TABLES) == 68
-    assert len(GAME_TABLES) == 70
+    assert len(V7_GAME_TABLES) == 70
+    assert len(GAME_TABLES) == 89
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
@@ -76,7 +109,25 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "super_game_series",
         "super_game_series_audit_events",
         "super_game_series_generation_rows",
+        "image_board_geometry_pending_events",
+        "image_geometry_correction_reverts",
         *ADDED_GAME_TABLES,
+        "grid_reinference_operations",
+        "grid_reinference_sources",
+        "grid_reinference_targets",
+        "grid_geometry_proposals",
+        "grid_geometry_proposal_events",
+        "grid_quality_measurements",
+        "grid_quality_measurement_members",
+        "grid_quality_measurement_judgments",
+        "grid_quality_measurement_commands",
+        "grid_geometry_approval_commands",
+        "grid_training_cohorts",
+        "grid_training_cohort_members",
+        "grid_training_cohort_pages",
+        "grid_training_cohort_commands",
+        "grid_training_cohort_events",
+        "grid_source_identity_commands",
     }
     # TASK-0933: v6 is v5 plus exactly the four super game series tables.
     assert set(V6_GAME_TABLES) - set(V5_GAME_TABLES) == {
@@ -87,10 +138,11 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
     }
     # TASK-0966/0970: v7 is v6 plus exactly the geometry correction revert audit
     # and the durable events of deferred-slot rejections.
-    assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {
+    assert set(V7_GAME_TABLES) - set(V6_GAME_TABLES) == {
         "image_board_geometry_pending_events",
         "image_geometry_correction_reverts",
     }
+    assert set(V8_GAME_TABLES) - set(V7_GAME_TABLES) == set(ADDED_GAME_TABLES)
     assert {ownership(name) for name in ADDED_GAME_TABLES} == {"game"}
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES
@@ -107,6 +159,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
             ownership(table)
     assert {ownership(name) for name in CONTROL_TABLES} == {"shared"}
+    assert ownership("board_search_panels") == "shared"
     assert {
         "semi_automatic_selection_v7_activation_gate",
         "global_geometry_profile_versions",
@@ -120,6 +173,93 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
     } <= SHARED
     with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
         ownership("future_unreviewed_table")
+
+
+def test_registry_ownership_is_public_control_without_changing_frozen_v8() -> None:
+    assert {
+        "grid_model_families",
+        "grid_model_versions",
+        "grid_model_registration_receipts",
+        "grid_model_version_events",
+    } == V9_SHARED
+    assert {
+        "game_grid_model_assignments",
+        "game_grid_model_assignment_events",
+    } == V9_CATALOG
+    assert {ownership(name) for name in V9_SHARED} == {"shared"}
+    assert {ownership(name) for name in V9_CATALOG} == {"catalog"}
+    assert set(V8_GAME_TABLES) <= set(GAME_TABLES)
+    for name in V9_CATALOG | V9_SHARED:
+        table = Base.metadata.tables[f"public.{name}"]
+        assert table.schema == "public"
+        assert name not in PARTITIONED_TABLES
+        with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
+            v8_ownership(name)
+
+
+def test_publication_ownership_preserves_all_frozen_game_partitions() -> None:
+    from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_CATALOG as V10_CATALOG
+
+    assert not V10_CATALOG
+    assert {
+        "grid_model_evaluation_reports",
+        "grid_model_evaluation_invalidations",
+        "grid_model_publications",
+        "grid_model_control_events",
+        "grid_model_default",
+    } == V10_SHARED
+    assert {ownership(name) for name in V10_SHARED} == {"shared"}
+    for name in V10_SHARED:
+        assert Base.metadata.tables["public." + name].schema == "public"
+        assert name not in PARTITIONED_TABLES
+        with pytest.raises(ValueError, match="GAME_STORAGE_UNKNOWN_TABLE"):
+            v9_ownership(name)
+
+
+@pytest.mark.parametrize("first_module", ["models", "grid_model_registry_models"])
+def test_registry_metadata_registration_is_import_order_independent(first_module: str) -> None:
+    script = """
+import importlib
+import runpy
+import sys
+from pathlib import Path
+
+root = Path.cwd()
+importlib.import_module("game_predictor_api.storage." + sys.argv[1])
+models = importlib.import_module("game_predictor_api.storage.models")
+from game_predictor_api.storage.game_data_v2_manifest_v9 import ADDED_CATALOG, ADDED_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v10 import ADDED_SHARED as PUBLICATION_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v11 import ADDED_CATALOG as CREATE_CATALOG
+from game_predictor_api.storage.game_data_v2_manifest_v11 import ADDED_SHARED as FORK_SHARED
+
+assert Path(models.__file__).resolve() == (
+    root / "services/api/src/game_predictor_api/storage/models.py"
+).resolve()
+names = ADDED_CATALOG | ADDED_SHARED | PUBLICATION_SHARED | CREATE_CATALOG | FORK_SHARED
+assert {"public." + name for name in names} <= models.Base.metadata.tables.keys()
+baseline = runpy.run_path(str(root / "services/api/tests/integration/test_postgres_baseline.py"))
+assert names <= baseline["EXPECTED_PUBLIC_TABLES"]
+"""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join(
+        str(ROOT / directory)
+        for directory in (
+            "services/api/src",
+            "services/worker/src",
+            "services/test_support",
+            "services/api/tests/integration",
+        )
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script, first_module],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_large_history_and_samples_are_in_same_partitioned_store() -> None:
@@ -187,3 +327,16 @@ def test_downgrade_locks_checks_and_never_cascades() -> None:
     )
     assert "CASCADE" not in sql
     assert "DROP SCHEMA game_data_v2" in sql
+
+
+def test_v11_only_adds_public_create_receipts_and_shared_fork_lineage():
+    from game_predictor_api.storage import game_data_v2_manifest_v10 as prior
+    from game_predictor_api.storage import game_data_v2_manifest_v11 as current
+
+    assert current.GAME_TABLES == prior.GAME_TABLES
+    assert current.CREATE_TABLES == prior.CREATE_TABLES
+    assert current.DELETE_TABLES == prior.DELETE_TABLES
+    assert {"game_create_receipts"} == current.ADDED_CATALOG
+    assert {"grid_model_family_forks"} == current.ADDED_SHARED
+    assert current.ownership("game_create_receipts") == "catalog"
+    assert current.ownership("grid_model_family_forks") == "shared"

@@ -6,7 +6,6 @@ import type {
   GridProfileActivationAction,
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
-  PendingGridReinferencePreviewResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -16,10 +15,11 @@ import {
   createGridCandidate,
   loadGridQuality,
   previewGridActivation,
-  previewPendingGridReinference,
-  startPendingGridReinference,
   type GridQualityClient,
 } from '@/features/model-quality/model-quality-actions';
+
+import { GridReinferencePreview } from './grid-reinference-preview';
+import type { GridReinferenceClient } from './grid-reinference-state';
 
 const OWNER_ACTOR = 'local-owner';
 
@@ -67,7 +67,7 @@ export function GridQualityPanel({
   gameId,
 }: {
   readonly apiBaseUrl: string;
-  readonly client?: GridQualityClient;
+  readonly client?: GridQualityClient & Partial<GridReinferenceClient>;
   readonly gameId: string;
 }) {
   const api = useMemo(
@@ -82,15 +82,12 @@ export function GridQualityPanel({
   >([]);
   const [diagnostics, setDiagnostics] =
     useState<GeometryCohortDiagnosticsResponse | null>(null);
-  const [pendingPreview, setPendingPreview] =
-    useState<PendingGridReinferencePreviewResponse | null>(null);
   const [preview, setPreview] =
     useState<GridProfileActivationPreviewResponse | null>(null);
   const [action, setAction] = useState<GridProfileActivationAction>('activate');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [activating, setActivating] = useState(false);
-  const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idempotencyKey = useRef<string | null>(null);
@@ -98,10 +95,7 @@ export function GridQualityPanel({
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       setLoading(true);
-      const [result, pendingResult] = await Promise.all([
-        loadGridQuality(api, gameId, signal),
-        previewPendingGridReinference(api, gameId),
-      ]);
+      const result = await loadGridQuality(api, gameId, signal);
       if (signal?.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
@@ -110,7 +104,6 @@ export function GridQualityPanel({
         setActivations(result.activations);
         setDiagnostics(result.diagnostics);
       }
-      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -151,27 +144,6 @@ export function GridQualityPanel({
       await refresh();
     }
     setCreating(false);
-  }
-
-  async function recalculatePending() {
-    if (
-      pendingPreview === null ||
-      pendingPreview.recalculableBoardCount === 0 ||
-      recalculating
-    )
-      return;
-    setRecalculating(true);
-    setError('');
-    const result = await startPendingGridReinference(api, gameId);
-    if (result.ok) {
-      setNotice(
-        `Uruchomiono odświeżenie plikowych siatek symboli 3×5 modułem v19 (job ${result.job.id}).`,
-      );
-      setPendingPreview({ ...pendingPreview, recalculableBoardCount: 0 });
-    } else {
-      setError(result.error);
-    }
-    setRecalculating(false);
   }
 
   async function prepareActivation(
@@ -232,32 +204,14 @@ export function GridQualityPanel({
           planszy i nie zmienia historycznych wyników.
         </p>
       </header>
-      <div className="modelQualityActions">
-        <button
-          className="secondaryButton"
-          disabled={
-            recalculating || pendingPreview?.recalculableBoardCount === 0
-          }
-          onClick={() => void recalculatePending()}
-          type="button"
-        >
-          {recalculating
-            ? 'Przeliczanie…'
-            : `Przelicz oczekujące (${pendingPreview?.recalculableBoardCount ?? '…'})`}
-        </button>
-        {pendingPreview !== null ? (
-          <small>
-            Oczekujące: {pendingPreview.pendingBoardCount}; już w v19:{' '}
-            {pendingPreview.currentV19BoardCount}; chronione:{' '}
-            {pendingPreview.protectedBoardCount}; wirtualne v0.10 do ręcznej
-            walidacji lub korekty: {pendingPreview.unsupportedVirtualBoardCount}
-            ; źródła częściowe: {pendingPreview.partiallyResolvedSourceCount};
-            pominięte: {pendingPreview.fullyResolvedSourceCount}. Silnik:{' '}
-            {pendingPreview.geometryVersion}; cropper:{' '}
-            {pendingPreview.cropperVersion}.
-          </small>
-        ) : null}
-      </div>
+      {typeof api.prepareGridReinference === 'function' &&
+      typeof api.listGridReinferenceOperations === 'function' ? (
+        <GridReinferencePreview
+          api={api as GridReinferenceClient}
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+        />
+      ) : null}
       <dl className="modelQualityDecisionCounts">
         <div>
           <dt>Aktywny profil</dt>

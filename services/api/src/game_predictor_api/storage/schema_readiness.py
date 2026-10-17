@@ -1,7 +1,7 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
 The storage router accepts only the manifest version created by the newest
-migration (``game-data-v2-manifest-v7`` since 0153).  Code running against an
+migration (``game-data-v2-manifest-v17`` since 0166). Code running against an
 older or newer schema would fail on every game-scoped request, so API, worker
 and maintenance scripts refuse to start instead.  One ``SELECT``.
 """
@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0154_geometry_correction_revert"
+EXPECTED_ALEMBIC_HEAD: Final = "0166_grid_model_evaluation"
 
 
 class AlembicHeadMismatchError(RuntimeError):

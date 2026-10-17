@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import ensure_source_geometry
 from alembic import command
 from alembic.config import Config
@@ -28,14 +29,19 @@ from game_predictor_api.domain.neural_grid_proposal import (
     lattice_visibility,
 )
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.database_roles import (
+    ApplicationRoleSpec,
+    provision_application_role,
+)
 from game_predictor_api.storage.job_repository import job_record_from_domain
 from game_predictor_api.storage.models import ImageFileExecutionModel, SourceImageModel
 from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
+from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.orm import Session
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
@@ -87,8 +93,12 @@ def _geometry(engine, game_id: UUID, label: str) -> UUID:
     )
     checksum = "b" * 64 if label == "legacy" else "c" * 64
     key = "d" * 64 if label == "legacy" else "e" * 64
-    with create_session_factory(engine)() as session, session.begin():
-        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+    # Historical owner seeding uses the physically pinned schema, not today's router.
+    with Session(engine) as session, session.begin():
+        session.execute(text("SET LOCAL search_path=game_data_v2,public,pg_catalog"))
+        session.execute(
+            text("SELECT set_config('game_predictor.game_id',:game,true)"), {"game": str(game_id)}
+        )
         session.add(job_record_from_domain(job))
         session.add(
             ImageFileExecutionModel(
@@ -213,6 +223,38 @@ def test_0145_preserves_old_partitions_validates_binding_and_recovers_in_new_pro
                     "revision": 1,
                     "sha": "6" * 64,
                 },
+            )
+        # Test this immutable migration's guard while the database is really at0145.
+        with database.owner_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE game_data_v2.image_source_geometry_revisions "
+                    "SET engine_kind='neural_grid_v1',status='needs_review' "
+                    "WHERE game_id=:game AND id=:id"
+                ),
+                {"game": game_id, "id": mumie_geometry},
+            )
+        with pytest.raises(Exception, match="NEURAL_PAGE_GEOMETRY_DOWNGRADE_HAS_HISTORY"):
+            command.downgrade(config, "0144_lab_symbol_candidate_registry")
+        with database.owner_engine.begin() as connection:
+            assert connection.scalar(text("SELECT version_num FROM public.alembic_version")) == (
+                "0145_neural_page_geometry_binding"
+            )
+            connection.execute(
+                text(
+                    "UPDATE game_data_v2.image_source_geometry_revisions "
+                    "SET engine_kind='structured_opencv_v1' WHERE game_id=:game AND id=:id"
+                ),
+                {"game": game_id, "id": mumie_geometry},
+            )
+        OwnedRecordingCapability.for_engine(database.owner_engine).provision("head", config)
+        command.upgrade(config, "head")
+        with database.owner_engine.begin() as connection:
+            provision_application_role(
+                connection,
+                ApplicationRoleSpec(
+                    role_name=database.role, password=database.app_url.password, login=True
+                ),
             )
         value = _proposal(game_id)
         selected = build_neural_source_binding(
@@ -354,10 +396,8 @@ finally:
                 )
                 == "structured_opencv_v1"
             )
-        with pytest.raises(Exception, match="NEURAL_PAGE_GEOMETRY_DOWNGRADE_HAS_HISTORY"):
-            command.downgrade(config, "0144_lab_symbol_candidate_registry")
         with database.owner_engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM public.alembic_version"))
-                == "0145_neural_page_geometry_binding"
+                == EXPECTED_ALEMBIC_HEAD
             )

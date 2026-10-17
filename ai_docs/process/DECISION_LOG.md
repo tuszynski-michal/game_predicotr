@@ -1,39 +1,52 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-13
+last_updated: 2026-10-16
 ---
 
 # Decision Log
 
-Ten plik jest **indeksem** decyzji i obowiązkowym odczytem startowym. Pełne wpisy
-(kontekst, alternatywy, konsekwencje) leżą w
-[decisions/DECISION_LOG_2026.md](decisions/DECISION_LOG_2026.md) w niezmienionym
-kształcie, z nagłówkami `## D-NNN — …` (kotwice `#d-nnn-…` jak dawniej).
+Indeks **30 najnowszych** decyzji. Pełne wpisy (kontekst, alternatywy,
+konsekwencje) leżą w [decisions/DECISION_LOG_2026.md](decisions/DECISION_LOG_2026.md)
+z nagłówkami `## D-NNN — …` (kotwice `#d-nnn-…`); starsze wiersze indeksu są w
+[decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
+Hierarchia źródeł prawdy (`AGENTS.md`) odnosi się do pełnych wpisów; indeks to
+tylko ich skrót.
 
 Reguły:
 
-- Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
-  tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
-  albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 541 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (183 wiersze); starsze (357 wierszy) są w
-  [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
-  Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
-  rozróżnia tytuł i kotwica.
-- Nowa decyzja: dopisz pełny wpis na początku
-  `decisions/DECISION_LOG_2026.md`, dodaj wiersz na górze tabeli poniżej, podmień
-  najstarszą pełną kopię w sekcji „Najnowsze wpisy” na nowy wpis, a gdy cały
-  ten plik zbliża się do limitu 100 000 B (sprawdza go `docs:check`), przenieś
-  najstarsze wiersze indeksu do `decisions/DECISION_INDEX_ARCHIVE.md`. Spójność sprawdza
-  `python scripts/check_decision_links.py` (część `npm run docs:check`).
-- Hierarchia źródeł prawdy (`AGENTS.md`) odnosi się do pełnych wpisów; indeks to
-  tylko ich skrót.
+- Obowiązkowy odczyt startowy to ten plik. Starszej decyzji szukaj
+  wyszukiwaniem, nie lekturą archiwum:
+  `rg -n "<słowo|D-NNN>" ai_docs/process/DECISION_LOG.md ai_docs/process/decisions/DECISION_INDEX_ARCHIVE.md`,
+  a pełny wpis otwieraj przez kotwicę, gdy `Relevant docs` taska go wskazuje
+  albo gdy trzeba ocenić sprzeczność.
+- Nowa decyzja: pełny wpis na początku `decisions/DECISION_LOG_2026.md` i wiersz
+  na górze tabeli poniżej; wiersze ponad 30 przenieś bez zmian na początek
+  tabeli w `decisions/DECISION_INDEX_ARCHIVE.md`. Spójność i budżet (30 wierszy,
+  12 000 B) sprawdza `npm run docs:check`.
+- Numery D-416..D-429 oraz D-548 występują w dwóch torach (kolizja numeracji;
+  D-548 to panel udostępniania `main` i doszkalanie V3 z gałęzi
+  `codex/v3-grid-fine-tuning`); wiersze rozróżnia tytuł i kotwica.
 
 ## Indeks
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-561](decisions/DECISION_LOG_2026.md#d-561--parity-eksportu-onnx-względna-do-wielkości-wyjścia) | Parity eksportu ONNX względna do wielkości wyjścia | accepted | 2026-10-16 | Różnica torch/ONNX dzielona przez max(1, moduł wyjścia torch): współrzędne w pikselach nie padają na szumie fp32, wyjścia jednostkowe bez zmian. |
+| [D-560](decisions/DECISION_LOG_2026.md#d-560--wspólny-kandydat-geometrii-v3-kilku-gier) | Wspólny kandydat geometrii V3 kilku gier | accepted | 2026-10-16 | Jedna baza na TRAIN kilku gier z równą wagą gier i nagrań, przypięty plan bez aliasów kontrolnych, ocena na wszystkich kohortach treningu. |
+| [D-559](decisions/DECISION_LOG_2026.md#d-559--ocena-kandydata-geometrii-v3-per-gra-i-most-aktualności-dowodów) | Ocena kandydata geometrii V3 per gra i most aktualności dowodów | accepted | 2026-10-16 | Raport v2 z miarami bazy i kandydata per gra, PASS tylko bez regresji w każdej grze, proof per gra z licznikiem notices blokuje nieaktualną publikację. |
+| [D-558](decisions/DECISION_LOG_2026.md#d-558--trwały-trening-geometrii-v3-w-osobnym-lane-z-procesem-gpu) | Trwały trening geometrii V3 w osobnym lane z procesem GPU | accepted | 2026-10-16 | Lane i slot `grid_training`, nadzorca z bazą i trener GPU bez bazy, wznowienie po kroku, kandydat `not_evaluated` bez duplikatu. |
+| [D-557](decisions/DECISION_LOG_2026.md#d-557--presety-treningu-geometrii-v3-dzierżawa-gpu-i-dopuszczenie-runu) | Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu | accepted | 2026-10-16 | Wersjonowane presety z odciskiem, koszt kohorty, jedna dzierżawa GPU aplikacji, budżet bez odnowienia przy wznowieniu i smoke 50 kroków/120 s treningu. |
+| [D-556](decisions/DECISION_LOG_2026.md#d-556--niezmienne-kohorty-geometrii-v3-i-aktualność-dowodów) | Niezmienne kohorty geometrii V3 i aktualność dowodów | accepted | 2026-10-16 | Exact human labels i24nodes, bounded snapshot/use/currentness; zachowana historia, nowe użycie usuniętego źródła zablokowane decyzją operatora. |
+| [D-555](decisions/DECISION_LOG_2026.md#d-555--pomiar-jakości-v3-i-jawne-zatwierdzenie-niezmienionej-geometrii) | Pomiar jakości V3 i jawne zatwierdzenie niezmienionej geometrii | accepted | 2026-10-16 | Frozen baseline i9 pozycji, separate canonical approval bez recropu, symbols manual-only i forward permissions. |
+| [D-554](decisions/DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3) | Nagrania i ochrona danych kontrolnych geometrii V3 | accepted | 2026-10-15 | Geometry-only aliasy i role nagrań, prywatne capability, dependent-only invalidation; bez operator runs. |
+| [D-553](decisions/DECISION_LOG_2026.md#d-553--diagnostyka-pokrycia-v3-i-izolowany-odczyt-liczników) | Diagnostyka pokrycia V3 i izolowany odczyt liczników | accepted | 2026-10-14 | Opt-in spójny odczyt READ ONLY/RLS oraz odrzucony slot jako przyczyna braku; bez zmian danych. |
+| [D-552](decisions/DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | accepted | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
+| [D-551](decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | accepted | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |
+| [D-550](decisions/DECISION_LOG_2026.md#d-550--akceptacja-silnika-v3-i-statusowy-backfill) | Akceptacja silnika V3 i statusowy backfill | accepted | 2026-10-14 | Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. |
+| [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | accepted | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię i katalog; od TASK-1012 nowe preflighty V3 wybierają przypiętą wersję z assignment, a nie formatu. Serwerowy dowód oceny i invalidation nie przełączają assignment; stale blokuje nowe komendy. Nowa gra ma atomową rezerwację/transfer, fork-lineage i własny cold-start symboli. |
+| [D-548](decisions/DECISION_LOG_2026.md#d-548--doszkalanie-geometrii-z-ręcznych-korekt-v3) | Doszkalanie geometrii z ręcznych korekt V3 | accepted | 2026-10-14 | Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. |
+| [D-548](decisions/DECISION_LOG_2026.md#d-548--panel-wyszukiwarki-wielu-gier-przez-link-bez-kodu) | Panel wyszukiwarki wielu gier przez link bez kodu | accepted | 2026-10-13 | Immutable chosen games, full search/corrections, capability link max 72h, shared tunnel; audit omitted and migration/main integration/cleanup explicitly approved 2026-10-16. |
 | [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |
 | [D-546](decisions/DECISION_LOG_2026.md#d-546--finalizacja-i-zgodny-kompaktowy-zapis-selektora-windows) | Finalizacja i zgodny kompaktowy zapis selektora Windows | accepted | 2026-10-12 | Pełna runda0984–0987, brak resetu, mirrored ledger/head2/journal3 z migracją, wszystkie receipty, kontrolowany pomiar15000 i ZIP0.1.3; odbiór na końcu. |
 | [D-545](decisions/DECISION_LOG_2026.md#d-545--lokalny-selektor-zdjęć-windows-dla-odbiorcy) | Lokalny selektor zdjęć Windows dla odbiorcy | accepted | 2026-10-11 | Electron ZIP, dane i projekt u odbiorcy, operator-local v2; pięć tasków wraz z0978 uruchomione przez operatora, audyt Claude na końcu i osobny odbiór urządzenia. |
@@ -49,406 +62,3 @@ Reguły:
 | [D-535](decisions/DECISION_LOG_2026.md#d-535--gra-mumie-wild-symbol-uruchamiający-supergrę-i-rodzaj-supergry-wild-super-spins) | Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins” | accepted | 2026-10-08 | dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild” (kolumna symbols.is_wildcard zostaje). |
 | [D-534](decisions/DECISION_LOG_2026.md#d-534--image-import-resumption-uses-the-hard-reserve-not-the-gc-target) | Image import resumption uses the hard reserve, not the GC target | accepted | 2026-10-07 | source ingestion and in-flight image pipeline checks use the configured hard reserve in every job stage,… |
 | [D-533](decisions/DECISION_LOG_2026.md#d-533--pointsmachines-panel-with-durable-stake-saves-and-whole-panel-links) | Points/machines panel with durable stake saves and whole-panel links | accepted | 2026-10-07 | add Panel Administracyjny with points (name/city/street), named machines and editable active-game assignments. |
-| [D-532](decisions/DECISION_LOG_2026.md#d-532--integrate-the-complete-v7-code-into-the-main-vision-lab-branch) | Integrate the complete V7 code into the main vision lab branch | accepted | 2026-10-07 | transplant the V7 product and tests from calibration HEAD b087ad08b62992c54f5e26191e6408d287b64273 onto… |
-| [D-531](decisions/DECISION_LOG_2026.md#d-531--main-admin-offers-a-local-entry-to-the-approved-v7-test-panel) | Main Admin offers a local entry to the approved V7 test panel | accepted | 2026-10-07 | when main V7 remains blocked and selection is enabled, offer ordinary local navigation to the separate V7… |
-| [D-530](decisions/DECISION_LOG_2026.md#d-530--managed-image-operations-retain-five-gib-after-estimation) | managed image operations retain five GiB after estimation | accepted | 2026-10-07 | the default hard reserve for managed image writes is 5 GiB, measured after the existing conservative… |
-| [D-529](decisions/DECISION_LOG_2026.md#d-529--metadata-overview-precedes-exact-training-cohort-preparation) | metadata overview precedes exact training cohort preparation | accepted | 2026-10-07 | page entry reads current-owner logical symbol approvals and registry metadata through the existing… |
-| [D-528](decisions/DECISION_LOG_2026.md#d-528--one-explicit-save-and-approve-action-in-symbol-verification) | one explicit save-and-approve action in symbol verification | accepted | 2026-10-07 | replace the separate approve and apply-change buttons with Symbol do zatwierdzenia and Zapisz i zatwierdź. |
-| [D-527](decisions/DECISION_LOG_2026.md#d-527--shared-model-families-and-published-game-creation-catalog) | shared model families and published game creation catalog | accepted | 2026-10-07 | a model family is independent of a game record. |
-| [D-526](decisions/DECISION_LOG_2026.md#d-526--neural-proposals-are-not-mandatory-correction-shared-laboratory-direction) | neural proposals are not mandatory correction; shared Laboratory direction | accepted | 2026-10-07 | neural review source counts describe unapproved proposals, not rejected geometry or mandatory manual work. |
-| [D-525](decisions/DECISION_LOG_2026.md#d-525--grid-diagnostics-belong-to-correction-not-import) | grid diagnostics belong to correction, not import | accepted | 2026-10-07 | move the existing whole-image grid diagnostics out of Import plansz into Korekta cięcia siatki, alongside… |
-| [D-524](decisions/DECISION_LOG_2026.md#d-524--show-the-actual-neural-import-and-retire-old-ui-choices) | show the actual neural import and retire old UI choices | accepted | 2026-10-06 | Mumie's existing game profile identifies V3 in Admin. |
-| [D-523](decisions/DECISION_LOG_2026.md#d-523--operational-neural-crops-and-recoverable-symbol-verification) | operational neural crops and recoverable symbol verification | accepted | 2026-10-06 | new neural imports pin neural-auto-crop-v1. A bound full structurally valid 24-node lattice can produce… |
-| [D-522](decisions/DECISION_LOG_2026.md#d-522--current-manual-neural-slot-approval-permits-its-own-symbol-save) | current manual neural slot approval permits its own symbol save | accepted | 2026-10-06 | a bound neural slot retaining its proposal checksum and exact 24-node lattice, saved as manual_v1 with the… |
-| [D-521](decisions/DECISION_LOG_2026.md#d-521--explicit-mumie-rgb-and-neural-folder-pilot) | explicit Mumie RGB and neural folder pilot | accepted | 2026-10-06 | selection of the recommended earlier RGB and request to connect the engine to main-app folder uploads,… |
-| [D-520](decisions/DECISION_LOG_2026.md#d-520--rgb-v2-jako-źródło-nowej-wersji-predykcji-oczekujących-komórek) | RGB v2 jako źródło nowej wersji predykcji oczekujących komórek | accepted | 2026-10-05 | oczekujące komórki z przypisaniem od modelu dostają symbol wybrany metodą RGB v2 z D-494 (argmax zamrożonej… |
-| [D-506](decisions/DECISION_LOG_2026.md#d-506--explicit-larger-local-rgb-experiment) | explicit larger local RGB experiment | accepted | 2026-10-06 | autonomous larger-training instruction and accepted TASK-0871–0873 plan. |
-| [D-505](decisions/DECISION_LOG_2026.md#d-505--explicitly-authorized-isolated-ai-symbol-experiment) | explicitly authorized isolated AI symbol experiment | accepted | 2026-10-06 | request to continue training autonomously and use internal AI to inspect graphics. |
-| [D-504](decisions/DECISION_LOG_2026.md#d-504--qualified-feedback-inference-and-case-scoped-review-provenance) | qualified feedback inference and case-scoped review provenance | accepted | 2026-10-06 | operator-authorized third-recording diagnosis and existing exact crop review. |
-| [D-503](decisions/DECISION_LOG_2026.md#d-503--exact-source-relocation-and-recording-declarations) | exact source relocation and recording declarations | accepted | 2026-10-06 | C:\Users\tuszy\Documents\mumie and instruction to continue with its cut folders. |
-| [D-502](decisions/DECISION_LOG_2026.md#d-502--qualification-of-exact-reviewed-symbol-rasters) | qualification of exact reviewed symbol rasters | accepted | 2026-10-05 | freeze separate symbol_crop_feedback inputs from actual latest batch_crop_review approve decisions and exact… |
-| [D-501](decisions/DECISION_LOG_2026.md#d-501--scoped-human-correction-of-independent-batch-crops) | scoped human correction of independent batch crops | accepted | 2026-10-05 | add optional batch_queue/batch_label_decide to existing symbol API. |
-| [D-500](decisions/DECISION_LOG_2026.md#d-500--bounded-appearance-experiment-without-model-activation) | bounded appearance experiment without model activation | accepted | 2026-10-05 | one isolated RGB/gray v2 pair with deterministic, versioned lighting/payline augmentation, using only… |
-| [D-499](decisions/DECISION_LOG_2026.md#d-499--niezależne-propozycje-symboli-i-granica-plansz-folderu) | niezależne propozycje symboli i granica plansz folderu | accepted | 2026-10-05 | osobny, niezmienny batch inferencji600 zdjęć z pełnym wykluczeniem komponentów D-498 i źródeł chronionych. |
-| [D-498](decisions/DECISION_LOG_2026.md#d-498--potwierdzone-nagrania-i-osobny-split-symboli-mumii) | potwierdzone nagrania i osobny split symboli Mumii | accepted | 2026-10-05 | osobna kwalifikacja bieżącej kohorty symboli, z jawnie przypiętymi deklaracjami i całymi komponentami. |
-| [D-497](decisions/DECISION_LOG_2026.md#d-497--zamrożony-widok-symboli-i-pojedynczy-odczyt-2000-cropów) | zamrożony widok symboli i pojedynczy odczyt 2000 cropów | accepted | 2026-10-05 | addytywny limit odczytu 2000, domyślny 30 i limit zapisu 30 zachowane; |
-| [D-496](decisions/DECISION_LOG_2026.md#d-496--jawna-wersja-referencji-do-etykietowania-symboli-po-korektach-siatek) | jawna wersja referencji do etykietowania symboli po korektach siatek | accepted | 2026-10-05 | create-only, checksumowana referencja zachowuje cały oryginalny payload/historię/receipts geometrii i symboli. |
-| [D-495](decisions/DECISION_LOG_2026.md#d-495--v3-d-oddzielny-ograniczony-shadow-i-ręczna-korekta) | V3-D: oddzielny, ograniczony shadow i ręczna korekta | accepted | 2026-10-05 | domyślnie wyłączony pion działa na zmaterializowanych źródłach 5 × 3 przez istniejące joby VALIDATE,… |
-| [D-494](decisions/DECISION_LOG_2026.md#d-494--propozycja-głowicy-rgb-z-dodatkowym-potwierdzeniem-biblioteki-w-audycie) | propozycja głowicy RGB z dodatkowym potwierdzeniem biblioteki w audycie | accepted | 2026-10-05 | audyt wybiera propozycję z głowicy już zamrożonego, aktywnego checkpointu na pełnym RGB 64px, z normalizacją… |
-| [D-493](decisions/DECISION_LOG_2026.md#d-493--najlepsza-propozycja-symbolu-wstępnie-wybrana-w-audycie-siatek) | najlepsza propozycja symbolu wstępnie wybrana w audycie siatek | accepted | 2026-10-05 | aktualne cięcie audytu pokazuje pewną propozycję albo najlepszego kandydata z sumy wag obu opisów biblioteki. |
-| [D-492](decisions/DECISION_LOG_2026.md#d-492--poprawki-symboli-przez-link-wyszukiwarki-i-przegląd-operatora) | poprawki symboli przez link wyszukiwarki i przegląd operatora | accepted | 2026-10-05 | sesja board-search-share może poprawiać symbole aktualnych operacyjnych plansz swojej gry. |
-| [D-491](decisions/DECISION_LOG_2026.md#d-491--nowe-podpowiedzi-symboli-dla-korekt-istniejących-siatek-audytu) | nowe podpowiedzi symboli dla korekt istniejących siatek audytu | accepted | 2026-10-05 | kolejka audytu istniejących plansz 777 pokazuje wyłącznie nowe propozycje biblioteki wzorców dla żółtej… |
-| [D-490](decisions/DECISION_LOG_2026.md#d-490--run-3-sieci-siatek-przygotowuje-nowe-gry-mumie-blazing-i-gang-w-treningu-wagi-startowe-zmienia-d-456-i-ustawienia-d-481) | run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481) | accepted | 2026-10-02 | 1. Run 2 (preset B) zostaje dokończony. |
-| [D-489](decisions/DECISION_LOG_2026.md#d-489--symbole-dla-silnika-v3-są-wybierane-i-uczone-od-nowa-bez-dotychczasowych-etykiet) | symbole dla silnika V3 są wybierane i uczone od nowa, bez dotychczasowych etykiet | accepted | 2026-10-02 | rozpoznawanie symboli dla zdjęć ciętych siatkami silnika V3 (nowe importy 777 i nowe gry) powstaje od nowa:… |
-| [D-488](decisions/DECISION_LOG_2026.md#d-488--korekta-cięcia-siatki-może-zatwierdzić-symbole-wskazane-przez-operatora-zmienia-d-462) | korekta cięcia siatki może zatwierdzić symbole wskazane przez operatora (zmienia D-462) | accepted | 2026-10-02 | zapis geometrii z ekranu „Korekta cięcia siatki” może zawierać symbole narzucone przez operatora dla… |
-| [D-487](decisions/DECISION_LOG_2026.md#d-487--dziennik-linku-zapisuje-stawkę-wybraną-przez-odbiorcę-zmienia-d-472-i-d-478) | dziennik linku zapisuje stawkę wybraną przez odbiorcę (zmienia D-472 i D-478) | accepted | 2026-10-02 | strona linku zgłasza każdą parę (zakres, stawka), którą pokazuje odbiorcy, przez GET… |
-| [D-486](decisions/DECISION_LOG_2026.md#d-486--dziennik-linku-grupuje-wyszukiwania-tego-samego-wzoru-zmienia-d-478) | dziennik linku grupuje wyszukiwania tego samego wzoru (zmienia D-478) | accepted | 2026-10-02 | widok dziennika pokazuje jeden wpis na wzór 3 × 5 w ramach linku (klucz: request.cells; |
-| [D-485](decisions/DECISION_LOG_2026.md#d-485--bramka-kompletności-stan-trwały-zdjęcia-dokument-sekwencji-bez-dowodu-symboli-przepinanie-plansz-uzupełnia-d-484) | bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484) | accepted | 2026-10-02 | 1. source_images ma trwały stan geometry_complete, geometry_incomplete, geometry_exception albo NULL… |
-| [D-484](decisions/DECISION_LOG_2026.md#d-484--kompletność-geometrii-zdjęcia-jest-bramką-przed-cięciem-na-symbole) | kompletność geometrii zdjęcia jest bramką przed cięciem na symbole | accepted | 2026-10-01 | jednostką geometrii jest zdjęcie źródłowe. |
-| [D-483](decisions/DECISION_LOG_2026.md#d-483--metryka-nadrzędna-silnika-siatek-odsetek-zdjęć-kompletnych-i-poprawnych) | metryka nadrzędna silnika siatek: odsetek zdjęć kompletnych i poprawnych | accepted | 2026-10-01 | silnik siatek 5 × 3 ocenia się najpierw odsetkiem zdjęć, na których wszystkie oczekiwane plansze mają siatkę… |
-| [D-482](decisions/DECISION_LOG_2026.md#d-482--etap-d-sieć-węzłów-rusza-bez-ukończenia-etapu-c-symbole) | etap D (sieć węzłów) rusza bez ukończenia etapu C (symbole) | accepted | 2026-10-01 | T10 / TASK-0675 dla geometrii 5 × 3, realizowany jako TASK-0802, nie wymaga ukończenia T09 ani STOP C planu… |
-| [D-481](decisions/DECISION_LOG_2026.md#d-481--budżet-treningu-geometrii-v3-do-3-runów-po-4-godziny-gpu-na-zadanie-modelu) | budżet treningu geometrii V3: do 3 runów po 4 godziny GPU na zadanie modelu | accepted | 2026-10-01 | zadanie modelu planu V3 (TASK-0802) może wykonać do trzech runów, każdy do 4 godzin GPU, z presetem i… |
-| [D-480](decisions/DECISION_LOG_2026.md#d-480--zatwierdzona-geometria-produkcyjna-777-jako-dane-uczące-geometrii-zmienia-d-453) | zatwierdzona geometria produkcyjna 777 jako dane uczące geometrii (zmienia D-453) | accepted | 2026-10-01 | plansze 777 z zatwierdzoną geometrią w game_data_v2 (poziom S: zatwierdzone po reweryfikacji… |
-| [D-479](decisions/DECISION_LOG_2026.md#d-479--przybliżona-wygrana-bez-kafelków-i-wyboru-zakresu-nazwy-operatora-zmienia-d-476) | „Przybliżona wygrana” bez kafelków i wyboru zakresu; nazwy operatora (zmienia D-476) | accepted | 2026-10-02 | w „Przybliżonej wygranej” i oknie planszy „bilans” nazywa się „kasa na czysto”, a „wypłata” — „wygrana”… |
-| [D-478](decisions/DECISION_LOG_2026.md#d-478--dziennik-linku-pokazuje-wyszukiwania-z-wykresem-wpis-można-usunąć-zmienia-d-472) | dziennik linku pokazuje wyszukiwania z wykresem; wpis można usunąć (zmienia D-472) | accepted | 2026-10-02 | widok dziennika w Adminie listuje wyłącznie wyszukiwania (kind=search), po 10. Wpis pokazuje wzór 3 × 5… |
-| [D-477](decisions/DECISION_LOG_2026.md#d-477--trwałe-usunięcie-wzorca-wypłat-w-wersji-roboczej-zmienia-d-026) | trwałe usunięcie wzorca wypłat w wersji roboczej (zmienia D-026) | accepted | 2026-10-01 | DELETE /rules-versions/{id}/paylines/{paylineId}/permanent fizycznie usuwa wzorzec, wyłącznie w wersji o… |
-| [D-476](decisions/DECISION_LOG_2026.md#d-476--przybliżona-wygrana-statyczna-stawka-wybierana-per-wzór-złote-domyślnie) | „Przybliżona wygrana” statyczna, stawka wybierana per wzór, złote domyślnie | accepted | 2026-10-01 | sekcja jest statyczna i liczy od razu dla wybranej planszy (żądanie po ustaleniu wyboru na ~0,4 s; |
-| [D-475](decisions/DECISION_LOG_2026.md#d-475--zapis-dziennika-zapytań-linku-w-osobnej-transakcji-uzupełnia-d-472) | zapis dziennika zapytań linku w osobnej transakcji (uzupełnia D-472) | accepted | 2026-09-30 | wpis jest zapisywany w osobnej, krótkiej transakcji, która jest zatwierdzana, zanim odpowiedź z danymi… |
-| [D-474](decisions/DECISION_LOG_2026.md#d-474--nieaktualny-odczyt-planszy-w-oknie-linii-i-odświeżenie-jednej-planszy) | nieaktualny odczyt planszy w oknie linii i odświeżenie jednej planszy | accepted | 2026-09-30 | szczegóły planszy przy niezgodnej sumie tożsamości nie zwracają 409, tylko documentStale = true z liniami i… |
-| [D-473](decisions/DECISION_LOG_2026.md#d-473--poprawianie-symbolu-pola-z-okna-planszy-przybliżonej-wygranej) | poprawianie symbolu pola z okna planszy „Przybliżonej wygranej” | accepted | 2026-09-30 | okno planszy z liniami wypłat ma tryb „Popraw symbole”. |
-| [D-472](decisions/DECISION_LOG_2026.md#d-472--dziennik-zapytań-udostępnionego-linku-i-odtworzenie-w-adminie) | dziennik zapytań udostępnionego linku i odtworzenie w Adminie | accepted | 2026-09-30 | serwer zapisuje każde publiczne zapytanie o dane udostępnionej wyszukiwarki (wyszukiwanie, przybliżona… |
-| [D-471](decisions/DECISION_LOG_2026.md#d-471--udostępnianie-wyszukaj-plansze-online-przez-link-z-kodem) | udostępnianie „Wyszukaj plansze” online przez link z kodem | accepted | 2026-09-30 | operator tworzy w Adminie link do kopii sekcji „Wyszukaj plansze” razem z „Przybliżoną wygraną”. |
-| [D-470](decisions/DECISION_LOG_2026.md#d-470--stawka-złote-i-linie-wypłat-w-przybliżonej-wygranej) | stawka, złote i linie wypłat w „Przybliżonej wygranej” | accepted | 2026-09-30 | 1 zł = 10 kredytów. Stawka bazowa to koszt spinu opublikowanych reguł (dziś 100 kredytów = 10 zł). |
-| [D-467](decisions/DECISION_LOG_2026.md#d-467--usunięcie-pozostałości-v1legacy-manifest-renderu-per-plansza-zamiast-cell_observations) | usunięcie pozostałości V1/legacy: manifest renderu per plansza zamiast `cell_observations` | accepted | 2026-09-30 | aplikacja i baza mają być V2-only bez danych i kodu z ery V1. Specyfikację renderu przechowuje jedna tabela… |
-| [D-466](decisions/DECISION_LOG_2026.md#d-466--nowa-wersja-predykcji-z-biblioteki-wzorców-dla-oczekujących-komórek) | nowa wersja predykcji z biblioteki wzorców dla oczekujących komórek | accepted | 2026-09-29 | dla oczekujących komórek z przypisaniem od modelu biblioteka wzorców zapisuje nową wersję predykcji… |
-| [D-465](decisions/DECISION_LOG_2026.md#d-465--dobór-wzorców-symboli-zasłonięcia-i-zatwierdzenia-masowe) | dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe | accepted | 2026-09-29 | planu biblioteki wzorców (D-464). - Occlusion: symbol częściowo zasłonięty (dłoń, przycisk nawigacji) lub… |
-| [D-464](decisions/DECISION_LOG_2026.md#d-464--propozycje-symboli-z-biblioteki-zweryfikowanych-komórek) | propozycje symboli z biblioteki zweryfikowanych komórek | accepted | 2026-09-29 | oczekująca komórka może otrzymać propozycję symbolu wyliczoną z podobieństwa do komórek zweryfikowanych… |
-| [D-463](decisions/DECISION_LOG_2026.md#d-463--ponowne-task-0603-kalibruje-etykiety-v2-na-obu-nagraniach-777) | ponowne TASK-0603 kalibruje etykiety V2 na obu nagraniach 777 | accepted | 2026-09-29 | nowa sesja T0603 używa standard_3x3_numeric_labels_v2 i osobnego ignorowanego manifestu… |
-| [D-462](decisions/DECISION_LOG_2026.md#d-462--weryfikacja-per-komórka-bez-zatwierdzania-planszy-i-siatki) | weryfikacja per komórka bez zatwierdzania planszy i siatki | accepted | 2026-09-29 | źródłem prawdy jest pojedyncza komórka (image_symbol_review_cells). |
-| [D-461](decisions/DECISION_LOG_2026.md#d-461--niezależny-przebieg-v3-dla-istniejącej-gry-v11) | niezależny przebieg v3 dla istniejącej gry v1.1 | accepted | 2026-09-28 | tożsamość i wydanie gry nie wybierają automatycznie silnika. |
-| [D-460](decisions/DECISION_LOG_2026.md#d-460--wyliczana-poczekalnia-cropów-bez-nowej-hierarchii-symboli) | wyliczana poczekalnia cropów bez nowej hierarchii symboli | accepted | 2026-09-28 | cropy z aktualnych zaakceptowanych geometrii są pokazywane stronicowaną poczekalnią. |
-| [D-459](decisions/DECISION_LOG_2026.md#d-459--atomowe-etykietowanie-całej-planszy-w-laboratorium) | atomowe etykietowanie całej planszy w laboratorium | accepted | 2026-09-27 | addytywne warianty lab_board w POST /symbol-crops i label_board_decide w POST /symbols. |
-| [D-458](decisions/DECISION_LOG_2026.md#d-458--rozdzielenie-narzędzi-t06-od-kwalifikacji-zbioru-symboli) | rozdzielenie narzędzi T06 od kwalifikacji zbioru symboli | accepted | 2026-09-27 | T06a dostarcza narzędzia, izolowany magazyn symboli i adapter zweryfikowanego eksportu DB. |
-| [D-457](decisions/DECISION_LOG_2026.md#d-457--techniczny-kontrakt-pierwszej-hybrydy-d-456) | techniczny kontrakt pierwszej hybrydy D-456 | accepted | 2026-09-27 | pierwszy pilot to obrazowe propozycje BaselineEngine oraz MobileNetV3-Small poprawiający cztery narożniki… |
-| [D-456](decisions/DECISION_LOG_2026.md#d-456--pilotaż-geometrii-5--3-z-podziałem-całymi-grami) | pilotaż geometrii 5 × 3 z podziałem całymi grami | accepted | 2026-09-27 | osobna jawna polityka lab-geometry-whole-game-pilot-v1 zastępuje dla tego pilota wymóg verified rodzin oraz… |
-| [D-455](decisions/DECISION_LOG_2026.md#d-455--kwalifikacja-targetów-777-bez-kwalifikowania-kontekstu) | kwalifikacja targetów 777 bez kwalifikowania kontekstu | accepted | 2026-09-27 | nowa, jawnie wybierana polityka geometry-only z niepustą kohortą wymaga kwalifikacji D-453 od każdego… |
-| [D-454](decisions/DECISION_LOG_2026.md#d-454--jawna-kohorta-geometrii-nie-usuwa-powiązań-źródeł) | jawna kohorta geometrii nie usuwa powiązań źródeł | accepted | 2026-09-27 | opcjonalny wybór źródeł geometrii ogranicza wyłącznie targety i przypisania przykładów. |
-| [D-453](decisions/DECISION_LOG_2026.md#d-453--historyczne-zdjęcia-777-dopuszczone-do-uczenia-geometrii) | historyczne zdjęcia 777 dopuszczone do uczenia geometrii | accepted | 2026-09-27 | historyczne zdjęcia 777 mogą służyć do uczenia geometrii przyszłych podobnych zdjęć. |
-| [D-452](decisions/DECISION_LOG_2026.md#d-452--atomowe-pokwitowania-uzupełnienia-pozycji-pilota) | atomowe pokwitowania uzupełnienia pozycji pilota | accepted | 2026-09-27 | - Podgląd jest niezmiennym, wersjonowanym dokumentem z SHA, dokładną listą 70 numerów, bieżącym… |
-| [D-451](decisions/DECISION_LOG_2026.md#d-451--każda-pozycja-niepełnej-planszy-dostępna-w-weryfikacji-symboli) | każda pozycja niepełnej planszy dostępna w weryfikacji symboli | accepted | 2026-09-27 | wszystkie 15 logicznych pozycji planszy 3 × 5 pozostają dostępne operatorowi. |
-| [D-450](decisions/DECISION_LOG_2026.md#d-450--przegląd-zdjęcia-jako-dodatkowa-bramka-laboratoryjna) | przegląd zdjęcia jako dodatkowa bramka laboratoryjna | accepted | 2026-09-27 | akceptacja zdjęcia wiąże SHA źródła i mapę rewizji wszystkich zapisanych pozycji; |
-| [D-449](decisions/DECISION_LOG_2026.md#d-449--niepełna-plansza-w-odroczonej-korekcie-geometrii-komórek-opt-in-bez-osłabienia-współdzielonego-croppera) | niepełna plansza w odroczonej korekcie geometrii komórek (opt-in, bez osłabienia współdzielonego croppera) | accepted | 2026-09-26 | derive_board_cell_quads/_parse_quad (board_cell_geometry_contract.py) i… |
-| [D-448](decisions/DECISION_LOG_2026.md#d-448--game_data_v2-jako-jedyny-magazyn-game-owned-public-zachowuje-catalogcontrolshared) | `game_data_v2` jako jedyny magazyn game-owned; `public` zachowuje catalog/control/shared | accepted | 2026-09-25 | w PostgreSQL game_data_v2 jest jedynym fizycznym data plane relacji game-owned z zamrożonego manifestu v1.… |
-| [D-447](decisions/DECISION_LOG_2026.md#d-447--laboratoryjne-zatwierdzenia-i-plan-wizji) | laboratoryjne zatwierdzenia i plan wizji | accepted | 2026-09-25 | lokalne laboratorium może używać osobnych zatwierdzeń lab_human_approved. |
-| [D-446](decisions/DECISION_LOG_2026.md#d-446--przybliżona-wygrana-w-adminie-dolne-ograniczenie-z-payout-v3-bez-cache-serwerowego) | „Przybliżona wygrana” w Adminie: dolne ograniczenie z payout-v3, bez cache serwerowego | accepted | 2026-09-25 | „Wyszukaj plansze” zyskuje niezależny input „Liczba wyników” (domyślnie 5, 1–100 — istniejący limit… |
-| [D-445](decisions/DECISION_LOG_2026.md#d-445--reweryfikacja-siatek-777-nie-opiera-się-na-lokalnym-estymatorze-kierunek-silnik-v3-bez-wzorca-per-gra) | reweryfikacja siatek 777 nie opiera się na lokalnym estymatorze; kierunek: silnik v3 bez wzorca per gra | accepted | 2026-09-24 | estimate_board_cell_geometry nie jest weryfikatorem „pewności” siatek 777 — przy tej samej podpowiedzi… |
-| [D-444](decisions/DECISION_LOG_2026.md#d-444--zdarzenie-zatwierdzenia-geometrii-planszy-virtual_source-identyfikuje-checksum-geometrii-ręczna-korekta-cold-start-nie-woła-onnx) | zdarzenie zatwierdzenia geometrii planszy `virtual_source` identyfikuje checksum geometrii; ręczna korekta cold start nie woła ONNX | accepted | 2026-09-24 | (1) image_board_geometry_review_events.board_checksum_sha256 dla akcji approved =… |
-| [D-443](decisions/DECISION_LOG_2026.md#d-443--skrypt-legacy-gc-odmawia-skanu-jeśli-jakakolwiek-gra-ma-magazyn-per-game-v2) | skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2) | superseded | 2026-09-24 | scripts/preview_legacy_game_managed_asset_gc.py's _operation_guard (współdzielony punkt wejścia obu ścieżek:… |
-| [D-442](decisions/DECISION_LOG_2026.md#d-442--trasy-z-gameid-wyłącznie-w-query-muszą-jawnie-bindować-game_storage_scope) | trasy z `gameId` wyłącznie w query muszą jawnie bindować `game_storage_scope` | accepted | 2026-09-24 | cztery trasy /admin/image-reviews/{review_item_id}/… (source-asset, geometry-approval, geometry-preview,… |
-| [D-441](decisions/DECISION_LOG_2026.md#d-441--adjacentmanualnavigationstep-musi-stąpać-po-manual_image_navigation_steps-nie-po-surowej-liczbie) | `adjacentManualNavigationStep` musi stąpać po `MANUAL_IMAGE_NAVIGATION_STEPS`, nie po surowej liczbie | accepted | 2026-09-24 | adjacentManualNavigationStep (packages/manual-image-selection-core/src/index.ts) z powrotem szuka bieżącej… |
-| [D-440](decisions/DECISION_LOG_2026.md#d-440--board-import-coverage-musi-jawnie-bindować-gamestoragerouter-ten-sam-brak-dotyczy-sąsiednich-endpointów-image-review-items) | `board-import-coverage` musi jawnie bindować `GameStorageRouter`; ten sam brak dotyczy sąsiednich endpointów `image-review-items` | accepted | 2026-09-24 | SqlAlchemyBoardImportCoverageRepository.board_import_coverage wywołuje teraz jawnie… |
-| [D-439](decisions/DECISION_LOG_2026.md#d-439--wstępna-geometria-strony-z-automatycznej-propozycji-automaticpageproposal) | Wstępna geometria strony z automatycznej propozycji (`automaticPageProposal`) | accepted | 2026-09-24 | review-sources może dołączyć opcjonalne automaticPageProposal dla źródeł review_required bez istniejącej… |
-| [D-438](decisions/DECISION_LOG_2026.md#d-438--komórki-blurry-pozostają-widoczne-pod-filtrem-swojego-symbolu) | Komórki `blurry` pozostają widoczne pod filtrem swojego symbolu | accepted | 2026-09-24 | komórka Weryfikacji symboli z quality_issue = 'blurry' (checkbox „Niewyraźny") jest widoczna w liście… |
-| [D-437](decisions/DECISION_LOG_2026.md#d-437--definicja-planszy-dodanej-dla-pokrycia-importu-bez-nowej-flagi) | Definicja „planszy dodanej" dla pokrycia importu, bez nowej flagi | accepted | 2026-09-24 | plansza n gry g jest dodana wtedy i tylko wtedy, gdy 1 ≤ n ≤ games.expected_layout_count oraz spełniony jest… |
-| [D-436](decisions/DECISION_LOG_2026.md#d-436--częściowo-widoczne-komórki-trafiają-do-weryfikacji-symboli-jako-wymuszony-nierozpoznany-t2ef) | Częściowo widoczne komórki trafiają do Weryfikacji symboli jako wymuszony „nierozpoznany" (T2/E–F) | accepted | 2026-09-23 | komórka partially_visible (D-434) na planszy virtual_source z kwalifikacją v3 (D-435) trafia teraz do… |
-| [D-435](decisions/DECISION_LOG_2026.md#d-435--geometryqualification-v3-wprowadza-fully_unavailable_cell_indices-t2ad) | GeometryQualification v3 wprowadza fully_unavailable_cell_indices (T2/A–D) | accepted | 2026-09-23 | GeometryQualification dostaje nową wersję manual-geometry-qualification-v3 (backend-only — request/response… |
-| [D-434](decisions/DECISION_LOG_2026.md#d-434--częściowo-widoczne-komórki-mogą-być-renderowane-do-ręcznej-oceny-t1-domena--renderer) | Częściowo widoczne komórki mogą być renderowane do ręcznej oceny (T1: domena + renderer) | accepted | 2026-09-23 | komórka planszy z 1–3 (nie 4) rogami quada poza granicami zdjęcia może zostać zmaterializowana jako… |
-| [D-433](decisions/DECISION_LOG_2026.md#d-433--lekki-skok-stron-w-weryfikacji-symboli-zamiast-paginacji-offsetowej) | Lekki skok stron w Weryfikacji symboli zamiast paginacji offsetowej | accepted | 2026-09-23 | dodano GET /api/v1/admin/games/{game_id}/symbol-cell-review-skip, zwracający wyłącznie kursor keyset count… |
-| [D-432](decisions/DECISION_LOG_2026.md#d-432--routing-wpisów-manifestu-wymaga-registrationversion-manualnego-overrideu) | Routing wpisów manifestu wymaga registrationVersion manualnego override'u | accepted | 2026-09-23 | w production_workflow.py::_detect_structured_geometry warunek kierujący wpis manifestu geometrii strony do… |
-| [D-431](decisions/DECISION_LOG_2026.md#d-431--quad-słabej-planszy-relaksacji-d-420-pochodzi-z-projekcji-homografii) | Quad słabej planszy relaksacji D-420 pochodzi z projekcji homografii | accepted | 2026-09-23 | na stronie akceptowanej wyłącznie ścieżką relaksacji D-420 (relaxed_accepted and not baseline_accepted),… |
-| [D-430](decisions/DECISION_LOG_2026.md#d-430--maska-czerwieni-odporna-na-ciemną-ramkę-v--30) | Maska czerwieni odporna na ciemną ramkę (V ≥ 30) | accepted | 2026-09-23 | page_geometry_registration._red_mask obniża dolny próg jasności (V) z 50 do 30 w obu pasmach barwy (hue 0–18… |
-| [D-429](decisions/DECISION_LOG_2026.md#d-429--v12-dopuszcza-testowy-import-po-kompletnym-preflighcie) | V1.2 dopuszcza testowy import po kompletnym preflighcie | accepted | 2026-09-22 | jawny wariant contrast_frame_grid_v1_2 może uruchomić przeglądarkowy import wyłącznie z ukończonym,… |
-| [D-428](decisions/DECISION_LOG_2026.md#d-428--rzeczywiste-gry-używają-siatki-ramek-plansz-jako-wariantu-v21) | Rzeczywiste gry używają siatki ramek plansz jako wariantu V2.1 | accepted | 2026-09-22 | nowy, testowy wariant board-frame-lattice-v2.1 wykrywa dziewięć osobnych ramek plansz i ich układ 3 × 3.… |
-| [D-427](decisions/DECISION_LOG_2026.md#d-427--odbiór-g08-jest-odrębną-lokalną-bramką-acceptance) | Odbiór G08 jest odrębną, lokalną bramką acceptance | accepted | 2026-09-22 | odbiór używa wyłącznie manifestu i truthu acceptance, a osobny manifest executor służy wyłącznie do kontroli… |
-| [D-426](decisions/DECISION_LOG_2026.md#d-426--pilot-shared-shape-v2-publikuje-tylko-kompletny-wynik-pomiaru) | Pilot shared shape v2 publikuje tylko kompletny wynik pomiaru | accepted | 2026-09-22 | lokalny pilot wiąże checksumami corpus executor, inwentarz, anotacje i pięć etapów: zaakceptowaną korektę… |
-| [D-425](decisions/DECISION_LOG_2026.md#d-425--kwalifikacja-shared-shape-v2-publikuje-wyłącznie-pełny-bezwyciekowy-raport) | Kwalifikacja shared shape v2 publikuje wyłącznie pełny, bezwyciekowy raport | accepted | 2026-09-21 | kandydat globalnego profilu może zmienić status tylko przez idempotentną kwalifikację zapisaną jako… |
-| [D-424](decisions/DECISION_LOG_2026.md#d-424--deklaracja-rodziny-strony-gry-nie-jest-lokalnym-profilem-geometrii) | Deklaracja rodziny strony gry nie jest lokalnym profilem geometrii | accepted | 2026-09-21 | katalog gry zapisuje wyłącznie framed_full_page_v2 albo requires_clarification; |
-| [D-423](decisions/DECISION_LOG_2026.md#d-423--profil-shared-shape-v2-jest-przypiętą-propozycją-preflightu-nie-zgodą-na-import) | Profil shared shape v2 jest przypiętą propozycją preflightu, nie zgodą na import | accepted | 2026-09-21 | resolver wybiera wyłącznie jeden aktywny profil framed_full_page_v2 dla topologii 3 × 3 / 3 × 5. Zamyka go w… |
-| [D-422](decisions/DECISION_LOG_2026.md#d-422--globalna-biblioteka-shape-v2-jest-publicznym-descriptor-only-control-plane) | Globalna biblioteka shape v2 jest publicznym, descriptor-only control plane | accepted | 2026-09-21 | wersje wspólnego profilu framed_full_page_v2, ich dowody i receipty retry są przechowywane wyłącznie w… |
-| [D-421](decisions/DECISION_LOG_2026.md#d-421--rdzeń-v2-daje-tylko-deterministyczną-propozycję-z-dowodem-per-slot) | Rdzeń v2 daje tylko deterministyczną propozycję z dowodem per slot | accepted | 2026-09-21 | wspólny rdzeń v2 wykrywa ramkę bez zależności od jej koloru, rektyfikuje ją do W−1/H−1 i wyprowadza dziewięć… |
-| [D-420](decisions/DECISION_LOG_2026.md#d-420--relaksacja-red-edge-dla-powtarzalnej-zasłony-planszy) | Relaksacja red-edge dla powtarzalnej zasłony planszy | accepted | 2026-09-22 | verified page registration akceptuje stronę, gdy jedna plansza ma słabe pokrycie czerwonej krawędzi, pod… |
-| [D-420](decisions/DECISION_LOG_2026.md#d-420--trwały-zamiar-może-być-widoczny-przed-receiptem-serwera) | Trwały zamiar może być widoczny przed receiptem serwera | accepted | 2026-09-22 | po pomyślnym zapisie operacji do IndexedDB Admin projektuje niepotwierdzone sloty bieżącego źródła wyłącznie… |
-| [D-420](decisions/DECISION_LOG_2026.md#d-420--rozszerzalny-kontrakt-corpusów-i-fail-closed-eksperyment-transferu) | Rozszerzalny kontrakt corpusów i fail-closed eksperyment transferu | accepted | 2026-09-21 | corpus schema v1 zachowuje dokładnie pięć początkowych gier i własny fingerprint. |
-| [D-419](decisions/DECISION_LOG_2026.md#d-419--manual-grid-placement-używa-drag-hold-zamiast-dwukliku) | Manual grid placement używa drag-hold zamiast dwukliku | accepted | 2026-09-22 | w edytorze geometrii plansz operator wyznacza siatkę 3 × 5 przeciągnięciem z wciśniętym przyciskiem myszy:… |
-| [D-419](decisions/DECISION_LOG_2026.md#d-419--v2-normalizuje-numery-względem-lokalnej-siatki-nie-całego-kadru) | V2 normalizuje numery względem lokalnej siatki, nie całego kadru | accepted | 2026-09-22 | standard_3x3_numeric_labels_v2 wykrywa wyłącznie lokalną, kompletną i jednoznaczną siatkę dziewięciu etykiet… |
-| [D-419](decisions/DECISION_LOG_2026.md#d-419--automatyczna-kwalifikacja-wspólnej-wiedzy-i-ciągłe-wykonanie-planu-v2) | Automatyczna kwalifikacja wspólnej wiedzy i ciągłe wykonanie planu v2 | accepted | 2026-09-21 | cały plan geometrii v2 jest realizowany w jednej serii na osobnej gałęzi. |
-| [D-418](decisions/DECISION_LOG_2026.md#d-418--diagnostyka-niepełnego-cropa-nie-unieważnia-pełnej-kalibracji) | Diagnostyka niepełnego cropa nie unieważnia pełnej kalibracji | accepted | 2026-09-21 | profil geometrii etykiet V7 oraz lokalny wskaźnik gotowości używają wyłącznie slotów annotated z oceną… |
-| [D-418](decisions/DECISION_LOG_2026.md#d-418--wspólny-rdzeń-geometrii-różnice-tylko-jako-konfiguracja-gry) | Wspólny rdzeń geometrii, różnice tylko jako konfiguracja gry | accepted | 2026-09-21 | v2 ma jeden współdzielony rdzeń wykrywania obrysu, perspektywy, układu 3 × 3, siatki 3 × 5 i kompletności. |
-| [D-417](decisions/DECISION_LOG_2026.md#d-417--t05-zapisuje-surowe-predykcje-i-tworzy-adopcję-wyłącznie-z-passed-reportu) | T05 zapisuje surowe predykcje i tworzy adopcję wyłącznie z passed reportu | accepted | 2026-09-21 | report T05 przyjmuje tylko niezależny truth źródeł oraz surowy snapshot automatu bez client-supplied… |
-| [D-417](decisions/DECISION_LOG_2026.md#d-417--podział-danych-nie-ogranicza-listy-gier-tworzenia) | Podział danych nie ogranicza listy gier tworzenia | accepted | 2026-09-21 | 777, Blazing, Gang, Reels i Mumie pozostają kandydatami do tworzenia gier. |
-| [D-416](decisions/DECISION_LOG_2026.md#d-416--tracker-wystąpień-jest-jedynym-właścicielem-słabego-dowodu-v7-33) | Tracker wystąpień jest jedynym właścicielem słabego dowodu V7 3+3 | accepted | 2026-09-21 | obserwator związany z profilem zwraca wyłącznie source-local weak evidence trzech zgodnych etykiet,… |
-| [D-416](decisions/DECISION_LOG_2026.md#d-416--korpus-eksperymentalnej-geometrii-rozdziela-dostęp-wykonawczy-od-odbioru) | Korpus eksperymentalnej geometrii rozdziela dostęp wykonawczy od odbioru | accepted | 2026-09-21 | testowy silnik geometrii shape_frame_geometry_v2_0 używa osobnego manifestu wykonawczego, zawierającego… |
-| [D-415](decisions/DECISION_LOG_2026.md#d-415--kalibracja-t0603-używa-odrębnego-manifestu-v2-obu-katalogów-777) | Kalibracja T0603 używa odrębnego manifestu V2 obu katalogów 777 | accepted | 2026-09-21 | rzeczywista sesja pierwszej rodziny geometrii używa nowego, lokalnego i ignorowanego manifestu T0603.… |
-| [D-414](decisions/DECISION_LOG_2026.md#d-414--ekran-kalibracji-zachowuje-zamiar-lokalnie-a-rewizję-na-serwerze) | Ekran kalibracji zachowuje zamiar lokalnie, a rewizję na serwerze | accepted | 2026-09-21 | ekran Admina zapisuje przed requestem uporządkowany zamiar operationId w IndexedDB wraz z pierwotną… |
-| [D-413](decisions/DECISION_LOG_2026.md#d-413--api-kalibracji-v7-rozwiązuje-korpus-po-stronie-serwera) | API kalibracji V7 rozwiązuje korpus po stronie serwera | accepted | 2026-09-21 | konfiguracja operatora wskazuje manifest korpusu i runtime root; |
-| [D-412](decisions/DECISION_LOG_2026.md#d-412--sesje-geometrii-etykiet-v7-są-server-owned-i-append-safe) | Sesje geometrii etykiet V7 są server-owned i append-safe | accepted | 2026-09-21 | sesja anotacji ma przypięty inwentarz źródeł calibration-only, rewizję i receipt operationId; |
-| [D-411](decisions/DECISION_LOG_2026.md#d-411--profil-etykiet-v7-jest-wersjonowany-różnorodny-i-adoptowany-jawnie) | Profil etykiet V7 jest wersjonowany, różnorodny i adoptowany jawnie | accepted | 2026-09-21 | pierwszy profil standard_3x3_numeric_labels_v1 kalibruje wyłącznie środki etykiet liczbowych na kanonicznym… |
-| [D-410](decisions/DECISION_LOG_2026.md#d-410--worker-v7-wybiera-wyłącznie-własny-runtime-i-zablokowaną-kalibrację) | Worker V7 wybiera wyłącznie własny runtime i zablokowaną kalibrację | accepted | 2026-09-21 | job półautomatu schema 4 jest obsługiwaną wersją V7. Handler ładuje jego LocalSourceManifest tak jak schema… |
-| [D-409](decisions/DECISION_LOG_2026.md#d-409--reels_test-jest-wyłącznym-holdoutem-odbioru-v7) | `reels_test` jest wyłącznym holdoutem odbioru V7 | accepted | 2026-09-21 | lokalny manifest TASK-0597 przypina reels_test jako jedyny case splitu holdout; |
-| [D-408](decisions/DECISION_LOG_2026.md#d-408--v7-ma-osobny-workflow-i-twardą-bramkę-aktywacji) | V7 ma osobny workflow i twardą bramkę aktywacji | accepted | 2026-09-21 | V7 używa workflow_mode=v7_selection, payloadu schema v4 i server-owned konfiguracji pełnej strony. |
-| [D-407](decisions/DECISION_LOG_2026.md#d-407--kalibracja-v7-zachowuje-pomiar-nieudanego-progu-ale-blokuje-aktywację) | Kalibracja V7 zachowuje pomiar nieudanego progu, ale blokuje aktywację | accepted | 2026-09-21 | kalibracja geometrii V7 wymaga co najmniej pięciu niezależnych źródeł na każdą z dziewięciu pozycji… |
-| [D-406](decisions/DECISION_LOG_2026.md#d-406--nieczytelny-kadr-i-nieznana-widoczność-nie-mogą-wygrać-przez-brak-danych) | Nieczytelny kadr i nieznana widoczność nie mogą wygrać przez brak danych | accepted | 2026-09-21 | po własnym proof kandydaty V7 są porównywane według najgorszej planszy. |
-| [D-405](decisions/DECISION_LOG_2026.md#d-405--v7-rozdziela-occurrence-kursor-sekwencji-i-podgląd-operatora) | V7 rozdziela occurrence, kursor sekwencji i podgląd operatora | accepted | 2026-09-21 | V7 utrzymuje osobno indeks następnego źródła, monotoniczny kursor oczekiwanych zakresów oraz indeks źródła… |
-| [D-404](decisions/DECISION_LOG_2026.md#d-404--pierwotna-próbka-holdoutu-v7-jest-wyłączona-z-niezależnego-odbioru) | Pierwotna próbka holdoutu V7 jest wyłączona z niezależnego odbioru | accepted | 2026-09-21 | plik rells big/reels 218400_000114.jpg, otwarty przez wycofany probe przed ograniczeniem splitów, nie może… |
-| [D-403](decisions/DECISION_LOG_2026.md#d-403--v7-nie-uznaje-statycznych-cropów-za-dowód-geometrii) | V7 nie uznaje statycznych cropów za dowód geometrii | accepted | 2026-09-21 | początkowy lokalizator OCR v7 emituje position_confidence=0.00. Tylko konfiguracja pomierzona i zatwierdzona… |
-| [D-402](decisions/DECISION_LOG_2026.md#d-402--status-importu-plansz-jest-niezależny-od-review-symboli-i-historii-jobów) | Status importu plansz jest niezależny od review symboli i historii jobów | accepted | 2026-09-20 | browser staging przechowuje trwały boardImportStatus o wartościach ready, importing, boards_imported, failed. |
-| [D-401](decisions/DECISION_LOG_2026.md#d-401--nierozstrzygnięte-źródło-v11-wraca-do-pełnej-ręcznej-geometrii) | Nierozstrzygnięte źródło v1.1 wraca do pełnej ręcznej geometrii | accepted | 2026-09-17 | lateralRegistrationCandidate jest wyłącznie roboczą propozycją. |
-| [D-400](decisions/DECISION_LOG_2026.md#d-400--v11-jest-domyślnym-wyborem-nowych-stagingów-plansz) | v1.1 jest domyślnym wyborem nowych stagingów plansz | accepted | 2026-09-17 | brak geometryEngineVariant w raporcie, preflighcie i starcie importu przeglądarkowego oznacza… |
-| [D-399](decisions/DECISION_LOG_2026.md#d-399--podmiana-źródła-przez-nową-rewizję-stagingu) | Podmiana źródła przez nową rewizję stagingu | accepted | 2026-09-16 | podmiana JPEG-a przed akceptacją jego ręcznej geometrii tworzy nowy, checksummowany staging. |
-| [D-398](decisions/DECISION_LOG_2026.md#d-398--tylko-gotowy-staging-tworzy-nowy-import-plansz) | tylko gotowy staging tworzy nowy import plansz | accepted | 2026-09-16 | usunąć z publicznego API i panelu tokenowy start importu, lokalny picker importu i tokenowy preflight. |
-| [D-397](decisions/DECISION_LOG_2026.md#d-397--v11-odzyskuje-tylko-niepewne-plansze-po-wyniku-bazowym) | v1.1 odzyskuje tylko niepewne plansze po wyniku bazowym | accepted | 2026-09-16 | v1.1 pozostawia wyniki przyjęte przez v1.0. Ukończony zgodny manifest v1.0 jest bazą ponownego użycia, a… |
-| [D-396](decisions/DECISION_LOG_2026.md#d-396--v10-jest-domyślnym-wyborem-nowych-stagingów-plansz) | v1.0 jest domyślnym wyborem nowych stagingów plansz | superseded | 2026-09-16 | structured_lattice_v4_partial_sides zachowuje techniczny identyfikator, a w panelu jest nazwany v1.0 i… |
-| [D-395](decisions/DECISION_LOG_2026.md#d-395--preflight-geometrii-używa-przypiętej-bazy-i-trwałych-shardów) | Preflight geometrii używa przypiętej bazy i trwałych shardów | accepted | 2026-09-16 | API przypina do inputu najnowszy zgodny ukończony manifest tej samej gry, selekcji i source manifestu. |
-| [D-394](decisions/DECISION_LOG_2026.md#d-394--nowe-preflighty-wracają-z-polityki-słabych-obramowań-v3-do-v1v2) | Nowe preflighty wracają z polityki słabych obramowań v3 do v1/v2 | accepted | 2026-09-16 | nowe runy wariantu structured_lattice_v4_partial_sides przypinają v1 bez profilu niepełnych siatek albo v2 z… |
-| [D-393](decisions/DECISION_LOG_2026.md#d-393--proporcja-cropa-jest-niezależną-bramką-jakości) | Proporcja cropa jest niezależną bramką jakości | accepted | 2026-09-16 | automatyczny crop przekraczający 78% kanonicznej wysokości źródła otrzymuje crop_too_tall przed oceną… |
-| [D-392](decisions/DECISION_LOG_2026.md#d-392--błędy-workera-cropów-odzyskujemy-do-osobnego-preview) | Błędy workera cropów odzyskujemy do osobnego preview | accepted | 2026-09-15 | wpis session-v2.json.failures bez wyniku w shardzie może być przeliczony aktywnym v12 wyłącznie przez… |
-| [D-391](decisions/DECISION_LOG_2026.md#d-391--listowanie-źródła-fill-nie-czeka-na-pomocniczy-zapis-sesji) | Listowanie źródła fill nie czeka na pomocniczy zapis sesji | accepted | 2026-09-15 | listowanie katalogu bazowego publikuje liczbę odwiedzonych wpisów i znalezionych obrazów co najwyżej co 64… |
-| [D-390](decisions/DECISION_LOG_2026.md#d-390--ostatni-pomiar-przycinania-jest-pomocniczym-stanem-widoku) | Ostatni pomiar przycinania jest pomocniczym stanem widoku | accepted | 2026-09-15 | lokalny rekord IndexedDB może przechować ostatnią niepustą próbkę telemetrii przygotowania cropów, z nazwą… |
-| [D-389](decisions/DECISION_LOG_2026.md#d-389--fill-przełącza-podgląd-przed-zapisem-z-dwoma-slotami-cofania) | Fill przełącza podgląd przed zapisem, z dwoma slotami cofania | accepted | 2026-09-15 | po fill'u workspace natychmiast ustawia lokalny target i następny sourceCursor, a następnie wykonuje… |
-| [D-388](decisions/DECISION_LOG_2026.md#d-388--repair-przechowuje-stan-luk-nie-historię-interakcji) | Repair przechowuje stan luk, nie historię interakcji | accepted | 2026-09-15 | manual-image-selection-repair-v2.json zastępuje rosnący log napraw aktualnym stanem: aktywnymi plikami,… |
-| [D-387](decisions/DECISION_LOG_2026.md#d-387--słaba-ozdobna-ramka-kieruje-kompletną-siatkę-do-walidacji) | Słaba ozdobna ramka kieruje kompletną siatkę do walidacji | accepted | 2026-09-15 | mocno zarejestrowana strona może zachować najwyżej trzy sloty ze słabym dowodem czerwonej ramki. |
-| [D-386](decisions/DECISION_LOG_2026.md#d-386--ostrzeżenie-cropa-nie-jest-wyborem-ręcznej-poprawki) | Ostrzeżenie cropa nie jest wyborem ręcznej poprawki | accepted | 2026-09-15 | automatyczny powód review pozostaje poradą w filtrze Niepewne. |
-| [D-385](decisions/DECISION_LOG_2026.md#d-385--obliczenia-cropów-są-równoległe-a-publikacja-uporządkowana) | Obliczenia cropów są równoległe, a publikacja uporządkowana | accepted | 2026-09-15 | koordynator analizuje stałe paczki najwyżej czterech zdjęć w puli 1–4 browserowych workerów, lecz publikuje… |
-| [D-384](decisions/DECISION_LOG_2026.md#d-384--pusty-snapshot-cropów-może-przyjąć-aktywną-politykę) | Pusty snapshot cropów może przyjąć aktywną politykę | accepted | 2026-09-14 | wersjonowana sesja bez preparationPolicyVersion może automatycznie przypiąć aktywny v12 wyłącznie przed… |
-| [D-383](decisions/DECISION_LOG_2026.md#d-383--automatyczna-niepełna-siatka-jest-propozycją-do-walidacji) | Automatyczna niepełna siatka jest propozycją do walidacji | accepted | 2026-09-14 | odroczony slot z kanonicznym automaticPartialProposal i poprawnym czteropunktowym symbolGridQuad należy do… |
-| [D-382](decisions/DECISION_LOG_2026.md#d-382--v12-jest-głównym-silnikiem-nowych-sesji-cropów) | V12 jest głównym silnikiem nowych sesji cropów | accepted | 2026-09-14 | po jawnej ocenie podglądów przez operatora polityka… |
-| [D-381](decisions/DECISION_LOG_2026.md#d-381--pełne-33-wystarcza-do-automatycznego-cropa) | Pełne 3×3 wystarcza do automatycznego cropa | accepted | 2026-09-14 | bezpośrednio wykryte dziewięć plansz jest wystarczającym dowodem cropa. |
-| [D-380](decisions/DECISION_LOG_2026.md#d-380--niepełne-siatki-uczą-osobny-profil-bocznych-masek) | Niepełne siatki uczą osobny profil bocznych masek | accepted | 2026-09-14 | manual-geometry-qualification-v2 wprowadza jawny opt-in do oddzielnej puli bocznie uciętych siatek. |
-| [D-379](decisions/DECISION_LOG_2026.md#d-379--lifecycle-partycji-jest-manifest-bound-i-checkpointowany-per-tabela) | Lifecycle partycji jest manifest-bound i checkpointowany per tabela | accepted | 2026-09-09 | - Provisioning i usuwanie wykonują najwyżej jedną tabelę manifestu w jednej transakcji, a receipt niezależny… |
-| [D-378](decisions/DECISION_LOG_2026.md#d-378--lista-symboli-czyta-bieżącą-projekcję-partycji-gry) | Lista symboli czyta bieżącą projekcję partycji gry | accepted | 2026-09-09 | - V2 materializuje confidence razem z bieżącą komórką i listuje bez owner join oraz bez historycznych JSON-ów. |
-| [D-377](decisions/DECISION_LOG_2026.md#d-377--zamknięty-schemat-game_data_v2-i-wspólny-koordynator-jobów) | Zamknięty schemat game_data_v2 i wspólny koordynator jobów | accepted | 2026-09-08 | - Wszystkie 65 game-owned tabel (również zależne małe metadane) ma LIST(game_id) i composite FK w jednym… |
-| [D-376](decisions/DECISION_LOG_2026.md#d-376--trwałe-porcje-przed-usunięciem-legacy-i-migracją-partycji) | Trwałe porcje przed usunięciem legacy i migracją partycji | accepted | 2026-09-08 | - Osobny maintenance receipt i journal nie zależą FK od usuwanej gry. |
-| [D-375](decisions/DECISION_LOG_2026.md#d-375--v0104-udostępnione-wyłącznie-jako-testowy-wariant-per-run) | v0.10.4 udostępnione wyłącznie jako testowy wariant per-run | accepted | 2026-09-08 | LATERAL_PARTIAL_RELEASED=True otwiera istniejący jawny wybór structured_lattice_v4_partial_sides. |
-| [D-374](decisions/DECISION_LOG_2026.md#d-374--v0104-jest-rozszerzeniem-runu-nie-zmianą-polityki-gry) | v0.10.4 jest rozszerzeniem runu, nie zmianą polityki gry | accepted | 2026-09-07 | geometryEngineVariant=structured_lattice_v4_partial_sides przypina osobną politykę i checksumę w rollout… |
-| [D-374](decisions/DECISION_LOG_2026.md#d-374--nowe-gry-wymagają-kompletnego-magazynu-v2) | Nowe gry wymagają kompletnego magazynu V2 | accepted | 2026-09-09 | po usunięciu wszystkich gier produkcyjny PostgreSQL nie tworzy location legacy. |
-| [D-373](decisions/DECISION_LOG_2026.md#d-373--niedostępna-komórka-zachowuje-historię-nie-bieżący-obraz) | Niedostępna komórka zachowuje historię, nie bieżący obraz | accepted | 2026-09-07 | source_available jest addytywną projekcją dostępności bieżącej komórki. |
-| [D-373](decisions/DECISION_LOG_2026.md#d-373--nowa-półautomatyczna-selekcja-czyta-lokalne-źródło-bez-stagingu) | Nowa półautomatyczna selekcja czyta lokalne źródło bez stagingu | accepted | 2026-09-08 | nowe runy workflowu selection używają schema v3 i małego, content-addressed manifestu lokalnego katalogu. |
-| [D-372](decisions/DECISION_LOG_2026.md#d-372--szkic-nie-zastępuje-rewizji-a-pionowe-ucięcie-wymaga-poprawy-źródła) | Szkic nie zastępuje rewizji, a pionowe ucięcie wymaga poprawy źródła | accepted | 2026-09-07 | lokalne szkice geometrii zachowują bazową rewizję i wszystkie oznaczenia. |
-| [D-372](decisions/DECISION_LOG_2026.md#d-372--półautomat-rezerwuje-miejsce-tylko-dla-swoich-rzeczywistych-danych) | Półautomat rezerwuje miejsce tylko dla swoich rzeczywistych danych | accepted | 2026-09-08 | browser staging semi_automatic_selection pomija ImageWriteCapacityGuard, którego estymacja obejmuje przyszłe… |
-| [D-371](decisions/DECISION_LOG_2026.md#d-371--kwalifikacja-geometrii-jest-wersjonowaną-częścią-decyzji-slotu) | Kwalifikacja geometrii jest wersjonowaną częścią decyzji slotu | accepted | 2026-09-07 | manual-geometry-qualification-v1 używa istniejących pending_partial i unavailableCellIndices, dopuszcza… |
-| [D-370](decisions/DECISION_LOG_2026.md#d-370--szeroki-licznik-symboli-ufa-gotowej-projekcji) | Szeroki licznik symboli ufa gotowej projekcji | accepted | 2026-09-07 | licznik całej gry bez filtra confidence zachowuje kanonicznego właściciela z… |
-| [D-369](decisions/DECISION_LOG_2026.md#d-369--ewaluacja-symboli-wymaga-pokrycia-każdej-klasy) | Ewaluacja symboli wymaga pokrycia każdej klasy | accepted | 2026-09-06 | nowe iteracje używają wersjonowanej polityki source-family-class-stratified-split-v3. Całe rodziny źródłowe… |
-| [D-369](decisions/DECISION_LOG_2026.md#d-369--archiwum-wyszukiwania-nie-zależy-od-operacyjnego-review) | Archiwum wyszukiwania nie zależy od operacyjnego review | superseded | 2026-09-07 | zachowywany zakres starej gry może zostać zamrożony w legacy_board_search_archive_documents. |
-| [D-368](decisions/DECISION_LOG_2026.md#d-368--gotowość-rozliczonego-importu-jest-odtwarzana-z-api) | Gotowość rozliczonego importu jest odtwarzana z API | accepted | 2026-09-06 | kolejka bramki geometrii wylicza aktualny manifest z najnowszych rewizji decyzji i zwraca go razem z… |
-| [D-368](decisions/DECISION_LOG_2026.md#d-368--overlay-pełnego-zdjęcia-jest-wystarczającym-podglądem-korekty-guard) | Overlay pełnego zdjęcia jest wystarczającym podglądem korekty guard | accepted | 2026-09-06 | Admin nie wymaga wygenerowania 15 cropów A/B przed zapisem korekty bramki importu. |
-| [D-367](decisions/DECISION_LOG_2026.md#d-367--import-z-ręczną-korektą-zamiast-bramki-skuteczności) | Import z ręczną korektą zamiast bramki skuteczności | accepted | 2026-09-06 | nowa polityka image-geometry-systemic-guard-v2-manual-review kontynuuje import przy niskiej lub zerowej… |
-| [D-367](decisions/DECISION_LOG_2026.md#d-367--operator-może-poprawić-także-pozytywny-slot-bramki-importu) | Operator może poprawić także pozytywny slot bramki importu | accepted | 2026-09-06 | wszystkie sloty źródła w raporcie bramki są edytowalne. |
-| [D-366](decisions/DECISION_LOG_2026.md#d-366--pierwszy-import-materializuje-niewiadome-bez-fałszywej-inferencji) | Pierwszy import materializuje niewiadome bez fałszywej inferencji | accepted | 2026-09-06 | gra bez zatwierdzonych komórek, kohort, iteracji i aktywacji może wykonać jawny import… |
-| [D-365](decisions/DECISION_LOG_2026.md#d-365--nieczytelność-pozostaje-właściwością-bieżących-pikseli) | Nieczytelność pozostaje właściwością bieżących pikseli | accepted | 2026-09-06 | zwykłe zatwierdzenie lub zmiana przypisanego symbolu zachowuje quality_issue=unreadable dla tej samej… |
-| [D-364](decisions/DECISION_LOG_2026.md#d-364--wykluczenie-źródła-zamiast-mutowania-browser-stagingu) | Wykluczenie źródła zamiast mutowania browser stagingu | accepted | 2026-09-06 | zdjęcie odrzucone w korekcie geometrii jest wykluczane przez append-only decyzję związaną z grą, stagingiem,… |
-| [D-363](decisions/DECISION_LOG_2026.md#d-363--czteropunktowy-obrys-całego-33-jako-kotwica-cropa) | Czteropunktowy obrys całego 3×3 jako kotwica cropa | accepted | 2026-09-06 | lokalny wariant v12 opisuje wiarygodny układ dziewięciu plansz czterema zewnętrznymi punktami i przenosi go… |
-| [D-362](decisions/DECISION_LOG_2026.md#d-362--deferred-jest-obowiązkowym-slotem-źródła-nie-nieistniejącą-planszą) | Deferred jest obowiązkowym slotem źródła, nie nieistniejącą planszą | accepted | 2026-09-06 | lokalny edytor geometrii łączy istniejące review plansz z nierozwiązanymi rekordami… |
-| [D-361](decisions/DECISION_LOG_2026.md#d-361--nachylone-etykiety-i-zachowanie-niezależnej-bramki) | Nachylone etykiety i zachowanie niezależnej bramki | accepted | 2026-09-05 | na kolejne zlecenie naprawy wdrożono poziomą dylatację oraz analizę etykiet w nachyleniu rzędu, bez… |
-| [D-360](decisions/DECISION_LOG_2026.md#d-360--niezależny-odbiór-po-poprawce-bez-dopasowania-referencji-do-wyniku) | Niezależny odbiór po poprawce, bez dopasowania referencji do wyniku | accepted | 2026-09-05 | użytkownik zlecił naprawę TASK-0472. Stare dwa przypadki po analizie służą jako regresje; |
-| [D-359](decisions/DECISION_LOG_2026.md#d-359--zatrzymanie-rollout-v11-po-nieudanej-bramce-jakości) | Zatrzymanie rollout v11 po nieudanej bramce jakości | accepted | 2026-09-05 | implementacja eksperymentalna pozostaje nieaktywna. |
-
----
-
-# Najnowsze wpisy (pełne kopie)
-
-Poniżej pełne kopie pięciu najnowszych wpisów (D-547, D-546, D-545, D-544, D-543), identyczne z `decisions/DECISION_LOG_2026.md`.
-Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
-
-## D-547 — Selektor Windows bez limitu zdjęć i wydanie 1.0.0
-
-- **Date:** 2026-10-13.
-- **Status:** accepted by explicit operator instructions in this conversation.
-- **Decision:** remove the imposed 15 000-photo and directory-entry limits without replacing them with another configured cap. Path, checksum, ownership, journal and lock validation remain. This supersedes the scale restriction in D-545/D-546; their historical 15 000 measurement remains evidence only, without guarantees for larger real collections.
-- **Interface:** routine navigation/save messages are silent, necessary feedback is a bottom overlay, native fullscreen retains position/count, step, zoom and exit. The photo is centered horizontally and vertically; its sequence range is a separate centered row immediately above it. Late view events during close cannot replace the final flushed view.
-- **Release and acceptance:** generate Windows ZIP 1.0.0 and close TASK-0979 by the operator's explicit approval on 2026-10-13. No physical second-PC/reboot/protection PASS is asserted without evidence. This changes the previous requirement that physical evidence must block task closure; automated checks and operator decision are recorded separately. No new independent Claude audit is asserted.
-- **Integration:** local merge into literal main must preserve the newer primary-checkout changes. The user authorizes removal of the selector worktree after preserving release, historical ZIPs and needed ignored materials outside it. Other worktrees and user photo data are untouched. No push or migration.
-- **Source:** user requests in this conversation; release record ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md; TASK-0988–0990 implementation records and TASK-0979.
-
-## D-546 — Finalizacja i zgodny kompaktowy zapis selektora Windows
-
-- **Date:** 2026-10-12.
-- **Status:** accepted by operator instruction to complete all remaining work
-  and explicit approval of the3–5 hour full P2/P3 round, compatible persistence
-  redesign, controlled15000-image measurement and final ZIP. Recipient
-  acceptance takes place at the end.
-- **Scope:** TASK-0984→0985→0986→0987 in
-  `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_FINALIZATION_PLAN_20261012.md`.
-  New pilot0.1.3; source/output stay local and untouched except owned selection
-  transactions. No API/Admin/Reviewer/database/cloud/service changes.
-- **Start and UX:** missing cached project never silently resets. A new batch
-  requires explicit confirmation; only stale cache metadata is forgotten.
-  Preflight both target directories before creating either; no lock in a foreign
-  directory without project markers. Desktop ignores key repeat for decisions.
-  Close with unknown ownership does not remove another owner's lock.
-- **Persistence:** supersedes D-545's temporary retention of full per-operation
-  state serialization. Logical ProjectState1 and operator-local manifest2 remain.
-  Disk head2 at existing primary/backup names points to mirrored immutable
-  inventory/baseline and two append-only checksummed operation ledgers.
-  All previous receipts and operationIds remain valid indefinitely.
-- **Commit and recovery:** journal3 holds compact before/after heads and exact
-  pending record, copy/removals and phase. JPEG/lease rules stay unchanged.
-  Ledger records are synchronized in both mirrors before primary head commit;
-  manifest and backup finish before acknowledgement. Partial exact pending
-  suffix can be completed; unknown bytes and unproved ownership fail closed.
-  Root bindings are in heads/journal, so pending relink does not rewrite ledger
-  bytes. Healthy matching copies recover corruption; two damaged copies block.
-- **Upgrade:** under project lock verify source/project identity, recover
-  journal1/2, write upgrade journal3 containing verified old state, publish
-  mirrored sidecars/ledger then both head2 files, remove descriptor last.
-  Old readers reject journal3/head2 and cannot fall back to a writable old
-  backup. Each interrupted step resumes; no JPEG/manifest change during upgrade.
-- **Safety and performance:** no receipt trimming or weakened checksum/path
-  checks. Full open validation uses a path Set; hot writes validate only delta.
-  UI projection omits internal receipt history. Remaining full manifest O(D)
-  and open checks are explicit. The operator authorizes bounded measurement
-  of15000 synthetic JPEGs; this is not a guarantee for every disk/large photo.
-- **Diagnostics and release:** bounded process-identity retry never proves a
-  timed-out owner dead. Preserve failed smoke logs; verify asar contents and
-  build-info automatically. Explain manual JPEG restoration via manifest path
-  and checksum. Preserve prior reports and ZIPs byte for byte.
-- **Execution gates:** D-545's operator audit at the end and CLI/per-task review
-  exception remain. Internal Codex review is not cross-family audit. Physical
-  TASK-0979 acceptance cannot be asserted from local process smoke or this
-  approval. No push, merge, signing, user-data deletion or protection disabling.
-- **Source:** operator's full-scope approval in this conversation2026-10-12;
-  audit `OFFLINE_PHOTO_SELECTOR_REAUDIT_CLAUDE_20261012.md` and finalization plan.
-
-## D-545 — Lokalny selektor zdjęć Windows dla odbiorcy
-
-- **Date:** 2026-10-11.
-- **Status:** accepted by explicit operator instruction to implement the revised
-  plan; implementation is authorized, with operator audit after all five tasks.
-- **Decision:** standalone Electron/React/TypeScript workspace
-  `apps/selector-desktop`, Windows 11 x64 ZIP built with Electron Forge.
-  The recipient keeps source images, project state and output on their device;
-  Proton Drive delivery is manual and outside the application.
-- **Domain and boundary:** reuse the manual-image-selection core, own desktop UI,
-  no refactor of Admin/Reviewer and no production API/OpenAPI/database changes.
-  Preserve the Reviewer's serialized commits, natural source traversal and
-  rangeForStart semantics (nine boards or the terminal shortened range).
-- **Output:** original JPEG bytes named `seq_<start>-<end>.jpg`, operator-local
-  schema v2 under `manual-image-selection-output-v1.json`; not the different
-  core-items format. The project is authoritative; output is a projection.
-  Project and output folders are separate and proposed beside the source.
-- **Durability:** local disk project outside sync/network shares; versioned
-  state, backup, synchronized temporary replacement, operation journal,
-  idempotency and recovery before writes. Exclusive project lock; stale
-  heartbeat alone never authorizes takeover. A transient exclusive output
-  lease also prevents two different projects from claiming one output; it
-  uses the same owner/process checks and is removed before confirmation.
-  Missing folders require relink,
-  never an automatic reset. Only ready output is manually shared.
-- **Scope:** first release TASK-0975, TASK-0976, TASK-0977, TASK-0979.
-  The later instruction to implement five tasks also authorizes TASK-0978
-  legacy adoption after the implementation portion of TASK-0979.
-  Initial pilot is unsigned; real Windows blocking stops acceptance without
-  advising the recipient to disable protection. No upload, generated links,
-  cloud integration, repair or training trace.
-- **Remediation2026-10-12:** operator approved an additional2–4 hour round
-  after the REVISE implementation audit. A controlled, hidden PowerShell
-  worker runs fresh typed drive/reparse/process checks. Reuse a verified
-  native source index; preserve output SHA, ProjectState1/journal1/2,
-  serialized durable cursor writes and receipt retention. Correct close
-  after LOCK_LOST and skipped-range compatibility. TASK-0980/0981/0982
-  produce pilot0.1.1; operator review and recipient acceptance stay separate.
-  No recovery-guard takeover without owner evidence or weaker file checks.
-- **Source-first UX2026-10-12:** operator accepted a separate1–2 h budget:
-  choose only source, auto-create sibling project/output, resume the same
-  source without reconfiguration, persist optional gameName as display label
-  and use a recent-project dropdown. Older unnamed projects remain valid;
-  source/project identity is verified under lock before automatic recovery.
-- **Execution gates:** operator accepted an estimated 3–6 hours inclusive of
-  tests, packaging and audits, without a reliable package-percentage estimate.
-  The later operator instruction defers review until all five tasks are
-  implemented, explicitly replacing per-task review and the CLI entry gate.
-  Physical recipient-machine acceptance is
-  recorded separately and cannot be replaced by the agent's local smoke test.
-- **Source:** operator instructions and answers in this conversation of
-  2026-10-11; `ai_docs/delivery/OFFLINE_PHOTO_SELECTOR_EXECUTION_PLAN.md`.
-
-## D-544 — Nowe gry 777 importują przez V3 z profilem `grid_profile_777_v2`
-
-- **Date:** 2026-10-11.
-- **Status:** accepted explicit operator decision; implemented by TASK-0974.
-- **Decision:** every registered grid engine profile imports image folders
-  through the existing neural proposal path (the D-521 pilot route,
-  `neural-auto-crop-v1` of D-523) with the frozen model of its own profile.
-  `grid_profile_777_v2` uses the lab-trained 777 model (run `43933ac8…`,
-  preset A, export `2cd19738367121e6-round3`, snapshot `286f2e37…`);
-  `grid_profile_mumie_v1` keeps the Mumie fine-tune. The first 777 game on this
-  route is `777a2` ("777 a2"). V1.1 stays only for games without a grid engine
-  profile, i.e. the historical 777 (code `7`).
-- **Operator rationale:** "V1.1 zostaje tylko i wyłącznie ze względu na starą
-  grę 777"; the V3 engine draws grids without the classical engine's errors and
-  the 777 model already exists from the vision lab, so no training is needed.
-- **Consistency:** a preflight frozen for one profile never serves a game whose
-  current profile differs (reuse skips it, import start returns
-  `NEURAL_GRID_PREFLIGHT_INVALID`). The persisted policy identifier
-  `page-geometry-preflight-v13-neural-mumie-pilot` keeps its historical name
-  because completed Mumie jobs pin it. No migration: the `games` CHECK from
-  `0140` already allows both profiles.
-- **Boundary:** does not change the historical 777 game, its V1.1 imports, the
-  grid shadow path, the symbol model registry or the D-527 shared model
-  families. Switching a game to another game's profile is not a substitute for
-  wiring its own profile.
-- **Changes:** D-521 scope of the neural folder route (Mumie only) for the
-  geometry engine; the D-521 symbol-model pilot scope is unchanged.
-- **Source:** operator instructions in the conversation of 2026-10-11;
-  ai_docs/tasks/completed/0974-neural-import-777-v2-profile.md.
-
-## D-543 — Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze
-
-- **Date:** 2026-10-10 (decyzje operatora W7–W9 z 2026-10-09; implementacja TASK-0970, TASK-0971).
-- **Status:** accepted; zaimplementowane na gałęzi `feat/geometry-correction-revert`
-  (v1.7.295–v1.7.296), wymaga migracji `0154_geometry_correction_revert` wykonanej
-  przez operatora. **Zmienia D-238.**
-- **Odrzucenie slotu odroczonego:** operator odrzuca w Reviewerze („Korekta cięcia
-  siatki” → „Odrzuć planszę”) slot `pending` z powodem `cropped` („Plansza
-  przycięta”), `blurred` albo `other` (z wymaganym opisem). Slot dostaje status
-  `rejected` (`rejection_reason`, `rejection_note`, `rejected_at`, `rejected_by`,
-  CHECK cyklu życia) i znika z kolejki korekty; nie jest cięty na symbole.
-- **Trwałe zdarzenia odrzuceń slotów:** każde odrzucenie, jego cofnięcie i
-  zastąpienie przez zamiennik zapisuje append-only wiersz tabeli gry
-  `image_board_geometry_pending_events` (klucz idempotencji, suma kontrolna
-  polecenia, `rejection_revision`, aktor, akcje `rejected` / `rejection_reverted` /
-  `superseded` z `successor_review_item_id`). Slot po cofnięciu zapomina
-  odrzucenie (CHECK), zdarzenia je pamiętają: ten sam klucz i polecenie odtwarza
-  zapisany wynik także po cofnięciu, inny klucz dla odrzuconego slotu daje 409
-  `IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`, a stare żądanie cofnięcia nie
-  cofa nowszego odrzucenia (`GEOMETRY_REVERT_NOT_LATEST`).
-- **Odrzucenie istniejącej planszy:** istniejące rozstrzygnięcie `rejected` z
-  powodem (`cropped` / `blurred` / `other: <opis>`); kanoniczny właściciel
-  sekwencji zawsze dostaje 409 `BOARD_REJECT_CANONICAL` (przejęcie kanonu to
-  TASK-0305). Odrzucona pozycja wypada z weryfikacji symboli, liczników,
-  operacji zbiorczych i wyszukiwarki (predykat widoczności wyklucza komórki
-  pozycji `rejected`; wiersze i zdarzenia zostają jako historia; liczniki są
-  zwalniane przy wejściu w `rejected` i przywracane przy każdym wyjściu).
-- **Bramka bez zmian (W8):** odrzucona pozycja liczy się jak brak planszy (D-484);
-  całe zdjęcie czeka na zamiennik albo wyjątek operatora.
-- **Cofnięcie odrzucenia:** odrzucenia są na liście „Ostatnie korekty” i można je
-  cofnąć (slot wraca do `pending`, pozycja wraca do `pending` zdarzeniem
-  `reopened`), dopóki sekwencja nie ma żywej pozycji innego zdjęcia
-  (`GEOMETRY_REVERT_REPLACED`).
-- **Reguła własności sekwencji (zmienia D-238 „najnowszy import zastępuje
-  nierozwiązaną planszę”):** nowa plansza przejmuje sekwencję, gdy ta nie ma
-  żywego właściciela albo właściciel jest odrzucony (pozycja `rejected` lub slot
-  `rejected`). Gdy właścicielem jest żywa pozycja `pending` innego zdjęcia (inna
-  checksuma źródła), nowa plansza dostaje `superseded` i alternatywę
-  `superseded_existing_owner_kept`. Kanoniczny właściciel wygrywa jak dotąd
-  (first-save-wins z alternatywą). Ta sama checksuma zdjęcia (ponowne
-  przetworzenie) zachowuje porządek D-238. Reguła jest jedną czystą funkcją
-  (`domain/sequence_takeover.py`) stosowaną w jednym miejscu
-  (`storage/pending_sequence_ownership.create_owned_pending_review_item`) przez API
-  i workera.
-- **Ochrona lateralna:** `has_protected_lateral_owner` nadal chroni właściciela.
-  Gdy ochronę dają wyłącznie wiersze innego zdjęcia, a zachowywany właściciel
-  jest pewny (kanoniczny albo wszystkie chronione wiersze `pending`), worker nie
-  pomija pliku, tylko przechodzi przez wspólną regułę (kanon → first-save-wins,
-  żywa pozycja → nowa plansza `superseded` z alternatywą i licznikiem
-  „Pominięte”). Ochrona tego samego zdjęcia — pominięcie jak dotąd.
-- **Sprzątanie po przejęciu (ta sama transakcja):** odrzucony slot starego
-  zdjęcia przechodzi do `superseded` (pola odrzucenia zostają jako historia) ze
-  zdarzeniem `superseded`; bramki zdjęć z odrzuconą pozycją/slotem tej sekwencji
-  i zdjęć `geometry_incomplete`, których rewizja źródła obejmuje numer, są
-  przeliczane, a dopuszczone zdjęcia cięte istniejącą ścieżką (w workerze na
-  końcu transakcji). Przejmowane komórki pociętej, odrzuconej planszy przechodzą
-  do nowej planszy jako sugestie (reguła recropu D-462 bez kontroli ciągłości
-  rewizji); zatwierdzenie przechodzi tylko przy tej samej tożsamości cropa.
-  Raport importu pokazuje „Zastąpione sekwencje” i „Pominięte — sekwencja ma
-  właściciela” (`sequenceOwnership`).
-- **Blokada własności gry i globalna kolejność blokad:** transakcyjna blokada
-  doradcza `(game_id, 'sequence-ownership')` w trybie czytelnik/pisarz
-  (`storage/sequence_ownership_lock.py`): `EXCLUSIVE` bierze każdy zapis, który
-  może przejąć sekwencję albo przeliczyć bramkę innego zdjęcia (projekcja i
-  `resolve_board` workera, zapis siatki zdjęcia i planszy, konwersja legacy,
-  odrzucenie slotu, cofnięcia, bezpośrednie rozstrzygnięcie, operacje zbiorcze,
-  wyjątek geometrii); `SHARED` — decyzje komórek (`EXCLUSIVE`, gdy możliwe jest
-  zastąpienie cudzej pozycji). Brak podnoszenia trybu: `EXCLUSIVE` przy trzymanym
-  `SHARED` → 409 `SEQUENCE_OWNERSHIP_LOCK_UPGRADE`. Kolejność dla wszystkich
-  uczestników: klucz idempotencji albo dzierżawa joba (`FOR NO KEY UPDATE`) →
-  własność → wiersz gry → sekwencje → `source_images` (rosnąco, jednym
-  zapytaniem) → plansze, pozycje, sloty, wiersze kanoniczne i kolejki →
-  `image_symbol_review_states` → komórki. Odstępstwa są opisane w
-  `DATA_MODEL.md` i działają wyłącznie pod `EXCLUSIVE`.
-- **Konsekwencje:** ponowny import innego zdjęcia nie zastępuje już żywej
-  pozycji `pending`; operator musi ją najpierw odrzucić (raport importu to
-  pokazuje). Ryzyka przyjęte w audycie zastępczym TASK-0971 (5 × P2) czekają na
-  ponowny audyt Codex.
-- **Source:** decyzje operatora W7–W9 (2026-10-09) w
-  `ai_docs/delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`; Outcome
-  TASK-0970 i TASK-0971.

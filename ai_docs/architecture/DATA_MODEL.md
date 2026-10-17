@@ -1,10 +1,32 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-16
 ---
 
 # Model danych
+
+## Trwałe propozycje geometrii V3 — D-551 / TASK-1013
+
+Migracja `0160_grid_geometry_proposals` i frozen manifest v13 dodają dwa
+parenty partycjonowane per gra, z FORCE RLS i composite game FK.
+`grid_geometry_proposals` ma unique targetResultId oraz operation/ordinal,
+niezmienny dokument kandydata/pinu/fences i stan pending|accepted|rejected|stale
+z CAS revision. Faktycznie zaakceptowana geometria, kwalifikacja, SHA, autor
+i manual revision ID są osobne od oryginału modelu.
+
+`grid_geometry_proposal_events` przechowuje append-only zdarzenia i typed
+receipts200/409, monotoniczny ordinal per propozycja, revision, autora/czas
+oraz pełny canonical command/hash. Create ma namespace game/key; accept/reject
+game/proposal/kind/key. Nullable proposal_id jest dozwolone wyłącznie dla
+command_rejected/create przed powstaniem obiektu. Nie istnieje fikcyjny
+kandydat ani trzeci ledger.
+
+Powiązanie wskazuje retained target0999. Frozen source/review/board IDs nie
+mają FK do żywych tabel. Cztery istniejące cleanupy zachowują obie tabele,
+odpinając wyłącznie live link0999; create/accept po detach nie odtwarzają
+danych. Historia jest nadal czytelna. Whole-game lifecycle usuwa eventy przed
+propozycjami i retained targetami. Downgrade z historią odmawia jej utraty.
 
 ## Korekty symboli udostępnionej wyszukiwarki — D-492 / TASK-0845
 
@@ -53,6 +75,16 @@ obrazów, cropów ani kopii manifestu importu. Zapisuje jedynie wynik i SHA
 wejścia; pełny podgląd pozostaje artefaktem operatora.
 
 ## Pokrycie importu plansz (D-437) — TASK-0629
+
+TASK-1010 rozszerza istniejący GET pokrycia o opcjonalne `includeDiagnostics`.
+Domyślnie pozostaje false. Diagnostyka jest odczytem całej gry w oddzielnym
+snapshotcie REPEATABLE READ READ ONLY, z przypiętym RLS i limitem 30 s per
+zapytanie. Nie zmienia schematu ani kwalifikacji sekwencji. Rozdziela rekordy
+review, unikalne sekwencje, zdjęcia, sloty, plansze i komórki; kategorie oraz
+przecięcia nie są dodatkowymi brakami. Pola aktualnych symboli wymagają zgodnej
+rewizji geometrii, widoczności źródła/outside i aktywnego review item. Stan
+zapisany bramki oraz bieżąca klasyfikacja zdjęcia pozostają osobnymi licznikami.
+Odrzucony slot bez powstałej planszy daje sygnał rejected brakującej sekwencji.
 
 Definicja „planszy dodanej" i indeksy pod odczyt braków importu, bez nowej
 kolumny ani flagi (pełna treść decyzji: `ai_docs/process/DECISION_LOG.md`
@@ -153,14 +185,128 @@ ręcznej korekty pierwszego importu.
 
 Migracja 0140 rozszerza CHECK `ck_games_shape_geometry_configuration` o
 `grid_profile_777_v2` i `grid_profile_mumie_v1`; nie zmienia żadnego wiersza.
-Wybór profilu jest jedyną informacją w bazie: model profilu (zamrożony eksport
+Historycznie wybór profilu był jedyną informacją modelu w bazie: model profilu (zamrożony eksport
 `neural_grid`) jest plikiem w
 `<ARTIFACT_ROOT>/models/grid-engine/<profil>/<wersja>/` z `manifest.json`, a
 rejestr w kodzie (`domain/grid_engine_profiles.py`) mapuje profil → bieżąca
 wersja → SHA-256 i rozmiar każdego pliku oraz metadane (run, preset,
-fingerprint, wyniki V3-C). Nie ma tabeli modeli. Kolejny model tej samej gry
-to nowa wersja rejestru, nie nowa wartość kolumny. Downgrade odmawia
+fingerprint, wyniki V3-C). TASK-0994 dodaje trwały katalog opisany poniżej. Do integracji runtime w
+TASK-1012 stare importy nadal korzystają z tego zamrożonego rejestru kodu.
+Kolejny model jest nową immutable wersją rodziny, nie nową wartością formatu. Downgrade odmawia
 (`GRID_ENGINE_PROFILE_IN_USE`), dopóki gra używa profilu.
+
+## Publikacja i przypisania geometrii V3 — TASK-0998
+
+Migracja `0157_grid_model_publication` dodaje pięć shared tabel w `public`:
+`grid_model_evaluation_reports`, `grid_model_evaluation_invalidations`,
+`grid_model_publications`, `grid_model_control_events` i singleton
+`grid_model_default`. Raport ma server producer, canonical JSON/SHA, version FK
+oraz przypięte tożsamości base/cohort/policy i per-game coverage/outcomes.
+Nie przechowuje obrazów ani wag. Nie ma publicznego writer'a raportów;
+TASK-0997 jest właścicielem obliczeń i zapisu rzeczywistych wyników.
+Currentness wynika z niezmiennych pinów i braku append-only invalidation.
+Przyszły writer zmiany prawdy/kohorty musi zapisać invalidation atomowo pod
+tym samym catalogue lock 9910994. Raportów ani manifest admission nie przepisuje.
+
+Publikacja pinuje FK raportu albo historyczny raport z realnego repozytorium,
+canonical evidence JSON i SHA. Nie jest flagą descriptor'a. Globalne immutable
+events są jednocześnie receiptami z UUID key, canonical command JSON/SHA,
+actor `local-owner`, expected revision, wynikową revision i evidence SHA.
+Default jest jedynym globalnym mutable head. Assignment events pozostają
+catalog per gra; nowe pola są nullable wyłącznie dla zachowanych historycznych
+wierszy. Nowe activate/rollback zapisują pełną proweniencję oraz unikalne
+`(game_id,revision)` i `(game_id,idempotency_key)`.
+
+Namespace idempotencji jest zgodny z tymi kluczami: globalny ledger wspólny dla
+publish/set-default oraz osobny ledger każdej gry dla activate/rollback. Retry
+i konflikt treści obowiązują wewnątrz tego namespace. UUID nie jest globalnie
+unikalnym identyfikatorem zamiaru między ledgerami; API dokumentuje tę granicę.
+
+Wszystkie komendy serializuje transaction advisory lock 9910994 z limitem 5 s.
+Po uzyskaniu locka odczyt mutable head odświeża ORM identity map, nie usuwa
+innych oczekujących zmian sesji. CAS używa aktualnej revision; pierwszy zapis
+ma expected 0. Exact retry odczytuje immutable receipt przed CAS/eligibility,
+bez powrotnego przestawienia head. Zapis event/head/receipt jest atomowy.
+Rollback zmienia assignment i historię, bez zmian geometrii, cropów, sekwencji,
+symboli lub jobów. Usunięcie rodzica gry zachowuje dotychczasowy cascade
+assignment/events; globalna historia wersji i poleceń pozostaje.
+
+Frozen manifest v10 dziedziczy wszystkie partycje i klasyfikacje v9, dodając
+wyłącznie pięć shared tabel. Migracja nie publikuje, nie dopuszcza bazy,
+nie aktywuje i nie ustawia default. Frozen v1–v9 i historyczne JSON/SHA pozostają
+identyczne. Downgrade odmawia utraty historii. Stare assignments/snapshoty
+działają dalej; invalidation blokuje nowe komendy i bootstrap eligibility,
+a istniejącego assignment nie zmienia automatycznie.
+
+## Atomowa rezerwacja nowej gry — TASK-1004
+
+Migracja `0158_new_game_v3_bootstrap` po0157 dodaje immutable public catalogue
+`game_create_receipts` (UUID key, unique gameId bez FK do kasowanej gry,
+canonical command/SHA, reservation/SHA, actor i czas) oraz shared
+`grid_model_family_forks` (family FK, exact base version/manifest SHA,
+canonical lineage/SHA, actor i czas). Assignment otrzymuje nullable
+`training_family_id`; dawne wiersze pozostają bez backfillu. Bootstrap event
+ma expected0/revision1 oraz pełny receipt transferu. Rodzina forka jest
+pusta, a inference assignment nadal wskazuje oryginalną published wersję.
+
+Jedna transakcja roli aplikacyjnej pod9910994 rezerwuje grę, MIGRATING
+location, lifecycle, fork, assignment/event i create receipt przed pierwszym
+commitem provisioningu. Publiczne rekordy z game_id zapisuje typowany Core
+przez tę samą Session connection: pending ORM flush uruchamiałby poprawną
+blokadę data-plane dla MIGRATING. Nie osłabia to routera/RLS i nie używa
+owner session do zapisów katalogu. Po commicie dotychczasowe partycje mają
+oddzielne owner-DDL transakcje i checkpointy. Retry odczytuje immutable ledger
+przed ponowną kwalifikacją i nigdy nie przestawia nowszego assignment.
+
+`grid-model-family-lineage-v1` pinuje najwyżej64 unikalnych przodków wraz ze
+snapshot/cohort/evaluation/report references. Cykl, brak lub obca baza
+blokują fork/registration; unresolved protected reference nie jest pustym
+wyłączeniem. TASK-1002/0995 rozwiążą referencje do nagrań/aliasów/byte/pixel
+przed TRAIN. Kolejne jawne activate/rollback ustawia rodzinę treningową
+wybranej wersji, zachowując pierwotną linię forka w immutable historii.
+Frozen manifestv11 dodaje tylko dwa rejestry publiczne; listy partycji i
+frozenv1–v10 pozostają identyczne. Downgrade odmawia utraty historii.
+
+## Trwały rejestr geometrii V3 — TASK-0994
+
+Migracja `0156_grid_model_registry` dodaje do `public` shared control tables
+`grid_model_families`, `grid_model_versions`, `grid_model_registration_receipts`
+i `grid_model_version_events`; game catalog tables
+`game_grid_model_assignments` i `game_grid_model_assignment_events` przechowują
+wyłącznie game ID, immutable version ID, revision oraz zdarzenie przypisania.
+Nie zawierają danych obrazu, sekwencji, symboli ani etykiet. Mają jawny zakres
+gry i FK; catalogue reads używają kwalifikowanego public schema, bez routera
+danych gry. Nie wolno przypiąć sesji innej gry do odczytu assignment.
+
+Wersja ma UNIQUE(family_id,version), nullable FK bazy, canonical manifest JSON
+oraz SHA256. Manifest pinuje capabilities, topology 3x3/5x3, preprocessing,
+decoding, pochodzenie, inferenceManifest i inference/trainingArtifacts z
+rozmiarami/SHA. Training receipt jest sprawdzany względem tej samej tożsamości.
+Pliki pozostają w managed artifacts; żadnych wag lub obrazów w domenowych
+tabelach. Globalne GET nie ujawnia przypisań gier ani źródłowych ścieżek C.
+
+Rejestracja jest atomowa i idempotentna pod wspólną advisory lock (limit5s).
+Receipt utrwala command SHA i version ID; konflikt treści nie zmienia wersji.
+Immutable family/version/receipt/events mają SQL trigger UPDATE/DELETE guard.
+Assignment ma revision dla przyszłego CAS; jego zdarzenia są niezmienne.
+Wyłącznie istniejące usunięcie gry usuwa assignment/events przez FK CASCADE;
+globalne modele i ich historia pozostają zachowane. Downgrade odmawia utraty
+historii zamiast usuwać immutable rejestr.
+
+Frozen migration descriptors rejestrują dwie historyczne bazy z faktycznymi
+raportami, bez kohorty i bez nowego PASS. Istniejące V3 otrzymują dokładnie
+swoją dotychczasową wersję; code `7` nie otrzymuje assignment. Migracja CHECK
+addytywnie dopuszcza `neural_grid_v3`, zachowuje NULL i cztery stare wartości,
+nie przepisuje formatu żadnej gry. Manifest ownership v9 dziedziczy całą
+listę game tables/partycji z v8 i dodaje tylko public catalogue classification;
+locations aktualizują wersję/revision, dane oraz definicje partycji pozostają.
+
+Dostępność artefaktów nie jest publikacją, aktywacją, default ani wynikiem
+bramki. Kandydat ma not_evaluated i przypiętą bazę; zgodna trzecia rodzina jest
+dozwolona. Missing/mismatch/unsafe path blokuje rejestrację/udostępnienie bez
+fallbacku. Przed TASK-1012 neutralny format odmawia importu kontrolowanym
+GRID_MODEL_DYNAMIC_ROUTING_REQUIRED; statyczne profile/snapshoty zachowują
+stary kontrakt. Publikacja/aktywacja/default należą do TASK-0998.
 
 ## Globalna biblioteka geometrii shape v2 — TASK-0605
 
@@ -1185,6 +1331,26 @@ oraz `image_symbol_review_cells.source_geometry_revision_id` i
 `approved_source_geometry_revision_id` (tylko gdy wskazywały starą rewizję).
 Piksele, specyfikacje renderu, tożsamości cropów, decyzje i zdarzenia zostają
 bez zmian; plansza z innym wpisem zostaje i trafia do raportu z kodem powodu.
+
+### Historyczna akceptacja geometrii V3 (TASK-1008, migracja 0155)
+
+Manifest v8 dodaje trzy tabele należące do gry, partycjonowane po `game_id`
+i chronione FORCE RLS. `historical_grid_acceptance_operations` zapisuje klucz
+utworzenia i hash komendy, fazę, kotwicę czasu, kursor podglądu i przebiegu,
+przyrostowe liczniki zdjęć/rewizji/powodów oraz osobny klucz i hash jawnego
+potwierdzenia. `historical_grid_acceptance_targets` utrwala uporządkowany
+zakres źródeł, oczekiwaną rewizję/status, fingerprint i powody kwalifikacji.
+`historical_grid_acceptance_receipts` ma jeden wiersz na target i unikalny
+klucz transportowy per gra. Wiersz stanowi także zdarzenie akceptacji: wynik,
+powody, rewizja, autor i czas pozostają audytowalne bez zmiany `created_by`
+historycznej geometrii. Obce operationId nie daje dostępu poza grą.
+
+Status i receipt powstają atomowo z przeliczeniem kompletności bez nowej
+materializacji oraz synchronizacją istniejących dokumentów. Klucze, hashe
+i kursor odróżniają replay od konfliktu. Nie ma pól bitmap ani kopii payloadu
+geometrii. Downgrade odmawia utraty jakiejkolwiek historii operacji.
+Reguły kwalifikacji, ochrony danych i wznawialnego indeksu oryginalnego dowodu
+opisuje [schema ownership](VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md#historyczna-akceptacja-statusów-v3--task-1008).
 
 ### image_source_geometry_revisions i image_geometry_rollout_states
 
@@ -2908,3 +3074,70 @@ wyjątek integralności propaguje do właściciela transakcji. Nowy import tworz
 pozycje również przed inicjalizacją historycznego backfillu, zachowując jego
 osobny stan gotowości. Etykiety człowieka przeżywają recrop; zatwierdzenie
 obrazu staje się nieaktualne i wymaga ponownej weryfikacji.
+
+## Zachowane dowody pomiaru V3 (D-555, TASK-1009, Alembic0162)
+
+Zamrożony manifestv15 dodaje pięć tabel partycjonowanych per gra: measurements,
+members, append-only judgments, measurement commands i canonical geometry
+approval commands. Członek przechowuje niezmienne wystąpienie źródła i oryginalny
+cel oddzielnie od wersjonowanych ocen. Złożone klucze gry, forced RLS i SQL guardy
+niezmienności chronią dowody i receipts. Manifesty v1–14 i historyczne migracje
+pozostają niezmienione. Downgrade odmawia przy jakiejkolwiek zachowanej historii.
+
+Zamrożone source IDs przeżywają legalne usunięcie źródła i layout-data reset.
+Nullable live_source_image_id ma fizyczny composite game/source FK i może zostać
+wyłącznie odłączony. Istniejące wejścia cleanupu zachowują manifesty, oceny oraz
+receipts. Lifecycle całej gry usuwa partycje w kolejności zależności. Approval
+receipt zachowuje event/target IDs bez nowego live FK blokującego cleanup.
+
+Kanoniczny projection pozostaje w recognized_boards wraz z rzeczywistym
+image_board_geometry_review_events(action=approved). Osobna jawna akcja
+zatwierdza dokładną FROZEN CURRENT geometrię również przy nieznanym historycznym
+modelu. Nie tworzy sztucznej rewizji geometrii/źródła ani nowych cropów. Brak
+producenta oryginału nadal pozostaje luką pomiaru jakości modelu.
+
+## Kohorty geometrii aplikacji (D-556, TASK-0995, Alembic0163)
+
+Bieżący manifest v16 dodaje sześć game-owned tabel partycjonowanych:
+`grid_training_cohorts`, `grid_training_cohort_members`,
+`grid_training_cohort_pages`, `grid_training_cohort_commands`,
+`grid_training_cohort_events` i `grid_source_identity_commands`.
+Historyczne manifesty v1–15 oraz migracje0161/0162 pozostają niezmienione.
+Złożone klucze gry, forced RLS i triggery chronią niezmienność zamrożonych
+members, stron, zdarzeń oraz receipts. Downgrade odmawia po zachowaniu historii.
+
+Nagłówek przechowuje wersję CAS, stan, przypięty dokument, podsumowanie oraz
+ścieżkę i SHA manifestu. Member zachowuje niezmienne source_id i ordinal,
+nullable rolę, frozen payload z jawnym used oraz indeksowane zależności
+board/review/cell. Brak rozstrzygniętej roli nie staje się TRAIN. Nullable
+live_source_image_id jest fizycznym composite game/source FK; wolno go tylko
+odłączyć, bez odtwarzania usuniętego źródła. Strony capture/materialization
+przechowują SHA, względną ścieżkę i małą listę rzeczywistych referencji assets;
+obrazy pozostają plikami zarządzanymi, bez bitmap w tabelach domenowych.
+
+Przejścia preparing, preview_ready, materializing, ready_to_freeze i frozen
+pozostają jawne, podobnie failed/canceled. Idempotent commands wiążą UUID
+i dokładny checksum body z niezmienną odpowiedzią. Jawna komenda completion
+zachowuje osobny receipt i uzupełnia wyłącznie całkowicie NULL kanoniczną grupę
+source metadata; istniejąca grupa wymaga exact equality, także dla EXIF None.
+
+Recording v3 atomowo rejestruje rzeczywiste użycie wyłącznie used members
+przy freeze, także VALIDATION/REGRESSION. Walidacja aktualności jest tylko do
+odczytu. Minimalne prywatne use/resolution/report evidence umożliwia globalne
+alias invalidation bez foreign source partition queries i BYPASSRLS. Nie ma
+fikcyjnych przyszłych report bindings. Lokalne notices zachowują historię
+zależności, lecz nie zastępują dodatniego exact currentness verifiera.
+
+Source/layout reset odłącza live FK i zachowuje kohorty, strony oraz receipts.
+Rzeczywisty E2E layout resetu pozostaje zablokowany wcześniejszym FK
+`image_board_geometry_pending` do review items, poza zakresem TASK-0995.
+Usunięcie całej gry usuwa jej partycje zgodnie z istniejącym lifecycle;
+fizyczny JPEG GC pozostaje osobnym zatwierdzanym krokiem. Referencje stron/root
+chronią kopie również w failed/canceled. Brak routingu nie dowodzi orphan bez
+done deletion receipt oraz rzeczywistego braku katalogu, routingu i partycji.
+Minimalna prywatna ochrona recording identity/use nie przechowuje JPEG paths
+i nie utrzymuje pełnego archiwum. Usunięcie operacyjnego źródła blokuje nowe
+użycie przez SOURCE_REMOVED_NEW_USE_BLOCKED w currentness i prywatnym v3 guardzie.
+Nowe detach notices zapisują ten powód; starsze zdarzenia i receipts pozostają
+niezmienne. Samo odłączenie nie dowodzi cofnięcia ludzkiej etykiety i nie usuwa
+permanentnej ochrony nagrań ani zachowanych kopii.

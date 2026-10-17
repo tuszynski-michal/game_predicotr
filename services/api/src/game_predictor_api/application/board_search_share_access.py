@@ -59,6 +59,7 @@ class BoardSearchShareRecord:
     last_unlocked_at: datetime | None
     created_at: datetime
     expires_at: datetime
+    panel_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,6 +267,10 @@ class BoardSearchShareAccessService:
             raise _not_found()
         if record.revoked_at is not None:
             return _view(record, now)
+        if record.panel_id is not None:
+            raise BoardSearchShareConflictError(
+                "BOARD_SEARCH_PANEL_REVOKE_REQUIRED", "Stop the whole panel instead."
+            )
         revoked = self._repository.save_session(
             replace(record, revoked_at=now, token_hash=None, token_expires_at=None)
         )
@@ -287,6 +292,10 @@ class BoardSearchShareAccessService:
         record = self._repository.get_session_for_update(session_id)
         if record is None or record.expires_at <= now:
             raise _not_found()
+        if record.panel_id is not None:
+            raise BoardSearchShareAuthenticationError(
+                "BOARD_SEARCH_PANEL_LINK_REQUIRED", "Use the panel link to access this game."
+            )
         if record.revoked_at is not None:
             raise BoardSearchShareAuthenticationError(
                 "BOARD_SEARCH_SHARE_REVOKED", "This share link has been stopped."

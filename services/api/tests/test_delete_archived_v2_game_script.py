@@ -46,6 +46,16 @@ def test_archived_v2_game_without_references_has_no_blockers() -> None:
     assert _blocker_codes(location=_location(status="deleting")) == []
 
 
+def test_archived_preview_uses_the_current_runtime_manifest() -> None:
+    from game_predictor_api.storage import game_partition_lifecycle as runtime
+
+    assert (script.SCHEMA, script.VERSION, script.DELETE_TABLES) == (
+        runtime.SCHEMA,
+        runtime.VERSION,
+        runtime.DELETE_TABLES,
+    )
+
+
 def test_non_archived_game_is_blocked() -> None:
     assert _blocker_codes(game_status="draft") == ["GAME_NOT_ARCHIVED"]
     assert _blocker_codes(game_status="active") == ["GAME_NOT_ARCHIVED"]

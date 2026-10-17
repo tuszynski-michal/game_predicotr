@@ -30,6 +30,7 @@ import { BoardSearchWorkspace } from '@/features/board-search/board-search-works
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { ManagementWorkspace } from '@/features/management/management-workspace';
+import { BoardSearchSharingWorkspace } from '@/features/sharing/board-search-sharing-workspace';
 import type { ManagementClient } from '@/features/management/management-workspace';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
@@ -62,6 +63,7 @@ const WORKSPACE_OPTIONS: readonly {
     id: 'games',
     label: 'Zarządzanie grami',
   },
+  { id: 'sharing', label: 'Udostępnianie' },
   {
     id: 'releases',
     label: 'Wersje Android',
@@ -496,6 +498,7 @@ export function CatalogWorkspace({
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            gameCode={activeGame.code}
                             shapeGeometryConfiguration={
                               activeGame.shapeGeometryConfiguration
                             }
@@ -573,6 +576,10 @@ export function CatalogWorkspace({
                           <ModelQualityWorkspace
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            gameCode={activeGame.code}
+                            shapeGeometryConfiguration={
+                              activeGame.shapeGeometryConfiguration
+                            }
                             key={activeGame.id}
                           />
                         ) : null}
@@ -618,6 +625,12 @@ export function CatalogWorkspace({
             apiBaseUrl={apiBaseUrl}
             client={managementClient}
             onDirtyChange={managementDirtyChanged}
+          />
+        ) : null}
+        {navigation.workspace === 'sharing' ? (
+          <BoardSearchSharingWorkspace
+            client={api}
+            onReplay={(eventId) => setReplayEventId(eventId)}
           />
         ) : null}
         {navigation.workspace === 'releases' ? (

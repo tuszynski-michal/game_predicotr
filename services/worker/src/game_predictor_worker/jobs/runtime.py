@@ -27,6 +27,7 @@ MAX_LEASE_KEEPALIVE_INTERVAL_SECONDS = 15.0
 GENERAL_JOB_TYPES = frozenset(JobType) - {
     JobType.IMAGE_SELECTION,
     JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
+    JobType.GRID_TRAINING,
 }
 
 
@@ -88,6 +89,7 @@ class WorkerJobStore(Protocol):
         failure_count: int,
         review_count: int,
         checkpointed_at: datetime,
+        acknowledge_cancellation: bool = True,
     ) -> Job: ...
 
     def complete(
@@ -245,7 +247,11 @@ class JobExecutionContext:
         success_count: int,
         failure_count: int,
         review_count: int,
+        acknowledge_cancellation: bool = True,
     ) -> None:
+        options: dict[str, object] = (
+            {} if acknowledge_cancellation else {"acknowledge_cancellation": False}
+        )
         self._job = self._store.checkpoint(
             self._job.id,
             lease_token=self._lease_token,
@@ -258,6 +264,7 @@ class JobExecutionContext:
             failure_count=failure_count,
             review_count=review_count,
             checkpointed_at=self._clock(),
+            **options,  # type: ignore[arg-type]
         )
         if self._job.status is JobStatus.CANCELLED:
             raise _ExecutionStopped(JobStatus.CANCELLED)

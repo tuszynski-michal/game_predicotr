@@ -6,9 +6,11 @@ Runs only with ``GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`` against its own
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
+import pytest
 from alembic import command
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
@@ -58,6 +60,10 @@ from test_image_batch_store import (  # type: ignore[import-not-found]
 )
 
 __all__ = ["isolated_image_batch_database"]
+pytestmark = pytest.mark.skipif(
+    os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
+    reason="Set GAME_PREDICTOR_RUN_POSTGRES_TESTS=1 for the owned PostgreSQL fixture.",
+)
 RUN = "e" * 64
 
 
@@ -103,7 +109,10 @@ def test_rgb_v2_write_filter_and_revert_on_one_board(
         with session_factory() as session:
             catalog = CatalogService(SqlAlchemyCatalogRepository(session))
             game = catalog.create_game(
-                code="rgb-v2-writer", name="RGB v2 writer", status=GameStatus.ACTIVE
+                idempotency_key=uuid4(),
+                code="rgb-v2-writer",
+                name="RGB v2 writer",
+                status=GameStatus.ACTIVE,
             )
             symbols = {
                 code: catalog.create_symbol(

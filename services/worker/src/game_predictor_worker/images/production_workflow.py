@@ -461,10 +461,23 @@ class ProductionImageImportWorkflow:
         )
         neural_import = "neural_grid_proposal" in job.input_payload
         candidate_originals = manifest.originals
+        # TASK-1041: sources without a slot binding stay out of the import, but
+        # the skip is recorded in every later checkpoint and an immutable report.
+        unbound_extras: dict[str, object] = {}
         if neural_import:
             from .neural_pending_geometry import bound_neural_originals
+            from .neural_unbound_sources import record_neural_unbound_sources
 
             candidate_originals = bound_neural_originals(manifest.originals, geometry_manifest)
+            unbound_summary = record_neural_unbound_sources(
+                self._artifact_root,
+                job_id=job.id,
+                page_geometry_manifest_checksum_sha256=_page_geometry_manifest_checksum(job),
+                originals=manifest.originals,
+                entries=geometry_manifest,
+            )
+            if unbound_summary is not None:
+                unbound_extras["neural_unbound_sources"] = unbound_summary
         unresolved_originals = _filter_canonical_originals(candidate_originals, job)
         canonical_skipped_count = len(candidate_originals) - len(unresolved_originals)
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
@@ -492,6 +505,7 @@ class ProductionImageImportWorkflow:
                     "checkpoint_kind": "image-source-filtered-v1",
                     "deferred_geometry_source_count": deferred_geometry_count,
                     "schema_version": 1,
+                    **unbound_extras,
                 },
                 stage="image_deferred_geometry_skip",
                 current=all_source_count,
@@ -633,6 +647,9 @@ class ProductionImageImportWorkflow:
             neural_execution_policy=cast(
                 str | None, job.input_payload.get("neural_grid_execution_policy_version")
             ),
+            engine_acceptance_policy=cast(
+                str | None, job.input_payload.get("v3_engine_acceptance_policy_version")
+            ),
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
@@ -668,22 +685,25 @@ class ProductionImageImportWorkflow:
             current_offset=all_source_count,
             total=all_source_count + source_count,
             stage_prefix="image_pipeline",
-            checkpoint_extras=(
-                {
-                    "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
-                    **(
-                        {
-                            "geometry_guard_resolution": (
-                                geometry_guard_resolution.checkpoint_payload()
-                            )
-                        }
-                        if geometry_guard_resolution is not None
-                        else {}
-                    ),
-                }
-                if geometry_guard is not None and geometry_guard.required
-                else None
-            ),
+            checkpoint_extras={
+                **unbound_extras,
+                **(
+                    {
+                        "geometry_systemic_guard": geometry_guard.checkpoint_payload(),
+                        **(
+                            {
+                                "geometry_guard_resolution": (
+                                    geometry_guard_resolution.checkpoint_payload()
+                                )
+                            }
+                            if geometry_guard_resolution is not None
+                            else {}
+                        ),
+                    }
+                    if geometry_guard is not None and geometry_guard.required
+                    else {}
+                ),
+            },
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 
@@ -886,6 +906,7 @@ class ProductionImageStageAdapterSuite:
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
         manual_geometry_import: bool = False,
         neural_execution_policy: str | None = None,
+        engine_acceptance_policy: str | None = None,
         geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
@@ -926,6 +947,13 @@ class ProductionImageStageAdapterSuite:
                 "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unsupported neural crop policy."
             )
         self._neural_automatic_crops = neural_execution_policy == NEURAL_AUTO_CROP_POLICY
+        from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
+
+        if engine_acceptance_policy not in (None, V3_ENGINE_ACCEPTANCE_POLICY):
+            raise ImagePipelineExecutionError(
+                "V3_ENGINE_ACCEPTANCE_POLICY_UNSUPPORTED", "Unsupported engine acceptance policy."
+            )
+        self._engine_acceptance_policy = engine_acceptance_policy
         self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -1136,7 +1164,10 @@ class ProductionImageStageAdapterSuite:
                 from .neural_pending_geometry import neural_pending_payload
 
                 return neural_pending_payload(
-                    structured, entry, automatic_crops=self._neural_automatic_crops
+                    structured,
+                    entry,
+                    automatic_crops=self._neural_automatic_crops,
+                    engine_acceptance_policy=self._engine_acceptance_policy,
                 )
             return {
                 "manualGeometryRequired": True,

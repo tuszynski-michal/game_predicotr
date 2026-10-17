@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -18,7 +19,7 @@ from game_predictor_api.storage.database import (
     GameStorageSession,
     create_owner_session_factory,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v7 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v17 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -54,20 +55,21 @@ def lifecycle_database() -> Iterator[Engine]:
         "sqlalchemy.url",
         url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
     )
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.create_database(connection)
     try:
+        recording_capability_fixture.provision()
         command.upgrade(config, "head")
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            active = connection.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
-                {"name": name},
-            ).scalar_one()
+            active = recording_capability_fixture.wait_for_owned_database_idle(connection)
             assert active == 0
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 
@@ -261,6 +263,38 @@ def test_restartable_provision_and_delete_keep_other_game_isolated(
     assert second_partition_count == len(CREATE_TABLES)
 
 
+def test_archived_game_preview_is_read_only_on_the_current_runtime_manifest(
+    lifecycle_database: Engine,
+) -> None:
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[4] / "scripts" / "delete_archived_v2_game.py"
+    spec = importlib.util.spec_from_file_location("archive_preview_1018", path)
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    archived, kept = uuid4(), uuid4()
+    for game, code in ((archived, "preview-archived"), (kept, "preview-kept")):
+        _insert_game(lifecycle_database, game, code)
+        _run_to_done(lifecycle_database, game, GamePartitionLifecycleKind.PROVISION)
+    with lifecycle_database.begin() as connection:
+        connection.execute(
+            text("UPDATE public.games SET status='archived' WHERE id=:id"), {"id": archived}
+        )
+    with Session(lifecycle_database) as session, session.begin():
+        session.execute(text("SET TRANSACTION READ ONLY"))
+        before = session.execute(text("SELECT id,status FROM public.games ORDER BY id")).all()
+        preview = script.build_preview(session, archived)
+        assert preview["blockers"] == []
+        assert preview["partitions"]["existing"] == len(CREATE_TABLES)
+        assert preview["confirmation"] == f"DELETE GAME preview-archived {archived}"
+        other = script.build_preview(session, kept)
+        assert [entry["code"] for entry in other["blockers"]] == ["GAME_NOT_ARCHIVED"]
+        assert (
+            session.execute(text("SELECT id,status FROM public.games ORDER BY id")).all() == before
+        )
+
+
 def test_archived_game_deletion_script_previews_and_deletes_only_that_game(
     lifecycle_database: Engine,
 ) -> None:
@@ -329,6 +363,7 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
             partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
         )
         game = CatalogService(repository).create_game(
+            idempotency_key=uuid4(),
             code="greenfield-game",
             name="Greenfield game",
             status=GameStatus.DRAFT,
@@ -418,6 +453,7 @@ def test_catalog_create_retries_while_a_long_reader_holds_the_parent_lock(
                 partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
             )
             game = CatalogService(repository).create_game(
+                idempotency_key=uuid4(),
                 code="blocked-reader-game",
                 name="Blocked reader game",
                 status=GameStatus.DRAFT,

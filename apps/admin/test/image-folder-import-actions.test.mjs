@@ -1209,3 +1209,48 @@ test('pins an explicitly sealed geometry guard resolution manifest', async () =>
     'f'.repeat(64),
   );
 });
+
+test('start sends the V3 unbound-source confirmation and keeps the conflict code (TASK-1041)', async () => {
+  const bodies = [];
+  const api = {
+    startReadyBrowserImageImport: async (_uploadId, body) => {
+      bodies.push(body);
+      return {
+        error: {
+          code: 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+          message: 'confirm',
+          details: { unboundSourceCount: 3 },
+        },
+      };
+    },
+  };
+  const start = (confirmed) =>
+    startReadyBrowserImageImport(
+      api,
+      'upload-v3',
+      'game-1',
+      'a'.repeat(64),
+      'b'.repeat(64),
+      'preflight-v3',
+      'c'.repeat(64),
+      'structured_lattice_v3',
+      1,
+      undefined,
+      'd'.repeat(64),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      confirmed,
+    );
+
+  const refused = await start(undefined);
+  assert.equal(refused.ok, false);
+  assert.equal(
+    refused.code,
+    'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+  );
+  assert.equal('confirmedNeuralUnboundSourceCount' in bodies[0], false);
+  await start(2);
+  assert.equal(bodies[1].confirmedNeuralUnboundSourceCount, 2);
+});

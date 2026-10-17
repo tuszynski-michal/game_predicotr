@@ -2,7 +2,11 @@ from dataclasses import replace
 from uuid import UUID, uuid4
 
 import pytest
-from game_predictor_api.application.cleanup import CleanupService, ManagedCleanupArtifactStore
+from game_predictor_api.application.cleanup import (
+    CleanupService,
+    ManagedCleanupArtifactStore,
+    ResolvedCleanupArtifacts,
+)
 from game_predictor_api.domain.cleanup import (
     BoardSourceCleanupSelection,
     CleanupCommand,
@@ -70,6 +74,9 @@ class FakeArtifacts:
         self.quarantined: tuple[str, ...] = ()
         self.restored: tuple[str, ...] = ()
         self.finalized: tuple[str, ...] = ()
+
+    def resolve(self, paths: tuple[str, ...]) -> ResolvedCleanupArtifacts:
+        return ResolvedCleanupArtifacts(present=tuple(sorted(set(paths))), missing=(), ambiguous=())
 
     def delete(self, paths: tuple[str, ...]) -> None:
         self.deleted = paths
@@ -180,7 +187,9 @@ def test_board_source_cleanup_quarantines_until_the_database_commit_finishes() -
     repository = FakeCleanupRepository(snapshot)
     artifacts = FakeArtifacts()
     service = CleanupService(repository, artifacts)
-    preview = cleanup_preview(snapshot)
+    preview = service.preview_board_sources(
+        target_id, BoardSourceCleanupSelection(tuple(range(1, 10)))
+    )
 
     result = service.delete_board_sources(
         target_id,
@@ -236,7 +245,9 @@ def test_board_source_cleanup_restores_quarantine_when_database_mutation_fails()
     repository.fail_board_delete = True
     artifacts = FakeArtifacts()
     service = CleanupService(repository, artifacts)
-    preview = cleanup_preview(snapshot)
+    preview = service.preview_board_sources(
+        target_id, BoardSourceCleanupSelection(tuple(range(1, 10)))
+    )
 
     with pytest.raises(RuntimeError, match="database rollback"):
         service.delete_board_sources(
@@ -262,3 +273,121 @@ def test_unsafe_cleanup_path_does_not_leave_an_incomplete_quarantine(tmp_path) -
 
     assert error.value.code == "CLEANUP_ARTIFACT_PATH_UNSAFE"
     assert (tmp_path / "cleanup-quarantine" / operation_key).exists() is False
+
+
+def _board_source_snapshot(*paths: str) -> CleanupSnapshot:
+    target_id = uuid4()
+    return CleanupSnapshot(
+        kind="board_source_ranges",
+        target_id=target_id,
+        target_label="source range",
+        confirmation_target=f"{target_id}:1-9",
+        counts=(CleanupCount("source_images", 1), CleanupCount("managed_artifacts", len(paths))),
+        artifact_paths=paths,
+        retained_shared_artifact_count=0,
+        blockers=(),
+    )
+
+
+def test_store_resolves_data_relative_and_root_relative_paths(tmp_path) -> None:
+    """TASK-1042: persisted paths use the artifact root or its data namespace."""
+    for relative in (
+        "data/originals/ab/source.jpg",
+        "models/lab-symbol-candidates/x/manifest.json",
+        "data/symbol-references/a.png",
+        "both.json",
+        "data/both.json",
+    ):
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_bytes(b"x")
+
+    resolved = ManagedCleanupArtifactStore(tmp_path).resolve(
+        (
+            "originals/ab/source.jpg",
+            "models/lab-symbol-candidates/x/manifest.json",
+            "data/symbol-references/a.png",
+            "originals/cd/gone.jpg",
+            "both.json",
+        )
+    )
+
+    assert resolved.present == (
+        "data/originals/ab/source.jpg",
+        "data/symbol-references/a.png",
+        "models/lab-symbol-candidates/x/manifest.json",
+    )
+    assert resolved.missing == ("originals/cd/gone.jpg",)
+    assert resolved.ambiguous == ("both.json",)
+
+
+def test_board_source_cleanup_removes_a_data_relative_original(tmp_path) -> None:
+    """The 2026-10-17 defect: `originals/...` was resolved against the root and kept."""
+    original = tmp_path / "data" / "originals" / "ab" / "source.jpg"
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"original")
+    snapshot = _board_source_snapshot("originals/ab/source.jpg", "originals/cd/gone.jpg")
+    repository = FakeCleanupRepository(snapshot)
+    service = CleanupService(repository, ManagedCleanupArtifactStore(tmp_path))
+    selection = BoardSourceCleanupSelection(tuple(range(1, 10)))
+
+    preview = service.preview_board_sources(snapshot.target_id, selection)
+    counts = {item.name: item.count for item in preview.snapshot.counts}
+    assert preview.snapshot.artifact_paths == ("data/originals/ab/source.jpg",)
+    assert counts["managed_artifacts"] == 1
+    assert counts["missing_artifacts"] == 1
+    result = service.delete_board_sources(
+        snapshot.target_id,
+        selection,
+        CleanupCommand(preview.preview_token, snapshot.confirmation_target, True),
+    )
+
+    assert result.deleted_artifact_count == 1
+    assert original.exists() is False
+    service.finalize_committed_artifacts()
+    assert not (tmp_path / "cleanup-quarantine" / preview.preview_token).exists()
+    assert original.exists() is False
+
+
+def test_ambiguous_artifact_location_blocks_board_source_cleanup(tmp_path) -> None:
+    for relative in ("originals/ab/source.jpg", "data/originals/ab/source.jpg"):
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_bytes(b"x")
+    snapshot = _board_source_snapshot("originals/ab/source.jpg")
+    repository = FakeCleanupRepository(snapshot)
+    service = CleanupService(repository, ManagedCleanupArtifactStore(tmp_path))
+    selection = BoardSourceCleanupSelection(tuple(range(1, 10)))
+
+    preview = service.preview_board_sources(snapshot.target_id, selection)
+    assert "CLEANUP_ARTIFACT_PATH_AMBIGUOUS" in preview.snapshot.blockers
+    with pytest.raises(CleanupConflictError) as error:
+        service.delete_board_sources(
+            snapshot.target_id,
+            selection,
+            CleanupCommand(preview.preview_token, snapshot.confirmation_target, True),
+        )
+
+    assert error.value.code == "CLEANUP_BLOCKED"
+    assert repository.deleted is False
+    assert (tmp_path / "data" / "originals" / "ab" / "source.jpg").exists()
+
+
+def test_a_file_removed_after_preview_makes_the_preview_stale(tmp_path) -> None:
+    original = tmp_path / "data" / "originals" / "ab" / "source.jpg"
+    original.parent.mkdir(parents=True)
+    original.write_bytes(b"original")
+    snapshot = _board_source_snapshot("originals/ab/source.jpg")
+    repository = FakeCleanupRepository(snapshot)
+    service = CleanupService(repository, ManagedCleanupArtifactStore(tmp_path))
+    selection = BoardSourceCleanupSelection(tuple(range(1, 10)))
+    preview = service.preview_board_sources(snapshot.target_id, selection)
+    original.unlink()
+
+    with pytest.raises(CleanupConflictError) as error:
+        service.delete_board_sources(
+            snapshot.target_id,
+            selection,
+            CleanupCommand(preview.preview_token, snapshot.confirmation_target, True),
+        )
+
+    assert error.value.code == "CLEANUP_PREVIEW_STALE"
+    assert repository.deleted is False

@@ -772,6 +772,47 @@ test('generated client starts a ready browser import with checksum-bound geometr
   assert.deepEqual(await captured.json(), body);
 });
 
+test('generated client sends the V3 unbound-source confirmation unchanged (TASK-1041)', async () => {
+  let captured;
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const uploadId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    gameId,
+    manifestChecksumSha256: 'a'.repeat(64),
+    preflightChecksumSha256: 'b'.repeat(64),
+    geometryPreflightJobId: '44444444-4444-4444-8444-444444444444',
+    geometryManifestChecksumSha256: 'c'.repeat(64),
+    confirmedNeuralUnboundSourceCount: 1962,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json(
+        {
+          code: 'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+          message: 'confirm',
+          details: { unboundSourceCount: 1962 },
+        },
+        { status: 409 },
+      );
+    },
+  });
+
+  const result = await client.startReadyBrowserImageImport(uploadId, body);
+
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/browser-selections/${uploadId}/start`,
+  );
+  assert.deepEqual(await captured.json(), body);
+  assert.equal(
+    result.error.code,
+    'NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED',
+  );
+  assert.equal(result.error.details.unboundSourceCount, 1962);
+});
+
 test('generated client reprocesses a managed image import with explicit confirmation', async () => {
   let captured;
   const sourceJobId = '22222222-2222-4222-8222-222222222222';
@@ -4495,4 +4536,101 @@ test('generated client rejects a deferred slot and a board with their reasons', 
   const resolutionBody = await requests[1].clone().json();
   assert.equal(resolutionBody.action, 'rejected');
   assert.equal(resolutionBody.rejectionReason, 'cropped');
+});
+
+test('grid catalogue wrapper keeps command and game scope in generated requests', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(JSON.stringify({}), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+  const command = {
+    idempotencyKey: '00000000-0000-0000-0000-000000000001',
+    manifest: { version: 'v2', familyCode: 'third_geometry' },
+  };
+  await client.registerGridModelVersion(command);
+  await client.listGridModelVersions();
+  await client.getGameGridModelAssignment('own-game-id');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(await requests[0].json(), command);
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/grid-model-versions',
+  );
+  assert.equal(requests[1].method, 'GET');
+  assert.equal(
+    requests[2].url,
+    'http://127.0.0.1:8000/api/v1/admin/games/own-game-id/grid-model-assignment',
+  );
+});
+
+test('grid control commands keep separate endpoints, evidence references and CAS payloads', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(JSON.stringify({}), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+  const publication = {
+    idempotencyKey: '00000000-0000-0000-0000-000000000001',
+    expectedRevision: 0,
+    evaluationId: '00000000-0000-0000-0000-000000000002',
+  };
+  const assignment = {
+    idempotencyKey: '00000000-0000-0000-0000-000000000003',
+    expectedRevision: 7,
+    versionId: '00000000-0000-0000-0000-000000000004',
+  };
+  await client.publishGridModelVersion('version-id', publication);
+  await client.activateGameGridModel('game-id', assignment);
+  await client.rollbackGameGridModel('game-id', assignment);
+  await client.setGridModelDefault(assignment);
+  await client.getGridModelDefault();
+  await client.getGridModelHistory();
+  await client.getGameGridModelHistory('game-id');
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/grid-model-versions/version-id/publish'],
+      ['POST', '/api/v1/admin/games/game-id/grid-model-assignment/activate'],
+      ['POST', '/api/v1/admin/games/game-id/grid-model-assignment/rollback'],
+      ['POST', '/api/v1/admin/grid-model-default'],
+      ['GET', '/api/v1/admin/grid-model-default'],
+      ['GET', '/api/v1/admin/grid-model-history'],
+      ['GET', '/api/v1/admin/games/game-id/grid-model-assignment/history'],
+    ],
+  );
+  assert.deepEqual(await requests[0].json(), publication);
+  for (const request of requests.slice(1, 4)) {
+    assert.deepEqual(await request.json(), assignment);
+  }
+});
+
+test('grid catalogue preserves published but stale eligibility independently of files', async () => {
+  const stale = {
+    manifest: { admission: 'not_evaluated' },
+    manifestSha256: 'a'.repeat(64),
+    published: true,
+    available: true,
+    reasonCode: 'GRID_MODEL_ARTIFACT_AVAILABLE',
+    eligible: false,
+    eligibilityReasonCode: 'GRID_MODEL_EVALUATION_STALE',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async () => Response.json([stale]),
+  });
+  const result = await client.listGridModelVersions();
+  assert.deepEqual(result.data, [stale]);
 });

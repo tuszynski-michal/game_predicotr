@@ -13,23 +13,23 @@ from time import perf_counter, process_time
 from typing import Never, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from alembic import command
-from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
-from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database import create_owner_session_factory, create_session_factory
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     RecognizedBoardModel,
 )
+from game_predictor_api.storage.owned_tool_database import OwnedToolDatabase
 from sqlalchemy import create_engine, select
-from sqlalchemy.engine import URL, Engine, make_url
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session
 
 from game_predictor_worker.benchmarks.performance import PeakMemorySampler
@@ -260,52 +260,47 @@ def _run_physical_operations(
     *,
     deadline: BenchmarkDeadline,
 ) -> dict[str, object]:
-    source_url = make_url(database_url)
-    database_name = f"game_predictor_m7_operations_{uuid4().hex[:12]}"
-    maintenance_url = _database_url(source_url, "postgres")
-    benchmark_url = _database_url(source_url, database_name)
-    maintenance_engine = create_engine(
-        maintenance_url,
-        isolation_level="AUTOCOMMIT",
-        pool_pre_ping=True,
-    )
-    engine: Engine | None = None
-    created = False
-    identifier = f'"{database_name}"'
-    try:
+    with OwnedToolDatabase(
+        make_url(database_url),
+        prefix="game_predictor_m7_operations",
+        alembic_ini=repository_root / "alembic.ini",
+    ) as database:
         deadline.check("operations database creation")
-        with maintenance_engine.connect() as connection:
-            connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
-        created = True
-        command.upgrade(_migration_config(repository_root, benchmark_url), "head")
         engine = create_engine(
-            benchmark_url,
+            database.runtime_url,
             pool_pre_ping=True,
             connect_args={
                 "options": "-c lock_timeout=3000 -c statement_timeout=30000",
             },
         )
-        return _execute_operations(engine, deadline=deadline)
-    finally:
-        if engine is not None:
+        owner_engine = create_engine(database.owner_url, pool_pre_ping=True)
+        try:
+            return _execute_operations(
+                engine,
+                deadline=deadline,
+                partition_ddl_session_factory=create_owner_session_factory(owner_engine),
+            )
+        finally:
+            owner_engine.dispose()
             engine.dispose()
-        if created:
-            with maintenance_engine.connect() as connection:
-                connection.exec_driver_sql(f"DROP DATABASE {identifier} WITH (FORCE)")
-        maintenance_engine.dispose()
 
 
 def _execute_operations(
     engine: Engine,
     *,
     deadline: BenchmarkDeadline,
+    partition_ddl_session_factory: Callable[[], Session],
 ) -> dict[str, object]:
     session_factory = create_session_factory(engine)
     batch_store = SqlAlchemyImageBatchStore(session_factory)
     pipeline_store = SqlAlchemyImagePipelineStore(session_factory)
     worker_store = SqlAlchemyWorkerJobStore(session_factory)
     now = datetime(2026, 7, 29, 14, 0, tzinfo=UTC)
-    job = _create_job_and_catalog(engine, now)
+    job = _create_job_and_catalog(
+        engine,
+        now,
+        partition_ddl_session_factory=partition_ddl_session_factory,
+    )
     claimed = worker_store.claim_next(
         worker_id="m7-operations-benchmark",
         worker_version="worker-v5",
@@ -525,10 +520,22 @@ def _measure_operation(
     )
 
 
-def _create_job_and_catalog(engine: Engine, now: datetime) -> Job:
+def _create_job_and_catalog(
+    engine: Engine,
+    now: datetime,
+    *,
+    partition_ddl_session_factory: Callable[[], Session],
+) -> Job:
     with Session(engine, expire_on_commit=False) as session:
-        catalog = CatalogService(SqlAlchemyCatalogRepository(session))
+        catalog = CatalogService(
+            SqlAlchemyCatalogRepository(
+                session,
+                artifact_root=ApiSettings.from_environment().artifact_root,
+                partition_ddl_session_factory=partition_ddl_session_factory,
+            )
+        )
         game = catalog.create_game(
+            idempotency_key=uuid4(),
             code=f"m7-operations-{uuid4().hex[:10]}",
             name="M7 operations benchmark",
             status=GameStatus.ACTIVE,
@@ -750,17 +757,6 @@ def _source_index(relative_path: str) -> int:
 
 def _digest(source: str, suffix: str) -> str:
     return hashlib.sha256(f"{source}:{suffix}".encode()).hexdigest()
-
-
-def _database_url(source: URL, database_name: str) -> URL:
-    return source.set(database=database_name).update_query_dict({"connect_timeout": "3"})
-
-
-def _migration_config(repository_root: Path, database_url: URL) -> Config:
-    config = Config(str(repository_root / "alembic.ini"))
-    rendered = database_url.render_as_string(hide_password=False).replace("%", "%%")
-    config.set_main_option("sqlalchemy.url", rendered)
-    return config
 
 
 def _stats_dict(stats: ImageBatchStats) -> dict[str, int]:

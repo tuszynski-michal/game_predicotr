@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database
+from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
@@ -109,7 +110,27 @@ def test_migration_preserves_legacy_import_recovery_and_deactivation(tmp_path, m
                 ),
                 {"game": legacy_game, "id": iteration_id},
             )
+        # Exercise 0144's real physical history boundary before newer manifests.
+        guard_job = create_job(
+            JobType.VALIDATE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "validation_kind": "symbol_model_lab_import",
+                "idempotency_key": str(uuid4()),
+            },
+        )
+        with Session(database.owner_engine) as session, session.begin():
+            session.add(job_record_from_domain(guard_job))
+        with pytest.raises(Exception, match="LAB_SYMBOL_REGISTRY_DOWNGRADE_HAS_HISTORY"):
+            command.downgrade(config, "0143_merge_share_grid_shadow")
+        with database.owner_engine.begin() as connection:
+            assert connection.scalar(text("SELECT version_num FROM public.alembic_version")) == (
+                "0144_lab_symbol_candidate_registry"
+            )
+            connection.execute(text("DELETE FROM public.jobs WHERE id=:id"), {"id": guard_job.id})
         # The product code below reads the current ORM columns, so continue at head.
+        OwnedRecordingCapability.for_engine(database.owner_engine).provision("head", config)
         command.upgrade(config, "head")
         model = b"qualified-import-postgres-fixture"
         evidence = {"classes": list(lab.MUMIE_CLASS_LABELS), "eligible": True}
@@ -257,11 +278,6 @@ finally:
                     game_id=game_id
                 )
             assert error.value.code == "SYMBOL_MODEL_ACTIVATION_REQUIRED"
-        # The downgrade guard of 0144 is exercised through a stamp, because the
-        # retention-only migrations 0148-0150 stop a real downgrade from head.
-        command.stamp(config, "0144_lab_symbol_candidate_registry")
-        with pytest.raises(Exception, match="LAB_SYMBOL_REGISTRY_DOWNGRADE_HAS_HISTORY"):
-            command.downgrade(config, "0143_merge_share_grid_shadow")
         with (
             pytest.raises(DBAPIError, match="GAME_STORAGE_SCOPE_REQUIRED"),
             database.app_engine.connect() as connection,

@@ -90,6 +90,7 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
         )
     try:
         snapshot = NeuralGridSnapshot.from_payload(raw["neural_grid_proposal"])
+        snapshot.require_game(str(job.game_id))
         UUID(str(raw["source_selection_id"]))
         if (
             not isinstance(raw["source_directory"], str)
@@ -129,6 +130,7 @@ def validate_neural_page_manifest(
     source_manifest_sha256: str,
     snapshot: NeuralGridSnapshot,
 ) -> Mapping[str, object]:
+    snapshot.require_game(game_id)
     if (
         not isinstance(value, Mapping)
         or value.get("schemaVersion") != NEURAL_GRID_MANIFEST_SCHEMA_VERSION

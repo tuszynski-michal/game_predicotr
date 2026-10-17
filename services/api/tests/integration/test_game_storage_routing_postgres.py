@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _recording_capability_fixture import OwnedRecordingCapability
 from _virtual_board_fixtures import (
     add_board_render_manifest_for,
     ensure_source_geometry,
@@ -32,7 +33,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v7 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v17 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -92,21 +93,24 @@ def database() -> Iterator[Engine]:
         "sqlalchemy.url",
         url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
     )
+    recording_capability_fixture = OwnedRecordingCapability.for_engine(engine)
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
+        recording_capability_fixture.record_created_database(connection)
     try:
         # The runtime router accepts only the current storage manifest (v3
         # since 0131), so the routing fence is exercised on the head schema.
+        recording_capability_fixture.provision()
         command.upgrade(config, "head")
         yield engine
     finally:
         engine.dispose()
         with maintenance.connect() as connection:
-            active = connection.execute(
-                text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"), {"name": name}
-            ).scalar_one()
+            active = recording_capability_fixture.wait_for_owned_database_idle(connection)
             assert active == 0
+            recording_capability_fixture.assert_database_identity(connection)
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
+            recording_capability_fixture.cleanup(connection)
         maintenance.dispose()
 
 
@@ -156,7 +160,16 @@ def test_v2_parents_have_scope_default_rls_and_runtime_triggers(database: Engine
         )
     assert guarded == set(GAME_TABLES)
     assert defaults == set(GAME_TABLES)
-    assert len(triggers) == 7
+    # Seven routing triggers plus the V3 immutability and currentness triggers of the
+    # quality measurements (0162), training cohorts (0163) and evaluation notices (0166).
+    v3 = {
+        "grid_quality_immutable",
+        "grid_cohort_immutable",
+        "grid_cohort_currentness",
+        "grid_cohort_notice_mark",
+    }
+    assert v3 <= triggers
+    assert len(triggers - v3) == 7
 
 
 def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> None:

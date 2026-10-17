@@ -19,6 +19,10 @@ export type GamesClient = Pick<
   | 'listGridEngineProfiles'
   | 'listSuperGameKinds'
   | 'updateGame'
+  | 'listGridModelVersions'
+  | 'getGridModelDefault'
+  | 'getGameGridModelAssignment'
+  | 'activateGameGridModel'
 >;
 
 export type GridEngineProfilesResult =
@@ -88,12 +92,16 @@ export async function loadSuperGameKinds(
 }
 
 export type SaveGameIntent =
-  | { readonly mode: 'create' }
+  | { readonly mode: 'create'; readonly command: GameCreate }
   | { readonly gameId: string; readonly mode: 'edit' };
 
 export type SaveGameResult =
   | { readonly game: GameResponse; readonly ok: true }
-  | { readonly error: string; readonly ok: false };
+  | {
+      readonly error: string;
+      readonly ok: false;
+      readonly rejectedBeforeReservation?: boolean;
+    };
 
 export async function saveGameIdentity(
   api: GamesClient,
@@ -104,14 +112,7 @@ export async function saveGameIdentity(
   try {
     const result =
       intent.mode === 'create'
-        ? await api.createGame({
-            code: draft.code,
-            name: draft.name,
-            status: draft.status,
-            expectedLayoutCount: Number(draft.expectedLayoutCount),
-            shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
-            superGameKind: draft.superGameKind,
-          } satisfies GameCreate)
+        ? await api.createGame(intent.command)
         : await api.updateGame(intent.gameId, {
             name: draft.name,
             status: draft.status,
@@ -133,6 +134,12 @@ export async function saveGameIdentity(
     return {
       error: apiErrorMessage(mutationError, fallbackError),
       ok: false,
+      rejectedBeforeReservation:
+        intent.mode === 'create' &&
+        result.response?.status !== undefined &&
+        result.response.status >= 400 &&
+        result.response.status < 500 &&
+        isCreateRejectionProof(mutationError, intent.command.idempotencyKey),
     };
   } catch {
     const reconciled = await reconcileEditedGame(api, intent, draft);
@@ -231,4 +238,27 @@ export async function restoreGameIdentity(
       ok: false,
     };
   }
+}
+
+function isCreateRejectionProof(error: unknown, key: string): boolean {
+  if (typeof error !== 'object' || error === null || !('details' in error))
+    return false;
+  const details = error.details;
+  if (
+    typeof details !== 'object' ||
+    details === null ||
+    !('createRecovery' in details)
+  )
+    return false;
+  const proof = details.createRecovery;
+  return (
+    typeof proof === 'object' &&
+    proof !== null &&
+    'schemaVersion' in proof &&
+    proof.schemaVersion === 'game-create-recovery-v1' &&
+    'idempotencyKey' in proof &&
+    proof.idempotencyKey === key &&
+    'reservation' in proof &&
+    proof.reservation === 'not_created'
+  );
 }

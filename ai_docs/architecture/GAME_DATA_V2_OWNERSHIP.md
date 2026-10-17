@@ -108,6 +108,18 @@ gry. Owner factory pozostaje wyłącznie granicą partycyjnego DDL. Regresja
 PostgreSQL wymaga rollbacku całości przed pierwszym commitem oraz odzyskania
 rezerwacji z nowego procesu po trwałym checkpointcie partycji.
 
+## Manifest v18 — rejestr przyciętych oryginałów (TASK-1044, D-562)
+
+`game_data_v2_manifest_v18.py` i Alembic `0167_source_image_crops` zachowują
+GAME/CREATE/MIGRATE/DELETE/PARTITIONED z v17 bez zmian. Dodają jedną tabelę
+`shared` w `public`: `source_image_crops`, kluczowaną SHA-256 zarządzanego
+oryginału, bo ten sam plik może należeć do źródeł kilku gier. Wiersz zawiera
+ścieżki, sumy, pudełka kadru i stan joba (`verified` → `original_deleted`),
+bez bajtów obrazu, sekwencji, symboli i identyfikatorów gry. Kwalifikacja
+(`SourceImageCropRepository.eligibility`) czyta wszystkie gry sesją właściciela
+schematu z jawnym `game_data_v2.` i nie wiąże jednej gry. Downgrade odmawia przy
+dowolnym wierszu rejestru (`SOURCE_IMAGE_CROPS_DOWNGRADE_HAS_HISTORY`).
+
 ## Reguły i granice
 
 - `catalog`: pojedynczy wspólny katalog/koordynator w `public`. `jobs` pozostaje

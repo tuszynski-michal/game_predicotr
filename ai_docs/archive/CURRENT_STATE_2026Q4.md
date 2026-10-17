@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1044 — Migracja `source_image_crops` i kwalifikacja blobów (done)
+
+- Plik: [1044-source-image-crops-table-and-eligibility.md](../tasks/completed/1044-source-image-crops-table-and-eligibility.md); commit **v1.7.405** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 aktywne joby, geometria per plansza, porównanie P1; 1 × P1 przypadki PostgreSQL; 2 × P2 CHECK i migawka), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: migracja `0167_source_image_crops` (tabela `shared` w `public`, manifest v18, downgrade blokowany przy historii), model ORM, czysta klasyfikacja `classify_blob` z 18 powodami wykluczenia, repozytorium kwalifikacji między grami (sesja właściciela, jawne `game_data_v2.`, wymagana migawka REPEATABLE READ) i zapisów rejestru. Raport porównawczy P1: plan kadru równy zmierzonemu kadrowi bezstratnemu 40/40.
+- Weryfikacja: PostgreSQL na bazach `*_test` 4/4 (wszystkie wykluczenia, w tym rzeczywisty `grid_issue`), wcześniej 67 testów migracji i manifestu; testy jednostkowe 85; ruff i mypy bez nowych błędów. Migracja bazy operatora nie została wykonana (osobna zgoda).
+
 ### TASK-1043 — D-562, dokumentacja i czyste funkcje kadru (done)
 
-- Plik: [1043-source-crop-decision-and-region.md](../tasks/completed/1043-source-crop-decision-and-region.md); commit **v1.7.404** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 walidacja i kanonizacja atestu, 2 × P1 kod błędu i test JPEG progresywnego), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1043-source-crop-decision-and-region.md](../tasks/completed/1043-source-crop-decision-and-region.md); commit **v1.7.404 / `415b093d79b7fb2fb71949b73509d1d29b1fc965`** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`high`: R1 REVISE (3 × P0 walidacja i kanonizacja atestu, 2 × P1 kod błędu i test JPEG progresywnego), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: D-562 (przycięty wariant zarządzanego oryginału) i czysty moduł `domain/source_crop.py`: plan kadru (obwiednia, margines 50 px, orientacje 1/3/6/8, wyrównanie iMCU), reguła weryfikacji pikseli R7, płótno, atest JSON z własną sumą i ścieżki rodzeństwa `data/originals-cropped`. Wymagania, architektura i model danych zaktualizowane.
 - Weryfikacja: 36 testów modułu PASS, ruff i format PASS; mypy bez błędów w nowych plikach (2 wcześniejsze błędy `source_lattice_geometry.py` jak na `main`).
 

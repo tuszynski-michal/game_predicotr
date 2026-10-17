@@ -26,7 +26,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.pipeline_state_compaction import DISPOSABLE_STAGE_PAYLOADS
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v17 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v18 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

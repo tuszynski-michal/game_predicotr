@@ -23,6 +23,8 @@ from game_predictor_api.domain.source_crop import (
     is_crop_beneficial,
     oriented_to_raw_box,
     plan_source_crop,
+    protected_box_from_points,
+    protected_points_from_geometry,
     raw_dimensions,
     raw_to_oriented_box,
     verify_crop_pixels,
@@ -386,3 +388,36 @@ def test_progressive_jpeg_plans_from_its_sampling_factors() -> None:
 
     assert imcu == (16, 16)
     assert plan.raw_box == PixelBox(32, 0, 784, 480)
+
+
+def test_protected_points_walk_every_known_geometry_shape() -> None:
+    board_geometry = {
+        "finalQuad": [
+            {"x": 10, "y": 20},
+            {"x": 30, "y": 20},
+            {"x": 30, "y": 40},
+            {"x": 10, "y": 40},
+        ]
+    }
+    render_spec = {
+        "cells": [
+            {
+                "sourceQuad": [[11, 21], [12, 21], [12, 22], [11, 22]],
+                "paddedSourceQuad": [[5, 6], [7, 6], [7, 8], [5, 8]],
+            },
+        ],
+        "meta": {"unrelated": [1, 2, 3, 4]},
+    }
+    corners = [[100.5, 1], [101, 1], [101, 2], [100.5, 2]]
+
+    points = protected_points_from_geometry([board_geometry, render_spec, corners, None])
+
+    assert (5.0, 6.0) in points and (100.5, 2.0) in points and (30.0, 40.0) in points
+    assert len(points) == 16
+    assert protected_box_from_points(points) == ProtectedBox(5.0, 1.0, 101.0, 40.0)
+
+
+def test_malformed_named_quad_is_an_error() -> None:
+    with pytest.raises(SourceCropError) as error:
+        protected_points_from_geometry({"paddedSourceQuad": [[1, 2], [3, 4], [5, 6]]})
+    assert error.value.code == "SOURCE_CROP_POINT_INVALID"

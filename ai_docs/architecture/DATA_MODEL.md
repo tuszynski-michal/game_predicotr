@@ -1271,6 +1271,20 @@ jego zastąpieniu przyciętym wariantem. Crop i atest nie są kolumnami
 `source_images`; ich tożsamość niesie plik atestu obok cropu, a stan jobów
 przycinania prowadzi tabela `source_image_crops` (TASK-1044).
 
+### `public.source_image_crops` (migracja 0167, manifest v18, `shared`)
+
+Jeden wiersz na zarządzany oryginał (PK `original_checksum_sha256`). Kolumny
+odzwierciedlają atest D-562: tożsamość oryginału (ścieżka
+`originals/<sha[:2]>/<sha>.jpg`, rozmiar, suma pikseli, wymiary po EXIF,
+orientacja 1/3/6/8), crop i atest (`originals-cropped/<sha[:2]>/<sha>.jpg` i
+`.json`, rozmiar, sumy pliku, pikseli cropu i płótna, `attestation_sha256`),
+`crop_box`/`raw_crop_box` (`integer[4]`), `protected_box` (`double precision[4]`),
+`margin_px`, `imcu_width/height` (8 lub 16), `edge_mismatch_pixels`,
+`tool_version`, `policy_version='source-crop-v1'`, `job_id` (FK `jobs`),
+`state` (`verified` albo `original_deleted` z `original_deleted_at ≥ verified_at`).
+CHECK wymusza ścieżki wyprowadzone z sumy, crop mniejszy od oryginału, pudełko
+w obrazie i obszar chroniony w cropie.
+
 `source_images` i kolejne tabele wyników są zakresem integracji etapów M7.2.
 Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
 pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość

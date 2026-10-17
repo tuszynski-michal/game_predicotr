@@ -43,7 +43,8 @@ from game_predictor_api.storage.game_data_v2_manifest_v11 import (
     ADDED_SHARED,
 )
 from game_predictor_api.storage.game_data_v2_manifest_v17 import ADDED_SHARED as V17_SHARED
-from game_predictor_api.storage.game_data_v2_manifest_v17 import (
+from game_predictor_api.storage.game_data_v2_manifest_v18 import ADDED_SHARED as V18_SHARED
+from game_predictor_api.storage.game_data_v2_manifest_v18 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -79,6 +80,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         | ADDED_CATALOG
         | ADDED_SHARED
         | V17_SHARED
+        | V18_SHARED
         | set(RECORDING_TABLES)
     )
     known = (
@@ -95,7 +97,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v17"
+    assert VERSION == "game-data-v2-manifest-v18"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64

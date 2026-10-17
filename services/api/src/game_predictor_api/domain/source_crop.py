@@ -121,6 +121,89 @@ class SourceCropPlan:
     oriented_box: PixelBox
 
 
+PROTECTED_QUAD_KEYS: Final = frozenset(
+    {
+        "finalQuad",
+        "sourceQuad",
+        "symbolGridQuad",
+        "latticeBoundsQuad",
+        "boardFrameQuad",
+        "paddedSourceQuad",
+        "sequenceLabelQuad",
+        "corners",
+    }
+)
+
+
+def protected_points_from_geometry(document: object) -> list[tuple[float, float]]:
+    """Every point of a protected quad in a stored geometry document.
+
+    Board geometry, source revision entries, board revisions (``corners``,
+    ``geometry``, ``virtual_render_spec``) and render manifests nest their quads
+    differently, so the walk descends into every object and list and keeps the
+    points of quads stored under ``PROTECTED_QUAD_KEYS`` (the P1 selection) or
+    given as a bare list of four points. A malformed quad is an error rather
+    than a silently smaller crop.
+    """
+
+    points: list[tuple[float, float]] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in PROTECTED_QUAD_KEYS and value is not None:
+                    points.extend(_quad_points(value))
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            quad = _try_quad_points(node)
+            if quad is not None:
+                points.extend(quad)
+            else:
+                for item in node:
+                    walk(item)
+
+    walk(document)
+    return points
+
+
+def _try_quad_points(value: list[object]) -> list[tuple[float, float]] | None:
+    if len(value) != 4:
+        return None
+    try:
+        return _quad_points(value)
+    except SourceCropError:
+        return None
+
+
+def _quad_points(value: object) -> list[tuple[float, float]]:
+    if not isinstance(value, list) or len(value) != 4:
+        raise SourceCropError("SOURCE_CROP_POINT_INVALID", "A protected quad needs four points.")
+    result: list[tuple[float, float]] = []
+    for point in value:
+        if isinstance(point, dict) and set(point) >= {"x", "y"}:
+            x, y = point["x"], point["y"]
+        elif isinstance(point, list) and len(point) == 2:
+            x, y = point
+        else:
+            raise SourceCropError(
+                "SOURCE_CROP_POINT_INVALID", "A quad point must be {x, y} or [x, y]."
+            )
+        if (
+            isinstance(x, bool)
+            or isinstance(y, bool)
+            or not isinstance(x, int | float)
+            or not isinstance(y, int | float)
+            or not math.isfinite(x)
+            or not math.isfinite(y)
+        ):
+            raise SourceCropError(
+                "SOURCE_CROP_POINT_INVALID", "Quad coordinates must be finite numbers."
+            )
+        result.append((float(x), float(y)))
+    return result
+
+
 def protected_box_from_points(points: Iterable[tuple[float, float]]) -> ProtectedBox:
     """Bound all protected quad points (board corners, cell and padded quads)."""
 

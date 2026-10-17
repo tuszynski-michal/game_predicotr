@@ -236,7 +236,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/sequence_takeover.py: class SequenceClaimOutcome, class ImportOrder, class PendingOwnerFacts, class SequenceClaim, decide_sequence_claim
 - domain/shared_grid_model_candidate.py: class SharedCandidateError, class SharedMember, class SharedCohort, joint_plan
 - domain/source_canonical_metadata.py: class SourceCanonicalMetadata, compare_source_metadata
-- domain/source_crop.py: class SourceCropError, class PixelBox, class ProtectedBox, class SourceCropPlan, protected_box_from_points, clamp_protected_box, margin_box, raw_dimensions, oriented_to_raw_box, raw_to_oriented_box, imcu_size, imcu_from_sampling_factors, align_raw_box, plan_source_crop, is_crop_beneficial, class CropPixelVerdict, verify_crop_pixels, compose_canvas, class SourceCropAttestation, encode_attestation, attestation_sha256, decode_attestation, cropped_original_relative_paths, cropped_sibling_paths
+- domain/source_crop.py: class SourceCropError, class PixelBox, class ProtectedBox, class SourceCropPlan, protected_points_from_geometry, protected_box_from_points, clamp_protected_box, margin_box, raw_dimensions, oriented_to_raw_box, raw_to_oriented_box, imcu_size, imcu_from_sampling_factors, align_raw_box, plan_source_crop, is_crop_beneficial, class CropPixelVerdict, verify_crop_pixels, compose_canvas, class SourceCropAttestation, encode_attestation, attestation_sha256, decode_attestation, cropped_original_relative_paths, cropped_sibling_paths
+- domain/source_crop_eligibility.py: class CropExclusion, class CropSourceFacts, class CropBoardGeometry, class CropBlobEligibility, managed_original_relative_path, classify_blob
 - domain/source_recording_groups.py: class RecordingError, canonical_recording_json, recording_sha256, protected_recording_mapping, class AncestorResolution, resolve_ancestor_references
 - domain/storage_capacity.py: class StorageCapacityPolicy, class StorageVolumeCapacity, class StorageCapacityDecision, conservative_image_storage_estimate, evaluate_storage_capacity
 - domain/storage_retention.py: class StorageArtifactClass, class StorageRootKind, class StorageProtectionReason, class BrowserStagingRetentionState, class StorageRetentionPolicy, class StorageArtifactObservation, class StorageRetentionDecision, class StorageGcManifestEntry, is_safe_managed_relative_path, evaluate_storage_retention, class CohortAssetReferenceState, cohort_asset_path_identity, manifest_entry_from_decision, canonical_gc_manifest_bytes, gc_manifest_checksum_sha256, gc_preview_token
@@ -341,6 +342,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v15.py: ownership
 - storage/game_data_v2_manifest_v16.py: ownership
 - storage/game_data_v2_manifest_v17.py: ownership
+- storage/game_data_v2_manifest_v18.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
@@ -442,6 +444,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/schema_readiness.py: class AlembicHeadMismatchError, database_alembic_revision, require_alembic_head
 - storage/semi_automatic_image_selection_repository.py: class SqlAlchemySemiAutomaticSelectionRepository
 - storage/sequence_ownership_lock.py: class SequenceOwnershipLockMode, sequence_ownership_lock_key, held_sequence_ownership_lock, acquire_sequence_ownership_lock, ensure_sequence_ownership_lock, require_exclusive_sequence_ownership, cell_decision_lock_mode
+- storage/source_image_crop_models.py: class SourceImageCropModel
+- storage/source_image_crop_repository.py: class SourceImageCropRepository
 - storage/source_recording_group_models.py: class RecordingGroupModel, class RecordingOccurrenceModel, class RecordingEvidenceModel, class RecordingRoleHeadModel, class RecordingCommandModel
 - storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof

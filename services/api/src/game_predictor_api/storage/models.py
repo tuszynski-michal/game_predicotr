@@ -7028,6 +7028,9 @@ from game_predictor_api.storage import (  # noqa: E402
     management_stake_models as management_stake_models,
 )
 from game_predictor_api.storage import (  # noqa: E402
+    source_image_crop_models as source_image_crop_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
     source_recording_group_models as source_recording_group_models,
 )
 from game_predictor_api.storage import (  # noqa: E402

@@ -103,7 +103,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 - [Galeria przycięcia zdjęć — P1](quality/PHOTO_CROP_PREVIEW_20261014.md)
   — 40 zdjęć na kopiach, pomiar redukcji JPEG 28,6%; odbiór operatora 2026-10-17
-  (TASK-1016).
+  (TASK-1016). Plan następczy P2–P4 (`proposed`):
+  [przycinanie zarządzanych oryginałów](delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md).
 
 - [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
   — zamknięty 2026-10-16 bez dalszej realizacji (TASK-1024); TASK-0947–0949

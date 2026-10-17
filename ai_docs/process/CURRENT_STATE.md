@@ -36,12 +36,13 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
-| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main` | TASK-1050 (etap C) za osobnym poleceniem | `claude/photo-crop-stage-b` |
+| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; plan pilota czeka na decyzję | TASK-1050 (etap C) za osobnym poleceniem | `claude/photo-crop-pilot` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
 ## Otwarte decyzje i pytania
 
+- Przycinanie oryginałów (TASK-1050): wariant A/B/C dla importów `waiting_for_review` (wszystkie importy biblioteki), zob. plik taska.
 - Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
 - Pytania produktowe: `ai_docs/project/OPEN_QUESTIONS.md`; jedyne nierozstrzygnięte
   to Q-020 (zgoda właściciela na analizę aplikacji referencyjnej; nie blokuje
@@ -54,6 +55,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
+
+- Plik: `tasks/1050-photo-crop-pilot.md`. Czeka na decyzję A/B/C: żaden import nie jest `completed`, więc kwalifikacja nie przepuszcza dziś żadnego oryginału.
 
 ## Ostatnie 10 ukończonych tasków
 

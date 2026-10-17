@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1049 — Panel Storage: przycinanie zdjęć i usuwanie oryginałów (done)
 
-- Plik: [1049-storage-panel-photo-crop.md](../tasks/completed/1049-storage-panel-photo-crop.md); commit **v1.7.412** na `claude/photo-crop-stage-b`; wykonawca delegowany `claude-sonnet-5-5`/`high`, przegląd i weryfikacja `claude-opus-5-5`; bez audytu (tabela planu).
+- Plik: [1049-storage-panel-photo-crop.md](../tasks/completed/1049-storage-panel-photo-crop.md); commit **v1.7.412 / `ef2337d1677b2fe3607748e4b74f7f2a9f522c98`** na `claude/photo-crop-stage-b`; wykonawca delegowany `claude-sonnet-5-5`/`high`, przegląd i weryfikacja `claude-opus-5-5`; bez audytu (tabela planu).
 - Wynik: sekcja „Przycinanie zdjęć” (zakres, plan, podgląd z powodami wykluczeń, potwierdzenie, postęp, wynik) i oddzielna, ostrzegająca sekcja „Usuń oryginały przyciętych zdjęć” (stałe ostrzeżenie o braku kopii, checkbox potwierdzenia, dialog). Inwentarz i GC bez zmian.
 - Weryfikacja: 799 testów Admina, 12 testów interakcji panelu i regresji GC, lint 0 błędów, typecheck z mapowaniem klienta na worktree czysty.
 

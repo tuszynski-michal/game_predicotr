@@ -81,7 +81,7 @@ npm run typecheck --workspace @game-predictor/admin
 
 ## Outcome
 
-Commit: v1.7.412 (hash dopisuje kolejny commit).
+Commit: v1.7.412 / `ef2337d1677b2fe3607748e4b74f7f2a9f522c98`.
 
 Executed by a delegated `claude-sonnet-5-5` / `high` agent (plan table), reviewed
 and re-verified by `claude-opus-5-5`. No audit (plan table).

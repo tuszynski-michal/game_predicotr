@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1046 — Ramka źródła z cropem w API, serwowanie i blokady (done)
 
-- Plik: [1046-source-frame-api.md](../tasks/completed/1046-source-frame-api.md); commit **v1.7.407** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (2 × P0 klucz cache podglądu i status 422 zamiast 409, 3 × P1 testy HTTP, test interakcji Reviewera, opis ETag), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1046-source-frame-api.md](../tasks/completed/1046-source-frame-api.md); commit **v1.7.407 / `401b371f4dd971fb248266e450c82b3333f82445`** na `codex/photo-crop-p1`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6-astra`/`medium`: R1 REVISE (2 × P0 klucz cache podglądu i status 422 zamiast 409, 3 × P1 testy HTTP, test interakcji Reviewera, opis ETag), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: endpointy obrazu źródłowego serwują dla oryginału zastąpionego cropem pełnoklatkowy JPEG z płótna (`data/working/source-frame-previews/<attestation_sha256>.jpg`), frontendy bez zmian; podglądy komórek, korekty, propozycje i cofnięcia używają cropu z kontrolą `valid_box` (`409 SOURCE_REGION_UNAVAILABLE`); reprocess, managed page source i kohorty V3 odmawiają (`SOURCE_ORIGINAL_CROPPED`). OpenAPI bez zmian.
 - Weryfikacja: 15 testów API (w tym HTTP przez `create_app`), regresja 621 testów API zmienionych modułów, test interakcji Reviewera 3/3, ruff i mypy bez nowych błędów.
 

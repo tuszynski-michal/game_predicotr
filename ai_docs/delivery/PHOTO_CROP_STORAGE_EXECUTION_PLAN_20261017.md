@@ -14,6 +14,11 @@ na jego koszt. Etapy B i C wymagają osobnego polecenia. Akceptacja planu nie
 jest zgodą na migrację bazy operatora, uruchomienie jobów na danych operatora,
 usuwanie oryginałów, scalenie ani push.
 
+Etap A wykonany 2026-10-17: TASK-1043 v1.7.404, TASK-1044 v1.7.405,
+TASK-1045 v1.7.406, TASK-1046 v1.7.407 (audyty Codex, po jednej rundzie
+poprawek, bez otwartych P0/P1). Migracja `0167` nie jest wykonana na bazie
+operatora; etapy B i C czekają na polecenie.
+
 Rewizja 1 (2026-10-17, przed startem etapu A, bez zmiany decyzji operatora):
 R2 dostaje atest cropu zapisany obok pliku cropu (sekcja R2), bo
 `CanonicalSourceLoader` działa na ścieżce pliku, bez dostępu do bazy.

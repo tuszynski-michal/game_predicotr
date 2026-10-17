@@ -81,7 +81,7 @@ D:\game_predicotr\.venv\Scripts\python.exe -m pytest services/api/tests -k "revi
 
 ## Outcome
 
-Commit: v1.7.407 (hash dopisuje kolejny commit).
+Commit: v1.7.407 / `401b371f4dd971fb248266e450c82b3333f82445`.
 
 ### Changed
 

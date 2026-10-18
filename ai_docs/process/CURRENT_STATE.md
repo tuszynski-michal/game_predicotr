@@ -36,13 +36,13 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
-| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) wykonana, czeka na akceptację | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
+| `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
 ## Otwarte decyzje i pytania
 
-- Przycinanie oryginałów: akceptacja TASK-1051–1052 i zgoda na scalenie; potem zgody na kroki pilotażu TASK-1050.
+- Przycinanie oryginałów: zgody na kolejne kroki pilotażu TASK-1050.
 - Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
 - Pytania produktowe: `ai_docs/project/OPEN_QUESTIONS.md`; jedyne nierozstrzygnięte
   to Q-020 (zgoda właściciela na analizę aplikacji referencyjnej; nie blokuje
@@ -58,11 +58,11 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
-- Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 gotowe na `claude/photo-crop-pilot` (niescalone). Pilot czeka na scalenie i osobne zgody na każdy krok.
+- Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 — tasks/completed/1052-import-resume-with-cropped-originals.md
+- **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 / `d53201b5` — tasks/completed/1052-import-resume-with-cropped-originals.md
 - **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 / `dec6f4e7` — tasks/completed/1051-crop-eligibility-waiting-imports.md
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md
 - **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md

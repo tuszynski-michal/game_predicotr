@@ -82,7 +82,7 @@ D:\game_predicotr\.venv\Scripts\python.exe -m pytest services/worker/tests -k "s
 
 ## Outcome
 
-Commit: v1.7.417 (hash dopisuje kolejny commit).
+Commit: v1.7.417 / `d53201b5b9911577194df1bd9068cc51a735a8bd`.
 
 ### Changed
 

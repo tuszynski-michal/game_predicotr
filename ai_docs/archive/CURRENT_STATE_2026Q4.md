@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (done)
 
-- Plik: [1052-import-resume-with-cropped-originals.md](../tasks/completed/1052-import-resume-with-cropped-originals.md); commit **v1.7.417** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (4 × P0 stan rejestru, nowy import, override przy stagingu, manifest preflightu przed odmową; 1 × P1 test workflow), jedna runda poprawek, wszystkie zamknięte (pełny test retry importu na PostgreSQL pokryty na granicy workflow, odstępstwo w Outcome).
+- Plik: [1052-import-resume-with-cropped-originals.md](../tasks/completed/1052-import-resume-with-cropped-originals.md); commit **v1.7.417 / `d53201b5b9911577194df1bd9068cc51a735a8bd`** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (4 × P0 stan rejestru, nowy import, override przy stagingu, manifest preflightu przed odmową; 1 × P1 test workflow), jedna runda poprawek, wszystkie zamknięte (pełny test retry importu na PostgreSQL pokryty na granicy workflow, odstępstwo w Outcome).
 - Wynik: retry tego samego importu zachowuje crop oryginału `original_deleted` (bez kopii i bez `IMAGE_SOURCE_UNAVAILABLE`), nowy import przywraca oryginał; retry pliku, override geometrii strony, ponowny preflight i nowy raport geometry guard odmawiają `SOURCE_ORIGINAL_CROPPED` bez skutków ubocznych.
 - Weryfikacja: worker 428 testów, API 277, PostgreSQL retry pliku i usuwanie e2e, ruff i mypy bez nowych błędów.
 

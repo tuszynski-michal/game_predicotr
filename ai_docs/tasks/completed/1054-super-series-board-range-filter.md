@@ -91,7 +91,7 @@ npm run typecheck --workspace @game-predictor/admin
 
 ## Outcome
 
-Commit: v1.7.421 (hash dopisuje kolejny commit).
+Commit: v1.7.421 / `3b9a1df8806f8e365c8d3d6a8232fa06ef36faeb`.
 
 ### Changed
 

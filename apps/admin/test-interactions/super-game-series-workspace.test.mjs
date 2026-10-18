@@ -325,6 +325,9 @@ test('digits pick a symbol from the ordinary list, Enter saves with the revision
 
   await press('4');
   assert.equal(symbolSelect().value, 's4');
+  // The retrigger #105 of the fixture series is confirmed first (TASK-1053).
+  await press('Enter');
+  assert.equal(calls.saves.length, 0);
   await press('Enter');
   assert.deepEqual(calls.saves, [
     {
@@ -385,6 +388,8 @@ test('a revision conflict writes nothing and shows the current series', async ()
   const { root } = await mount(client, { seriesId: 'series-100' });
   await press('ArrowRight');
   await press('5');
+  // The retrigger #105 of the fixture series is confirmed first (TASK-1053).
+  await press('Enter');
   await press('Enter');
   assert.equal(calls.saves.length, 1);
   assert.equal(calls.saves[0].body.expectedRevision, 3);
@@ -392,10 +397,11 @@ test('a revision conflict writes nothing and shows the current series', async ()
   // The refreshed series replaces the shown one; the stale choice is dropped.
   assert.equal(reads, 2);
   assert.equal(symbolSelect().value, 's7');
+  // The active position (the confirmed retrigger) is kept by sequence number.
   assert.equal(
     document.querySelector('section[aria-label="Karuzela pozycji serii"] h4')
       .textContent,
-    'Spin 1 · #101',
+    'Retrigger · pozycja 5 · #105',
   );
   await act(async () => root.unmount());
 });
@@ -412,6 +418,8 @@ test('an API refusal of the symbol is surfaced and nothing changes', async () =>
   });
   const { root } = await mount(client, { seriesId: 'series-100' });
   await press('1');
+  // The retrigger #105 of the fixture series is confirmed first (TASK-1053).
+  await press('Enter');
   await press('Enter');
   assert.ok(document.body.textContent.includes('SUPER_SYMBOL_NOT_ORDINARY'));
   assert.equal(symbolSelect().value, 's1');
@@ -905,5 +913,293 @@ test('a failed "Wczytaj kolejne" can be retried for the same cursor', async () =
   assert.deepEqual(cursors, ['200', '200']);
   assert.deepEqual(rowTriggers(), ['#100', '#200', '#300']);
   assert.ok(!document.body.textContent.includes('Strona niedostępna'));
+  await act(async () => root.unmount());
+});
+
+// --- TASK-1053: the next series without a super symbol ------------------
+
+function nextSeriesClient(pages) {
+  const base = fakeClient();
+  const queries = [];
+  base.client.listSuperGameSeries = async (gameId, query) => {
+    queries.push(query);
+    const key = query.cursor ?? 'start';
+    const items = query.limit === 2 ? (pages[key] ?? []) : [series()];
+    return {
+      data: {
+        counts: { total: 9, undefined: 5 },
+        items,
+        nextCursor: null,
+        superGameKind: 'wild_super_spins',
+        superGameState: FRESH,
+      },
+    };
+  };
+  return { ...base, queries };
+}
+
+const nextButton = () => button('Następna bez symbolu');
+
+test('the button and N open the next series without a symbol after the trigger', async () => {
+  const { client, queries } = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await click(nextButton());
+  assert.deepEqual(seriesChanges, ['series-130']);
+  assert.deepEqual(
+    queries.filter((query) => query.limit === 2),
+    [{ cursor: '100', defined: false, limit: 2 }],
+  );
+  await act(async () => root.unmount());
+
+  const second = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  const mounted = await mount(second.client, { seriesId: 'series-100' });
+  await press('n');
+  assert.deepEqual(mounted.seriesChanges, ['series-130']);
+  await act(async () => mounted.root.unmount());
+});
+
+test('with none left after the trigger the search starts again from the beginning', async () => {
+  const { client, queries } = nextSeriesClient({
+    // The opened series is the first one from the beginning; it is skipped.
+    start: [series(), series({ id: 'series-40', triggerSequenceNumber: 40 })],
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await click(nextButton());
+  assert.deepEqual(seriesChanges, ['series-40']);
+  assert.deepEqual(
+    queries.filter((query) => query.limit === 2).map((query) => query.cursor),
+    ['100', undefined],
+  );
+  assert.ok(
+    document.body.textContent.includes(
+      'Otwieram pierwszą od początku listy: seria od #40',
+    ),
+  );
+  await act(async () => root.unmount());
+});
+
+test('with no other series without a symbol the view stays and says so', async () => {
+  const { client } = nextSeriesClient({ start: [series()] });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await click(nextButton());
+  assert.deepEqual(seriesChanges, []);
+  assert.ok(
+    document.body.textContent.includes('Nie ma innej serii bez super symbolu'),
+  );
+  assert.ok(document.body.textContent.includes('Seria od #100'));
+  await act(async () => root.unmount());
+});
+
+test('an unsaved symbol choice blocks the jump to the next series', async () => {
+  const { client, queries } = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await press('3');
+  await press('n');
+  assert.deepEqual(seriesChanges, []);
+  assert.equal(queries.filter((query) => query.limit === 2).length, 0);
+  assert.ok(
+    document.body.textContent.includes('Wybrany symbol nie jest zapisany'),
+  );
+  await press('Escape');
+  await press('n');
+  assert.deepEqual(seriesChanges, ['series-130']);
+  await act(async () => root.unmount());
+});
+
+test('a failed search shows the API message and keeps the series', async () => {
+  const base = fakeClient();
+  base.client.listSuperGameSeries = async () => ({
+    error: { code: 'BOOM', details: {}, message: 'Lista niedostępna' },
+  });
+  const { root, seriesChanges } = await mount(base.client, {
+    seriesId: 'series-100',
+  });
+  await click(nextButton());
+  assert.deepEqual(seriesChanges, []);
+  assert.ok(document.body.textContent.includes('Lista niedostępna (BOOM)'));
+  await act(async () => root.unmount());
+});
+
+test('a late answer after the series changed through history opens nothing', async () => {
+  const { client } = nextSeriesClient({});
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const inner = client.listSuperGameSeries;
+  client.listSuperGameSeries = async (gameId, query) => {
+    if (query.limit === 2) {
+      await gate;
+      return {
+        data: {
+          counts: { total: 9, undefined: 5 },
+          items: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+          nextCursor: null,
+          superGameKind: 'wild_super_spins',
+          superGameState: FRESH,
+        },
+      };
+    }
+    return inner(gameId, query);
+  };
+  const container = document.getElementById('root');
+  container.replaceChildren();
+  const root = createRoot(container);
+  const seriesChanges = [];
+  const render = (seriesId) =>
+    act(async () =>
+      root.render(
+        React.createElement(SuperGameSeriesWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          client,
+          gameId: 'game-1',
+          onSeriesChange: (id) => seriesChanges.push(id),
+          seriesId,
+        }),
+      ),
+    );
+  await render('series-100');
+  await settle();
+  await settle();
+  await click(nextButton());
+  assert.ok(button('Szukam…'));
+  // Browser history opens another series before the answer arrives.
+  await render('series-200');
+  await settle();
+  release();
+  await settle();
+  assert.deepEqual(seriesChanges, []);
+  await act(async () => root.unmount());
+});
+
+test('Enter saves the symbol and opens the next series without one', async () => {
+  const { calls, client, queries } = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await press('4');
+  // The retrigger #105 of the fixture series is confirmed first (TASK-1053).
+  await press('Enter');
+  await press('Enter');
+  assert.equal(calls.saves.length, 1);
+  assert.deepEqual(seriesChanges, ['series-130']);
+  assert.deepEqual(
+    queries.filter((query) => query.limit === 2).map((query) => query.cursor),
+    ['100'],
+  );
+  assert.ok(
+    document.body.textContent.includes(
+      'Zapisano super symbol Symbol 4 dla serii od #100.',
+    ),
+  );
+  await act(async () => root.unmount());
+});
+
+test('after the last series without a symbol the saved series stays open', async () => {
+  const { client } = nextSeriesClient({});
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await press('4');
+  // The retrigger #105 of the fixture series is confirmed first (TASK-1053).
+  await press('Enter');
+  await press('Enter');
+  assert.deepEqual(seriesChanges, []);
+  assert.ok(
+    document.body.textContent.includes(
+      'Zapisano super symbol Symbol 4 dla serii od #100. Nie ma innej serii bez super symbolu.',
+    ),
+  );
+  await act(async () => root.unmount());
+});
+
+test('clearing a symbol with Enter keeps the series open', async () => {
+  const { calls, client, queries } = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  client.listSuperGameSeriesBoards = async () => ({
+    data: boardsResponse({ superSymbolId: 's2' }),
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  await click(button('Wyczyść symbol'));
+  await press('Enter');
+  assert.deepEqual(
+    calls.saves.map((save) => save.body.symbolId),
+    [null],
+  );
+  assert.deepEqual(seriesChanges, []);
+  assert.equal(queries.filter((query) => query.limit === 2).length, 0);
+  assert.ok(document.body.textContent.includes('Wyczyszczono super symbol'));
+  await act(async () => root.unmount());
+});
+
+test('Enter walks and confirms every retrigger before the symbol is saved', async () => {
+  const { calls, client } = nextSeriesClient({
+    100: [series({ id: 'series-130', triggerSequenceNumber: 130 })],
+  });
+  client.listSuperGameSeriesBoards = async () => ({
+    data: boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
+  });
+  const { root, seriesChanges } = await mount(client, {
+    seriesId: 'series-100',
+  });
+  const heading = () =>
+    document.querySelector('section[aria-label="Karuzela pozycji serii"] h4')
+      .textContent;
+  const chip = (sequence) =>
+    document.querySelector(
+      `ol[aria-label="Pozycje serii"] li:nth-child(${sequence - 99}) button`,
+    );
+
+  await press('4');
+  // The save button says what the next Enter does; a click does the same.
+  await click(button('Do retriggera 1 z 2 (Enter)'));
+  assert.equal(heading(), 'Retrigger · pozycja 5 · #105');
+  assert.ok(button('Potwierdź retrigger 1 z 2 (Enter)'));
+  assert.ok(document.body.textContent.includes('Retrigger 1 z 2 (#105)'));
+
+  await press('Enter');
+  assert.equal(heading(), 'Retrigger · pozycja 10 · #110');
+  assert.ok(chip(105).textContent.includes('✓'));
+  assert.ok(!chip(110).textContent.includes('✓'));
+  assert.ok(button('Potwierdź retrigger 2 z 2 i zapisz (Enter)'));
+  assert.equal(calls.saves.length, 0);
+  assert.deepEqual(seriesChanges, []);
+
+  await press('Enter');
+  assert.equal(calls.saves.length, 1);
+  assert.equal(calls.saves[0].body.symbolId, 's4');
+  assert.deepEqual(seriesChanges, ['series-130']);
+  await act(async () => root.unmount());
+});
+
+test('a series without retriggers saves on the first Enter', async () => {
+  const { calls, client } = nextSeriesClient({});
+  client.listSuperGameSeriesBoards = async () => ({
+    data: boardsResponse({ retriggerSequenceNumbers: [] }),
+  });
+  const { root } = await mount(client, { seriesId: 'series-100' });
+  await press('4');
+  assert.ok(button('Zapisz (Enter)'));
+  await press('Enter');
+  assert.equal(calls.saves.length, 1);
   await act(async () => root.unmount());
 });

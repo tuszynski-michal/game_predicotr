@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1053 — Następna seria supergry bez symbolu i przegląd retriggerów (done)
+
+- Plik: `tasks/completed/1053-super-series-next-undefined.md`; commit **v1.7.419** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).
+- Widok serii sekcji „Supergry”: przycisk „Następna bez symbolu (N) →” i klawisz `N` otwierają następną po triggerze serię bez super symbolu (filtry kompletności i przebiegu z listy, `cursor` = trigger, bez zmiany API), z powrotem na początek listy; niezapisany wybór blokuje przejście.
+- Udany zapis symbolu przechodzi do następnej serii bez symbolu; w serii z retriggerami `Enter` najpierw pokazuje i potwierdza każdy retrigger (stan ekranu), zapis dopiero po ostatnim. Wyczyszczenie symbolu zostawia serię.
+- Testy: unit Supergier 54/54, interakcyjne 20/30 (11 nowych zielonych; 10 porażek sprzed zmiany, fixture'y bez `counts`); typecheck, eslint i prettier OK; render sprawdzony w Adminie bez zapisu. Bez audytu (brak planu).
+
 ### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (done)
 
 - Plik: [1052-import-resume-with-cropped-originals.md](../tasks/completed/1052-import-resume-with-cropped-originals.md); commit **v1.7.417 / `d53201b5b9911577194df1bd9068cc51a735a8bd`** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (4 × P0 stan rejestru, nowy import, override przy stagingu, manifest preflightu przed odmową; 1 × P1 test workflow), jedna runda poprawek, wszystkie zamknięte (pełny test retry importu na PostgreSQL pokryty na granicy workflow, odstępstwo w Outcome).

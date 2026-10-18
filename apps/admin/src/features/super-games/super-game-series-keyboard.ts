@@ -1,8 +1,9 @@
 /**
  * Keyboard shortcuts of the „Supergry” series view (TASK-0934). Digits pick a
  * super symbol from the list shown in the select (`1`–`9`, `0` for the
- * tenth), `Enter` saves, `Escape` cancels the candidate and ← / → move along
- * the carousel. Shortcuts stay inactive in text fields and with modifiers.
+ * tenth), `Enter` saves, `Escape` cancels the candidate, ← / → move along
+ * the carousel and `N` opens the next series without a super symbol
+ * (TASK-1053). Shortcuts stay inactive in text fields and with modifiers.
  */
 import {
   EXTENDED_DIGIT_SHORTCUT_LIMIT,
@@ -21,6 +22,7 @@ export type SuperGameSeriesKeyboardCommand =
   | { readonly kind: 'cancel' }
   | { readonly kind: 'previous' }
   | { readonly kind: 'next' }
+  | { readonly kind: 'next_undefined_series' }
   | { readonly kind: 'select_symbol'; readonly symbolId: string };
 
 export interface SuperGameSeriesKeyboardEvent extends ShortcutKeyboardEvent {
@@ -42,6 +44,10 @@ export function resolveSuperGameSeriesKeyboardCommand(
   if (event.key === 'Escape') return { kind: 'cancel' };
   if (event.key === 'ArrowLeft') return { kind: 'previous' };
   if (event.key === 'ArrowRight') return { kind: 'next' };
+  // `N` (also with Caps Lock) opens the next series without a super symbol.
+  if (event.key === 'n' || event.key === 'N') {
+    return { kind: 'next_undefined_series' };
+  }
   const index = extendedDigitShortcutIndex(event.key);
   const symbol = index === null ? undefined : symbols[index];
   return symbol === undefined

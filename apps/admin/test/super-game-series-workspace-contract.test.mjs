@@ -72,7 +72,8 @@ test('the super symbol select offers only ordinary symbols with digit labels', (
   assert.match(workspace, /superGameSeriesShortcutLabel\(index\)/);
   assert.match(workspace, /<kbd>1<\/kbd>–<kbd>9<\/kbd>, <kbd>0<\/kbd>/);
   assert.match(workspace, /Wyczyść symbol/);
-  assert.match(workspace, /Zapisz \(Enter\)/);
+  // The save label (also the retrigger review steps) is built in the state.
+  assert.match(workspace, /superSymbolSaveLabel\(view\)/);
   assert.match(workspace, /Anuluj \(Esc\)/);
   assert.match(
     workspace,

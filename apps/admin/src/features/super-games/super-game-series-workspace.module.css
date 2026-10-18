@@ -177,6 +177,10 @@
   margin: 0;
 }
 
+.viewHeaderNext {
+  margin-left: auto;
+}
+
 .viewLayout {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);

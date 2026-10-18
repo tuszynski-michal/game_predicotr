@@ -72,6 +72,14 @@ test('Enter saves, Escape cancels and arrows move the carousel', () => {
   );
 });
 
+test('N (also with Caps Lock) opens the next series without a super symbol', () => {
+  for (const value of ['n', 'N']) {
+    assert.deepEqual(resolveSuperGameSeriesKeyboardCommand(key(value), []), {
+      kind: 'next_undefined_series',
+    });
+  }
+});
+
 test('modified keys keep browser shortcuts', () => {
   for (const modifier of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
     for (const value of [
@@ -81,6 +89,7 @@ test('modified keys keep browser shortcuts', () => {
       'Escape',
       'ArrowLeft',
       'ArrowRight',
+      'n',
     ]) {
       assert.equal(
         resolveSuperGameSeriesKeyboardCommand(

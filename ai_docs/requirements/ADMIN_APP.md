@@ -1874,7 +1874,31 @@ Widok serii:
   pokazuje komunikat, czyta serię od nowa i porzuca nieaktualny wybór.
   Odmowa API (Wild, symbol uruchamiający albo zarchiwizowany, 422) jest
   pokazywana w komunikacie, bez zmiany serii. Wybór symbolu uruchamiającego
-  jest zablokowany po stronie Admina, zanim zapytanie zostanie wysłane.
+  jest zablokowany po stronie Admina, zanim zapytanie zostanie wysłane,
+- przycisk „Następna bez symbolu (N) →” w nagłówku widoku i klawisz `N`
+  (TASK-1053) otwierają następną po numerze triggera serię bez super symbolu,
+  bez powrotu do listy. Szukanie zachowuje filtry kompletności i wiarygodności
+  przebiegu z listy (`listSuperGameSeries` z `defined=false`, `cursor` równym
+  triggerowi otwartej serii). Gdy za nią nie ma takiej serii, szukanie
+  zaczyna od początku listy i toast mówi o powrocie na początek; gdy nie ma
+  żadnej innej, widok serii zostaje z komunikatem. Niezapisany wybór symbolu
+  blokuje przejście (komunikat: zapisz albo anuluj), a odpowiedź, która
+  przyjdzie po zmianie otwartej serii, niczego nie otwiera. Udany zapis
+  symbolu (`Enter` albo „Zapisz”) od razu wykonuje to samo przejście, a
+  potwierdzenie zapisu trafia do toastu (albo do komunikatu, gdy innej serii
+  bez symbolu nie ma); zapis wyczyszczenia symbolu zostawia serię otwartą,
+- seria z retriggerami (TASK-1053): wybrany symbol zapisuje się dopiero po
+  pokazaniu i potwierdzeniu każdej planszy retriggera. `Enter` (i przycisk
+  zapisu) przechodzi do pierwszego niepotwierdzonego retriggera, kolejny
+  `Enter` potwierdza pokazany retrigger i przechodzi do następnego, a
+  `Enter` na ostatnim niepotwierdzonym retriggerze potwierdza go, zapisuje
+  symbol i otwiera następną serię bez symbolu. Retrigger, na który operator
+  przejdzie strzałkami, też potwierdza `Enter`. Przycisk zapisu nazywa
+  następny krok („Do retriggera 1 z 2”, „Potwierdź retrigger 1 z 2”,
+  „Potwierdź retrigger 2 z 2 i zapisz”), komunikat podaje numer planszy, a
+  potwierdzone retriggery mają w pasku pozycji znak ✓. Potwierdzenia są
+  stanem ekranu (nie trafiają do API) i znikają po ponownym odczycie serii.
+  Wyczyszczenie symbolu i seria bez retriggerów zapisują się od razu.
 
 ### Mobile releases
 

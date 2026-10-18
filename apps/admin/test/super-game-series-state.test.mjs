@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   DEFAULT_SERIES_FILTERS,
   activeSeriesCard,
+  advanceRetriggerReview,
   applySeriesListPage,
   applySeriesRefresh,
   applySuperSymbolConflict,
@@ -24,7 +25,11 @@ import {
   isSuperSymbolCandidateDirty,
   missingCardLabel,
   moveSeriesPosition,
+  nextRetriggerReviewStep,
+  nextUndefinedSeriesQuery,
+  noUndefinedSeriesLeftMessage,
   ordinarySuperSymbols,
+  pickNextUndefinedSeries,
   pickSeriesRulesVersion,
   reloadSeriesList,
   replaceSeriesInList,
@@ -42,9 +47,12 @@ import {
   superGameSeriesErrorMessage,
   superGameStateBanner,
   superSymbolSaveBlock,
+  superSymbolSaveLabel,
+  superSymbolSavedMessage,
   triggerCellIndexes,
   triggerSymbols,
   undefinedSeriesCountLabel,
+  undefinedSeriesWrappedMessage,
 } from '../src/features/super-games/super-game-series-state.ts';
 
 const FRESH = { fresh: true, generationInputVersion: 7, inputVersion: 7 };
@@ -814,4 +822,169 @@ test('a failed next page can be retried for the same cursor, a failed first page
     'Blad pierwszej strony',
   );
   assert.equal(startLoadingMoreSeries(firstFailed), firstFailed);
+});
+
+test('the next series without a symbol is searched after the trigger with the list filters', () => {
+  assert.deepEqual(nextUndefinedSeriesQuery(DEFAULT_SERIES_FILTERS, 100), {
+    cursor: '100',
+    defined: false,
+    limit: 2,
+  });
+  // The symbol filter of the list is ignored, the other two are kept.
+  assert.deepEqual(
+    nextUndefinedSeriesQuery(
+      {
+        completeness: 'complete',
+        defined: 'defined',
+        runVerification: 'unverified',
+      },
+      null,
+    ),
+    {
+      completeness: 'complete',
+      defined: false,
+      limit: 2,
+      runVerification: 'unverified',
+    },
+  );
+});
+
+test('the opened series and defined series are never picked as the next one', () => {
+  const opened = series({ id: 'series-100' });
+  const defined = series({ id: 'series-110', superSymbolId: 'symbol-1' });
+  const next = series({ id: 'series-130', triggerSequenceNumber: 130 });
+  assert.equal(pickNextUndefinedSeries([opened, next], 'series-100'), next);
+  assert.equal(pickNextUndefinedSeries([defined, next], 'series-100'), next);
+  assert.equal(pickNextUndefinedSeries([opened], 'series-100'), null);
+  assert.equal(pickNextUndefinedSeries([], 'series-100'), null);
+});
+
+test('the messages of the next series search name the filters and the triggers', () => {
+  assert.ok(
+    noUndefinedSeriesLeftMessage(DEFAULT_SERIES_FILTERS).includes(
+      'Wszystkie pozostałe serie mają super symbol',
+    ),
+  );
+  assert.ok(
+    noUndefinedSeriesLeftMessage({
+      ...DEFAULT_SERIES_FILTERS,
+      completeness: 'complete',
+    }).includes('w filtrach'),
+  );
+  assert.ok(
+    noUndefinedSeriesLeftMessage({
+      ...DEFAULT_SERIES_FILTERS,
+      defined: 'defined',
+    }).includes('Wszystkie pozostałe'),
+  );
+  assert.equal(
+    undefinedSeriesWrappedMessage(500, { triggerSequenceNumber: 40 }),
+    'Za serią od #500 nie ma już serii bez super symbolu. Otwieram pierwszą od początku listy: seria od #40.',
+  );
+});
+
+test('the save confirmation names the symbol, or the clearing, and the trigger', () => {
+  const symbols = [{ id: 'symbol-1', name: 'Król' }];
+  assert.equal(
+    superSymbolSavedMessage(
+      { superSymbolId: 'symbol-1', triggerSequenceNumber: 100 },
+      symbols,
+    ),
+    'Zapisano super symbol Król dla serii od #100.',
+  );
+  assert.equal(
+    superSymbolSavedMessage(
+      { superSymbolId: null, triggerSequenceNumber: 100 },
+      symbols,
+    ),
+    'Wyczyszczono super symbol serii od #100.',
+  );
+});
+
+test('a chosen symbol is saved only after every retrigger was shown and confirmed', () => {
+  let state = selectSuperSymbolCandidate(
+    createSeriesViewState(
+      boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
+    ),
+    's1',
+  );
+  assert.equal(superSymbolSaveLabel(state), 'Do retriggera 1 z 2 (Enter)');
+  assert.deepEqual(nextRetriggerReviewStep(state), {
+    confirmsActive: false,
+    index: 5,
+    last: false,
+    ordinal: 1,
+    total: 2,
+  });
+
+  // First Enter: show the first retrigger, nothing is confirmed yet.
+  state = advanceRetriggerReview(state);
+  assert.equal(activeSeriesCard(state).sequenceNumber, 105);
+  assert.deepEqual(state.confirmedRetriggers, []);
+  assert.equal(state.notice.kind, 'info');
+  assert.equal(
+    superSymbolSaveLabel(state),
+    'Potwierdź retrigger 1 z 2 (Enter)',
+  );
+
+  // Second Enter: confirm #105, show #110.
+  state = advanceRetriggerReview(state);
+  assert.equal(activeSeriesCard(state).sequenceNumber, 110);
+  assert.deepEqual(state.confirmedRetriggers, [105]);
+  assert.equal(
+    superSymbolSaveLabel(state),
+    'Potwierdź retrigger 2 z 2 i zapisz (Enter)',
+  );
+
+  // Third Enter: the last retrigger is confirmed by the save itself.
+  assert.equal(advanceRetriggerReview(state), null);
+});
+
+test('a retrigger reached with the arrows is confirmed by Enter, unconfirmed ones come back', () => {
+  let state = selectSuperSymbolCandidate(
+    goToSeriesPosition(
+      createSeriesViewState(
+        boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
+      ),
+      10,
+    ),
+    's1',
+  );
+  // On #110: Enter confirms it and goes back to the skipped #105.
+  state = advanceRetriggerReview(state);
+  assert.deepEqual(state.confirmedRetriggers, [110]);
+  assert.equal(activeSeriesCard(state).sequenceNumber, 105);
+  assert.equal(advanceRetriggerReview(state), null);
+});
+
+test('clearing the symbol, no retriggers and a refresh skip or restart the review', () => {
+  const cleared = selectSuperSymbolCandidate(
+    createSeriesViewState(boardsResponse({ superSymbolId: 's2' })),
+    null,
+  );
+  assert.equal(nextRetriggerReviewStep(cleared), null);
+  assert.equal(superSymbolSaveLabel(cleared), 'Zapisz (Enter)');
+
+  const none = selectSuperSymbolCandidate(
+    createSeriesViewState(boardsResponse({ retriggerSequenceNumbers: [] })),
+    's1',
+  );
+  assert.equal(advanceRetriggerReview(none), null);
+
+  const reviewed = advanceRetriggerReview(
+    advanceRetriggerReview(
+      selectSuperSymbolCandidate(
+        createSeriesViewState(
+          boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
+        ),
+        's1',
+      ),
+    ),
+  );
+  assert.deepEqual(reviewed.confirmedRetriggers, [105]);
+  const refreshed = applySeriesRefresh(
+    reviewed,
+    boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
+  );
+  assert.deepEqual(refreshed.confirmedRetriggers, []);
 });

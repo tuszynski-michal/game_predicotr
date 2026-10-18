@@ -92,6 +92,61 @@ export function seriesListQuery(
 }
 
 /**
+ * The query for the next series without a super symbol (TASK-1053): the
+ * completeness and run verification filters of the list are kept, the symbol
+ * filter is always „Do zdefiniowania”. The cursor is a trigger number, so
+ * `afterTrigger` gives the first such series after it; `null` starts from
+ * the beginning of the list. Two rows, so that a search from the beginning
+ * still finds another series when the first one is the opened series.
+ */
+export function nextUndefinedSeriesQuery(
+  filters: SeriesFilters,
+  afterTrigger: number | null,
+): SeriesListQuery {
+  return seriesListQuery(
+    { ...filters, defined: 'undefined' },
+    afterTrigger === null ? null : String(afterTrigger),
+    2,
+  );
+}
+
+/** The first listed series other than the opened one, or `null`. */
+export function pickNextUndefinedSeries(
+  items: readonly SuperGameSeriesResponse[],
+  openedSeriesId: string,
+): SuperGameSeriesResponse | null {
+  return (
+    items.find(
+      (item) => item.id !== openedSeriesId && item.superSymbolId === null,
+    ) ?? null
+  );
+}
+
+/** Whether the list filters narrow the search for the next series. */
+export function nextUndefinedSeriesFiltered(filters: SeriesFilters): boolean {
+  return filters.completeness !== 'all' || filters.runVerification !== 'all';
+}
+
+/** The notice when no other series without a super symbol is left. */
+export function noUndefinedSeriesLeftMessage(filters: SeriesFilters): string {
+  return nextUndefinedSeriesFiltered(filters)
+    ? 'Nie ma innej serii bez super symbolu w filtrach kompletności i wiarygodności przebiegu wybranych na liście.'
+    : 'Nie ma innej serii bez super symbolu. Wszystkie pozostałe serie mają super symbol.';
+}
+
+/** The toast when the search went back to the beginning of the list. */
+export function undefinedSeriesWrappedMessage(
+  fromTrigger: number,
+  next: Pick<SuperGameSeriesResponse, 'triggerSequenceNumber'>,
+): string {
+  return `Za serią od #${fromTrigger} nie ma już serii bez super symbolu. Otwieram pierwszą od początku listy: seria od #${next.triggerSequenceNumber}.`;
+}
+
+/** The notice that blocks leaving a series with an unsaved symbol choice. */
+export const UNSAVED_SUPER_SYMBOL_NOTICE =
+  'Wybrany symbol nie jest zapisany. Zapisz go (Enter) albo anuluj (Esc), zanim przejdziesz do następnej serii.';
+
+/**
  * The counter of series without a super symbol. Every list page carries the
  * exact counts of all published series of the game, whatever the filters.
  */
@@ -415,6 +470,11 @@ export interface SeriesViewState {
   readonly saving: boolean;
   readonly notice: SeriesNotice | null;
   readonly superGameState: SuperGameStateResponse | null;
+  /**
+   * Sequence numbers of the retrigger boards the operator confirmed with
+   * `Enter` before a symbol is saved (TASK-1053). Screen state only.
+   */
+  readonly confirmedRetriggers: readonly number[];
 }
 
 export function createSeriesViewState(
@@ -424,6 +484,7 @@ export function createSeriesViewState(
     activeIndex: 0,
     candidateSymbolId: response.series.superSymbolId,
     cards: buildSeriesPositionCards(response.series, response.boards),
+    confirmedRetriggers: Object.freeze([]),
     notice: null,
     saving: false,
     series: response.series,
@@ -467,7 +528,8 @@ export function seriesNeighbourIndexes(
 /**
  * A fresh answer for the opened series (after a conflict or a refresh): the
  * active position is kept by sequence number, the candidate is reset to the
- * saved symbol so that a stale choice is never saved over a newer one.
+ * saved symbol so that a stale choice is never saved over a newer one. The
+ * boards may have changed, so retrigger confirmations start again.
  */
 export function applySeriesRefresh(
   state: SeriesViewState,
@@ -486,6 +548,7 @@ export function applySeriesRefresh(
     activeIndex: index >= 0 ? index : 0,
     candidateSymbolId: response.series.superSymbolId,
     cards,
+    confirmedRetriggers: Object.freeze([]),
     saving: false,
     series: response.series,
     superGameState: response.superGameState,
@@ -612,6 +675,100 @@ export function superSymbolSaveBlock(
   return null;
 }
 
+// --- Retrigger review before a save (TASK-1053) -------------------------
+
+export interface RetriggerReviewStep {
+  /** Index of the retrigger card to show next. */
+  readonly index: number;
+  /** 1-based number of that retrigger among all retriggers of the series. */
+  readonly ordinal: number;
+  readonly total: number;
+  /** The active card is the retrigger itself: `Enter` confirms it. */
+  readonly confirmsActive: boolean;
+  /** No other retrigger is left after this one: its `Enter` also saves. */
+  readonly last: boolean;
+}
+
+/** Card indexes of the retrigger boards of the series, in order. */
+export function retriggerCardIndexes(state: SeriesViewState): number[] {
+  return state.cards.flatMap((card, index) =>
+    card.role === 'retrigger' ? [index] : [],
+  );
+}
+
+/**
+ * What the next `Enter` does before a symbol is saved: a chosen symbol is
+ * saved only after every retrigger board was shown and confirmed. `null`
+ * means the save goes ahead (no retriggers left, or the symbol is cleared).
+ */
+export function nextRetriggerReviewStep(
+  state: SeriesViewState,
+): RetriggerReviewStep | null {
+  if (state.candidateSymbolId === null) return null;
+  const retriggers = retriggerCardIndexes(state);
+  const confirmed = new Set(state.confirmedRetriggers);
+  const pending = retriggers.filter(
+    (index) => !confirmed.has(state.cards[index]?.sequenceNumber ?? -1),
+  );
+  const active = state.cards[state.activeIndex];
+  const confirmsActive =
+    active?.role === 'retrigger' && !confirmed.has(active.sequenceNumber);
+  const target = confirmsActive ? state.activeIndex : pending[0];
+  if (target === undefined) return null;
+  return {
+    confirmsActive,
+    index: target,
+    last: confirmsActive && pending.length === 1,
+    ordinal: retriggers.indexOf(target) + 1,
+    total: retriggers.length,
+  };
+}
+
+/**
+ * One `Enter` of the retrigger review: the active unconfirmed retrigger is
+ * confirmed, then the next unconfirmed retrigger is shown. `null` means
+ * every retrigger is confirmed and the symbol can be saved now.
+ */
+export function advanceRetriggerReview(
+  state: SeriesViewState,
+): SeriesViewState | null {
+  const step = nextRetriggerReviewStep(state);
+  if (step === null) return null;
+  const confirmedRetriggers = step.confirmsActive
+    ? Object.freeze([
+        ...state.confirmedRetriggers,
+        state.cards[state.activeIndex]?.sequenceNumber ?? -1,
+      ])
+    : state.confirmedRetriggers;
+  const confirmedState = Object.freeze({ ...state, confirmedRetriggers });
+  const next = nextRetriggerReviewStep(confirmedState);
+  if (next === null) return null;
+  const card = confirmedState.cards[next.index];
+  return Object.freeze({
+    ...confirmedState,
+    activeIndex: next.index,
+    notice: {
+      kind: 'info' as const,
+      text: `Retrigger ${next.ordinal} z ${next.total} (#${card?.sequenceNumber ?? '?'}): sprawdź planszę i potwierdź klawiszem Enter. Symbol zostanie zapisany po potwierdzeniu ostatniego retriggera.`,
+    },
+  });
+}
+
+/** The label of the save button for the next `Enter`. */
+export function superSymbolSaveLabel(state: SeriesViewState): string {
+  if (state.saving) return 'Zapisuję…';
+  const step = isSuperSymbolCandidateDirty(state)
+    ? nextRetriggerReviewStep(state)
+    : null;
+  if (step === null) return 'Zapisz (Enter)';
+  if (!step.confirmsActive) {
+    return `Do retriggera ${step.ordinal} z ${step.total} (Enter)`;
+  }
+  return step.last
+    ? `Potwierdź retrigger ${step.ordinal} z ${step.total} i zapisz (Enter)`
+    : `Potwierdź retrigger ${step.ordinal} z ${step.total} (Enter)`;
+}
+
 export interface SuperSymbolSaveRequest {
   readonly symbolId: string | null;
   readonly expectedRevision: number;
@@ -644,21 +801,31 @@ export function blockSuperSymbolSave(
   });
 }
 
+/** The confirmation of a saved (or cleared) super symbol. */
+export function superSymbolSavedMessage(
+  updated: Pick<
+    SuperGameSeriesResponse,
+    'superSymbolId' | 'triggerSequenceNumber'
+  >,
+  symbols: readonly Pick<SymbolResponse, 'id' | 'name'>[],
+): string {
+  const symbol = symbols.find((item) => item.id === updated.superSymbolId);
+  return updated.superSymbolId === null
+    ? `Wyczyszczono super symbol serii od #${updated.triggerSequenceNumber}.`
+    : `Zapisano super symbol ${symbol?.name ?? updated.superSymbolId} dla serii od #${updated.triggerSequenceNumber}.`;
+}
+
 export function applySuperSymbolSaved(
   state: SeriesViewState,
   updated: SuperGameSeriesResponse,
   symbols: readonly SymbolResponse[],
 ): SeriesViewState {
-  const symbol = symbols.find((item) => item.id === updated.superSymbolId);
   return Object.freeze({
     ...state,
     candidateSymbolId: updated.superSymbolId,
     notice: {
       kind: 'success' as const,
-      text:
-        updated.superSymbolId === null
-          ? `Wyczyszczono super symbol serii od #${updated.triggerSequenceNumber}.`
-          : `Zapisano super symbol ${symbol?.name ?? updated.superSymbolId} dla serii od #${updated.triggerSequenceNumber}.`,
+      text: superSymbolSavedMessage(updated, symbols),
     },
     saving: false,
     series: updated,

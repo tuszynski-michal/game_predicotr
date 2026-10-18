@@ -30,13 +30,106 @@ export interface SeriesFilters {
   readonly completeness: CompletenessFilter;
   readonly runVerification: RunVerificationFilter;
   readonly defined: DefinedFilter;
+  /**
+   * Range of the trigger board numbers (TASK-1054), both ends included;
+   * `null` (or a missing field) leaves that end open.
+   */
+  readonly fromSequence?: number | null;
+  readonly toSequence?: number | null;
 }
 
 export const DEFAULT_SERIES_FILTERS: SeriesFilters = Object.freeze({
   completeness: 'all',
   defined: 'all',
+  fromSequence: null,
   runVerification: 'all',
+  toSequence: null,
 });
+
+export interface SeriesBoardRange {
+  readonly from: number | null;
+  readonly to: number | null;
+}
+
+export function seriesBoardRange(filters: SeriesFilters): SeriesBoardRange {
+  return { from: filters.fromSequence ?? null, to: filters.toSequence ?? null };
+}
+
+export function hasSeriesBoardRange(filters: SeriesFilters): boolean {
+  const range = seriesBoardRange(filters);
+  return range.from !== null || range.to !== null;
+}
+
+/** Whether the trigger of a series lies in the board range of the filters. */
+export function seriesInBoardRange(
+  series: Pick<SuperGameSeriesResponse, 'triggerSequenceNumber'>,
+  filters: SeriesFilters,
+): boolean {
+  const { from, to } = seriesBoardRange(filters);
+  return (
+    (from === null || series.triggerSequenceNumber >= from) &&
+    (to === null || series.triggerSequenceNumber <= to)
+  );
+}
+
+/**
+ * The cursor that starts a list at the range: the API returns the series
+ * whose trigger is greater than the cursor, so the range starts after
+ * `from − 1`. A later cursor (a next page) is kept.
+ */
+function rangeCursor(
+  filters: SeriesFilters,
+  cursor: string | null,
+): string | null {
+  const { from } = seriesBoardRange(filters);
+  if (from === null) return cursor;
+  const start = from - 1;
+  return cursor !== null && Number(cursor) >= start ? cursor : String(start);
+}
+
+export type SeriesBoardRangeInput =
+  | { readonly ok: true; readonly range: SeriesBoardRange }
+  | { readonly ok: false; readonly message: string };
+
+const BOARD_NUMBER_PATTERN = /^[0-9]{1,9}$/;
+
+/** Parses the „Plansze od / do” fields; an empty field is an open end. */
+export function parseSeriesBoardRange(
+  fromText: string,
+  toText: string,
+): SeriesBoardRangeInput {
+  const parse = (text: string): number | null | 'invalid' => {
+    const value = text.trim();
+    if (value === '') return null;
+    if (!BOARD_NUMBER_PATTERN.test(value)) return 'invalid';
+    const number = Number(value);
+    return number >= 1 ? number : 'invalid';
+  };
+  const from = parse(fromText);
+  const to = parse(toText);
+  if (from === 'invalid' || to === 'invalid') {
+    return {
+      message: 'Numer planszy musi być liczbą całkowitą od 1.',
+      ok: false,
+    };
+  }
+  if (from !== null && to !== null && from > to) {
+    return {
+      message: 'Początek zakresu nie może być większy niż jego koniec.',
+      ok: false,
+    };
+  }
+  return { ok: true, range: { from, to } };
+}
+
+/** The range as a short label, e.g. „#1–#1000”, „od #500”, „do #1000”. */
+export function seriesBoardRangeLabel(filters: SeriesFilters): string | null {
+  const { from, to } = seriesBoardRange(filters);
+  if (from !== null && to !== null) return `#${from}–#${to}`;
+  if (from !== null) return `od #${from}`;
+  if (to !== null) return `do #${to}`;
+  return null;
+}
 
 export const COMPLETENESS_FILTER_OPTIONS: readonly {
   readonly value: CompletenessFilter;
@@ -66,7 +159,8 @@ export const DEFINED_FILTER_OPTIONS: readonly {
 ];
 
 export function seriesFiltersKey(filters: SeriesFilters): string {
-  return `${filters.completeness}|${filters.runVerification}|${filters.defined}`;
+  const { from, to } = seriesBoardRange(filters);
+  return `${filters.completeness}|${filters.runVerification}|${filters.defined}|${from ?? ''}-${to ?? ''}`;
 }
 
 export type SeriesListQuery = NonNullable<ListSuperGameSeriesData['query']>;
@@ -87,8 +181,33 @@ export function seriesListQuery(
   if (filters.defined !== 'all') {
     query.defined = filters.defined === 'defined';
   }
-  if (cursor !== null) query.cursor = cursor;
+  const rangedCursor = rangeCursor(filters, cursor);
+  if (rangedCursor !== null) query.cursor = rangedCursor;
   return query;
+}
+
+/**
+ * A page cut to the end of the board range: series with a later trigger are
+ * dropped and, once the range end is reached, there is no next page.
+ */
+export function clipSeriesPageToRange(
+  response: SuperGameSeriesListResponse,
+  filters: SeriesFilters,
+): SuperGameSeriesListResponse {
+  const { to } = seriesBoardRange(filters);
+  if (to === null) return response;
+  const items = response.items.filter(
+    (item) => item.triggerSequenceNumber <= to,
+  );
+  const last = items[items.length - 1];
+  const reachedEnd =
+    items.length < response.items.length ||
+    (last !== undefined && last.triggerSequenceNumber >= to);
+  return {
+    ...response,
+    items,
+    nextCursor: reachedEnd ? null : response.nextCursor,
+  };
 }
 
 /**
@@ -110,25 +229,40 @@ export function nextUndefinedSeriesQuery(
   );
 }
 
-/** The first listed series other than the opened one, or `null`. */
+/**
+ * The first listed series other than the opened one, without a symbol and
+ * inside the board range of the list, or `null`.
+ */
 export function pickNextUndefinedSeries(
   items: readonly SuperGameSeriesResponse[],
   openedSeriesId: string,
+  filters: SeriesFilters = DEFAULT_SERIES_FILTERS,
 ): SuperGameSeriesResponse | null {
   return (
     items.find(
-      (item) => item.id !== openedSeriesId && item.superSymbolId === null,
+      (item) =>
+        item.id !== openedSeriesId &&
+        item.superSymbolId === null &&
+        seriesInBoardRange(item, filters),
     ) ?? null
   );
 }
 
 /** Whether the list filters narrow the search for the next series. */
 export function nextUndefinedSeriesFiltered(filters: SeriesFilters): boolean {
-  return filters.completeness !== 'all' || filters.runVerification !== 'all';
+  return (
+    filters.completeness !== 'all' ||
+    filters.runVerification !== 'all' ||
+    hasSeriesBoardRange(filters)
+  );
 }
 
 /** The notice when no other series without a super symbol is left. */
 export function noUndefinedSeriesLeftMessage(filters: SeriesFilters): string {
+  const range = seriesBoardRangeLabel(filters);
+  if (range !== null) {
+    return `Nie ma innej serii bez super symbolu w zakresie plansz ${range} (i w pozostałych filtrach wybranych na liście).`;
+  }
   return nextUndefinedSeriesFiltered(filters)
     ? 'Nie ma innej serii bez super symbolu w filtrach kompletności i wiarygodności przebiegu wybranych na liście.'
     : 'Nie ma innej serii bez super symbolu. Wszystkie pozostałe serie mają super symbol.';
@@ -250,9 +384,13 @@ export interface SeriesListPage {
  */
 export function applySeriesListPage(
   state: SeriesListState,
-  page: SeriesListPage,
+  rawPage: SeriesListPage,
 ): SeriesListState {
-  if (page.generation !== state.generation) return state;
+  if (rawPage.generation !== state.generation) return state;
+  const page = {
+    ...rawPage,
+    response: clipSeriesPageToRange(rawPage.response, state.filters),
+  };
   if (page.cursor === null) {
     if (state.items.length > 0 && state.status === 'ready') return state;
     return Object.freeze({
@@ -302,10 +440,14 @@ export function applySeriesListSuperGameState(
 export function seriesMatchesFilters(
   series: Pick<
     SuperGameSeriesResponse,
-    'completeness' | 'runVerification' | 'superSymbolId'
+    | 'completeness'
+    | 'runVerification'
+    | 'superSymbolId'
+    | 'triggerSequenceNumber'
   >,
   filters: SeriesFilters,
 ): boolean {
+  if (!seriesInBoardRange(series, filters)) return false;
   if (
     filters.completeness !== 'all' &&
     series.completeness !== filters.completeness

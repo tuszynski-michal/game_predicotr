@@ -87,6 +87,32 @@
   font-weight: 700;
 }
 
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.range label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.range input {
+  width: 120px;
+}
+
+.rangeActive {
+  align-self: center;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .tableWrap {
   overflow-x: auto;
   border: 1px solid var(--line);

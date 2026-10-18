@@ -1833,6 +1833,15 @@ Lista serii:
   (`verified`/`unverified`) oraz super symbol (z symbolem / do
   zdefiniowania); zmiana filtru zaczyna listę od nowa, a spóźniona odpowiedź
   poprzedniego filtru jest ignorowana,
+- filtr zakresu plansz (TASK-1054): pola „Plansze od” i „do” (liczby
+  całkowite od 1, każde pole może zostać puste) z przyciskiem „Zastosuj
+  zakres” (także `Enter`) i „Wyczyść zakres”. Seria należy do zakresu, gdy
+  jej trigger leży w zakresie (oba końce włącznie). Admin zaczyna listę od
+  `cursor = od − 1`, ucina wiersze za końcem zakresu i kończy wtedy
+  stronicowanie, więc API się nie zmienia. Błędny zakres (nie liczba, mniej
+  niż 1, początek większy niż koniec) pokazuje komunikat i nie zmienia listy.
+  Zakres zostaje po powrocie z widoku serii; licznik serii bez symbolu nadal
+  dotyczy całej gry,
 - licznik pokazuje dokładną liczbę serii bez super symbolu i liczbę wszystkich
   serii („2549 z 2553 serii bez super symbolu”), niezależnie od filtrów listy;
   wartości pochodzą z `counts` każdej strony listy (TASK-0951), a zapis
@@ -1878,8 +1887,8 @@ Widok serii:
 - przycisk „Następna bez symbolu (N) →” w nagłówku widoku i klawisz `N`
   (TASK-1053) otwierają następną po numerze triggera serię bez super symbolu,
   bez powrotu do listy. Szukanie zachowuje filtry kompletności i wiarygodności
-  przebiegu z listy (`listSuperGameSeries` z `defined=false`, `cursor` równym
-  triggerowi otwartej serii). Gdy za nią nie ma takiej serii, szukanie
+  przebiegu oraz zakres plansz z listy (`listSuperGameSeries` z
+  `defined=false`, `cursor` równym triggerowi otwartej serii). Gdy za nią nie ma takiej serii, szukanie
   zaczyna od początku listy i toast mówi o powrocie na początek; gdy nie ma
   żadnej innej, widok serii zostaje z komunikatem. Niezapisany wybór symbolu
   blokuje przejście (komunikat: zapisz albo anuluj), a odpowiedź, która

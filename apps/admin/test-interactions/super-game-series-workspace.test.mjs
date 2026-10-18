@@ -1203,3 +1203,86 @@ test('a series without retriggers saves on the first Enter', async () => {
   assert.equal(calls.saves.length, 1);
   await act(async () => root.unmount());
 });
+
+// --- TASK-1054: board range filter --------------------------------------
+
+function rangeStoreClient(triggers) {
+  const base = storeClient(triggers.map((trigger) => seriesAt(trigger)));
+  const inner = base.client.listSuperGameSeries;
+  // The store pages carry the counts the list header needs.
+  base.client.listSuperGameSeries = async (gameId, query) => {
+    const result = await inner(gameId, query);
+    return {
+      data: {
+        ...result.data,
+        counts: { total: triggers.length, undefined: 1 },
+      },
+    };
+  };
+  return base;
+}
+
+async function typeInto(input, value) {
+  const setter = Object.getOwnPropertyDescriptor(
+    dom.window.HTMLInputElement.prototype,
+    'value',
+  ).set;
+  await act(async () => {
+    setter.call(input, value);
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+}
+
+const rangeInputs = () =>
+  document.querySelectorAll('form[aria-label="Zakres plansz"] input');
+
+test('the board range limits the list and the next series without a symbol', async () => {
+  const { calls, client } = rangeStoreClient([100, 140, 200, 300]);
+  const root = await mountHarness(client);
+  assert.deepEqual(rowTriggers(), ['#100', '#140', '#200', '#300']);
+
+  const [from, to] = rangeInputs();
+  await typeInto(from, '1');
+  await typeInto(to, '150');
+  await click(button('Zastosuj zakres'));
+  assert.equal(calls.lists.at(-1).cursor, '0');
+  assert.deepEqual(rowTriggers(), ['#100', '#140']);
+  assert.equal(button('Wczytaj kolejne'), undefined);
+  assert.ok(
+    document
+      .querySelector('[data-testid="board-range"]')
+      .textContent.includes('#1–#150'),
+  );
+
+  await click(openButtons()[0]);
+  assert.equal(heading(), 'Wyzwalacz · #100');
+  await press('n');
+  assert.equal(heading(), 'Wyzwalacz · #140');
+  // #200 lies beyond the range: the search starts again at the range start.
+  await press('n');
+  assert.equal(heading(), 'Wyzwalacz · #100');
+  assert.ok(document.body.textContent.includes('od początku listy'));
+
+  // Back on the list the range is still applied and can be cleared.
+  await click(button('Lista serii'));
+  assert.deepEqual(rowTriggers(), ['#100', '#140']);
+  assert.equal(rangeInputs()[1].value, '150');
+  await click(button('Wyczyść zakres'));
+  assert.equal(calls.lists.at(-1).cursor, undefined);
+  assert.deepEqual(rowTriggers(), ['#100', '#140', '#200', '#300']);
+  await act(async () => root.unmount());
+});
+
+test('a wrong board range is refused and the list stays', async () => {
+  const { calls, client } = rangeStoreClient([100, 200]);
+  const root = await mountHarness(client);
+  const reads = calls.lists.length;
+  const [from, to] = rangeInputs();
+  await typeInto(from, '500');
+  await typeInto(to, '100');
+  await click(button('Zastosuj zakres'));
+  assert.ok(document.body.textContent.includes('Początek zakresu'));
+  assert.equal(calls.lists.length, reads);
+  assert.deepEqual(rowTriggers(), ['#100', '#200']);
+  await act(async () => root.unmount());
+});

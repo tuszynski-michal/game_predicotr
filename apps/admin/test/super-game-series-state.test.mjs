@@ -15,6 +15,7 @@ import {
   buildSeriesPositionCards,
   cancelSuperSymbolCandidate,
   changeSeriesFilters,
+  clipSeriesPageToRange,
   createSeriesListState,
   createSeriesViewState,
   deriveResultMessage,
@@ -29,6 +30,7 @@ import {
   nextUndefinedSeriesQuery,
   noUndefinedSeriesLeftMessage,
   ordinarySuperSymbols,
+  parseSeriesBoardRange,
   pickNextUndefinedSeries,
   pickSeriesRulesVersion,
   reloadSeriesList,
@@ -36,6 +38,7 @@ import {
   seriesMatchesFilters,
   selectSuperSymbolCandidate,
   seriesBadges,
+  seriesBoardRangeLabel,
   seriesCountsCaption,
   seriesListQuery,
   seriesNeighbourIndexes,
@@ -987,4 +990,104 @@ test('clearing the symbol, no retriggers and a refresh skip or restart the revie
     boardsResponse({ retriggerSequenceNumbers: [105, 110] }),
   );
   assert.deepEqual(refreshed.confirmedRetriggers, []);
+});
+
+// --- TASK-1054: board range ---------------------------------------------
+
+const RANGE = { ...DEFAULT_SERIES_FILTERS, fromSequence: 100, toSequence: 150 };
+
+test('a board range starts the list after from − 1 and keeps later cursors', () => {
+  assert.deepEqual(seriesListQuery(RANGE, null), { cursor: '99', limit: 50 });
+  assert.deepEqual(seriesListQuery(RANGE, '120'), {
+    cursor: '120',
+    limit: 50,
+  });
+  assert.equal(
+    seriesListQuery({ ...DEFAULT_SERIES_FILTERS, fromSequence: 1 }, null)
+      .cursor,
+    '0',
+  );
+  // Only an end: the list starts at the beginning.
+  assert.equal(
+    seriesListQuery({ ...DEFAULT_SERIES_FILTERS, toSequence: 50 }, null).cursor,
+    undefined,
+  );
+  assert.deepEqual(nextUndefinedSeriesQuery(RANGE, 20), {
+    cursor: '99',
+    defined: false,
+    limit: 2,
+  });
+  assert.equal(nextUndefinedSeriesQuery(RANGE, 120).cursor, '120');
+});
+
+test('a page is cut at the end of the range and stops paging there', () => {
+  const beyond = clipSeriesPageToRange(page([100, 140, 200], '200'), RANGE);
+  assert.deepEqual(
+    beyond.items.map((item) => item.triggerSequenceNumber),
+    [100, 140],
+  );
+  assert.equal(beyond.nextCursor, null);
+  const atEnd = clipSeriesPageToRange(page([120, 150], '150'), RANGE);
+  assert.equal(atEnd.nextCursor, null);
+  const inside = clipSeriesPageToRange(page([110, 120], '120'), RANGE);
+  assert.equal(inside.nextCursor, '120');
+
+  const state = applySeriesListPage(
+    changeSeriesFilters(createSeriesListState(), RANGE),
+    { cursor: null, generation: 1, response: page([100, 140, 200], '200') },
+  );
+  assert.deepEqual(
+    state.items.map((item) => item.triggerSequenceNumber),
+    [100, 140],
+  );
+  assert.equal(state.nextCursor, null);
+});
+
+test('the range fields accept empty ends and refuse wrong numbers', () => {
+  assert.deepEqual(parseSeriesBoardRange(' 1 ', '1000'), {
+    ok: true,
+    range: { from: 1, to: 1000 },
+  });
+  assert.deepEqual(parseSeriesBoardRange('', ''), {
+    ok: true,
+    range: { from: null, to: null },
+  });
+  assert.deepEqual(parseSeriesBoardRange('500', ''), {
+    ok: true,
+    range: { from: 500, to: null },
+  });
+  for (const [from, to] of [
+    ['0', '10'],
+    ['abc', ''],
+    ['1.5', ''],
+    ['', '-3'],
+  ]) {
+    assert.equal(parseSeriesBoardRange(from, to).ok, false, `${from}–${to}`);
+  }
+  const reversed = parseSeriesBoardRange('1000', '1');
+  assert.equal(reversed.ok, false);
+  assert.ok(reversed.message.includes('Początek zakresu'));
+  assert.equal(seriesBoardRangeLabel(RANGE), '#100–#150');
+  assert.equal(
+    seriesBoardRangeLabel({ ...DEFAULT_SERIES_FILTERS, fromSequence: 5 }),
+    'od #5',
+  );
+  assert.equal(seriesBoardRangeLabel(DEFAULT_SERIES_FILTERS), null);
+});
+
+test('the range limits matching rows and the next series without a symbol', () => {
+  assert.equal(
+    seriesMatchesFilters(series({ triggerSequenceNumber: 140 }), RANGE),
+    true,
+  );
+  assert.equal(
+    seriesMatchesFilters(series({ triggerSequenceNumber: 151 }), RANGE),
+    false,
+  );
+  const beyond = series({ id: 'series-200', triggerSequenceNumber: 200 });
+  assert.equal(pickNextUndefinedSeries([beyond], 'series-100', RANGE), null);
+  assert.equal(pickNextUndefinedSeries([beyond], 'series-100'), beyond);
+  assert.ok(
+    noUndefinedSeriesLeftMessage(RANGE).includes('w zakresie plansz #100–#150'),
+  );
 });

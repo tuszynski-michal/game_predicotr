@@ -63,12 +63,15 @@ import {
   nextUndefinedSeriesQuery,
   noUndefinedSeriesLeftMessage,
   ordinarySuperSymbols,
+  parseSeriesBoardRange,
   pickNextUndefinedSeries,
   pickSeriesRulesVersion,
   reloadSeriesList,
   replaceSeriesInList,
   selectSuperSymbolCandidate,
   seriesBadges,
+  seriesBoardRange,
+  seriesBoardRangeLabel,
   seriesCountsCaption,
   seriesListQuery,
   seriesNeighbourIndexes,
@@ -773,7 +776,11 @@ export function SuperGameSeriesWorkspace({
         : ({
             failed: false,
             error: undefined,
-            next: pickNextUndefinedSeries(result.data.items, from.id),
+            next: pickNextUndefinedSeries(
+              result.data.items,
+              from.id,
+              searchFilters,
+            ),
           } as const);
     };
     findingNextRef.current = true;
@@ -1056,6 +1063,37 @@ function SeriesList({
   readonly symbols: readonly SymbolResponse[];
 }) {
   const { filters } = list;
+  const range = seriesBoardRange(filters);
+  const [fromText, setFromText] = useState(
+    range.from === null ? '' : String(range.from),
+  );
+  const [toText, setToText] = useState(
+    range.to === null ? '' : String(range.to),
+  );
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const rangeLabel = seriesBoardRangeLabel(filters);
+
+  function applyRange() {
+    const parsed = parseSeriesBoardRange(fromText, toText);
+    if (!parsed.ok) {
+      setRangeError(parsed.message);
+      return;
+    }
+    setRangeError(null);
+    onChangeFilters({
+      ...filters,
+      fromSequence: parsed.range.from,
+      toSequence: parsed.range.to,
+    });
+  }
+
+  function clearRange() {
+    setFromText('');
+    setToText('');
+    setRangeError(null);
+    onChangeFilters({ ...filters, fromSequence: null, toSequence: null });
+  }
+
   return (
     <>
       <div className={styles.toolbar}>
@@ -1124,6 +1162,60 @@ function SeriesList({
           </label>
         </div>
       </div>
+
+      <form
+        aria-label="Zakres plansz"
+        className={styles.range}
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyRange();
+        }}
+      >
+        <label>
+          <span>Plansze od</span>
+          <input
+            inputMode="numeric"
+            onChange={(event) => setFromText(event.currentTarget.value)}
+            placeholder="1"
+            value={fromText}
+          />
+        </label>
+        <label>
+          <span>do</span>
+          <input
+            inputMode="numeric"
+            onChange={(event) => setToText(event.currentTarget.value)}
+            placeholder="bez końca"
+            value={toText}
+          />
+        </label>
+        <button className="secondaryButton" type="submit">
+          Zastosuj zakres
+        </button>
+        {rangeLabel !== null ? (
+          <>
+            <button
+              className="secondaryButton"
+              onClick={clearRange}
+              type="button"
+            >
+              Wyczyść zakres
+            </button>
+            <span className={styles.rangeActive} data-testid="board-range">
+              Zakres triggera: {rangeLabel}
+            </span>
+          </>
+        ) : (
+          <span className={styles.hint}>
+            Zakres dotyczy numeru planszy wyzwalającej serii.
+          </span>
+        )}
+      </form>
+      {rangeError !== null ? (
+        <p className={styles.error} role="alert">
+          {rangeError}
+        </p>
+      ) : null}
 
       {list.error !== null ? (
         <p className={styles.error} role="alert">
@@ -1291,7 +1383,7 @@ function SeriesView({
           className={`primaryButton ${styles.viewHeaderNext}`}
           disabled={findingNext || view.saving}
           onClick={onNextUndefined}
-          title="Otwiera następną serię bez super symbolu (filtry kompletności i przebiegu jak na liście)."
+          title="Otwiera następną serię bez super symbolu (zakres plansz i filtry kompletności oraz przebiegu jak na liście)."
           type="button"
         >
           {findingNext ? 'Szukam…' : 'Następna bez symbolu (N) →'}

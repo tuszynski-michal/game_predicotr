@@ -390,6 +390,7 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
         shared = _sha("shared")
         pending = _sha("pending")
         unfinished = _sha("unfinished")
+        abandoned = _sha("abandoned")
         unaccepted = _sha("unaccepted")
         incomplete = _sha("incomplete")
         half_quads = _sha("half-quads")
@@ -402,6 +403,7 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
         _seed_source(engine, game_b, shared, approved=False)
         _seed_source(engine, game_a, pending, pending_correction=True)
         _seed_source(engine, game_b, unfinished, import_status="waiting_for_review")
+        _seed_source(engine, game_b, abandoned, import_status="cancelled")
         _seed_source(engine, game_b, unaccepted, revision_status="needs_review")
         _seed_source(engine, game_b, incomplete, geometry_status="geometry_incomplete")
         _seed_source(engine, game_b, half_quads, board_without_quads=True)
@@ -480,11 +482,13 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
         assert results[eligible].eligible
         assert results[eligible].protected_points
         assert results[eligible].game_ids == (game_a,)
+        # D-563: an import waiting for review is settled; a cancelled one is not.
+        assert results[unfinished].eligible
         assert results[shared].exclusions == (CropExclusion.GEOMETRY_NOT_APPROVED,)
         assert set(results[shared].game_ids) == {game_a, game_b}
         expected = {
             pending: CropExclusion.PENDING_GEOMETRY_CORRECTION,
-            unfinished: CropExclusion.IMPORT_NOT_COMPLETED,
+            abandoned: CropExclusion.IMPORT_NOT_SETTLED,
             unaccepted: CropExclusion.SOURCE_REVISION_NOT_ACCEPTED,
             incomplete: CropExclusion.GEOMETRY_INCOMPLETE,
             half_quads: CropExclusion.BOARD_GEOMETRY_MISSING,
@@ -506,6 +510,39 @@ def test_eligibility_reads_every_game_sharing_an_original() -> None:
             pytest.raises(ValueError, match="SOURCE_CROP_ELIGIBILITY_SNAPSHOT_REQUIRED"),
         ):
             SourceImageCropRepository(session).eligibility()
+
+
+def test_every_import_status_is_judged_by_d563() -> None:
+    """D-563: settled imports (completed, waiting_for_review) qualify; the rest do not.
+
+    Created and processing imports also make the game's blobs ``ACTIVE_IMAGE_JOB``,
+    so each case asserts the presence or absence of ``IMPORT_NOT_SETTLED`` itself.
+    """
+
+    with application_role_database("t1051s", ("a",)) as db:
+        engine = db.owner_engine
+        game = db.games["a"]
+        statuses = ("completed", "waiting_for_review", "created", "failed", "cancelled")
+        checksums = {status: _sha(f"import-{status}") for status in (*statuses, "processing")}
+        for status in statuses:
+            _seed_source(engine, game, checksums[status], import_status=status)
+        _, processing_job = _seed_source(engine, game, checksums["processing"])
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE public.jobs SET status='processing', execution_slot=1, "
+                    "lease_owner='task-1051-test', lease_token=:token, "
+                    "lease_expires_at=now() + interval '5 minutes', heartbeat_at=now() "
+                    "WHERE id=:id"
+                ),
+                {"token": uuid4(), "id": processing_job},
+            )
+
+        results = {item.original_checksum_sha256: item for item in _eligibility(engine)}
+
+        for status, checksum in checksums.items():
+            unsettled = CropExclusion.IMPORT_NOT_SETTLED in results[checksum].exclusions
+            assert unsettled is (status not in ("completed", "waiting_for_review")), status
 
 
 def test_a_real_grid_issue_mark_excludes_the_original(

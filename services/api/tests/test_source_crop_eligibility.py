@@ -73,7 +73,10 @@ def test_a_fully_approved_blob_is_eligible_with_its_quads() -> None:
         ({"coordinate_space": None}, CropExclusion.NO_COORDINATE_METADATA),
         ({"exif_orientation": 5}, CropExclusion.ORIENTATION_UNSUPPORTED),
         ({"game_storage_status": "migrating"}, CropExclusion.GAME_STORAGE_NOT_ACTIVE),
-        ({"import_status": "waiting_for_review"}, CropExclusion.IMPORT_NOT_COMPLETED),
+        ({"import_status": "created"}, CropExclusion.IMPORT_NOT_SETTLED),
+        ({"import_status": "processing"}, CropExclusion.IMPORT_NOT_SETTLED),
+        ({"import_status": "failed"}, CropExclusion.IMPORT_NOT_SETTLED),
+        ({"import_status": "cancelled"}, CropExclusion.IMPORT_NOT_SETTLED),
         ({"geometry_completeness_status": "geometry_exception"}, CropExclusion.GEOMETRY_INCOMPLETE),
         ({"unapproved_board_count": 1}, CropExclusion.GEOMETRY_NOT_APPROVED),
         ({"incomplete_board_count": 1}, CropExclusion.BOARD_NOT_COMPLETE),
@@ -152,3 +155,12 @@ def test_facts_of_another_blob_or_board_are_rejected() -> None:
         classify_blob("f" * 64, [_facts()], [])
     with pytest.raises(ValueError):
         classify_blob(SHA, [_facts()], [_board(_facts(), {"finalQuad": QUAD})])
+
+
+@pytest.mark.parametrize("status", ["completed", "waiting_for_review"])
+def test_settled_imports_qualify(status: str) -> None:
+    """D-563: the review trigger moves an import between these two states."""
+
+    source = _facts(import_status=status)
+
+    assert classify_blob(SHA, [source], _quads(source)).eligible

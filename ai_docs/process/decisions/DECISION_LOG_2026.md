@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-10-18
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,15 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-563 — Przycinanie i usuwanie oryginałów importów oczekujących na przegląd
+
+- **Date:** 2026-10-18.
+- **Status:** accepted; operator wybrał wariant B i zaakceptował rewizję 3 [planu przycinania](../../delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md) (czat, 2026-10-18). Nie jest zgodą na uruchomienie jobów na danych operatora ani na usunięcie oryginałów.
+- **Context:** pomiar z 2026-10-17 wykazał, że wszystkie importy biblioteki są w stanie `waiting_for_review` (0 z 165 786 blobów ma import `completed`), więc reguła R5 z TASK-1044 nie przepuszczała żadnego oryginału. Stan `completed`/`waiting_for_review` ustawia trigger `synchronize_image_review_job_status_v1` według liczby oczekujących pozycji przeglądu, w obie strony; żaden z nich nie uruchamia importu. Import wraca do pracy tylko po jawnym retry operatora (`created`).
+- **Decision:** kwalifikacja przycinania i usuwania wymaga importu ustalonego: `completed` albo `waiting_for_review`. Stany `created`, `processing`, `failed` i `cancelled` wykluczają oryginał (`IMPORT_NOT_SETTLED`, zastępuje `IMPORT_NOT_COMPLETED`). Pozostałe warunki R5 bez zmian (zatwierdzona i kompletna geometria, brak korekt, propozycji, `grid_issue`, aktywnych jobów i kotwic). Retry importu po usunięciu oryginału traktuje zweryfikowany crop jak obecny oryginał, a ścieżki wymagające całej klatki odmawiają `SOURCE_ORIGINAL_CROPPED` (R11, TASK-1052).
+- **Consequences:** pula kwalifikujących się oryginałów obejmuje całą bibliotekę z zatwierdzoną geometrią. Usuwanie na danych operatora wymaga TASK-1052 i osobnej zgody (pilotaż TASK-1050). Starsze manifesty przebiegów mogą zawierać powód `IMPORT_NOT_COMPLETED`.
+- **Source:** TASK-1050 (pomiar), TASK-1051, plan przycinania rewizja 3, D-562.
 
 ## D-562 — Przycięty wariant zarządzanego oryginału
 

@@ -20,6 +20,10 @@ from game_predictor_api.domain.source_crop import (
     protected_points_from_geometry,
 )
 
+# D-563: the review trigger moves an import between these two states by its
+# pending review count; neither runs the import. A retry makes it ``created``.
+SETTLED_IMPORT_STATUSES = frozenset({"completed", "waiting_for_review"})
+
 
 class CropExclusion(StrEnum):
     """Stable reasons why a blob is not cropped; any reason excludes it."""
@@ -29,7 +33,7 @@ class CropExclusion(StrEnum):
     ORIENTATION_UNSUPPORTED = "ORIENTATION_UNSUPPORTED"
     IDENTITY_MISMATCH = "IDENTITY_MISMATCH"
     GAME_STORAGE_NOT_ACTIVE = "GAME_STORAGE_NOT_ACTIVE"
-    IMPORT_NOT_COMPLETED = "IMPORT_NOT_COMPLETED"
+    IMPORT_NOT_SETTLED = "IMPORT_NOT_SETTLED"
     GEOMETRY_INCOMPLETE = "GEOMETRY_INCOMPLETE"
     NO_ACTIVE_BOARDS = "NO_ACTIVE_BOARDS"
     GEOMETRY_NOT_APPROVED = "GEOMETRY_NOT_APPROVED"
@@ -195,8 +199,8 @@ def _source_reasons(source: CropSourceFacts, expected_path: str) -> set[CropExcl
         reasons.add(CropExclusion.ORIENTATION_UNSUPPORTED)
     if source.game_storage_status != "active":
         reasons.add(CropExclusion.GAME_STORAGE_NOT_ACTIVE)
-    if source.import_status != "completed":
-        reasons.add(CropExclusion.IMPORT_NOT_COMPLETED)
+    if source.import_status not in SETTLED_IMPORT_STATUSES:
+        reasons.add(CropExclusion.IMPORT_NOT_SETTLED)
     if source.geometry_completeness_status != "geometry_complete":
         reasons.add(CropExclusion.GEOMETRY_INCOMPLETE)
     if source.active_board_count < 1:

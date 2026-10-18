@@ -11,6 +11,7 @@ poniżej D-530 (526 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-534](DECISION_LOG_2026.md#d-534--image-import-resumption-uses-the-hard-reserve-not-the-gc-target) | Image import resumption uses the hard reserve, not the GC target | accepted | 2026-10-07 | source ingestion and in-flight image pipeline checks use the configured hard reserve in every job stage,… |
 | [D-533](DECISION_LOG_2026.md#d-533--pointsmachines-panel-with-durable-stake-saves-and-whole-panel-links) | Points/machines panel with durable stake saves and whole-panel links | accepted | 2026-10-07 | add Panel Administracyjny with points (name/city/street), named machines and editable active-game assignments. |
 | [D-532](DECISION_LOG_2026.md#d-532--integrate-the-complete-v7-code-into-the-main-vision-lab-branch) | Integrate the complete V7 code into the main vision lab branch | accepted | 2026-10-07 | transplant the V7 product and tests from calibration HEAD b087ad08b62992c54f5e26191e6408d287b64273 onto… |
 | [D-531](DECISION_LOG_2026.md#d-531--main-admin-offers-a-local-entry-to-the-approved-v7-test-panel) | Main Admin offers a local entry to the approved V7 test panel | accepted | 2026-10-07 | when main V7 remains blocked and selection is enabled, offer ordinary local navigation to the separate V7… |

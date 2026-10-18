@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1051 — Kwalifikacja przycinania dla importów oczekujących na przegląd (done)
+
+- Plik: [1051-crop-eligibility-waiting-imports.md](../tasks/completed/1051-crop-eligibility-waiting-imports.md); commit **v1.7.416** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P1 test PostgreSQL wszystkich statusów, kontrakt API, Outcome), jedna runda poprawek, wszystkie zamknięte.
+- Wynik: D-563 — import `completed` albo `waiting_for_review` kwalifikuje oryginał, `created`/`processing`/`failed`/`cancelled` wykluczają (`IMPORT_NOT_SETTLED`). Na bazie operatora (tylko odczyt) kwalifikuje się 36 z 40 blobów P1; 4 wykluczają powody geometrii.
+- Weryfikacja: 28 testów domeny, 5 testów PostgreSQL (wszystkie sześć statusów), ruff i mypy bez nowych błędów.
+
 ### TASK-1049 — Panel Storage: przycinanie zdjęć i usuwanie oryginałów (done)
 
 - Plik: [1049-storage-panel-photo-crop.md](../tasks/completed/1049-storage-panel-photo-crop.md); commit **v1.7.412 / `ef2337d1677b2fe3607748e4b74f7f2a9f522c98`** na `claude/photo-crop-stage-b`; wykonawca delegowany `claude-sonnet-5-5`/`high`, przegląd i weryfikacja `claude-opus-5-5`; bez audytu (tabela planu).

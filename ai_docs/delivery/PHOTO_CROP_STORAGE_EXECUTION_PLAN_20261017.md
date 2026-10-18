@@ -23,7 +23,7 @@ Rewizja 1 (2026-10-17, przed startem etapu A, bez zmiany decyzji operatora):
 R2 dostaje atest cropu zapisany obok pliku cropu (sekcja R2), bo
 `CanonicalSourceLoader` działa na ścieżce pliku, bez dostępu do bazy.
 
-Rewizja 3 (2026-10-18, proponowana; obowiązuje po akceptacji operatora):
+Rewizja 3 (2026-10-18, zaakceptowana przez operatora 2026-10-18, D-563):
 pomiar przed pilotażem wykazał, że wszystkie importy biblioteki są w stanie
 `waiting_for_review` (0 z 165 786 blobów ma import `completed`), więc
 kwalifikacja z TASK-1044 nie przepuszcza żadnego oryginału. Operator wybrał
@@ -484,6 +484,7 @@ gałęziach 2026-10-17. Przed utworzeniem plików tasków sprawdź ponownie.
 - Goal: R5 z rewizji 3; decyzja D-563 w rejestrze decyzji.
 - Scope: `source_crop_eligibility.py` (`IMPORT_NOT_SETTLED` zamiast
   `IMPORT_NOT_COMPLETED`), testy domeny i PostgreSQL, ponowne porównanie z P1.
+  Operator zgodził się na koszt TASK-1051 i TASK-1052 z audytami (2026-10-18).
 - Acceptance: 40 blobów P1 przechodzi albo ma wykluczenie inne niż status
   importu; importy `created`, `processing`, `failed`, `cancelled` wykluczają.
 

@@ -60,16 +60,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Operator wybrał wariant B (2026-10-18); pilot po TASK-1051 i TASK-1052.
 
-### TASK-1051 — Kwalifikacja dla importów `waiting_for_review` (todo)
-
-- Plik: `tasks/1051-crop-eligibility-waiting-imports.md`. Rewizja 3 planu, R5; czeka na akceptację rewizji.
-
 ### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (todo)
 
 - Plik: `tasks/1052-import-resume-with-cropped-originals.md`. R11; po TASK-1051.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 — tasks/completed/1051-crop-eligibility-waiting-imports.md
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md
 - **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md
 - **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 / `4d157a61` — tasks/completed/1047-source-crop-job.md
@@ -79,4 +76,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1043** — D-562, dokumentacja i czyste funkcje kadru — v1.7.404 / `415b093d` — tasks/completed/1043-source-crop-decision-and-region.md
 - **TASK-1016** — P1: galeria przycięcia zdjęć — v1.7.361 / `063f2590` — tasks/completed/1016-photo-crop-preview.md
 - **TASK-1042** — Czyszczenie zakresów usuwa oryginały — v1.7.399 / `6253c296` — tasks/completed/1042-board-source-cleanup-originals.md
-- **TASK-1001** — Odbiór procesu i instrukcja operatora — v1.7.393 / `161751ec` — tasks/completed/1001-v3-grid-fine-tuning-acceptance.md

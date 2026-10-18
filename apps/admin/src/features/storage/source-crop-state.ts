@@ -180,6 +180,7 @@ const EXCLUSION_LABELS: Record<string, string> = {
   GEOMETRY_NOT_APPROVED: 'Geometria niezatwierdzona',
   GRID_ISSUE: 'Problem z siatką',
   IDENTITY_MISMATCH: 'Niezgodna tożsamość pliku',
+  IMPORT_NOT_SETTLED: 'Import w toku, przerwany albo anulowany',
   IMPORT_NOT_COMPLETED: 'Import niezakończony',
   NOT_CROPPED: 'Nieprzycięte (brak zweryfikowanego cropu)',
   NO_ACTIVE_BOARDS: 'Brak aktywnych plansz',

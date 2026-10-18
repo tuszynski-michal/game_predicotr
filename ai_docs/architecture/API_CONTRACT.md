@@ -3032,7 +3032,11 @@ Worker liczy kwalifikację wszystkich gier, zapisuje niezmienny manifest
 `previewed` z `manifestChecksumSha256`, `previewToken`, licznikami według powodu
 (`exclusionCounts`, także `ALREADY_CROPPED`, `ORIGINAL_MISSING`,
 `ORIGINAL_HEADER_MISMATCH`, `CROP_PLAN_INVALID`), bajtami kandydatów i
-szacowaną oszczędnością. Drugi aktywny przebieg (`planning`, `created`,
+szacowaną oszczędnością. Od D-563 (TASK-1051) import źródła musi być ustalony:
+`completed` albo `waiting_for_review` kwalifikuje, a `created`, `processing`,
+`failed` i `cancelled` dają powód `IMPORT_NOT_SETTLED`. Manifesty przebiegów
+sprzed tej zmiany mogą zawierać dawny powód `IMPORT_NOT_COMPLETED` (każdy stan
+inny niż `completed`). Drugi aktywny przebieg (`planning`, `created`,
 `processing`) zwraca `409 SOURCE_CROP_RUN_ACTIVE`; nowy podgląd zastępuje
 przebieg `previewed`, którego nikt nie uruchomił (stan `cancelled`, kod
 `SOURCE_CROP_PREVIEW_SUPERSEDED`).

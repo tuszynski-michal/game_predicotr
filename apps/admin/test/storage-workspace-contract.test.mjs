@@ -51,3 +51,23 @@ test('crop panel separates deletion, warns about missing backup and gates start'
   assert.match(cropPanel, /role="dialog"/);
   assert.doesNotMatch(cropPanel, /fetch\(/);
 });
+
+const cropPanelStyles = await readFile(
+  new URL(
+    '../src/features/storage/source-crop-panel.module.css',
+    import.meta.url,
+  ),
+  'utf8',
+);
+
+test('crop panel selects use the dark, opaque Admin select style', () => {
+  assert.match(
+    cropPanelStyles,
+    /\.field select \{[^}]*background: #0b1524;[^}]*color-scheme: dark;/,
+  );
+  assert.match(
+    cropPanelStyles,
+    /\.field select option \{[^}]*background: #0b1524;[^}]*color: #f8fafc;/,
+  );
+  assert.match(cropPanel, /setGames\(selectableGames\(gameList\)\)/);
+});

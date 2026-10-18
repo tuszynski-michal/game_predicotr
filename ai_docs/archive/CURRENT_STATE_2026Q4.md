@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1053 — Panel przycinania: czytelny wybór gry, tylko gry aktywne (done)
+
+- Plik: [1053-storage-panel-game-select.md](../tasks/completed/1053-storage-panel-game-select.md); commit **v1.7.419** na `claude/storage-panel-fixes`; wykonawca Claude Code `claude-opus-5-5`/`medium`; bez audytu (poprawka UI).
+- Wynik: lista gier w panelu przycinania ma ciemny, nieprzezroczysty styl selecta jak pozostałe panele Admina; zarchiwizowane gry (np. `777v2` o tej samej nazwie co `777a2`) nie są pokazywane.
+- Weryfikacja: 801 testów Admina, lint 0 błędów, typecheck czysty, testy interakcji panelu 12/12.
+
 ### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (done)
 
 - Plik: [1052-import-resume-with-cropped-originals.md](../tasks/completed/1052-import-resume-with-cropped-originals.md); commit **v1.7.417 / `d53201b5b9911577194df1bd9068cc51a735a8bd`** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (4 × P0 stan rejestru, nowy import, override przy stagingu, manifest preflightu przed odmową; 1 × P1 test workflow), jedna runda poprawek, wszystkie zamknięte (pełny test retry importu na PostgreSQL pokryty na granicy workflow, odstępstwo w Outcome).

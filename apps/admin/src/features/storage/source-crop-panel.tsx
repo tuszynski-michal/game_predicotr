@@ -32,6 +32,7 @@ import {
   pickResumableRun,
   progressPercent,
   scopeLabel,
+  selectableGames,
   shortChecksum,
   statusLabel,
   type ScopeDraft,
@@ -112,7 +113,7 @@ export function SourceCropPanel({
         gameList = [];
       }
       if (!active) return;
-      setGames(gameList);
+      setGames(selectableGames(gameList));
       if (loaded.ok) {
         setRuns(loaded.runs);
       } else {

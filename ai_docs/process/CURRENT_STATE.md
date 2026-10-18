@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1053** — Panel przycinania: czytelny wybór gry, tylko gry aktywne — v1.7.419 / `c103f1ac` — tasks/completed/1053-storage-panel-game-select.md
+- **TASK-1054** — Panel przycinania: czytelny wybór gry, tylko gry aktywne — v1.7.419 / `c103f1ac` — tasks/completed/1054-storage-panel-game-select.md
 - **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 / `d53201b5` — tasks/completed/1052-import-resume-with-cropped-originals.md
 - **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 / `dec6f4e7` — tasks/completed/1051-crop-eligibility-waiting-imports.md
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md

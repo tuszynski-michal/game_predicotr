@@ -1,10 +1,10 @@
 ---
-title: TASK-1053 — Storage crop panel: readable game select, active games only
+title: TASK-1054 — Storage crop panel: readable game select, active games only
 status: done
 last_updated: 2026-10-18
 ---
 
-# TASK-1053 — Storage crop panel: readable game select, active games only
+# TASK-1054 — Storage crop panel: readable game select, active games only
 
 ## Status
 

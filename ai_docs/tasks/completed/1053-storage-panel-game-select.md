@@ -51,7 +51,7 @@ API changes, the other Admin panels.
 
 ## Outcome
 
-Commit: v1.7.419 (hash dopisuje kolejny commit).
+Commit: v1.7.419 / `c103f1ac373742e9fb4708e2f4e208e55b19b28d`.
 
 - Changed: `apps/admin/src/features/storage/source-crop-panel.module.css`,
   `source-crop-state.ts` (`selectableGames`), `source-crop-panel.tsx`.

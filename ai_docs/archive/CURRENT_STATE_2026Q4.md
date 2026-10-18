@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1053 — Panel przycinania: czytelny wybór gry, tylko gry aktywne (done)
 
-- Plik: [1053-storage-panel-game-select.md](../tasks/completed/1053-storage-panel-game-select.md); commit **v1.7.419** na `claude/storage-panel-fixes`; wykonawca Claude Code `claude-opus-5-5`/`medium`; bez audytu (poprawka UI).
+- Plik: [1053-storage-panel-game-select.md](../tasks/completed/1053-storage-panel-game-select.md); commit **v1.7.419 / `c103f1ac373742e9fb4708e2f4e208e55b19b28d`** na `claude/storage-panel-fixes`; wykonawca Claude Code `claude-opus-5-5`/`medium`; bez audytu (poprawka UI).
 - Wynik: lista gier w panelu przycinania ma ciemny, nieprzezroczysty styl selecta jak pozostałe panele Admina; zarchiwizowane gry (np. `777v2` o tej samej nazwie co `777a2`) nie są pokazywane.
 - Weryfikacja: 801 testów Admina, lint 0 błędów, typecheck czysty, testy interakcji panelu 12/12.
 

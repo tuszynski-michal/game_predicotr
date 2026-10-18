@@ -1,7 +1,7 @@
 ---
 title: Przycinanie zarządzanych oryginałów do siatek — plan wykonania
 status: accepted
-last_updated: 2026-10-17
+last_updated: 2026-10-18
 ---
 
 # Przycinanie zarządzanych oryginałów do siatek (P2–P4)
@@ -22,6 +22,44 @@ operatora; etapy B i C czekają na polecenie.
 Rewizja 1 (2026-10-17, przed startem etapu A, bez zmiany decyzji operatora):
 R2 dostaje atest cropu zapisany obok pliku cropu (sekcja R2), bo
 `CanonicalSourceLoader` działa na ścieżce pliku, bez dostępu do bazy.
+
+Rewizja 3 (2026-10-18, proponowana; obowiązuje po akceptacji operatora):
+pomiar przed pilotażem wykazał, że wszystkie importy biblioteki są w stanie
+`waiting_for_review` (0 z 165 786 blobów ma import `completed`), więc
+kwalifikacja z TASK-1044 nie przepuszcza żadnego oryginału. Operator wybrał
+wariant B (2026-10-18): usuwanie oryginałów także dla importów
+`waiting_for_review`. Ustalenia z kodu:
+
+- Status `completed`/`waiting_for_review` ustawia trigger
+  `synchronize_image_review_job_status_v1` (migracja 0106) według liczby
+  oczekujących pozycji przeglądu, w obie strony; `completed` nie jest więc
+  stanem trwałym.
+- Worker wznawia import tylko po jawnym retry operatora
+  (`retry_job` → `requeue_job_with_fresh_progress`, `retry_file`). Wznowienie
+  wywołuje `ensure_original` dla wszystkich oryginałów manifestu
+  (`source_ingestion.py`): brakujący plik kopiuje ze źródła, a bez źródła
+  kończy się `IMAGE_SOURCE_UNAVAILABLE`. Staging przeglądarki jest usuwany 24 h
+  po przekazaniu oryginałów i `waiting_for_review` go nie chroni.
+- Pliki już przetworzone nie są ponownie dekodowane (orkiestracja pomija pliki
+  `completed`/`failed`); raport geometry guard jest ponownie liczony tylko bez
+  raportu o tym samym fingerprincie wejścia.
+- Override geometrii strony dla stagingu (`api/image_imports.py`) dekoduje
+  całą klatkę.
+
+Zmiany rewizji 3 (R5 i R11 poniżej, TASK-1051–1052 w sekcji 5):
+
+- R5: warunek „import w stanie końcowym” zastępuje „import nie jest aktywny”:
+  `completed` albo `waiting_for_review`; `created`, `processing`, `failed` i
+  `cancelled` wykluczają (`IMPORT_NOT_SETTLED`). Pozostałe warunki R5 bez zmian.
+- R11 (nowe): oryginał zastąpiony cropem jest dla wznowienia importu
+  „obecny”. `ensure_original` przy braku pliku i wierszu rejestru
+  `original_deleted` z poprawnym atestem nie kopiuje ze źródła (oszczędność
+  zostaje) i nie kończy się błędem. Retry pojedynczego pliku, którego oryginał
+  jest usunięty, oraz każda ścieżka importu wymagająca całej klatki
+  (preflight, geometry guard bez raportu, override geometrii strony, pipeline
+  pliku) odmawiają kodem `SOURCE_ORIGINAL_CROPPED`, zanim cokolwiek zapiszą.
+- Kolejność: TASK-1051 i TASK-1052 przed pilotażem; usuwanie w pilotażu
+  (TASK-1050) dopiero po obu, za osobną zgodą.
 
 Rewizja 2 (2026-10-17, TASK-1045, ustalenia z kodu, bez zmiany decyzji
 operatora; zmniejsza tylko pulę i zakres użycia cropów):
@@ -253,7 +291,8 @@ wszystkie warunki:
   `grid_issue` i propozycji siatek (`grid_reinference.py`, `grid_geometry_proposals.py`);
 - źródło nie jest wykluczone z geometrii strony (`ImagePageSourceExclusionModel`);
 - brak aktywnych jobów odwołujących się do źródła lub jego importu;
-- import w stanie końcowym (nie staging, nie reprocess).
+- import w stanie końcowym (nie staging, nie reprocess); od rewizji 3: import
+  nieaktywny, czyli `completed` albo `waiting_for_review`.
 
 Oczekujące zatwierdzenie symboli nie wyklucza zdjęcia (ustalenie P1). Kryteria
 kolektora P1 (`artifacts/photo-crop-preview-20261014/collect_preview_sources.py`)
@@ -323,6 +362,16 @@ konfigurowalna przez `GAME_PREDICTOR_JPEGTRAN_PATH`. Instalator
 `662761D8BA8DAE04AEC74023EBAECEB856C2B56B9B59CFD180759D26300DDA42`, podpis
 SignPath Foundation; instrukcja operatorska w TASK-1047. Bez nowej zależności
 Pythona.
+
+### R11. Wznowienie importu z oryginałem zastąpionym cropem (rewizja 3)
+
+Retry importu (`retry_job`) przechodzi manifest oryginałów; plik usunięty po
+weryfikacji cropu (wiersz `original_deleted`, atest zgodny z plikiem cropu) jest
+traktowany jak obecny i nie jest kopiowany ponownie. Pliki źródeł z usuniętym
+oryginałem nie są przetwarzane ponownie; ich ponowienie (`retry_file`), override
+geometrii strony, preflight i geometry guard bez istniejącego raportu odmawiają
+`SOURCE_ORIGINAL_CROPPED`. Brak pliku bez wiersza `original_deleted` działa jak
+dotąd (kopia ze źródła albo `IMAGE_SOURCE_UNAVAILABLE`).
 
 ### R10. Cleanup i ponowny import
 
@@ -430,6 +479,25 @@ gałęziach 2026-10-17. Przed utworzeniem plików tasków sprawdź ponownie.
 
 ### Etap C — pilotaż
 
+#### TASK-1051 — Kwalifikacja dla importów `waiting_for_review` (rewizja 3)
+
+- Goal: R5 z rewizji 3; decyzja D-563 w rejestrze decyzji.
+- Scope: `source_crop_eligibility.py` (`IMPORT_NOT_SETTLED` zamiast
+  `IMPORT_NOT_COMPLETED`), testy domeny i PostgreSQL, ponowne porównanie z P1.
+- Acceptance: 40 blobów P1 przechodzi albo ma wykluczenie inne niż status
+  importu; importy `created`, `processing`, `failed`, `cancelled` wykluczają.
+
+#### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (R11)
+
+- Goal: retry importu po usunięciu oryginałów działa bez kopii i bez błędu,
+  a ścieżki wymagające całej klatki odmawiają stabilnym kodem.
+- Scope: `source_ingestion.ensure_original`, `retry_file`, override geometrii
+  strony, preflight i geometry guard importu; testy z restartem i PostgreSQL
+  (retry importu po usunięciu oryginału, staging usunięty i obecny).
+- Acceptance: retry importu z usuniętymi oryginałami kończy się bez
+  `IMAGE_SOURCE_UNAVAILABLE` i bez ponownej kopii; odmowy
+  `SOURCE_ORIGINAL_CROPPED` przed jakimkolwiek zapisem.
+
 #### TASK-1050 — Pilotaż na 40 źródłach P1 i odbiór
 
 - Goal: zmierzony wynik na danych operatora dla 40 blobów P1 i decyzja o
@@ -499,6 +567,8 @@ procedura zastępcza i aktualizacja tej tabeli.
 | TASK-1048 | `claude-opus-5-5` | `xhigh` | Jedyny krok niszczący dane bez kopii; wyścigi i restart. | Tak: Codex `gpt-6.1-sol` / `high` (zmiana operatora 2026-10-17) |
 | TASK-1049 | `claude-sonnet-5-5` | `high` | UI według istniejącego wzorca panelu Storage; eskalacja do `claude-opus-5-5`, gdy potrzebna zmiana API. | Nie |
 | TASK-1050 | `claude-opus-5-5` | `high` | Operacje na danych operatora z kolejnymi zgodami i raportem. | Nie |
+| TASK-1051 | `claude-opus-5-5` | `high` | Zmiana reguły decydującej o nieodwracalnym usunięciu. | Tak: Codex `gpt-6.1-sol` / `high` |
+| TASK-1052 | `claude-opus-5-5` | `xhigh` | Wznowienie importu po usunięciu oryginałów; wiele ścieżek pełnej klatki. | Tak: Codex `gpt-6.1-sol` / `high` |
 
 Decyzja operatora 2026-10-17 (etap B): limit Codex był bliski wyczerpania,
 więc audyty etapu B wykonuje `gpt-6.1-sol` (`high` dla jobów TASK-1047/1048,

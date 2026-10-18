@@ -1,14 +1,15 @@
 ---
-title: TASK-1050 — Photo crop pilot on operator data (plan, awaiting decision)
+title: TASK-1050 — Photo crop pilot on operator data
 status: todo
-last_updated: 2026-10-17
+last_updated: 2026-10-18
 ---
 
 # TASK-1050 — Photo crop pilot on operator data
 
 ## Status
 
-`todo` — plan for operator acceptance. A blocker (below) needs a decision first.
+`todo` — operator chose option B (2026-10-18); runs after TASK-1051 and
+TASK-1052 (plan revision 3), each step with its own consent.
 
 ## Goal
 
@@ -54,7 +55,14 @@ lossless crop (−30.4%), orientation 1, sampling 4:4:4 and 4:2:0.
 | B | Deletion also for `waiting_for_review` imports; import resume must accept a verified crop instead of the original (`ensure_original` and every resumed stage that reads whole frames). | Full pilot now. | High and irreversible: needs its own plan, decision record and audit. |
 | C | No code change. | Pilot waits until the operator completes the review of some imports. | None, but no measurement now (today: zero completed imports). |
 
-## Pilot procedure (after option A; every numbered step needs its own consent)
+**Decision (operator, 2026-10-18): option B.** Plan revision 3 adds TASK-1051
+(eligibility accepts `waiting_for_review` imports) and TASK-1052 (an import
+retry treats an original replaced by its verified crop as present; whole-frame
+paths refuse with `SOURCE_ORIGINAL_CROPPED`). A retry re-runs `ensure_original`
+for every original; browser staging is removed 24 h after the handoff, so
+without TASK-1052 a retry would fail with `IMAGE_SOURCE_UNAVAILABLE`.
+
+## Pilot procedure (after TASK-1051 and TASK-1052; every numbered step needs its own consent)
 
 The agent prepares previews and read-only checks through the local API; the
 operator starts runs in Admin → Storage (TASK-1049 panel), or tells the agent
@@ -83,24 +91,25 @@ to start them. Services are started by the operator:
    Read-only on PostgreSQL but heavy (eligibility over 165,786 blobs, 332
    pages); measures planning time and the eligible count. While it is open no
    other crop run can start; a new preview supersedes it.
-6. **Deletion** — not part of this pilot under option A. It becomes a later
-   pilot step (deletion preview → start with `acknowledgeIrreversible`, then
-   cell previews equal to the baseline, full-frame source images, reprocess
-   refused with `SOURCE_ORIGINAL_CROPPED`, `data/originals` smaller by the
-   measured bytes) when completed imports exist, or after option B.
+6. **Deletion preview, then deletion (separate consents, irreversible).**
+   Deletion preview for the same 40 checksums (bytes to free); start with
+   `acknowledgeIrreversible`. Then: cell previews equal to the baseline,
+   full-frame source images with correct overlays in Admin and Reviewer,
+   reprocess refused with `SOURCE_ORIGINAL_CROPPED`, `data/originals` smaller
+   by the measured bytes (about 11 MB for the 40 P1 originals).
 7. **Report** `ai_docs/quality/PHOTO_CROP_PILOT_<date>.md`: bytes before and
    after, time per original, outcomes, checks, extrapolation for the eligible
    pool, and the open deletion decision.
 
 ## Scope
 
-Steps 1–4 and 7 after option A (and step 5 if consented). TASK-1051 is a
-separate task with its own commit, tests and Codex audit (`gpt-6.1-sol` /
-`high`, or none when the quota is exhausted, per the operator decision).
+Steps 1–7 after TASK-1051 and TASK-1052 (step 5 only if consented).
+TASK-1051 and TASK-1052 are separate tasks with their own commits, tests and
+Codex audits (`gpt-6.1-sol` / `high`, or none when the quota is exhausted).
 
 ## Out of scope
 
-Deleting any original (step 6), option B, a library-wide crop run.
+A library-wide crop or deletion run (separate consent after the report).
 
 ## Acceptance criteria
 
@@ -111,21 +120,22 @@ Deleting any original (step 6), option B, a library-wide crop run.
 
 ## Cost and time
 
-- Tokens: TASK-1051 is a small change in eligibility with tests and one
-  audit; the pilot steps are short API calls, checks and one report. Well
-  below stage B.
+- Tokens: TASK-1051 is small (one rule, tests, audit). TASK-1052 is medium
+  (several import paths, restart and PostgreSQL tests, audit), comparable to
+  one stage A task. The pilot steps are short API calls, checks and one
+  report. Together clearly below stage B.
 - Time on the machine: steps 2–4 take minutes; step 5 is unmeasured (the
   point of measuring it).
-- Disk: about +7.6 MB of crops for the pilot; no space is freed until
-  originals are deleted.
+- Disk: about +7.6 MB of crops, then about −11 MB of originals for the
+  40 P1 blobs (net about −3.3 MB).
 
 ## Risks / open questions
 
 - The eligible pool after option A is unknown until step 2 or 5: other rules
   (pending geometry corrections, grid issues, registration anchors, active
   jobs) still exclude sources.
-- Imports in `waiting_for_review` may never be completed in normal work; then
-  storage savings require option B.
+- After deletion, a full re-import of the same file restores the original
+  (`ensure_original`), while a retry keeps the crop (R11).
 
 ## Outcome
 

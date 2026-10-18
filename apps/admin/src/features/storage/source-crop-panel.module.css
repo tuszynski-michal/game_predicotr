@@ -94,6 +94,16 @@
   background: rgba(255, 255, 255, 0.03);
   font: inherit;
 }
+/* The native option list ignores translucent backgrounds; use the dark,
+   opaque select style of the other Admin panels. */
+.field select {
+  background: #0b1524;
+  color-scheme: dark;
+}
+.field select option {
+  background: #0b1524;
+  color: #f8fafc;
+}
 .field textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;

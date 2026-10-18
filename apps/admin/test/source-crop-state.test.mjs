@@ -15,6 +15,7 @@ import {
   pickResumableRun,
   progressPercent,
   scopeLabel,
+  selectableGames,
   sourceCropErrorMessage,
   statusLabel,
 } from '../src/features/storage/source-crop-state.ts';
@@ -287,4 +288,19 @@ test('labels the crop and original deletion job types in the jobs list', () => {
     jobTypeLabel('source_original_deletion'),
     'Usuwanie oryginałów przyciętych zdjęć',
   );
+});
+
+test('game scope offers active and draft games only, with equal names kept apart', () => {
+  const games = [
+    { id: '4', code: 'mumie', name: 'Mumie a1', status: 'active' },
+    { id: '3', code: '777v2', name: '777 a2', status: 'archived' },
+    { id: '2', code: '777a2', name: '777 a2', status: 'active' },
+    { id: '1', code: '7', name: '777 a1', status: 'active' },
+    { id: '5', code: 'new', name: 'Nowa', status: 'draft' },
+  ];
+  assert.deepEqual(
+    selectableGames(games).map((game) => game.code),
+    ['7', '777a2', 'mumie', 'new'],
+  );
+  assert.equal(games.length, 5);
 });

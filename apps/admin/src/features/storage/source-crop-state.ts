@@ -36,6 +36,23 @@ export type ScopeResult =
 const SHA256 = /^[0-9a-f]{64}$/;
 
 /** Splits pasted checksums on whitespace, commas and semicolons. */
+/**
+ * Games offered as a crop scope: archived games are left out (a run may still
+ * cover them through "all games"), ordered by name and code so equal names
+ * stay distinguishable.
+ */
+export function selectableGames<
+  T extends { status: string; name: string; code: string },
+>(games: readonly T[]): T[] {
+  return games
+    .filter((game) => game.status !== 'archived')
+    .sort(
+      (left, right) =>
+        left.name.localeCompare(right.name, 'pl') ||
+        left.code.localeCompare(right.code, 'pl'),
+    );
+}
+
 export function parseChecksumList(text: string): string[] {
   const seen = new Set<string>();
   for (const part of text.split(/[\s,;]+/)) {

@@ -12,6 +12,12 @@ last_updated: 2026-10-16
 - Lista serii sekcji „Supergry”: pola „Plansze od / do” filtrują serie po numerze triggera (`cursor = od − 1`, ucinanie za końcem zakresu, bez zmiany API); „Następna bez symbolu” szuka w zakresie. Licznik serii bez symbolu zostaje globalny.
 - Testy: unit Supergier 58/58, interakcyjne 22/32 (2 nowe zielone; 10 porażek sprzed TASK-1053); typecheck, eslint, prettier OK; zakres 1–1000 sprawdzony w Adminie (10 serii). Bez audytu (brak planu).
 
+### TASK-1054 — Panel przycinania: czytelny wybór gry, tylko gry aktywne (done)
+
+- Plik: [1054-storage-panel-game-select.md](../tasks/completed/1054-storage-panel-game-select.md); commit **v1.7.419 / `c103f1ac373742e9fb4708e2f4e208e55b19b28d`** na `claude/storage-panel-fixes`; wykonawca Claude Code `claude-opus-5-5`/`medium`; bez audytu (poprawka UI).
+- Wynik: lista gier w panelu przycinania ma ciemny, nieprzezroczysty styl selecta jak pozostałe panele Admina; zarchiwizowane gry (np. `777v2` o tej samej nazwie co `777a2`) nie są pokazywane.
+- Weryfikacja: 801 testów Admina, lint 0 błędów, typecheck czysty, testy interakcji panelu 12/12.
+
 ### TASK-1053 — Następna seria supergry bez symbolu i przegląd retriggerów (done)
 
 - Plik: `tasks/completed/1053-super-series-next-undefined.md`; commit **v1.7.419 / `f0bc558cede260129722396b90ffd5e444734d3c`** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).

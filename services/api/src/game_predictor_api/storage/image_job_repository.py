@@ -219,6 +219,17 @@ class SqlAlchemyImageJobOperationsRepository(
             Mapping[str, object],
             association.workflow_checkpoint_payload,
         )
+        from game_predictor_api.storage.source_original_availability import (
+            deleted_original_checksums,
+        )
+
+        if deleted_original_checksums(self._session, (execution.source_checksum_sha256,)):
+            # D-563/R11: reprocessing a file needs its whole original frame.
+            raise JobConflictError(
+                "SOURCE_ORIGINAL_CROPPED",
+                "The file's original was replaced by its crop and cannot be processed again.",
+                details={"fileExecutionKey": file_execution_key},
+            )
         next_stage = checkpoint.get("nextStage")
         if (
             association.workflow_status != "failed"

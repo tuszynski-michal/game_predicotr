@@ -2977,6 +2977,23 @@ agregaty i checkpoint joba. Worker ponownie wylicza je z
 `image_import_job_files`; selektywny retry pliku nie może przez to wywołać
 fałszywego `JOB_PROGRESS_REGRESSION` względem agregatów poprzedniej próby.
 
+D-563/R11 (TASK-1052): retry pliku, którego oryginał usunięto po zweryfikowanym
+cropie (wiersz `source_image_crops` w stanie `original_deleted`), zwraca
+`409 SOURCE_ORIGINAL_CROPPED` bez zmiany stanu, bo ponowne przetworzenie wymaga
+całej klatki. Retry całego importu pozostaje możliwy: przy wznowieniu tego
+samego importu oryginał z wierszem `original_deleted` i cropem z atestem
+zgodnym z manifestem (suma i rozmiar oryginału, suma pliku cropu) jest dla
+ingestii obecny i nie jest kopiowany ponownie ani nie kończy joba
+`IMAGE_SOURCE_UNAVAILABLE`. Bez takiego wiersza, przy niezgodnym ateście oraz w
+nowym imporcie tego samego pliku oryginał jest kopiowany ze źródła jak dotąd.
+Pliki już przetworzone nie dekodują obrazu; nowy raport geometry guard dla
+takiego źródła kończy job kodem `SOURCE_ORIGINAL_CROPPED` (istniejący raport
+jest używany ponownie). Reprocess i ponowny preflight odmawiają tym kodem przed
+zapisaniem własnego manifestu, a override geometrii strony
+(`POST .../browser-selections/{uploadId}/page-geometry-overrides`) odmawia
+`409 SOURCE_ORIGINAL_CROPPED` także wtedy, gdy staging przeglądarki jeszcze
+istnieje.
+
 ### GET `/api/v1/admin/image-storage`
 
 Zwraca ostatni trwały, read-only inwentarz zarządzanych przestrzeni `staging`,

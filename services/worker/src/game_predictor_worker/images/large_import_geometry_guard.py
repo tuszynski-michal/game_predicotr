@@ -22,6 +22,7 @@ from .grid_profile_end_to_end_gate import (
     ProductionGateAdapterSuite,
     run_grid_profile_gate_source,
 )
+from .normalization import managed_original_is_cropped
 from .pipeline_contract import file_execution_key
 from .pipeline_execution import ImageStageContext
 from .source_ingestion import ManagedOriginal
@@ -215,6 +216,21 @@ def run_large_import_geometry_guard(
     path = artifact_root.resolve().joinpath(*PurePosixPath(relative_path).parts)
     existing = _load_existing(path, input_fingerprint=input_fingerprint)
     if existing is None:
+        # D-563/R11: a new guard report analyses whole frames; an original
+        # replaced by its crop cannot be measured (an existing report is reused).
+        if any(
+            managed_original_is_cropped(
+                artifact_root.resolve().joinpath(
+                    *PurePosixPath(original.managed_relative_path).parts
+                ),
+                original.checksum_sha256,
+            )
+            for original in selected
+        ):
+            raise JobHandlerError(
+                "SOURCE_ORIGINAL_CROPPED",
+                "A sampled original was replaced by its crop; the guard needs full frames.",
+            )
         observations = tuple(
             _evaluate_source(
                 original,

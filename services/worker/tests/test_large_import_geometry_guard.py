@@ -210,6 +210,46 @@ def test_guard_persists_and_reuses_exact_success_report(tmp_path: Path) -> None:
     assert first.report_checksum_sha256 is not None
 
 
+def _crop_every_original(root: Path, originals: tuple[ManagedOriginal, ...]) -> None:
+    """D-562 siblings: the loader treats a missing original with these as cropped."""
+
+    for original in originals:
+        directory = root / "data" / "originals-cropped" / original.checksum_sha256[:2]
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{original.checksum_sha256}.jpg").write_bytes(b"crop")
+        (directory / f"{original.checksum_sha256}.json").write_bytes(b"{}")
+
+
+def test_a_new_guard_report_refuses_originals_replaced_by_crops(tmp_path: Path) -> None:
+    """D-563/R11: measuring needs whole frames; an existing report is reused."""
+
+    originals = tuple(_original(index) for index in range(56))
+    kwargs = {
+        "artifact_root": tmp_path,
+        "job_id": UUID("22222222-2222-2222-2222-222222222222"),
+        "pipeline_fingerprint_sha256": "a" * 64,
+        "source_manifest_checksum_sha256": "b" * 64,
+        "page_geometry_manifest_checksum_sha256": "c" * 64,
+        "originals": originals,
+        "geometry_entries": _entries(originals),
+    }
+    fresh = tmp_path / "fresh"
+    _crop_every_original(fresh, originals)
+    refused_suite = _Suite()
+    with pytest.raises(JobHandlerError) as error:
+        run_large_import_geometry_guard(
+            **{**kwargs, "artifact_root": fresh, "suite": refused_suite}  # type: ignore[arg-type]
+        )
+    assert error.value.code == "SOURCE_ORIGINAL_CROPPED"
+    assert refused_suite.calls == 0
+
+    first = run_large_import_geometry_guard(**kwargs, suite=_Suite())  # type: ignore[arg-type]
+    _crop_every_original(tmp_path, originals)
+    reused_suite = _Suite()
+    again = run_large_import_geometry_guard(**kwargs, suite=reused_suite)  # type: ignore[arg-type]
+    assert again == first and reused_suite.calls == 0
+
+
 def test_guard_rejects_systemically_incomplete_final_grids(tmp_path: Path) -> None:
     originals = tuple(_original(index) for index in range(56))
 

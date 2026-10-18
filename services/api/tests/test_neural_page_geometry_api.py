@@ -265,7 +265,9 @@ def test_confirmed_range_still_checks_game_boundary():
     assert error.value.code == "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS"
 
 
-@pytest.mark.parametrize("source_drift", [None, "before_decode", "during_decode"])
+@pytest.mark.parametrize(
+    "source_drift", [None, "before_decode", "during_decode", "managed_original_cropped"]
+)
 def test_source_binding_http_and_reopened_queue_keep_exact_proposal(
     tmp_path: Path, monkeypatch, source_drift
 ):
@@ -370,6 +372,17 @@ def test_source_binding_http_and_reopened_queue_keep_exact_proposal(
         "geometryManifestChecksumSha256": checksum,
         "expectedOverrideRevision": 0,
     }
+    if source_drift == "managed_original_cropped":
+        # D-563/R11: the kept browser staging must not bypass a deleted original.
+        cropped = tmp_path / "data" / "originals-cropped" / source_sha[:2]
+        cropped.mkdir(parents=True)
+        (cropped / f"{source_sha}.jpg").write_bytes(b"crop")
+        (cropped / f"{source_sha}.json").write_bytes(b"{}")
+        with pytest.raises(JobConflictError) as refused:
+            client.post(endpoint, json=body)
+        assert refused.value.code == "SOURCE_ORIGINAL_CROPPED"
+        assert repository.values == []
+        return
     if source_drift is not None:
         if source_drift == "before_decode":
             Image.new("RGB", (500, 300), "red").save(source)

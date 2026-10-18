@@ -22,6 +22,11 @@ from game_predictor_api.domain.image_sequence_canonical import (
     parse_browser_sequence_manifest,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError
+from game_predictor_api.domain.source_crop import (
+    SourceCropError,
+    cropped_sibling_paths,
+    decode_attestation,
+)
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
@@ -95,6 +100,42 @@ class ManagedOriginalStore:
         self._artifact_root = artifact_root.resolve()
         self._data_root = self._artifact_root / "data"
         self._originals_root = self._data_root / "originals"
+
+    def manifest_exists(self, job: Job) -> bool:
+        """Whether this job already materialized its manifest (a retry, not a new import)."""
+
+        return self._safe_path(f"data/originals/manifests/{job.id}.json").exists()
+
+    def originals_replaced_in_manifest(self, source_job_id: UUID) -> tuple[str, ...]:
+        """Originals of an existing import manifest that only exist as crops (D-562).
+
+        Read before a reprocess or re-preflight materializes its own manifest, so
+        such a job refuses with ``SOURCE_ORIGINAL_CROPPED`` without a side effect.
+        """
+
+        path = self._safe_path(f"data/originals/manifests/{source_job_id}.json")
+        try:
+            value = json.loads(path.read_bytes())
+        except (OSError, json.JSONDecodeError):
+            return ()
+        items = value.get("originals") if isinstance(value, Mapping) else None
+        if not isinstance(items, list):
+            return ()
+        replaced: list[str] = []
+        for item in items:
+            try:
+                original = _parse_original(item)
+                destination = self._safe_path(original.managed_relative_path)
+                siblings = cropped_sibling_paths(destination, original.checksum_sha256)
+            except (JobHandlerError, SourceCropError):
+                continue
+            if (
+                not destination.exists()
+                and siblings is not None
+                and all(sibling.is_file() for sibling in siblings)
+            ):
+                replaced.append(original.checksum_sha256)
+        return tuple(replaced)
 
     def load_or_create_manifest(
         self,
@@ -307,10 +348,23 @@ class ManagedOriginalStore:
         self,
         manifest: ManagedSourceManifest,
         original: ManagedOriginal,
+        *,
+        replaced_by_crop: bool = False,
     ) -> bool:
+        """Copy one original into managed storage unless it is already there.
+
+        ``replaced_by_crop`` is set only by a retry of an existing import for an
+        original whose registry row is ``original_deleted`` (D-563, R11): with a
+        matching attested crop the retry keeps the crop instead of copying the
+        original back or failing with ``IMAGE_SOURCE_UNAVAILABLE``. A new import
+        of the same file never sets it and restores the original (R10).
+        """
+
         destination = self._safe_path(original.managed_relative_path)
         if destination.exists():
             self._verify_existing(destination, original)
+            return False
+        if replaced_by_crop and self._replaced_by_attested_crop(destination, original):
             return False
         source = _safe_source_path(
             manifest.source_directory,
@@ -403,6 +457,38 @@ class ManagedOriginalStore:
             checksum_sha256=hashlib.sha256(content).hexdigest(),
         )
 
+    @staticmethod
+    def _replaced_by_attested_crop(destination: Path, original: ManagedOriginal) -> bool:
+        """A missing original whose crop sibling carries a matching attestation.
+
+        The attestation names the original by checksum and size and binds the
+        crop file by its checksum (D-562). Anything else, including an
+        unreadable or foreign attestation, is treated as a missing original and
+        follows the existing copy path.
+        """
+
+        try:
+            siblings = cropped_sibling_paths(destination, original.checksum_sha256)
+        except SourceCropError:
+            return False
+        if siblings is None:
+            return False
+        crop, attestation_path = siblings
+        if any(path.is_symlink() or not path.is_file() for path in siblings):
+            return False
+        try:
+            attestation = decode_attestation(
+                attestation_path.read_bytes(),
+                expected_original_checksum_sha256=original.checksum_sha256,
+            )
+            crop_checksum = sha256_file(crop)
+        except (OSError, SourceCropError, ImageFileError):
+            return False
+        return (
+            attestation.original_size_bytes == original.size_bytes
+            and crop_checksum == attestation.crop_checksum_sha256
+        )
+
     def _verify_existing(self, path: Path, original: ManagedOriginal) -> None:
         if path.is_symlink() or not path.is_file():
             raise JobHandlerError(
@@ -486,8 +572,13 @@ class ImageSourceIngestionHandler:
         job: Job,
         *,
         originals: Sequence[ManagedOriginal] | None = None,
+        replaced_originals: frozenset[str] = frozenset(),
     ) -> ManagedSourceManifest:
-        """Copy managed originals and return their immutable manifest to the pipeline."""
+        """Copy managed originals and return their immutable manifest to the pipeline.
+
+        ``replaced_originals`` lists originals of a retried import whose registry
+        row is ``original_deleted`` (R11); see ``ManagedOriginalStore.ensure_original``.
+        """
 
         payload = job.input_payload
         if payload.get("import_kind") != "image_directory":
@@ -530,7 +621,11 @@ class ImageSourceIngestionHandler:
                         "schema_version": 1,
                     }
                 )
-            self._store.ensure_original(manifest, original)
+            self._store.ensure_original(
+                manifest,
+                original,
+                replaced_by_crop=original.checksum_sha256 in replaced_originals,
+            )
             copied = index
             if index % COPY_CHECKPOINT_BATCH_SIZE == 0 or index == total:
                 context.checkpoint(

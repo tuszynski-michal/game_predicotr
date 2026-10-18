@@ -410,6 +410,7 @@ class ProductionImageImportWorkflow:
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._hard_reserve_bytes = hard_reserve_bytes
+        self._session_factory = session_factory
         self._original_store = ManagedOriginalStore(self._artifact_root)
         self._source_handler = ImageSourceIngestionHandler(
             self._original_store,
@@ -429,6 +430,7 @@ class ProductionImageImportWorkflow:
         # D-467 (TASK-0790): a job pinned to the removed legacy (file-crop) or
         # shadow engine fails before any source, board or observation write.
         _require_virtual_geometry_rollout(_geometry_rollout_snapshot(job))
+        retry = self._original_store.manifest_exists(job)
         manifest = self._original_store.load_or_create_manifest(
             job,
             source_directory=_source_directory(job),
@@ -447,6 +449,8 @@ class ProductionImageImportWorkflow:
         manifest = self._source_handler.ingest(
             cast(JobExecutionContext, source_context),
             job,
+            # D-563/R11: only a retry of this import keeps crops of deleted originals.
+            replaced_originals=(self._replaced_originals(manifest) if retry else frozenset()),
         )
         self._record_browser_staging_handoff(job, manifest, completed_at=context.now())
         geometry_manifest = _page_geometry_manifest(
@@ -712,6 +716,18 @@ class ProductionImageImportWorkflow:
             },
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+    def _replaced_originals(self, manifest: ManagedSourceManifest) -> frozenset[str]:
+        """Originals of the manifest whose registry row is ``original_deleted``."""
+
+        from game_predictor_api.storage.source_original_availability import (
+            deleted_original_checksums,
+        )
+
+        with self._session_factory() as session:
+            return deleted_original_checksums(
+                session, (original.checksum_sha256 for original in manifest.originals)
+            )
 
     def _has_pipeline_capacity(self, _job: Job) -> bool:
         # The GC target is not a second admission threshold for a paused import.

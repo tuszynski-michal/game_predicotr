@@ -243,6 +243,14 @@ class NeuralPageGeometryPreflightHandler:
             _verify_browser_source_manifest(
                 directory, expected_checksum=cast(str, payload["sourceManifestChecksumSha256"])
             )
+        if managed_reprepare and originals.originals_replaced_in_manifest(
+            UUID(str(job.input_payload["managed_source_job_id"]))
+        ):
+            # Refuse before this job materializes its own manifest (no side effect).
+            raise JobHandlerError(
+                SOURCE_ORIGINAL_CROPPED,
+                "Neural page geometry preflight needs the full managed original.",
+            )
         manifest = originals.load_or_create_manifest(
             replace(job, input_payload={**job.input_payload, "schema_version": 6})
             if managed_reprepare

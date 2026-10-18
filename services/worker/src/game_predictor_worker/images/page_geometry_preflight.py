@@ -264,6 +264,12 @@ class PageGeometryPreflightHandler:
                 source_directory,
                 expected_checksum=cast(str, payload["sourceManifestChecksumSha256"]),
             )
+        if managed_reprepare and self._originals.originals_replaced_in_manifest(managed_id):
+            # Refuse before this job materializes its own manifest (no side effect).
+            raise JobHandlerError(
+                SOURCE_ORIGINAL_CROPPED,
+                "Page geometry preflight needs the full managed original.",
+            )
         try:
             managed = self._originals.load_or_create_manifest(
                 replace(job, input_payload={**job.input_payload, "schema_version": 6})

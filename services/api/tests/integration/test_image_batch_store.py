@@ -58,7 +58,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListFilter,
 )
-from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
+from game_predictor_api.domain.jobs import Job, JobConflictError, JobStatus, JobType, create_job
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -114,6 +114,7 @@ from game_predictor_api.storage.models import (
 from game_predictor_api.storage.pending_sequence_ownership import (
     create_owned_pending_review_item,
 )
+from game_predictor_api.storage.source_image_crop_repository import SourceImageCropRepository
 from game_predictor_worker.images.orchestration import (
     ImageStageExecutionResult,
     advance_file_checkpoint,
@@ -134,6 +135,7 @@ from sqlalchemy import MetaData, Table, create_engine, delete, func, null, selec
 from sqlalchemy.engine import URL, Connection, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from test_source_image_crops_postgres import _attestation
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -3586,6 +3588,29 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
             assert diagnostic.failures[0].file_execution_key == (registered.file_execution_key)
             assert diagnostic.failures[0].source_relative_path == ("batch/page-004.jpg")
             assert diagnostic.failures[0].error_code == "IMAGE_DISCOVERY_FAILED"
+
+            # D-563/R11: a file whose original was replaced by its crop is not retried.
+            with Session(engine) as owner, owner.begin():
+                crops = SourceImageCropRepository(owner)
+                crops.record_verified(
+                    _attestation("4" * 64),
+                    attestation_sha256="d" * 64,
+                    job_id=None,
+                    verified_at=now,
+                )
+                crops.mark_original_deleted("4" * 64, deleted_at=now + timedelta(seconds=1))
+            with pytest.raises(JobConflictError) as cropped:
+                repository.retry_file(
+                    job.id,
+                    file_execution_key=registered.file_execution_key,
+                    expected_stage="discovery",
+                    retried_at=now + timedelta(seconds=12),
+                    file_limit=10,
+                )
+            assert cropped.value.code == "SOURCE_ORIGINAL_CROPPED"
+            assert repository.get_operations(job.id, file_limit=10).failed == 1
+            with Session(engine) as owner, owner.begin():
+                owner.execute(text("DELETE FROM public.source_image_crops"))
 
             after = repository.retry_file(
                 job.id,

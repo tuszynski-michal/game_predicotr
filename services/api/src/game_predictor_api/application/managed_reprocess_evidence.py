@@ -96,6 +96,17 @@ def require_full_managed_originals(source: Job, *, artifact_root: Path) -> None:
             raise _original_cropped()
 
 
+def managed_original_replaced_by_crop(artifact_root: Path, checksum: str) -> bool:
+    """Whether the managed original of ``checksum`` only exists as its crop (D-562)."""
+
+    from game_predictor_worker.images.normalization import managed_original_is_cropped
+
+    root = artifact_root.resolve()
+    return managed_original_is_cropped(
+        _managed_path(root, _managed_original_relative(checksum)), checksum
+    )
+
+
 def _managed_original_relative(checksum: str) -> PurePosixPath:
     return PurePosixPath("data", "originals", checksum[:2], f"{checksum}.jpg")
 

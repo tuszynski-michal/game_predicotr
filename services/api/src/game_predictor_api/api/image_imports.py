@@ -41,6 +41,7 @@ from game_predictor_api.application.iterative_image_imports import (
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.managed_reprocess_evidence import (
     ManagedReprocessEvidenceError,
+    managed_original_replaced_by_crop,
     resolve_managed_browser_selection,
     resolve_managed_page_source,
 )
@@ -2494,6 +2495,15 @@ def create_image_imports_router(
             raise JobError(
                 "IMAGE_PAGE_GEOMETRY_OVERRIDE_UNAVAILABLE",
                 "Page geometry corrections are not configured.",
+            )
+        if resolved_artifact_root is not None and managed_original_replaced_by_crop(
+            resolved_artifact_root, payload.source_checksum_sha256
+        ):
+            # D-563/R11: a page override re-registers the whole frame; even a kept
+            # browser staging must not bypass the deleted managed original.
+            raise JobConflictError(
+                "SOURCE_ORIGINAL_CROPPED",
+                "The managed original was replaced by its crop; page geometry needs it.",
             )
         source_path, source_relative_path = page_source_asset(
             upload_id=upload_id,

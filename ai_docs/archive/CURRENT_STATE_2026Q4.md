@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1052 — Wznowienie importu z oryginałem zastąpionym cropem (done)
+
+- Plik: [1052-import-resume-with-cropped-originals.md](../tasks/completed/1052-import-resume-with-cropped-originals.md); commit **v1.7.417** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`xhigh`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (4 × P0 stan rejestru, nowy import, override przy stagingu, manifest preflightu przed odmową; 1 × P1 test workflow), jedna runda poprawek, wszystkie zamknięte (pełny test retry importu na PostgreSQL pokryty na granicy workflow, odstępstwo w Outcome).
+- Wynik: retry tego samego importu zachowuje crop oryginału `original_deleted` (bez kopii i bez `IMAGE_SOURCE_UNAVAILABLE`), nowy import przywraca oryginał; retry pliku, override geometrii strony, ponowny preflight i nowy raport geometry guard odmawiają `SOURCE_ORIGINAL_CROPPED` bez skutków ubocznych.
+- Weryfikacja: worker 428 testów, API 277, PostgreSQL retry pliku i usuwanie e2e, ruff i mypy bez nowych błędów.
+
 ### TASK-1051 — Kwalifikacja przycinania dla importów oczekujących na przegląd (done)
 
-- Plik: [1051-crop-eligibility-waiting-imports.md](../tasks/completed/1051-crop-eligibility-waiting-imports.md); commit **v1.7.416** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P1 test PostgreSQL wszystkich statusów, kontrakt API, Outcome), jedna runda poprawek, wszystkie zamknięte.
+- Plik: [1051-crop-eligibility-waiting-imports.md](../tasks/completed/1051-crop-eligibility-waiting-imports.md); commit **v1.7.416 / `dec6f4e737b1196c770d0fa2620ae1dd08751421`** na `claude/photo-crop-pilot`; wykonawca Claude Code `claude-opus-5-5`/`high`, audyt Codex `gpt-6.1-sol`/`high`: R1 REVISE (3 × P1 test PostgreSQL wszystkich statusów, kontrakt API, Outcome), jedna runda poprawek, wszystkie zamknięte.
 - Wynik: D-563 — import `completed` albo `waiting_for_review` kwalifikuje oryginał, `created`/`processing`/`failed`/`cancelled` wykluczają (`IMPORT_NOT_SETTLED`). Na bazie operatora (tylko odczyt) kwalifikuje się 36 z 40 blobów P1; 4 wykluczają powody geometrii.
 - Weryfikacja: 28 testów domeny, 5 testów PostgreSQL (wszystkie sześć statusów), ruff i mypy bez nowych błędów.
 

@@ -125,7 +125,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/layout_import_reports.py: class LayoutImportReportRepository, class LayoutImportReportService
 - application/layout_imports.py: class InspectedLayoutImportSource, class LayoutImportSourceInspector
 - application/legacy_board_conversion.py: class LegacyConversionBoardPlan, class LegacyConversionSourcePlan, class LegacyConversionBoardResult, class LegacyConversionSourceResult, class LegacyBoardConversionError, class LegacyBoardConversionRepository, class LegacyBoardConversionService
-- application/managed_reprocess_evidence.py: class ManagedReprocessEvidenceError, class ManagedReprocessEvidence, resolve_managed_preflight_source, require_full_managed_originals, resolve_managed_page_source, resolve_managed_browser_selection, resolve_managed_reprocess_evidence
+- application/managed_reprocess_evidence.py: class ManagedReprocessEvidenceError, class ManagedReprocessEvidence, resolve_managed_preflight_source, require_full_managed_originals, managed_original_replaced_by_crop, resolve_managed_page_source, resolve_managed_browser_selection, resolve_managed_reprocess_evidence
 - application/management.py: class ManagementRepository, class ManagementService
 - application/management_access.py: class ManagementSessionRecord, class ManagementSessionRepository, class ManagementAccessService, session_status
 - application/management_ingress.py: stop_unused_shared_ingress

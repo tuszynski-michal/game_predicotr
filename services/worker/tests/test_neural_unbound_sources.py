@@ -193,7 +193,8 @@ def _workflow(
     workflow._artifact_root = tmp_path  # type: ignore[attr-defined]
     workflow._repository_root = tmp_path  # type: ignore[attr-defined]
     workflow._original_store = SimpleNamespace(  # type: ignore[attr-defined]
-        load_or_create_manifest=lambda *_args, **_kwargs: manifest
+        load_or_create_manifest=lambda *_args, **_kwargs: manifest,
+        manifest_exists=lambda *_args: False,
     )
     workflow._source_handler = SimpleNamespace(  # type: ignore[attr-defined]
         ingest=lambda *_args, **_kwargs: manifest

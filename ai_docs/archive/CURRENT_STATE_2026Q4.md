@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1053 — Następna seria supergry bez symbolu i przegląd retriggerów (done)
 
-- Plik: `tasks/completed/1053-super-series-next-undefined.md`; commit **v1.7.419** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).
+- Plik: `tasks/completed/1053-super-series-next-undefined.md`; commit **v1.7.419 / `f0bc558cede260129722396b90ffd5e444734d3c`** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).
 - Widok serii sekcji „Supergry”: przycisk „Następna bez symbolu (N) →” i klawisz `N` otwierają następną po triggerze serię bez super symbolu (filtry kompletności i przebiegu z listy, `cursor` = trigger, bez zmiany API), z powrotem na początek listy; niezapisany wybór blokuje przejście.
 - Udany zapis symbolu przechodzi do następnej serii bez symbolu; w serii z retriggerami `Enter` najpierw pokazuje i potwierdza każdy retrigger (stan ekranu), zapis dopiero po ostatnim. Wyczyszczenie symbolu zostawia serię.
 - Testy: unit Supergier 54/54, interakcyjne 20/30 (11 nowych zielonych; 10 porażek sprzed zmiany, fixture'y bez `counts`); typecheck, eslint i prettier OK; render sprawdzony w Adminie bez zapisu. Bez audytu (brak planu).

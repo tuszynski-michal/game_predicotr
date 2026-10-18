@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 — tasks/completed/1053-super-series-next-undefined.md
+- **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 / `f0bc558c` — tasks/completed/1053-super-series-next-undefined.md
 - **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 / `d53201b5` — tasks/completed/1052-import-resume-with-cropped-originals.md
 - **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 / `dec6f4e7` — tasks/completed/1051-crop-eligibility-waiting-imports.md
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md

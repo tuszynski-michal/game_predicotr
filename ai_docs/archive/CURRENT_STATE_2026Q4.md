@@ -6,9 +6,9 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
-### TASK-1054 — Filtr zakresu plansz serii supergry (done)
+### TASK-1055 — Filtr zakresu plansz serii supergry (done)
 
-- Plik: `tasks/completed/1054-super-series-board-range-filter.md`; commit **v1.7.421 / `3b9a1df8806f8e365c8d3d6a8232fa06ef36faeb`** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).
+- Plik: `tasks/completed/1055-super-series-board-range-filter.md`; commit **v1.7.421 / `3b9a1df8806f8e365c8d3d6a8232fa06ef36faeb`** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).
 - Lista serii sekcji „Supergry”: pola „Plansze od / do” filtrują serie po numerze triggera (`cursor = od − 1`, ucinanie za końcem zakresu, bez zmiany API); „Następna bez symbolu” szuka w zakresie. Licznik serii bez symbolu zostaje globalny.
 - Testy: unit Supergier 58/58, interakcyjne 22/32 (2 nowe zielone; 10 porażek sprzed TASK-1053); typecheck, eslint, prettier OK; zakres 1–1000 sprawdzony w Adminie (10 serii). Bez audytu (brak planu).
 

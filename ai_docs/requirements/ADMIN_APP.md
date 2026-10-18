@@ -1833,7 +1833,7 @@ Lista serii:
   (`verified`/`unverified`) oraz super symbol (z symbolem / do
   zdefiniowania); zmiana filtru zaczyna listę od nowa, a spóźniona odpowiedź
   poprzedniego filtru jest ignorowana,
-- filtr zakresu plansz (TASK-1054): pola „Plansze od” i „do” (liczby
+- filtr zakresu plansz (TASK-1055): pola „Plansze od” i „do” (liczby
   całkowite od 1, każde pole może zostać puste) z przyciskiem „Zastosuj
   zakres” (także `Enter`) i „Wyczyść zakres”. Seria należy do zakresu, gdy
   jej trigger leży w zakresie (oba końce włącznie). Admin zaczyna listę od

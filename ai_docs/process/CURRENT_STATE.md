@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1054** — Filtr zakresu plansz serii supergry — v1.7.421 / `3b9a1df8` — tasks/completed/1054-super-series-board-range-filter.md
+- **TASK-1055** — Filtr zakresu plansz serii supergry — v1.7.421 / `3b9a1df8` — tasks/completed/1055-super-series-board-range-filter.md
 - **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 / `f0bc558c` — tasks/completed/1053-super-series-next-undefined.md
 - **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 / `d53201b5` — tasks/completed/1052-import-resume-with-cropped-originals.md
 - **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 / `dec6f4e7` — tasks/completed/1051-crop-eligibility-waiting-imports.md

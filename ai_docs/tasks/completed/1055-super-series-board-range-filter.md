@@ -1,4 +1,4 @@
-# TASK-1054 — Filtr zakresu plansz na liście serii supergry
+# TASK-1055 — Filtr zakresu plansz na liście serii supergry
 
 ## Status
 
@@ -88,6 +88,9 @@ npm run typecheck --workspace @game-predictor/admin
 ## Risks / open questions
 
 - Założenie: zakres dotyczy numeru planszy wyzwalającej serii (triggera).
+- Numer zmieniony z TASK-1054 przed scaleniem do `main` (kolizja z
+  równoległą sesją: TASK-1054 na `main` to panel przycinania). Commity
+  v1.7.421–422 zostają z dawnym numerem w opisie.
 
 ## Outcome
 

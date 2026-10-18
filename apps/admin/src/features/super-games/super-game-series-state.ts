@@ -31,7 +31,7 @@ export interface SeriesFilters {
   readonly runVerification: RunVerificationFilter;
   readonly defined: DefinedFilter;
   /**
-   * Range of the trigger board numbers (TASK-1054), both ends included;
+   * Range of the trigger board numbers (TASK-1055), both ends included;
    * `null` (or a missing field) leaves that end open.
    */
   readonly fromSequence?: number | null;

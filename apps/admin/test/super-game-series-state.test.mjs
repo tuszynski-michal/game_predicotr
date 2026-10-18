@@ -992,7 +992,7 @@ test('clearing the symbol, no retriggers and a refresh skip or restart the revie
   assert.deepEqual(refreshed.confirmedRetriggers, []);
 });
 
-// --- TASK-1054: board range ---------------------------------------------
+// --- TASK-1055: board range ---------------------------------------------
 
 const RANGE = { ...DEFAULT_SERIES_FILTERS, fromSequence: 100, toSequence: 150 };
 

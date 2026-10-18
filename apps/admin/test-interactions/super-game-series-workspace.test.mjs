@@ -1204,7 +1204,7 @@ test('a series without retriggers saves on the first Enter', async () => {
   await act(async () => root.unmount());
 });
 
-// --- TASK-1054: board range filter --------------------------------------
+// --- TASK-1055: board range filter --------------------------------------
 
 function rangeStoreClient(triggers) {
   const base = storeClient(triggers.map((trigger) => seriesAt(trigger)));

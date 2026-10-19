@@ -5,10 +5,10 @@ import type {
   SymbolCellReviewPredictionSource,
 } from '@game-predictor/admin-api-client';
 
-export const DEFAULT_SYMBOL_REVIEW_PAGE_SIZE = 500;
+export const DEFAULT_SYMBOL_REVIEW_PAGE_SIZE = 2_500;
 export const MIN_SYMBOL_REVIEW_PAGE_SIZE = 1;
 export const MAX_SYMBOL_REVIEW_PAGE_SIZE = 2_500;
-export const SYMBOL_REVIEW_PAGE_SIZES = [500, 1_000, 2_000, 2_500] as const;
+export const SYMBOL_REVIEW_PAGE_SIZES = [100, 500, 1_000, 2_000, 2_500] as const;
 export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
 
 export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];

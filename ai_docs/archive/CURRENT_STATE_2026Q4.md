@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1070 — Rozmiar strony weryfikacji symboli (done)
+
+- Plik: `tasks/completed/1070-symbol-review-page-size.md`.
+- Commit: **v1.7.445**.
+- Filtr „Na stronę” ma opcje 100/500/1000/2000/2500 i domyślnie 2500.
+- Weryfikacja: 26/26 testów, ESLint, Prettier testu i typecheck Admina PASS; mapa kodu zregenerowana bez zmian.
+- Zaktualizowano wymagania. Bez zmian API, restartów, buildu i odbioru przeglądarkowego; audyt niewymagany.
+
 ### TASK-1069 — Kompaktowy styl zakresu pewności symboli (done)
 
 - Plik: `tasks/completed/1069-symbol-confidence-compact-style.md`.

@@ -1176,8 +1176,8 @@ a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
 Gra oraz zakres symbolu są domyślnie niewybrane. Wejście do zakładki nie pobiera
-strony cropów. Operator wybiera rozmiar strony `500`, `1000`, `2000` albo
-`2500` metadanych; domyślnie jest to `500`. Pierwsza strona jest pobierana
+strony cropów. Operator wybiera rozmiar strony `100`, `500`, `1000`, `2000` albo
+`2500` metadanych; domyślnie jest to `2500`. Pierwsza strona jest pobierana
 automatycznie dopiero po wskazaniu kombinacji obu pól. Zmiana gry ponownie
 czyści wybór symbolu; osobne akcje `Zatwierdź wybór` i `Zmień wybór` nie
 występują. Globalne liczniki nie należą

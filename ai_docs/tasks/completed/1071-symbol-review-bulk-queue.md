@@ -70,7 +70,7 @@ audytu. Dane operatora i zastane zmiany artefaktów nie należą do zakresu.
 
 ## Outcome
 
-Commit: v1.7.447 (hash dopisuje kolejny commit).
+Commit: v1.7.447 / `a88af5c2f2289cca6c498c4b2faa7833e5faf715`.
 
 ### Changed
 

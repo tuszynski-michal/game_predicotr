@@ -6,10 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1060 — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku (done)
+
+- Plik: `tasks/completed/1060-share-super-series-decision-docs.md`.
+- Commit: **v1.7.428** (gałąź `claude/share-super-series`).
+- Wynik: D-564 (super symbol serii definiowany także przez odbiorcę linku udostępniania; `seriesId` w markerach udostępnienia, cztery trasy publiczne, aktor `board-search-share:<sessionId>`, bez wpisów dziennika, panel zarządzania bez zmian) w `DECISION_LOG_2026.md` i indeksie (D-535 do archiwum indeksu); `ADMIN_APP.md` (modal serii odbiorcy, wspólny komponent widoku serii), `API_CONTRACT.md` (trasy i modele publiczne, `superGameTriggerCount`, kody błędów), `REMOTE_REVIEWER_THREAT_MODEL.md` (allowlista z `PUT super-symbol`), `DATA_MODEL.md` (`defined_by`). `npm run docs:check` OK.
+
 ### TASK-1058 — Wyniesienie widoku serii supergry do `board-search-ui` (done)
 
 - Plik: `tasks/completed/1058-super-series-panel-extraction.md`.
-- Commit: **v1.7.427** (gałąź `claude/share-super-series`).
+- Commit: **v1.7.427 / `8d682a44bc3942ff822c41bab1d34f8c9973e7c5`** (gałąź `claude/share-super-series`).
 - Wynik: `packages/board-search-ui/src/super-game-series/` z `SuperGameSeriesPanel` (cykl otwartej serii: odczyt, karuzela z oznaczonymi komórkami symbolu uruchamiającego, zapis CAS z przeglądem retriggerów, „Następna bez symbolu”, skróty, okno linii, toast), stanem, skrótami, typem `SuperGameSeriesViewClient` i globalnym arkuszem `super-game-series.css`; Admin zachowuje listę, filtry, zakres, derive i odpytywanie stanu, a serię renderuje panelem przez adapter `seriesViewClient`. Testy: 8 nowych testów interakcji pakietu, 804 testy node Admina, interakcje Admina 22/32 (te same 10 porażek sprzed TASK-1053 co na `main`; test dostał hook jednej kopii React). Mapa kodu zregenerowana (także symbole TASK-1056).
 
 ### TASK-1056 — Publiczne trasy serii supergry udostępnionej wyszukiwarki (done)

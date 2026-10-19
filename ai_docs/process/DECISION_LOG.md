@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-10-19
 ---
 
 # Decision Log
@@ -32,6 +32,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-564](decisions/DECISION_LOG_2026.md#d-564--super-symbol-serii-definiowany-także-przez-odbiorcę-linku-udostępniania) | Super symbol serii definiowany także przez odbiorcę linku udostępniania | accepted | 2026-10-18 | Odbiorca linku otwiera serię z każdego znacznika supergry i definiuje super symbol przez cztery trasy publiczne z aktorem sesji; `seriesId` w markerach udostępnienia, panel zarządzania bez zmian. |
 | [D-563](decisions/DECISION_LOG_2026.md#d-563--przycinanie-i-usuwanie-oryginałów-importów-oczekujących-na-przegląd) | Przycinanie i usuwanie oryginałów importów oczekujących na przegląd | accepted | 2026-10-18 | Import `completed` albo `waiting_for_review` kwalifikuje oryginał; aktywne, przerwane i anulowane importy wykluczają (`IMPORT_NOT_SETTLED`). |
 | [D-562](decisions/DECISION_LOG_2026.md#d-562--przycięty-wariant-zarządzanego-oryginału) | Przycięty wariant zarządzanego oryginału | accepted | 2026-10-17 | Bezstratny crop JPEG z atestem obok pliku zastępuje usunięty oryginał; współrzędne i zatwierdzenia bez zmian, odczyt poza kadrem kończy się błędem. |
 | [D-561](decisions/DECISION_LOG_2026.md#d-561--parity-eksportu-onnx-względna-do-wielkości-wyjścia) | Parity eksportu ONNX względna do wielkości wyjścia | accepted | 2026-10-16 | Różnica torch/ONNX dzielona przez max(1, moduł wyjścia torch): współrzędne w pikselach nie padają na szumie fp32, wyjścia jednostkowe bez zmian. |
@@ -61,4 +62,3 @@ Reguły:
 | [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
 | [D-536](decisions/DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |
-| [D-535](decisions/DECISION_LOG_2026.md#d-535--gra-mumie-wild-symbol-uruchamiający-supergrę-i-rodzaj-supergry-wild-super-spins) | Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins” | accepted | 2026-10-08 | dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild” (kolumna symbols.is_wildcard zostaje). |

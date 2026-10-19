@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,15 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-564 — Super symbol serii definiowany także przez odbiorcę linku udostępniania
+
+- **Date:** 2026-10-18.
+- **Status:** accepted; decyzja operatora (czat, 2026-10-18) i zaakceptowany [plan widoku serii dla odbiorcy linku](../../delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md) (2026-10-19). Nie jest zgodą na scalenie do `main`, push ani restart usług.
+- **Context:** D-535 ustaliła, że super symbol definiuje operator ręcznie w Adminie, a TASK-0935 nie udostępniał tożsamości serii (`seriesId`) poza Adminem. Odbiorca linku udostępnionej wyszukiwarki (D-471, D-548) widzi znaczniki supergry i poprawia symbole plansz (D-492), ale nie może przejrzeć serii ani zdefiniować jej super symbolu; weryfikował to wyłącznie operator w Adminie.
+- **Decision:** odbiorca linku (link jednej gry i panel wielu gier) otwiera z każdego znacznika supergry (trigger i spin, karta wyniku i wiersz „Przybliżonej wygranej”) modal z tym samym widokiem serii co w Adminie: wspólny `SuperGameSeriesPanel` pakietu `board-search-ui` (karuzela pozycji z oznaczonymi komórkami symbolu uruchamiającego, zapis super symbolu z CAS `expectedRevision` i przeglądem retriggerów, okno linii z poprawkami symboli, „Następna bez symbolu (N)”). API udostępnienia dostaje cztery trasy `/api/v1/board-search-shares/super-game-series/{state, next-undefined, {seriesId}/boards, PUT {seriesId}/super-symbol}` z grą wyłącznie z sesji i bez identyfikatorów przeglądu, importu, `gameId`, `definedBy` i generacji; markery `search` i `approximate-win` udostępnienia niosą `seriesId`, a `symbols` — `superGameTriggerCount`. Panel zarządzania (D-533) nadal nie zwraca `seriesId`. Zapis odbiorcy ma aktora `board-search-share:<sessionId>` w `defined_by` i w audycie serii (jak korekty D-492); odczyty serii nie tworzą wpisów dziennika zapytań linku. Lista serii, filtry, zakres plansz i „Przelicz serie” pozostają tylko w Adminie.
+- **Consequences:** zmienia D-535 (super symbol definiuje operator albo odbiorca linku) i D-548 (każdy posiadacz linku definiuje super symbole wybranych gier; link pozostaje pełnym zaufaniem w tym zakresie). `definedBy` serii w Adminie może wskazywać sesję linku. Tożsamość serii jest uchwytem zasobu publicznego, nie sekretem; identyfikatory przeglądu i importu oraz ścieżki nadal nie opuszczają API. Allowlista proxy Reviewera zyskuje `PUT` jako drugą mutację z tymi samymi wymaganiami co korekta.
+- **Source:** plan `SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md`, TASK-1056–1060; D-492, D-535, D-536, D-537, D-548.
 
 ## D-563 — Przycinanie i usuwanie oryginałów importów oczekujących na przegląd
 

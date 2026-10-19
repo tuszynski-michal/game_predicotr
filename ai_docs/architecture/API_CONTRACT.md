@@ -1060,7 +1060,7 @@ oczekującej planszy listują zmiany po ostatnio przejrzanej rewizji.
 Jawny przegląd sprawdza rewizję korekt i SHA wszystkich aktualnych komórek.
 Nowsza korekta ponownie otwiera przegląd. Zamknięcie okna nie wysyła POST.
 
-### Publiczna powierzchnia udostępniania (D-471, D-472, D-492, TASK-0767/0845)
+### Publiczna powierzchnia udostępniania (D-471, D-472, D-492, D-564, TASK-0767/0845/1056)
 
 Trasy są osiągalne tylko przez proxy Reviewera: każde żądanie musi mieć
 nagłówek `X-Board-Search-Share-Proxy: reviewer-board-search-v1`
@@ -1088,12 +1088,44 @@ GET  /api/v1/board-search-shares/boards/{sequenceNumber}
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
      ?expectedBoardChecksumSha256=&viewRevision=
 POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decision
+GET  /api/v1/board-search-shares/super-game-series/state
+GET  /api/v1/board-search-shares/super-game-series/next-undefined?afterTrigger=
+GET  /api/v1/board-search-shares/super-game-series/{seriesId}/boards
+PUT  /api/v1/board-search-shares/super-game-series/{seriesId}/super-symbol
 ```
 
 - `unlock` i `context` zwracają `{ sessionId, label, gameName, expiresAt }`.
 - `symbols` zwraca symbole bez ścieżek: zamiast `imagePath` pole
   `imageRevision` (suma obrazu wzorca albo `null`); obraz jest dostępny pod
   URL z tą sumą (inna suma: `409 BOARD_SEARCH_SHARE_SYMBOL_IMAGE_CHANGED`).
+  Od D-564 symbol ma też `superGameTriggerCount` (widok serii odróżnia
+  symbole uruchamiające od kandydatów na super symbol).
+- Markery supergry (`superGame`) wyników `search` i wierszy
+  `approximate-win` udostępnienia niosą od D-564 `seriesId`
+  (`SuperGameMarkerResponse`, jak w Adminie), bo odbiorca otwiera serię;
+  panel zarządzania nadal zwraca marker bez `seriesId`
+  (`PUBLIC_SEARCH_EXCLUDE`, `PUBLIC_APPROXIMATE_WIN_EXCLUDE`).
+- Serie supergry udostępnionej gry (D-564, TASK-1056): `state` zwraca
+  `SuperGameStateResponse`; `next-undefined` zwraca
+  `{ items (≤ 2 serie bez super symbolu po `afterTrigger`, w kolejności
+  triggerów; bez parametru od pierwszej), superGameState }`;
+  `{seriesId}/boards` zwraca `{ series, boards, superGameState }`, gdzie
+  `series` (`BoardSearchSharePublicSeriesResponse`) ma `id`,
+  `triggerSequenceNumber`, `startSequenceNumber`, `endSequenceNumber`,
+  `length`, `retriggerSequenceNumbers`, `completeness`, `runVerification`,
+  `superSymbolId`, `definedAt`, `revision`, `updatedAt` (bez `gameId`,
+  `definedBy`, generacji), a każda pozycja `boards[]` ma `sequenceNumber`,
+  `role`, `spinIndex`, `missing`, `status`, `boardChecksumSha256` (bez
+  `assetMode`, `reviewItemId`, `recognizedBoardId`, `importJobId`).
+  `PUT …/super-symbol` przyjmuje `SuperSymbolUpdate { symbolId | null,
+  expectedRevision }` i zwraca serię z `revision + 1`; aktor zapisu to
+  `board-search-share:<sessionId>` (`defined_by` i audyt serii). Błędy jak
+  w Adminie: seria innej gry albo nieznana → `404
+  SUPER_GAME_SERIES_NOT_FOUND`, stara rewizja → `409
+  SUPER_GAME_SERIES_REVISION_CONFLICT` bez zapisu, symbol spoza gry →
+  `422 SUPER_SYMBOL_NOT_FOUND`, Wild/uruchamiający/zarchiwizowany → `422
+  SUPER_SYMBOL_NOT_ORDINARY`. Trasy serii liczą się do limitu żądań JSON i
+  nie są wpisami dziennika zapytań; bez listy z filtrami i bez `derive`.
 - `search` zwraca wyniki bez `reviewItemId`, `recognizedBoardId`,
   `importJobId` i `assetMode`; D-492 dodaje `searchContextId` udanego wpisu
   tego wyszukiwania. `approximate-win` ma kształt Admina;
@@ -1729,8 +1761,9 @@ PUT    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/super-symbol
   `boardChecksumSha256`), `null` dla `missing: true`. Projekcja wyszukiwania
   plansz, która nie jest gotowa, daje 409 `BOARD_SEARCH_PROJECTION_INCOMPLETE`.
 - `setSuperGameSeriesSuperSymbol` przyjmuje `SuperSymbolUpdate { symbolId |
-  null, expectedRevision }` i zwraca serię z `revision + 1`, `definedBy`,
-  `definedAt` oraz wpisem audytu. Nieaktualny `expectedRevision` → 409
+  null, expectedRevision }` i zwraca serię z `revision + 1`, `definedBy`
+  (`local-admin` z Admina albo `board-search-share:<sessionId>` z
+  udostępnionej wyszukiwarki, D-564), `definedAt` oraz wpisem audytu. Nieaktualny `expectedRevision` → 409
   `SUPER_GAME_SERIES_REVISION_CONFLICT` bez zapisu; symbol spoza gry → 422
   `SUPER_SYMBOL_NOT_FOUND`; Wild, symbol uruchamiający albo zarchiwizowany →
   422 `SUPER_SYMBOL_NOT_ORDINARY`; nieznana seria (także w grze `none`) → 404

@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -80,4 +80,46 @@ npm run format:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Commit: v1.7.428 (hash dopisuje kolejny commit).
+
+### Changed
+
+- `decisions/DECISION_LOG_2026.md`: wpis D-564 „Super symbol serii
+  definiowany także przez odbiorcę linku udostępniania” (Date, Status,
+  Context, Decision, Consequences, Source) na początku pliku.
+- `DECISION_LOG.md`: wiersz D-564 na górze indeksu; wiersz D-535 przeniesiony
+  na początek `decisions/DECISION_INDEX_ARCHIVE.md` (nagłówek archiwum:
+  D-1..D-535, 532 wiersze).
+- `requirements/ADMIN_APP.md`: akapit „Widok serii supergry odbiorcy (D-564,
+  TASK-1056–1059)” w sekcji udostępniania online; sekcja „Supergry” opisuje
+  wspólny komponent widoku serii i `definedBy` operatora albo odbiorcy linku.
+- `architecture/API_CONTRACT.md`: cztery trasy serii w bloku publicznej
+  powierzchni, modele publiczne, `seriesId` w markerach udostępnienia i
+  wykluczenie w panelu zarządzania, `superGameTriggerCount`, kody błędów,
+  brak wpisów dziennika; `definedBy` z aktorem sesji w sekcji „Serie
+  supergry”.
+- `security/REMOTE_REVIEWER_THREAT_MODEL.md`: allowlista z trasami serii i
+  `PUT super-symbol` jako drugą mutacją, `seriesId` jako dopuszczony
+  identyfikator zasobu publicznego, aktor audytu w tabeli zagrożeń;
+  `last_updated` 2026-10-19.
+- `architecture/DATA_MODEL.md`: `defined_by` = `local-admin` albo
+  `board-search-share:<session_id>`.
+
+### Verification results
+
+- `npm run docs:check`: OK (604 linki kotwic, 562 wpisy i wiersze indeksu,
+  okno i budżety w normie).
+- `prettier --check` zmienionych dokumentów: OK.
+
+### Not completed
+
+- Nic. Rozjazdy sprzed taska (`ADMIN_APP.md` „czeka na audyt” dla TASK-0991,
+  `SYSTEM_ARCHITECTURE.md` o panelu) nie były w zakresie.
+
+### Documentation updates
+
+- Jak wyżej (task dokumentacyjny).
+
+### Recommended next task
+
+- TASK-1057 (allowlista proxy), potem TASK-1059 (modal).

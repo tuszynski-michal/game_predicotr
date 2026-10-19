@@ -792,6 +792,25 @@ i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
 wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
 czytelny ekran zakończenia.
 
+**Widok serii supergry odbiorcy (D-564, TASK-1056–1059).** Każdy znacznik
+supergry (trigger albo spin) na karcie wyniku i w wierszu „Przybliżonej
+wygranej” jest przyciskiem, który otwiera modal z widokiem jednej serii:
+tym samym wspólnym komponentem co „Widok serii” sekcji „Supergry” Admina
+(karuzela pozycji z oznaczonymi komórkami symbolu uruchamiającego, select
+super symbolu ze skrótami `1`–`9`/`0`, zapis `Enter` z przeglądem
+retriggerów i `expectedRevision`, `Esc` anuluje wybór, „Pokaż planszę z
+liniami” z poprawianiem symboli, „Następna bez symbolu (N)”). Modal nie ma
+listy serii, filtrów, zakresu plansz ani „Przelicz serie”; pokazuje baner
+„Serie w trakcie przeliczania” i co 5 s sprawdza stan, dopóki serie są
+nieaktualne. `Esc` nie zamyka modalu (należy do widoku serii); zamyka go
+przycisk „Zamknij”, a przy otwartym oknie linii `Esc` zamyka tylko to okno.
+Skróty modalu nie zmieniają wzoru wyszukiwania. Po zamknięciu modalu z
+zapisanym symbolem albo poprawką symbolu wyniki i tabela zakresu są czytane
+ponownie. Zapis odbiorcy trafia do audytu serii jako sesja linku
+(`definedBy = board-search-share:<sessionId>`), bez wpisu w dzienniku linku.
+Dotyczy linku jednej gry i panelu wielu gier; zmiana gry w panelu zamyka
+modal.
+
 **Korekty odbiorcy i przegląd operatora (D-492, TASK-0845).** Przycisk
 „Popraw symbole” w tym samym modalu działa dla planszy startowej i plansz
 przeglądanych dalej w zakresie do 100 000 spinów. Decyzja od razu zmienia
@@ -1816,7 +1835,7 @@ ograniczony czas oczekiwania, a stop usuwa stan tunelu. Tryb CLI
 `reviewer:remote:start/status/stop` pozostaje awaryjnym odpowiednikiem tych
 samych kontrolowanych operacji.
 
-### Sekcja „Supergry” (TASK-0934, D-535, D-536)
+### Sekcja „Supergry” (TASK-0934, D-535, D-536, D-564)
 
 Zakładka gry (`?workspace=games&game=<id>&section=super-games`) widoczna tylko
 dla gier z rodzajem supergry innym niż `none`; dla gry `none` zakładki nie ma,
@@ -1852,11 +1871,15 @@ Lista serii:
   „Serie w trakcie przeliczania…”; Admin co 5 s czyta `…/state` i po
   powrocie do `fresh = true` odświeża listę oraz otwartą serię,
 - każdy wiersz ma trzy niezależne oznaczenia: kompletność (`Kompletna` /
-  `Niekompletna`), symbol (`Symbol: <nazwa>` / `Do zdefiniowania`) i
+  `Niekompletna`), symbol (`Symbol: <nazwa>` / `Do zdefiniowania`; symbol
+  mógł wybrać operator albo odbiorca linku udostępniania, D-564, co widać w
+  `definedBy` serii) i
   wiarygodność przebiegu (`Przebieg zweryfikowany` / `Przebieg
   niezweryfikowany`, gdy wyzwalacz lub retrigger opiera się na predykcji).
 
-Widok serii:
+Widok serii (od TASK-1058 wspólny komponent `SuperGameSeriesPanel` pakietu
+`board-search-ui`, używany też przez modal odbiorcy linku, D-564; Admin
+dostarcza listę, symbole, wersję reguł i odpytywanie stanu):
 
 - karuzela ma kartę dla każdej pozycji `trigger … start + length − 1`;
   pierwsza karta to plansza wyzwalająca, a pozycje serii (`start …

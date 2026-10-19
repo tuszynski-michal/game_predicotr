@@ -775,7 +775,7 @@ Cztery tabele w `game_data_v2`, partycjonowane `LIST (game_id)` z RLS
 | completeness | varchar(20) | `complete` / `incomplete` (koniec serii poza ostatnią znaną pociętą planszą) |
 | run_verification | varchar(20) | `verified` tylko, gdy trigger i każdy retrigger osiągają próg na komórkach z decyzją człowieka |
 | super_symbol_id | UUID null | FK `(game_id, super_symbol_id)` → `symbols`; zwykły symbol (nie Wild, nie uruchamiający) |
-| defined_by, defined_at | varchar(200), timestamptz null | ostatni zapis super symbolu; oba albo żadne |
+| defined_by, defined_at | varchar(200), timestamptz null | ostatni zapis super symbolu; oba albo żadne; aktor `local-admin` (Admin) albo `board-search-share:<session_id>` (odbiorca linku, D-564) |
 | revision | integer | CAS zapisu super symbolu; wyprowadzanie go nie zmienia |
 | generation_id | UUID | generacja, która ostatnio zapisała wiersz |
 | created_at, updated_at | timestamptz | `updated_at` zmienia się tylko przy zmianie treści serii |

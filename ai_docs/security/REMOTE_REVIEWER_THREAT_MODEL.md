@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-19
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -132,10 +132,17 @@ wybraną przy tworzeniu linku w Adminie. Odbiorca ma własne cookie
 `Path=/board-search-api`) i stałą intencję proxy `reviewer-board-search-v1`
 (nagłówek `X-Board-Search-Share-Proxy`). Zamknięta allowlista to: unlock
 kodem, kontekst, symbole, obraz symbolu z sumą, wyszukiwanie, przybliżona
-wygrana, szczegóły planszy i przycięty widok planszy — `GET` z dokładnymi
-parametrami; poza unlockiem jedyny POST to `boards/{n}/cells/{0..14}/decision`.
+wygrana, szczegóły planszy, przycięty widok planszy oraz od D-564 serie
+supergry udostępnionej gry (`super-game-series/state`,
+`super-game-series/next-undefined?afterTrigger=`,
+`super-game-series/{uuid}/boards`) — `GET` z dokładnymi parametrami; poza
+unlockiem mutacje to POST `boards/{n}/cells/{0..14}/decision` i PUT
+`super-game-series/{uuid}/super-symbol`.
 Mutacja wymaga zgodnego Origin, `Sec-Fetch-Site: same-origin`, JSON do 4 KiB,
-Strict cookie i braku query. Brak odświeżania
+Strict cookie i braku query. `seriesId` jest jawnie dopuszczonym
+identyfikatorem zasobu publicznego (odbiorca otwiera serię); identyfikatory
+przeglądu, importu, generacji i autor super symbolu (`definedBy`) nie opuszczają
+API. Lista serii z filtrami i `derive` nie mają trasy. Brak odświeżania
 odczytu, pełnych zdjęć, tras Admina i odczytu dziennika zapytań. Cookie
 udostępnienia nie autoryzuje `/review-api` ani `/selection-api`, a ich cookie
 nie autoryzują `/board-search-api` (testy w obu kierunkach). API bierze grę
@@ -179,7 +186,7 @@ korekta równoległa nie może zostać ukryta przez spóźnione potwierdzenie.
 | token Reviewera użyty z inną grą (`gameId`, ścieżka) | od TASK-0797 gra żądania jest wiązana przed wyszukaniem tokenu; sesja innej gry jest niewidoczna (`401`), bez informacji o jej istnieniu |
 | dane innej gry przez błąd zapytania (brak predykatu `game_id`) | od TASK-0795 API i worker działają rolą `game_predictor_app` bez `SUPERUSER`/`BYPASSRLS`; wymuszone RLS `game_data_v2` ogranicza każde zapytanie do gry związanej w transakcji, a zapytanie bez związanej gry kończy się błędem (`GAME_STORAGE_SCOPE_REQUIRED` albo brak tabeli w `search_path`), nie danymi; rola nie ma DDL ani własności obiektów (`test_application_role_isolation_postgres.py`) |
 | dostęp administracyjny | publiczny proxy ma allowlistę; CRUD, eksporty, job mutations i wydania nie mają trasy |
-| spoofing aktora | backend zastępuje `resolvedBy/correctedBy` identyfikatorem sesji |
+| spoofing aktora | backend zastępuje `resolvedBy/correctedBy` identyfikatorem sesji; korekty i super symbol udostępnionej wyszukiwarki mają aktora `board-search-share:<sessionId>` (D-492, D-564) |
 | konflikt dwóch kart | istniejące UUID idempotencji i optimistic revision pozostają obowiązkowe |
 | kradzież tokenu w JS | token trafia do `HttpOnly`, `SameSite=Strict` cookie proxy; nie trafia do URL ani localStorage |
 | clickjacking/XSS | CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, brak zewnętrznych skryptów |

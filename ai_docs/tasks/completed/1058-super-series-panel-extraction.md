@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -134,4 +134,73 @@ npm run code-map:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Commit: v1.7.427 (hash dopisuje kolejny commit).
+
+### Changed
+
+- `packages/board-search-ui/src/super-game-series/` (nowe):
+  `super-game-series-panel.tsx` (`SuperGameSeriesPanel`, `SeriesBadges`;
+  cykl otwartej serii: odczyt, karuzela, szczegóły plansz, zapis CAS z
+  przeglądem retriggerów, „Następna bez symbolu”, skróty, okno linii, toast;
+  propsy `client`, `gameId`, `seriesId`, `symbols`, `filters?`,
+  `rulesVersionId?` (`undefined` = host jeszcze nie wybrał), `rulesVersions?`,
+  `refreshToken?`, `initialSequenceNumber?`, `formatAmount?`, `onSeriesChange`,
+  `onBack?`, `onSeriesLoaded?`, `onSeriesSaved?`, `onSuperGameStateChange?`,
+  `onBoardEdited?`; spóźnione odpowiedzi po odmontowaniu są ignorowane),
+  `super-game-series-state.ts` (filtry, zakres, `pickNextUndefinedSeries`,
+  komunikaty, widok serii, wybór symbolu, przegląd retriggerów, odznaki,
+  błędy; nowe `seriesCardIndexOf`), `super-game-series-keyboard.ts`,
+  `super-game-series-client.ts` (`SuperGameSeriesViewClient`,
+  `SuperGameSeriesModalClient`), `super-game-series.css` (klasy
+  `superGameSeries*`, także style modala dla TASK-1059).
+- `packages/board-search-ui/src/keyboard-shortcuts.ts`:
+  `EXTENDED_DIGIT_SHORTCUT_LIMIT`, `extendedDigitShortcutIndex`,
+  `extendedDigitShortcutLabel`; `package.json` eksportuje
+  `./super-game-series/*` i `./super-game-series.css`; `src/index.ts`
+  eksportuje panel, odznaki i typy klienta.
+- Admin: `super-game-series-workspace.tsx` zachowuje listę, filtry, zakres,
+  derive, odpytywanie stanu i toast; otwartą serię renderuje
+  `SuperGameSeriesPanel` z adapterem `seriesViewClient` (następna seria =
+  `listSuperGameSeries` + `nextUndefinedSeriesQuery`); `onBoardEdited` i
+  `onSeriesSaved` odświeżają listę, `refreshToken` po przeliczeniu serii.
+  `super-game-series-state.ts` re-eksportuje moduł pakietu i zachowuje część
+  listy; `super-game-series-keyboard.ts` to re-eksport; CSS module bez reguł
+  widoku; `app/layout.tsx` importuje `super-game-series.css`.
+- Testy: nowy `packages/board-search-ui/test-interactions/super-game-series-panel.test.mjs`
+  (8 testów); `apps/admin/test/super-game-series-workspace-contract.test.mjs`
+  czyta także plik panelu (`superGameSeriesTriggerCell`,
+  `onSeriesSaved={reloadList}`);
+  `apps/admin/test-interactions/super-game-series-workspace.test.mjs` dostał
+  hook `resolve` przypinający jedną kopię React (wzór z
+  `board-search-sharing-workspace.test.mjs`), bo panel z pakietu rozwiązuje
+  React z głównego `node_modules`, a Admin ma własną kopię 19.2.3; asercje
+  bez zmian.
+- Mapa kodu zregenerowana.
+
+### Verification results
+
+- `npm run test --workspace @game-predictor/board-search-ui`: 102 passed;
+  `npm run test:interactions`: 76 passed (68 + 8 nowych).
+- `npm run test --workspace @game-predictor/admin`: 804 passed, 0 failed.
+- `npm run test:geometry --workspace @game-predictor/admin`,
+  `super-game-series-workspace.test.mjs`: 22 passed / 10 failed, dokładnie te
+  same 10 co na bazowym commicie (sprawdzone przez `git stash`; lista w
+  `tasks/completed/1055-…`, „10 porażek sprzed TASK-1053”). Bez hooka React
+  padało 30 (dwie kopie React: `apps/admin/node_modules/react` 19.2.3 i
+  główne 19.2.8).
+- Typecheck admin i board-search-ui: OK; lint board-search-ui: 0 problemów;
+  lint admin: 5 ostrzeżeń wyłącznie w `page-geometry-correction-panel.tsx`
+  (sprzed taska); prettier: OK; `npm run code-map:check`: OK.
+
+### Not completed
+
+- 10 porażek testu interakcji Admina sprzed TASK-1053 pozostają poza
+  zakresem (nie dotyczą panelu: lista, „Wczytaj kolejne”, katalog symboli).
+
+### Documentation updates
+
+- `ai_docs/architecture/CODE_MAP*.md`; `ADMIN_APP.md` w TASK-1060.
+
+### Recommended next task
+
+- TASK-1060, potem TASK-1057 i TASK-1059 (modal używa panelu).

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import '@game-predictor/board-search-ui/management.css';
 import '@game-predictor/board-search-ui/board-search.css';
+import '@game-predictor/board-search-ui/super-game-series.css';
 
 export const metadata: Metadata = {
   title: 'Game Predictor Admin',

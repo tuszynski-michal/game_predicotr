@@ -148,7 +148,7 @@ npm run python:typecheck
 
 ## Outcome
 
-Commit: v1.7.426 (hash dopisuje kolejny commit).
+Commit: v1.7.426 / `3f73d3d282a662faf3f358e07cd3e197c728ca14`.
 
 ### Changed
 

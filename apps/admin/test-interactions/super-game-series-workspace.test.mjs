@@ -4,7 +4,18 @@ import { after, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 
+// The shared series panel (TASK-1058) lives in `packages/board-search-ui`,
+// which resolves React from the root `node_modules`; the Admin test pins one
+// copy for every importer (as `board-search-sharing-workspace.test.mjs` does).
+const reactUrl = import.meta.resolve('react'),
+  jsxUrl = import.meta.resolve('react/jsx-runtime');
 registerHooks({
+  resolve(specifier, context, next) {
+    if (specifier === 'react') return { url: reactUrl, shortCircuit: true };
+    if (specifier === 'react/jsx-runtime')
+      return { url: jsxUrl, shortCircuit: true };
+    return next(specifier, context);
+  },
   load(url, context, next) {
     if (url.endsWith('.css'))
       return {

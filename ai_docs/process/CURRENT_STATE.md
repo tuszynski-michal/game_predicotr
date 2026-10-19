@@ -65,10 +65,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - Plik: `tasks/1057-share-super-series-proxy-allowlist.md`. Po TASK-1056: cztery trasy w `boardSearchShareRoute`, `PUT` w handlerach i proxy panelu, test bramki 10 → 14 operacji.
 
-### TASK-1058 — Wyniesienie widoku serii do `board-search-ui` (todo)
-
-- Plik: `tasks/1058-super-series-panel-extraction.md`. `SuperGameSeriesPanel` we wspólnym pakiecie; Admin konsumuje panel, testy interakcji Admina bez zmian treści.
-
 ### TASK-1059 — Modal serii w udostępnionej wyszukiwarce (todo)
 
 - Plik: `tasks/1059-share-super-series-modal.md`. Po 1056, 1057, 1058: znacznik jako przycisk, modal `<dialog>`, adapter źródła danych, bramki linku i panelu.
@@ -79,7 +75,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1056** — Publiczne trasy serii supergry udostępnionej wyszukiwarki — v1.7.426 — tasks/completed/1056-share-super-series-public-api.md
+- **TASK-1058** — Wyniesienie widoku serii supergry do board-search-ui — v1.7.427 — tasks/completed/1058-super-series-panel-extraction.md
+- **TASK-1056** — Publiczne trasy serii supergry udostępnionej wyszukiwarki — v1.7.426 / `3f73d3d2` — tasks/completed/1056-share-super-series-public-api.md
 - **TASK-1055** — Filtr zakresu plansz serii supergry — v1.7.421 / `3b9a1df8` — tasks/completed/1055-super-series-board-range-filter.md
 - **TASK-1054** — Panel przycinania: czytelny wybór gry, tylko gry aktywne — v1.7.419 / `c103f1ac` — tasks/completed/1054-storage-panel-game-select.md
 - **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 / `f0bc558c` — tasks/completed/1053-super-series-next-undefined.md
@@ -88,4 +85,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md
 - **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md
 - **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 / `4d157a61` — tasks/completed/1047-source-crop-job.md
-- **TASK-1046** — Ramka źródła z cropem w API, serwowanie i blokady — v1.7.407 / `401b371f` — tasks/completed/1046-source-frame-api.md

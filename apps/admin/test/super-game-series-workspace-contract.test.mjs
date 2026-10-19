@@ -2,13 +2,24 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const workspace = await readFile(
-  new URL(
-    '../src/features/super-games/super-game-series-workspace.tsx',
-    import.meta.url,
+// The series view is the shared panel of `@game-predictor/board-search-ui`
+// since TASK-1058; the contract covers the Admin workspace and the panel.
+const workspace = [
+  await readFile(
+    new URL(
+      '../src/features/super-games/super-game-series-workspace.tsx',
+      import.meta.url,
+    ),
+    'utf8',
   ),
-  'utf8',
-);
+  await readFile(
+    new URL(
+      '../../../packages/board-search-ui/src/super-game-series/super-game-series-panel.tsx',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+].join('\n');
 const catalog = await readFile(
   new URL('../src/features/catalog/catalog-workspace.tsx', import.meta.url),
   'utf8',
@@ -62,7 +73,7 @@ test('marks the trigger symbol cells of the board', () => {
   assert.match(workspace, /triggerCellIndexes\(detail\.symbolCodes/);
   assert.match(workspace, /triggerSymbols\(symbols\)/);
   assert.match(workspace, /aria-label=\{`Układ symboli planszy #/);
-  assert.match(workspace, /styles\.triggerCell/);
+  assert.match(workspace, /superGameSeriesTriggerCell/);
   assert.match(workspace, /cellPolygons/);
 });
 
@@ -91,7 +102,7 @@ test('saves with the shown revision and never overwrites on a conflict', () => {
   assert.match(workspace, /onOpenSeries\(applySuperSymbolConflict\)/);
   assert.match(workspace, /saveOperation\.current === operation/);
   assert.match(workspace, /state\.series\.id === savedSeriesId/);
-  assert.match(workspace, /reloadList\(\);/);
+  assert.match(workspace, /onSeriesSaved=\{reloadList\}/);
   assert.match(workspace, /refreshRequested\.current = true/);
   assert.match(workspace, /applySuperSymbolFailure\(state, message\)/);
   assert.match(workspace, /applySuperSymbolSaved\(state, updated, symbols\)/);

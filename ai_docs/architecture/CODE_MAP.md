@@ -162,7 +162,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
   - `sharing/` (3 plików): PanelKey, PanelKeys, loadPanelKeys, storePanelKeys, panelShareUrl, panelErrorMessage, BoardSearchSharingClient, BoardSearchSharingWorkspace
   - `storage/` (4 plików): SourceCropClient, SourceCropRunResult, planSourceCrop, refreshSourceCropRun, startSourceCrop, LoadRunsResult, loadSourceCropRuns, SourceCropPanel (+30)
-  - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+92)
+  - `super-games/` (3 plików): SERIES_PAGE_LIMIT, SeriesBoardRangeInput, parseSeriesBoardRange, COMPLETENESS_FILTER_OPTIONS, RUN_VERIFICATION_FILTER_OPTIONS, DEFINED_FILTER_OPTIONS, seriesFiltersKey, SeriesListQuery (+25)
   - `symbol-reviews/` (13 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+95)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
   - `unreadable-board-reviews/` (2 plików): UnreadableBoardReviewClient, loadUnreadableBoardPage, loadUnreadableBoardDetail, loadUnreadableBoardSymbols, saveUnreadableBoard, UnreadableBoardReviewWorkspace
@@ -176,7 +176,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Moduły wejściowe i symbole
 
 - `apps/admin/src/features/super-games/super-game-series-workspace.tsx`: SuperGameSeriesClient, SuperGameSeriesWorkspace
-- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS, SeriesBoardRange (+83)
+- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, SeriesBoardRangeInput, parseSeriesBoardRange, COMPLETENESS_FILTER_OPTIONS, RUN_VERIFICATION_FILTER_OPTIONS, DEFINED_FILTER_OPTIONS, seriesFiltersKey, SeriesListQuery (+23)
 
 ### Testy
 
@@ -232,7 +232,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Katalogi
 
-- `packages/board-search-ui/src/` (34 ts/tsx) - wspólny UI wyszukiwarki plansz
+- `packages/board-search-ui/src/` (38 ts/tsx) - wspólny UI wyszukiwarki plansz
 - `packages/shared-ts/src/` (9 ts/tsx) - kontrakty domenowe i kodek sygnatur (też mobile)
 - `packages/admin-api-client/src/` (2 ts/tsx) - wrappery klienta wygenerowanego z OpenAPI
 - `packages/manual-image-selection-core/src/` (11 ts/tsx) - wspólna logika ręcznej selekcji

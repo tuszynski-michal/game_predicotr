@@ -1,0 +1,307 @@
+/*
+ * Global styles of the shared super game series view (TASK-1058); the Admin
+ * and the online share import this sheet next to `board-search.css`.
+ */
+
+.superGameSeriesError {
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 139, 139, 0.28);
+  border-radius: 12px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.superGameSeriesNotice {
+  padding: 12px 16px;
+  border: 1px solid rgba(112, 225, 180, 0.28);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.superGameSeriesEmpty {
+  padding: 22px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.superGameSeriesBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.superGameSeriesBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.superGameSeriesBadgeOk {
+  border-color: rgba(112, 225, 180, 0.36);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.superGameSeriesBadgeWarning {
+  border-color: rgba(242, 198, 109, 0.36);
+  background: rgba(242, 198, 109, 0.08);
+  color: var(--warning);
+}
+
+.superGameSeriesBadgeNeutral {
+  color: var(--muted);
+}
+
+.superGameSeriesViewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.superGameSeriesViewHeader h3 {
+  margin: 0;
+}
+
+.superGameSeriesViewHeaderNext {
+  margin-left: auto;
+}
+
+.superGameSeriesViewLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .superGameSeriesViewLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.superGameSeriesCarousel,
+.superGameSeriesSymbolPanel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.superGameSeriesCarousel:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.superGameSeriesCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.superGameSeriesCardHeader h4 {
+  margin: 0;
+}
+
+.superGameSeriesTag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(242, 198, 109, 0.16);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.superGameSeriesStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.superGameSeriesChip {
+  min-width: 44px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.superGameSeriesChipActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.superGameSeriesChipRetrigger {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.superGameSeriesChipMissing {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.superGameSeriesBoardFrame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.superGameSeriesBoardImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.superGameSeriesBoardOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.superGameSeriesBoardOverlay polygon {
+  fill: rgba(242, 198, 109, 0.28);
+  stroke: var(--warning);
+  stroke-width: 0.006;
+}
+
+.superGameSeriesMissingCard {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border: 2px dashed var(--line-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.superGameSeriesSymbolGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.superGameSeriesSymbolGrid li {
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.superGameSeriesSymbolGrid .superGameSeriesTriggerCell {
+  border-color: var(--warning);
+  background: rgba(242, 198, 109, 0.16);
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.superGameSeriesSymbolField {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.superGameSeriesHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.superGameSeriesNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.superGameSeriesActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.superGameSeriesToast {
+  position: fixed;
+  z-index: 40;
+  bottom: 50px;
+  left: 50px;
+  max-width: min(420px, calc(100vw - 100px));
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--text);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 30%);
+}
+
+.superGameSeriesToastSuccess {
+  background: color-mix(in srgb, var(--accent) 24%, var(--panel));
+}
+
+.superGameSeriesToastError {
+  background: color-mix(in srgb, var(--danger) 24%, var(--panel));
+}
+
+/* The modal of the online share (TASK-1059): the series view in a dialog. */
+
+.superGameSeriesModal {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.superGameSeriesModal::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.superGameSeriesModalBody {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 34px);
+  padding: 18px 20px 22px;
+  overflow: auto;
+}
+
+.superGameSeriesModalHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.superGameSeriesModalHeader h3 {
+  margin: 0;
+}

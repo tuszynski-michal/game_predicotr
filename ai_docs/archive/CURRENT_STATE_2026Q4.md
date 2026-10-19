@@ -6,10 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1058 — Wyniesienie widoku serii supergry do `board-search-ui` (done)
+
+- Plik: `tasks/completed/1058-super-series-panel-extraction.md`.
+- Commit: **v1.7.427** (gałąź `claude/share-super-series`).
+- Wynik: `packages/board-search-ui/src/super-game-series/` z `SuperGameSeriesPanel` (cykl otwartej serii: odczyt, karuzela z oznaczonymi komórkami symbolu uruchamiającego, zapis CAS z przeglądem retriggerów, „Następna bez symbolu”, skróty, okno linii, toast), stanem, skrótami, typem `SuperGameSeriesViewClient` i globalnym arkuszem `super-game-series.css`; Admin zachowuje listę, filtry, zakres, derive i odpytywanie stanu, a serię renderuje panelem przez adapter `seriesViewClient`. Testy: 8 nowych testów interakcji pakietu, 804 testy node Admina, interakcje Admina 22/32 (te same 10 porażek sprzed TASK-1053 co na `main`; test dostał hook jednej kopii React). Mapa kodu zregenerowana (także symbole TASK-1056).
+
 ### TASK-1056 — Publiczne trasy serii supergry udostępnionej wyszukiwarki (done)
 
 - Plik: `tasks/completed/1056-share-super-series-public-api.md`.
-- Commit: **v1.7.426** (gałąź `claude/share-super-series`).
+- Commit: **v1.7.426 / `3f73d3d282a662faf3f358e07cd3e197c728ca14`** (gałąź `claude/share-super-series`).
 - Wynik: cztery trasy `/api/v1/board-search-shares/super-game-series/{state, next-undefined, {seriesId}/boards, PUT {seriesId}/super-symbol}` za proxy i cookie udostępnienia, gra wyłącznie z sesji, modele publiczne bez identyfikatorów przeglądu, importu, `gameId`, `definedBy` i generacji; zapis super symbolu z aktorem `board-search-share:<sessionId>` (helper `board_search_share_actor`, użyty też w korektach); markery `search` i `approximate-win` udostępnienia niosą `seriesId` (`SuperGameMarkerResponse`), panel zarządzania wyklucza je `PUBLIC_SEARCH_EXCLUDE`; `symbols` z `superGameTriggerCount`. OpenAPI i klient zregenerowane, cztery nowe typy eksportowane. Testy: 39 w trzech plikach API; audyt Codex `TASK-1056_AUDIT_codex.md` (REVISE → P1-1 i P2-1 zamknięte w jednej rundzie). Pełny `pytest` API poza limitem jednego polecenia; `npm run api:test` zbiera 0 testów (znana usterka).
 
 ### TASK-1055 — Filtr zakresu plansz serii supergry (done)

@@ -22,3 +22,12 @@ export {
   BoardSearchBoardLinesModal,
   type BoardLinesClient,
 } from './board-search-board-lines-modal';
+export {
+  SeriesBadges,
+  SuperGameSeriesPanel,
+  type SuperGameSeriesPanelProps,
+} from './super-game-series/super-game-series-panel';
+export type {
+  SuperGameSeriesModalClient,
+  SuperGameSeriesViewClient,
+} from './super-game-series/super-game-series-client';

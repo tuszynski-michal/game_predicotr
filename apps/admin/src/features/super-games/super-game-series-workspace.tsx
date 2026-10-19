@@ -1,32 +1,19 @@
 'use client';
 
-/* Board crops are checksum-verified API assets, not Next static media. */
-/* eslint-disable @next/next/no-img-element */
-
 import type {
   AdminApiClient,
-  BoardSearchBoardDetailResponse,
-  SuperGameSeriesResponse,
   SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
-import { BoardSearchBoardLinesModal } from '@game-predictor/board-search-ui';
 import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+  SeriesBadges,
+  SuperGameSeriesPanel,
+  type SuperGameSeriesViewClient,
+} from '@game-predictor/board-search-ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
-import {
-  isSuperGameSeriesShortcutBlocked,
-  resolveSuperGameSeriesKeyboardCommand,
-  superGameSeriesShortcutLabel,
-} from './super-game-series-keyboard';
 import {
   COMPLETENESS_FILTER_OPTIONS,
   DEFINED_FILTER_OPTIONS,
@@ -35,62 +22,28 @@ import {
   type CompletenessFilter,
   type DefinedFilter,
   type RunVerificationFilter,
-  type SeriesBadge,
   type SeriesFilters,
-  type SeriesPositionCard,
-  type SeriesViewState,
-  activeSeriesCard,
-  advanceRetriggerReview,
   applySeriesListPage,
-  applySeriesRefresh,
-  applySuperSymbolConflict,
-  applySuperSymbolFailure,
-  applySuperSymbolSaved,
-  beginSuperSymbolSave,
-  blockSuperSymbolSave,
-  cancelSuperSymbolCandidate,
   changeSeriesFilters,
   createSeriesListState,
-  createSeriesViewState,
   deriveResultMessage,
   failSeriesList,
-  goToSeriesPosition,
-  isSeriesNotFound,
-  isSeriesRevisionConflict,
-  isSuperSymbolCandidateDirty,
-  missingCardLabel,
-  moveSeriesPosition,
   nextUndefinedSeriesQuery,
-  noUndefinedSeriesLeftMessage,
-  ordinarySuperSymbols,
   parseSeriesBoardRange,
-  pickNextUndefinedSeries,
   pickSeriesRulesVersion,
   reloadSeriesList,
   replaceSeriesInList,
-  selectSuperSymbolCandidate,
-  seriesBadges,
   seriesBoardRange,
   seriesBoardRangeLabel,
   seriesCountsCaption,
   seriesListQuery,
-  seriesNeighbourIndexes,
-  seriesPositionCardLabel,
   seriesRangeLabel,
   seriesRulesVersionOptions,
-  setSeriesNotice,
   shouldPollSeriesState,
   startLoadingMoreSeries,
   superGameSeriesErrorMessage,
   superGameStateBanner,
-  superSymbolSaveBlock,
-  superSymbolSaveLabel,
-  superSymbolSavedMessage,
-  triggerCellIndexes,
-  triggerSymbols,
-  UNSAVED_SUPER_SYMBOL_NOTICE,
   undefinedSeriesCountLabel,
-  undefinedSeriesWrappedMessage,
 } from './super-game-series-state';
 import styles from './super-game-series-workspace.module.css';
 
@@ -121,74 +74,35 @@ interface SuperGameSeriesWorkspaceProps {
 
 type Toast = { readonly kind: 'success' | 'error'; readonly text: string };
 
-type DetailEntry =
-  | { readonly kind: 'ready'; readonly detail: BoardSearchBoardDetailResponse }
-  | { readonly kind: 'error'; readonly message: string };
-
 const TOAST_DURATION_MS = 6000;
 
-/** Key of the cached board reading of one carousel card. */
-function detailKeyOf(
-  card: SeriesPositionCard,
-  rulesVersionId: string | null,
-): string | null {
-  const checksum = card.board?.boardChecksumSha256;
-  return checksum
-    ? `${card.sequenceNumber}:${checksum}:${rulesVersionId ?? ''}`
-    : null;
-}
-
 /**
- * The crop of a card. With a reading it is bound to that reading's checksum and
- * view revision (as the lines window does), so the image and the polygons of
- * the trigger marks come from the same revision.
+ * The shared series view (TASK-1058) over the Admin client: the search for
+ * the next series without a super symbol is the Admin list query with the
+ * list filters (`nextUndefinedSeriesQuery`).
  */
-function boardImageUrl(
-  api: Pick<SuperGameSeriesClient, 'boardSearchBoardViewUrl'>,
-  gameId: string,
-  card: SeriesPositionCard,
-  entry: DetailEntry | undefined,
-): string {
-  const detail = entry?.kind === 'ready' ? entry.detail : null;
-  return api.boardSearchBoardViewUrl(
-    gameId,
-    card.sequenceNumber,
-    detail?.boardChecksumSha256 ?? card.board?.boardChecksumSha256 ?? '',
-    detail?.view?.revision,
-  );
-}
-
-function badgeClass(badge: SeriesBadge): string {
-  const tone =
-    badge.tone === 'ok'
-      ? styles.badgeOk
-      : badge.tone === 'warning'
-        ? styles.badgeWarning
-        : styles.badgeNeutral;
-  return `${styles.badge} ${tone}`;
-}
-
-function SeriesBadges({
-  series,
-  symbols,
-}: {
-  readonly series: Parameters<typeof seriesBadges>[0];
-  readonly symbols: readonly SymbolResponse[];
-}) {
-  return (
-    <div className={styles.badges}>
-      {seriesBadges(series, symbols).map((badge) => (
-        <span
-          className={badgeClass(badge)}
-          data-badge={badge.id}
-          key={badge.id}
-          title={badge.title}
-        >
-          {badge.label}
-        </span>
-      ))}
-    </div>
-  );
+function seriesViewClient(
+  api: SuperGameSeriesClient,
+): SuperGameSeriesViewClient {
+  return {
+    applySymbolCellReviewDecision: (...args) =>
+      api.applySymbolCellReviewDecision(...args),
+    boardSearchBoardViewUrl: (...args) => api.boardSearchBoardViewUrl(...args),
+    getBoardSearchBoardDetail: (...args) =>
+      api.getBoardSearchBoardDetail(...args),
+    listNextUndefinedSuperGameSeries: (gameId, query) =>
+      api.listSuperGameSeries(
+        gameId,
+        nextUndefinedSeriesQuery(query.filters, query.afterTrigger),
+      ),
+    listSuperGameSeriesBoards: (...args) =>
+      api.listSuperGameSeriesBoards(...args),
+    refreshBoardSearchBoardDocument: (...args) =>
+      api.refreshBoardSearchBoardDocument(...args),
+    setSuperGameSeriesSuperSymbol: (...args) =>
+      api.setSuperGameSeriesSuperSymbol(...args),
+    symbolImageAssetUrl: (...args) => api.symbolImageAssetUrl(...args),
+  };
 }
 
 export function SuperGameSeriesWorkspace({
@@ -202,6 +116,7 @@ export function SuperGameSeriesWorkspace({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
+  const viewClient = useMemo(() => seriesViewClient(api), [api]);
 
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [rules, setRules] = useState<{
@@ -220,38 +135,15 @@ export function SuperGameSeriesWorkspace({
     null,
   );
   const [deriving, setDeriving] = useState(false);
-  const [view, setView] = useState<SeriesViewState | null>(null);
-  const [viewError, setViewError] = useState<string | null>(null);
+  // A change makes the opened series read itself again (after „Przelicz
+  // serie” finished).
   const [viewToken, setViewToken] = useState(0);
-  const [details, setDetails] = useState<Readonly<Record<string, DetailEntry>>>(
-    {},
-  );
-  const [linesSequence, setLinesSequence] = useState<number | null>(null);
-  // The search for the next series without a super symbol is in flight.
-  const [findingNext, setFindingNext] = useState(false);
-  const findingNextRef = useRef(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<number | null>(null);
-  const refreshRequested = useRef(false);
-  // The save in flight; a response of any other operation is a late answer.
-  const saveOperation = useRef<{
-    readonly id: number;
-    readonly seriesId: string;
-  } | null>(null);
-  const operationCounter = useRef(0);
-  const openSeriesId = useRef(seriesId);
   const listRef = useRef(list);
   useEffect(() => {
     listRef.current = list;
   });
-  const detailRequests = useRef(new Set<string>());
-  const linesTrigger = useRef<HTMLButtonElement>(null);
-
-  const ordinary = useMemo(() => ordinarySuperSymbols(symbols), [symbols]);
-  const triggerCodes = useMemo(
-    () => triggerSymbols(symbols).map((symbol) => symbol.code),
-    [symbols],
-  );
 
   const showToast = useCallback((next: Toast) => {
     setToast(next);
@@ -371,133 +263,6 @@ export function SuperGameSeriesWorkspace({
     };
   }, [api, filters, gameId, reloadToken]);
 
-  // Any change of the opened series (also through browser history, which
-  // does not call openSeries / closeSeries) ends the save in flight: its
-  // response is a late answer for a closed cycle.
-  useEffect(() => {
-    openSeriesId.current = seriesId;
-    saveOperation.current = null;
-  }, [seriesId]);
-
-  // The opened series with its positions.
-  useEffect(() => {
-    if (seriesId === null) return;
-    let cancelled = false;
-    const refresh = refreshRequested.current;
-    refreshRequested.current = false;
-    void api
-      .listSuperGameSeriesBoards(gameId, seriesId)
-      .then((result) => {
-        if (cancelled) return;
-        if (result.error !== undefined || result.data === undefined) {
-          setViewError(
-            superGameSeriesErrorMessage(
-              result.error,
-              'Nie udało się pobrać serii.',
-            ),
-          );
-          if (isSeriesNotFound(result.error)) setView(null);
-          return;
-        }
-        const data = result.data;
-        setViewError(null);
-        setGeneration(data.superGameState);
-        setList((state) => replaceSeriesInList(state, data.series));
-        setView((previous) =>
-          refresh && previous !== null && previous.series.id === data.series.id
-            ? applySeriesRefresh(previous, data)
-            : createSeriesViewState(data),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setViewError('Połączenie z lokalnym Admin API zostało przerwane.');
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [api, gameId, seriesId, viewToken]);
-
-  const activeCard =
-    view !== null && view.series.id === seriesId
-      ? activeSeriesCard(view)
-      : null;
-  const detailKey =
-    activeCard === null ? null : detailKeyOf(activeCard, rules.versionId);
-
-  // Board cells (to mark the trigger symbol cells) of the active card and of
-  // its neighbours, so that the next card opens with its marks.
-  const detailTargets = useMemo(() => {
-    if (view === null || view.series.id !== seriesId) return [];
-    return [view.activeIndex, ...seriesNeighbourIndexes(view)].flatMap(
-      (index) => {
-        const card = view.cards[index];
-        const key =
-          card === undefined ? null : detailKeyOf(card, rules.versionId);
-        return card === undefined || key === null
-          ? []
-          : [{ key, sequenceNumber: card.sequenceNumber }];
-      },
-    );
-  }, [rules.versionId, seriesId, view]);
-
-  useEffect(() => {
-    if (!rules.loaded) return;
-    for (const { key, sequenceNumber } of detailTargets) {
-      if (details[key] !== undefined || detailRequests.current.has(key)) {
-        continue;
-      }
-      detailRequests.current.add(key);
-      void (
-        rules.versionId === null
-          ? api.getBoardSearchBoardDetail(gameId, sequenceNumber)
-          : api.getBoardSearchBoardDetail(gameId, sequenceNumber, {
-              rulesVersionId: rules.versionId,
-            })
-      )
-        .then((result) => {
-          const entry: DetailEntry =
-            result.data !== undefined && result.error === undefined
-              ? { detail: result.data, kind: 'ready' }
-              : {
-                  kind: 'error',
-                  message: superGameSeriesErrorMessage(
-                    result.error,
-                    'Nie udało się odczytać symboli planszy.',
-                  ),
-                };
-          setDetails((current) => ({ ...current, [key]: entry }));
-        })
-        .catch(() => {
-          setDetails((current) => ({
-            ...current,
-            [key]: {
-              kind: 'error',
-              message: 'Nie udało się odczytać symboli planszy.',
-            },
-          }));
-        })
-        .finally(() => detailRequests.current.delete(key));
-    }
-  }, [api, detailTargets, details, gameId, rules]);
-
-  // Neighbour crops are fetched ahead (with the revision of their reading).
-  useEffect(() => {
-    if (view === null || view.series.id !== seriesId) return;
-    for (const index of seriesNeighbourIndexes(view)) {
-      const card = view.cards[index];
-      const key =
-        card === undefined ? null : detailKeyOf(card, rules.versionId);
-      const entry = key === null ? undefined : details[key];
-      if (card === undefined || card.board === null || entry === undefined) {
-        continue;
-      }
-      const image = new Image();
-      image.src = boardImageUrl(api, gameId, card, entry);
-    }
-  }, [api, details, gameId, rules.versionId, seriesId, view]);
-
   const stale = shouldPollSeriesState(generation);
 
   // A new load generation: pages and errors of earlier requests are dropped.
@@ -508,9 +273,7 @@ export function SuperGameSeriesWorkspace({
 
   const reloadAll = useCallback(() => {
     reloadList();
-    refreshRequested.current = true;
     setViewToken((token) => token + 1);
-    setDetails({});
   }, [reloadList]);
 
   // While the generation is stale, its freshness is polled; when it becomes
@@ -613,304 +376,14 @@ export function SuperGameSeriesWorkspace({
   }
 
   function openSeries(id: string) {
-    saveOperation.current = null;
-    setView(null);
-    setViewError(null);
     onSeriesChange(id);
   }
 
   function closeSeries() {
-    saveOperation.current = null;
-    setView(null);
-    setViewError(null);
-    setLinesSequence(null);
     onSeriesChange(null);
   }
 
-  function save() {
-    if (view === null || view.series.id !== seriesId) return;
-    // A chosen symbol is saved only after every retrigger board was shown
-    // and confirmed with Enter (TASK-1053); until then Enter walks them.
-    if (superSymbolSaveBlock(view, symbols) === null) {
-      const review = advanceRetriggerReview(view);
-      if (review !== null) {
-        setView(review);
-        return;
-      }
-    }
-    const begun = beginSuperSymbolSave(view, symbols);
-    if (begun === null) {
-      const block = superSymbolSaveBlock(view, symbols);
-      if (block !== null) setView(blockSuperSymbolSave(view, block));
-      return;
-    }
-    setView(begun.state);
-    const savedSeriesId = view.series.id;
-    // The response is applied only while this very operation is the current
-    // one and the same series is still open (leaving the series ends it).
-    operationCounter.current += 1;
-    const operation = { id: operationCounter.current, seriesId: savedSeriesId };
-    saveOperation.current = operation;
-    // Valid only while the series open cycle it started in is still on.
-    const isCurrent = () =>
-      saveOperation.current === operation &&
-      openSeriesId.current === savedSeriesId;
-    const onOpenSeries = (
-      update: (state: SeriesViewState) => SeriesViewState,
-    ) =>
-      setView((state) =>
-        state !== null && state.series.id === savedSeriesId
-          ? update(state)
-          : state,
-      );
-    void api
-      .setSuperGameSeriesSuperSymbol(gameId, savedSeriesId, begun.request)
-      .then((result) => {
-        if (result.error !== undefined || result.data === undefined) {
-          if (!isCurrent()) return;
-          saveOperation.current = null;
-          if (isSeriesRevisionConflict(result.error)) {
-            // Nothing was written: show the current state, never overwrite.
-            onOpenSeries(applySuperSymbolConflict);
-            refreshRequested.current = true;
-            setViewToken((token) => token + 1);
-            return;
-          }
-          const message = superGameSeriesErrorMessage(
-            result.error,
-            'Nie udało się zapisać super symbolu.',
-          );
-          onOpenSeries((state) => applySuperSymbolFailure(state, message));
-          return;
-        }
-        const updated = result.data;
-        // The symbol changed on the server whatever the view shows now: the
-        // list is read again with its filters, which also refreshes the counter.
-        reloadList();
-        if (!isCurrent()) return;
-        saveOperation.current = null;
-        onOpenSeries((state) => applySuperSymbolSaved(state, updated, symbols));
-        // A chosen symbol moves on to the next series without one (TASK-1053);
-        // a cleared symbol keeps the series open for a new choice.
-        if (updated.superSymbolId !== null) {
-          findNextUndefinedSeries(
-            updated,
-            superSymbolSavedMessage(updated, symbols),
-          );
-        }
-      })
-      .catch(() => {
-        if (!isCurrent()) return;
-        saveOperation.current = null;
-        onOpenSeries((state) =>
-          applySuperSymbolFailure(
-            state,
-            'Połączenie z lokalnym Admin API zostało przerwane.',
-          ),
-        );
-      });
-  }
-
-  /**
-   * Opens the next series without a super symbol after the trigger of the
-   * opened one (TASK-1053), from the beginning of the list when none is left
-   * after it. An unsaved choice blocks it.
-   */
-  function openNextUndefinedSeries() {
-    if (view === null || view.series.id !== seriesId || view.saving) return;
-    if (isSuperSymbolCandidateDirty(view)) {
-      setView((state) =>
-        state === null
-          ? state
-          : setSeriesNotice(state, {
-              kind: 'error',
-              text: UNSAVED_SUPER_SYMBOL_NOTICE,
-            }),
-      );
-      return;
-    }
-    findNextUndefinedSeries(view.series, null);
-  }
-
-  /**
-   * The search behind `openNextUndefinedSeries` and the jump after a saved
-   * symbol. `savedText` (the confirmation of that save) leads every message,
-   * because the opened series and its notice are replaced. An answer that
-   * arrives after the opened series changed is a late answer and opens
-   * nothing.
-   */
-  function findNextUndefinedSeries(
-    from: SuperGameSeriesResponse,
-    savedText: string | null,
-  ) {
-    if (findingNextRef.current) return;
-    const searchFilters = filters;
-    const isCurrent = () => openSeriesId.current === from.id;
-    const withSaved = (text: string) =>
-      savedText === null ? text : `${savedText} ${text}`;
-    const onOpenedSeries = (
-      update: (state: SeriesViewState) => SeriesViewState,
-    ) =>
-      setView((state) =>
-        state !== null && state.series.id === from.id ? update(state) : state,
-      );
-    const fail = (error: unknown) =>
-      onOpenedSeries((state) =>
-        setSeriesNotice(state, {
-          kind: 'error',
-          text: withSaved(
-            superGameSeriesErrorMessage(
-              error,
-              'Nie udało się znaleźć następnej serii bez super symbolu.',
-            ),
-          ),
-        }),
-      );
-    const find = async (afterTrigger: number | null) => {
-      const result = await api.listSuperGameSeries(
-        gameId,
-        nextUndefinedSeriesQuery(searchFilters, afterTrigger),
-      );
-      return result.error !== undefined || result.data === undefined
-        ? ({ failed: true, error: result.error, next: null } as const)
-        : ({
-            failed: false,
-            error: undefined,
-            next: pickNextUndefinedSeries(
-              result.data.items,
-              from.id,
-              searchFilters,
-            ),
-          } as const);
-    };
-    findingNextRef.current = true;
-    setFindingNext(true);
-    void (async () => {
-      try {
-        const after = await find(from.triggerSequenceNumber);
-        if (!isCurrent()) return;
-        if (after.failed) {
-          fail(after.error);
-          return;
-        }
-        if (after.next !== null) {
-          if (savedText !== null)
-            showToast({ kind: 'success', text: savedText });
-          openSeries(after.next.id);
-          return;
-        }
-        const wrapped = await find(null);
-        if (!isCurrent()) return;
-        if (wrapped.failed) {
-          fail(wrapped.error);
-          return;
-        }
-        if (wrapped.next !== null) {
-          showToast({
-            kind: 'success',
-            text: withSaved(
-              undefinedSeriesWrappedMessage(
-                from.triggerSequenceNumber,
-                wrapped.next,
-              ),
-            ),
-          });
-          openSeries(wrapped.next.id);
-          return;
-        }
-        onOpenedSeries((state) =>
-          setSeriesNotice(state, {
-            kind: savedText === null ? 'info' : 'success',
-            text: withSaved(noUndefinedSeriesLeftMessage(searchFilters)),
-          }),
-        );
-      } catch {
-        if (isCurrent()) {
-          fail(null);
-        }
-      } finally {
-        findingNextRef.current = false;
-        setFindingNext(false);
-      }
-    })();
-  }
-
-  // Keyboard: always reads the latest values through this ref.
-  const latest = useRef<{
-    readonly cancel: () => void;
-    readonly linesOpen: boolean;
-    readonly move: (direction: -1 | 1) => void;
-    readonly nextUndefined: () => void;
-    readonly ordinary: readonly SymbolResponse[];
-    readonly save: () => void;
-    readonly select: (symbolId: string) => void;
-    readonly viewOpen: boolean;
-  }>({
-    cancel: () => undefined,
-    linesOpen: false,
-    move: () => undefined,
-    nextUndefined: () => undefined,
-    ordinary: [],
-    save: () => undefined,
-    select: () => undefined,
-    viewOpen: false,
-  });
-  useEffect(() => {
-    latest.current = {
-      cancel: () =>
-        setView((state) => state && cancelSuperSymbolCandidate(state)),
-      linesOpen: linesSequence !== null,
-      move: (direction) =>
-        setView((state) => state && moveSeriesPosition(state, direction)),
-      nextUndefined: openNextUndefinedSeries,
-      ordinary,
-      save,
-      select: (symbolId) =>
-        setView(
-          (state) => state && selectSuperSymbolCandidate(state, symbolId),
-        ),
-      viewOpen: view !== null && view.series.id === seriesId,
-    };
-  });
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const current = latest.current;
-      if (!current.viewOpen || current.linesOpen || event.isComposing) return;
-      if (isSuperGameSeriesShortcutBlocked(event.target, event.key)) return;
-      const command = resolveSuperGameSeriesKeyboardCommand(
-        event,
-        current.ordinary,
-      );
-      if (command === null) return;
-      event.preventDefault();
-      switch (command.kind) {
-        case 'save':
-          if (!event.repeat) current.save();
-          break;
-        case 'cancel':
-          current.cancel();
-          break;
-        case 'previous':
-          current.move(-1);
-          break;
-        case 'next':
-          current.move(1);
-          break;
-        case 'next_undefined_series':
-          if (!event.repeat) current.nextUndefined();
-          break;
-        case 'select_symbol':
-          current.select(command.symbolId);
-          break;
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
   const banner = superGameStateBanner(generation);
-  const seriesOpen = seriesId !== null;
-  const viewReady = view !== null && view.series.id === seriesId;
 
   return (
     <section
@@ -956,40 +429,24 @@ export function SuperGameSeriesWorkspace({
         </div>
       ) : null}
 
-      {seriesOpen ? (
-        <SeriesView
-          activeCard={activeCard}
-          api={api}
-          closeSeries={closeSeries}
-          detailEntry={detailKey === null ? undefined : details[detailKey]}
-          findingNext={findingNext}
+      {seriesId !== null ? (
+        <SuperGameSeriesPanel
+          client={viewClient}
+          filters={filters}
           gameId={gameId}
-          linesTrigger={linesTrigger}
-          onCancel={() =>
-            setView((state) => state && cancelSuperSymbolCandidate(state))
+          onBack={closeSeries}
+          onBoardEdited={reloadList}
+          onSeriesChange={openSeries}
+          onSeriesLoaded={(series) =>
+            setList((state) => replaceSeriesInList(state, series))
           }
-          onClear={() =>
-            setView((state) => state && selectSuperSymbolCandidate(state, null))
-          }
-          onGo={(index) =>
-            setView((state) => state && goToSeriesPosition(state, index))
-          }
-          onMove={(direction) =>
-            setView((state) => state && moveSeriesPosition(state, direction))
-          }
-          onNextUndefined={openNextUndefinedSeries}
-          onOpenLines={setLinesSequence}
-          onSave={save}
-          onSelect={(symbolId) =>
-            setView(
-              (state) => state && selectSuperSymbolCandidate(state, symbolId),
-            )
-          }
-          ordinary={ordinary}
+          onSeriesSaved={reloadList}
+          onSuperGameStateChange={setGeneration}
+          refreshToken={viewToken}
+          rulesVersionId={rules.loaded ? rules.versionId : undefined}
+          rulesVersions={rules.options}
+          seriesId={seriesId}
           symbols={symbols}
-          triggerCodes={triggerCodes}
-          view={viewReady ? view : null}
-          viewError={viewError}
         />
       ) : (
         <SeriesList
@@ -1005,33 +462,6 @@ export function SuperGameSeriesWorkspace({
           symbols={symbols}
         />
       )}
-
-      {linesSequence !== null ? (
-        <BoardSearchBoardLinesModal
-          api={api}
-          formatAmount={(credits) => `${credits} kr.`}
-          gameId={gameId}
-          onClose={(edited) => {
-            setLinesSequence(null);
-            if (edited) {
-              setDetails({});
-              reloadAll();
-              return;
-            }
-            linesTrigger.current?.focus();
-          }}
-          onRecalculate={() => {
-            setDetails({});
-            reloadAll();
-          }}
-          requestedRulesVersionId={rules.versionId}
-          row={null}
-          rulesVersionId={null}
-          rulesVersions={rules.options}
-          sequenceNumber={linesSequence}
-          symbols={symbols}
-        />
-      ) : null}
 
       {toast !== null ? (
         <p
@@ -1286,414 +716,6 @@ function SeriesList({
           </button>
         ) : null}
       </footer>
-    </>
-  );
-}
-
-function SeriesView({
-  activeCard,
-  api,
-  closeSeries,
-  detailEntry,
-  findingNext,
-  gameId,
-  linesTrigger,
-  onCancel,
-  onClear,
-  onGo,
-  onMove,
-  onNextUndefined,
-  onOpenLines,
-  onSave,
-  onSelect,
-  ordinary,
-  symbols,
-  triggerCodes,
-  view,
-  viewError,
-}: {
-  readonly activeCard: SeriesPositionCard | null;
-  readonly api: SuperGameSeriesClient;
-  readonly closeSeries: () => void;
-  readonly detailEntry: DetailEntry | undefined;
-  readonly findingNext: boolean;
-  readonly gameId: string;
-  readonly linesTrigger: RefObject<HTMLButtonElement | null>;
-  readonly onCancel: () => void;
-  readonly onClear: () => void;
-  readonly onGo: (index: number) => void;
-  readonly onMove: (direction: -1 | 1) => void;
-  readonly onNextUndefined: () => void;
-  readonly onOpenLines: (sequenceNumber: number) => void;
-  readonly onSave: () => void;
-  readonly onSelect: (symbolId: string | null) => void;
-  readonly ordinary: readonly SymbolResponse[];
-  readonly symbols: readonly SymbolResponse[];
-  readonly triggerCodes: readonly string[];
-  readonly view: SeriesViewState | null;
-  readonly viewError: string | null;
-}) {
-  if (view === null) {
-    return (
-      <>
-        <div className={styles.viewHeader}>
-          <button
-            className="secondaryButton"
-            onClick={closeSeries}
-            type="button"
-          >
-            ← Lista serii
-          </button>
-        </div>
-        {viewError !== null ? (
-          <p className={styles.error} role="alert">
-            {viewError}
-          </p>
-        ) : (
-          <p className={styles.empty}>Wczytuję serię…</p>
-        )}
-      </>
-    );
-  }
-
-  const { series } = view;
-  const dirty = isSuperSymbolCandidateDirty(view);
-  const saveBlock = superSymbolSaveBlock(view, symbols);
-  const candidate = symbols.find(
-    (symbol) => symbol.id === view.candidateSymbolId,
-  );
-  const confirmed = new Set(view.confirmedRetriggers);
-  const candidateListed =
-    view.candidateSymbolId === null ||
-    ordinary.some((symbol) => symbol.id === view.candidateSymbolId);
-
-  return (
-    <>
-      <div className={styles.viewHeader}>
-        <button className="secondaryButton" onClick={closeSeries} type="button">
-          ← Lista serii
-        </button>
-        <h3>Seria od #{series.triggerSequenceNumber}</h3>
-        <span>
-          {seriesRangeLabel(series)} · {series.length} pozycji · rewizja{' '}
-          {series.revision}
-        </span>
-        <SeriesBadges series={series} symbols={symbols} />
-        <button
-          className={`primaryButton ${styles.viewHeaderNext}`}
-          disabled={findingNext || view.saving}
-          onClick={onNextUndefined}
-          title="Otwiera następną serię bez super symbolu (zakres plansz i filtry kompletności oraz przebiegu jak na liście)."
-          type="button"
-        >
-          {findingNext ? 'Szukam…' : 'Następna bez symbolu (N) →'}
-        </button>
-      </div>
-
-      {viewError !== null ? (
-        <p className={styles.error} role="alert">
-          {viewError}
-        </p>
-      ) : null}
-      {view.notice !== null ? (
-        <p
-          className={
-            view.notice.kind === 'error' ? styles.error : styles.notice
-          }
-          role={view.notice.kind === 'error' ? 'alert' : 'status'}
-        >
-          {view.notice.text}
-        </p>
-      ) : null}
-
-      <div className={styles.viewLayout}>
-        <section
-          aria-label="Karuzela pozycji serii"
-          className={styles.carousel}
-        >
-          {activeCard !== null ? (
-            <>
-              <header className={styles.cardHeader}>
-                <h4>{seriesPositionCardLabel(activeCard)}</h4>
-                <span>
-                  {view.activeIndex + 1} z {view.cards.length}
-                </span>
-                {activeCard.role === 'retrigger' ? (
-                  <span className={styles.tag}>Retrigger</span>
-                ) : null}
-                {activeCard.role === 'trigger' ? (
-                  <span className={styles.tag}>Plansza wyzwalająca</span>
-                ) : null}
-              </header>
-
-              {activeCard.missing ? (
-                <div className={styles.missingCard} data-testid="missing-card">
-                  {missingCardLabel(activeCard)}
-                </div>
-              ) : (
-                <SeriesBoardView
-                  api={api}
-                  card={activeCard}
-                  entry={detailEntry}
-                  gameId={gameId}
-                  key={activeCard.sequenceNumber}
-                  linesTrigger={linesTrigger}
-                  onOpenLines={onOpenLines}
-                  triggerCodes={triggerCodes}
-                />
-              )}
-            </>
-          ) : null}
-
-          <ol aria-label="Pozycje serii" className={styles.strip}>
-            {view.cards.map((card, index) => {
-              const classes = [styles.chip];
-              if (index === view.activeIndex) classes.push(styles.chipActive);
-              if (card.role === 'retrigger') classes.push(styles.chipRetrigger);
-              if (card.missing) classes.push(styles.chipMissing);
-              return (
-                <li key={card.sequenceNumber}>
-                  <button
-                    aria-current={
-                      index === view.activeIndex ? 'true' : undefined
-                    }
-                    aria-label={`${seriesPositionCardLabel(card)}${card.missing ? ' · brak planszy' : ''}${confirmed.has(card.sequenceNumber) ? ' · potwierdzony' : ''}`}
-                    className={classes.join(' ')}
-                    onClick={() => onGo(index)}
-                    type="button"
-                  >
-                    {card.sequenceNumber}
-                    {card.role === 'retrigger' ? ' R' : ''}
-                    {confirmed.has(card.sequenceNumber) ? ' ✓' : ''}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-
-          <footer className={styles.navigation}>
-            <button
-              className="secondaryButton"
-              disabled={view.activeIndex === 0}
-              onClick={() => onMove(-1)}
-              type="button"
-            >
-              ← Poprzednia
-            </button>
-            <span className={styles.hint}>
-              Użyj ← / →, aby przejść o jedną pozycję.
-            </span>
-            <button
-              className="secondaryButton"
-              disabled={view.activeIndex >= view.cards.length - 1}
-              onClick={() => onMove(1)}
-              type="button"
-            >
-              Następna →
-            </button>
-          </footer>
-        </section>
-
-        <section aria-label="Super symbol serii" className={styles.symbolPanel}>
-          <h4>Super symbol</h4>
-          <label className={styles.symbolField}>
-            <span>Symbol serii</span>
-            <select
-              disabled={view.saving}
-              onChange={(event) => {
-                const value = event.currentTarget.value;
-                onSelect(value === '' ? null : value);
-                event.currentTarget.blur();
-              }}
-              value={view.candidateSymbolId ?? ''}
-            >
-              <option value="">— do zdefiniowania —</option>
-              {ordinary.map((symbol, index) => {
-                const shortcut = superGameSeriesShortcutLabel(index);
-                return (
-                  <option key={symbol.id} value={symbol.id}>
-                    {shortcut === null ? '' : `${shortcut} · `}
-                    {symbol.name} ({symbol.code})
-                  </option>
-                );
-              })}
-              {!candidateListed && candidate !== undefined ? (
-                <option value={candidate.id}>
-                  {candidate.name} ({candidate.code}) · nie zwykły symbol
-                </option>
-              ) : null}
-            </select>
-          </label>
-          <p className={styles.hint}>
-            Na liście są tylko zwykłe symbole (bez Wild i symboli
-            uruchamiających). Skróty: <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>{' '}
-            wybiera symbol, <kbd>Enter</kbd> pokazuje kolejno retriggery serii
-            do potwierdzenia, a po ostatnim zapisuje i otwiera następną serię
-            bez symbolu, <kbd>Esc</kbd> anuluje, <kbd>N</kbd> otwiera następną
-            serię bez symbolu bez zapisu.
-          </p>
-          {saveBlock !== null && saveBlock.reason === 'not_ordinary' ? (
-            <p className={styles.error} role="alert">
-              {saveBlock.message}
-            </p>
-          ) : null}
-          <div className={styles.actions}>
-            <button
-              className="primaryButton"
-              disabled={saveBlock !== null}
-              onClick={onSave}
-              type="button"
-            >
-              {superSymbolSaveLabel(view)}
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={!dirty || view.saving}
-              onClick={onCancel}
-              type="button"
-            >
-              Anuluj (Esc)
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={
-                view.saving ||
-                (series.superSymbolId === null &&
-                  view.candidateSymbolId === null)
-              }
-              onClick={onClear}
-              type="button"
-            >
-              Wyczyść symbol
-            </button>
-          </div>
-          {view.candidateSymbolId === null && series.superSymbolId !== null ? (
-            <p className={styles.hint}>
-              Symbol zostanie wyczyszczony po zapisie, a seria zostanie otwarta.
-              Zapis nie zmienia kompletności ani wiarygodności przebiegu.
-            </p>
-          ) : (
-            <p className={styles.hint}>
-              Po zapisie symbolu otwiera się następna seria bez symbolu. Zapis
-              nie zmienia kompletności ani wiarygodności przebiegu.
-            </p>
-          )}
-        </section>
-      </div>
-    </>
-  );
-}
-
-function SeriesBoardView({
-  api,
-  card,
-  entry,
-  gameId,
-  linesTrigger,
-  onOpenLines,
-  triggerCodes,
-}: {
-  readonly api: SuperGameSeriesClient;
-  readonly card: SeriesPositionCard;
-  readonly entry: DetailEntry | undefined;
-  readonly gameId: string;
-  readonly linesTrigger: RefObject<HTMLButtonElement | null>;
-  readonly onOpenLines: (sequenceNumber: number) => void;
-  readonly triggerCodes: readonly string[];
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const board = card.board;
-  const checksum = board?.boardChecksumSha256 ?? null;
-  const detail = entry?.kind === 'ready' ? entry.detail : null;
-  const marked =
-    detail === null ? [] : triggerCellIndexes(detail.symbolCodes, triggerCodes);
-  const polygons = detail?.view?.cellPolygons ?? null;
-
-  if (board === null || checksum === null) {
-    return <div className={styles.missingCard}>{missingCardLabel(card)}</div>;
-  }
-
-  return (
-    <>
-      {entry === undefined ? (
-        <div className={styles.missingCard}>Odczytuję planszę…</div>
-      ) : imageFailed ? (
-        <div className={styles.missingCard} role="alert">
-          Kadr tej planszy nie jest obecnie dostępny. Układ symboli poniżej jest
-          odczytany z bazy.
-        </div>
-      ) : (
-        <div className={styles.boardFrame}>
-          <img
-            alt={`Plansza #${card.sequenceNumber}`}
-            className={styles.boardImage}
-            onError={() => setImageFailed(true)}
-            src={boardImageUrl(api, gameId, card, entry)}
-          />
-          {polygons !== null && marked.length > 0 ? (
-            <svg
-              aria-hidden="true"
-              className={styles.boardOverlay}
-              preserveAspectRatio="none"
-              viewBox="0 0 1 1"
-            >
-              {marked.map((index) => (
-                <polygon
-                  data-cell={index}
-                  key={index}
-                  points={(polygons[index] ?? [])
-                    .map((point) => `${point.x},${point.y}`)
-                    .join(' ')}
-                />
-              ))}
-            </svg>
-          ) : null}
-        </div>
-      )}
-
-      {detail !== null ? (
-        <>
-          <ol
-            aria-label={`Układ symboli planszy #${card.sequenceNumber}`}
-            className={styles.symbolGrid}
-          >
-            {detail.symbolCodes.map((code, index) => (
-              <li
-                className={
-                  marked.includes(index) ? styles.triggerCell : undefined
-                }
-                key={index}
-                title={
-                  marked.includes(index) ? 'Symbol uruchamiający' : undefined
-                }
-              >
-                {code ?? '?'}
-              </li>
-            ))}
-          </ol>
-          <p className={styles.hint}>
-            Symbole uruchamiające supergrę na tej planszy: {marked.length}
-            {marked.length > 0 ? ' (wyróżnione)' : ''}.
-          </p>
-        </>
-      ) : entry?.kind === 'error' ? (
-        <p className={styles.hint}>
-          Nie oznaczono symboli uruchamiających: {entry.message}
-        </p>
-      ) : (
-        <p className={styles.hint}>Odczytuję symbole planszy…</p>
-      )}
-
-      <div className={styles.actions}>
-        <button
-          className="secondaryButton"
-          onClick={() => onOpenLines(card.sequenceNumber)}
-          ref={linesTrigger}
-          type="button"
-        >
-          Pokaż planszę z liniami
-        </button>
-      </div>
     </>
   );
 }

@@ -57,7 +57,20 @@
       "types": "./src/management/management-slot-state.ts",
       "default": "./src/management/management-slot-state.ts"
     },
-    "./management.css": "./src/management/management.css"
+    "./management.css": "./src/management/management.css",
+    "./super-game-series/*": {
+      "types": "./src/super-game-series/*.ts",
+      "default": "./src/super-game-series/*.ts"
+    },
+    "./super-game-series/super-game-series-panel": {
+      "types": "./src/super-game-series/super-game-series-panel.tsx",
+      "default": "./src/super-game-series/super-game-series-panel.tsx"
+    },
+    "./super-game-series/super-game-series-modal": {
+      "types": "./src/super-game-series/super-game-series-modal.tsx",
+      "default": "./src/super-game-series/super-game-series-modal.tsx"
+    },
+    "./super-game-series.css": "./src/super-game-series/super-game-series.css"
   },
   "scripts": {
     "lint": "eslint .",

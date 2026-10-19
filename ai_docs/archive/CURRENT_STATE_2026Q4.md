@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1059 — Modal serii supergry w udostępnionej wyszukiwarce (done)
 
 - Plik: `tasks/completed/1059-share-super-series-modal.md`.
-- Commit: **v1.7.430** (gałąź `claude/share-super-series`).
+- Commit: **v1.7.430 / `a583ae2d785d78ed76f33ea6109f31086e8f3cc4`** (gałąź `claude/share-super-series`).
 - Wynik: znacznik supergry (trigger i spin, karta wyniku i wiersz „Przybliżonej wygranej”) z `onOpenSeries` jest przyciskiem; `BoardSearchWorkspace` z propsem `superGameSeries` otwiera `SuperGameSeriesModal` (natywny `<dialog>`, `Esc` należy do widoku serii, „Zamknij” zablokowane w czasie zapisu, baner i odpytywanie stanu co 5 s, karuzela na klikniętej planszy) i po zamknięciu z zapisem czyta wyniki oraz zakres ponownie; skróty edytora są zablokowane przy otwartym modalu. Źródło danych udostępnienia implementuje `SuperGameSeriesModalClient` (`state`, `boards`, `PUT super-symbol`, `next-undefined`, `superGameTriggerCount`), bramki linku i panelu przekazują je, strony importują `super-game-series.css`. Testy: 7 interakcji modalu w pakiecie, 5 testów źródła danych Reviewera; pakiet, Reviewer i Admin zielone; audyt Codex `TASK-1059_AUDIT_gpt-6.1-sol.md` (REVISE → P0-1 i P1-1 zamknięte w jednej rundzie).
 
 ### TASK-1057 — Allowlista proxy Reviewera i proxy panelu dla tras serii (done)

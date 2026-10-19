@@ -37,7 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
-| `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; cały plan zlecony, kolejność 1056, 1058, 1060, 1057, 1059; audyty Codex dla 1056, 1057, 1059 | TASK-1056–1060 | `claude/share-super-series` |
+| `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 — tasks/completed/1059-share-super-series-modal.md
+- **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 / `a583ae2d` — tasks/completed/1059-share-super-series-modal.md
 - **TASK-1057** — Allowlista proxy Reviewera i proxy panelu dla tras serii — v1.7.429 / `9fff1457` — tasks/completed/1057-share-super-series-proxy-allowlist.md
 - **TASK-1060** — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku — v1.7.428 — tasks/completed/1060-share-super-series-decision-docs.md
 - **TASK-1058** — Wyniesienie widoku serii supergry do board-search-ui — v1.7.427 / `8d682a44` — tasks/completed/1058-super-series-panel-extraction.md

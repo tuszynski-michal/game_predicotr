@@ -136,7 +136,7 @@ npm run reviewer:build
 
 ## Outcome
 
-Commit: v1.7.430 (hash dopisuje kolejny commit).
+Commit: v1.7.430 / `a583ae2d785d78ed76f33ea6109f31086e8f3cc4`.
 
 ### Changed
 

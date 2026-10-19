@@ -28,6 +28,11 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
   normalizuje `spin_cost` do 10, bez zmiany opublikowanych rekordów reguł.
   Lista stawek zależy od identyfikatora gry. Ustalenie stawek w edytorze
   reguł zostaje na odrębne zadanie; nie rozpoznajemy gry po koszcie ani nazwie.
+- **Configuration correction (TASK-1065, 2026-10-19):** na jawne polecenie
+  operatora koszt 10 zostaje również zapisany w nowej opublikowanej v3.
+  Istniejący draft jest zgodny z v2 poza kosztem; linie, symbole i wypłaty
+  pozostają identyczne. Historyczne v1/v2 nie są modyfikowane. Tymczasowa
+  lista stawek w kodzie pozostaje do osobnego zadania konfiguracji stawek.
 - **Boundaries:** pozostałe gry zachowują dotychczasowe stawki i przeliczenia.
   Nowa migawka używa tej samej efektywnej bazy co kalkulator; historyczne
   wyniki i ich stawki pozostają odtwarzalne. Stałe sloty panelu zarządzania,

@@ -614,6 +614,10 @@ Mumie `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` raportują efektywne
 Wypłaty są niezmienionymi kredytami przy bazie 1 zł. Wyjątek stosuje wspólny
 resolver konfiguracji w Adminie, udostępnieniu i nowych migawkach panelu;
 istniejące zapisane wyniki zachowują swoją bazę. Format odpowiedzi bez zmian.
+TASK-1065 ujednolica także zapis konfiguracji: opublikowana v3 Mumii ma
+`spinCost = 10`, przy niezmienionej tabeli wypłat. Historyczne v1/v2 nadal
+mają 100; publikacja v3 korzysta ze zwykłej walidacji i unieważnienia generacji
+supergier, bez edycji opublikowanych wersji ani zmiany schematu.
 `summary.spinCostCredits` jest sumą kosztów pozycji (brakująca plansza w
 serii też jest darmowym spinem). Wynik planszy serii jest `provisional`, gdy
 super symbol nie jest zdefiniowany (albo nie jest zwykłym symbolem liniowym

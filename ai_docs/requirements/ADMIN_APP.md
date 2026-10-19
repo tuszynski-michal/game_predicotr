@@ -702,6 +702,11 @@ dla udostępnionych wyszukiwarek; konfiguracja stawek w regułach jest odłożon
 Pozostałe gry zachowują powyższą listę i bazę z reguł. Historyczne wyniki
 zachowują zapisaną bazę i wcześniej wybraną stawkę.
 
+Po korekcie konfiguracji TASK-1065 najnowsza opublikowana wersja reguł Mumii
+ma także zapisany koszt 10 kredytów (v3). Poprzednie wersje pozostają
+niezmienione; kwoty wypłat kopiowane są bez przeskalowania. Edytor reguł
+powinien więc pokazywać koszt 10 po wybraniu najnowszej wersji.
+
 W udostępnieniach profil stawek wybierany jest z rzeczywistego `gameId`
 odpowiedzi kalkulatora, nie z technicznego aliasu `shared` służącego do
 adresowania żądań. Dotyczy kontrolek, tabeli, wykresu i kontekstu korekty

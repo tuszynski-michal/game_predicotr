@@ -64,6 +64,11 @@ interface BoardSearchResultsProps {
   readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
   /** Freshness of the series generation behind the markers (TASK-0935). */
   readonly superGameState?: SuperGameStateResponse | null;
+  /** Opens the series of the marked board in place (online share, D-564). */
+  readonly onOpenSuperGameSeries?: (
+    seriesId: string,
+    sequenceNumber: number,
+  ) => void;
 }
 
 export function BoardSearchResults({
@@ -71,6 +76,7 @@ export function BoardSearchResults({
   client: api,
   gameId,
   onBoardEdited,
+  onOpenSuperGameSeries,
   onStateChange,
   state,
   symbols,
@@ -154,6 +160,12 @@ export function BoardSearchResults({
         <SuperGameMarkerBadge
           gameId={gameId}
           marker={current.superGame}
+          onOpenSeries={
+            onOpenSuperGameSeries === undefined
+              ? undefined
+              : (seriesId) =>
+                  onOpenSuperGameSeries(seriesId, current.sequenceNumber)
+          }
           seriesHref={api.superGameSeriesHref}
         />
       ) : null}

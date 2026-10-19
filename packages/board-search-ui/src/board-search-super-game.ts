@@ -88,6 +88,15 @@ export function superGameSeriesAdminHref(
   return `?${parameters.toString()}`;
 }
 
+/** The call to action of a marker: define the symbol, or open the series. */
+export function superGameMarkerActionLabel(
+  marker: Pick<BoardSearchSuperGameMarker, 'superSymbolCode'>,
+): string {
+  return marker.superSymbolCode === null || marker.superSymbolCode === undefined
+    ? SUPER_GAME_DEFINE_LINK
+    : SUPER_GAME_OPEN_LINK;
+}
+
 /**
  * The link of a marker: only when the data source can link to the Admin
  * (`superGameSeriesHref`, Admin only) and the marker carries its series.

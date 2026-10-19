@@ -111,6 +111,8 @@ export interface SuperGameSeriesPanelProps {
   readonly onSuperGameStateChange?: (state: SuperGameStateResponse) => void;
   /** A symbol correction was saved in the lines window. */
   readonly onBoardEdited?: () => void;
+  /** A super symbol save started or ended (a host blocks closing meanwhile). */
+  readonly onSavingChange?: (saving: boolean) => void;
 }
 
 type Toast = { readonly kind: 'success' | 'error'; readonly text: string };
@@ -194,6 +196,7 @@ export function SuperGameSeriesPanel({
   initialSequenceNumber = null,
   onBack,
   onBoardEdited,
+  onSavingChange,
   onSeriesChange,
   onSeriesLoaded,
   onSeriesSaved,
@@ -239,6 +242,7 @@ export function SuperGameSeriesPanel({
   // when a host renders a new function.
   const callbacks = useRef({
     onBoardEdited,
+    onSavingChange,
     onSeriesLoaded,
     onSeriesSaved,
     onSuperGameStateChange,
@@ -246,11 +250,16 @@ export function SuperGameSeriesPanel({
   useEffect(() => {
     callbacks.current = {
       onBoardEdited,
+      onSavingChange,
       onSeriesLoaded,
       onSeriesSaved,
       onSuperGameStateChange,
     };
   });
+  const saving = view?.saving === true;
+  useEffect(() => {
+    callbacks.current.onSavingChange?.(saving);
+  }, [saving]);
   const rulesLoaded = rulesVersionId !== undefined;
   const rulesVersion = rulesVersionId ?? null;
 

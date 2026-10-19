@@ -117,6 +117,11 @@ interface BoardSearchApproximateWinProps {
    * published rules only.
    */
   readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
+  /** Opens the series of a marked row in place (online share, D-564). */
+  readonly onOpenSuperGameSeries?: (
+    seriesId: string,
+    sequenceNumber: number,
+  ) => void;
 }
 
 /** The chosen stake for one search pattern; `null` until the operator picks. */
@@ -145,6 +150,7 @@ export function BoardSearchApproximateWin({
   onCalculationChange,
   symbols = [],
   rulesVersions = null,
+  onOpenSuperGameSeries,
 }: BoardSearchApproximateWinProps) {
   const appliedReplayId = useRef<string | null>(null);
   // `null` is the latest published rules version (the default).
@@ -481,6 +487,7 @@ export function BoardSearchApproximateWin({
             }}
             result={visibleResult}
             superGameSeriesHref={api.superGameSeriesHref}
+            onOpenSuperGameSeries={onOpenSuperGameSeries}
             symbols={symbols}
             pinnedSpinPositions={pinnedSpinPositions}
             onPinsChange={onPinsChange}
@@ -535,6 +542,7 @@ function ApproximateWinResultView({
   onRecalculate,
   result,
   superGameSeriesHref,
+  onOpenSuperGameSeries,
   symbols,
   pinnedSpinPositions,
   onPinsChange,
@@ -559,6 +567,11 @@ function ApproximateWinResultView({
   readonly result: ApproximateWinResponse;
   /** Admin only: link of a super game marker to the series view. */
   readonly superGameSeriesHref?: (gameId: string, seriesId: string) => string;
+  /** Online share: opens the series of a marked row in place (D-564). */
+  readonly onOpenSuperGameSeries?: (
+    seriesId: string,
+    sequenceNumber: number,
+  ) => void;
   readonly symbols: readonly SymbolResponse[];
   readonly pinnedSpinPositions?: readonly number[];
   readonly onPinsChange?: (value: readonly number[]) => void;
@@ -765,6 +778,15 @@ function ApproximateWinResultView({
                         <SuperGameMarkerBadge
                           gameId={gameId}
                           marker={row.superGame}
+                          onOpenSeries={
+                            onOpenSuperGameSeries === undefined
+                              ? undefined
+                              : (seriesId) =>
+                                  onOpenSuperGameSeries(
+                                    seriesId,
+                                    row.sequenceNumber,
+                                  )
+                          }
                           seriesHref={superGameSeriesHref}
                         />
                       ) : null}

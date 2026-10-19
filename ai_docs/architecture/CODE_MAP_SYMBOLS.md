@@ -1019,8 +1019,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 ## apps/reviewer/src
 
 - api/admin-api-client.ts: createConfiguredAdminApiClient
-- app/board-search-api/[...path]/route.ts: GET, POST
-- app/board-search-panel-api/[...path]/route.ts: GET, POST
+- app/board-search-api/[...path]/route.ts: GET, POST, PUT
+- app/board-search-panel-api/[...path]/route.ts: GET, POST, PUT
 - app/board-search-panel/page.tsx: BoardSearchPanelPage
 - app/board-search/page.tsx: BoardSearchSharePage
 - app/layout.tsx: metadata, RootLayout
@@ -1155,7 +1155,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - board-search-saved-selection.ts: BoardSearchDraft, BoardSearchSavedSelection, boardSearchDraftKey, confirmBoardSearchDiscardDraft
 - board-search-stake.ts: ApproximateWinAmountUnit, ApproximateWinDisplay, APPROXIMATE_WIN_STAKES_GROSZE, APPROXIMATE_WIN_DEFAULT_DISPLAY, APPROXIMATE_WIN_DISPLAY_STORAGE_KEY, ApproximateWinStakeOption, approximateWinBaseStakeGrosze, approximateWinStakeOptions, effectiveApproximateWinStakeGrosze, roundDivideHalfAwayFromZero, scaleApproximateWinAmount, scaleApproximateWinAmountAtStake, approximateWinDisplayValue, formatApproximateWinAmount, formatApproximateWinWholeAmount, formatApproximateWinAxisValue, approximateWinStakeMultiplier, formatZloty, loadApproximateWinDisplay, saveApproximateWinDisplay
 - board-search-super-game-marker.tsx: SuperGameMarkerBadge, SuperGameStateBanner
-- board-search-super-game.ts: BoardSearchSuperGameMarker, SUPER_GAME_STALE_BANNER, SUPER_GAME_STALE_HINT, SUPER_GAME_DEFINE_LINK, SUPER_GAME_OPEN_LINK, superGameMarkerLabel, superGameSpinLabel, superGameMarkerNotes, superGameStateIsStale, superGameSeriesAdminHref, superGameMarkerLink
+- board-search-super-game.ts: BoardSearchSuperGameMarker, SUPER_GAME_STALE_BANNER, SUPER_GAME_STALE_HINT, SUPER_GAME_DEFINE_LINK, SUPER_GAME_OPEN_LINK, superGameMarkerLabel, superGameSpinLabel, superGameMarkerNotes, superGameStateIsStale, superGameSeriesAdminHref, superGameMarkerActionLabel, superGameMarkerLink
 - board-search-workspace.tsx: BoardSearchSaveCancelled, BoardSearchReplayRequest, BoardSearchApproximateWinReplay, BoardSearchWorkspaceProps, BoardSearchWorkspace
 - keyboard-shortcuts.ts: DIGIT_SHORTCUT_LIMIT, EXTENDED_DIGIT_SHORTCUT_LIMIT, ShortcutKeyboardEvent, hasShortcutModifier, digitShortcutIndex, digitShortcutLabel, extendedDigitShortcutIndex, extendedDigitShortcutLabel, isTextEntryKeyboardTarget
 - management/management-cards.tsx: managementAmount, managementDate, ManagementBoardPreview, ManagementCards
@@ -1172,6 +1172,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - management/management-workspace.tsx: ManagementClient, ManagementWorkspace
 - super-game-series/super-game-series-client.ts: SuperGameSeriesViewClient, SuperGameSeriesModalClient
 - super-game-series/super-game-series-keyboard.ts: SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked
+- super-game-series/super-game-series-modal.tsx: SuperGameSeriesModalProps, SuperGameSeriesModal
 - super-game-series/super-game-series-panel.tsx: SuperGameSeriesPanelProps, SeriesBadges, SuperGameSeriesPanel
 - super-game-series/super-game-series-state.ts: SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS, SeriesBoardRange, seriesBoardRange, hasSeriesBoardRange, seriesInBoardRange, seriesBoardRangeLabel, pickNextUndefinedSeries, nextUndefinedSeriesFiltered, noUndefinedSeriesLeftMessage, undefinedSeriesWrappedMessage, UNSAVED_SUPER_SYMBOL_NOTICE, isSeriesGenerationStale, SeriesPositionRole, SeriesPositionCard, buildSeriesPositionCards, seriesPositionCardLabel, missingCardLabel, SeriesNotice, SeriesViewState, createSeriesViewState, activeSeriesCard, moveSeriesPosition, goToSeriesPosition, seriesCardIndexOf, seriesNeighbourIndexes, applySeriesRefresh, applySeriesViewSuperGameState, ordinarySuperSymbols, triggerSymbols, triggerCellIndexes, selectSuperSymbolCandidate, cancelSuperSymbolCandidate, isSuperSymbolCandidateDirty, SuperSymbolSaveBlock, superSymbolSaveBlock, RetriggerReviewStep, retriggerCardIndexes, nextRetriggerReviewStep, advanceRetriggerReview, superSymbolSaveLabel, SuperSymbolSaveRequest, beginSuperSymbolSave, blockSuperSymbolSave, superSymbolSavedMessage, applySuperSymbolSaved, applySuperSymbolConflict, applySuperSymbolFailure, setSeriesNotice, SeriesBadgeTone, SeriesBadge, seriesBadges, seriesRangeLabel, SUPER_GAME_SERIES_REVISION_CONFLICT, isSeriesRevisionConflict, isSeriesNotFound, superGameSeriesErrorMessage
 

@@ -88,7 +88,7 @@ npm run lint --workspace @game-predictor/reviewer
 
 ## Outcome
 
-Commit: v1.7.429 (hash dopisuje kolejny commit).
+Commit: v1.7.429 / `9fff1457210db8bf1be4692c7b6affeaf5704953`.
 
 ### Changed
 

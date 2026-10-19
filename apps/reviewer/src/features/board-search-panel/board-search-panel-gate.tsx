@@ -163,6 +163,7 @@ export function BoardSearchPanelGate({
         client={source}
         gameId="shared"
         scopeKey={`panel:${panelId}:${sessionId}`}
+        superGameSeries={{ client: source }}
       />
     </main>
   );

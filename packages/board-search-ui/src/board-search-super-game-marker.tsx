@@ -6,6 +6,7 @@ import {
   SUPER_GAME_STALE_BANNER,
   SUPER_GAME_STALE_HINT,
   type BoardSearchSuperGameMarker,
+  superGameMarkerActionLabel,
   superGameMarkerLabel,
   superGameMarkerLink,
   superGameMarkerNotes,
@@ -16,20 +17,25 @@ import {
 /**
  * The gold super game marker of a result card or an approximate-win row
  * (TASK-0935). The link to the Admin's series view appears only when the
- * data source declares `superGameSeriesHref` (the Admin); the online share
- * and the management panel show the label alone.
+ * data source declares `superGameSeriesHref` (the Admin); with `onOpenSeries`
+ * (the online share, D-564) the marker is a button that opens the series in
+ * place; the management panel shows the label alone.
  */
 export function SuperGameMarkerBadge({
   gameId,
   marker,
+  onOpenSeries,
   seriesHref,
 }: {
   readonly gameId: string;
   readonly marker: BoardSearchSuperGameMarker;
+  readonly onOpenSeries?: (seriesId: string) => void;
   readonly seriesHref?: (gameId: string, seriesId: string) => string;
 }) {
   const label = superGameMarkerLabel(marker);
   const link = superGameMarkerLink(marker, gameId, seriesHref);
+  const openSeriesId =
+    onOpenSeries !== undefined && marker.seriesId ? marker.seriesId : null;
   // A series without a super symbol hides its spin in the label.
   const spin =
     marker.kind === 'in_series' && marker.superSymbolCode == null
@@ -47,7 +53,15 @@ export function SuperGameMarkerBadge({
           {note}
         </small>
       ))}
-      {link === null ? null : (
+      {openSeriesId !== null ? (
+        <button
+          className="boardSearchSuperGameLink"
+          onClick={() => onOpenSeries?.(openSeriesId)}
+          type="button"
+        >
+          {superGameMarkerActionLabel(marker)}
+        </button>
+      ) : link === null ? null : (
         <a
           className="boardSearchSuperGameLink"
           href={link.href}

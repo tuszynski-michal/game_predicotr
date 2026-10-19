@@ -6,17 +6,28 @@ import type {
   BoardSearchResponse,
   BoardSearchSharePublicContextResponse,
   BoardSearchSharePublicSearchResponse,
+  BoardSearchSharePublicSeriesBoardsResponse,
+  BoardSearchSharePublicSeriesResponse,
   BoardSearchSharePublicSymbolResponse,
+  BoardSearchSharePublicUndefinedSeriesResponse,
   GetBoardSearchApproximateWinOptions,
   SearchGameBoardsOptions,
+  SuperGameSeriesBoardsResponse,
+  SuperGameSeriesResponse,
+  SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
-import type { BoardSearchDataSource } from '@game-predictor/board-search-ui';
+import type {
+  BoardSearchDataSource,
+  SuperGameSeriesModalClient,
+} from '@game-predictor/board-search-ui';
 
 /**
  * The shared board search section's data source over the Reviewer proxy
  * (D-492). Public correction uses opaque cell versions; no refresh or full-photo
- * fallback. Client caches follow plan §4.5.
+ * fallback. Client caches follow plan §4.5. Since D-564 it also serves the
+ * series view of a marked board (`SuperGameSeriesModalClient`): the series
+ * reads and the super symbol update of the shared game.
  */
 
 export const BOARD_SEARCH_SHARE_API_BASE =
@@ -39,11 +50,12 @@ export type BoardSearchShareDataSourceOptions = {
   readonly onUnauthorized?: () => void;
 };
 
-export type BoardSearchShareDataSource = BoardSearchDataSource & {
-  readonly context: () => Promise<
-    Result<BoardSearchSharePublicContextResponse>
-  >;
-};
+export type BoardSearchShareDataSource = BoardSearchDataSource &
+  SuperGameSeriesModalClient & {
+    readonly context: () => Promise<
+      Result<BoardSearchSharePublicContextResponse>
+    >;
+  };
 
 export function createBoardSearchShareDataSource(
   options: BoardSearchShareDataSourceOptions = {},
@@ -174,6 +186,25 @@ export function createBoardSearchShareDataSource(
       clearData();
       options.onUnauthorized?.();
     }
+    return { error: await errorBody(response) };
+  }
+
+  /** A JSON mutation of the series (D-564); every answer drops the caches. */
+  async function put<T>(path: string, body: unknown): Promise<Result<T>> {
+    const response = await fetchImplementation(`${apiBase}${path}`, {
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      method: 'PUT',
+    });
+    // Markers and payouts may have changed whatever the answer was.
+    clearData();
+    if (response.ok) return { data: (await response.json()) as T };
+    if (response.status === 401) options.onUnauthorized?.();
     return { error: await errorBody(response) };
   }
 
@@ -365,6 +396,88 @@ export function createBoardSearchShareDataSource(
         parameters.set('viewRevision', viewRevision);
       return `${apiBase}/boards/${sequenceNumber}/view?${parameters}`;
     },
+
+    // --- Super game series of the shared game (D-564) -------------------
+
+    getSuperGameSeriesState: () =>
+      get<SuperGameStateResponse>('/super-game-series/state'),
+
+    listSuperGameSeriesBoards: async (_gameId, seriesId) => {
+      const result = await get<BoardSearchSharePublicSeriesBoardsResponse>(
+        `/super-game-series/${encodeURIComponent(seriesId)}/boards`,
+      );
+      return result.data === undefined
+        ? { error: result.error }
+        : { data: toAdminSeriesBoards(result.data) };
+    },
+
+    setSuperGameSeriesSuperSymbol: async (_gameId, seriesId, request) => {
+      const result = await put<BoardSearchSharePublicSeriesResponse>(
+        `/super-game-series/${encodeURIComponent(seriesId)}/super-symbol`,
+        request,
+      );
+      return result.data === undefined
+        ? { error: result.error }
+        : { data: toAdminSeries(result.data) };
+    },
+
+    listNextUndefinedSuperGameSeries: async (_gameId, query) => {
+      // The share has no list filters; only the trigger cursor applies.
+      const parameters = new URLSearchParams();
+      if (query.afterTrigger !== null)
+        parameters.set('afterTrigger', String(query.afterTrigger));
+      const suffix = parameters.size > 0 ? `?${parameters}` : '';
+      const result = await get<BoardSearchSharePublicUndefinedSeriesResponse>(
+        `/super-game-series/next-undefined${suffix}`,
+      );
+      return result.data === undefined
+        ? { error: result.error }
+        : { data: { items: result.data.items.map(toAdminSeries) } };
+    },
+  };
+}
+
+/** The public series in the Admin shape the shared series view reads. */
+function toAdminSeries(
+  series: BoardSearchSharePublicSeriesResponse,
+): SuperGameSeriesResponse {
+  return {
+    completeness: series.completeness,
+    definedAt: series.definedAt,
+    // The author of the symbol is Admin-only.
+    definedBy: null,
+    endSequenceNumber: series.endSequenceNumber,
+    gameId: BOARD_SEARCH_SHARE_GAME_ID,
+    id: series.id,
+    length: series.length,
+    retriggerSequenceNumbers: series.retriggerSequenceNumbers,
+    revision: series.revision,
+    runVerification: series.runVerification,
+    startSequenceNumber: series.startSequenceNumber,
+    superSymbolId: series.superSymbolId,
+    triggerSequenceNumber: series.triggerSequenceNumber,
+    updatedAt: series.updatedAt,
+  };
+}
+
+function toAdminSeriesBoards(
+  value: BoardSearchSharePublicSeriesBoardsResponse,
+): SuperGameSeriesBoardsResponse {
+  return {
+    boards: value.boards.map((board) => ({
+      assetMode: board.missing ? null : 'operational_review',
+      boardChecksumSha256: board.boardChecksumSha256 ?? null,
+      importJobId: null,
+      missing: board.missing,
+      recognizedBoardId: null,
+      reviewItemId: null,
+      role: board.role,
+      sequenceNumber: board.sequenceNumber,
+      spinIndex: board.spinIndex ?? null,
+      status: board.status ?? null,
+    })),
+    series: toAdminSeries(value.series),
+    superGameState: value.superGameState,
   };
 }
 
@@ -414,9 +527,9 @@ function toAdminSymbol(
     nameEn: symbol.nameEn,
     namePl: symbol.namePl,
     status: symbol.status === 'archived' ? 'archived' : 'active',
-    // Public share symbols carry no catalog roles; the trigger role is
-    // resolved server-side (D-535).
-    superGameTriggerCount: null,
+    // D-564: the series view tells trigger symbols from the candidates for
+    // the super symbol.
+    superGameTriggerCount: symbol.superGameTriggerCount ?? null,
   };
 }
 
@@ -435,7 +548,7 @@ function toAdminSearch(
       score: result.score,
       sequenceNumber: result.sequenceNumber,
       status: result.status,
-      // A label only: the share never gets the series identity (TASK-0935).
+      // With its `seriesId` since D-564: the marker opens the series view.
       ...(result.superGame ? { superGame: result.superGame } : {}),
     })),
     scope: value.scope,

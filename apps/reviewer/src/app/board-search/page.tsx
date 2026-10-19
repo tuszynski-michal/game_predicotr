@@ -1,4 +1,5 @@
 import '@game-predictor/board-search-ui/board-search.css';
+import '@game-predictor/board-search-ui/super-game-series.css';
 
 import { notFound } from 'next/navigation';
 

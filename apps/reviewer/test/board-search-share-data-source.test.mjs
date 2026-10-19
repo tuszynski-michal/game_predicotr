@@ -72,6 +72,7 @@ test('search results are mapped to the Admin shape and cached for five minutes',
   assert.equal(calls[0], '/search?cell=0%3AA&limit=5');
 });
 
+const seriesId = '33333333-3333-4333-8333-333333333333';
 const publicMarker = {
   completeness: 'complete',
   kind: 'in_series',
@@ -81,18 +82,35 @@ const publicMarker = {
   superSymbolCode: 'K',
 };
 
-test('super game markers and the state pass through without a series identity', async () => {
+const publicSeries = {
+  completeness: 'complete',
+  definedAt: null,
+  endSequenceNumber: 110,
+  id: seriesId,
+  length: 10,
+  retriggerSequenceNumbers: [105],
+  revision: 2,
+  runVerification: 'verified',
+  startSequenceNumber: 101,
+  superSymbolId: null,
+  triggerSequenceNumber: 100,
+  updatedAt: '2026-10-18T10:00:00Z',
+};
+
+test('super game markers and the state pass through with their series identity', async () => {
+  // D-564: the share carries `seriesId`, so the marker can open the series.
+  const withSeries = { ...publicMarker, seriesId };
   const body = {
     ...searchBody,
-    results: [{ ...searchBody.results[0], superGame: publicMarker }],
+    results: [{ ...searchBody.results[0], superGame: withSeries }],
     superGameState: { fresh: true, generationInputVersion: 4, inputVersion: 4 },
   };
   const { dataSource } = source(() => ({ body }));
   const found = await dataSource.searchGameBoards('shared', {
     cells: [{ cellIndex: 0, symbolCode: 'A' }],
   });
-  assert.deepEqual(found.data.results[0].superGame, publicMarker);
-  assert.equal('seriesId' in found.data.results[0].superGame, false);
+  assert.deepEqual(found.data.results[0].superGame, withSeries);
+  assert.equal(found.data.results[0].superGame.seriesId, seriesId);
   assert.deepEqual(found.data.superGameState, body.superGameState);
   // Boards outside every series keep the historical shape.
   const plain = await source(() => ({
@@ -306,4 +324,225 @@ test('a stake choice is reported for its range; the base stake has no parameter'
   assert.equal(chosen.error, undefined);
   assert.equal(base.error, undefined);
   assert.notEqual(refused.error, undefined);
+});
+
+// --- Super game series of the shared game (D-564) ---------------------------
+
+test('the series boards are mapped to the Admin shape without identities', async () => {
+  const { calls, dataSource } = source((path) => ({
+    body: path.endsWith('/boards')
+      ? {
+          boards: [
+            {
+              boardChecksumSha256: 'b'.repeat(64),
+              missing: false,
+              role: 'trigger',
+              sequenceNumber: 100,
+              spinIndex: null,
+              status: 'accepted',
+            },
+            {
+              boardChecksumSha256: null,
+              missing: true,
+              role: 'spin',
+              sequenceNumber: 101,
+              spinIndex: 1,
+              status: null,
+            },
+          ],
+          series: publicSeries,
+          superGameState: {
+            fresh: true,
+            generationInputVersion: 4,
+            inputVersion: 4,
+          },
+        }
+      : { fresh: false, generationInputVersion: 3, inputVersion: 4 },
+  }));
+  const boards = await dataSource.listSuperGameSeriesBoards('shared', seriesId);
+  assert.equal(calls[0], `/super-game-series/${seriesId}/boards`);
+  assert.deepEqual(boards.data.series, {
+    ...publicSeries,
+    definedBy: null,
+    gameId: 'shared',
+  });
+  assert.deepEqual(boards.data.boards, [
+    {
+      assetMode: 'operational_review',
+      boardChecksumSha256: 'b'.repeat(64),
+      importJobId: null,
+      missing: false,
+      recognizedBoardId: null,
+      reviewItemId: null,
+      role: 'trigger',
+      sequenceNumber: 100,
+      spinIndex: null,
+      status: 'accepted',
+    },
+    {
+      assetMode: null,
+      boardChecksumSha256: null,
+      importJobId: null,
+      missing: true,
+      recognizedBoardId: null,
+      reviewItemId: null,
+      role: 'spin',
+      sequenceNumber: 101,
+      spinIndex: 1,
+      status: null,
+    },
+  ]);
+  assert.equal(boards.data.superGameState.fresh, true);
+  const state = await dataSource.getSuperGameSeriesState('shared');
+  assert.equal(calls[1], '/super-game-series/state');
+  assert.equal(state.data.fresh, false);
+});
+
+test('the super symbol is sent as a same-origin JSON PUT and drops the caches', async () => {
+  const requests = [];
+  const { calls, dataSource, unauthorized } = source(
+    (path) =>
+      path.includes('/super-symbol')
+        ? { body: { ...publicSeries, revision: 3, superSymbolId: symbolId } }
+        : { body: searchBody },
+    {
+      fetchImplementation: async (url, init) => {
+        requests.push({ init, url: String(url) });
+        const path = String(url).slice(BOARD_SEARCH_SHARE_API_BASE.length);
+        calls.push(path);
+        if (path.includes('/super-symbol')) {
+          return new Response(
+            JSON.stringify({
+              ...publicSeries,
+              revision: 3,
+              superSymbolId: symbolId,
+            }),
+            { headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(searchBody), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    },
+  );
+  const options = { cells: [{ cellIndex: 0, symbolCode: 'A' }], limit: 5 };
+  await dataSource.searchGameBoards('shared', options);
+  await dataSource.searchGameBoards('shared', options);
+  assert.equal(calls.length, 1, 'the second search is served from the cache');
+
+  const saved = await dataSource.setSuperGameSeriesSuperSymbol(
+    'shared',
+    seriesId,
+    { expectedRevision: 2, symbolId },
+  );
+  const put = requests.at(-1);
+  assert.equal(
+    put.url,
+    `${BOARD_SEARCH_SHARE_API_BASE}/super-game-series/${seriesId}/super-symbol`,
+  );
+  assert.equal(put.init.method, 'PUT');
+  assert.equal(put.init.credentials, 'same-origin');
+  assert.equal(put.init.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(put.init.body), {
+    expectedRevision: 2,
+    symbolId,
+  });
+  assert.equal(saved.data.revision, 3);
+  assert.equal(saved.data.superSymbolId, symbolId);
+  assert.equal(saved.data.gameId, 'shared');
+  assert.equal(saved.data.definedBy, null);
+  await dataSource.searchGameBoards('shared', options);
+  assert.equal(calls.length, 3, 'the search cache was dropped by the save');
+  assert.equal(unauthorized(), 0);
+});
+
+test('a refused or expired super symbol update is reported, and 401 ends the access', async () => {
+  const conflict = source(() => ({
+    body: { code: 'SUPER_GAME_SERIES_REVISION_CONFLICT', message: 'x' },
+    status: 409,
+  }));
+  const refused = await conflict.dataSource.setSuperGameSeriesSuperSymbol(
+    'shared',
+    seriesId,
+    { expectedRevision: 1, symbolId: null },
+  );
+  assert.equal(refused.data, undefined);
+  assert.equal(refused.error.code, 'SUPER_GAME_SERIES_REVISION_CONFLICT');
+  assert.equal(conflict.unauthorized(), 0);
+
+  const expired = source(() => ({
+    body: { code: 'BOARD_SEARCH_SHARE_TOKEN_INVALID', message: 'x' },
+    status: 401,
+  }));
+  await expired.dataSource.setSuperGameSeriesSuperSymbol('shared', seriesId, {
+    expectedRevision: 1,
+    symbolId: null,
+  });
+  assert.equal(expired.unauthorized(), 1);
+});
+
+test('the next series without a symbol follows the trigger cursor only', async () => {
+  const { calls, dataSource } = source(() => ({
+    body: {
+      items: [publicSeries],
+      superGameState: {
+        fresh: true,
+        generationInputVersion: 4,
+        inputVersion: 4,
+      },
+    },
+  }));
+  const fromStart = await dataSource.listNextUndefinedSuperGameSeries(
+    'shared',
+    { afterTrigger: null, filters: { completeness: 'complete' } },
+  );
+  const after = await dataSource.listNextUndefinedSuperGameSeries('shared', {
+    afterTrigger: 100,
+    filters: { completeness: 'all' },
+  });
+  assert.deepEqual(calls, [
+    '/super-game-series/next-undefined',
+    '/super-game-series/next-undefined?afterTrigger=100',
+  ]);
+  assert.equal(fromStart.data.items[0].id, seriesId);
+  assert.equal(fromStart.data.items[0].gameId, 'shared');
+  assert.equal(after.data.items.length, 1);
+});
+
+test('symbols carry their super game trigger count for the series view', async () => {
+  const { dataSource } = source(() => ({
+    body: [
+      {
+        code: 'A',
+        displayOrder: 0,
+        id: symbolId,
+        imageRevision: null,
+        isWildcard: false,
+        mobileCode: 1,
+        name: 'A',
+        nameEn: null,
+        namePl: null,
+        status: 'active',
+        superGameTriggerCount: 3,
+      },
+      {
+        code: 'B',
+        displayOrder: 1,
+        id: '22222222-2222-4222-8222-222222222222',
+        imageRevision: null,
+        isWildcard: false,
+        mobileCode: 2,
+        name: 'B',
+        nameEn: null,
+        namePl: null,
+        status: 'active',
+      },
+    ],
+  }));
+  const symbols = await dataSource.listSymbols('shared');
+  assert.deepEqual(
+    symbols.data.map((symbol) => symbol.superGameTriggerCount),
+    [3, null],
+  );
 });

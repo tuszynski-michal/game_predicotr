@@ -31,3 +31,7 @@ export type {
   SuperGameSeriesModalClient,
   SuperGameSeriesViewClient,
 } from './super-game-series/super-game-series-client';
+export {
+  SuperGameSeriesModal,
+  type SuperGameSeriesModalProps,
+} from './super-game-series/super-game-series-modal';

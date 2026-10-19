@@ -51,6 +51,8 @@ import {
   resolveBoardSearchKeyboardCommand,
 } from './board-search-keyboard';
 import { BoardSearchResults } from './board-search-results';
+import type { SuperGameSeriesModalClient } from './super-game-series/super-game-series-client';
+import { SuperGameSeriesModal } from './super-game-series/super-game-series-modal';
 import {
   BOARD_SEARCH_LIMIT_DEFAULT,
   activeBoardSearchResult,
@@ -122,6 +124,12 @@ export interface BoardSearchWorkspaceProps {
   /** Management presentation only; ordinary search/share retain their controls. */
   readonly compact?: boolean;
   readonly saveLabel?: string;
+  /**
+   * Online share (D-564): with it every super game marker opens the series
+   * view in a modal over this client. Without it (Admin, management panel)
+   * the markers keep their link or label.
+   */
+  readonly superGameSeries?: { readonly client: SuperGameSeriesModalClient };
 }
 
 export function BoardSearchWorkspace(props: BoardSearchWorkspaceProps) {
@@ -146,6 +154,7 @@ function BoardSearchWorkspaceContent({
   onSave,
   compact = false,
   saveLabel = 'Zapisz układ',
+  superGameSeries,
 }: BoardSearchWorkspaceProps) {
   const managed =
     onSave !== undefined ||
@@ -171,6 +180,16 @@ function BoardSearchWorkspaceContent({
     savedSelection?.pinnedSpinPositions ?? [],
   );
   const [savedBoardOpen, setSavedBoardOpen] = useState(false);
+  // The series opened from a marker (online share, D-564).
+  const [openSeries, setOpenSeries] = useState<{
+    readonly seriesId: string;
+    readonly sequenceNumber: number;
+  } | null>(null);
+  const openSuperGameSeries =
+    superGameSeries === undefined
+      ? undefined
+      : (seriesId: string, sequenceNumber: number) =>
+          setOpenSeries({ seriesId, sequenceNumber });
   const [saving, setSaving] = useState(false);
   const saveInFlight = useRef(false);
   const mounted = useRef(true);
@@ -530,8 +549,11 @@ function BoardSearchWorkspaceContent({
   }
 
   function handleKeyboardShortcut(event: KeyboardEvent) {
+    // The series modal (D-564) has its own shortcuts: digits, Enter, Esc and
+    // N there must never touch the pattern or start a search.
     if (
       event.defaultPrevented ||
+      openSeries !== null ||
       symbolsState !== 'ready' ||
       isTextEntryKeyboardTarget(event.target)
     ) {
@@ -944,6 +966,7 @@ function BoardSearchWorkspaceContent({
             rulesVersions={rulesVersions}
             superGameState={searchState.result.superGameState ?? null}
             onBoardEdited={() => runSearch({ preserveSelection: true })}
+            onOpenSuperGameSeries={openSuperGameSeries}
             onStateChange={(state) => {
               setSavedSequence(null);
               setResultsState(state);
@@ -967,6 +990,7 @@ function BoardSearchWorkspaceContent({
               gameId={gameId}
               rulesVersions={rulesVersions}
               searchKey={searchKey}
+              onOpenSuperGameSeries={openSuperGameSeries}
               onReplayNotice={(notice) =>
                 setReplayNotices((current) => [...current, notice])
               }
@@ -1034,6 +1058,23 @@ function BoardSearchWorkspaceContent({
             />
           ) : null}
         </>
+      ) : null}
+      {superGameSeries !== undefined && openSeries !== null ? (
+        <SuperGameSeriesModal
+          client={superGameSeries.client}
+          gameId={gameId}
+          initialSequenceNumber={openSeries.sequenceNumber}
+          onClose={(edited) => {
+            setOpenSeries(null);
+            if (!edited) return;
+            // A saved super symbol or cell correction changes the markers
+            // and the payouts: the results and the range are read again.
+            runSearch({ preserveSelection: true });
+            setSearchKey((key) => `${key}:refresh`);
+          }}
+          seriesId={openSeries.seriesId}
+          symbols={symbols}
+        />
       ) : null}
     </section>
   );

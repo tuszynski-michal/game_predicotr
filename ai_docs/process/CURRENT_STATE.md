@@ -63,6 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1063** — Mumie: baza i stawki wyszukiwarki — v1.7.435 — tasks/completed/1063-mumie-one-zloty-stakes.md
 - **TASK-1062** — Modal serii odbiorcy zostaje na zapisanej serii — v1.7.432 / `82d88208` — tasks/completed/1062-share-series-stay-after-save.md
 - **TASK-1061** — Naprawa linku wielu gier — v1.7.432 / `1774433d` — tasks/completed/1061-multi-game-share-storage-routing.md
 - **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 / `a583ae2d` — tasks/completed/1059-share-super-series-modal.md
@@ -72,4 +73,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1056** — Publiczne trasy serii supergry udostępnionej wyszukiwarki — v1.7.426 / `3f73d3d2` — tasks/completed/1056-share-super-series-public-api.md
 - **TASK-1055** — Filtr zakresu plansz serii supergry — v1.7.421 / `3b9a1df8` — tasks/completed/1055-super-series-board-range-filter.md
 - **TASK-1054** — Panel przycinania: czytelny wybór gry, tylko gry aktywne — v1.7.419 / `c103f1ac` — tasks/completed/1054-storage-panel-game-select.md
-- **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 / `f0bc558c` — tasks/completed/1053-super-series-next-undefined.md

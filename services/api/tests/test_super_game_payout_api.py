@@ -317,6 +317,32 @@ def test_series_spins_cost_nothing_and_the_trigger_costs_the_rules_spin_cost() -
     assert markers.calls == [tuple(range(2, 52))]
 
 
+def test_mumie_temporary_base_keeps_expansions_and_free_spins() -> None:
+    game_id = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+    markers = SeriesMarkers(((10, 10, "K"),))
+    service = BoardSearchApproximateWinService(
+        MemoryBoardSearchApproximateWinRepository(
+            game_id,
+            sequence_length=200,
+            configuration=_configuration(game_id),
+            documents=(
+                _range_document(10, TRIGGER_BOARD),
+                _range_document(11, WORKED_EXAMPLE),
+            ),
+        ),
+        markers,
+    )
+    result = service.calculate(game_id=game_id, start_sequence_number=1, requested_spin_count=20)
+    response = to_approximate_win_response(result)
+    assert response.rules.spin_cost == 10
+    assert response.summary.spin_cost_credits == 100  # Ten paid and ten free spins.
+    rows = {row.sequence_number: row for row in response.rows}
+    assert rows[10].payout_credits == 216
+    assert rows[10].spin_cost_credits == 10
+    assert rows[11].payout_credits == 50
+    assert rows[11].spin_cost_credits == 0
+
+
 def test_a_stale_generation_makes_every_board_of_the_game_provisional() -> None:
     """Lead decision after the audit (plan): with `fresh = false` a new
     trigger may already have put a base-mode board into a series, so every

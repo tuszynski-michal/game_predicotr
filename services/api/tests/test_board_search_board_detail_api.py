@@ -192,6 +192,24 @@ def _get(repository: MemoryBoardDetailRepository, sequence_number: int = 42):  #
     )
 
 
+def test_mumie_board_detail_reports_the_ten_credit_base(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setitem(globals(), "_GAME_ID", UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"))
+    configuration = replace(_configuration(), spin_cost=100)
+    response = _get(
+        MemoryBoardDetailRepository(
+            document=_document((A,) * 15),
+            configuration=configuration,
+            geometry={"latticeBoundsQuad": _LATTICE},
+        )
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rules"]["spinCost"] == 10
+    assert body["spinCostCredits"] == 10
+    assert body["payoutCredits"] == sum(match["payoutCredits"] for match in body["matches"])
+    assert configuration.spin_cost == 100
+
+
 def test_complete_board_returns_both_lines_in_payline_order_and_view_polygons() -> None:
     codes = (A, A, A, A, A, B, B, B, A, A, A, B, A, B, A)
     response = _get(

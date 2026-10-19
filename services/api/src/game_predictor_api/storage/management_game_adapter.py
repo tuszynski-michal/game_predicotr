@@ -13,6 +13,7 @@ from sqlalchemy.pool import NullPool
 from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
+    resolve_rules_configuration,
 )
 from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetailService
 from game_predictor_api.application.board_search_share_corrections import share_cell_version
@@ -146,7 +147,7 @@ class SqlAlchemyManagementGameAdapter:
         start: int,
         count: int,
     ) -> tuple[ApproximateWinResponse, str, dict[str, Any], dict[str, Any]]:
-        configuration = boards.latest_published_rules(game_id)
+        configuration = resolve_rules_configuration(boards, game_id, None)
         _mode, document = boards.board_document(game_id=game_id, sequence_number=start)
         if document is None:
             raise ManagementError(

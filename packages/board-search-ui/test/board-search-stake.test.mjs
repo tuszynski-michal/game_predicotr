@@ -18,6 +18,7 @@ import {
 } from '../src/board-search-stake.ts';
 
 const stake = (grosze, unit = 'credits') => ({ stakeGrosze: grosze, unit });
+const MUMIE_GAME_ID = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
 const text = (credits, display, spinCost = 100) =>
   formatApproximateWinAmount(
     scaleApproximateWinAmount(credits, display, spinCost),
@@ -28,6 +29,64 @@ test('the stake list is the closed list from D-470', () => {
   assert.deepEqual(
     APPROXIMATE_WIN_STAKES_GROSZE,
     [120, 200, 400, 600, 1000, 2000],
+  );
+});
+
+test('Mumie offers exactly 1, 2, 5, 10 and 20 zł independently of other games', () => {
+  const options = approximateWinStakeOptions(10, MUMIE_GAME_ID);
+  assert.deepEqual(
+    options.map((option) => option.grosze),
+    [100, 200, 500, 1000, 2000],
+  );
+  assert.equal(options[0].isBase, true);
+  assert.deepEqual(
+    approximateWinStakeOptions(100, 'another-game').map(
+      (option) => option.grosze,
+    ),
+    [120, 200, 400, 600, 1000, 2000],
+  );
+  assert.equal(
+    effectiveApproximateWinStakeGrosze(stake(500), 10, MUMIE_GAME_ID),
+    500,
+  );
+  assert.equal(
+    effectiveApproximateWinStakeGrosze(stake(600), 10, MUMIE_GAME_ID),
+    600,
+  );
+  assert.equal(
+    effectiveApproximateWinStakeGrosze(stake(500), 100, 'another-game'),
+    1000,
+  );
+});
+
+test('Mumie payouts use a 10-credit base at every offered stake', () => {
+  for (const grosze of [100, 200, 500, 1000, 2000]) {
+    const display = stake(grosze, 'pln');
+    assert.equal(
+      scaleApproximateWinAmount(10, display, 10, MUMIE_GAME_ID),
+      grosze,
+    );
+    assert.equal(
+      scaleApproximateWinAmount(50, display, 10, MUMIE_GAME_ID),
+      5 * grosze,
+    );
+    assert.equal(
+      scaleApproximateWinAmount(-4020, display, 10, MUMIE_GAME_ID),
+      -402 * grosze,
+    );
+  }
+  assert.equal(
+    approximateWinStakeMultiplier(stake(500), 10, MUMIE_GAME_ID),
+    '5',
+  );
+  // Historical results keep their saved 100-credit base.
+  assert.equal(
+    scaleApproximateWinAmount(10, stake(500), 100, MUMIE_GAME_ID),
+    50,
+  );
+  assert.equal(
+    scaleApproximateWinAmount(10, stake(600), 100, MUMIE_GAME_ID),
+    60,
   );
 });
 

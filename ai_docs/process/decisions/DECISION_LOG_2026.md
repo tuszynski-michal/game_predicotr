@@ -14,6 +14,25 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-565 — Tymczasowa baza wypłat i stawki Mumii
+
+- **Date:** 2026-10-19.
+- **Status:** accepted; jawne polecenie operatora w TASK-1063.
+- **Decision:** kwoty istniejącej tabeli wypłat Mumii dotyczą bazowej stawki
+  10 kredytów (1 zł), nie 100 kredytów. Zwykły spin kalkulatora kosztuje 10
+  kredytów, spin supergry 0; wypłaty liniowe, za sztuki i rozwinięcia zachowują
+  wartości z tabeli. Wyszukiwarka Admina i udostępniona oferują dokładnie
+  1, 2, 5, 10 i 20 zł, skalując kwoty względem 1 zł.
+- **Temporary implementation:** operator wybrał wyjątek w kodzie dla gry
+  `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`. Odczyt konfiguracji kalkulatora
+  normalizuje `spin_cost` do 10, bez zmiany opublikowanych rekordów reguł.
+  Lista stawek zależy od identyfikatora gry. Ustalenie stawek w edytorze
+  reguł zostaje na odrębne zadanie; nie rozpoznajemy gry po koszcie ani nazwie.
+- **Boundaries:** pozostałe gry zachowują dotychczasowe stawki i przeliczenia.
+  Nowa migawka używa tej samej efektywnej bazy co kalkulator; historyczne
+  wyniki i ich stawki pozostają odtwarzalne. Stałe sloty panelu zarządzania,
+  mobile i prekomputacja wydań nie są zmieniane przez TASK-1063.
+
 ## D-564 — Super symbol serii definiowany także przez odbiorcę linku udostępniania
 
 - **Date:** 2026-10-18.

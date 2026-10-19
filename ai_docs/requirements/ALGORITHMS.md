@@ -221,6 +221,11 @@ nigdy nie został zapisany pod etykietą v3.
 
 ### Plansza w serii supergry `wild_super_spins` (D-537, TASK-0936)
 
+**Baza kwot Mumii (D-565, TASK-1063):** w kalkulatorze webowym tabela
+dotyczy 10 kredytów (1 zł). Zwykły spin kosztuje 10 kredytów, spin serii 0.
+Kwoty wypłat poniżej pozostają niezmienione; tymczasowy wyjątek konfiguracji
+dotyczy wyłącznie gry `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`.
+
 Pozycja sekwencji objęta opublikowaną serią supergry jako jej spin
 (`trigger + 1 … trigger + length`, TASK-0933) jest liczona oceną planszy
 serii rodzaju gry (`evaluate_series_board(board, super_symbol, rules)`,

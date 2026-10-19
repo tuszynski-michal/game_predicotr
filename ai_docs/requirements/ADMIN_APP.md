@@ -692,6 +692,16 @@ przeglądarce jako preferencja widoku. Próg suwaka jest zachowywany przy
 zmianie stawki i jednostki. Koszt spinu równy zero wyłącza wybór stawki z
 komunikatem; jednostka „złote” pozostaje dostępna w kursie `kredyty / 10`.
 
+**Tymczasowy profil Mumii (D-565, TASK-1063).** Dla gry
+`fea55cc1-ebf4-4cee-b3ab-a520017ed1be` istniejąca tabela wypłat dotyczy
+10 kredytów, czyli stawki bazowej 1 zł. Kalkulator i szczegóły planszy
+stosują efektywny koszt 10 kredytów dla zwykłego spinu i 0 dla supergry;
+kwoty wypłat z tabeli nie zmieniają się. Lista wyszukiwarki to dokładnie
+1, 2, 5, 10 i 20 zł. Wyjątek jest tymczasowo zapisany w kodzie, również
+dla udostępnionych wyszukiwarek; konfiguracja stawek w regułach jest odłożona.
+Pozostałe gry zachowują powyższą listę i bazę z reguł. Historyczne wyniki
+zachowują zapisaną bazę i wcześniej wybraną stawkę.
+
 **Podgląd planszy z liniami (D-470, TASK-0763–0764).** Przycisk w kolumnie
 akcji otwiera modal z przyciętym widokiem wybranej planszy i narysowanymi
 wygrywającymi liniami. Linie i ich wypłaty pochodzą z tego samego

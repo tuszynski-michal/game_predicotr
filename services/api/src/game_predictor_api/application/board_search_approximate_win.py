@@ -16,7 +16,7 @@ type to the API layer.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 from uuid import UUID
 
@@ -50,6 +50,11 @@ from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 # dimensions cannot back this calculator.
 _APPROXIMATE_WIN_BOARD_ROWS = 3
 _APPROXIMATE_WIN_BOARD_COLUMNS = 5
+
+# Temporary operator-approved stake profile (D-565, TASK-1063). Replace with
+# versioned rule configuration when the stake editor is introduced.
+_MUMIE_GAME_ID = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+_MUMIE_BASE_SPIN_COST = 10
 
 APPROXIMATE_WIN_SPIN_COUNT_MAX = 100_000
 """Operator-approved ceiling for current-version testing; the calculator does
@@ -275,18 +280,22 @@ def resolve_rules_configuration(
                 "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
                 "The game has no published rules version to calculate payout against.",
             )
-        return configuration
-    selected = repository.rules_configuration(game_id=game_id, rules_version_id=rules_version_id)
-    if (
-        selected is None
-        or selected.rules_game_id != game_id
-        or selected.status not in SELECTABLE_RULES_STATUSES
-    ):
-        raise BoardSearchError(
-            "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND",
-            "The selected rules version is not a draft or published version of this game.",
+    else:
+        configuration = repository.rules_configuration(
+            game_id=game_id, rules_version_id=rules_version_id
         )
-    return selected
+        if (
+            configuration is None
+            or configuration.rules_game_id != game_id
+            or configuration.status not in SELECTABLE_RULES_STATUSES
+        ):
+            raise BoardSearchError(
+                "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND",
+                "The selected rules version is not a draft or published version of this game.",
+            )
+    if game_id == _MUMIE_GAME_ID:
+        return replace(configuration, spin_cost=_MUMIE_BASE_SPIN_COST)
+    return configuration
 
 
 def board_count_matches(

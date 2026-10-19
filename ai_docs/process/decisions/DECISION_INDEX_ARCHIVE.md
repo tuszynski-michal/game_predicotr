@@ -4,13 +4,14 @@ status: active
 last_updated: 2026-10-19
 ---
 
-# Indeks starszych decyzji (D-1..D-535)
+# Indeks starszych decyzji (D-1..D-536)
 
 Ciąg dalszy indeksu z [DECISION_LOG.md](../DECISION_LOG.md): wpisy o numerach
-poniżej D-536 (532 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
+poniżej D-537 (533 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-536](DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |
 | [D-535](DECISION_LOG_2026.md#d-535--gra-mumie-wild-symbol-uruchamiający-supergrę-i-rodzaj-supergry-wild-super-spins) | Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins” | accepted | 2026-10-08 | dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild” (kolumna symbols.is_wildcard zostaje). |
 | [D-534](DECISION_LOG_2026.md#d-534--image-import-resumption-uses-the-hard-reserve-not-the-gc-target) | Image import resumption uses the hard reserve, not the GC target | accepted | 2026-10-07 | source ingestion and in-flight image pipeline checks use the configured hard reserve in every job stage,… |
 | [D-533](DECISION_LOG_2026.md#d-533--pointsmachines-panel-with-durable-stake-saves-and-whole-panel-links) | Points/machines panel with durable stake saves and whole-panel links | accepted | 2026-10-07 | add Panel Administracyjny with points (name/city/street), named machines and editable active-game assignments. |

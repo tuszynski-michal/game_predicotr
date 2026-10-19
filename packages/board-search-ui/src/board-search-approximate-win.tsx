@@ -396,6 +396,7 @@ export function BoardSearchApproximateWin({
           </label>
           <ApproximateWinDisplayControls
             display={display}
+            gameId={gameId}
             onStakeChange={(stakeGrosze) =>
               setStakeChoice({ searchKey, stakeGrosze })
             }
@@ -505,8 +506,9 @@ export function BoardSearchApproximateWin({
 function approximateWinAmountFormatter(
   display: ApproximateWinDisplay,
   spinCost: number,
+  gameId: string,
 ) {
-  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost, gameId);
   return (baseCredits: number) =>
     formatApproximateWinAmount(
       scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
@@ -518,8 +520,9 @@ function approximateWinAmountFormatter(
 function approximateWinWholeAmountFormatter(
   display: ApproximateWinDisplay,
   spinCost: number,
+  gameId: string,
 ) {
-  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost, gameId);
   return (baseCredits: number, unit: ApproximateWinAmountUnit = display.unit) =>
     formatApproximateWinWholeAmount(
       scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
@@ -609,8 +612,8 @@ function ApproximateWinResultView({
     linesTriggerRef.current?.focus();
   };
   const spinCost = result.rules.spinCost;
-  const amount = approximateWinAmountFormatter(display, spinCost);
-  const whole = approximateWinWholeAmountFormatter(display, spinCost);
+  const amount = approximateWinAmountFormatter(display, spinCost, gameId);
+  const whole = approximateWinWholeAmountFormatter(display, spinCost, gameId);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -866,6 +869,7 @@ function ApproximateWinResultView({
                 stakeGrosze: effectiveApproximateWinStakeGrosze(
                   display,
                   spinCost,
+                  gameId,
                 ),
               }}
             />
@@ -906,6 +910,7 @@ export function ApproximateWinProvisionalSummary({
 
 function ApproximateWinDisplayControls({
   display,
+  gameId,
   onStakeChange,
   onUnitChange,
   spinCost,
@@ -913,6 +918,7 @@ function ApproximateWinDisplayControls({
   fixedStakeGrosze,
 }: {
   readonly display: ApproximateWinDisplay;
+  readonly gameId: string;
   readonly onStakeChange: (stakeGrosze: number | null) => void;
   readonly onUnitChange: (unit: ApproximateWinAmountUnit) => void;
   /** Unknown until the first result of this game arrived. */
@@ -920,12 +926,13 @@ function ApproximateWinDisplayControls({
   readonly stakeChosen: boolean;
   readonly fixedStakeGrosze?: number;
 }) {
-  const options = spinCost === null ? [] : approximateWinStakeOptions(spinCost);
+  const options =
+    spinCost === null ? [] : approximateWinStakeOptions(spinCost, gameId);
   const stakeDisabled = spinCost === null || spinCost <= 0;
   const stake =
     spinCost === null
       ? null
-      : effectiveApproximateWinStakeGrosze(display, spinCost);
+      : effectiveApproximateWinStakeGrosze(display, spinCost, gameId);
   return (
     <>
       <label>
@@ -983,7 +990,7 @@ function ApproximateWinDisplayControls({
       {stakeChosen && stake !== null && spinCost !== null && spinCost > 0 ? (
         <small id="approximateWinStakeHint">
           Stawka {formatZloty(stake)} · mnożnik{' '}
-          {approximateWinStakeMultiplier(display, spinCost)} · 1 zł = 10
+          {approximateWinStakeMultiplier(display, spinCost, gameId)} · 1 zł = 10
           kredytów
         </small>
       ) : null}
@@ -1190,9 +1197,17 @@ export function ApproximateWinBalanceChart({
       points.map((point) => point.cumulativeBalanceCredits),
     );
   const spinCost = result.rules.spinCost;
-  const amount = approximateWinAmountFormatter(display, spinCost);
+  const amount = approximateWinAmountFormatter(
+    display,
+    spinCost,
+    result.gameId,
+  );
   // The plot works in the chosen unit so its ticks stay round there too.
-  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const stake = effectiveApproximateWinStakeGrosze(
+    display,
+    spinCost,
+    result.gameId,
+  );
   const plotValue = (baseCredits: number) =>
     approximateWinDisplayValue(
       scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
@@ -1201,7 +1216,11 @@ export function ApproximateWinBalanceChart({
   // A chart label or pin is read on its own, so it always names the unit.
   const labelAmount = (baseCredits: number) =>
     `${amount(baseCredits)}${unitNoun(display.unit)}`;
-  const whole = approximateWinWholeAmountFormatter(display, spinCost);
+  const whole = approximateWinWholeAmountFormatter(
+    display,
+    spinCost,
+    result.gameId,
+  );
   const wholeLabel = (baseCredits: number) =>
     `${whole(baseCredits)}${unitNoun(display.unit)}`;
   // What must be in hand from zero to get as far as this point (TASK-0778).

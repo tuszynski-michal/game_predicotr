@@ -196,6 +196,29 @@ def test_approximate_win_endpoint_returns_summary_completeness_and_rows() -> Non
     assert repository.range_calls == [(2, 4), (1, 1)]
 
 
+def test_mumie_uses_ten_credit_base_without_mutating_saved_rules() -> None:
+    game_id = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+    configuration = replace(_configuration(), rules_game_id=game_id, spin_cost=100)
+    repository = MemoryBoardSearchApproximateWinRepository(
+        game_id,
+        configuration=configuration,
+        documents=(_document(2, (1,) * 15), _document(3, (1, 1))),
+    )
+    with _client(repository) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 3},
+        )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rules"]["spinCost"] == 10
+    assert payload["summary"]["recognizedPayoutCredits"] == 55
+    assert payload["summary"]["spinCostCredits"] == 30
+    assert payload["summary"]["balanceCredits"] == 25
+    assert payload["rows"][0]["spinCostCredits"] == 10
+    assert configuration.spin_cost == 100
+
+
 def test_approximate_win_endpoint_reports_pending_start_board_status() -> None:
     repository = MemoryBoardSearchApproximateWinRepository(
         _GAME_ID,

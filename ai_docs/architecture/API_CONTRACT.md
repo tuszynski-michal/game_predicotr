@@ -607,6 +607,13 @@ pozycji zakresu: pozycja objęta opublikowaną serią jako jej spin
 rodzaju supergry (`wild_super_spins`: 0) i jest liczona oceną planszy serii
 (`ALGORITHMS.md` §B, rozwinięcie super symbolu); każda inna pozycja, także
 plansza wyzwalająca, ma `mode = "base"` i koszt `rules.spinCost`.
+
+Tymczasowy wyjątek D-565 (TASK-1063): kalkulator i szczegóły planszy gry
+Mumie `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` raportują efektywne
+`rules.spinCost = 10`, także przy historycznie zapisanym koszcie reguł 100.
+Wypłaty są niezmienionymi kredytami przy bazie 1 zł. Wyjątek stosuje wspólny
+resolver konfiguracji w Adminie, udostępnieniu i nowych migawkach panelu;
+istniejące zapisane wyniki zachowują swoją bazę. Format odpowiedzi bez zmian.
 `summary.spinCostCredits` jest sumą kosztów pozycji (brakująca plansza w
 serii też jest darmowym spinem). Wynik planszy serii jest `provisional`, gdy
 super symbol nie jest zdefiniowany (albo nie jest zwykłym symbolem liniowym

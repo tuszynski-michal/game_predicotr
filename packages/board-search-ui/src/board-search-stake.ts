@@ -19,6 +19,18 @@ export const APPROXIMATE_WIN_STAKES_GROSZE: readonly number[] = Object.freeze([
   120, 200, 400, 600, 1000, 2000,
 ]);
 
+// Temporary operator-approved profile (D-565, TASK-1063), until stakes live in rules.
+const MUMIE_GAME_ID = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
+const MUMIE_STAKES_GROSZE: readonly number[] = Object.freeze([
+  100, 200, 500, 1000, 2000,
+]);
+
+function gameStakesGrosze(gameId?: string): readonly number[] {
+  return gameId === MUMIE_GAME_ID
+    ? MUMIE_STAKES_GROSZE
+    : APPROXIMATE_WIN_STAKES_GROSZE;
+}
+
 /** Złote by default (D-476); a stake is chosen per search, never remembered. */
 export const APPROXIMATE_WIN_DEFAULT_DISPLAY: ApproximateWinDisplay =
   Object.freeze({ stakeGrosze: null, unit: 'pln' });
@@ -45,14 +57,16 @@ export function approximateWinBaseStakeGrosze(spinCost: number): number {
  */
 export function approximateWinStakeOptions(
   spinCost: number,
+  gameId?: string,
 ): readonly ApproximateWinStakeOption[] {
   const base = approximateWinBaseStakeGrosze(spinCost);
-  const options = APPROXIMATE_WIN_STAKES_GROSZE.map((grosze) => ({
+  const stakes = gameStakesGrosze(gameId);
+  const options = stakes.map((grosze) => ({
     grosze,
     isBase: grosze === base,
     label: `${formatZloty(grosze)}${grosze === base ? ' (bazowa)' : ''}`,
   }));
-  if (base > 0 && !APPROXIMATE_WIN_STAKES_GROSZE.includes(base)) {
+  if (base > 0 && !stakes.includes(base)) {
     options.unshift({
       grosze: base,
       isBase: true,
@@ -66,11 +80,18 @@ export function approximateWinStakeOptions(
 export function effectiveApproximateWinStakeGrosze(
   display: ApproximateWinDisplay,
   spinCost: number,
+  gameId?: string,
 ): number {
   const base = approximateWinBaseStakeGrosze(spinCost);
   if (spinCost <= 0 || display.stakeGrosze === null) return base;
   // Membership only: building labelled options here would run per amount.
-  return APPROXIMATE_WIN_STAKES_GROSZE.includes(display.stakeGrosze)
+  // Saved entries and fixed management slots may carry an older stake. The
+  // selector still offers only gameStakesGrosze; rendering must preserve it.
+  const savedMumieStake =
+    gameId === MUMIE_GAME_ID &&
+    APPROXIMATE_WIN_STAKES_GROSZE.includes(display.stakeGrosze);
+  return gameStakesGrosze(gameId).includes(display.stakeGrosze) ||
+    savedMumieStake
     ? display.stakeGrosze
     : base;
 }
@@ -108,10 +129,11 @@ export function scaleApproximateWinAmount(
   baseCredits: number,
   display: ApproximateWinDisplay,
   spinCost: number,
+  gameId?: string,
 ): number {
   return scaleApproximateWinAmountAtStake(
     baseCredits,
-    effectiveApproximateWinStakeGrosze(display, spinCost),
+    effectiveApproximateWinStakeGrosze(display, spinCost, gameId),
     spinCost,
   );
 }
@@ -186,9 +208,10 @@ export function formatApproximateWinAxisValue(
 export function approximateWinStakeMultiplier(
   display: ApproximateWinDisplay,
   spinCost: number,
+  gameId?: string,
 ): string {
   if (spinCost <= 0) return '1';
-  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost, gameId);
   return (stake / approximateWinBaseStakeGrosze(spinCost)).toLocaleString(
     'pl-PL',
     { maximumFractionDigits: 4 },

@@ -237,13 +237,13 @@ function makeClient({ searchImpl, approximateWinImpl }) {
   };
 }
 
-async function renderWorkspaceWithResults(client) {
+async function renderWorkspaceWithResults(client, selectedGameId = gameId) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
       React.createElement(BoardSearchWorkspace, {
         client,
-        gameId,
+        gameId: selectedGameId,
       }),
     ),
   );
@@ -285,6 +285,47 @@ test('the static section waits for the selection to settle before calculating', 
     [19],
   );
   await act(async () => root.unmount());
+});
+
+test('Mumie offers its five stakes and scales the displayed result at 5 zł', async (context) => {
+  const mumieId = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => ({
+      data: approximateWinResponse(options.startSequenceNumber, {
+        gameId: mumieId,
+        rules: {
+          algorithmVersion: 'payout-v4-wild-count',
+          rulesVersion: 2,
+          rulesVersionId: 'mumie-rules',
+          spinCost: 10,
+        },
+      }),
+    }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client, mumieId);
+  context.after(async () => act(async () => root.unmount()));
+  await eventually(
+    () =>
+      document.querySelector('select[aria-label="Stawka"]')?.disabled === false,
+    'Mumie stake options should load',
+  );
+  const stake = selectByLabel('Stawka');
+  assert.deepEqual(
+    [...stake.options]
+      .filter((option) => option.value !== '')
+      .map((option) => option.value),
+    ['100', '200', '500', '1000', '2000'],
+  );
+  await act(async () => {
+    stake.value = '500';
+    stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  assert.equal(stake.value, '500');
+  assert.match(
+    document.querySelector('#approximateWinStakeHint').textContent,
+    /Stawka 5,00 zł · mnożnik 5/,
+  );
 });
 
 test('the result stays hidden until a stake is chosen; złote is the default unit', async (context) => {

@@ -517,7 +517,7 @@ test('shortcuts in the modal belong to the series view, Esc does not close it, a
     id: seriesId,
   });
   assert.equal(calls.searches, searches, 'no search while the modal is open');
-  // TASK-1061: the modal stays on the saved series; `N` moves on by hand.
+  // TASK-1062: the modal stays on the saved series; `N` moves on by hand.
   await eventually(
     () => notice().includes('Zapisano super symbol Symbol cherry'),
     'the saved symbol is confirmed in place',

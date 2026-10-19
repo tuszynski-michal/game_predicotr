@@ -1,4 +1,4 @@
-# TASK-1061 — Modal serii odbiorcy zostaje na zapisanej serii
+# TASK-1062 — Modal serii odbiorcy zostaje na zapisanej serii
 
 ## Status
 
@@ -77,7 +77,7 @@ npm run typecheck --workspace @game-predictor/board-search-ui
 
 ## Outcome
 
-Commit: v1.7.432 (hash dopisuje kolejny commit).
+Commit: v1.7.432 / `82d88208aa4db0241f4ca897b623c5256374bd0c` (numer wersji zdublowany z równoległą naprawą linku wielu gier; task przenumerowany z TASK-1061 na TASK-1062 po scaleniu, kolizja z `1061-multi-game-share-storage-routing.md`).
 
 ### Changed
 

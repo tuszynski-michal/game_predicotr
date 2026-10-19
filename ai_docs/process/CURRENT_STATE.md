@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1061** — Modal serii odbiorcy zostaje na zapisanej serii — v1.7.432 — tasks/completed/1061-share-series-stay-after-save.md
+- **TASK-1062** — Modal serii odbiorcy zostaje na zapisanej serii — v1.7.432 / `82d88208` — tasks/completed/1062-share-series-stay-after-save.md
 - **TASK-1061** — Naprawa linku wielu gier — v1.7.432 / `1774433d` — tasks/completed/1061-multi-game-share-storage-routing.md
 - **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 / `a583ae2d` — tasks/completed/1059-share-super-series-modal.md
 - **TASK-1057** — Allowlista proxy Reviewera i proxy panelu dla tras serii — v1.7.429 / `9fff1457` — tasks/completed/1057-share-super-series-proxy-allowlist.md

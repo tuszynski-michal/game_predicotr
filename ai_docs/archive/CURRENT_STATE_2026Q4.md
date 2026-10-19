@@ -6,10 +6,10 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
-### TASK-1061 — Modal serii odbiorcy zostaje na zapisanej serii (done)
+### TASK-1062 — Modal serii odbiorcy zostaje na zapisanej serii (done)
 
-- Plik: `tasks/completed/1061-share-series-stay-after-save.md`.
-- Commit: **v1.7.432** (gałąź `claude/share-series-stay-after-save`).
+- Plik: `tasks/completed/1062-share-series-stay-after-save.md`.
+- Commit: **v1.7.432** / `82d88208aa4db0241f4ca897b623c5256374bd0c` (gałąź `claude/share-series-stay-after-save`; numer wersji zdublowany z v1.7.432 naprawy linku wielu gier, task przenumerowany z TASK-1061).
 - Wynik: prop `advanceAfterSave` panelu serii (domyślnie `true`, Admin bez zmian); modal udostępnionej wyszukiwarki przekazuje `false`, więc po zapisie super symbolu zostaje na zapisanej serii z komunikatem potwierdzenia, a `N` otwiera następną serię tylko ręcznie. Testy interakcji pakietu 83/83, `ADMIN_APP.md` zaktualizowany.
 
 ### TASK-1061 — Naprawa linku wielu gier (done)

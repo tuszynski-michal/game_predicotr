@@ -71,7 +71,7 @@ process timeout; run ruff, mypy, code-map generation/check and docs:check.
 
 ## Outcome
 
-Commit: v1.7.432 (hash dopisuje kolejny commit).
+Commit: v1.7.432 / `1774433d44c6ecaa583d0514b84e5164ea19247a`.
 
 ### Changed
 

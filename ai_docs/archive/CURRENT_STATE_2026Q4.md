@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1061 — Naprawa linku wielu gier (done)
 
 - Plik: `tasks/completed/1061-multi-game-share-storage-routing.md`.
-- Commit: **v1.7.432** (hash dopisuje kolejny commit).
+- Commit: **v1.7.432 / `1774433d44c6ecaa583d0514b84e5164ea19247a`** (hash dopisuje kolejny commit).
 - Metadane członkostwa linku pozostają w control plane; jedna transakcja zapisuje trzy gry bez błędu routingu. Izolacja danych gier pozostaje chroniona.
 - Weryfikacja: 24 testy regresyjne, 1 test PostgreSQL z nowym procesem i trzema grami, próba na grach operatora wycofana bez zapisu, lint/format i izolowany mypy PASS. Szeroki mypy: istniejące błędy source_lattice_geometry i timeout; brak zmian w tym module.
 - Bez migracji, restartów usług, scalenia i push. Odbiór operatora oraz zgoda na scalenie pozostają do wykonania.

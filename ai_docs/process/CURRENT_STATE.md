@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1061** — Naprawa linku wielu gier — v1.7.432 — tasks/completed/1061-multi-game-share-storage-routing.md
+- **TASK-1061** — Naprawa linku wielu gier — v1.7.432 / `1774433d` — tasks/completed/1061-multi-game-share-storage-routing.md
 - **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 / `a583ae2d` — tasks/completed/1059-share-super-series-modal.md
 - **TASK-1057** — Allowlista proxy Reviewera i proxy panelu dla tras serii — v1.7.429 / `9fff1457` — tasks/completed/1057-share-super-series-proxy-allowlist.md
 - **TASK-1060** — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku — v1.7.428 — tasks/completed/1060-share-super-series-decision-docs.md

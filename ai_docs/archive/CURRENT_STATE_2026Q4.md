@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1068 - Zakres pewnosci symboli (done)
 
 - Plik: `tasks/completed/1068-symbol-confidence-range.md`.
-- Commit: **v1.7.441**.
+- Commit: **v1.7.441 / `659673fa61f92d4a289e262f5e568682cbe89ea9`**.
 - Dwa inputy 0-100%, domkniete granice, walidacja, zastosowanie i reset; API bez zmian.
 - 36 testow jednostkowych i kontraktowych, 17 interakcyjnych, lint, typy, format i build PASS. Mapa kodu oraz docs:check PASS. Odbior operatora i scalenie pozostaja osobnymi krokami.
 

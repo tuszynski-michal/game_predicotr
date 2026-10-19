@@ -47,7 +47,7 @@ Brak blokujących pytań. Założenie UX: dwa inputy z jawnym zastosowaniem zapo
 
 ## Outcome
 
-Commit: v1.7.441 (hash dopisuje kolejny commit).
+Commit: v1.7.441 / `659673fa61f92d4a289e262f5e568682cbe89ea9`.
 
 ### Changed
 

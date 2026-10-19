@@ -1,5 +1,6 @@
 """TASK-0991: fresh PostgreSQL migration, legacy preservation and durable access."""
 
+import json
 import os
 import subprocess
 import sys
@@ -24,6 +25,8 @@ from game_predictor_api.storage.board_search_panels import SqlAlchemyBoardSearch
 from game_predictor_api.storage.board_search_share_repository import (
     SqlAlchemyBoardSearchShareRepository,
 )
+from game_predictor_api.storage.database import GameStorageSession
+from game_predictor_api.storage.game_storage_routing import GameStorageRouter
 from game_predictor_api.storage.models import BoardSearchShareSessionModel, GameModel
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import make_url
@@ -61,7 +64,7 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
         test_url = url.set(database=name).render_as_string(hide_password=False)
         config.set_main_option("sqlalchemy.url", test_url.replace("%", "%%"))
         command.upgrade(config, "0154_geometry_correction_revert")
-        ids = [uuid4(), uuid4()]
+        ids = [uuid4(), uuid4(), uuid4()]
         legacy = uuid4()
         with Session(engine) as session:
             for index, game_id in enumerate(ids):
@@ -115,7 +118,7 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
             assert unready.json()["details"]["gameName"] == "Panel 0"
             assert unready.json()["details"]["reasonCode"] == "GAME_STORAGE_LOCATION_MISSING"
         app.state.database_engine.dispose()
-        with Session(engine) as session:
+        with GameStorageSession(engine) as session:
             old = session.get(BoardSearchShareSessionModel, legacy)
             assert old is not None and old.panel_id is None and old.code_hash == b"b" * 32
             shares = SqlAlchemyBoardSearchShareRepository(session)
@@ -126,7 +129,8 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
                 enabled=True,
                 now=lambda: NOW,
             )
-            created = service.create(game_ids=ids, lifetime_minutes=4320, label="Two games")
+            created = service.create(game_ids=ids, lifetime_minutes=4320, label="Three games")
+            assert GameStorageRouter.bound_game_id(session) is None
             assert shares.count_active_sessions(NOW) == 2
             session.commit()
         # A fresh interpreter and database session use the persisted hash, not an in-memory service.
@@ -137,22 +141,36 @@ def test_upgrade_preserves_legacy_and_new_process_authenticates_then_revoke_bloc
             "TASK0991_TEST_URL": test_url,
             "TASK0991_TOKEN": token,
             "TASK0991_GAME": str(child.game_id),
+            "TASK0991_MEMBERS": json.dumps(
+                [
+                    {
+                        "game": str(member.game_id),
+                        "token": panel_child_token(
+                            created.link_key, created.panel.panel_id, member.session_id
+                        ),
+                    }
+                    for member in created.panel.games
+                ]
+            ),
         }
-        code = """import os
+        code = """import os, json
 from uuid import UUID
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 from game_predictor_api.application.board_search_share_access import BoardSearchShareAccessService
 from game_predictor_api.storage.board_search_share_repository import (
     SqlAlchemyBoardSearchShareRepository,
 )
+from game_predictor_api.storage.database import GameStorageSession
 engine=create_engine(os.environ['TASK0991_TEST_URL'],connect_args={'connect_timeout':5})
-with Session(engine) as session:
+with GameStorageSession(engine) as session:
     service=BoardSearchShareAccessService(
         SqlAlchemyBoardSearchShareRepository(session),readiness=lambda _:None,enabled=True
     )
-    actual=service.authenticate(os.environ['TASK0991_TOKEN']).game_id
-    assert actual==UUID(os.environ['TASK0991_GAME'])
+    members=json.loads(os.environ['TASK0991_MEMBERS'])
+    assert len(members)==3
+    for member in members:
+        actual=service.authenticate(member['token']).game_id
+        assert actual==UUID(member['game'])
 engine.dispose()
 print('fresh-process-auth PASS')
 """
@@ -166,7 +184,7 @@ print('fresh-process-auth PASS')
         )
         assert result.returncode == 0, result.stderr
         assert "fresh-process-auth PASS" in result.stdout
-        with Session(engine) as session:
+        with GameStorageSession(engine) as session:
             shares = SqlAlchemyBoardSearchShareRepository(session)
             service = BoardSearchPanelService(
                 SqlAlchemyBoardSearchPanelRepository(session),
@@ -200,7 +218,7 @@ print('fresh-process-auth PASS')
                         )
                     )
                 )
-                == 2
+                == 3
             )
     finally:
         engine.dispose()

@@ -836,7 +836,11 @@ revoke dziecka są odrzucane. Audyt i zdarzenia zachowują session_id/game_id.
 
 Walidacja całego wyboru poprzedza start ingress i jest powtórzona przed
 zapisem. Każdy odczyt gotowości gry ma osobną transakcję; tworzenie panelu
-jest jedną transakcją control-plane. Błędy wyboru:
+jest jedną transakcją control-plane.
+Metadane `board_search_share_sessions` pozostają w publicznym control plane;
+ich `game_id` nie przypina transakcji ORM do magazynu gry. Utworzenie i
+odwołanie panelu obejmuje wszystkie jego gry atomowo także w runtime session.
+Błędy wyboru:
 `BOARD_SEARCH_PANEL_GAMES_INVALID`, `_GAME_UNAVAILABLE`, `_GAME_NOT_READY`
 (409 z gameName/reasonCode). Pozostałe ograniczenia sesji, flagi, rate limit,
 wygaśnięcie i błędy korekt dziedziczą istniejący kontrakt.

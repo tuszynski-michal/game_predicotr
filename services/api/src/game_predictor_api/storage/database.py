@@ -64,6 +64,10 @@ def _pending_game_id(session: Session) -> UUID | None:
     game_ids = {
         game_id
         for record in (*session.new, *session.dirty, *session.deleted)
+        # Share membership is public control-plane metadata, even though it
+        # references a game. A panel writes several memberships atomically;
+        # those references must not bind the transaction to a game store.
+        if getattr(record, "__tablename__", None) != "board_search_share_sessions"
         if isinstance((game_id := getattr(record, "game_id", None)), UUID)
     }
     if len(game_ids) > 1:

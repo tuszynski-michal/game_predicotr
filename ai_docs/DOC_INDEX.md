@@ -66,6 +66,10 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Widok serii supergry dla odbiorcy linku](delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md)
+  — `accepted` 2026-10-19 (TASK-1056–1060): publiczne trasy serii, widok
+  serii w `board-search-ui`, modal w Reviewerze, D-564.
+
 - [Etap 2 odczytu startowego](delivery/STARTUP_READ_STAGE2_EXECUTION_PLAN_20261016.md)
   — wykonany 2026-10-16 (TASK-1030–1033): skille `task-close` i `merge-to-main`
   ze skryptami, `AGENTS.md` ≤ 14 KB, `README.md` ≤ 5 KB, ten katalog,

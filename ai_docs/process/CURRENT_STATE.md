@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 ---
 
 # Current State
@@ -37,6 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 |---|---|---|---|
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
+| `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; cały plan zlecony, kolejność 1056, 1058, 1060, 1057, 1059; audyty Codex dla 1056, 1057, 1059 | TASK-1056–1060 | `claude/share-super-series` |
 
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
@@ -59,6 +60,26 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
+
+### TASK-1056 — Publiczne trasy serii supergry udostępnionej wyszukiwarki (in_progress)
+
+- Plik: `tasks/1056-share-super-series-public-api.md`. Cztery trasy `/board-search-shares/super-game-series/...`, `seriesId` w markerach udostępnienia, aktor `board-search-share:<sessionId>`; OpenAPI i klient. Następny krok: modele publiczne i router.
+
+### TASK-1057 — Allowlista proxy Reviewera dla tras serii (todo)
+
+- Plik: `tasks/1057-share-super-series-proxy-allowlist.md`. Po TASK-1056: cztery trasy w `boardSearchShareRoute`, `PUT` w handlerach i proxy panelu, test bramki 10 → 14 operacji.
+
+### TASK-1058 — Wyniesienie widoku serii do `board-search-ui` (todo)
+
+- Plik: `tasks/1058-super-series-panel-extraction.md`. `SuperGameSeriesPanel` we wspólnym pakiecie; Admin konsumuje panel, testy interakcji Admina bez zmian treści.
+
+### TASK-1059 — Modal serii w udostępnionej wyszukiwarce (todo)
+
+- Plik: `tasks/1059-share-super-series-modal.md`. Po 1056, 1057, 1058: znacznik jako przycisk, modal `<dialog>`, adapter źródła danych, bramki linku i panelu.
+
+### TASK-1060 — D-564 i dokumentacja (todo)
+
+- Plik: `tasks/1060-share-super-series-decision-docs.md`. Wpis D-564, `ADMIN_APP.md`, `API_CONTRACT.md`, `DATA_MODEL.md`, `REMOTE_REVIEWER_THREAT_MODEL.md`; `docs:check`.
 
 ## Ostatnie 10 ukończonych tasków
 

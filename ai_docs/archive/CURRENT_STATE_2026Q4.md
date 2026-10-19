@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1070 — Rozmiar strony weryfikacji symboli (done)
 
 - Plik: `tasks/completed/1070-symbol-review-page-size.md`.
-- Commit: **v1.7.445**.
+- Commit: **v1.7.445 / `a978fa701b0679621a5b10fc2b1ed4a9a74ea690`**.
 - Filtr „Na stronę” ma opcje 100/500/1000/2000/2500 i domyślnie 2500.
 - Weryfikacja: 26/26 testów, ESLint, Prettier testu i typecheck Admina PASS; mapa kodu zregenerowana bez zmian.
 - Zaktualizowano wymagania. Bez zmian API, restartów, buildu i odbioru przeglądarkowego; audyt niewymagany.

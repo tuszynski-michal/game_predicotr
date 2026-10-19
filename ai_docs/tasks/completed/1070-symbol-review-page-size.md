@@ -66,7 +66,7 @@ Audyt krzyżowy niewymagany: zadanie nie należy do planu wymagającego audytu.
 
 ## Outcome
 
-Commit: v1.7.445 (hash dopisuje kolejny commit).
+Commit: v1.7.445 / `a978fa701b0679621a5b10fc2b1ed4a9a74ea690`.
 
 ### Changed
 

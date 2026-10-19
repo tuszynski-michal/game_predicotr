@@ -799,7 +799,10 @@ tym samym wspólnym komponentem co „Widok serii” sekcji „Supergry” Admin
 (karuzela pozycji z oznaczonymi komórkami symbolu uruchamiającego, select
 super symbolu ze skrótami `1`–`9`/`0`, zapis `Enter` z przeglądem
 retriggerów i `expectedRevision`, `Esc` anuluje wybór, „Pokaż planszę z
-liniami” z poprawianiem symboli, „Następna bez symbolu (N)”). Modal nie ma
+liniami” z poprawianiem symboli, „Następna bez symbolu (N)”). Po zapisie
+symbolu modal zostaje na zapisanej serii z komunikatem potwierdzenia
+(TASK-1061; Admin po zapisie otwiera następną serię bez symbolu), a `N`
+otwiera następną serię tylko na żądanie. Modal nie ma
 listy serii, filtrów, zakresu plansz ani „Przelicz serie”; pokazuje baner
 „Serie w trakcie przeliczania” i co 5 s sprawdza stan, dopóki serie są
 nieaktualne. `Esc` nie zamyka modalu (należy do widoku serii); zamyka go

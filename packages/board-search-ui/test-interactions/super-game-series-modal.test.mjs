@@ -397,6 +397,10 @@ function button(text, scope = document) {
 }
 
 const dialog = () => document.querySelector('dialog.superGameSeriesModal');
+const notice = () =>
+  [...document.querySelectorAll('[role="status"], [role="alert"]')]
+    .map((node) => node.textContent)
+    .join(' | ');
 const linesDialog = () =>
   document.querySelector('dialog:not(.superGameSeriesModal)');
 const card = () => document.querySelector('.boardSearchResults');
@@ -513,13 +517,17 @@ test('shortcuts in the modal belong to the series view, Esc does not close it, a
     id: seriesId,
   });
   assert.equal(calls.searches, searches, 'no search while the modal is open');
+  // TASK-1061: the modal stays on the saved series; `N` moves on by hand.
   await eventually(
-    () => calls.series.includes(nextSeriesId),
-    'the next series without a symbol opens in the modal',
+    () => notice().includes('Zapisano super symbol Symbol cherry'),
+    'the saved symbol is confirmed in place',
   );
+  assert.equal(dialog().querySelector('select').value, 'symbol-cherry');
+  assert.ok(!calls.series.includes(nextSeriesId), 'no automatic jump');
+  await press('n');
   await eventually(
     () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
-    'the next series shows its trigger',
+    'N opens the next series without a symbol',
   );
   await click(button('Zamknij', dialog()));
   await eventually(
@@ -585,9 +593,10 @@ test('a marked range row opens its board; after a save the results and the range
   await press('Enter');
   await eventually(() => calls.saves.length === 1, 'the symbol is saved');
   await eventually(
-    () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
-    'the next series opens',
+    () => notice().includes('Zapisano super symbol Symbol lemon'),
+    'the saved symbol is confirmed in place',
   );
+  assert.equal(dialog().querySelector('h4')?.textContent, 'Spin 4 · #104');
   await click(button('Zamknij', dialog()));
   assert.equal(dialog(), null);
   await eventually(

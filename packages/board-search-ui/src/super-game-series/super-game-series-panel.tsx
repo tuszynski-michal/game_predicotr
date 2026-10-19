@@ -113,6 +113,12 @@ export interface SuperGameSeriesPanelProps {
   readonly onBoardEdited?: () => void;
   /** A super symbol save started or ended (a host blocks closing meanwhile). */
   readonly onSavingChange?: (saving: boolean) => void;
+  /**
+   * After a saved (not cleared) symbol open the next series without one
+   * (TASK-1053, the Admin's flow). `false` (the share's modal, TASK-1061)
+   * keeps the saved series open; `N` still works by hand.
+   */
+  readonly advanceAfterSave?: boolean;
 }
 
 type Toast = { readonly kind: 'success' | 'error'; readonly text: string };
@@ -189,6 +195,7 @@ export function SeriesBadges({
 }
 
 export function SuperGameSeriesPanel({
+  advanceAfterSave = true,
   client: api,
   filters = DEFAULT_SERIES_FILTERS,
   formatAmount = (credits) => `${credits} kr.`,
@@ -506,8 +513,9 @@ export function SuperGameSeriesPanel({
         saveOperation.current = null;
         onOpenSeries((state) => applySuperSymbolSaved(state, updated, symbols));
         // A chosen symbol moves on to the next series without one (TASK-1053);
-        // a cleared symbol keeps the series open for a new choice.
-        if (updated.superSymbolId !== null) {
+        // a cleared symbol, or a host without the advance, keeps the series
+        // open (the saved-symbol notice is already shown).
+        if (updated.superSymbolId !== null && advanceAfterSave) {
           findNextUndefinedSeries(
             updated,
             superSymbolSavedMessage(updated, symbols),

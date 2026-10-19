@@ -40,11 +40,7 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /isSymbolReviewPageSize/);
   assert.match(source, />Wszystkie symbole</);
   assert.match(source, />Nierozpoznany \(\?\)</);
-  assert.match(source, /Pewność rozpoznania/);
-  assert.match(source, /Dokładnie 100%/);
-  assert.match(source, /80–&lt;100%/);
-  assert.match(source, /60–&lt;80%/);
-  assert.match(source, /Poniżej 60%/);
+  assert.match(source, /SymbolReviewConfidenceInputs/);
   assert.match(source, /symbolReviewConfidenceRange/);
   assert.match(source, /<legend>Stan weryfikacji<\/legend>/);
   assert.match(source, /name="symbol-review-state"/);

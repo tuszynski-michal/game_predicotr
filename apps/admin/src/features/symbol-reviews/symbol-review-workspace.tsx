@@ -91,6 +91,7 @@ import {
 } from './symbol-review-virtual-previews.ts';
 import { SymbolReviewVirtualGrid } from './symbol-review-virtual-grid.tsx';
 import { shouldApplyVirtualPreviewResult } from './symbol-review-virtual-window.ts';
+import { SymbolReviewConfidenceInputs } from './symbol-review-confidence-inputs';
 import styles from './symbol-review-workspace.module.css';
 import { SymbolReviewSourceModal } from './symbol-review-source-modal';
 import type { SymbolReviewSourceClient } from './symbol-review-source-context';
@@ -1555,92 +1556,14 @@ export function SymbolReviewWorkspace({
               </label>
             </div>
           </fieldset>
-          <fieldset>
-            <legend>Pewność rozpoznania</legend>
-            <div className={styles.radioOptions}>
-              <label>
-                <input
-                  checked={filters.confidence === 'all'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({ ...filters, confidence: 'all' })
-                  }
-                  type="radio"
-                />
-                Wszystkie
-              </label>
-              <label>
-                <input
-                  checked={filters.confidence === 'exact_100'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({ ...filters, confidence: 'exact_100' })
-                  }
-                  type="radio"
-                />
-                Dokładnie 100%
-              </label>
-              <label>
-                <input
-                  checked={filters.confidence === 'from_80_to_100'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({
-                      ...filters,
-                      confidence: 'from_80_to_100',
-                    })
-                  }
-                  type="radio"
-                />
-                80–&lt;100%
-              </label>
-              <label>
-                <input
-                  checked={filters.confidence === 'from_80_to_99'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({
-                      ...filters,
-                      confidence: 'from_80_to_99',
-                    })
-                  }
-                  type="radio"
-                />
-                80–&lt;99%
-              </label>
-              <label>
-                <input
-                  checked={filters.confidence === 'from_60_to_80'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({
-                      ...filters,
-                      confidence: 'from_60_to_80',
-                    })
-                  }
-                  type="radio"
-                />
-                60–&lt;80%
-              </label>
-              <label>
-                <input
-                  checked={filters.confidence === 'below_60'}
-                  disabled={interactionBusy}
-                  name="symbol-review-confidence"
-                  onChange={() =>
-                    requestFilterChange({ ...filters, confidence: 'below_60' })
-                  }
-                  type="radio"
-                />
-                Poniżej 60%
-              </label>
-            </div>
-          </fieldset>
+          <SymbolReviewConfidenceInputs
+            key={JSON.stringify(filters.confidence)}
+            confidence={filters.confidence}
+            disabled={interactionBusy}
+            onApply={(confidence) =>
+              requestFilterChange({ ...filters, confidence })
+            }
+          />
           <fieldset>
             <legend>Źródło predykcji</legend>
             <div className={styles.radioOptions}>

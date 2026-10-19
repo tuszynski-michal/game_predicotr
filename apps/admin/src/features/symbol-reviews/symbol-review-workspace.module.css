@@ -721,3 +721,29 @@
     justify-content: flex-start;
   }
 }
+
+.filters fieldset.confidenceRange {
+  display: block;
+}
+
+.confidenceRangeControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.filters .confidenceRangeControls label {
+  display: grid;
+  gap: 4px;
+}
+
+.filters .confidenceRangeControls input {
+  width: 6rem;
+  min-height: 44px;
+}
+
+.confidenceRangeControls button {
+  min-height: 44px;
+}

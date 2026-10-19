@@ -1054,3 +1054,99 @@ test('Mumie same-symbol bulk save approves pending crops and freezes the current
     await act(async () => root.unmount());
   }
 });
+
+test('integer confidence inputs apply inclusive API bounds, reject invalid drafts and reset', async () => {
+  const { root, calls } = await mount();
+  try {
+    await choose(1, 'all');
+    await eventually(() => calls.pages.length > 0);
+    const fieldset = [...document.querySelectorAll('fieldset')].find(
+      (node) =>
+        node.querySelector('legend')?.textContent === 'Pewność rozpoznania',
+    );
+    assert.ok(fieldset);
+    assert.equal(fieldset.querySelectorAll('input[type="radio"]').length, 0);
+    const inputs = () => [...fieldset.querySelectorAll('input')];
+    for (const input of inputs()) {
+      assert.equal(input.type, 'number');
+      assert.equal(input.min, '0');
+      assert.equal(input.max, '100');
+      assert.equal(input.step, '1');
+    }
+    const setInput = async (index, value) => {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        ).set.call(inputs()[index], value);
+        inputs()[index].dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+    const initialReads = calls.pages.length;
+    await setInput(0, '37');
+    await setInput(1, '92');
+    assert.equal(calls.pages.length, initialReads);
+    await click(button('Zastosuj pewność'));
+    await eventually(() => calls.pages.at(-1)?.minConfidence === 0.37);
+    assert.equal(calls.pages.at(-1).maxConfidence, 0.92);
+    // Applying remounts the controls with the accepted bounds.
+    const currentFieldset = () =>
+      [...document.querySelectorAll('fieldset')].find(
+        (node) =>
+          node.querySelector('legend')?.textContent === 'Pewność rozpoznania',
+      );
+    const edit = async (index, value) => {
+      await act(async () => {
+        const input = currentFieldset().querySelectorAll('input')[index];
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        ).set.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+    for (const [min, max] of [
+      ['', '92'],
+      ['1.5', '92'],
+      ['-1', '92'],
+      ['0', '101'],
+      ['93', '92'],
+    ]) {
+      const reads = calls.pages.length;
+      await edit(0, min);
+      await edit(1, max);
+      await click(button('Zastosuj pewność'));
+      assert.match(currentFieldset().textContent, /Podaj liczby całkowite/);
+      assert.equal(calls.pages.length, reads);
+    }
+    const crop = buttons().find(
+      (node) =>
+        node.getAttribute('aria-label') ===
+        'Zaznacz crop z planszy 62287, pozycja 1/3',
+    );
+    assert.ok(crop);
+    await click(crop);
+    const readsBeforeConfirmation = calls.pages.length;
+    await edit(0, '100');
+    await edit(1, '100');
+    await click(button('Zastosuj pewność'));
+    assert.ok(document.querySelector('[role="dialog"]'));
+    assert.equal(calls.pages.length, readsBeforeConfirmation);
+    await click(button('Anuluj'));
+    assert.equal(calls.pages.at(-1).minConfidence, 0.37);
+    assert.match(document.body.textContent, /Wybrane: 1/);
+    await click(button('Zastosuj pewność'));
+    await click(button('Zmień filtr'));
+    await eventually(() => calls.pages.at(-1)?.minConfidence === 1);
+    assert.equal(calls.pages.at(-1).maxConfidence, 1);
+    await click(
+      [...currentFieldset().querySelectorAll('button')].find(
+        (node) => node.textContent === 'Wszystkie',
+      ),
+    );
+    await eventually(() => calls.pages.at(-1)?.minConfidence === undefined);
+    assert.equal(calls.pages.at(-1).maxConfidence, undefined);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

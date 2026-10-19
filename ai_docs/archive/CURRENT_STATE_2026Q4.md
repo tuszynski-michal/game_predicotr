@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1068 - Zakres pewnosci symboli (done)
+
+- Plik: `tasks/completed/1068-symbol-confidence-range.md`.
+- Commit: **v1.7.441**.
+- Dwa inputy 0-100%, domkniete granice, walidacja, zastosowanie i reset; API bez zmian.
+- 36 testow jednostkowych i kontraktowych, 17 interakcyjnych, lint, typy, format i build PASS. Mapa kodu oraz docs:check PASS. Odbior operatora i scalenie pozostaja osobnymi krokami.
+
 ### TASK-1065 — Zapisany koszt spinu Mumii (done)
 
 - Plik: `ai_docs/tasks/completed/1065-mumie-persisted-spin-cost.md`.

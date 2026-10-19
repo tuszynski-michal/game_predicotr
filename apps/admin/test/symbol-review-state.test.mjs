@@ -11,6 +11,7 @@ import {
   parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewConfidenceRange,
+  parseSymbolReviewConfidenceRange,
   symbolReviewExtendedFilters,
   symbolReviewFiltersReady,
   symbolReviewIsoToLocalDateTime,
@@ -167,28 +168,40 @@ test('accepts only a one-based page number within the known result range', () =>
   assert.equal(parseSymbolReviewPageNumber('13', 12), null);
 });
 
-test('maps non-overlapping confidence ranges to the API range snapshot', () => {
+test('maps inclusive integer percentage ranges to API bounds', () => {
   assert.deepEqual(symbolReviewConfidenceRange('all'), {});
-  assert.deepEqual(symbolReviewConfidenceRange('exact_100'), {
-    maxConfidence: 1,
-    minConfidence: 1,
-  });
-  assert.deepEqual(symbolReviewConfidenceRange('from_80_to_100'), {
-    maxConfidence: 0.9999999999999999,
-    minConfidence: 0.8,
-  });
-  assert.deepEqual(symbolReviewConfidenceRange('from_80_to_99'), {
-    maxConfidence: 0.9899999999999999,
-    minConfidence: 0.8,
-  });
-  assert.ok(symbolReviewConfidenceRange('from_80_to_99').maxConfidence < 0.99);
-  assert.deepEqual(symbolReviewConfidenceRange('from_60_to_80'), {
-    maxConfidence: 0.7999999999999999,
-    minConfidence: 0.6,
-  });
-  assert.deepEqual(symbolReviewConfidenceRange('below_60'), {
-    maxConfidence: 0.5999999999999999,
-  });
+  for (const [min, max] of [
+    [0, 0],
+    [100, 100],
+    [37, 92],
+    [0, 100],
+    [80, 99],
+  ]) {
+    assert.deepEqual(symbolReviewConfidenceRange({ min, max }), {
+      minConfidence: min / 100,
+      maxConfidence: max / 100,
+    });
+    assert.deepEqual(
+      parseSymbolReviewConfidenceRange(String(min), String(max)),
+      { min, max },
+    );
+  }
+});
+
+test('rejects missing, fractional, out-of-range and reversed confidence bounds', () => {
+  for (const [from, to] of [
+    ['', '100'],
+    ['0', ''],
+    ['1.5', '90'],
+    ['0', '99.5'],
+    ['-1', '50'],
+    ['0', '101'],
+    ['90', '80'],
+    ['NaN', '100'],
+    ['1e1', '90'],
+  ]) {
+    assert.equal(parseSymbolReviewConfidenceRange(from, to), null);
+  }
 });
 
 test('extended filters are sent only when set', () => {

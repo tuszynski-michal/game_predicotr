@@ -14,12 +14,7 @@ export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
 export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];
 
 export type SymbolReviewConfidenceFilter =
-  | 'all'
-  | 'below_60'
-  | 'from_60_to_80'
-  | 'from_80_to_99'
-  | 'from_80_to_100'
-  | 'exact_100';
+  'all' | { readonly min: number; readonly max: number };
 
 /** Which writer produced the cell's current prediction (D-466). */
 export type SymbolReviewPredictionSourceFilter =
@@ -99,21 +94,30 @@ export function isSymbolReviewPageSize(
 export function symbolReviewConfidenceRange(
   confidence: SymbolReviewConfidenceFilter,
 ): { readonly maxConfidence?: number; readonly minConfidence?: number } {
-  switch (confidence) {
-    case 'exact_100':
-      return { maxConfidence: 1, minConfidence: 1 };
-    case 'from_80_to_99':
-      // Model predictions below 99%; reference-library predictions (0.99) stay out.
-      return { maxConfidence: 0.99 - Number.EPSILON / 2, minConfidence: 0.8 };
-    case 'from_80_to_100':
-      return { maxConfidence: 1 - Number.EPSILON / 2, minConfidence: 0.8 };
-    case 'from_60_to_80':
-      return { maxConfidence: 0.8 - Number.EPSILON / 2, minConfidence: 0.6 };
-    case 'below_60':
-      return { maxConfidence: 0.6 - Number.EPSILON / 2 };
-    default:
-      return {};
-  }
+  return confidence === 'all'
+    ? {}
+    : {
+        minConfidence: confidence.min / 100,
+        maxConfidence: confidence.max / 100,
+      };
+}
+
+export function parseSymbolReviewConfidenceRange(
+  from: string,
+  to: string,
+): Exclude<SymbolReviewConfidenceFilter, 'all'> | null {
+  if (!/^\d+$/.test(from) || !/^\d+$/.test(to)) return null;
+  const min = Number(from);
+  const max = Number(to);
+  if (
+    !Number.isInteger(min) ||
+    !Number.isInteger(max) ||
+    min < 0 ||
+    max > 100 ||
+    min > max
+  )
+    return null;
+  return { min, max };
 }
 
 export function symbolReviewExtendedFilters(

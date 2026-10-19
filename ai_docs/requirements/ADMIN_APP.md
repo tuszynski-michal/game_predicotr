@@ -1135,16 +1135,19 @@ przedstawiany jako ukończona weryfikacja.
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
 `Wszystkie`, `Oczekujące`, `Zatwierdzone` albo `Kohorta aktywnego modelu`.
-Radio `Pewność rozpoznania` wybiera `Wszystkie`, `Dokładnie 100%`,
-`80–<100%`, `60–<80%` albo `Poniżej 60%`. Pierwszy wariant nie zawęża listy,
-a pozostałe tworzą rozłączne przedziały: odpowiednio `1.0`, od `0.8` do
-wartości niższej niż `1.0`, od `0.6` do wartości niższej niż `0.8` oraz
-wartości niższe niż `0.6`; wybór zmienia keyset, liczniki i jawne targety
-kolejnej operacji.
-Opcje `Stan weryfikacji`, `Pewność rozpoznania` i `Źródło predykcji` mają
-po jednym pasku bez zawijania. Każda grupa wykorzystuje pełną szerokość;
-na wąskim ekranie jej pasek przewija się poziomo we własnym kontenerze.
-`Filtry szczegółowe` (trzy grupy radio) oraz `Data zmiany komórki` są
+`Pewność rozpoznania` ma dwa pola liczbowe `Od (%)` i `Do (%)`, przyjmujące
+wyłącznie liczby całkowite 0–100. `Zastosuj pewność` ustawia domknięty przedział
+(np. 37–92% obejmuje obie granice); 100–100% oznacza dokładnie 100%.
+Puste, ułamkowe, odwrócone lub wykraczające poza 0–100 wartości pokazują błąd
+i nie zmieniają aktywnego filtra. Wpisywanie nie pobiera danych.
+`Wszystkie` usuwa filtr, uwzględniając również brak pewności; jawne 0–100%
+obejmuje tylko komórki ze znaną pewnością. Zastosowanie korzysta ze standardowego
+potwierdzenia wyczyszczenia zaznaczenia i zmienia keyset, liczniki oraz zakres
+kolejnej operacji. Pola początkowo pokazują 0 i 100, a filtr jest nieaktywny.
+Opcje `Stan weryfikacji` i `Źródło predykcji` mają po jednym pasku bez zawijania.
+Każda grupa wykorzystuje pełną szerokość; na wąskim ekranie pasek przewija się
+poziomo we własnym kontenerze. Pola zakresu i przyciski mogą się zawijać.
+`Filtry szczegółowe` (stan, zakres pewności i źródło predykcji) oraz `Data zmiany komórki` są
 niezależnie zwijane i początkowo rozwinięte. Zwijanie zachowuje aktywne
 warunki, roboczą datę, cropy i zaznaczenie; nie odczytuje danych ani nie
 wykonuje decyzji. Nagłówki pokazują liczbę aktywnych filtrów i aktywny zakres

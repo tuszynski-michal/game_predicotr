@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1056 — Publiczne trasy serii supergry udostępnionej wyszukiwarki (done)
+
+- Plik: `tasks/completed/1056-share-super-series-public-api.md`.
+- Commit: **v1.7.426** (gałąź `claude/share-super-series`).
+- Wynik: cztery trasy `/api/v1/board-search-shares/super-game-series/{state, next-undefined, {seriesId}/boards, PUT {seriesId}/super-symbol}` za proxy i cookie udostępnienia, gra wyłącznie z sesji, modele publiczne bez identyfikatorów przeglądu, importu, `gameId`, `definedBy` i generacji; zapis super symbolu z aktorem `board-search-share:<sessionId>` (helper `board_search_share_actor`, użyty też w korektach); markery `search` i `approximate-win` udostępnienia niosą `seriesId` (`SuperGameMarkerResponse`), panel zarządzania wyklucza je `PUBLIC_SEARCH_EXCLUDE`; `symbols` z `superGameTriggerCount`. OpenAPI i klient zregenerowane, cztery nowe typy eksportowane. Testy: 39 w trzech plikach API; audyt Codex `TASK-1056_AUDIT_codex.md` (REVISE → P1-1 i P2-1 zamknięte w jednej rundzie). Pełny `pytest` API poza limitem jednego polecenia; `npm run api:test` zbiera 0 testów (znana usterka).
+
 ### TASK-1055 — Filtr zakresu plansz serii supergry (done)
 
 - Plik: `tasks/completed/1055-super-series-board-range-filter.md`; commit **v1.7.421 / `3b9a1df8806f8e365c8d3d6a8232fa06ef36faeb`** (gałąź `claude/super-series-next-undefined`, poza planem, prośba operatora 2026-10-18).

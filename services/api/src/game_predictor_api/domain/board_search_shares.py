@@ -1,14 +1,17 @@
-"""Online, read-only board-search share sessions (D-471).
+"""Online board-search share sessions (D-471).
 
 A share session exposes one game's board search through the Reviewer proxy
 to a person holding the link and a separate access code. It never widens the
-Reviewer or remote-selection sessions and has no write capability.
+Reviewer or remote-selection sessions; its only writes are the recipient's
+symbol corrections (D-492) and the super symbol of a series (D-564), both
+audited with the session actor of :func:`board_search_share_actor`.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
 from typing import Final
+from uuid import UUID
 
 BOARD_SEARCH_SHARE_MIN_LIFETIME_MINUTES: Final = 5
 BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES: Final = 72 * 60
@@ -22,6 +25,14 @@ BOARD_SEARCH_SHARE_COOKIE_PATH: Final = "/board-search-api"
 BOARD_SEARCH_SHARE_PROXY_HEADER: Final = "X-Board-Search-Share-Proxy"
 BOARD_SEARCH_SHARE_PROXY_INTENT: Final = "reviewer-board-search-v1"
 BOARD_SEARCH_SHARE_REVIEWER_PATH: Final = "/board-search"
+BOARD_SEARCH_SHARE_ACTOR_PREFIX: Final = "board-search-share:"
+
+
+def board_search_share_actor(session_id: UUID) -> str:
+    """The audit actor of every write a share session makes (corrections,
+    super symbol): the link's session, never a person's name."""
+
+    return f"{BOARD_SEARCH_SHARE_ACTOR_PREFIX}{session_id}"
 
 
 class BoardSearchShareStatus(StrEnum):
@@ -110,6 +121,7 @@ def normalize_board_search_share_label(label: str | None) -> str | None:
 
 
 __all__ = [
+    "BOARD_SEARCH_SHARE_ACTOR_PREFIX",
     "BOARD_SEARCH_SHARE_COOKIE_NAME",
     "BOARD_SEARCH_SHARE_COOKIE_PATH",
     "BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES",
@@ -130,6 +142,7 @@ __all__ = [
     "BoardSearchShareRateLimitError",
     "BoardSearchShareStatus",
     "BoardSearchShareUnavailableError",
+    "board_search_share_actor",
     "normalize_board_search_share_label",
     "validate_board_search_share_lifetime",
 ]

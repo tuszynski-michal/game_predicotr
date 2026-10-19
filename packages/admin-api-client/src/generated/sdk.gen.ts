@@ -363,6 +363,9 @@ import type {
   GetBoardSearchShareQueryReplayData,
   GetBoardSearchShareQueryReplayErrors,
   GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareSuperGameSeriesStateData,
+  GetBoardSearchShareSuperGameSeriesStateErrors,
+  GetBoardSearchShareSuperGameSeriesStateResponses,
   GetBoardSearchShareSymbolImageData,
   GetBoardSearchShareSymbolImageErrors,
   GetBoardSearchShareSymbolImageResponses,
@@ -702,9 +705,15 @@ import type {
   ListBoardSearchShareSessionsData,
   ListBoardSearchShareSessionsErrors,
   ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSuperGameSeriesBoardsData,
+  ListBoardSearchShareSuperGameSeriesBoardsErrors,
+  ListBoardSearchShareSuperGameSeriesBoardsResponses,
   ListBoardSearchShareSymbolsData,
   ListBoardSearchShareSymbolsErrors,
   ListBoardSearchShareSymbolsResponses,
+  ListBoardSearchShareUndefinedSuperGameSeriesData,
+  ListBoardSearchShareUndefinedSuperGameSeriesErrors,
+  ListBoardSearchShareUndefinedSuperGameSeriesResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -1206,6 +1215,9 @@ import type {
   SelectSymbolReferenceFromCellReviewData,
   SelectSymbolReferenceFromCellReviewErrors,
   SelectSymbolReferenceFromCellReviewResponses,
+  SetBoardSearchShareSuperGameSeriesSuperSymbolData,
+  SetBoardSearchShareSuperGameSeriesSuperSymbolErrors,
+  SetBoardSearchShareSuperGameSeriesSuperSymbolResponses,
   SetGridModelDefaultData,
   SetGridModelDefaultErrors,
   SetGridModelDefaultResponses,
@@ -9901,6 +9913,97 @@ export const unlockBoardSearchShareSession = <
     ThrowOnError
   >({
     url: '/api/v1/board-search-shares/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * The next series without a super symbol after a trigger of the shared game
+ */
+export const listBoardSearchShareUndefinedSuperGameSeries = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    ListBoardSearchShareUndefinedSuperGameSeriesData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ListBoardSearchShareUndefinedSuperGameSeriesResponses,
+  ListBoardSearchShareUndefinedSuperGameSeriesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareUndefinedSuperGameSeriesResponses,
+    ListBoardSearchShareUndefinedSuperGameSeriesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/super-game-series/next-undefined',
+    ...options,
+  });
+
+/**
+ * Freshness of the published super game series of the shared game
+ */
+export const getBoardSearchShareSuperGameSeriesState = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetBoardSearchShareSuperGameSeriesStateData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareSuperGameSeriesStateResponses,
+  GetBoardSearchShareSuperGameSeriesStateErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetBoardSearchShareSuperGameSeriesStateResponses,
+    GetBoardSearchShareSuperGameSeriesStateErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/super-game-series/state', ...options });
+
+/**
+ * Boards of one series of the shared game, from the trigger to the last spin
+ */
+export const listBoardSearchShareSuperGameSeriesBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareSuperGameSeriesBoardsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSuperGameSeriesBoardsResponses,
+  ListBoardSearchShareSuperGameSeriesBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareSuperGameSeriesBoardsResponses,
+    ListBoardSearchShareSuperGameSeriesBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/super-game-series/{series_id}/boards',
+    ...options,
+  });
+
+/**
+ * Define or clear the super symbol of a series of the shared game (compare-and-set)
+ */
+export const setBoardSearchShareSuperGameSeriesSuperSymbol = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    SetBoardSearchShareSuperGameSeriesSuperSymbolData,
+    ThrowOnError
+  >,
+): RequestResult<
+  SetBoardSearchShareSuperGameSeriesSuperSymbolResponses,
+  SetBoardSearchShareSuperGameSeriesSuperSymbolErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SetBoardSearchShareSuperGameSeriesSuperSymbolResponses,
+    SetBoardSearchShareSuperGameSeriesSuperSymbolErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/super-game-series/{series_id}/super-symbol',
     ...options,
     headers: {
       'Content-Type': 'application/json',

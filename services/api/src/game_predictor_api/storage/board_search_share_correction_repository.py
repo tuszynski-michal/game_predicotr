@@ -40,6 +40,7 @@ from game_predictor_api.domain.board_search_shares import (
     BoardSearchShareConflictError,
     BoardSearchShareError,
     BoardSearchShareNotFoundError,
+    board_search_share_actor,
 )
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
 from game_predictor_api.storage.board_search_approximate_win_repository import (
@@ -218,7 +219,7 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
                 expected_crop_sample_id=cell.crop_sample_id,
                 expected_crop_checksum_sha256=cell.crop_checksum_sha256,
                 target_symbol_id=target_id,
-                actor=f"board-search-share:{context.session_id}",
+                actor=board_search_share_actor(context.session_id),
                 # Existing cell events reserve operation_id for durable bulk operations.
                 # Share idempotency belongs to the share receipt, in this same transaction.
             )

@@ -2,7 +2,7 @@
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -148,4 +148,80 @@ npm run python:typecheck
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Commit: v1.7.426 (hash dopisuje kolejny commit).
+
+### Changed
+
+- `api/board_search_share_public.py`: cztery trasy
+  `/board-search-shares/super-game-series/{state,next-undefined,{id}/boards,
+  {id}/super-symbol}` za `_require_share_proxy`, `authenticate` i
+  `_reject_game_parameter`, gra z sesji, `game_storage_scope`; zapis z aktorem
+  `board_search_share_actor(session_id)`; trasa `approximate-win` bez
+  `response_model_exclude` (udostępnienie zwraca `seriesId`); `symbols` z
+  `superGameTriggerCount`.
+- `schemas/board_search_shares.py`: `BoardSearchSharePublicSeriesResponse`,
+  `…SeriesBoardResponse`, `…SeriesBoardsResponse`,
+  `…UndefinedSeriesResponse` (bez `gameId`, `definedBy`, `generationId`,
+  `reviewItemId`, `recognizedBoardId`, `importJobId`, `assetMode`); wynik
+  `search` z `SuperGameMarkerResponse`; `superGameTriggerCount` w symbolu.
+- `schemas/super_game_markers.py`: usunięte
+  `to_super_game_public_marker_response`; nowe `PUBLIC_SEARCH_EXCLUDE` dla
+  panelu zarządzania (`api/management_public_stakes.py`, trasa `search`),
+  którego strażnik `public_payload` odrzuca klucz `seriesId` nawet pusty.
+- `domain/board_search_shares.py`: `board_search_share_actor`,
+  `BOARD_SEARCH_SHARE_ACTOR_PREFIX`; docstring bez „no write capability”.
+  `storage/board_search_share_correction_repository.py` używa helpera.
+- `api/router.py`, `main.py`: zależność serwisu serii przekazana do routera
+  publicznego (fabryka `default_super_game_series_service_dependency`).
+- OpenAPI i klient zregenerowane; `packages/admin-api-client/src/index.ts`
+  eksportuje cztery nowe typy, `SuperGamePublicMarkerResponse` znika ze
+  schematu (żadna trasa go nie serwuje).
+- Testy: `test_board_search_share_public_api.py` (5 nowych testów serii,
+  `SharedGamesSeriesRepository` dwóch gier, `superGameTriggerCount`,
+  `definedby`/`generationid` w kluczach zabronionych zamiast `seriesid`);
+  `test_board_search_super_game_api.py` (udostępnienie niesie `seriesId`,
+  panel zarządzania go pomija, OpenAPI).
+
+### Verification results
+
+- `pytest services/api/tests/test_board_search_share_public_api.py
+  services/api/tests/test_board_search_super_game_api.py
+  services/api/tests/test_super_game_series_api.py`: 38 passed.
+- `npm run openapi:generate` + `npm run openapi:check`: OK; testy
+  `@game-predictor/admin-api-client`: 131 passed; typecheck admin, reviewer,
+  board-search-ui, admin-api-client: OK.
+- `npm run python:lint`: OK. `npm run python:typecheck`: 4 błędy wyłącznie w
+  `scripts/run_m4_import_acceptance.py`, obecne także na bazowym commicie
+  (sprawdzone przez `git stash`); brak błędów w zmienionych modułach.
+- Pełny `pytest services/api/tests` nie mieści się w limicie 600 s jednego
+  polecenia (po 10 min około 14 %); przerwany bieg zatrzymał się na
+  `test_format_edited_file_hook.py`, który osobno przechodzi (34 passed;
+  padł w czasie równoległych edycji plików przez hook formatera). Pełny bieg
+  jest częścią odbioru planu (`npm run quality`).
+- `npm run api:test` (`run_python_tests.ps1 -Suite Api`) zbiera 0 testów
+  (znana usterka, `CURRENT_STATE.md`); użyto bezpośredniego `pytest`.
+
+### Audit
+
+- Raport: `ai_docs/quality/TASK-1056_AUDIT_codex.md` (Codex, medium,
+  runda 1, werdykt REVISE). P1-1 (brak testów `game_id`/`rulesVersionId` dla
+  czterech tras, symbolu uruchamiającego, zarchiwizowanego, gry `none` i
+  aktora audytu) zamknięte: testy rozszerzone (cztery parametry na każdej
+  trasie, trzy odmowy `SUPER_SYMBOL_NOT_ORDINARY`, nowy
+  `test_a_game_without_a_super_game_has_no_series`, `actors` w repozytorium
+  testowym). P2-1 (opis `seriesId` w OpenAPI) zamknięte: opis poprawiony,
+  OpenAPI i klient zregenerowane. Poprawki nie zmieniają zachowania objętego
+  P0/P1, więc bez drugiej rundy.
+
+### Not completed
+
+- Dokumentacja kontraktu i modelu zagrożeń: TASK-1060 (zgodnie z planem).
+
+### Documentation updates
+
+- Brak w tym tasku (TASK-1060). Mapa kodu z nowymi symbolami API wchodzi do
+  commita TASK-1058 (zregenerowana raz dla obu tasków na tej gałęzi).
+
+### Recommended next task
+
+- TASK-1058 (równolegle) i TASK-1057 (allowlista proxy na nowym OpenAPI).

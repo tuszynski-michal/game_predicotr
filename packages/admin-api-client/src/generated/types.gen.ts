@@ -2150,9 +2150,107 @@ export type BoardSearchSharePublicSearchResultResponse = {
    */
   status: string;
   /**
-   * Super game role of this board; the series identity is never shared.
+   * Super game role of this board. The share carries `seriesId` so the recipient can open the series (D-564); the management panel omits it.
    */
-  superGame?: SuperGamePublicMarkerResponse | null;
+  superGame?: SuperGameMarkerResponse | null;
+};
+
+/**
+ * BoardSearchSharePublicSeriesBoardResponse
+ *
+ * One position of a series without review, board and import identities.
+ */
+export type BoardSearchSharePublicSeriesBoardResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256?: string | null;
+  /**
+   * Missing
+   */
+  missing: boolean;
+  /**
+   * Role
+   */
+  role: 'trigger' | 'retrigger' | 'spin';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Spinindex
+   */
+  spinIndex?: number | null;
+  /**
+   * Status
+   */
+  status: 'pending' | 'accepted' | 'corrected' | null;
+};
+
+/**
+ * BoardSearchSharePublicSeriesBoardsResponse
+ */
+export type BoardSearchSharePublicSeriesBoardsResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<BoardSearchSharePublicSeriesBoardResponse>;
+  series: BoardSearchSharePublicSeriesResponse;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * BoardSearchSharePublicSeriesResponse
+ *
+ * One super game series as the share recipient sees it (D-564).
+ *
+ * The game is fixed by the session and the author of the super symbol
+ * (``definedBy``) is Admin-only; ``revision`` is the compare-and-set token of
+ * the super symbol update.
+ */
+export type BoardSearchSharePublicSeriesResponse = {
+  completeness: SeriesCompleteness;
+  /**
+   * Definedat
+   */
+  definedAt: string | null;
+  /**
+   * Endsequencenumber
+   */
+  endSequenceNumber: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Length
+   */
+  length: number;
+  /**
+   * Retriggersequencenumbers
+   */
+  retriggerSequenceNumbers: Array<number>;
+  /**
+   * Revision
+   */
+  revision: number;
+  runVerification: RunVerification;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
+  /**
+   * Supersymbolid
+   */
+  superSymbolId: string | null;
+  /**
+   * Triggersequencenumber
+   */
+  triggerSequenceNumber: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
 };
 
 /**
@@ -2201,6 +2299,25 @@ export type BoardSearchSharePublicSymbolResponse = {
    * Status
    */
   status: string;
+  /**
+   * Supergametriggercount
+   *
+   * Cells with this symbol that trigger the super game (D-535); null for an ordinary symbol. Lets the series view tell trigger symbols from super symbol candidates (D-564).
+   */
+  superGameTriggerCount?: number | null;
+};
+
+/**
+ * BoardSearchSharePublicUndefinedSeriesResponse
+ *
+ * The next (at most two) series without a super symbol after a trigger.
+ */
+export type BoardSearchSharePublicUndefinedSeriesResponse = {
+  /**
+   * Items
+   */
+  items: Array<BoardSearchSharePublicSeriesResponse>;
+  superGameState: SuperGameStateResponse;
 };
 
 /**
@@ -20403,39 +20520,9 @@ export type SuperGameMarkerResponse = {
   /**
    * Seriesid
    *
-   * Series identity for the Admin series view. Always set by the Admin routes; omitted from the online share and management panel responses (a public marker is therefore also a valid marker without a link).
+   * Series identity for the series view. Set by the Admin routes and, since D-564, by the online board-search share (the recipient opens the series); omitted from the management panel responses only.
    */
   seriesId?: string | null;
-  /**
-   * Serieslength
-   */
-  seriesLength: number;
-  /**
-   * Spinindex
-   *
-   * 1-based spin of the series; null for the trigger board.
-   */
-  spinIndex?: number | null;
-  /**
-   * Supersymbolcode
-   *
-   * Code of the defined super symbol; null while it is still to be defined.
-   */
-  superSymbolCode?: string | null;
-};
-
-/**
- * SuperGamePublicMarkerResponse
- *
- * The super game role of a board in the published series generation.
- *
- * Absent on a board means base mode according to that generation (see the
- * response's ``superGameState`` for whether the generation is current).
- */
-export type SuperGamePublicMarkerResponse = {
-  completeness: SeriesCompleteness;
-  kind: SuperGameMarkerKind;
-  runVerification: RunVerification;
   /**
    * Serieslength
    */
@@ -41713,6 +41800,251 @@ export type UnlockBoardSearchShareSessionResponses = {
 
 export type UnlockBoardSearchShareSessionResponse =
   UnlockBoardSearchShareSessionResponses[keyof UnlockBoardSearchShareSessionResponses];
+
+export type ListBoardSearchShareUndefinedSuperGameSeriesData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Aftertrigger
+     *
+     * Trigger sequence number after which the search starts; omitted starts from the first series.
+     */
+    afterTrigger?: number | null;
+  };
+  url: '/api/v1/board-search-shares/super-game-series/next-undefined';
+};
+
+export type ListBoardSearchShareUndefinedSuperGameSeriesErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchShareUndefinedSuperGameSeriesError =
+  ListBoardSearchShareUndefinedSuperGameSeriesErrors[keyof ListBoardSearchShareUndefinedSuperGameSeriesErrors];
+
+export type ListBoardSearchShareUndefinedSuperGameSeriesResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicUndefinedSeriesResponse;
+};
+
+export type ListBoardSearchShareUndefinedSuperGameSeriesResponse =
+  ListBoardSearchShareUndefinedSuperGameSeriesResponses[keyof ListBoardSearchShareUndefinedSuperGameSeriesResponses];
+
+export type GetBoardSearchShareSuperGameSeriesStateData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/super-game-series/state';
+};
+
+export type GetBoardSearchShareSuperGameSeriesStateErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareSuperGameSeriesStateError =
+  GetBoardSearchShareSuperGameSeriesStateErrors[keyof GetBoardSearchShareSuperGameSeriesStateErrors];
+
+export type GetBoardSearchShareSuperGameSeriesStateResponses = {
+  /**
+   * Successful Response
+   */
+  200: SuperGameStateResponse;
+};
+
+export type GetBoardSearchShareSuperGameSeriesStateResponse =
+  GetBoardSearchShareSuperGameSeriesStateResponses[keyof GetBoardSearchShareSuperGameSeriesStateResponses];
+
+export type ListBoardSearchShareSuperGameSeriesBoardsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Series Id
+     */
+    series_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/super-game-series/{series_id}/boards';
+};
+
+export type ListBoardSearchShareSuperGameSeriesBoardsErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchShareSuperGameSeriesBoardsError =
+  ListBoardSearchShareSuperGameSeriesBoardsErrors[keyof ListBoardSearchShareSuperGameSeriesBoardsErrors];
+
+export type ListBoardSearchShareSuperGameSeriesBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicSeriesBoardsResponse;
+};
+
+export type ListBoardSearchShareSuperGameSeriesBoardsResponse =
+  ListBoardSearchShareSuperGameSeriesBoardsResponses[keyof ListBoardSearchShareSuperGameSeriesBoardsResponses];
+
+export type SetBoardSearchShareSuperGameSeriesSuperSymbolData = {
+  body: SuperSymbolUpdate;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Series Id
+     */
+    series_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/super-game-series/{series_id}/super-symbol';
+};
+
+export type SetBoardSearchShareSuperGameSeriesSuperSymbolErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type SetBoardSearchShareSuperGameSeriesSuperSymbolError =
+  SetBoardSearchShareSuperGameSeriesSuperSymbolErrors[keyof SetBoardSearchShareSuperGameSeriesSuperSymbolErrors];
+
+export type SetBoardSearchShareSuperGameSeriesSuperSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicSeriesResponse;
+};
+
+export type SetBoardSearchShareSuperGameSeriesSuperSymbolResponse =
+  SetBoardSearchShareSuperGameSeriesSuperSymbolResponses[keyof SetBoardSearchShareSuperGameSeriesSuperSymbolResponses];
 
 export type ListBoardSearchShareSymbolsData = {
   body?: never;

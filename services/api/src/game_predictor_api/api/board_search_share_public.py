@@ -1,9 +1,12 @@
-"""Public board-search reads and scoped symbol corrections (D-492).
+"""Public board-search reads, scoped symbol corrections (D-492) and the
+super game series of the shared game (D-564).
 
 Reachable only through the Reviewer proxy (intent header) with the share
 cookie. The game always comes from the authenticated session, never from the
 request. Search, range and board-detail queries are recorded in the query
-log before any data is returned.
+log before any data is returned; series reads are not queries of the log,
+and the super symbol update is audited by the series itself with the
+session actor.
 """
 
 from collections.abc import Callable
@@ -45,6 +48,10 @@ from game_predictor_api.application.board_search_share_queries import (
     record_board_search_share_query,
 )
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.super_game_series import (
+    SuperGameSeriesFilter,
+    SuperGameSeriesService,
+)
 from game_predictor_api.application.symbol_references import ApprovedSymbolReferenceService
 from game_predictor_api.domain.board_search import BoardSearchScope, validate_board_search_query
 from game_predictor_api.domain.board_search_share_queries import (
@@ -69,6 +76,7 @@ from game_predictor_api.domain.board_search_shares import (
     BoardSearchShareAuthorizationError,
     BoardSearchShareConflictError,
     BoardSearchShareError,
+    board_search_share_actor,
 )
 from game_predictor_api.domain.catalog import CatalogNotFoundError, SymbolStatus
 from game_predictor_api.schemas.board_search import to_board_search_response
@@ -84,13 +92,19 @@ from game_predictor_api.schemas.board_search_shares import (
     BoardSearchSharePublicCellResponse,
     BoardSearchSharePublicContextResponse,
     BoardSearchSharePublicSearchResponse,
+    BoardSearchSharePublicSeriesBoardsResponse,
+    BoardSearchSharePublicSeriesResponse,
     BoardSearchSharePublicSymbolResponse,
+    BoardSearchSharePublicUndefinedSeriesResponse,
     BoardSearchShareStakeRecordedResponse,
     BoardSearchShareUnlock,
     to_board_search_share_public_search_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
-from game_predictor_api.schemas.super_game_markers import PUBLIC_APPROXIMATE_WIN_EXCLUDE
+from game_predictor_api.schemas.super_game_series import (
+    SuperGameStateResponse,
+    SuperSymbolUpdate,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 _T = TypeVar("_T")
@@ -103,6 +117,13 @@ IMAGE_CACHE_CONTROL = "private, immutable, max-age=86400"
 _FORBIDDEN_QUERY_PARAMETERS = frozenset({"gameid", "game_id", *RULES_VERSION_QUERY_NAMES})
 # `cellIndex:` (up to 3 characters) plus a catalog symbol code (up to 64).
 _MAX_CELL_VALUE_LENGTH = 3 + 64
+# "Next series without a super symbol" reads the open series plus one more,
+# exactly as the Admin does (`nextUndefinedSeriesQuery`), so the client can
+# skip the series it shows and detect the end of the list.
+_NEXT_UNDEFINED_SERIES_LIMIT = 2
+# The series cursor of the service is a trigger sequence number of at most
+# nine digits.
+_MAX_TRIGGER_SEQUENCE_NUMBER = 999_999_999
 
 PUBLIC_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     401: {"model": ErrorResponse, "description": "Missing, invalid or expired share access"},
@@ -125,6 +146,7 @@ def create_board_search_share_public_router(
     board_detail_service_dependency: Callable[..., object],
     board_view_service_dependency: Callable[..., object],
     correction_service_dependency: Callable[..., object],
+    super_game_series_service_dependency: Callable[..., object],
     query_log: BoardSearchShareQueryLog,
     rate_limiter: BoardSearchShareRateLimiter,
     artifact_root: Path,
@@ -142,6 +164,7 @@ def create_board_search_share_public_router(
     board_detail_parameter = Depends(board_detail_service_dependency)
     board_view_parameter = Depends(board_view_service_dependency)
     correction_parameter = Depends(correction_service_dependency, scope="function")
+    series_parameter = Depends(super_game_series_service_dependency, scope="function")
     token_cookie = Cookie(alias=BOARD_SEARCH_SHARE_COOKIE_NAME)
 
     def authenticate(
@@ -288,6 +311,7 @@ def create_board_search_share_public_router(
                         if symbol.image_path
                         else None
                     ),
+                    super_game_trigger_count=symbol.super_game_trigger_count,
                 )
                 for symbol in symbols
             ]
@@ -385,7 +409,6 @@ def create_board_search_share_public_router(
     @router.get(
         "/approximate-win",
         response_model=ApproximateWinResponse,
-        response_model_exclude=PUBLIC_APPROXIMATE_WIN_EXCLUDE,
         operation_id="getBoardSearchShareApproximateWin",
         summary="Calculate the approximate win for a range of the shared game",
         responses=PUBLIC_ERROR_RESPONSES,
@@ -586,6 +609,106 @@ def create_board_search_share_public_router(
         }:
             return Response(status_code=304, headers=headers)
         return Response(content=asset.content, media_type=asset.media_type, headers=headers)
+
+    # Super game series of the shared game (D-564): the recipient opens the
+    # series of a marked board, defines its super symbol and moves to the
+    # next series without one. No list with filters and no derivation: the
+    # Admin keeps those. Static paths come before the `{series_id}` routes.
+
+    @router.get(
+        "/super-game-series/state",
+        response_model=SuperGameStateResponse,
+        operation_id="getBoardSearchShareSuperGameSeriesState",
+        summary="Freshness of the published super game series of the shared game",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def get_super_game_series_state(
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        series: Annotated[SuperGameSeriesService, series_parameter],
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> SuperGameStateResponse:
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        with game_storage_scope(context.game_id):
+            return SuperGameStateResponse.from_domain(series.state(context.game_id))
+
+    @router.get(
+        "/super-game-series/next-undefined",
+        response_model=BoardSearchSharePublicUndefinedSeriesResponse,
+        operation_id="listBoardSearchShareUndefinedSuperGameSeries",
+        summary="The next series without a super symbol after a trigger of the shared game",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def list_undefined_super_game_series(
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        series: Annotated[SuperGameSeriesService, series_parameter],
+        after_trigger: Annotated[
+            int | None,
+            Query(
+                alias="afterTrigger",
+                ge=1,
+                le=_MAX_TRIGGER_SEQUENCE_NUMBER,
+                description=(
+                    "Trigger sequence number after which the search starts; omitted "
+                    "starts from the first series."
+                ),
+            ),
+        ] = None,
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchSharePublicUndefinedSeriesResponse:
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        with game_storage_scope(context.game_id):
+            page = series.list(
+                context.game_id,
+                filters=SuperGameSeriesFilter(defined=False),
+                cursor=None if after_trigger is None else str(after_trigger),
+                limit=_NEXT_UNDEFINED_SERIES_LIMIT,
+            )
+        return BoardSearchSharePublicUndefinedSeriesResponse.from_domain(page)
+
+    @router.get(
+        "/super-game-series/{series_id}/boards",
+        response_model=BoardSearchSharePublicSeriesBoardsResponse,
+        operation_id="listBoardSearchShareSuperGameSeriesBoards",
+        summary="Boards of one series of the shared game, from the trigger to the last spin",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def list_super_game_series_boards(
+        series_id: UUID,
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        series: Annotated[SuperGameSeriesService, series_parameter],
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchSharePublicSeriesBoardsResponse:
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        with game_storage_scope(context.game_id):
+            # A series of another game is "not found": the service looks it
+            # up within the session's game only.
+            result = series.boards(context.game_id, series_id)
+        return BoardSearchSharePublicSeriesBoardsResponse.from_domain(result)
+
+    @router.put(
+        "/super-game-series/{series_id}/super-symbol",
+        response_model=BoardSearchSharePublicSeriesResponse,
+        operation_id="setBoardSearchShareSuperGameSeriesSuperSymbol",
+        summary="Define or clear the super symbol of a series of the shared game (compare-and-set)",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def set_super_game_series_super_symbol(
+        series_id: UUID,
+        payload: SuperSymbolUpdate,
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        series: Annotated[SuperGameSeriesService, series_parameter],
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchSharePublicSeriesResponse:
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        with game_storage_scope(context.game_id):
+            record = series.set_super_symbol(
+                context.game_id,
+                series_id,
+                symbol_id=payload.symbol_id,
+                expected_revision=payload.expected_revision,
+                actor=board_search_share_actor(context.session_id),
+            )
+        return BoardSearchSharePublicSeriesResponse.from_domain(record)
 
     return router
 

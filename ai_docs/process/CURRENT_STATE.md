@@ -61,10 +61,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
-### TASK-1056 — Publiczne trasy serii supergry udostępnionej wyszukiwarki (in_progress)
-
-- Plik: `tasks/1056-share-super-series-public-api.md`. Cztery trasy `/board-search-shares/super-game-series/...`, `seriesId` w markerach udostępnienia, aktor `board-search-share:<sessionId>`; OpenAPI i klient. Następny krok: modele publiczne i router.
-
 ### TASK-1057 — Allowlista proxy Reviewera dla tras serii (todo)
 
 - Plik: `tasks/1057-share-super-series-proxy-allowlist.md`. Po TASK-1056: cztery trasy w `boardSearchShareRoute`, `PUT` w handlerach i proxy panelu, test bramki 10 → 14 operacji.
@@ -83,6 +79,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1056** — Publiczne trasy serii supergry udostępnionej wyszukiwarki — v1.7.426 — tasks/completed/1056-share-super-series-public-api.md
 - **TASK-1055** — Filtr zakresu plansz serii supergry — v1.7.421 / `3b9a1df8` — tasks/completed/1055-super-series-board-range-filter.md
 - **TASK-1054** — Panel przycinania: czytelny wybór gry, tylko gry aktywne — v1.7.419 / `c103f1ac` — tasks/completed/1054-storage-panel-game-select.md
 - **TASK-1053** — Następna seria supergry bez symbolu i retriggery — v1.7.419 / `f0bc558c` — tasks/completed/1053-super-series-next-undefined.md
@@ -92,4 +89,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md
 - **TASK-1047** — Trwały job source_crop (plan i wykonanie) z API — v1.7.410 / `4d157a61` — tasks/completed/1047-source-crop-job.md
 - **TASK-1046** — Ramka źródła z cropem w API, serwowanie i blokady — v1.7.407 / `401b371f` — tasks/completed/1046-source-frame-api.md
-- **TASK-1045** — Ramka źródła z cropem w workerze — v1.7.406 / `279a22ce` — tasks/completed/1045-source-frame-worker.md

@@ -2400,6 +2400,9 @@ def create_app(
             board_search_share_correction_service_dependency=(
                 resolved_board_search_share_correction_dependency
             ),
+            super_game_series_service_dependency=(
+                super_game_series_service_dependency or default_super_game_series_service_dependency
+            ),
             board_search_share_query_log=resolved_board_search_share_query_log,
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),

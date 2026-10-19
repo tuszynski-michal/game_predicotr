@@ -27,6 +27,12 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
     is_ready_online_reviewer_ingress,
 )
+from game_predictor_api.application.super_game_series import (
+    SeriesBoard,
+    SeriesBoards,
+    SuperGameSeriesPage,
+    SuperGameSeriesRecord,
+)
 from game_predictor_api.domain.board_search import BoardSearchScope
 from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES,
@@ -35,6 +41,7 @@ from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_REVIEWER_PATH,
     BoardSearchShareStatus,
 )
+from game_predictor_api.domain.super_game_series import RunVerification, SeriesCompleteness
 from game_predictor_api.schemas.board_search import BoardSearchResponse, BoardSearchScoreResponse
 from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinRulesResponse,
@@ -44,10 +51,7 @@ from game_predictor_api.schemas.board_search_approximate_win import (
     BoardSearchLineMatchResponse,
 )
 from game_predictor_api.schemas.catalog import ApiModel
-from game_predictor_api.schemas.super_game_markers import (
-    SuperGamePublicMarkerResponse,
-    to_super_game_public_marker_response,
-)
+from game_predictor_api.schemas.super_game_markers import SuperGameMarkerResponse
 from game_predictor_api.schemas.super_game_series import SuperGameStateResponse
 
 
@@ -174,6 +178,15 @@ class BoardSearchSharePublicSymbolResponse(ApiModel):
     image_revision: str | None = Field(
         description="Checksum of the symbol image for its immutable URL; null without an image."
     )
+    super_game_trigger_count: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Cells with this symbol that trigger the super game (D-535); null for an "
+            "ordinary symbol. Lets the series view tell trigger symbols from super "
+            "symbol candidates (D-564)."
+        ),
+    )
 
 
 class BoardSearchSharePublicSearchResultResponse(ApiModel):
@@ -181,9 +194,12 @@ class BoardSearchSharePublicSearchResultResponse(ApiModel):
     status: str
     board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     score: BoardSearchScoreResponse
-    super_game: SuperGamePublicMarkerResponse | None = Field(
+    super_game: SuperGameMarkerResponse | None = Field(
         default=None,
-        description="Super game role of this board; the series identity is never shared.",
+        description=(
+            "Super game role of this board. The share carries `seriesId` so the "
+            "recipient can open the series (D-564); the management panel omits it."
+        ),
     )
 
 
@@ -201,7 +217,12 @@ class BoardSearchSharePublicSearchResponse(ApiModel):
 def to_board_search_share_public_search_response(
     value: BoardSearchResponse,
 ) -> BoardSearchSharePublicSearchResponse:
-    """The Admin search response without review, board and import identities."""
+    """The Admin search response without review, board and import identities.
+
+    The super game marker keeps its ``seriesId``; a route that must not expose
+    it (the management panel) excludes it with
+    :data:`~game_predictor_api.schemas.super_game_markers.PUBLIC_SEARCH_EXCLUDE`.
+    """
 
     return BoardSearchSharePublicSearchResponse(
         scope=value.scope,
@@ -213,15 +234,110 @@ def to_board_search_share_public_search_response(
                 status=result.status,
                 board_checksum_sha256=result.board_checksum_sha256,
                 score=result.score,
-                super_game=(
-                    None
-                    if result.super_game is None
-                    else to_super_game_public_marker_response(result.super_game)
-                ),
+                super_game=result.super_game,
             )
             for result in value.results
         ),
     )
+
+
+class BoardSearchSharePublicSeriesResponse(ApiModel):
+    """One super game series as the share recipient sees it (D-564).
+
+    The game is fixed by the session and the author of the super symbol
+    (``definedBy``) is Admin-only; ``revision`` is the compare-and-set token of
+    the super symbol update.
+    """
+
+    id: UUID
+    trigger_sequence_number: int = Field(ge=1)
+    start_sequence_number: int = Field(ge=2)
+    end_sequence_number: int = Field(ge=2)
+    length: int = Field(ge=1)
+    retrigger_sequence_numbers: list[int]
+    completeness: SeriesCompleteness
+    run_verification: RunVerification
+    super_symbol_id: UUID | None
+    defined_at: datetime | None
+    revision: int = Field(ge=0)
+    updated_at: datetime
+
+    @classmethod
+    def from_domain(cls, record: SuperGameSeriesRecord) -> BoardSearchSharePublicSeriesResponse:
+        return cls(
+            id=record.id,
+            trigger_sequence_number=record.trigger_sequence_number,
+            start_sequence_number=record.start_sequence_number,
+            end_sequence_number=record.end_sequence_number,
+            length=record.length,
+            retrigger_sequence_numbers=list(record.retrigger_sequence_numbers),
+            completeness=record.completeness,
+            run_verification=record.run_verification,
+            super_symbol_id=record.super_symbol_id,
+            defined_at=record.defined_at,
+            revision=record.revision,
+            updated_at=record.updated_at,
+        )
+
+
+class BoardSearchSharePublicSeriesBoardResponse(ApiModel):
+    """One position of a series without review, board and import identities."""
+
+    sequence_number: int = Field(ge=1)
+    role: Literal["trigger", "retrigger", "spin"]
+    spin_index: int | None = Field(default=None, ge=1)
+    missing: bool
+    status: Literal["pending", "accepted", "corrected"] | None
+    board_checksum_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @classmethod
+    def from_domain(cls, board: SeriesBoard) -> BoardSearchSharePublicSeriesBoardResponse:
+        document = board.document
+        return cls.model_validate(
+            {
+                "sequence_number": board.sequence_number,
+                "role": board.role.value,
+                "spin_index": board.spin_index,
+                "missing": board.missing,
+                "status": None if document is None else document.status,
+                "board_checksum_sha256": (
+                    None if document is None else document.board_checksum_sha256
+                ),
+            }
+        )
+
+
+class BoardSearchSharePublicSeriesBoardsResponse(ApiModel):
+    series: BoardSearchSharePublicSeriesResponse
+    boards: list[BoardSearchSharePublicSeriesBoardResponse]
+    super_game_state: SuperGameStateResponse
+
+    @classmethod
+    def from_domain(cls, result: SeriesBoards) -> BoardSearchSharePublicSeriesBoardsResponse:
+        return cls(
+            series=BoardSearchSharePublicSeriesResponse.from_domain(result.series),
+            boards=[
+                BoardSearchSharePublicSeriesBoardResponse.from_domain(board)
+                for board in result.boards
+            ],
+            super_game_state=SuperGameStateResponse.from_domain(result.state),
+        )
+
+
+class BoardSearchSharePublicUndefinedSeriesResponse(ApiModel):
+    """The next (at most two) series without a super symbol after a trigger."""
+
+    items: list[BoardSearchSharePublicSeriesResponse] = Field(max_length=2)
+    super_game_state: SuperGameStateResponse
+
+    @classmethod
+    def from_domain(
+        cls, page: SuperGameSeriesPage
+    ) -> BoardSearchSharePublicUndefinedSeriesResponse:
+        return cls(
+            items=[BoardSearchSharePublicSeriesResponse.from_domain(item) for item in page.items],
+            super_game_state=SuperGameStateResponse.from_domain(page.state),
+        )
 
 
 class BoardSearchShareQueryEntryResponse(ApiModel):
@@ -422,7 +538,11 @@ __all__ = [
     "BoardSearchSharePublicContextResponse",
     "BoardSearchSharePublicSearchResponse",
     "BoardSearchSharePublicSearchResultResponse",
+    "BoardSearchSharePublicSeriesBoardResponse",
+    "BoardSearchSharePublicSeriesBoardsResponse",
+    "BoardSearchSharePublicSeriesResponse",
     "BoardSearchSharePublicSymbolResponse",
+    "BoardSearchSharePublicUndefinedSeriesResponse",
     "to_board_search_share_public_search_response",
     "board_search_share_url",
 ]

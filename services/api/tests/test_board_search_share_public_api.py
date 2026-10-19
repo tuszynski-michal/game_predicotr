@@ -1,4 +1,4 @@
-"""Public board-search share surface (TASK-0767, D-471, D-472)."""
+"""Public board-search share surface (TASK-0767, D-471, D-472, D-564)."""
 
 import hashlib
 from collections.abc import Iterator
@@ -25,6 +25,14 @@ from game_predictor_api.application.board_search_share_queries import (
     BoardSearchShareRateLimiter,
     BoardSearchShareRequestKind,
 )
+from game_predictor_api.application.super_game_series import (
+    GameSuperGameContext,
+    SeriesBoardDocument,
+    SuperGameSeriesFilter,
+    SuperGameSeriesRecord,
+    SuperGameSeriesService,
+    SuperSymbolCandidate,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_search import (
     BoardSearchAssetMode,
@@ -35,6 +43,7 @@ from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_COOKIE_NAME,
     BOARD_SEARCH_SHARE_PROXY_HEADER,
     BOARD_SEARCH_SHARE_PROXY_INTENT,
+    board_search_share_actor,
 )
 from game_predictor_api.domain.catalog import CatalogNotFoundError, Symbol, SymbolStatus
 from game_predictor_api.domain.super_game_markers import NO_SUPER_GAME_STATE, SuperGameMarkers
@@ -71,6 +80,8 @@ from test_board_search_board_detail_api import (
 from test_board_search_board_detail_api import (
     _document as detail_document,
 )
+from test_super_game_series_api import MemorySeriesRepository
+from test_super_game_series_api import _series as series_record
 
 NOW = datetime(2099, 9, 30, 10, 0, tzinfo=UTC)
 BASE = "/api/v1/board-search-shares"
@@ -96,8 +107,10 @@ FORBIDDEN_KEYS = frozenset(
         "tokenhash",
         "codehash",
         "codesalt",
-        # TASK-0935: the series identity is Admin-only.
-        "seriesid",
+        # D-564: `seriesId` is a public handle (the recipient opens the series),
+        # the series author (`definedBy`) and generation stay Admin-only.
+        "definedby",
+        "generationid",
     }
 )
 
@@ -146,6 +159,7 @@ class FakeCatalog:
                 is_wildcard=False,
                 display_order=1,
                 status=SymbolStatus.ACTIVE,
+                super_game_trigger_count=3,
             ),
         ]
 
@@ -221,6 +235,63 @@ class FixedMarkerSource:
         return self._markers
 
 
+class SharedGamesSeriesRepository(MemorySeriesRepository):
+    """Series of the session's game, of one other game of the operator and of
+    a game without a super game (`none`)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.other_game_id = uuid4()
+        self.none_game_id = uuid4()
+        self.actors: list[str] = []
+
+    def game_context(self, game_id: UUID) -> GameSuperGameContext | None:
+        if game_id == self.other_game_id:
+            return GameSuperGameContext(
+                game_id=game_id,
+                super_game_kind=self.kind,
+                has_super_game=True,
+                expected_layout_count=500_000,
+            )
+        if game_id == self.none_game_id:
+            return GameSuperGameContext(
+                game_id=game_id,
+                super_game_kind="none",
+                has_super_game=False,
+                expected_layout_count=500_000,
+            )
+        return super().game_context(game_id)
+
+    def define_super_symbol(
+        self, series: SuperGameSeriesRecord, *, symbol_id: UUID | None, actor: str
+    ) -> SuperGameSeriesRecord:
+        # The audit event carries the actor (the SQL repository writes it).
+        self.actors.append(actor)
+        return super().define_super_symbol(series, symbol_id=symbol_id, actor=actor)
+
+    def get_series(
+        self, game_id: UUID, series_id: UUID, *, for_update: bool = False
+    ) -> SuperGameSeriesRecord | None:
+        series = self.series.get(series_id)
+        return series if series is not None and series.game_id == game_id else None
+
+    def list_series(
+        self,
+        game_id: UUID,
+        *,
+        filters: SuperGameSeriesFilter,
+        after_trigger: int | None,
+        limit: int,
+    ) -> list[SuperGameSeriesRecord]:
+        return [
+            row
+            for row in super().list_series(
+                game_id, filters=filters, after_trigger=after_trigger, limit=len(self.series)
+            )
+            if row.game_id == game_id
+        ][:limit]
+
+
 @dataclass
 class Harness:
     app: FastAPI
@@ -228,6 +299,7 @@ class Harness:
     log: InMemoryBoardSearchShareQueryLog
     search: FakeSearch
     clock: list[datetime]
+    series: SharedGamesSeriesRepository
 
 
 def _harness(
@@ -237,6 +309,7 @@ def _harness(
     super_game: SuperGameMarkers | None = None,
 ) -> Harness:
     clock = [NOW]
+    series_repository = SharedGamesSeriesRepository()
     repository = InMemoryBoardSearchShareRepository()
     shares = BoardSearchShareAccessService(
         repository, readiness=lambda game_id: None, enabled=True, now=lambda: clock[0]
@@ -278,8 +351,13 @@ def _harness(
             lambda: BoardSearchBoardDetailService(detail_repository)
         ),
         board_search_board_view_service_dependency=FakeView,
+        super_game_series_service_dependency=(
+            lambda: SuperGameSeriesService(series_repository)  # type: ignore[arg-type]
+        ),
     )
-    return Harness(app=app, shares=shares, log=log, search=search, clock=clock)
+    return Harness(
+        app=app, shares=shares, log=log, search=search, clock=clock, series=series_repository
+    )
 
 
 def _share(harness: Harness, game_id: UUID) -> tuple[UUID, str]:
@@ -593,6 +671,8 @@ def test_symbols_expose_image_revisions_not_paths_and_images_are_checksum_bound(
     body = symbols.json()
     assert _forbidden_keys(body) == set()
     assert [item["imageRevision"] for item in body] == [IMAGE_SHA, None]
+    # D-564: the series view needs to tell trigger symbols from candidates.
+    assert [item["superGameTriggerCount"] for item in body] == [None, 3]
     image = test_client.get(
         f"{BASE}/symbols/{SYMBOL_ID}/image", params={"revision": IMAGE_SHA}, headers=PROXY
     )
@@ -724,4 +804,251 @@ def test_a_rules_version_parameter_is_refused(client: tuple[TestClient, Harness]
     for response in responses:
         assert response.status_code == 422, response.text
         assert response.json()["code"] == "BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN"
+    assert harness.log.entries == []
+
+
+# --- Super game series of the shared game (D-564) ---------------------------
+
+SERIES_BASE = f"{BASE}/super-game-series"
+
+
+def _series_client(harness: Harness) -> TestClient:
+    return TestClient(harness.app, base_url="https://testserver")
+
+
+def test_series_routes_require_the_proxy_the_cookie_and_refuse_a_game_parameter(
+    tmp_path: Path,
+) -> None:
+    harness = _harness(tmp_path)
+    repository = harness.series
+    record = series_record(repository.game_id, 100)
+    repository.series[record.id] = record
+    update = {"symbolId": None, "expectedRevision": 0}
+    routes = (
+        ("GET", f"{SERIES_BASE}/state", None),
+        ("GET", f"{SERIES_BASE}/next-undefined", None),
+        ("GET", f"{SERIES_BASE}/{record.id}/boards", None),
+        ("PUT", f"{SERIES_BASE}/{record.id}/super-symbol", update),
+    )
+    with _series_client(harness) as client:
+        for method, path, body in routes:
+            no_proxy = client.request(method, path, json=body)
+            assert no_proxy.status_code == 403, (method, path, no_proxy.text)
+            assert no_proxy.json()["code"] == "BOARD_SEARCH_SHARE_PROXY_REQUIRED"
+            no_cookie = client.request(method, path, json=body, headers=PROXY)
+            assert no_cookie.status_code == 401, (method, path, no_cookie.text)
+        _signed_in(client, harness, repository.game_id)
+        for method, path, body in routes:
+            # The game and the rules version come only from the session.
+            for parameter in ("gameId", "game_id", "rulesVersionId", "rules_version_id"):
+                named = client.request(
+                    method, path, json=body, params={parameter: str(uuid4())}, headers=PROXY
+                )
+                assert named.status_code == 422, (method, path, parameter, named.text)
+                assert named.json()["code"] == "BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN"
+    assert repository.series[record.id].revision == 0
+    assert harness.log.entries == []
+
+
+def test_series_boards_are_scoped_to_the_session_game_without_internal_ids(
+    tmp_path: Path,
+) -> None:
+    harness = _harness(tmp_path)
+    repository = harness.series
+    mine = series_record(repository.game_id, 100, retrigger_sequence_numbers=(103,))
+    foreign = series_record(repository.other_game_id, 100)
+    repository.series[mine.id] = mine
+    repository.series[foreign.id] = foreign
+    repository.documents[100] = SeriesBoardDocument(
+        sequence_number=100,
+        asset_mode="operational_review",
+        review_item_id=uuid4(),
+        recognized_board_id=uuid4(),
+        import_job_id=uuid4(),
+        status="accepted",
+        board_checksum_sha256="b" * 64,
+    )
+    with _series_client(harness) as client:
+        _signed_in(client, harness, repository.game_id)
+        boards = client.get(f"{SERIES_BASE}/{mine.id}/boards", headers=PROXY)
+        not_mine = client.get(f"{SERIES_BASE}/{foreign.id}/boards", headers=PROXY)
+        unknown = client.get(f"{SERIES_BASE}/{uuid4()}/boards", headers=PROXY)
+
+    assert boards.status_code == 200, boards.text
+    body = boards.json()
+    assert _forbidden_keys(body) == set()
+    assert "definedBy" not in body["series"] and "generationId" not in body["series"]
+    assert body["series"]["id"] == str(mine.id)
+    assert body["series"]["retriggerSequenceNumbers"] == [103]
+    assert body["series"]["endSequenceNumber"] == 110
+    assert body["series"]["revision"] == 0
+    assert "gameId" not in body["series"]
+    assert [board["sequenceNumber"] for board in body["boards"]] == list(range(100, 111))
+    assert body["boards"][0] == {
+        "sequenceNumber": 100,
+        "role": "trigger",
+        "spinIndex": None,
+        "missing": False,
+        "status": "accepted",
+        "boardChecksumSha256": "b" * 64,
+    }
+    assert body["boards"][1]["missing"] is True and body["boards"][1]["status"] is None
+    assert body["boards"][3]["role"] == "retrigger" and body["boards"][3]["spinIndex"] == 3
+    assert body["superGameState"] == {
+        "fresh": True,
+        "inputVersion": 3,
+        "generationInputVersion": 3,
+    }
+    for response in (not_mine, unknown):
+        assert response.status_code == 404, response.text
+        assert response.json()["code"] == "SUPER_GAME_SERIES_NOT_FOUND"
+    # Series reads are not data queries of the recipient's log.
+    assert harness.log.entries == []
+
+
+def test_the_super_symbol_is_defined_with_the_session_actor_by_compare_and_set(
+    tmp_path: Path,
+) -> None:
+    harness = _harness(tmp_path)
+    repository = harness.series
+    record = series_record(repository.game_id, 100)
+    foreign = series_record(repository.other_game_id, 100)
+    repository.series[record.id] = record
+    repository.series[foreign.id] = foreign
+    ordinary, wild, unknown_symbol = UUID(int=401), UUID(int=402), UUID(int=403)
+    trigger, archived = UUID(int=404), UUID(int=405)
+    repository.symbols[ordinary] = SuperSymbolCandidate(ordinary, False, None, "active")
+    repository.symbols[wild] = SuperSymbolCandidate(wild, True, None, "active")
+    repository.symbols[trigger] = SuperSymbolCandidate(trigger, False, 3, "active")
+    repository.symbols[archived] = SuperSymbolCandidate(archived, False, None, "archived")
+    url = f"{SERIES_BASE}/{record.id}/super-symbol"
+    with _series_client(harness) as client:
+        session_id = _signed_in(client, harness, repository.game_id)
+        saved = client.put(
+            url, json={"symbolId": str(ordinary), "expectedRevision": 0}, headers=PROXY
+        )
+        stale = client.put(url, json={"symbolId": None, "expectedRevision": 0}, headers=PROXY)
+        refused = {
+            name: client.put(
+                url, json={"symbolId": str(symbol_id), "expectedRevision": 1}, headers=PROXY
+            )
+            for name, symbol_id in (
+                ("wild", wild),
+                ("trigger", trigger),
+                ("archived", archived),
+            )
+        }
+        unknown = client.put(
+            url, json={"symbolId": str(unknown_symbol), "expectedRevision": 1}, headers=PROXY
+        )
+        not_mine = client.put(
+            f"{SERIES_BASE}/{foreign.id}/super-symbol",
+            json={"symbolId": str(ordinary), "expectedRevision": 0},
+            headers=PROXY,
+        )
+
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert _forbidden_keys(body) == set()
+    assert body["revision"] == 1 and body["superSymbolId"] == str(ordinary)
+    assert "gameId" not in body and "definedBy" not in body
+    defined = repository.series[record.id]
+    assert defined.defined_by == board_search_share_actor(session_id)
+    assert defined.defined_by == f"board-search-share:{session_id}"
+    # Exactly one audit event, written with the session actor.
+    assert repository.audit == [(record.id, ordinary, 1)]
+    assert repository.actors == [f"board-search-share:{session_id}"]
+    assert stale.status_code == 409, stale.text
+    assert stale.json()["code"] == "SUPER_GAME_SERIES_REVISION_CONFLICT"
+    for name, response in refused.items():
+        assert response.status_code == 422, (name, response.text)
+        assert response.json()["code"] == "SUPER_SYMBOL_NOT_ORDINARY", name
+    assert unknown.status_code == 422, unknown.text
+    assert unknown.json()["code"] == "SUPER_SYMBOL_NOT_FOUND"
+    assert not_mine.status_code == 404, not_mine.text
+    assert not_mine.json()["code"] == "SUPER_GAME_SERIES_NOT_FOUND"
+    # Every refused update left both series as they were.
+    assert repository.series[record.id].revision == 1
+    assert repository.series[record.id].super_symbol_id == ordinary
+    assert repository.series[foreign.id].super_symbol_id is None
+    assert len(repository.actors) == 1
+    assert harness.log.entries == []
+
+
+def test_a_game_without_a_super_game_has_no_series(tmp_path: Path) -> None:
+    harness = _harness(tmp_path)
+    repository = harness.series
+    record = series_record(repository.none_game_id, 100)
+    repository.series[record.id] = record
+    ordinary = UUID(int=401)
+    repository.symbols[ordinary] = SuperSymbolCandidate(ordinary, False, None, "active")
+    with _series_client(harness) as client:
+        _signed_in(client, harness, repository.none_game_id)
+        boards = client.get(f"{SERIES_BASE}/{record.id}/boards", headers=PROXY)
+        update = client.put(
+            f"{SERIES_BASE}/{record.id}/super-symbol",
+            json={"symbolId": str(ordinary), "expectedRevision": 0},
+            headers=PROXY,
+        )
+        undefined = client.get(f"{SERIES_BASE}/next-undefined", headers=PROXY)
+        state = client.get(f"{SERIES_BASE}/state", headers=PROXY)
+
+    for response in (boards, update):
+        assert response.status_code == 404, response.text
+        assert response.json()["code"] == "SUPER_GAME_SERIES_NOT_FOUND"
+    assert repository.series[record.id].super_symbol_id is None
+    assert repository.actors == []
+    assert undefined.status_code == 200, undefined.text
+    assert undefined.json()["items"] == []
+    assert state.status_code == 200 and state.json()["fresh"] is True
+    assert harness.log.entries == []
+
+
+def test_the_next_undefined_series_follows_the_trigger_cursor(tmp_path: Path) -> None:
+    harness = _harness(tmp_path)
+    repository = harness.series
+    defined = series_record(
+        repository.game_id,
+        100,
+        super_symbol_id=UUID(int=401),
+        defined_by="local-admin",
+        defined_at=NOW,
+    )
+    for record in (
+        defined,
+        series_record(repository.game_id, 200),
+        series_record(repository.game_id, 300),
+        series_record(repository.game_id, 400),
+        series_record(repository.other_game_id, 250),
+    ):
+        repository.series[record.id] = record
+    url = f"{SERIES_BASE}/next-undefined"
+    with _series_client(harness) as client:
+        _signed_in(client, harness, repository.game_id)
+        from_start = client.get(url, headers=PROXY)
+        after = client.get(url, params={"afterTrigger": 200}, headers=PROXY)
+        at_end = client.get(url, params={"afterTrigger": 400}, headers=PROXY)
+        invalid = client.get(url, params={"afterTrigger": 0}, headers=PROXY)
+
+    assert from_start.status_code == 200, from_start.text
+    assert _forbidden_keys(from_start.json()) == set()
+    triggers = [item["triggerSequenceNumber"] for item in from_start.json()["items"]]
+    assert triggers == [200, 300]
+    assert from_start.json()["superGameState"]["fresh"] is True
+    assert [item["triggerSequenceNumber"] for item in after.json()["items"]] == [300, 400]
+    assert at_end.json()["items"] == []
+    assert invalid.status_code == 422
+    assert harness.log.entries == []
+
+
+def test_the_series_state_is_the_freshness_of_the_published_generation(
+    tmp_path: Path,
+) -> None:
+    harness = _harness(tmp_path)
+    harness.series.input_version = 5
+    with _series_client(harness) as client:
+        _signed_in(client, harness, harness.series.game_id)
+        state = client.get(f"{SERIES_BASE}/state", headers=PROXY)
+    assert state.status_code == 200, state.text
+    assert state.json() == {"fresh": False, "inputVersion": 5, "generationInputVersion": 3}
     assert harness.log.entries == []

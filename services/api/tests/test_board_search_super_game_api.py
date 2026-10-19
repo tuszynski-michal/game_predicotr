@@ -38,11 +38,13 @@ from game_predictor_api.domain.super_game_series import (
     SuperGameState,
 )
 from game_predictor_api.main import create_app
+from game_predictor_api.schemas.board_search import to_board_search_response
 from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinResponse,
     apply_super_game_markers,
     to_approximate_win_response,
 )
+from game_predictor_api.schemas.management_stakes import ManagementSearchResponse
 from game_predictor_api.storage.management_result_snapshots import expand_result, freeze_result
 from test_board_search_approximate_win_api import (
     _GAME_ID,
@@ -370,7 +372,10 @@ def test_approximate_win_with_a_stale_generation_warns_for_rows_without_markers(
     }
 
 
-def test_public_share_search_and_range_never_carry_the_series_identity(tmp_path: Path) -> None:
+def test_public_share_search_and_range_carry_the_series_identity(tmp_path: Path) -> None:
+    """D-564: the recipient opens the series of a marked board, so the share
+    keeps `seriesId` (the management panel still drops it, see below)."""
+
     markers = SuperGameMarkers(
         state=SuperGameState(input_version=2, generation_input_version=1, has_super_game=True),
         by_position=MappingProxyType(
@@ -410,6 +415,7 @@ def test_public_share_search_and_range_never_carry_the_series_identity(tmp_path:
     found = {item["sequenceNumber"]: item for item in search.json()["results"]}
     assert found[11]["superGame"] == {
         "kind": "in_series",
+        "seriesId": str(SERIES_ID),
         "spinIndex": 1,
         "seriesLength": 10,
         "superSymbolCode": "K",
@@ -427,6 +433,7 @@ def test_public_share_search_and_range_never_carry_the_series_identity(tmp_path:
     row = next(item for item in body["rows"] if item["sequenceNumber"] == 2)
     assert row["superGame"] == {
         "kind": "trigger",
+        "seriesId": str(SERIES_ID),
         "spinIndex": None,
         "seriesLength": 10,
         "superSymbolCode": None,
@@ -436,7 +443,55 @@ def test_public_share_search_and_range_never_carry_the_series_identity(tmp_path:
     assert body["superGameState"]["fresh"] is False
     assert _forbidden_keys(search.json()) == set()
     assert _forbidden_keys(body) == set()
-    assert "seriesId" not in search.text and "seriesId" not in win.text
+
+
+class _SearchService:
+    """A management service returning one search with markers."""
+
+    def __init__(self, response: ManagementSearchResponse) -> None:
+        self._response = response
+
+    def search(self, machine_id: UUID, game_id: UUID, payload: Any) -> ManagementSearchResponse:
+        return self._response
+
+
+def test_management_search_drops_the_series_identity_the_share_keeps() -> None:
+    results = MemorySearchRepository((100, 105, 120)).search(
+        game_id=GAME_ID, query=(), scope=BoardSearchScope.ALL_SEARCHABLE, limit=10
+    )
+    search = to_board_search_response(
+        game_id=GAME_ID,
+        scope=BoardSearchScope.ALL_SEARCHABLE,
+        query_cell_count=1,
+        results=results,
+        super_game=MemoryMarkerSource(SERIES).markers(GAME_ID, {100, 105, 120}),
+    )
+    assert search.results[1].super_game is not None
+    assert search.results[1].super_game.series_id == SERIES_ID
+    public = FastAPI()
+    public.include_router(
+        create_management_public_stake_router(
+            lambda: _SearchService(
+                ManagementSearchResponse(search_context_id=uuid4(), search=search)
+            )
+        )
+    )
+
+    with TestClient(public) as client:
+        response = client.post(
+            f"/api/v1/management-public/machines/{uuid4()}/game/{GAME_ID}/search",
+            json={
+                "operationId": str(uuid4()),
+                "stakeGrosze": 200,
+                "cells": [{"cellIndex": 0, "symbolCode": "A"}],
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    rows = {row["sequenceNumber"]: row for row in response.json()["search"]["results"]}
+    assert rows[105]["superGame"]["spinIndex"] == 5
+    assert rows[120]["superGame"] is None
+    assert "seriesId" not in response.text
 
 
 class _PreviewService:
@@ -524,13 +579,19 @@ def _openapi() -> Iterator[dict[str, Any]]:
     yield app.openapi()
 
 
-def test_openapi_exposes_the_series_identity_only_on_the_admin_marker(
+def test_openapi_markers_carry_the_series_identity_for_the_admin_and_the_share(
     _openapi: dict[str, Any],
 ) -> None:
+    """D-564: the share's search result uses the Admin marker (with `seriesId`);
+    no route serves the identity-less marker any more, the management panel
+    strips the field at serialisation (`PUBLIC_*_EXCLUDE`)."""
+
     schemas = _openapi["components"]["schemas"]
     assert "seriesId" in schemas["SuperGameMarkerResponse"]["properties"]
-    assert "seriesId" not in schemas["SuperGamePublicMarkerResponse"]["properties"]
+    assert "SuperGamePublicMarkerResponse" not in schemas
     public_result = schemas["BoardSearchSharePublicSearchResultResponse"]["properties"]
     assert "$ref" in str(public_result["superGame"])
-    assert "SuperGamePublicMarkerResponse" in str(public_result["superGame"])
+    assert "SuperGameMarkerResponse" in str(public_result["superGame"])
     assert "SuperGameMarkerResponse" in str(schemas["BoardSearchResultResponse"]["properties"])
+    series = schemas["BoardSearchSharePublicSeriesResponse"]["properties"]
+    assert "definedBy" not in series and "gameId" not in series

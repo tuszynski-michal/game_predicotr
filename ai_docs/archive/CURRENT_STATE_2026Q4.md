@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1063 — Mumie: baza i stawki wyszukiwarki (done)
 
 - Plik: `tasks/completed/1063-mumie-one-zloty-stakes.md`.
-- Commit: **v1.7.435** (hash dopisuje kolejny commit).
+- Commit: **v1.7.435 / `1121be3b9a52b52afd9f2bac8b1501966e344683`** (hash dopisuje kolejny commit).
 - D-565: tabela wypłat Mumii dla 10 kredytów (1 zł), stawki wyszukiwarki 1/2/5/10/20 zł tymczasowo w kodzie. Pozostałe gry, historia i kwoty wypłat zachowane.
 - Testy API zaliczone w dwóch przebiegach po limicie 120 s; frontend 104 + 24 interakcji, plik stawek ponownie 14; lint, typy zmienionych części, docs:check i code-map:check PASS. Mypy bez grafu importów; brak pełnego quality/builda i ręcznego odbioru Android.
 - Nowy proces READ ONLY na #3488 + 2500 spinów: wypłaty 18980, koszt 23000, bilans -4020 kredytów (-402 zł); zapis reguł nadal 100, bez zmiany danych.

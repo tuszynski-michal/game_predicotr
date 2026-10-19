@@ -105,7 +105,7 @@ w odrębnym zadaniu. Nie uruchamiamy ani nie restartujemy usług.
 
 ## Outcome
 
-Commit: v1.7.435 (hash dopisuje kolejny commit).
+Commit: v1.7.435 / `1121be3b9a52b52afd9f2bac8b1501966e344683`.
 
 ### Changed
 

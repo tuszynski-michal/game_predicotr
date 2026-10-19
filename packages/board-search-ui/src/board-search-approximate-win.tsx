@@ -396,7 +396,7 @@ export function BoardSearchApproximateWin({
           </label>
           <ApproximateWinDisplayControls
             display={display}
-            gameId={gameId}
+            gameId={visibleResult?.gameId ?? gameId}
             onStakeChange={(stakeGrosze) =>
               setStakeChoice({ searchKey, stakeGrosze })
             }
@@ -612,8 +612,16 @@ function ApproximateWinResultView({
     linesTriggerRef.current?.focus();
   };
   const spinCost = result.rules.spinCost;
-  const amount = approximateWinAmountFormatter(display, spinCost, gameId);
-  const whole = approximateWinWholeAmountFormatter(display, spinCost, gameId);
+  const amount = approximateWinAmountFormatter(
+    display,
+    spinCost,
+    result.gameId,
+  );
+  const whole = approximateWinWholeAmountFormatter(
+    display,
+    spinCost,
+    result.gameId,
+  );
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -869,7 +877,7 @@ function ApproximateWinResultView({
                 stakeGrosze: effectiveApproximateWinStakeGrosze(
                   display,
                   spinCost,
-                  gameId,
+                  result.gameId,
                 ),
               }}
             />

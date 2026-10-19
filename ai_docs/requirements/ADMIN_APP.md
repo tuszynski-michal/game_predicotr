@@ -702,6 +702,12 @@ dla udostępnionych wyszukiwarek; konfiguracja stawek w regułach jest odłożon
 Pozostałe gry zachowują powyższą listę i bazę z reguł. Historyczne wyniki
 zachowują zapisaną bazę i wcześniej wybraną stawkę.
 
+W udostępnieniach profil stawek wybierany jest z rzeczywistego `gameId`
+odpowiedzi kalkulatora, nie z technicznego aliasu `shared` służącego do
+adresowania żądań. Dotyczy kontrolek, tabeli, wykresu i kontekstu korekty
+(TASK-1064). Wersja produkcyjna Reviewera wymaga przebudowania i restartu
+po zmianie kodu; odświeżenie strony nie zastępuje wdrożenia nowego builda.
+
 **Podgląd planszy z liniami (D-470, TASK-0763–0764).** Przycisk w kolumnie
 akcji otwiera modal z przyciętym widokiem wybranej planszy i narysowanymi
 wygrywającymi liniami. Linie i ich wypłaty pochodzą z tego samego

@@ -287,7 +287,7 @@ test('the static section waits for the selection to settle before calculating', 
   await act(async () => root.unmount());
 });
 
-test('Mumie offers its five stakes and scales the displayed result at 5 zł', async (context) => {
+async function assertMumieStakeProfile(context, selectedGameId) {
   const mumieId = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => ({
@@ -299,11 +299,36 @@ test('Mumie offers its five stakes and scales the displayed result at 5 zł', as
           rulesVersionId: 'mumie-rules',
           spinCost: 10,
         },
+        completeness: {
+          completeBoardCount: 1,
+          missingBoardCount: 0,
+          partialBoardCount: 0,
+        },
+        evaluatedSpinCount: 1,
+        summary: {
+          recognizedPayoutCredits: 10,
+          spinCostCredits: 10,
+          balanceCredits: 0,
+        },
+        rows: [
+          {
+            spinNumber: 1,
+            sequenceNumber: 11,
+            payoutCredits: 10,
+            cumulativePayoutCredits: 10,
+            cumulativeCostCredits: 10,
+            cumulativeBalanceCredits: 0,
+            payoutKind: 'exact',
+            boardStatus: 'accepted',
+            mode: 'base',
+            spinCostCredits: 10,
+          },
+        ],
       }),
     }),
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
-  const root = await renderWorkspaceWithResults(client, mumieId);
+  const root = await renderWorkspaceWithResults(client, selectedGameId);
   context.after(async () => act(async () => root.unmount()));
   await eventually(
     () =>
@@ -326,6 +351,28 @@ test('Mumie offers its five stakes and scales the displayed result at 5 zł', as
     document.querySelector('#approximateWinStakeHint').textContent,
     /Stawka 5,00 zł · mnożnik 5/,
   );
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'payout table should render',
+  );
+  assert.equal(
+    document
+      .querySelectorAll('.boardSearchApproximateWin tbody tr td')[2]
+      .textContent.trim(),
+    '5 zł',
+  );
+}
+
+test('Mumie offers its five stakes and scales the displayed result at 5 zł', async (context) => {
+  await assertMumieStakeProfile(
+    context,
+    'fea55cc1-ebf4-4cee-b3ab-a520017ed1be',
+  );
+});
+
+test('a shared Mumie search resolves its stake profile from the response gameId', async (context) => {
+  await assertMumieStakeProfile(context, 'shared');
 });
 
 test('the result stays hidden until a stake is chosen; złote is the default unit', async (context) => {

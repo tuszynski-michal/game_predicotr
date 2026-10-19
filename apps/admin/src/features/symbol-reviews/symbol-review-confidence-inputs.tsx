@@ -82,10 +82,11 @@ export function SymbolReviewConfidenceInputs({
             }}
           />
         </label>
-        <button type="button" onClick={apply}>
+        <button className="primaryButton" type="button" onClick={apply}>
           Zastosuj pewność
         </button>
         <button
+          className="secondaryButton"
           type="button"
           onClick={() => {
             setFrom('0');
@@ -96,13 +97,13 @@ export function SymbolReviewConfidenceInputs({
         >
           Wszystkie
         </button>
+        <span className={styles.confidenceRangeStatus}>
+          Aktywny zakres:{' '}
+          {confidence === 'all'
+            ? 'Wszystkie'
+            : `${confidence.min}–${confidence.max}%`}
+        </span>
       </div>
-      <span>
-        Aktywny zakres:{' '}
-        {confidence === 'all'
-          ? 'Wszystkie'
-          : `${confidence.min}–${confidence.max}%`}
-      </span>
       {error && (
         <p id={errorId} role="alert">
           {error}

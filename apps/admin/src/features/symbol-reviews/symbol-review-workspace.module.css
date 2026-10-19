@@ -729,21 +729,55 @@
 .confidenceRangeControls {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 8px;
-  margin-bottom: 6px;
+  align-items: center;
+  gap: 6px 10px;
 }
 
 .filters .confidenceRangeControls label {
-  display: grid;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .filters .confidenceRangeControls input {
-  width: 6rem;
-  min-height: 44px;
+  box-sizing: border-box;
+  width: 4.5rem;
+  height: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.filters .confidenceRangeControls input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.filters .confidenceRangeControls input[aria-invalid='true'] {
+  border-color: var(--danger);
 }
 
 .confidenceRangeControls button {
-  min-height: 44px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+.confidenceRangeStatus {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+@media (pointer: coarse) {
+  .filters .confidenceRangeControls input,
+  .confidenceRangeControls button {
+    min-height: 44px;
+  }
 }

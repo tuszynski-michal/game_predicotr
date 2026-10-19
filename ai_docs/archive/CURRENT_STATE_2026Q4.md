@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1069 — Kompaktowy styl zakresu pewności symboli (done)
+
+- Plik: `tasks/completed/1069-symbol-confidence-compact-style.md`.
+- Commit: **v1.7.443**.
+- Kompaktowe pola 32 px, motyw panelu, zaokrąglenia 8 px, jeden wiersz; dotyk minimum 44 px.
+- Odbiór wizualny w przeglądarce, test interakcyjny, Prettier i ESLint PASS. Bez scalenia i push.
+
 ### TASK-1068 - Zakres pewnosci symboli (done)
 
 - Plik: `tasks/completed/1068-symbol-confidence-range.md`.

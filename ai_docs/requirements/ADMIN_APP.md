@@ -1146,7 +1146,9 @@ potwierdzenia wyczyszczenia zaznaczenia i zmienia keyset, liczniki oraz zakres
 kolejnej operacji. Pola początkowo pokazują 0 i 100, a filtr jest nieaktywny.
 Opcje `Stan weryfikacji` i `Źródło predykcji` mają po jednym pasku bez zawijania.
 Każda grupa wykorzystuje pełną szerokość; na wąskim ekranie pasek przewija się
-poziomo we własnym kontenerze. Pola zakresu i przyciski mogą się zawijać.
+poziomo we własnym kontenerze. Pola zakresu i przyciski mogą się zawijać. Kontrolki pewności mają kolory
+i zaokrąglenia panelu, wysokość 32 px na desktopie oraz etykiety i aktywny
+zakres w tym samym wierszu. Na urządzeniach dotykowych zachowują minimum 44 px.
 `Filtry szczegółowe` (stan, zakres pewności i źródło predykcji) oraz `Data zmiany komórki` są
 niezależnie zwijane i początkowo rozwinięte. Zwijanie zachowuje aktywne
 warunki, roboczą datę, cropy i zaznaczenie; nie odczytuje danych ani nie

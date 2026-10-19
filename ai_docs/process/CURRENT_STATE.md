@@ -63,6 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1069** — Kompaktowy styl zakresu pewności symboli — v1.7.443 — tasks/completed/1069-symbol-confidence-compact-style.md
 - **TASK-1068** — Zakres pewności symboli — v1.7.441 / `659673fa` — tasks/completed/1068-symbol-confidence-range.md
 - **TASK-1065** — Zapisany koszt spinu Mumii — v1.7.439 / `b971999e` — tasks/completed/1065-mumie-persisted-spin-cost.md
 - **TASK-1064** — Stawki Mumii w linkach — v1.7.437 / `979d81cb` — tasks/completed/1064-mumie-share-stake-profile.md
@@ -72,4 +73,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1059** — Modal serii supergry w udostępnionej wyszukiwarce — v1.7.430 / `a583ae2d` — tasks/completed/1059-share-super-series-modal.md
 - **TASK-1057** — Allowlista proxy Reviewera i proxy panelu dla tras serii — v1.7.429 / `9fff1457` — tasks/completed/1057-share-super-series-proxy-allowlist.md
 - **TASK-1060** — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku — v1.7.428 — tasks/completed/1060-share-super-series-decision-docs.md
-- **TASK-1058** — Wyniesienie widoku serii supergry do board-search-ui — v1.7.427 / `8d682a44` — tasks/completed/1058-super-series-panel-extraction.md

@@ -67,6 +67,16 @@ async function proxy(req, respond = () => json({ ok: true })) {
 test('only the read-only share routes and the unlock are public', () => {
   const allowed = [
     ['POST', `/api/v1/board-search-shares/sessions/${sessionId}/unlock`],
+    ['GET', '/api/v1/board-search-shares/super-game-series/state'],
+    ['GET', '/api/v1/board-search-shares/super-game-series/next-undefined'],
+    [
+      'GET',
+      `/api/v1/board-search-shares/super-game-series/${sessionId}/boards`,
+    ],
+    [
+      'PUT',
+      `/api/v1/board-search-shares/super-game-series/${sessionId}/super-symbol`,
+    ],
     ['GET', '/api/v1/board-search-shares/context'],
     ['GET', '/api/v1/board-search-shares/symbols'],
     ['GET', `/api/v1/board-search-shares/symbols/${sessionId}/image`],
@@ -95,6 +105,28 @@ test('only the read-only share routes and the unlock are public', () => {
     ['POST', '/api/v1/board-search-shares/boards/42/refresh'],
     ['GET', '/api/v1/board-search-shares/../admin/games'],
     ['GET', '/api/v1/remote-manual-selections/context'],
+    // D-564: no list with filters, no derive, no other method on the series.
+    ['GET', '/api/v1/board-search-shares/super-game-series'],
+    ['POST', '/api/v1/board-search-shares/super-game-series/derive'],
+    ['GET', `/api/v1/board-search-shares/super-game-series/${sessionId}`],
+    [
+      'POST',
+      `/api/v1/board-search-shares/super-game-series/${sessionId}/super-symbol`,
+    ],
+    [
+      'GET',
+      `/api/v1/board-search-shares/super-game-series/${sessionId}/super-symbol`,
+    ],
+    [
+      'PUT',
+      `/api/v1/board-search-shares/super-game-series/${sessionId}/boards`,
+    ],
+    ['GET', '/api/v1/board-search-shares/super-game-series/x/boards'],
+    ['GET', `/api/v1/admin/games/${sessionId}/super-game-series`],
+    [
+      'PUT',
+      `/api/v1/admin/games/${sessionId}/super-game-series/${sessionId}/super-symbol`,
+    ],
   ];
   for (const [method, path] of refused) {
     assert.equal(
@@ -121,11 +153,150 @@ test('routes outside the allowlist or with extra parameters are 403 without an u
     '/approximate-win/stake?startSequenceNumber=1&spinCount=5&unit=pln',
     '/boards/42/view',
     `/boards/42/view?expectedBoardChecksumSha256=${sha}&expectedBoardChecksumSha256=${sha}`,
+    '/super-game-series/state?x=1',
+    '/super-game-series/next-undefined?afterTrigger=0',
+    '/super-game-series/next-undefined?afterTrigger=1&afterTrigger=2',
+    '/super-game-series/next-undefined?afterTrigger=1&x=1',
+    `/super-game-series/next-undefined?gameId=${sessionId}`,
+    `/super-game-series/${sessionId}/boards?x=1`,
+    `/super-game-series/${sessionId}/boards?gameId=${sessionId}`,
   ]) {
     const { response, upstream } = await proxy(request(path));
     assert.equal(response.status, 403, path);
     assert.equal(upstream.calls.length, 0, path);
   }
+});
+
+const seriesUpdate = {
+  body: JSON.stringify({ expectedRevision: 3, symbolId: sessionId }),
+  headers: {
+    'Content-Type': 'application/json',
+    Origin: origin,
+    'Sec-Fetch-Site': 'same-origin',
+  },
+  method: 'PUT',
+};
+
+test('the series routes forward the share cookie; the super symbol PUT is a same-origin JSON mutation', async () => {
+  const series = {
+    completeness: 'complete',
+    definedAt: null,
+    endSequenceNumber: 110,
+    id: sessionId,
+    length: 10,
+    retriggerSequenceNumbers: [],
+    revision: 3,
+    runVerification: 'verified',
+    startSequenceNumber: 101,
+    superSymbolId: null,
+    triggerSequenceNumber: 100,
+    updatedAt: expiresAt,
+  };
+  const boards = await proxy(
+    request(`/super-game-series/${sessionId}/boards`),
+    () =>
+      json({
+        boards: [
+          {
+            boardChecksumSha256: sha,
+            missing: false,
+            role: 'trigger',
+            sequenceNumber: 100,
+            spinIndex: null,
+            status: 'accepted',
+          },
+        ],
+        series,
+        superGameState: {
+          fresh: true,
+          generationInputVersion: 1,
+          inputVersion: 1,
+        },
+      }),
+  );
+  assert.equal(boards.response.status, 200);
+  assert.equal(
+    boards.upstream.calls[0].headers.get('cookie'),
+    `${BOARD_SEARCH_SHARE_COOKIE}=${token}`,
+  );
+  for (const path of [
+    '/super-game-series/state',
+    '/super-game-series/next-undefined',
+    '/super-game-series/next-undefined?afterTrigger=100',
+  ]) {
+    const { response, upstream } = await proxy(request(path), () =>
+      json({ fresh: true, generationInputVersion: 1, inputVersion: 1 }),
+    );
+    assert.equal(response.status, 200, path);
+    assert.equal(
+      new URL(upstream.calls[0].url).pathname +
+        new URL(upstream.calls[0].url).search,
+      `/api/v1/board-search-shares${path}`,
+    );
+  }
+
+  const saved = await proxy(
+    request(`/super-game-series/${sessionId}/super-symbol`, seriesUpdate),
+    () => json({ ...series, revision: 4, superSymbolId: sessionId }),
+  );
+  assert.equal(saved.response.status, 200);
+  const [call] = saved.upstream.calls;
+  assert.equal(call.init.method, 'PUT');
+  assert.equal(call.headers.get('content-type'), 'application/json');
+  assert.equal(new TextDecoder().decode(call.init.body), seriesUpdate.body);
+  assert.equal(
+    call.headers.get('cookie'),
+    `${BOARD_SEARCH_SHARE_COOKIE}=${token}`,
+  );
+  assert.equal((await saved.response.json()).revision, 4);
+
+  const refused = [
+    [{ ...seriesUpdate, headers: { 'Content-Type': 'application/json' } }, 403],
+    [
+      {
+        ...seriesUpdate,
+        headers: { ...seriesUpdate.headers, Origin: 'https://evil.example' },
+      },
+      403,
+    ],
+    [
+      {
+        ...seriesUpdate,
+        headers: { ...seriesUpdate.headers, 'Content-Type': 'text/plain' },
+      },
+      415,
+    ],
+    [
+      {
+        ...seriesUpdate,
+        body: JSON.stringify({
+          expectedRevision: 3,
+          symbolId: 'x'.repeat(5000),
+        }),
+      },
+      413,
+    ],
+  ];
+  for (const [init, status] of refused) {
+    const { response, upstream } = await proxy(
+      request(`/super-game-series/${sessionId}/super-symbol`, init),
+    );
+    assert.equal(response.status, status, JSON.stringify(init.headers));
+    assert.equal(upstream.calls.length, 0);
+  }
+  const withQuery = await proxy(
+    request(`/super-game-series/${sessionId}/super-symbol?x=1`, seriesUpdate),
+  );
+  assert.equal(withQuery.response.status, 403);
+  assert.equal(withQuery.upstream.calls.length, 0);
+  const noCookie = await proxy(
+    request(`/super-game-series/${sessionId}/super-symbol`, {
+      ...seriesUpdate,
+      cookie: false,
+    }),
+  );
+  assert.equal(noCookie.response.status, 401);
+  assert.equal(noCookie.upstream.calls.length, 0);
 });
 
 test('data requests need the share cookie; other surfaces cookies do not count', async () => {

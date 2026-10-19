@@ -24,6 +24,7 @@ function concrete(path) {
   return path
     .replaceAll('{session_id}', uuid)
     .replaceAll('{symbol_id}', uuid)
+    .replaceAll('{series_id}', uuid)
     .replaceAll('{sequence_number}', '42')
     .replaceAll('{cell_index}', '0');
 }
@@ -35,8 +36,9 @@ const publicOperations = Object.entries(openapi.paths)
   );
 
 test('every public share route in OpenAPI is allowlisted by the proxy', () => {
-  // D-492 adds the exact cell-correction POST to D-487's nine routes.
-  assert.equal(publicOperations.length, 10);
+  // D-492 adds the exact cell-correction POST to D-487's nine routes; D-564
+  // adds the four super game series routes (three reads and the PUT).
+  assert.equal(publicOperations.length, 14);
   for (const [method, path] of publicOperations) {
     assert.notEqual(
       boardSearchShareRoute(method, concrete(path)),
@@ -93,6 +95,10 @@ test('public share responses carry no query log, identities or paths', () => {
     'BoardSearchSharePublicSymbolResponse',
     'BoardSearchSharePublicSearchResponse',
     'BoardSearchSharePublicSearchResultResponse',
+    'BoardSearchSharePublicSeriesResponse',
+    'BoardSearchSharePublicSeriesBoardResponse',
+    'BoardSearchSharePublicSeriesBoardsResponse',
+    'BoardSearchSharePublicUndefinedSeriesResponse',
   ];
   for (const name of publicSchemas) {
     const properties = Object.keys(schemas[name].properties).map((key) =>
@@ -106,6 +112,9 @@ test('public share responses carry no query log, identities or paths', () => {
       'gameid',
       'outcomecode',
       'request',
+      'definedby',
+      'generationid',
+      'assetmode',
     ]) {
       assert.ok(!properties.includes(forbidden), `${name}.${forbidden}`);
     }

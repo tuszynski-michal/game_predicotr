@@ -2,10 +2,10 @@
  * Public proxy for the online board-search share (D-471, TASK-0768).
  *
  * The browser talks only to `/board-search-api/...` on the Reviewer; this
- * proxy forwards an exact allowlist of reads, code unlock and cell
- * corrections (D-492) to the loopback API, adds the proxy intent header, translates the
- * share cookie and refuses any response that carries internal identities,
- * paths or secrets. Images are streamed with a size limit and a checked
+ * proxy forwards an exact allowlist of reads, code unlock, cell corrections
+ * (D-492) and the super symbol of a series (D-564) to the loopback API, adds
+ * the proxy intent header, translates the share cookie and refuses any
+ * response that carries internal identities, paths or secrets. Images are streamed with a size limit and a checked
  * content type. It never widens the Reviewer or remote-selection surfaces:
  * their cookies are not read or forwarded here.
  */
@@ -115,6 +115,15 @@ export function boardSearchShareRoute(
   ) {
     return { kind: 'mutation', query: noQuery };
   }
+  if (
+    method === 'PUT' &&
+    new RegExp(
+      `^${API_PREFIX}/super-game-series/${STRICT_UUID}/super-symbol$`,
+    ).test(apiPath)
+  ) {
+    // D-564: the recipient defines the super symbol of a series.
+    return { kind: 'mutation', query: noQuery };
+  }
   if (method !== 'GET') return null;
   if (
     apiPath === `${API_PREFIX}/context` ||
@@ -163,6 +172,23 @@ export function boardSearchShareRoute(
         { viewRevision: SHA256 },
       ),
     };
+  }
+  // D-564: the series of the shared game (no list with filters, no derive).
+  if (apiPath === `${API_PREFIX}/super-game-series/state`) {
+    return { kind: 'json', query: noQuery };
+  }
+  if (apiPath === `${API_PREFIX}/super-game-series/next-undefined`) {
+    return {
+      kind: 'json',
+      query: exactly({}, { afterTrigger: POSITIVE_INTEGER }),
+    };
+  }
+  if (
+    new RegExp(`^${API_PREFIX}/super-game-series/${STRICT_UUID}/boards$`).test(
+      apiPath,
+    )
+  ) {
+    return { kind: 'json', query: noQuery };
   }
   return null;
 }

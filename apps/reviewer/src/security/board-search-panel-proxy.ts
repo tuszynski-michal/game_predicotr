@@ -76,7 +76,10 @@ export async function proxyBoardSearchPanelRequest(
     });
   };
   let requestBody: ArrayBuffer | undefined;
-  if (request.method === 'POST') {
+  // Mutations of the game allowlist: the cell correction (POST) and the
+  // super symbol of a series (PUT, D-564); the panel's own `open` is a POST.
+  const hasBody = request.method === 'POST' || request.method === 'PUT';
+  if (hasBody) {
     const declared = Number(request.headers.get('content-length') ?? 0);
     if (!Number.isFinite(declared) || declared < 0 || declared > 4096)
       return error(413, 'BOARD_SEARCH_PANEL_BODY_TOO_LARGE');
@@ -105,7 +108,7 @@ export async function proxyBoardSearchPanelRequest(
     const forwarded = new Request(forwardedUrl, {
       method: request.method,
       headers,
-      ...(request.method === 'POST' ? { body: requestBody } : {}),
+      ...(hasBody ? { body: requestBody } : {}),
     });
     const response = await proxyBoardSearchShareRequest(forwarded, {
       ...options,

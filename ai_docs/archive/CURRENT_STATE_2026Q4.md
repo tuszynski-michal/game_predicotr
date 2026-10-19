@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1057 — Allowlista proxy Reviewera i proxy panelu dla tras serii (done)
+
+- Plik: `tasks/completed/1057-share-super-series-proxy-allowlist.md`.
+- Commit: **v1.7.429** (gałąź `claude/share-super-series`).
+- Wynik: `boardSearchShareRoute` przepuszcza `GET super-game-series/state`, `GET super-game-series/next-undefined?afterTrigger=`, `GET super-game-series/{uuid}/boards` i `PUT super-game-series/{uuid}/super-symbol` (mutacja: same-origin, JSON ≤ 4 KiB, Strict cookie, bez query); handlery `route.ts` obu proxy eksportują `PUT`, proxy panelu przekazuje body także dla `PUT`. Test bramki: 14 operacji publicznych = allowlista, nowe schematy publiczne bez `definedBy`, `generationId`, `assetMode`; lista serii, `derive` i trasy Admina → 403. Testy Reviewera i audyt Codex zielone.
+
 ### TASK-1060 — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku (done)
 
 - Plik: `tasks/completed/1060-share-super-series-decision-docs.md`.

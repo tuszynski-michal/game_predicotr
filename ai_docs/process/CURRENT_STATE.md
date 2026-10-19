@@ -61,16 +61,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
-### TASK-1057 — Allowlista proxy Reviewera dla tras serii (todo)
-
-- Plik: `tasks/1057-share-super-series-proxy-allowlist.md`. Po TASK-1056: cztery trasy w `boardSearchShareRoute`, `PUT` w handlerach i proxy panelu, test bramki 10 → 14 operacji.
-
 ### TASK-1059 — Modal serii w udostępnionej wyszukiwarce (todo)
 
 - Plik: `tasks/1059-share-super-series-modal.md`. Po 1056, 1057, 1058: znacznik jako przycisk, modal `<dialog>`, adapter źródła danych, bramki linku i panelu.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1057** — Allowlista proxy Reviewera i proxy panelu dla tras serii — v1.7.429 — tasks/completed/1057-share-super-series-proxy-allowlist.md
 - **TASK-1060** — Decyzja D-564 i dokumentacja widoku serii dla odbiorcy linku — v1.7.428 — tasks/completed/1060-share-super-series-decision-docs.md
 - **TASK-1058** — Wyniesienie widoku serii supergry do board-search-ui — v1.7.427 / `8d682a44` — tasks/completed/1058-super-series-panel-extraction.md
 - **TASK-1056** — Publiczne trasy serii supergry udostępnionej wyszukiwarki — v1.7.426 / `3f73d3d2` — tasks/completed/1056-share-super-series-public-api.md
@@ -80,4 +77,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1052** — Wznowienie importu z oryginałem zastąpionym cropem — v1.7.417 / `d53201b5` — tasks/completed/1052-import-resume-with-cropped-originals.md
 - **TASK-1051** — Kwalifikacja przycinania dla importów oczekujących na przegląd — v1.7.416 / `dec6f4e7` — tasks/completed/1051-crop-eligibility-waiting-imports.md
 - **TASK-1049** — Panel Storage: przycinanie zdjęć i usuwanie oryginałów — v1.7.412 / `ef2337d1` — tasks/completed/1049-storage-panel-photo-crop.md
-- **TASK-1048** — Job source_original_deletion, cleanup i strażnicy kotwic oraz kohort — v1.7.411 / `f78cb876` — tasks/completed/1048-source-original-deletion.md

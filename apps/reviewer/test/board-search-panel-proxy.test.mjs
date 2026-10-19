@@ -39,7 +39,7 @@ function request(suffix, options = {}) {
       headers: {
         host: 'share.trycloudflare.com',
         cookie: `gp_board_search_panel=${panel}.${secret}`,
-        ...(options.method === 'POST'
+        ...(options.method === 'POST' || options.method === 'PUT'
           ? {
               origin,
               'sec-fetch-site': 'same-origin',
@@ -120,6 +120,72 @@ test('game requests translate only the derived child credential into the existin
     },
   );
   assert.equal(response.status, 200);
+});
+
+test('the series routes pass through the game allowlist; the super symbol PUT carries the body and the child credential', async () => {
+  const seen = [];
+  const respond = async (url, init) => {
+    seen.push({ init, url: String(url) });
+    return json(
+      { fresh: true, generationInputVersion: 1, inputVersion: 1 },
+      { headers: { 'set-cookie': 'gp_board_search_token=leak; HttpOnly' } },
+    );
+  };
+  for (const suffix of [
+    'super-game-series/state',
+    'super-game-series/next-undefined',
+    'super-game-series/next-undefined?afterTrigger=12',
+    `super-game-series/${child}/boards`,
+  ]) {
+    const response = await proxyBoardSearchPanelRequest(
+      request(`games/${child}/api/v1/board-search-shares/${suffix}`),
+      { fetchImplementation: respond },
+    );
+    assert.equal(response.status, 200, suffix);
+    assert.equal(response.headers.get('set-cookie'), null, suffix);
+    assert.equal(
+      seen.at(-1).url,
+      `http://127.0.0.1:8000/api/v1/board-search-shares/${suffix}`,
+    );
+  }
+  const body = JSON.stringify({ expectedRevision: 3, symbolId: child });
+  const saved = await proxyBoardSearchPanelRequest(
+    request(
+      `games/${child}/api/v1/board-search-shares/super-game-series/${child}/super-symbol`,
+      { method: 'PUT', body },
+    ),
+    { fetchImplementation: respond },
+  );
+  assert.equal(saved.status, 200);
+  const put = seen.at(-1);
+  assert.equal(put.init.method, 'PUT');
+  assert.equal(new TextDecoder().decode(put.init.body), body);
+  assert.equal(
+    new Headers(put.init.headers).get('cookie'),
+    `gp_board_search_token=${panelChildToken(secret, panel, child)}`,
+  );
+  for (const [suffix, method] of [
+    ['super-game-series', 'GET'],
+    ['super-game-series/derive', 'POST'],
+    ['super-game-series/next-undefined?afterTrigger=0', 'GET'],
+    [`super-game-series/${child}/super-symbol`, 'POST'],
+  ]) {
+    let calls = 0;
+    const response = await proxyBoardSearchPanelRequest(
+      request(`games/${child}/api/v1/board-search-shares/${suffix}`, {
+        method,
+        body: method === 'POST' ? body : undefined,
+      }),
+      {
+        fetchImplementation: async () => {
+          calls++;
+          return json({});
+        },
+      },
+    );
+    assert.equal(response.status, 403, `${method} ${suffix}`);
+    assert.equal(calls, 0);
+  }
 });
 
 test('a different panel cookie fails before upstream and is never cleared', async () => {

@@ -65,7 +65,7 @@ npm run code-map:check
 
 ## Outcome
 
-Commit: v1.7.437 (hash dopisuje kolejny commit).
+Commit: v1.7.437 / `979d81cba64000fcf358ad5ef5294483fdd9e529`.
 
 ### Changed
 

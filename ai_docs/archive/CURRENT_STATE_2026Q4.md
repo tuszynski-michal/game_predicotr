@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1064 — Stawki Mumii w linkach (done)
 
 - Plik: `tasks/completed/1064-mumie-share-stake-profile.md`.
-- Commit: **v1.7.437** (hash dopisuje kolejny commit).
+- Commit: **v1.7.437 / `979d81cba64000fcf358ad5ef5294483fdd9e529`** (hash dopisuje kolejny commit).
 - Kontrolki, tabela i kontekst korekty wybierają profil stawek z UUID odpowiedzi; alias shared pozostaje do adresowania API.
 - Test odtworzył błąd aliasu przed poprawką. Po poprawce 25 testów interakcji PASS, w tym Admin i shared przy 5 zł; lint, typy, formatowanie, code-map:check i docs:check PASS.
 - Potwierdzono produkcyjny Reviewer na porcie 3001 i build 11:21:06, starszy niż poprawka stawek z 21:15:44. Odświeżenie strony nie wdraża nowego kodu.

@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1064** — Stawki Mumii w linkach — v1.7.437 — tasks/completed/1064-mumie-share-stake-profile.md
+- **TASK-1064** — Stawki Mumii w linkach — v1.7.437 / `979d81cb` — tasks/completed/1064-mumie-share-stake-profile.md
 - **TASK-1063** — Mumie: baza i stawki wyszukiwarki — v1.7.435 / `1121be3b` — tasks/completed/1063-mumie-one-zloty-stakes.md
 - **TASK-1062** — Modal serii odbiorcy zostaje na zapisanej serii — v1.7.432 / `82d88208` — tasks/completed/1062-share-series-stay-after-save.md
 - **TASK-1061** — Naprawa linku wielu gier — v1.7.432 / `1774433d` — tasks/completed/1061-multi-game-share-storage-routing.md

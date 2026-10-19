@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1065 — Zapisany koszt spinu Mumii (done)
 
 - Plik: `ai_docs/tasks/completed/1065-mumie-persisted-spin-cost.md`.
-- Commit: **v1.7.439** (hash dopisuje kolejny commit).
+- Commit: **v1.7.439 / `b971999eb6d2efc49136ff76864b83accd1cee20`** (hash dopisuje kolejny commit).
 - Przez RulesService opublikowano v3 Mumii z kosztem 10 kredytów; wszystkie linie, symbole i wypłaty zgodne z v2. Historyczna v2 bez zmian.
 - Nowy proces: zapisany i efektywny koszt 10; zakres 3488/2500 ma 200 darmowych spinów, wypłaty 18980, koszty 23000, bilans -4020. Generacja supergier świeża (29001).
 - docs:check PASS. Scalenie poprawek oraz build/restart samego Reviewera jawnie zlecone jako kolejny krok operatorski; tunel pozostaje bez zmian.

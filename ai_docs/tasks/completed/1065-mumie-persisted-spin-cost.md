@@ -81,7 +81,7 @@ zmiany operatora. Nie publikować reguł z cudzymi zmianami przy okazji korekty 
 
 ## Outcome
 
-Commit: v1.7.439 (hash dopisuje kolejny commit).
+Commit: v1.7.439 / `b971999eb6d2efc49136ff76864b83accd1cee20`.
 
 ### Changed
 

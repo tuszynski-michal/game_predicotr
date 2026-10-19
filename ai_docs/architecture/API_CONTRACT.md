@@ -1477,6 +1477,10 @@ zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórn
 natomiast inna komenda z tym kluczem zwraca konflikt.
 Start serializuje wyłącznie powtórzenia tej samej pary gra + klucz idempotencji
 transakcyjną blokadą advisory. Różne klucze nie mają wspólnego limitu jobów.
+D-566 pozwala kolejkować kilka `image_symbol_review_bulk` tej samej gry,
+także gdy poprzedni bulk jest CREATED/PROCESSING. Wyjątek dotyczy publikacji,
+retry i resume, nie claim/recovery workera: wykonanie pozostaje pojedyncze.
+Inne kolidujące workflowy nadal blokują nowe bulk i odwrotnie.
 Kontrola FK zamrożonych targetów poprzedza blokadę stanu katalogu, zgodnie
 z kolejnością blokad workera. Po flush i uzyskaniu blokady start odświeża stan
 oraz ponownie sprawdza rewizję filtra albo bieżące rewizje i tożsamości jawnych
@@ -4147,7 +4151,9 @@ processing, są aktywne. Oczekiwanie na człowieka bez lease nie blokuje gate.
 
 Wspólna kolizja geometrii/importu/symboli ma neutralny kod
 `GAME_JOB_ADMISSION_CONFLICT`. Nowe enqueue/API start/retry/resume sprawdzają
-CREATED i PROCESSING. Claim/recovery już opublikowanego joba sprawdza tylko
+CREATED i PROCESSING. Wyjątek D-566 przy enqueue/start/retry/resume bulk
+pozwala pominąć inne bulk tej samej gry; pozostałe typy nadal blokują oba
+kierunki. Wyjątek nie dotyczy wykonania. Claim/recovery sprawdza tylko
 PROCESSING innych ID. Worker rozpatruje najwyżej 100 kandydatów według
 priorytetu/created_at/ID; każdy ma osobną krótką session/transakcję i binding
 RLS gry. Nieblokujący mutex admission poprzedza job row lock; SKIP LOCKED oraz

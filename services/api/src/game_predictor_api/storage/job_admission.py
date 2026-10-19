@@ -46,6 +46,7 @@ def acquire_job_admission(
     require_idle: bool = True,
     processing_only: bool = False,
     wait: bool = True,
+    allow_bulk_queue: bool = False,
 ) -> None:
     """Call before the first job row lock and before publishing CREATED."""
     lock_key = int.from_bytes(
@@ -71,6 +72,7 @@ def acquire_job_admission(
                 else (JobStatus.CREATED, JobStatus.PROCESSING)
             ),
             JobModel.id != exclude_job_id if exclude_job_id is not None else true(),
+            JobModel.job_type != JobType.IMAGE_SYMBOL_REVIEW_BULK if allow_bulk_queue else true(),
             or_(
                 JobModel.job_type.in_(_TYPES),
                 and_(
@@ -103,4 +105,9 @@ def admit_job(session: Session, job: Job, *, worker_execution: bool = False) -> 
             exclude_job_id=job.id,
             processing_only=worker_execution,
             wait=not worker_execution,
+            # D-566: enqueue bulk decisions together; claim/recovery still
+            # waits for every other processing job, including another bulk.
+            allow_bulk_queue=(
+                job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BULK and not worker_execution
+            ),
         )

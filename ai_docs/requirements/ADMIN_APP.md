@@ -1274,6 +1274,9 @@ wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchom
 kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
 oraz krótki foreground start/preview bieżącej decyzji.
 Limit 10 000 jawnych pól dotyczy jednej komendy, nie sumy operacji w tle.
+D-566 przywraca kolejkę wielu operacji symboli tej samej gry. Wykonują się
+pojedynczo; import, geometria, trening, reinferencja i rekonstrukcja projekcji
+nadal blokują dodawanie operacji masowej weryfikacji i odwrotnie.
 `Zaznacz stronę` pomija pola aktywnych i zakończonych operacji, zablokowane do
 odświeżenia. Gdy cała strona jest zablokowana, przycisk jest nieaktywny.
 

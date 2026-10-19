@@ -14,6 +14,26 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-566 — Kolejka masowej weryfikacji symboli
+
+- **Date:** 2026-10-19.
+- **Status:** accepted; operator po diagnozie TASK-1071 jawnie wybrał „Przywróć kolejkę operacji symboli”.
+- **Context:** wspólna bramka D-551 blokowała drugi job weryfikacji tej samej gry
+  kodem `GAME_JOB_ADMISSION_CONFLICT`, sprzecznie ze starszym opisem workflow Admina.
+- **Decision:** wyjątek od D-551 dotyczy wyłącznie publikacji, retry i resume
+  `IMAGE_SYMBOL_REVIEW_BULK` wobec innych `IMAGE_SYMBOL_REVIEW_BULK` w stanach
+  CREATED/PROCESSING. Można kolejkować kilka takich operacji. Claim/recovery
+  workera nadal sprawdza PROCESSING innych jobów i nie otrzymuje tego wyjątku;
+  wykonanie pozostaje pojedyncze. Import, preflight, geometria, trening,
+  reinferencja i backfill nadal blokują nowe bulk, a bulk blokuje te typy.
+  Mutex gry, globalny slot, idempotencja, sprawdzanie bieżących rewizji cropów
+  oraz rollback nie zmieniają się. Wyjątek nie zapewnia sukcesu nakładających
+  się decyzji: nieaktualny crop nadal kończy się konfliktem.
+- **Consequences:** brak migracji i nowego kontraktu HTTP. Regresje obejmują
+  kolejkę CREATED/PROCESSING, pojedyncze wykonanie, symetrię innych konfliktów,
+  izolację gry, idempotentny replay i ponowną walidację po oczekiwaniu na blokadę.
+- **Source:** polecenie i odpowiedź operatora w TASK-1071 z 2026-10-19.
+
 ## D-565 — Tymczasowa baza wypłat i stawki Mumii
 
 - **Date:** 2026-10-19.

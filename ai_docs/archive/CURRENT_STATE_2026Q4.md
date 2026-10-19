@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1071 — Kolejka operacji masowej weryfikacji symboli (done)
+
+- Plik: `tasks/completed/1071-symbol-review-bulk-queue.md`.
+- Commit: **v1.7.447**.
+- Przyczyna GAME_JOB_ADMISSION_CONFLICT: wspólny guard D-551 z TASK-0999. Operator zatwierdził wyjątek D-566: kilka bulk w kolejce, pojedyncze wykonanie, pozostałe konflikty bez zmian.
+- Weryfikacja: 39 testów API, 5 testów PostgreSQL i 2 interakcje UI PASS; Ruff i mypy PASS. Reconnect, stale, rollback, idempotencja i izolacja zachowane.
+- Wymagania, kontrakt i decyzje zaktualizowane; brak migracji i operacji na danych operatora. Zlecono scalenie TASK-1068–1071 do main i push. Audyt niewymagany.
+
 ### TASK-1070 — Rozmiar strony weryfikacji symboli (done)
 
 - Plik: `tasks/completed/1070-symbol-review-page-size.md`.

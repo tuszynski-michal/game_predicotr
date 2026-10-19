@@ -22,7 +22,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
 )
-from game_predictor_api.domain.jobs import JobConflictError, JobStatus
+from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -158,10 +158,10 @@ def _source(session_factory):
     return game.id, symbol.id, targets, revision
 
 
-def test_created_bulk_job_rejects_an_independent_new_command_at_admission(
+def test_bulk_jobs_queue_then_execute_sequentially_after_reconnect(
     locking_database: Engine,
 ) -> None:
-    """Diagnose the old concurrency fixture against D-551's current new-command gate."""
+    """D-566 permits enqueue while the existing worker admission stays exclusive."""
     factory = create_session_factory(locking_database)
     game_id, _symbol, targets, _revision = _source(factory)
 
@@ -183,14 +183,59 @@ def test_created_bulk_job_rejects_an_independent_new_command_at_admission(
         assert created
     with game_storage_scope(game_id), factory() as session, session.begin():
         assert session.get(JobModel, first.job_id).status == JobStatus.CREATED
-        with pytest.raises(JobConflictError) as conflict:
-            SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
-                game_id=game_id,
-                request=request(targets[1]),
-                idempotency_key=uuid4(),
+        second, created = SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+            game_id=game_id,
+            request=request(targets[1]),
+            idempotency_key=uuid4(),
+        )
+        assert created and second.id != first.id
+    worker_store = SqlAlchemyWorkerJobStore(factory)
+    with game_storage_scope(game_id):
+        claimed = worker_store.claim_next(
+            worker_id="queue-regression",
+            worker_version="task1071",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=datetime.now(UTC),
+            allowed_job_types=frozenset({JobType.IMAGE_SYMBOL_REVIEW_BULK}),
+        )
+        assert claimed is not None and claimed.id == first.job_id
+        assert (
+            worker_store.claim_next(
+                worker_id="second-worker",
+                worker_version="task1071",
+                lease_duration=timedelta(minutes=1),
+                claimed_at=datetime.now(UTC),
+                allowed_job_types=frozenset({JobType.IMAGE_SYMBOL_REVIEW_BULK}),
             )
-        assert conflict.value.code == "GAME_JOB_ADMISSION_CONFLICT"
-        assert conflict.value.details["existingJobId"] == str(first.job_id)
+            is None
+        )
+    with game_storage_scope(game_id), factory() as session, session.begin():
+        third, created = SqlAlchemySymbolCellReviewBulkOperationRepository(session).start(
+            game_id=game_id,
+            request=request(targets[2]),
+            idempotency_key=uuid4(),
+        )
+        assert created
+    with game_storage_scope(game_id):
+        progress = SqlAlchemySymbolCellReviewBulkOperationWorker(factory).process_next_batch(
+            job=claimed, max_boards=1
+        )
+        assert progress.operation.applied_count == 1
+        assert not progress.has_pending_targets
+        assert claimed.lease_token is not None
+        worker_store.complete(
+            claimed.id, lease_token=claimed.lease_token, completed_at=datetime.now(UTC)
+        )
+        next_job = worker_store.claim_next(
+            worker_id="queue-regression",
+            worker_version="task1071",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=datetime.now(UTC),
+            allowed_job_types=frozenset({JobType.IMAGE_SYMBOL_REVIEW_BULK}),
+        )
+        assert next_job is not None and next_job.id == second.job_id
+    with game_storage_scope(game_id), factory() as session:
+        assert session.get(JobModel, third.job_id).status == JobStatus.CREATED
 
 
 @pytest.mark.parametrize("mode", ["explicit-independent", "explicit-stale", "filter-stale"])
@@ -242,12 +287,11 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
     )
     board_locked = Event()
     targets_inserting = Event()
-    admission_refused = Event()
     original_ready = SqlAlchemySymbolCellReviewMutationRepository._require_ready_state
 
     def worker_ready(self, *args, **kwargs):
         board_locked.set()
-        assert admission_refused.wait(5), "New command admission was not resolved"
+        assert targets_inserting.wait(5), "Second command never reached target insertion"
         return original_ready(self, *args, **kwargs)
 
     def before_execute(_conn, _cursor, statement, _parameters, _context, _executemany):
@@ -285,14 +329,6 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
             worker_future = executor.submit(run_worker)
             assert board_locked.wait(5), "Worker never acquired the board"
             start_future = executor.submit(run_start)
-            try:
-                with pytest.raises(JobConflictError) as conflict:
-                    start_future.result(timeout=5)
-                assert conflict.value.code == "GAME_JOB_ADMISSION_CONFLICT"
-                assert conflict.value.details["existingJobId"] == str(first.job_id)
-                assert not targets_inserting.is_set(), "Rejected command inserted targets"
-            finally:
-                admission_refused.set()
             progress = worker_future.result(timeout=15)
             assert progress.operation.applied_count == 1
             assert not progress.has_pending_targets
@@ -302,11 +338,11 @@ def test_start_while_worker_holds_board_revalidates_without_deadlock(
             )
             assert completed.status is JobStatus.COMPLETED
             if mode == "explicit-independent":
-                second, created = run_start()
+                second, created = start_future.result(timeout=15)
                 assert created and second.target_count == 1 and second.id != first.id
             else:
                 with pytest.raises(SymbolCellReviewError) as conflict:
-                    run_start()
+                    start_future.result(timeout=15)
                 assert conflict.value.code == (
                     "SYMBOL_CELL_REVIEW_BULK_FILTER_STALE"
                     if mode == "filter-stale"

@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1069** — Kompaktowy styl zakresu pewności symboli — v1.7.443 — tasks/completed/1069-symbol-confidence-compact-style.md
+- **TASK-1069** — Kompaktowy styl zakresu pewności symboli — v1.7.443 / `d08130d0` — tasks/completed/1069-symbol-confidence-compact-style.md
 - **TASK-1068** — Zakres pewności symboli — v1.7.441 / `659673fa` — tasks/completed/1068-symbol-confidence-range.md
 - **TASK-1065** — Zapisany koszt spinu Mumii — v1.7.439 / `b971999e` — tasks/completed/1065-mumie-persisted-spin-cost.md
 - **TASK-1064** — Stawki Mumii w linkach — v1.7.437 / `979d81cb` — tasks/completed/1064-mumie-share-stake-profile.md

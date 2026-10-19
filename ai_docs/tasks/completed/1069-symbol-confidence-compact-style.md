@@ -37,7 +37,7 @@ Brak blokujących pytań. Korekta wizualna na polecenie operatora. Bez nowego pl
 
 ## Outcome
 
-Commit: v1.7.443 (hash dopisuje kolejny commit).
+Commit: v1.7.443 / `d08130d04dbd8de9d40f29e9ed5f307d61b2aaa6`.
 
 ### Changed
 

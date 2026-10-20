@@ -115,8 +115,8 @@ export interface SuperGameSeriesPanelProps {
   readonly onSavingChange?: (saving: boolean) => void;
   /**
    * After a saved (not cleared) symbol open the next series without one
-   * (TASK-1053, the Admin's flow). `false` (the share's modal, TASK-1062)
-   * keeps the saved series open; `N` still works by hand.
+   * (TASK-1053; also the share's modal, TASK-1075). `false` keeps the saved
+   * series open; `N` still works by hand.
    */
   readonly advanceAfterSave?: boolean;
 }

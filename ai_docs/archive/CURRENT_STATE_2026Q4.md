@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1075 — Automatyczne przejście po zapisie super symbolu (done)
+
+- Plik: `tasks/completed/1075-share-super-auto-next.md`.
+- Commit: **v1.7.449** (hash dopisuje kolejny commit).
+- Na polecenie operatora przywrócono otwieranie następnej serii bez super symbolu po udanym zapisie w modalu udostępniania. Potwierdzenie i odświeżenie wyników po zamknięciu zachowane.
+- Interakcje modalu i panelu 15/15 PASS; typecheck, lint zmienionych plików, format i code-map:check PASS. Bez zmian API i danych.
+- Bez pełnego builda, ręcznego odbioru Androida, restartu usług, scalenia i pushu. Osobny plan ani audyt nie były wymagane.
+
 ### TASK-1071 — Kolejka operacji masowej weryfikacji symboli (done)
 
 - Plik: `tasks/completed/1071-symbol-review-bulk-queue.md`.

@@ -821,9 +821,12 @@ tym samym wspólnym komponentem co „Widok serii” sekcji „Supergry” Admin
 super symbolu ze skrótami `1`–`9`/`0`, zapis `Enter` z przeglądem
 retriggerów i `expectedRevision`, `Esc` anuluje wybór, „Pokaż planszę z
 liniami” z poprawianiem symboli, „Następna bez symbolu (N)”). Po zapisie
-symbolu modal zostaje na zapisanej serii z komunikatem potwierdzenia
-(TASK-1062; Admin po zapisie otwiera następną serię bez symbolu), a `N`
-otwiera następną serię tylko na żądanie. Modal nie ma
+symbolu modal automatycznie otwiera następną serię bez super symbolu,
+zachowując komunikat potwierdzenia (TASK-1075, przywrócenie zachowania
+sprzed TASK-1062). Przejście następuje dopiero po udanym zapisie; błąd
+zapisu nie zmienia serii. Gdy nie ma kolejnej serii bez symbolu, modal
+zostaje na zapisanej serii z komunikatem. `N` pozwala również przejść
+do następnej serii ręcznie. Modal nie ma
 listy serii, filtrów, zakresu plansz ani „Przelicz serie”; pokazuje baner
 „Serie w trakcie przeliczania” i co 5 s sprawdza stan, dopóki serie są
 nieaktualne. `Esc` nie zamyka modalu (należy do widoku serii); zamyka go

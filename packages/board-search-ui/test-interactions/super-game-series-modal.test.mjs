@@ -484,7 +484,7 @@ test('a marker is a button that opens the series view in a modal at the marked b
   await act(async () => root.unmount());
 });
 
-test('shortcuts in the modal belong to the series view, Esc does not close it, and a save re-runs the search', async () => {
+test('shortcuts belong to the modal, Esc does not close it, and a save advances automatically and re-runs the search on close', async () => {
   const { calls, client } = makeClient();
   const root = await renderWithResults(client);
   const before = pattern();
@@ -517,18 +517,13 @@ test('shortcuts in the modal belong to the series view, Esc does not close it, a
     id: seriesId,
   });
   assert.equal(calls.searches, searches, 'no search while the modal is open');
-  // TASK-1062: the modal stays on the saved series; `N` moves on by hand.
-  await eventually(
-    () => notice().includes('Zapisano super symbol Symbol cherry'),
-    'the saved symbol is confirmed in place',
-  );
-  assert.equal(dialog().querySelector('select').value, 'symbol-cherry');
-  assert.ok(!calls.series.includes(nextSeriesId), 'no automatic jump');
-  await press('n');
   await eventually(
     () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
-    'N opens the next series without a symbol',
+    'the save automatically opens the next series without a symbol',
   );
+  assert.deepEqual(calls.next, [100]);
+  assert.equal(dialog().querySelector('select').value, '');
+  assert.ok(notice().includes('Zapisano super symbol Symbol cherry'));
   await click(button('Zamknij', dialog()));
   await eventually(
     () => calls.searches === searches + 1,
@@ -594,9 +589,12 @@ test('a marked range row opens its board; after a save the results and the range
   await eventually(() => calls.saves.length === 1, 'the symbol is saved');
   await eventually(
     () => notice().includes('Zapisano super symbol Symbol lemon'),
-    'the saved symbol is confirmed in place',
+    'the saved symbol is confirmed',
   );
-  assert.equal(dialog().querySelector('h4')?.textContent, 'Spin 4 · #104');
+  await eventually(
+    () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
+    'the save advances from a range row to the next series',
+  );
   await click(button('Zamknij', dialog()));
   assert.equal(dialog(), null);
   await eventually(
@@ -636,10 +634,12 @@ test('the modal cannot be closed while a save is in flight; the late success is 
   assert.equal(close.disabled, true);
   await click(close);
   assert.ok(dialog(), 'the modal stays open');
+  assert.deepEqual(calls.next, [], 'no advance before the save succeeds');
+  assert.ok(!calls.series.includes(nextSeriesId));
   release();
   await eventually(
-    () => button('Zamknij', dialog()) !== undefined,
-    'the close button returns after the answer',
+    () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
+    'the successful answer advances to the next series',
   );
   await click(button('Zamknij', dialog()));
   assert.equal(dialog(), null);

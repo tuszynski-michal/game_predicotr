@@ -116,7 +116,6 @@ export function SuperGameSeriesModal({
         </div>
         <SuperGameStateBanner state={generation} />
         <SuperGameSeriesPanel
-          advanceAfterSave={false}
           client={client}
           formatAmount={formatAmount}
           gameId={gameId}

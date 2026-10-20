@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1075 — Automatyczne przejście po zapisie super symbolu (done)
 
 - Plik: `tasks/completed/1075-share-super-auto-next.md`.
-- Commit: **v1.7.449** (hash dopisuje kolejny commit).
+- Commit: **v1.7.449 / `1ca0391832a17f7469817587144a002ca1dfad43`** (hash dopisuje kolejny commit).
 - Na polecenie operatora przywrócono otwieranie następnej serii bez super symbolu po udanym zapisie w modalu udostępniania. Potwierdzenie i odświeżenie wyników po zamknięciu zachowane.
 - Interakcje modalu i panelu 15/15 PASS; typecheck, lint zmienionych plików, format i code-map:check PASS. Bez zmian API i danych.
 - Bez pełnego builda, ręcznego odbioru Androida, restartu usług, scalenia i pushu. Osobny plan ani audyt nie były wymagane.

@@ -64,7 +64,7 @@ Testy panelu i modala wspólnego oraz integracji Admina; ESLint i Prettier zmien
 
 ## Outcome
 
-Commit: v1.7.453 (hash dopisuje kolejny commit).
+Commit: v1.7.453 / `6a10b8b25e196ddf868535c04ff43dfd9812282b`.
 
 ### Changed
 

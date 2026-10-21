@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1079 — Wyróżnienie super symbolu na planszach serii (done)
+
+- Plik: tasks/completed/1079-super-symbol-board-highlights.md.
+- Commit: **v1.7.453** (hash dopisuje kolejny commit).
+- Wspólny panel Admina i odbiorcy: złote podpowiedzi ze znakiem ★ i fioletowe ramki SVG wybranego symbolu. Podgląd przed zapisem, po nawigacji, anulowaniu i wyczyszczeniu; bez geometrii jawny komunikat.
+- Weryfikacja: 17/17 testów panelu i modala, 4/4 wybrane testy Admina, lint/format i typy PASS. Pełny zestaw Admina: 22/32, te same 10 wcześniejszych porażek potwierdzone na HEAD. docs:check i mapa PASS. Bez restartu, odbioru wizualnego, builda, scalenia i push.
+
 ### TASK-1078 — Kompaktowy selektor Windows i granica numeracji (done)
 
 - Plik: `ai_docs/tasks/completed/1078-selector-compact-workflow.md`.

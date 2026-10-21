@@ -1928,6 +1928,13 @@ dostarcza listę, symbole, wersję reguł i odpytywanie stanu):
   „Pokaż planszę z liniami”, który otwiera okno linii z wyszukiwania plansz.
   Symbole komórek są czytane z wersji reguł: najnowszy draft, a przy jego
   braku najnowsza opublikowana,
+- bieżący wybór symbolu serii (również przed zapisem) wyróżnia jego dokładne
+  wystąpienia w podpowiedzi 3×5 złotym tłem i znakiem ★; zdjęcie ma na tych
+  polach wyraźne fioletowe obramowania SVG z wielokątów API. Oznaczenia
+  aktualizują się po zmianie wyboru lub planszy, anulowaniu i wyczyszczeniu.
+  Legenda podaje symbol i liczbę wystąpień. Bez geometrii oznaczenia są tylko
+  w podpowiedzi z informacją o braku nakładki; współrzędne nie są zgadywane.
+  Zachowanie jest wspólne dla Admina i odbiorcy linku (TASK-1079),
 - panel „Super symbol” ma select wyłącznie ze zwykłymi symbolami (aktywne, nie
   Wild, nie uruchamiające supergrę) w kolejności katalogu, z numerem skrótu
   przy opcji: `1`–`9`, a `0` wybiera dziesiąty symbol listy. `Enter` zapisuje,

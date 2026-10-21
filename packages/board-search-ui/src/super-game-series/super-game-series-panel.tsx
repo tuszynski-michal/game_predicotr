@@ -965,6 +965,7 @@ function SeriesView({
                   key={activeCard.sequenceNumber}
                   linesTrigger={linesTrigger}
                   onOpenLines={onOpenLines}
+                  selectedSymbol={candidate}
                   triggerCodes={triggerCodes}
                 />
               )}
@@ -1122,6 +1123,7 @@ function SeriesBoardView({
   gameId,
   linesTrigger,
   onOpenLines,
+  selectedSymbol,
   triggerCodes,
 }: {
   readonly api: SuperGameSeriesViewClient;
@@ -1130,6 +1132,7 @@ function SeriesBoardView({
   readonly gameId: string;
   readonly linesTrigger: RefObject<HTMLButtonElement | null>;
   readonly onOpenLines: (sequenceNumber: number) => void;
+  readonly selectedSymbol: SymbolResponse | undefined;
   readonly triggerCodes: readonly string[];
 }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -1138,6 +1141,12 @@ function SeriesBoardView({
   const detail = entry?.kind === 'ready' ? entry.detail : null;
   const marked =
     detail === null ? [] : triggerCellIndexes(detail.symbolCodes, triggerCodes);
+  const selected =
+    detail?.symbolCodes.flatMap((code, index) =>
+      selectedSymbol !== undefined && code === selectedSymbol.code
+        ? [index]
+        : [],
+    ) ?? [];
   const polygons = detail?.view?.cellPolygons ?? null;
 
   if (board === null || checksum === null) {
@@ -1163,7 +1172,7 @@ function SeriesBoardView({
             onError={() => setImageFailed(true)}
             src={boardImageUrl(api, gameId, card, entry)}
           />
-          {polygons !== null && marked.length > 0 ? (
+          {polygons !== null && (marked.length > 0 || selected.length > 0) ? (
             <svg
               aria-hidden="true"
               className="superGameSeriesBoardOverlay"
@@ -1174,6 +1183,16 @@ function SeriesBoardView({
                 <polygon
                   data-cell={index}
                   key={index}
+                  points={(polygons[index] ?? [])
+                    .map((point) => `${point.x},${point.y}`)
+                    .join(' ')}
+                />
+              ))}
+              {selected.map((index) => (
+                <polygon
+                  className="superGameSeriesSelectedOutline"
+                  data-cell={index}
+                  key={`selected-${index}`}
                   points={(polygons[index] ?? [])
                     .map((point) => `${point.x},${point.y}`)
                     .join(' ')}
@@ -1193,16 +1212,28 @@ function SeriesBoardView({
             {detail.symbolCodes.map((code, index) => (
               <li
                 className={
-                  marked.includes(index)
-                    ? 'superGameSeriesTriggerCell'
-                    : undefined
+                  [
+                    marked.includes(index) ? 'superGameSeriesTriggerCell' : '',
+                    selected.includes(index)
+                      ? 'superGameSeriesSelectedCell'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined
                 }
                 key={index}
                 title={
-                  marked.includes(index) ? 'Symbol uruchamiający' : undefined
+                  selected.includes(index)
+                    ? 'Symbol serii'
+                    : marked.includes(index)
+                      ? 'Symbol uruchamiający'
+                      : undefined
                 }
               >
                 {code ?? '?'}
+                {selected.includes(index) ? (
+                  <span aria-label="Symbol serii"> ★</span>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -1210,6 +1241,16 @@ function SeriesBoardView({
             Symbole uruchamiające supergrę na tej planszy: {marked.length}
             {marked.length > 0 ? ' (wyróżnione)' : ''}.
           </p>
+          {selectedSymbol !== undefined ? (
+            <p className="superGameSeriesHint">
+              Symbol serii: {selectedSymbol.name} ({selectedSymbol.code}) ·
+              wystąpienia: {selected.length}. Pola z ★ mają złote tło; na
+              zdjęciu oznacza je fioletowe obramowanie.
+              {polygons === null
+                ? ' Brak geometrii pól — oznaczenia dostępne tylko w układzie symboli.'
+                : ''}
+            </p>
+          ) : null}
         </>
       ) : entry?.kind === 'error' ? (
         <p className="superGameSeriesHint">

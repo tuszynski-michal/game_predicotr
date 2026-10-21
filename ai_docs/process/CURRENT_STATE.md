@@ -63,6 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 — tasks/completed/1079-super-symbol-board-highlights.md
 - **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 / `206e1755` — tasks/completed/1078-selector-compact-workflow.md
 - **TASK-1075** — Automatyczne przejście po zapisie super symbolu — v1.7.449 / `1ca03918` — tasks/completed/1075-share-super-auto-next.md
 - **TASK-1071** — Kolejka operacji masowej weryfikacji symboli — v1.7.447 / `a88af5c2` — tasks/completed/1071-symbol-review-bulk-queue.md
@@ -72,4 +73,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1065** — Zapisany koszt spinu Mumii — v1.7.439 / `b971999e` — tasks/completed/1065-mumie-persisted-spin-cost.md
 - **TASK-1064** — Stawki Mumii w linkach — v1.7.437 / `979d81cb` — tasks/completed/1064-mumie-share-stake-profile.md
 - **TASK-1063** — Mumie: baza i stawki wyszukiwarki — v1.7.435 / `1121be3b` — tasks/completed/1063-mumie-one-zloty-stakes.md
-- **TASK-1062** — Modal serii odbiorcy zostaje na zapisanej serii — v1.7.432 / `82d88208` — tasks/completed/1062-share-series-stay-after-save.md

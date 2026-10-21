@@ -185,6 +185,15 @@
   stroke-width: 0.006;
 }
 
+.superGameSeriesBoardOverlay .superGameSeriesSelectedOutline {
+  fill: none;
+  stroke: #a855f7;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #111827);
+}
+
 .superGameSeriesMissingCard {
   display: grid;
   min-height: 220px;
@@ -218,6 +227,13 @@
   border-color: var(--warning);
   background: rgba(242, 198, 109, 0.16);
   color: var(--warning);
+  font-weight: 800;
+}
+
+.superGameSeriesSymbolGrid .superGameSeriesSelectedCell {
+  border: 2px solid #a855f7;
+  background: #f2c66d;
+  color: #2b1d05;
   font-weight: 800;
 }
 

@@ -277,6 +277,122 @@ test('reads the series, marks the trigger cells and walks the carousel', async (
   await act(async () => root.unmount());
 });
 
+test('highlights the candidate by code with exact photo polygons across selection, navigation, cancel and clear', async () => {
+  const { calls, client } = fakeClient({
+    store: { 'series-100': boardsResponse({ superSymbolId: 's2' }) },
+  });
+  const originalDetail = client.getBoardSearchBoardDetail;
+  // Deliberately skewed cells: an equal rectangular grid would be incorrect.
+  const polygons = Array.from({ length: 15 }, (_, index) => {
+    const x = (index % 5) / 5;
+    const y = Math.floor(index / 5) / 3;
+    return [
+      { x, y },
+      { x: x + 0.18, y: y + 0.02 },
+      { x: x + 0.19, y: y + 0.3 },
+      { x: x + 0.01, y: y + 0.28 },
+    ];
+  });
+  client.getBoardSearchBoardDetail = async (...args) => {
+    const result = await originalDetail(...args);
+    if (args[1] === 101) result.data.symbolCodes = Array(15).fill('S3');
+    result.data.view.cellPolygons = polygons;
+    return result;
+  };
+  const { root } = await mount(client);
+  const selectedIndexes = () =>
+    [...document.querySelectorAll('.superGameSeriesSelectedOutline')].map(
+      (node) => Number(node.getAttribute('data-cell')),
+    );
+  const checkSelection = (indexes) => {
+    assert.deepEqual(selectedIndexes(), indexes);
+    assert.equal(
+      document.querySelectorAll('.superGameSeriesSelectedCell').length,
+      indexes.length,
+    );
+    assert.equal(
+      document.querySelectorAll(
+        '.superGameSeriesSelectedCell [aria-label="Symbol serii"]',
+      ).length,
+      indexes.length,
+    );
+    for (const node of document.querySelectorAll(
+      '.superGameSeriesSelectedOutline',
+    )) {
+      const index = Number(node.getAttribute('data-cell'));
+      assert.equal(
+        node.getAttribute('points'),
+        polygons[index].map(({ x, y }) => `${x},${y}`).join(' '),
+      );
+    }
+  };
+  checkSelection([2, 5, 9, 12]); // Saved symbol, loaded on opening.
+  await press('1');
+  checkSelection([0, 4, 8, 11]); // ID s1 maps to code S1.
+  assert.equal(
+    document.querySelectorAll('.superGameSeriesTriggerCell').length,
+    3,
+  );
+  assert.equal(
+    document.querySelectorAll('polygon:not(.superGameSeriesSelectedOutline)')
+      .length,
+    3,
+  );
+  const select = document.querySelector('select');
+  await act(async () => {
+    select.value = 's3';
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  checkSelection([3, 7, 10, 14]);
+  await press('ArrowRight');
+  checkSelection(Array.from({ length: 15 }, (_, index) => index));
+  await press('Escape');
+  checkSelection([]); // Saved S2 is absent on the second board.
+  await press('ArrowLeft');
+  checkSelection([2, 5, 9, 12]);
+  await click(button('Wyczyść symbol'));
+  checkSelection([]);
+  assert.equal(
+    document.querySelectorAll('.superGameSeriesTriggerCell').length,
+    3,
+  );
+  assert.deepEqual(calls.saves, []); // Preview does not persist the choice.
+  await act(async () => root.unmount());
+});
+
+test('without geometry the candidate remains marked in the hint and unknown cells never match', async () => {
+  const { client } = fakeClient();
+  const originalDetail = client.getBoardSearchBoardDetail;
+  client.getBoardSearchBoardDetail = async (...args) => {
+    const result = await originalDetail(...args);
+    result.data.symbolCodes[0] = null;
+    return result;
+  };
+  const { root } = await mount(client);
+  await press('1');
+  assert.equal(
+    document.querySelectorAll('.superGameSeriesSelectedCell').length,
+    3,
+  );
+  assert.equal(
+    document.querySelector('.superGameSeriesSymbolGrid li').textContent,
+    '?',
+  );
+  assert.equal(document.querySelector('.superGameSeriesBoardOverlay'), null);
+  assert.match(document.body.textContent, /Brak geometrii pól/);
+  await press('Escape');
+  assert.equal(
+    document.querySelectorAll('.superGameSeriesSelectedCell').length,
+    0,
+  );
+  await press('ArrowRight');
+  await press('ArrowRight');
+  await press('ArrowRight');
+  assert.ok(document.querySelector('[data-testid="missing-card"]'));
+  assert.equal(document.querySelector('.superGameSeriesBoardOverlay'), null);
+  await act(async () => root.unmount());
+});
+
 test('opens at the requested position and shows the back button only with a host', async () => {
   const { client } = fakeClient();
   const back = [];

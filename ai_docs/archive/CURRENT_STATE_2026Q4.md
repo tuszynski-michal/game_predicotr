@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1082 — Sprzątanie po scaleniu (done)
+
+- Plik: tasks/completed/1082-mandatory-merge-cleanup.md.
+- Commit: **v1.7.458**.
+- AGENTS.md i skill merge-to-main wymagają usunięcia worktree i lokalnej gałęzi po merge i pushu, bez kolejnej zgody; kontrola commitów i ochrona cudzych zmian pozostają.
+- docs:check, budżety, mirror skilla, quick_validate.py i diff --check PASS. Bez zmian aplikacji, merge i push.
+
 ### TASK-1081 — Podwójny podgląd wyszukanej planszy (done)
 
 - Plik: tasks/completed/1081-board-search-duplicate-preview.md.

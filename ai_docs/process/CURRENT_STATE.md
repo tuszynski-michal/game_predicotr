@@ -63,6 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 — tasks/completed/1082-mandatory-merge-cleanup.md
 - **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md
 - **TASK-1080** — Zachowanie wygranych przed rozwinięciem — v1.7.455 / `e424e0f4` — tasks/completed/1080-mumie-preserve-pre-expansion-wins.md
 - **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 / `6a10b8b2` — tasks/completed/1079-super-symbol-board-highlights.md
@@ -72,4 +73,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1070** — Rozmiar strony weryfikacji symboli — v1.7.445 / `a978fa70` — tasks/completed/1070-symbol-review-page-size.md
 - **TASK-1069** — Kompaktowy styl zakresu pewności symboli — v1.7.443 / `d08130d0` — tasks/completed/1069-symbol-confidence-compact-style.md
 - **TASK-1068** — Zakres pewności symboli — v1.7.441 / `659673fa` — tasks/completed/1068-symbol-confidence-range.md
-- **TASK-1065** — Zapisany koszt spinu Mumii — v1.7.439 / `b971999e` — tasks/completed/1065-mumie-persisted-spin-cost.md

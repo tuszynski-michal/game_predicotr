@@ -222,14 +222,15 @@ kroki 3–5, commit i zapis hasha.
 
 ### Scalanie do gałęzi integracyjnej
 
-Gałęzią integracyjną jest `main` (operator, 2026-10-16), chyba że użytkownik
-wskaże inną; pracuj na gałęzi roboczej. Scal dopiero po wykonaniu całego
-zleconego zakresu (task, etap albo plan, z kontrolami, dokumentacją i commitami)
-oraz po wyraźnej akceptacji wyniku i zgodzie na scalenie (jedno pytanie na cały
-zakres; akceptacja planu, polecenie implementacji ani milczenie nie są zgodą).
-Zgoda na scalenie obejmuje push `main` do origin; bez niej push nie następuje.
-Nie scalaj przy otwartych P0/P1 ani kodu wymagającego niewykonanej migracji.
-Procedura: skill `merge-to-main`.
+Integruj do `main`, chyba że użytkownik wskaże inną gałąź; pracuj na roboczej.
+Scal cały zakres po kontrolach, dokumentacji, commitach, wyraźnej
+akceptacji wyniku i zgodzie na merge. Pytaj raz o zakres; akceptacja planu,
+polecenie implementacji ani milczenie nie są zgodą. Zgoda obejmuje push
+do origin i obowiązkowe usunięcie worktree tej pracy (jeśli istnieje)
+i lokalnej gałęzi, bez kolejnego pytania. Po merge i pushu sprawdź commity
+w `main`. Chroń główny checkout, cudze zmiany i niescalone
+commity; blocker sprzątania zgłoś, bez wymuszania. P0/P1 lub niewykonana
+wymagana migracja blokują merge. Procedura: `merge-to-main`.
 
 ## Audyt krzyżowy
 

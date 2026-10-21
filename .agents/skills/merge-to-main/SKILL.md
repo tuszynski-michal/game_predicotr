@@ -1,6 +1,7 @@
 ---
 name: merge-to-main
-description: Prowadzi scalenie gałęzi roboczej do `main` w D:\game_predicotr z push do origin i bezpiecznym usunięciem worktree (preflight kolizji numerów, zgoda operatora, aktualizacja gałęzi, docs:check, fast-forward, push, odpięcie junction). Używaj zawsze przed `git merge`/`push` do `main` i przed `git worktree remove`, także gdy operator mówi tylko „scal wszystko na końcu”, „wypchnij” albo „posprzątaj” — main przesuwa się w trakcie pracy, a junction w worktree prowadzą do głównego checkoutu. Też: "merge to main", "ship this branch".
+description: >-
+  Prowadzi scalenie gałęzi roboczej do `main` w D:\game_predicotr z push do origin i bezpiecznym usunięciem worktree (preflight kolizji numerów, zgoda operatora, aktualizacja gałęzi, docs:check, fast-forward, push, odpięcie junction). Używaj zawsze przed `git merge`/`push` do `main` i przed `git worktree remove`, także gdy operator mówi tylko „scal wszystko na końcu”, „wypchnij” albo „posprzątaj” — main przesuwa się w trakcie pracy, a junction w worktree prowadzą do głównego checkoutu. Też: "merge to main", "ship this branch".
 ---
 
 # Scalanie gałęzi roboczej do `main` (`integration_preflight.py`)
@@ -62,7 +63,8 @@ punkt:
    zatrzymaj scalenie i zgłoś konkretny blocker.
 7. **Operacje destrukcyjne na danych** (GC, cleanup danych, `db:reset:local`,
    usuwanie legacy) nie należą do tego skilla. Usuwasz tylko worktree i gałąź
-   właśnie scalonej pracy, i tylko po zgodzie z kroku 2, która je nazywa.
+   właśnie scalonej pracy obowiązkowo po merge i pushu. Zgoda na scalenie
+   obejmuje to sprzątanie zgodnie z AGENTS.md; nie pytaj o nie ponownie.
 
 Jeżeli operator w bieżącej turze wprost polecił scalenie (i push) konkretnego,
 znanego mu wyniku, to polecenie jest zgodą z kroku 2: nie pytaj ponownie, ale
@@ -190,8 +192,13 @@ worktree gałęzi (`.venv` i `node_modules` w worktree są dowiązaniami do
    fetch i automatycznego rebase. Potem potwierdź:
    `git -C D:\game_predicotr rev-parse main origin/main`.
 
-10. **Sprzątanie worktree** (dopiero po udanym scaleniu, z checkoutu
-    `D:\game_predicotr`, nigdy z wnętrza usuwanego worktree). Dowiązania
+10. **Obowiązkowe sprzątanie worktree i lokalnej gałęzi** (po udanym scaleniu
+    i pushu, bez kolejnej zgody). Najpierw potwierdź, że wszystkie commity tej
+    gałęzi są w `main`, a worktree nie zawiera niezapisanej pracy. Jeżeli
+    worktree nie było, usuń tylko scaloną lokalną gałąź. Zachowaj główny
+    checkout i pozostałe lokalne zmiany; blocker zgłoś zamiast wymuszać.
+    Usuwaj z checkoutu `D:\game_predicotr`, nigdy z wnętrza usuwanego
+    worktree. Dowiązania
     `.venv` i `node_modules` wskazują na główny checkout, więc najpierw je
     odepnij, bez `/s` i bez `--force`:
 

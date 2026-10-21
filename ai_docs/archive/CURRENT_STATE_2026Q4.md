@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1078 — Kompaktowy selektor Windows i granica numeracji (done)
 
 - Plik: `ai_docs/tasks/completed/1078-selector-compact-workflow.md`.
-- Commit: **v1.7.451** (hash dopisuje kolejny commit).
+- Commit: **v1.7.451 / `206e1755b3caf37d711a8cbcc4ad77b8024d0554`** (hash dopisuje kolejny commit).
 - Wykonano wszystkie poprawki operatora i późniejsze dopasowanie wspólnych stylów przycisków z wysokością 32 px w selektorze. Jedno wejście rozpoznaje źródło, projekt i manifest; kolejny folder zachowuje grę, a anulowanie zachowuje poprzedni projekt.
 - Nowe zakresy kończą się na 500000, z nazwą JPEG i activeBoardCount zgodnymi z manifestem. Kierunek można trwale zmienić w edycji zakresu; dotychczasowe decyzje pozostają. Przerwanie procesu i retry polecenia zweryfikowane.
 - Pokryto wszystkie 269 testów w grupach po limicie 120 s przebiegu monolitycznego. Usunięto regresję starego v1 i błąd hooka sprzątającego w nowym teście. Brak otwartych porażek; lint, typecheck, format, build, docs:check i code-map:check PASS. ZIP 1.0.1 przeszedł workflow, legacy i start po weryfikacji SHA-256 oraz app.asar.

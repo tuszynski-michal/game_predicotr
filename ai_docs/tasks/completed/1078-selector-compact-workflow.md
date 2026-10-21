@@ -85,7 +85,7 @@ Brak blokujących pytań. Limit 500000 jest poleceniem operatora dla selektora W
 
 ## Outcome
 
-Commit: v1.7.451 (hash dopisuje kolejny commit).
+Commit: v1.7.451 / `206e1755b3caf37d711a8cbcc4ad77b8024d0554`.
 
 ### Changed
 
@@ -114,4 +114,4 @@ Wymagania, architektura, D-567 i indeks decyzji, instrukcja operatora, raport wy
 
 ### Recommended next task
 
-Odbiór paczki 1.0.1 przez operatora, akceptacja wyniku i osobna zgoda na scalenie. Końcowy ZIP po commicie jest odtwarzany z tą samą implementacją, a jego pochodzenie i sumy zapisuje raport wydania.
+Odbiór paczki 1.0.1 przez operatora, akceptacja wyniku i osobna zgoda na scalenie. Końcowy ZIP odtworzono z commita 206e1755; applicationSourceDirty=false. Zapisano go wraz z sumami i metadanymi w artifacts/selector-releases/1.0.1 i ponownie zaliczono workflow, legacy i start. Pochodzenie i sumy zawiera raport wydania.

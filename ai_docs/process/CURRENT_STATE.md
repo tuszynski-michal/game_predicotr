@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 — tasks/completed/1078-selector-compact-workflow.md
+- **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 / `206e1755` — tasks/completed/1078-selector-compact-workflow.md
 - **TASK-1075** — Automatyczne przejście po zapisie super symbolu — v1.7.449 / `1ca03918` — tasks/completed/1075-share-super-auto-next.md
 - **TASK-1071** — Kolejka operacji masowej weryfikacji symboli — v1.7.447 / `a88af5c2` — tasks/completed/1071-symbol-review-bulk-queue.md
 - **TASK-1070** — Rozmiar strony weryfikacji symboli — v1.7.445 / `a978fa70` — tasks/completed/1070-symbol-review-page-size.md

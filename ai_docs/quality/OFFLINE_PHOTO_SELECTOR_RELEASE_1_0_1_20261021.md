@@ -24,7 +24,15 @@ Jedno rozpoznawanie folderu źródła/projektu/manifestu, kompaktowy interfejs b
 
 ## Artefakty
 
-Docelowa paczka i pliki pochodzenia: `artifacts/selector-releases/1.0.1/`. Podgląd: `selection.png`. SHA-256 i osadzony commit źródeł wskazuje finalny `.release.json`; warianty robocze nie są paczką do przekazania.
+Końcowa paczka: `artifacts/selector-releases/1.0.1/Selektor zdjec-win32-x64-1.0.1.zip`. Obok znajdują się `.sha256` i `.release.json`; podgląd to `selection.png`. Kopię paczki ponownie sprawdzono SHA-256.
+
+- Wersja aplikacji: **1.0.1**.
+- Rozmiar ZIP: **149412820 B**.
+- SHA-256 ZIP: `cf59acc740a80265965024803ebe4e61a5b6a9f9322885372f6d5bda0b5b6ba4`.
+- SHA-256 app.asar: `056a715d6b19bcc69aced14a915c1c2410991fbc396c69ccf7cf7ddc5be2404c`.
+- Commit źródeł: `206e1755b3caf37d711a8cbcc4ad77b8024d0554` (v1.7.451).
+- `applicationSourceDirty=false`; `dirty=true` wynika z zastanych zmian poza aplikacją, niewłączonych do commita. Metadane zachowują rzeczywisty stan, bez czyszczenia plików operatora.
+- Końcowy ZIP z commita ponownie przeszedł wszystkie trzy scenariusze release: workflow, legacy i start.
 
 ## Ograniczenia
 

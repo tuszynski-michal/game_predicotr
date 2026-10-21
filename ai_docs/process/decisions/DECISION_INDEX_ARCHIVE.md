@@ -4,13 +4,14 @@ status: active
 last_updated: 2026-10-21
 ---
 
-# Indeks starszych decyzji (D-1..D-538)
+# Indeks starszych decyzji (D-1..D-539)
 
 Ciąg dalszy indeksu z [DECISION_LOG.md](../DECISION_LOG.md): wpisy o numerach
-poniżej D-539 (535 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
+poniżej D-540 (536 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_2026.md).
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-539](DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
 | [D-538](DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
 | [D-536](DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |

@@ -576,7 +576,12 @@ pokazuje kolumny rozwiniętego super symbolu (fioletowe pola z nazwą symbolu)
 i sekcję „Supergra: rozwinięcie” z wierszem w rodzaju „Rozwinięcie K ×3
 kolumny → 10 × 5 linii = 50”; linie rysuje z planszy rozwiniętej, sztuki
 podświetla na planszy oryginalnej, a w nagłówku dopisuje „prowizoryczny” i
-„darmowy spin”. Panel zarządzania pokazuje te same dopiski, komunikat
+„darmowy spin”. Sekcja „Zachowane wygrane sprzed rozwinięcia” pokazuje
+oryginalną linię, symbol, wypłatę, kwotę już wypłaconą po rozwinięciu oraz
+dopłatę (D-568). Dla tej samej pary (linia, symbol) płaci się większą kwotę,
+nie sumę obu etapów; sztuki są liczone raz. Plansza uruchamiająca pozostaje
+bez rozwinięcia, a dotychczasowy próg liczby naturalnych kolumn nie zmienia się.
+Panel zarządzania pokazuje te same dopiski, komunikat
 prowizoryczny pod bilansem zapisanego wyniku i rodzaj „Prowizoryczna
 (supergra)” w tabeli.
 „Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od

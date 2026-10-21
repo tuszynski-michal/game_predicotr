@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Literal
 from uuid import UUID
 
@@ -286,6 +287,14 @@ class BoardSearchLineMatchResponse(ApiModel):
     payout_credits: int = Field(gt=0)
 
 
+class BoardSearchPreservedWinResponse(ApiModel):
+    """Original match evidence; only the positive unpaid difference is added."""
+
+    match: BoardSearchLineMatchResponse
+    expanded_payout_credits: int = Field(ge=0)
+    additional_payout_credits: int = Field(gt=0)
+
+
 class BoardSearchExpansionResponse(ApiModel):
     """The super symbol expanded over whole columns of a super game series
     board (`wild_super_spins`): `payoutCredits = linePayoutCredits ×
@@ -357,7 +366,8 @@ class BoardSearchBoardDetailResponse(ApiModel):
     count_matches: tuple[BoardSearchCountMatchResponse, ...] = Field(
         description=(
             "Count payouts of super game trigger symbols, counted on the original "
-            "board; payoutCredits is the sum of matches, countMatches and expansion."
+            "board; payoutCredits sums matches, countMatches, expansion and "
+            "preservedWins.additionalPayoutCredits."
         )
     )
     mode: SequenceModeValue = Field(
@@ -376,6 +386,13 @@ class BoardSearchBoardDetailResponse(ApiModel):
         ),
     )
     expansion: BoardSearchExpansionResponse | None = None
+    preserved_wins: tuple[BoardSearchPreservedWinResponse, ...] = Field(
+        default=(),
+        description=(
+            "Original-board wins preserved over the expanded pair. Add only "
+            "additionalPayoutCredits to matches, countMatches and expansion."
+        ),
+    )
     view: BoardSearchBoardViewResponse | None
     document_stale: bool = Field(
         description=(
@@ -438,6 +455,14 @@ def to_board_search_board_detail_response(
         spin_cost_credits=detail.spin_cost_credits,
         expanded_symbol_codes=detail.expanded_symbol_codes,
         expansion=_expansion_response(detail.expansion),
+        preserved_wins=tuple(
+            BoardSearchPreservedWinResponse(
+                match=BoardSearchLineMatchResponse(**asdict(win.match)),
+                expanded_payout_credits=win.expanded_payout_credits,
+                additional_payout_credits=win.additional_payout_credits,
+            )
+            for win in detail.preserved_wins
+        ),
         view=None
         if detail.view is None
         else BoardSearchBoardViewResponse(
@@ -480,6 +505,7 @@ __all__ = [
     "BoardSearchCountMatchResponse",
     "BoardSearchExpansionResponse",
     "BoardSearchLineMatchResponse",
+    "BoardSearchPreservedWinResponse",
     "BoardSearchViewPointResponse",
     "ApproximateWinResponse",
     "ApproximateWinRowResponse",

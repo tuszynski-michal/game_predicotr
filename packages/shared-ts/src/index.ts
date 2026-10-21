@@ -35,6 +35,7 @@ export {
   WILD_SUPER_SPINS_CODE,
   evaluateSeriesBoard,
   type SeriesBoardEvaluation,
+  type PreservedLineWin,
   type SeriesBoardOptions,
   type SeriesExpansion,
   type SeriesPayoutKind,

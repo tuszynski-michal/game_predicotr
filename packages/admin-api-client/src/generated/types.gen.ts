@@ -1302,7 +1302,7 @@ export type BoardSearchBoardDetailResponse = {
   /**
    * Countmatches
    *
-   * Count payouts of super game trigger symbols, counted on the original board; payoutCredits is the sum of matches, countMatches and expansion.
+   * Count payouts of super game trigger symbols, counted on the original board; payoutCredits sums matches, countMatches, expansion and preservedWins.additionalPayoutCredits.
    */
   countMatches: Array<BoardSearchCountMatchResponse>;
   dataSource: BoardSearchAssetMode;
@@ -1341,6 +1341,12 @@ export type BoardSearchBoardDetailResponse = {
    * Payoutkind
    */
   payoutKind: 'exact' | 'confirmed_minimum' | 'provisional' | 'none';
+  /**
+   * Preservedwins
+   *
+   * Original-board wins preserved over the expanded pair. Add only additionalPayoutCredits to matches, countMatches and expansion.
+   */
+  preservedWins?: Array<BoardSearchPreservedWinResponse>;
   rules: ApproximateWinRulesResponse;
   /**
    * Sequencenumber
@@ -1664,6 +1670,23 @@ export type BoardSearchPanelResponse = {
    * Status
    */
   status: string;
+};
+
+/**
+ * BoardSearchPreservedWinResponse
+ *
+ * Original match evidence; only the positive unpaid difference is added.
+ */
+export type BoardSearchPreservedWinResponse = {
+  /**
+   * Additionalpayoutcredits
+   */
+  additionalPayoutCredits: number;
+  /**
+   * Expandedpayoutcredits
+   */
+  expandedPayoutCredits: number;
+  match: BoardSearchLineMatchResponse;
 };
 
 /**
@@ -2043,6 +2066,10 @@ export type BoardSearchSharePublicBoardDetailResponse = {
    * Payoutkind
    */
   payoutKind: 'exact' | 'confirmed_minimum' | 'provisional' | 'none';
+  /**
+   * Preservedwins
+   */
+  preservedWins?: Array<BoardSearchPreservedWinResponse>;
   rules: ApproximateWinRulesResponse;
   /**
    * Sequencenumber

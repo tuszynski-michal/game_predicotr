@@ -395,14 +395,14 @@ def test_the_summary_exposes_the_free_spin_ranges() -> None:
     assert plain.summary.super_spin_ranges == ()
 
 
-def test_defining_the_super_symbol_can_lower_a_provisional_result() -> None:
+def test_defining_the_super_symbol_preserves_the_original_provisional_win() -> None:
     larger_win = (1, 1, 1, 2, 3, 5, 5, 5, 5, 5, 3, 2, 4, 3, 2)  # 65 without a symbol
     undefined = _range(SeriesMarkers(((10, 10, None),)), (_range_document(11, larger_win),))
     defined = _range(SeriesMarkers(((10, 10, "10"),)), (_range_document(11, larger_win),))
     assert undefined.rows[0].payout_kind == "provisional"
     assert undefined.rows[0].payout_credits == 65
     assert defined.rows[0].payout_kind == "exact"
-    assert defined.rows[0].payout_credits == 25
+    assert defined.rows[0].payout_credits == 85  # Original 65 plus four new 10-lines at 5.
 
 
 def test_a_series_board_fingerprint_depends_on_the_super_symbol() -> None:
@@ -562,7 +562,8 @@ def test_series_board_detail_counts_trigger_symbols_on_the_original_board() -> N
     assert payload["countMatches"] == [
         {"symbolCode": "MUMIA", "count": 4, "cells": [0, 7, 10, 13], "payoutCredits": 200}
     ]
-    assert payload["payoutCredits"] == 250
+    assert payload["payoutCredits"] == 266
+    assert payload["preservedWins"][0]["additionalPayoutCredits"] == 16
     # Cell 13 holds a Mumia, but the expanded board shows K in column 4.
     assert payload["expandedSymbolCodes"][13] == "K"
     assert payload["symbolCodes"][13] == "MUMIA"
@@ -595,6 +596,26 @@ def test_the_trigger_board_itself_is_base_mode() -> None:
     assert payload["mode"] == "base"
     assert payload["expansion"] is None
     assert payload["payoutCredits"] == 216
+    assert payload["preservedWins"] == []
+
+
+def test_detail_and_range_preserve_covered_wins_and_explain_the_total() -> None:
+    markers = SeriesMarkers(((40, 10, "K"),))
+    payload = _detail(COVERED_A_LINE, markers)
+    assert payload["payoutCredits"] == 65
+    assert len(payload["preservedWins"]) == 1
+    win = payload["preservedWins"][0]
+    assert win["match"]["symbolCode"] == "A"
+    assert win["match"]["matchedCells"] == [5, 6, 7]
+    assert win["match"]["payoutCredits"] == 15
+    assert (win["expandedPayoutCredits"], win["additionalPayoutCredits"]) == (0, 15)
+    total = sum(m["payoutCredits"] for m in payload["matches"])
+    total += sum(m["payoutCredits"] for m in payload["countMatches"])
+    total += payload["expansion"]["payoutCredits"]
+    total += sum(m["additionalPayoutCredits"] for m in payload["preservedWins"])
+    assert total == payload["payoutCredits"]
+    response = _range(markers, (_range_document(42, COVERED_A_LINE),))
+    assert response.rows[0].payout_credits == payload["payoutCredits"]
 
 
 def test_super_symbol_code_outside_the_rules_is_treated_as_undefined() -> None:

@@ -706,6 +706,9 @@ expansion: null | {     # rozwinięcie super symbolu planszy serii (wild_super_s
 matches[]:              # posortowane po displayOrder linii
   paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
   symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
+preservedWins[]:        # D-568, domyślnie []; dodatnie różnice sprzed rozwinięcia
+  match: { ... }        # pełny kształt matches, dowód z planszy oryginalnej
+  expandedPayoutCredits, additionalPayoutCredits
 countMatches[]:         # payout-v4-wild-count: wypłata za sztuki symbolu
   symbolCode, count, cells[], payoutCredits   # uruchamiającego; inaczej []
 view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
@@ -727,14 +730,21 @@ rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
 wewnętrznych pól `cells`; D-492 zwraca osobny publiczny kształt z SHA wersji.
 
 `sum(matches.payoutCredits) + sum(countMatches.payoutCredits) +
-(expansion?.payoutCredits ?? 0) == payoutCredits`. `jokerCells` zachowuje
+(expansion?.payoutCredits ?? 0) + sum(preservedWins.additionalPayoutCredits)
+== payoutCredits`. `jokerCells` zachowuje
 historyczną nazwę i oznacza komórki Wilda. Nieznana komórka nigdy nie jest
 liczona jako sztuka, więc plansza częściowa z wypłatą za sztuki w trybie
 bazowym ma `payoutKind = "confirmed_minimum"`. Plansza w serii supergry
 (`mode = "super"`, TASK-0936) ma `matches` policzone na planszy rozwiniętej
 (`expandedSymbolCodes`, kolumny z super symbolem wypełnione nim w całości),
 `countMatches` policzone na planszy oryginalnej (`symbolCodes`), a wygrane
-liniowe super symbolu zastąpione wpisem `expansion`; jej `payoutKind` jest
+liniowe super symbolu zastąpione wpisem `expansion`. Dla każdej oryginalnej
+pary (linia, symbol) `preservedWins` zachowuje dodatnią różnicę ponad już
+wypłaconą kwotę tej pary po rozwinięciu (dla super symbolu: jedno
+`linePayoutCredits`). `match.payoutCredits` to pełna oryginalna wygrana,
+`additionalPayoutCredits` to dopłata. Identyczna wygrana i wypłata za sztuki
+są liczone raz. To samo pole jest w szczegółach publicznych; plansza
+uruchamiająca pozostaje `base`, z pustym `preservedWins`. Jej `payoutKind` jest
 `provisional` (także przy wypłacie 0) albo `exact`/`none` według reguły z
 kalkulatora zakresu.
 `view` opisuje przycięty widok

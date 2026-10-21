@@ -40,6 +40,7 @@ function serialize(result) {
     matches: result.matches,
     countMatches: result.countMatches,
     retrigger: result.retrigger,
+    preservedWins: result.preservedWins,
   };
 }
 
@@ -60,15 +61,17 @@ for (const testCase of scenario.cases) {
   });
 }
 
-test('an undefined super symbol is neither a lower nor an upper bound', () => {
+test('defined expansion preserves the original wins of an undefined preview', () => {
   const grows = byId('undefined-super-symbol-is-provisional-and-may-grow');
   const grown = byId('expansion-covers-a-line-win-underneath');
-  const shrinks = byId('undefined-super-symbol-is-provisional-and-may-shrink');
+  const shrinks = byId(
+    'undefined-super-symbol-with-original-wins-is-provisional',
+  );
   const shrunk = byId('defined-super-symbol-covers-a-larger-win');
   assert.equal(grows.payoutKind, 'provisional');
   assert.equal(shrinks.payoutKind, 'provisional');
   assert.ok(grows.totalPayout < grown.totalPayout);
-  assert.ok(shrinks.totalPayout > shrunk.totalPayout);
+  assert.ok(shrinks.totalPayout <= shrunk.totalPayout);
 });
 
 test('an unknown cell in a covered column changes only counts and retrigger', () => {

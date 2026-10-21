@@ -49,6 +49,94 @@ const button = (text) =>
     (node) => node.textContent.trim() === text,
   );
 
+test('public detail displays retained original wins and only their additional contribution', async () => {
+  const original = {
+    paylineId: 'B',
+    paylineCode: 'B',
+    paylineName: 'B',
+    paylineDisplayOrder: 1,
+    rowPath: [1, 1, 1, 1, 1],
+    symbolCode: 'A',
+    matchedLength: 3,
+    matchedCells: [5, 6, 7],
+    jokerCells: [],
+    payoutCredits: 15,
+  };
+  const payload = {
+    gameId: 'shared',
+    sequenceNumber: 42,
+    boardStatus: 'accepted',
+    boardChecksumSha256: 'c'.repeat(64),
+    dataSource: 'operational_review',
+    documentStale: false,
+    view: null,
+    cells: null,
+    rules: { rulesVersionId: 'rules', spinCost: 10 },
+    matches: [],
+    countMatches: [],
+    payoutCredits: 65,
+    payoutKind: 'exact',
+    symbolCodes: Array(15).fill('A'),
+    mode: 'super',
+    spinCostCredits: 0,
+    expansion: {
+      symbolCode: 'K',
+      columns: [1, 3, 4],
+      columnCount: 3,
+      linePayoutCredits: 10,
+      paylineCount: 5,
+      payoutCredits: 50,
+    },
+    preservedWins: [
+      {
+        match: original,
+        expandedPayoutCredits: 0,
+        additionalPayoutCredits: 15,
+      },
+    ],
+  };
+  const api = {
+    getBoardSearchBoardDetail: async () => ({ data: payload }),
+    boardSearchBoardViewUrl: () => '',
+    symbolImageAssetUrl: () => '',
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardSearchBoardLinesModal, {
+        api,
+        gameId: 'shared',
+        sequenceNumber: 42,
+        row: {
+          sequenceNumber: 42,
+          spinNumber: 1,
+          boardStatus: 'accepted',
+          payoutCredits: 65,
+          payoutKind: 'exact',
+        },
+        rulesVersionId: 'rules',
+        symbols: [],
+        formatAmount: String,
+        onClose: () => {},
+        onRecalculate: () => {},
+      }),
+    ),
+  );
+  await eventually(() =>
+    document.querySelector(
+      '[aria-label="Zachowane wygrane sprzed rozwinięcia"]',
+    ),
+  );
+  const retained = document.querySelector(
+    '[aria-label="Zachowane wygrane sprzed rozwinięcia"]',
+  );
+  assert.match(retained.textContent, /A ×3/);
+  assert.match(retained.textContent, /przed rozwinięciem 15/);
+  assert.match(retained.textContent, /Zachowana dopłata: \+15/);
+  assert.doesNotMatch(document.body.textContent, /Dane zmieniły się/);
+  await act(async () => root.unmount());
+});
+
 test('opaque public cells use the online port and recover an uncertain write without losing the edit', async () => {
   let pending = false;
   let saved = false;

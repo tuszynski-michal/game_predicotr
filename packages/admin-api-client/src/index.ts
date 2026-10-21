@@ -767,6 +767,7 @@ export type {
   BoardSearchCountMatchResponse,
   BoardSearchExpansionResponse,
   BoardSearchLineMatchResponse,
+  BoardSearchPreservedWinResponse,
   BoardSearchViewPointResponse,
   ApproximateWinRowResponse,
   ApproximateWinRulesResponse,

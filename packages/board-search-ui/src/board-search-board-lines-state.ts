@@ -3,6 +3,7 @@ import type {
   BoardSearchCountMatchResponse,
   BoardSearchExpansionResponse,
   BoardSearchLineMatchResponse,
+  BoardSearchPreservedWinResponse,
 } from '@game-predictor/admin-api-client';
 
 /**
@@ -47,7 +48,7 @@ export function boardLineStyle(position: number): BoardLineStyle {
   };
 }
 
-/** Stable identity of one winning line (at most one symbol pays per line). */
+/** Stable identity of a payline and the symbol explaining its payout. */
 export function boardLineKey(match: BoardSearchLineMatchResponse): string {
   return `${match.paylineId}:${match.symbolCode}`;
 }
@@ -132,6 +133,7 @@ export function boardLinesConsistency(
       BoardSearchExpansionResponse,
       'payoutCredits'
     > | null;
+    readonly preservedWins?: readonly BoardSearchPreservedWinResponse[];
   },
   rowPayoutCredits: number,
   rulesVersionId: string,
@@ -150,7 +152,11 @@ export function boardLinesConsistency(
       (total, match) => total + match.payoutCredits,
       0,
     ) +
-    (detail.expansion?.payoutCredits ?? 0);
+    (detail.expansion?.payoutCredits ?? 0) +
+    (detail.preservedWins ?? []).reduce(
+      (total, win) => total + win.additionalPayoutCredits,
+      0,
+    );
   if (sum !== detail.payoutCredits) {
     return { kind: 'inconsistent', reason: 'lines' };
   }

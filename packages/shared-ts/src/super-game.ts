@@ -19,7 +19,9 @@ import { isOrdinaryLineSymbol } from './validation.js';
  *    `k < minimum(X)` the board is evaluated exactly as in base mode.
  * 2. Otherwise those columns are filled with X (covering Wilds too).
  * 3. Lines on the expanded board, counts on the original board; X's own line
- *    wins are replaced by `payout_line(X, k) × number of paylines`.
+ *    wins are replaced by `payout_line(X, k) × number of paylines`. Preserve
+ *    positive differences from original (payline, symbol) wins (D-568),
+ *    counting identical wins and original count payouts once.
  * 4. `exact` only for a fully known board with a defined super symbol in a
  *    fresh series generation, otherwise `provisional`.
  */
@@ -44,6 +46,13 @@ export interface SeriesBoardEvaluation {
   readonly totalPayout: number;
   readonly payoutKind: SeriesPayoutKind;
   readonly retrigger: boolean;
+  readonly preservedWins: readonly PreservedLineWin[];
+}
+
+export interface PreservedLineWin {
+  readonly match: PayoutMatch;
+  readonly expandedPayoutCredits: number;
+  readonly additionalPayoutCredits: number;
 }
 
 export interface SeriesBoardOptions {
@@ -154,10 +163,41 @@ export function evaluateSeriesBoard(
     }
   }
 
+  const preservedWins: PreservedLineWin[] = [];
+  if (expansion !== null) {
+    const paid = new Map(
+      matches.map((match) => [
+        `${match.paylineId}:${match.symbolMobileCode}`,
+        match.payoutCredits,
+      ]),
+    );
+    for (const payline of paylines) {
+      paid.set(
+        `${payline.id}:${expansion.symbolMobileCode}`,
+        expansion.linePayoutCredits,
+      );
+    }
+    for (const match of base.matches) {
+      const expandedPayoutCredits =
+        paid.get(`${match.paylineId}:${match.symbolMobileCode}`) ?? 0;
+      if (match.payoutCredits > expandedPayoutCredits) {
+        preservedWins.push({
+          match,
+          expandedPayoutCredits,
+          additionalPayoutCredits: match.payoutCredits - expandedPayoutCredits,
+        });
+      }
+    }
+  }
+
   const totalPayout =
     matches.reduce((total, match) => total + match.payoutCredits, 0) +
     base.countMatches.reduce((total, match) => total + match.payoutCredits, 0) +
-    (expansion?.payoutCredits ?? 0);
+    (expansion?.payoutCredits ?? 0) +
+    preservedWins.reduce(
+      (total, win) => total + win.additionalPayoutCredits,
+      0,
+    );
   return {
     evaluatedCells,
     matches,
@@ -166,5 +206,6 @@ export function evaluateSeriesBoard(
     totalPayout,
     payoutKind: provisional ? 'provisional' : 'exact',
     retrigger: isRetrigger(game, original),
+    preservedWins,
   };
 }

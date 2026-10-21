@@ -32,6 +32,7 @@ import {
 import {
   activeBoardSearchResult,
   boardSearchNeighbourIndexes,
+  boardSearchResultIdentity,
   computeBoardCropTransform,
   moveBoardSearchResult,
   parseBoardCropQuad,
@@ -199,7 +200,7 @@ export function BoardSearchResults({
           <BoardCrop
             api={api}
             gameId={gameId}
-            key={`${current.assetMode}:${current.sequenceNumber}`}
+            key={`crop:${gameId}:${boardSearchResultIdentity(current)}`}
             result={current}
           />
         </button>
@@ -207,7 +208,7 @@ export function BoardSearchResults({
         <BoardCrop
           api={api}
           gameId={gameId}
-          key={`${current.assetMode}:${current.sequenceNumber}`}
+          key={`crop:${gameId}:${boardSearchResultIdentity(current)}`}
           result={current}
         />
       )}
@@ -260,7 +261,7 @@ export function BoardSearchResults({
             )}${unitNoun(display.unit)}`;
           }}
           gameId={gameId}
-          key={`${current.assetMode}:${current.sequenceNumber}`}
+          key={`detail:${gameId}:${boardSearchResultIdentity(current)}`}
           onClose={(edited) => {
             setBoardOpen(false);
             if (edited) {
@@ -408,8 +409,8 @@ function FullPhotoCrop({
   useEffect(() => {
     cancelledRef.current = false;
     // No reset to null here: this component remounts fully (via the
-    // carousel's `key={assetMode:sequenceNumber}`) whenever the displayed
-    // board changes, so `quad`/`naturalSize` already start out null for a
+    // carousel's crop key) whenever the displayed game, board or checksum
+    // changes, so `quad`/`naturalSize` already start out null for a
     // new board — assigning them again here would be a synchronous
     // setState in the effect body for no behavioural benefit.
     const getReviewItem = api.getOperationalImageReviewItem;

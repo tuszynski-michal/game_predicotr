@@ -490,8 +490,10 @@ gry zamiast mieszać dwa źródła.
 
 **D-479 (TASK-0784) — obowiązuje ponad starszymi opisami tej sekcji.**
 Wyszukiwanie zawsze obejmuje wszystkie plansze; radio „Zakres wyszukiwania”
-nie istnieje. Nagłówek wyników pokazuje dopasowanie i numer planszy, bez
-statusu. W „Przybliżonej wygranej” tytułem sekcji jest „Plansza startowa #N
+nie istnieje. Wyniki pokazują dokładnie jeden podgląd wybranej planszy także
+po otwarciu/zamknięciu okna planszy oraz nawigacji w przód i wstecz, w każdej
+grze i w widoku kompaktowym. Nagłówek wyników pokazuje dopasowanie i numer
+planszy, bez statusu. W „Przybliżonej wygranej” tytułem sekcji jest „Plansza startowa #N
 · X spinów”; nie ma kafelków podsumowania (rozpoznane wypłaty, koszt spinów,
 bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bilans”
 nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”

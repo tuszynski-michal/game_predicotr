@@ -63,6 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 — tasks/completed/1081-board-search-duplicate-preview.md
 - **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 / `6a10b8b2` — tasks/completed/1079-super-symbol-board-highlights.md
 - **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 / `206e1755` — tasks/completed/1078-selector-compact-workflow.md
 - **TASK-1075** — Automatyczne przejście po zapisie super symbolu — v1.7.449 / `1ca03918` — tasks/completed/1075-share-super-auto-next.md
@@ -72,4 +73,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1068** — Zakres pewności symboli — v1.7.441 / `659673fa` — tasks/completed/1068-symbol-confidence-range.md
 - **TASK-1065** — Zapisany koszt spinu Mumii — v1.7.439 / `b971999e` — tasks/completed/1065-mumie-persisted-spin-cost.md
 - **TASK-1064** — Stawki Mumii w linkach — v1.7.437 / `979d81cb` — tasks/completed/1064-mumie-share-stake-profile.md
-- **TASK-1063** — Mumie: baza i stawki wyszukiwarki — v1.7.435 / `1121be3b` — tasks/completed/1063-mumie-one-zloty-stakes.md

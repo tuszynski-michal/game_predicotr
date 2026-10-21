@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1081 — Podwójny podgląd wyszukanej planszy (done)
+
+- Plik: tasks/completed/1081-board-search-duplicate-preview.md.
+- Commit: **v1.7.455**.
+- Usunięto konflikt kluczy zdjęcia i modala wspólnej wyszukiwarki; jeden podgląd po otwarciu okna i zmianie planszy, także w widoku kompaktowym.
+- Regresja przed zmianą odtwarza dwa obrazy; po zmianie 104 testy unit i 91 interakcji PASS, lint, typecheck, format, mapa kodu i docs PASS.
+- Bez restartu usług, scalenia, push i ręcznego odbioru przeglądarki.
+
 ### TASK-1079 — Wyróżnienie super symbolu na planszach serii (done)
 
 - Plik: tasks/completed/1079-super-symbol-board-highlights.md.

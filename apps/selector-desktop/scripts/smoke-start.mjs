@@ -113,9 +113,7 @@ try {
       await page
         .getByLabel('Kierunek numeracji', { exact: true })
         .selectOption(direction);
-      await page
-        .getByRole('checkbox', { name: /Projekt i wynik będą/ })
-        .check();
+      assert.equal(await page.getByRole('checkbox').count(), 0);
       assert.equal(
         await page.getByRole('checkbox', { name: /Wybiorę osobne/ }).count(),
         0,

@@ -252,14 +252,15 @@ try {
     );
     assert.equal(
       await page
-        .getByRole('button', { name: 'Pomiń zakres (Tab)', exact: true })
+        .getByRole('button', { name: /^Pomiń(?: zakres)?(?: \(Tab\))?$/ })
         .isEnabled(),
       true,
     );
     await page.locator('h1').click();
     await page.keyboard.press('Tab');
     await waitState((value) => value.skippedCount === 1);
-    await page.getByRole('button', { name: 'Następne', exact: true }).click();
+    await page.locator('h1').click();
+    await page.keyboard.press('ArrowRight');
     const old = await waitState(
       (value) =>
         value.source.images.findIndex(
@@ -294,7 +295,7 @@ try {
     await launch(programs[1], currentVersion, newUserData);
     await select(copiedProject);
     await page
-      .getByRole('button', { name: 'Otwórz projekt', exact: true })
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await imageReady();
     const opened = await snapshot();

@@ -34,7 +34,7 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 
 - `apps/selector-desktop/src/main.ts`
 - `apps/selector-desktop/src/preload.ts`
-- `apps/selector-desktop/src/contracts.ts`: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences (+13)
+- `apps/selector-desktop/src/contracts.ts`: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary (+14)
 - `apps/selector-desktop/src/native/project-controller.ts`: NativeDialogs, validateCreate, ProjectController
 - `apps/selector-desktop/src/project/project-store.ts`: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
 - `apps/selector-desktop/src/renderer/App.tsx`: App

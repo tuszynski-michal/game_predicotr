@@ -1,22 +1,6 @@
+@import '../../../../packages/ui/src/theme.css';
+@import '../../../../packages/ui/src/buttons.css';
 @import '../features/board-search/board-search-share-corrections.css';
-
-:root {
-  --background: #07101d;
-  --panel: #0e1a2c;
-  --panel-soft: #132238;
-  --panel-raised: #172942;
-  --line: rgba(170, 196, 230, 0.14);
-  --line-strong: rgba(170, 196, 230, 0.24);
-  --text: #f2f6fb;
-  --muted: #9eb0c7;
-  --accent: #70e1b4;
-  --accent-strong: #42c994;
-  --accent-soft: rgba(112, 225, 180, 0.12);
-  --warning: #f2c66d;
-  --danger: #ff8b8b;
-  --danger-soft: rgba(255, 139, 139, 0.1);
-  --radius: 18px;
-}
 
 .modelQualityWorkspace {
   display: grid;
@@ -2741,8 +2725,6 @@ h1 {
   line-height: 1.65;
 }
 
-.primaryButton,
-.secondaryButton,
 .textButton,
 .dangerButton,
 .iconButton {
@@ -2754,35 +2736,6 @@ h1 {
     border-color 150ms ease,
     background 150ms ease,
     transform 150ms ease;
-}
-
-.primaryButton {
-  display: inline-flex;
-  min-width: max-content;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 17px;
-  border: 1px solid var(--accent-strong);
-  background: var(--accent);
-  color: #072117;
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: #8aebc5;
-  transform: translateY(-1px);
-}
-
-.secondaryButton {
-  padding: 0 15px;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text);
-}
-
-.secondaryButton:hover:not(:disabled) {
-  border-color: rgba(112, 225, 180, 0.36);
-  background: var(--accent-soft);
 }
 
 .textButton {

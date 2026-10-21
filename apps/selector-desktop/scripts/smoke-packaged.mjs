@@ -155,7 +155,7 @@ try {
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
     await page.screenshot({ path: path.resolve('.tmp/ui-start.png') });
     await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
-    await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+    assert.equal(await page.getByRole('checkbox').count(), 0);
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await imageReady();
     console.log('PASS: isolated project created and JPEG decoded.');
@@ -271,11 +271,11 @@ try {
       true,
     );
     await page.keyboard.press('F11');
-    await page.getByRole('button', { name: 'Zmień zakres' }).click();
+    await page.getByRole('button', { name: 'Zakres' }).click();
     await page.getByLabel('Początek zakresu', { exact: true }).fill('28');
     await page.getByLabel('Początek zakresu', { exact: true }).press('f');
     assert.equal((await snapshot()).acceptedCount, 1);
-    await page.getByRole('button', { name: 'Anuluj zakres' }).click();
+    await page.getByRole('button', { name: 'Anuluj' }).click();
     await page
       .getByRole('button', { name: 'Restart partii', exact: true })
       .click();
@@ -409,7 +409,7 @@ try {
       });
     }, copiedProject);
     await page
-      .getByRole('button', { name: 'Otwórz projekt', exact: true })
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await imageReady();
     assert.equal((await snapshot()).outputName, 'moved-output');
@@ -437,11 +437,9 @@ try {
       ),
       originalOutput,
     );
-    await page.getByRole('button', { name: 'Zmień zakres' }).click();
+    await page.getByRole('button', { name: 'Zakres' }).click();
     await page.getByLabel('Początek zakresu', { exact: true }).fill('28');
-    await page
-      .getByRole('button', { name: 'Zapisz zakres', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Zapisz', exact: true }).click();
     await settled();
     await bodyKey('f');
     await waitState((state) => state.selectionComplete);

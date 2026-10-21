@@ -6,6 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1078 — Kompaktowy selektor Windows i granica numeracji (done)
+
+- Plik: `ai_docs/tasks/completed/1078-selector-compact-workflow.md`.
+- Commit: **v1.7.451** (hash dopisuje kolejny commit).
+- Wykonano wszystkie poprawki operatora i późniejsze dopasowanie wspólnych stylów przycisków z wysokością 32 px w selektorze. Jedno wejście rozpoznaje źródło, projekt i manifest; kolejny folder zachowuje grę, a anulowanie zachowuje poprzedni projekt.
+- Nowe zakresy kończą się na 500000, z nazwą JPEG i activeBoardCount zgodnymi z manifestem. Kierunek można trwale zmienić w edycji zakresu; dotychczasowe decyzje pozostają. Przerwanie procesu i retry polecenia zweryfikowane.
+- Pokryto wszystkie 269 testów w grupach po limicie 120 s przebiegu monolitycznego. Usunięto regresję starego v1 i błąd hooka sprzątającego w nowym teście. Brak otwartych porażek; lint, typecheck, format, build, docs:check i code-map:check PASS. ZIP 1.0.1 przeszedł workflow, legacy i start po weryfikacji SHA-256 oraz app.asar.
+- Dokumentacja: wymagania, architektura, D-567, instrukcja operatora, mapa kodu i `ai_docs/quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_1_20261021.md`.
+- Nie zmieniano danych ani aktywnego programu operatora; bez migracji, benchmarków, restartu usług, scalenia i push. Stare błędne nazwy z końcem 500004 wymagają jawnego cofnięcia i ponownego wyboru. Audyt nie był wymagany przez plan. Odbiór paczki i zgoda na scalenie pozostają po stronie operatora.
+
 ### TASK-1075 — Automatyczne przejście po zapisie super symbolu (done)
 
 - Plik: `tasks/completed/1075-share-super-auto-next.md`.

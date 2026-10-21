@@ -1,4 +1,4 @@
-import { SelectorError } from '../contracts.ts';
+import { SelectorError, MAX_SEQUENCE_NUMBER } from '../contracts.ts';
 import {
   SecureFiles,
   checksum,
@@ -377,10 +377,22 @@ export class ProjectStorage {
       'sourceDirectoryName',
       'sourceManifestChecksumSha256',
       'firstLayout',
-      'direction',
-      'sequenceUpperBound',
     ] as const)
       if (p.scalar[key] !== state[key]) conflict();
+    if (
+      p.scalar.direction !== state.direction &&
+      (p.delta.kind !== 'none' || p.scalar.selectionComplete)
+    )
+      conflict();
+    if (
+      p.scalar.sequenceUpperBound !== state.sequenceUpperBound &&
+      (p.scalar.sequenceUpperBound !== MAX_SEQUENCE_NUMBER ||
+        (state.sequenceUpperBound !== null &&
+          state.sequenceUpperBound <= MAX_SEQUENCE_NUMBER) ||
+        state.firstLayout > MAX_SEQUENCE_NUMBER ||
+        state.decisions.some((d) => d.rangeEnd > MAX_SEQUENCE_NUMBER))
+    )
+      conflict();
     if (
       p.scalar.selectionGeneration !==
       state.selectionGeneration + (p.delta.kind === 'clear' ? 1 : 0)
@@ -395,7 +407,7 @@ export class ProjectStorage {
     const decisions = state.decisions;
     if (p.delta.kind === 'append') {
       const d = p.delta.decision;
-      const range = rangeForStart(d.rangeStart, state.sequenceUpperBound);
+      const range = rangeForStart(d.rangeStart, p.scalar.sequenceUpperBound);
       if (
         d.operationId !== p.operationId ||
         d.selectionGeneration !== state.selectionGeneration ||
@@ -416,16 +428,21 @@ export class ProjectStorage {
     } else if (p.delta.kind === 'clear') decisions.length = 0;
     if (p.receipt.decisionCount !== decisions.length) conflict();
     const last = decisions.at(-1);
+    const terminal = last
+      ? isManualSelectionRangeTerminal(
+          p.scalar.direction,
+          last.rangeStart,
+          last.rangeEnd,
+          p.scalar.sequenceUpperBound,
+        )
+      : false;
+    // A range edit may reopen a terminal selection. Decisions still determine
+    // completion when appended; undo and restart always reopen the cursor.
     if (
-      p.scalar.selectionComplete !==
-      (last
-        ? isManualSelectionRangeTerminal(
-            p.scalar.direction,
-            last.rangeStart,
-            last.rangeEnd,
-            p.scalar.sequenceUpperBound,
-          )
-        : false)
+      (p.delta.kind === 'append' && p.scalar.selectionComplete !== terminal) ||
+      (p.scalar.selectionComplete && !terminal) ||
+      ((p.delta.kind === 'pop' || p.delta.kind === 'clear') &&
+        p.scalar.selectionComplete)
     )
       conflict();
     state.receipts[p.operationId] = p.receipt;

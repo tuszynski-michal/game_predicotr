@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-21
 ---
 
 # Decision Log
@@ -32,6 +32,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-567](decisions/DECISION_LOG_2026.md#d-567--edytowalny-kierunek-i-granica-500000-w-selektorze-windows) | Edytowalny kierunek i granica 500000 w selektorze Windows | accepted | 2026-10-21 | Jeden wybór folderu, wspólne kompaktowe przyciski, limit nowych zakresów i trwała zmiana kierunku dalszej numeracji. |
 | [D-566](decisions/DECISION_LOG_2026.md#d-566--kolejka-masowej-weryfikacji-symboli) | Kolejka masowej weryfikacji symboli | accepted | 2026-10-19 | Wyjątek od D-551 pozwala kolejkować bulk za bulk; wykonanie pozostaje pojedyncze, konflikty z innymi typami bez zmian. |
 | [D-565](decisions/DECISION_LOG_2026.md#d-565--tymczasowa-baza-wypłat-i-stawki-mumii) | Tymczasowa baza wypłat i stawki Mumii | accepted | 2026-10-19 | Tabela Mumii dotyczy 10 kredytów (1 zł); wyszukiwarka ma stawki 1/2/5/10/20 zł jako tymczasowy wyjątek w kodzie dla jednej gry, bez przeliczania historii. |
 | [D-564](decisions/DECISION_LOG_2026.md#d-564--super-symbol-serii-definiowany-także-przez-odbiorcę-linku-udostępniania) | Super symbol serii definiowany także przez odbiorcę linku udostępniania | accepted | 2026-10-18 | Odbiorca linku otwiera serię z każdego znacznika supergry i definiuje super symbol przez cztery trasy publiczne z aktorem sesji; `seriesId` w markerach udostępnienia, panel zarządzania bez zmian. |
@@ -61,4 +62,3 @@ Reguły:
 | [D-541](decisions/DECISION_LOG_2026.md#d-541--lokalny-reviewer-pracuje-w-zakresie-gry-i-pokazuje-realne-braki-geometrii-zdjęć) | Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć | accepted | 2026-10-10 | lokalny Reviewer ma zakładki „Do korekty” i „Braki zdjęć” (realne braki D-484), „Siatka niepotwierdzona” zostaje licznikiem w Adminie, UI wyjątków bramki usunięte z Admina. |
 | [D-540](decisions/DECISION_LOG_2026.md#d-540--przeniesienie-aplikacji-i-bazy-na-dysk-d) | Przeniesienie aplikacji i bazy na dysk D | accepted | 2026-10-10 | aplikacja z D, baza z obrazem dysku Docker Desktop, kopie i bramki przełączenia według planu DISK_D. |
 | [D-539](decisions/DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
-| [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |

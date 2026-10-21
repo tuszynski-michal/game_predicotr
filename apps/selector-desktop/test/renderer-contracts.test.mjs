@@ -89,7 +89,10 @@ test('new project validates numbering and explicit local storage confirmation', 
     customLocations: false,
     localStorageConfirmed: true,
   };
-  assert.deepEqual(validateCreate(valid), valid);
+  assert.deepEqual(validateCreate(valid), {
+    ...valid,
+    sequenceUpperBound: 500000,
+  });
   for (const value of [
     { ...valid, firstLayout: 0 },
     { ...valid, direction: 'reverse' },

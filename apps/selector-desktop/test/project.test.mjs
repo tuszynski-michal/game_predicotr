@@ -85,6 +85,89 @@ async function fixture(t, overrides = {}) {
   };
 }
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+test('unbounded saved project caps the final JPEG and manifest at 500000; completed range can change direction without rewriting decisions', async (t) => {
+  const f = await fixture(t, { firstLayout: 499987 });
+  const store = await f.create();
+  assert.equal(store.snapshot().sequenceUpperBound, null);
+  await store.execute('limit-accept-0001', {
+    kind: 'accept',
+    imagePath: 'photo1.jpg',
+  });
+  await store.execute('limit-accept-0002', {
+    kind: 'accept',
+    imagePath: 'photo2.jpg',
+  });
+  const completed = store.snapshot();
+  assert.equal(completed.selectionComplete, true);
+  assert.equal(completed.sequenceUpperBound, 500000);
+  assert.equal(completed.decisions[1].rangeEnd, 500000);
+  assert.equal(completed.decisions[1].activeBoardCount, 5);
+  assert.deepEqual(
+    await readFile(path.join(f.input.outputRoot, 'seq_499996-500000.jpg')),
+    await readFile(path.join(f.input.sourceRoot, 'photo2.jpg')),
+  );
+  assert.equal(
+    (await readdir(f.input.outputRoot)).includes('seq_499996-500004.jpg'),
+    false,
+  );
+  const edit = { kind: 'range', start: 499978, direction: 'descending' };
+  const receipt = await store.execute('limit-direction-0001', edit);
+  assert.deepEqual(await store.execute('limit-direction-0001', edit), receipt);
+  assert.deepEqual(store.snapshot().decisions, completed.decisions);
+  await store.close();
+  const reopened = f.track(await ProjectStore.open(f.input.projectRoot));
+  assert.equal(reopened.getIssue(), null);
+  assert.equal(reopened.snapshot().direction, 'descending');
+  assert.equal(reopened.snapshot().selectionComplete, false);
+  await reopened.execute('limit-skip-0001', { kind: 'skip' });
+  assert.equal(reopened.snapshot().nextRangeStart, 499969);
+  const manifest = JSON.parse(
+    await readFile(path.join(f.input.outputRoot, OUTPUT_MANIFEST_NAME), 'utf8'),
+  );
+  assert.equal(manifest.direction, 'descending');
+  assert.equal(manifest.sequenceUpperBound, 500000);
+  assert.deepEqual(manifest.decisions.slice(0, 2), completed.decisions);
+  await assert.rejects(
+    reopened.execute('limit-invalid-0001', { kind: 'range', start: 500001 }),
+    { code: 'INVALID_RANGE' },
+  );
+  await assert.rejects(
+    reopened.execute('limit-invalid-0002', {
+      kind: 'range',
+      start: 1,
+      direction: 'reverse',
+    }),
+    { code: 'INVALID_RANGE' },
+  );
+});
+
+test('direction and ceiling survive a process crash and lost response with idempotent retry', async (t) => {
+  const f = await fixture(t);
+  const store = await f.create();
+  await store.close();
+  await child(
+    [
+      'range-crash',
+      f.input.projectRoot,
+      'range-process-0001',
+      '',
+      'prepare:after',
+    ],
+    73,
+  );
+  const recovered = JSON.parse(
+    await child(['range-recover', f.input.projectRoot, 'range-process-0001']),
+  );
+  assert.equal(recovered.state.direction, 'descending');
+  assert.equal(recovered.state.nextRangeStart, 100);
+  assert.equal(recovered.state.sequenceUpperBound, 500000);
+  assert.equal(recovered.state.decisions.length, 0);
+  const reopened = f.track(await ProjectStore.open(f.input.projectRoot));
+  assert.equal(reopened.getIssue(), null);
+  await reopened.execute('range-process-skip', { kind: 'skip' });
+  assert.equal(reopened.snapshot().nextRangeStart, 91);
+});
 test('skipped ranges can be corrected and accepted while accepted ranges and repeated sources stay protected', async (t) => {
   const f = await fixture(t);
   const store = await f.create();

@@ -524,8 +524,8 @@ function validateStateStructure(state: ProjectState): void {
   }
   const last = state.decisions.at(-1);
   if (
-    state.selectionComplete !==
-    (last
+    state.selectionComplete &&
+    !(last
       ? isManualSelectionRangeTerminal(
           state.direction,
           last.rangeStart,

@@ -1,10 +1,27 @@
 ---
 title: Lokalny selektor Windows — instrukcja operatora
 status: accepted
-last_updated: 2026-10-13
+last_updated: 2026-10-21
 ---
 
 # Lokalny selektor Windows — instrukcja operatora
+
+## Wydanie 1.0.1 — aktualny przepływ
+
+Paczka: `D:/game_predicotr/artifacts/selector-releases/1.0.1/Selektor zdjec-win32-x64-1.0.1.zip`. Wersję, sumę SHA-256 i pochodzenie buildu zawierają sąsiednie pliki `.sha256` oraz `.release.json`. Zamknij dotychczasowy program przed uruchomieniem nowej wersji z osobnego, całkowicie rozpakowanego katalogu. Projekt i zdjęcia pozostają w dotychczasowych folderach.
+
+1. Kliknij „Wybierz folder zdjęć”. Możesz wskazać źródło, zapisany folder projektu albo stary wynik z manifestem. Istniejący projekt wznawia pracę. Stary manifest pokazuje podgląd przejęcia; sprawdź dane oraz nazwy nowych katalogów i zatwierdź.
+2. Dla nowej partii podaj nazwę gry, pierwszą planszę i kierunek. Ostatnia plansza jest opcjonalna; puste pole oznacza 500000. Nie ma checkboxa lokalności.
+3. Wybieraj Enter/F, pomijaj Tab, cofaj A/Ctrl+Z. Zdjęcia zmieniaj strzałkami w lewo/prawo; strzałki góra/dół zmieniają skok. Skok, zoom i pełny ekran są u góry.
+4. „Zakres” pozwala zmienić początek i kierunek dalszej numeracji, także po jej zakończeniu. Wcześniejsze pliki i decyzje nie zmieniają się.
+5. „Wybierz kolejny folder” zachowuje grę i kierunek. Wskaż kolejny folder, podaj pierwszą planszę i rozpocznij. Anulowanie pozostawia poprzednią pracę.
+
+Końcówka 499996 zapisuje się jako `seq_499996-500000.jpg` z pięcioma planszami. Jeżeli poprzednia wersja zapisała plik kończący się na 500004, cofnij błędny wybór i zapisz zdjęcie ponownie; aktualizacja nie zmienia tych plików automatycznie. Przyciski korzystają ze wspólnych stylów aplikacji i mają wysokość 32 px. Logi są na ekranie startowym; dostęp do nich wymaga wyjścia z wybierania przez „Zamknij projekt”.
+
+Dalsze sekcje opisują historyczny odbiór 1.0.0 i starszych wersji. Ich dawne nazwy przycisków i checkboxa zastępuje powyższy przepływ.
+
+## Historyczne wydanie 1.0.0
+
 
 Wydanie **1.0.0**, kod v1.7.345 / `7808f0caab808717e9a6eda284c963df838e47f0`. Paczka zachowana poza worktree:
 `D:/game_predicotr/artifacts/selector-releases/1.0.0/Selektor zdjec-win32-x64-1.0.0.zip`.

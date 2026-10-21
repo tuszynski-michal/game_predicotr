@@ -4,7 +4,21 @@ import { ProjectStore } from '../src/project/project-store.ts';
 
 const [mode, projectRoot, operationId, imagePath, phase] =
   process.argv.slice(2);
-if (mode === 'crash') {
+if (mode === 'range-crash' || mode === 'range-recover') {
+  const store = await ProjectStore.open(projectRoot, {
+    checkpoint(point) {
+      if (mode === 'range-crash' && point === phase) process.exit(73);
+    },
+  });
+  if (store.getIssue()) throw new Error(JSON.stringify(store.getIssue()));
+  const receipt = await store.execute(operationId, {
+    kind: 'range',
+    start: 100,
+    direction: 'descending',
+  });
+  process.stdout.write(JSON.stringify({ receipt, state: store.snapshot() }));
+  await store.close();
+} else if (mode === 'crash') {
   const store = await ProjectStore.open(projectRoot, {
     checkpoint(point) {
       if (point === phase) process.exit(73);

@@ -168,6 +168,42 @@ function position(state) {
   return state.source.images.find((i) => i.id === state.currentImageId)
     .relativePath;
 }
+test('one picker also opens project folders and output manifests; a next-folder draft preserves the active project', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const created = await c.create(request((await c.begin()).draft));
+  await command(c, { kind: 'accept', imageId: created.currentImageId });
+  await c.close();
+  for (const selected of [`${f.source} selekcja`, `${f.source} wybrane`]) {
+    f.choose(selected);
+    const opened = await c.begin();
+    assert.equal(opened.kind, 'existing');
+    assert.equal(opened.workspace.projectId, created.projectId);
+    assert.equal(opened.workspace.acceptedCount, 1);
+    await c.close();
+  }
+  f.choose(f.source);
+  await c.begin();
+  const nextSource = path.join(f.root, 'next-source');
+  await mkdir(nextSource);
+  f.choose(nextSource);
+  const nextDraft = await c.begin();
+  assert.equal(nextDraft.kind, 'new');
+  await assert.rejects(c.create(request(nextDraft.draft)), {
+    code: 'EMPTY_SOURCE',
+  });
+  assert.equal(c.snapshot().projectId, created.projectId);
+  assert.equal(c.snapshot().acceptedCount, 1);
+  f.choose(null);
+  assert.equal(await c.begin(), null);
+  assert.equal(c.snapshot().projectId, created.projectId);
+  for (const value of [{ firstLayout: 500001 }, { sequenceUpperBound: 500001 }])
+    assert.throws(
+      () =>
+        validateCreate({ ...request({ sourceToken: randomUUID() }), ...value }),
+      { code: 'INVALID_ARGUMENT' },
+    );
+});
 for (const direction of ['ascending', 'descending']) {
   test(`${direction}: one source picker creates siblings; reselect after restart retains game, cursor, numbering, view and exact JPEG`, async (t) => {
     const f = await fixture(t);
@@ -475,7 +511,7 @@ test('missing history has a stable path error; cancel keeps cache, explicit new 
   assert.equal(next.snapshot(), null);
   assert.equal(f.prompts.at(-1).label, 'Nowa partia');
   assert.ok(f.prompts.at(-1).message.includes(oldRoot));
-  assert.ok(f.prompts.at(-1).message.includes('Otwórz projekt'));
+  assert.ok(f.prompts.at(-1).message.includes('Wybierz folder zdjęć'));
   f.confirm(true);
   const fresh = await next.begin();
   assert.equal(fresh.kind, 'new');

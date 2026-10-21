@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { SelectorError } from '../contracts.ts';
+import { isManualSelectionRangeTerminal } from '@game-predictor/manual-image-selection-core';
 import {
   SecureFiles,
   assertSeparateRoots,
@@ -211,6 +212,18 @@ export async function inspectLegacy(
     updatedAt: raw.updatedAt,
   };
   try {
+    const last = state.decisions.at(-1);
+    if (
+      raw.schemaVersion === 1 &&
+      last &&
+      isManualSelectionRangeTerminal(
+        state.direction,
+        last.rangeStart,
+        last.rangeEnd,
+        state.sequenceUpperBound,
+      ) !== state.selectionComplete
+    )
+      throw new Error('Legacy v1 has no explicit completion state.');
     validateState(state);
   } catch {
     fail(

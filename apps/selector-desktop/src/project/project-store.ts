@@ -7,7 +7,11 @@ import {
   nextManualRangeStart,
   isManualSelectionRangeTerminal,
 } from '@game-predictor/manual-image-selection-core';
-import { SelectorError, validateGameName } from '../contracts.ts';
+import {
+  SelectorError,
+  validateGameName,
+  MAX_SEQUENCE_NUMBER,
+} from '../contracts.ts';
 import {
   scanSource,
   type VerifiedSourceScan,
@@ -1132,15 +1136,37 @@ export class ProjectStore {
               Math.min(currentIndex + 1, after.inventory.length - 1)
             ].relativePath;
         };
+        const limitSequence = () => {
+          if (
+            after.sequenceUpperBound !== null &&
+            after.sequenceUpperBound <= MAX_SEQUENCE_NUMBER
+          )
+            return;
+          if (
+            after.firstLayout > MAX_SEQUENCE_NUMBER ||
+            after.decisions.some((d) => d.rangeEnd > MAX_SEQUENCE_NUMBER)
+          )
+            throw new SelectorError(
+              'SEQUENCE_LIMIT_CONFLICT',
+              'Zapisana numeracja przekracza 500000. Cofnij błędny wybór przed ustawieniem zakresu.',
+            );
+          after.sequenceUpperBound = MAX_SEQUENCE_NUMBER;
+        };
         if (command.kind === 'accept' || command.kind === 'skip') {
           if (before.selectionComplete)
             throw new SelectorError(
               'SELECTION_COMPLETE',
               'Selekcja jest zakończona. Cofnij ostatnią decyzję, aby kontynuować.',
             );
+          limitSequence();
+          if (before.nextRangeStart > after.sequenceUpperBound!)
+            throw new SelectorError(
+              'INVALID_RANGE',
+              'Ustaw zakres od 1 do 500000.',
+            );
           const range = rangeForStart(
             before.nextRangeStart,
-            before.sequenceUpperBound,
+            after.sequenceUpperBound,
           );
           if (
             before.decisions.some(
@@ -1202,7 +1228,7 @@ export class ProjectStore {
             before.direction,
             range.start,
             range.end,
-            before.sequenceUpperBound,
+            after.sequenceUpperBound,
           );
           after.nextRangeStart = nextManualRangeStart(
             before.direction,
@@ -1217,17 +1243,21 @@ export class ProjectStore {
             );
           after.currentRelativePath = command.imagePath;
         } else if (command.kind === 'range') {
-          if (before.selectionComplete)
-            throw new SelectorError(
-              'SELECTION_COMPLETE',
-              'Najpierw cofnij ostatnią decyzję.',
-            );
+          limitSequence();
           try {
-            rangeForStart(command.start, before.sequenceUpperBound);
+            rangeForStart(command.start, after.sequenceUpperBound);
+            if (
+              command.direction !== undefined &&
+              command.direction !== 'ascending' &&
+              command.direction !== 'descending'
+            )
+              throw new Error('direction');
           } catch {
             throw new SelectorError('INVALID_RANGE', 'Nieprawidłowy zakres.');
           }
           after.nextRangeStart = command.start;
+          after.direction = command.direction ?? before.direction;
+          after.selectionComplete = false;
         } else if (command.kind === 'undo') {
           after.decisions = [...before.decisions];
           const last = after.decisions.pop();

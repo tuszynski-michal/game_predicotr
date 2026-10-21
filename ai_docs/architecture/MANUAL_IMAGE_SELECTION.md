@@ -1,10 +1,20 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-10-13
+last_updated: 2026-10-21
 ---
 
 # Architektura lokalnej ręcznej selekcji
+
+## Konfiguracja i interfejs Windows 1.0.1 — TASK-1078, D-567
+
+`ProjectController.begin` rozpoznaje markery projektu i manifest operator-local; wspólne rozpoznawanie źródła preferuje istniejący projekt z kontrolą expectedSourceRoot/expectedProjectId. Import nadal korzysta z inspectLegacy i ponownej weryfikacji dowodów przed zapisem. Automatyczne przejęcie wybiera nowe katalogi obok źródła; preview wskazuje ich nazwy. Nowy projekt jest przygotowywany przed zamknięciem poprzedniego, więc anulowanie lub błąd konfiguracji nie gubi aktywnej sesji.
+
+Typowane polecenie `range` ma opcjonalny direction. Transakcja ustawia początek, aktualny kierunek oraz selectionComplete=false; ledger dopuszcza zmianę kierunku tylko z deltą none. Nowa decyzja wyznacza zakończenie według aktualnej konfiguracji. Snapshot może być jawnie wznowiony mimo terminalnej ostatniej decyzji; sam completion=true nadal wymaga terminalnej decyzji. Import historycznego v1 zachowuje surowszą kontrolę, ponieważ format nie przenosi jawnego zakończenia.
+
+Granica nowych zakresów Windows to 500000 (nie zmienia wspólnego rdzenia). Nowe projekty zapisują ją jako sequenceUpperBound. Starsze null albo większa granica zmieniają się na 500000 w tej samej transakcji co kolejna decyzja lub edycja. Ledger dopuszcza tylko tę redukcję i wyłącznie wtedy, gdy pierwsza plansza oraz cała istniejąca historia mieszczą się w limicie. Nie zmienia historycznych JPEG-ów ani spisu źródła. Zapis z przekroczeniem wymaga jawnego undo. Journal, oba ledgery, heady i manifest zachowują jedną konfigurację po recovery i retry.
+
+Paleta oraz klasy primaryButton/secondaryButton zostały wydzielone z Admina do współdzielonych arkuszy CSS w packages/ui/src. Domyślna wysokość 42 px pozostaje; zmienna --button-height ma w desktopie 32 px. Renderer bundluje te same arkusze lokalnie, bez zależności od uruchomionego Admina.
 
 Wydanie 1.0.0 (D-547) nie ma narzuconego limitu liczby zdjęć/wpisów źródła. Nie zmienia to formatów projektu, ledgerów ani kontroli plików. Renderer ma stały dolny overlay zamiast rutynowych komunikatów, osobny zakres pośrodku nad zdjęciem i natywny minimalistyczny fullscreen. Strażnik closingProject odrzuca spóźnione zmiany widoku podczas zamykania. TASK-0979 zamknięto decyzją operatora; dowody wydania w quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md.
 

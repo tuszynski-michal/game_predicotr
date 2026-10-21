@@ -21,8 +21,8 @@ await mkdir('.tmp', { recursive: true });
 const fixture = await mkdtemp(path.resolve('.tmp/ui-legacy-'));
 const source = path.join(fixture, 'source'),
   oldOutput = path.join(fixture, 'old-output'),
-  newProject = path.join(fixture, 'new-project'),
-  newOutput = path.join(fixture, 'new-output'),
+  newProject = `${source} selekcja`,
+  newOutput = `${source} wybrane przejete`,
   userData = path.join(fixture, 'user-data');
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const smoke = createOwnedSmoke({
@@ -81,7 +81,7 @@ try {
     ])
       await mkdir(directory);
 
-    await launch([source, oldOutput, source, oldOutput, newProject, newOutput]);
+    await launch([oldOutput, oldOutput]);
     const jpeg = Buffer.from(
       await application.evaluate(({ nativeImage }) =>
         nativeImage
@@ -163,7 +163,7 @@ try {
     );
     const original = await originals();
     await page
-      .getByRole('button', { name: 'Przejmij sesję Reviewera', exact: true })
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page
       .getByRole('heading', { name: 'Podgląd sesji Reviewera' })
@@ -189,7 +189,7 @@ try {
     assert.deepEqual(await readdir(newProject), []);
     assert.deepEqual(await readdir(newOutput), []);
     await page
-      .getByRole('button', { name: 'Przejmij sesję Reviewera', exact: true })
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page
       .getByRole('heading', { name: 'Podgląd sesji Reviewera' })

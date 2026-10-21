@@ -41,6 +41,7 @@ export function gitBuildInfo(root) {
         '--',
         'apps/selector-desktop',
         'packages/manual-image-selection-core',
+        'packages/ui',
         'package.json',
         'package-lock.json',
       ) !== '',

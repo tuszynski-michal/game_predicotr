@@ -248,7 +248,7 @@ try {
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
-    await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+    assert.equal(await page.getByRole('checkbox').count(), 0);
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await ready();
     await assertCentered();
@@ -269,7 +269,8 @@ try {
         attributes: true,
       });
     });
-    await page.getByRole('button', { name: 'Następne', exact: true }).click();
+    await page.locator('h1').click();
+    await page.keyboard.press('ArrowRight');
     await page.getByTestId('cursor').filter({ hasText: '2 / 3' }).waitFor();
     await ready();
     const tops = await page.evaluate(() => {
@@ -313,9 +314,7 @@ try {
         visibleButtons,
       };
     });
-    assert.deepEqual(fullscreenLayout.visibleButtons, [
-      'Wyjdź z pełnego ekranu (F11)',
-    ]);
+    assert.deepEqual(fullscreenLayout.visibleButtons, ['Wyjdź (F11)']);
     assert.ok(fullscreenLayout.height > fullscreenLayout.viewport * 0.8);
     assert.ok(
       Math.abs(fullscreenLayout.bottom - (fullscreenLayout.viewport - 8)) < 1,
@@ -342,19 +341,15 @@ try {
     await page.screenshot({ path: path.join(screenshots, 'fullscreen.png') });
     await page
       .getByRole('button', {
-        name: 'Wyjdź z pełnego ekranu (F11)',
+        name: 'Wyjdź (F11)',
         exact: true,
       })
       .click();
-    await page
-      .getByRole('button', { name: 'Zmień zakres', exact: true })
-      .waitFor();
+    await page.getByRole('button', { name: 'Zakres', exact: true }).waitFor();
     await page.keyboard.press('F11');
     await page.locator('main.fullscreen').waitFor();
     await page.keyboard.press('Escape');
-    await page
-      .getByRole('button', { name: 'Zmień zakres', exact: true })
-      .waitFor();
+    await page.getByRole('button', { name: 'Zakres', exact: true }).waitFor();
     // Changes through the native window must update the renderer too.
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setFullScreen(true),
@@ -363,9 +358,7 @@ try {
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setFullScreen(false),
     );
-    await page
-      .getByRole('button', { name: 'Zmień zakres', exact: true })
-      .waitFor();
+    await page.getByRole('button', { name: 'Zakres', exact: true }).waitFor();
     await assertCentered();
     await assertRangeCentered();
     await page.screenshot({ path: path.join(screenshots, 'windowed.png') });
@@ -430,7 +423,7 @@ try {
       };
     }, `${source} selekcja`);
     await page
-      .getByRole('button', { name: 'Otwórz projekt', exact: true })
+      .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page
       .getByText('Weryfikacja źródła i sum kontrolnych JPEG-ów…', {

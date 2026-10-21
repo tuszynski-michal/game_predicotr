@@ -1,4 +1,5 @@
 export const APP_URL = 'selector://app/index.html';
+export const MAX_SEQUENCE_NUMBER = 500000;
 export const CHANNELS = {
   openLogs: 'selector:open-logs',
   create: 'selector:create',
@@ -65,6 +66,8 @@ export interface SelectorBridge {
   onFullscreenChanged(listener: (active: boolean) => void): () => void;
 }
 export interface LegacyPreviewSummary {
+  projectName?: string;
+  outputName?: string;
   previewToken: string;
   schemaVersion: 1 | 2;
   sourceName: string;
@@ -104,6 +107,7 @@ export interface NewProjectDraft {
 }
 export type StartSelectionResult =
   | { kind: 'new'; draft: NewProjectDraft }
+  | { kind: 'legacy'; preview: LegacyPreviewSummary }
   | { kind: 'existing'; workspace: DesktopWorkspace };
 export function validateGameName(value: unknown): string {
   if (
@@ -121,7 +125,7 @@ export function validateGameName(value: unknown): string {
 export type DesktopCommand =
   | { kind: 'accept' | 'navigate'; imageId: string }
   | { kind: 'skip' | 'undo' }
-  | { kind: 'range'; start: number }
+  | { kind: 'range'; start: number; direction?: 'ascending' | 'descending' }
   | { kind: 'restart'; expectedRevision: number; previewChecksum: string };
 export interface ExecuteRequest {
   projectId: string;

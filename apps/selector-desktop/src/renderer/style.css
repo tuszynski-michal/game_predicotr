@@ -1,8 +1,12 @@
+@import '../../../../packages/ui/src/theme.css';
+@import '../../../../packages/ui/src/buttons.css';
+
 :root {
   font-family: system-ui, sans-serif;
-  color: #edf0f6;
-  background: #14171c;
+  color: var(--text);
+  background: var(--background);
   color-scheme: dark;
+  --button-height: 32px;
 }
 body {
   margin: 0;
@@ -13,9 +17,6 @@ main {
 h1 {
   margin: 0;
 }
-header p {
-  color: #aab4c5;
-}
 nav {
   display: flex;
   align-items: center;
@@ -23,15 +24,16 @@ nav {
   margin: 16px 0;
 }
 button {
-  padding: 12px 18px;
-  border: 1px solid #576780;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
+  box-sizing: border-box;
+  min-height: var(--button-height);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
 }
 button:disabled {
-  opacity: 0.4;
-  cursor: default;
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 [role='alert'] {
   color: #ffb4a7;
@@ -59,7 +61,7 @@ nav {
 }
 form {
   max-width: 850px;
-  border: 1px solid #435067;
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 20px;
 }
@@ -71,27 +73,16 @@ label {
 }
 input,
 select {
-  padding: 8px;
+  padding: 5px 8px;
   font: inherit;
-  border: 1px solid #596a83;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
   border-radius: 6px;
 }
-.check {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-.check input {
-  width: 20px;
-  height: 20px;
-}
-.primary {
-  background: #2757a5;
-  border-color: #78a7f5;
-  color: #fff;
-}
+
 .folder-summary {
-  background: #202733;
+  background: var(--panel-soft);
   padding: 8px 16px;
   border-radius: 8px;
   overflow-wrap: anywhere;
@@ -119,7 +110,7 @@ select {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #9bbfff;
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 .project-info {
@@ -128,19 +119,65 @@ select:focus-visible {
   align-items: center;
   gap: 18px;
   padding: 12px;
-  background: #202733;
+  background: var(--panel-soft);
   border-radius: 8px;
 }
 .toolbar {
   gap: 10px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.toolbar > * {
+  flex-shrink: 0;
+}
+.viewer-toolbar h1 {
+  flex: 1 0 auto;
+  font-size: 24px;
+}
+.selection .photo-caption {
+  flex: 0 0 auto;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+main.selection {
+  box-sizing: border-box;
+  height: 100vh;
+  padding: 12px 20px 40px;
+  display: flex;
+  flex-direction: column;
+}
+.selection > * {
+  flex-shrink: 0;
+}
+.selection .project-info {
+  margin-top: 10px;
+  padding: 0 12px;
+}
+.selection nav {
+  gap: 10px;
+  margin: 8px 0;
+}
+.selection .preview {
+  flex: 1 1 0;
+  min-height: 150px;
+  height: auto;
+}
+.selection > nav:last-of-type button {
+  padding: 0 12px;
 }
 .toolbar button {
-  padding: 9px 12px;
+  padding: 0 12px;
 }
 .toolbar label {
   flex-direction: row;
   align-items: center;
   margin: 0;
+}
+.viewer-toolbar select {
+  box-sizing: border-box;
+  height: var(--button-height);
+  font-size: 13px;
 }
 [data-testid='cursor'] {
   flex: 1 1 180px;
@@ -193,7 +230,7 @@ select:focus-visible {
   z-index: 6;
   max-height: 25vh;
   overflow: auto;
-  background: #14171cf2;
+  background: var(--background);
   color: #b5c4da;
 }
 .feedback:empty {
@@ -230,6 +267,9 @@ main.fullscreen {
   white-space: nowrap;
 }
 .fullscreen .viewer-toolbar > button:not([aria-pressed]) {
+  display: none;
+}
+.fullscreen .viewer-toolbar h1 {
   display: none;
 }
 .fullscreen [data-testid='cursor'] {

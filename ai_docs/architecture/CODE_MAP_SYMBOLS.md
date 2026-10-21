@@ -1087,7 +1087,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 ## apps/selector-desktop/src
 
-- contracts.ts: APP_URL, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, FileIdentity, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof

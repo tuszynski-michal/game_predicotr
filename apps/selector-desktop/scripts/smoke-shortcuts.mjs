@@ -53,7 +53,7 @@ try {
     await page.getByLabel('Pierwsza plansza', { exact: true }).fill('19');
     await page.getByLabel('Ostatnia plansza', { exact: true }).fill('20');
     await page.getByLabel('Kierunek numeracji').selectOption('descending');
-    await page.getByRole('checkbox', { name: /Projekt i wynik będą/ }).check();
+    assert.equal(await page.getByRole('checkbox').count(), 0);
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await page
       .getByRole('button', { name: 'Wybierz (Enter / F)' })
@@ -99,7 +99,8 @@ try {
     );
     assert.equal(invalid.ok, false);
     assert.equal(invalid.error.code, 'INVALID_ARGUMENT');
-    await page.getByRole('button', { name: 'Poprzednie', exact: true }).click();
+    await page.locator('h1').click();
+    await page.keyboard.press('ArrowLeft');
     await page.getByTestId('cursor').filter({ hasText: '1 / 2' }).waitFor();
     await page
       .getByText('To zdjęcie jest już wybrane.', { exact: false })

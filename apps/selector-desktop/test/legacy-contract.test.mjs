@@ -1,4 +1,4 @@
-import test, { describe } from 'node:test';
+import test, { describe, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { writeFile, readFile, utimes, unlink, mkdir } from 'node:fs/promises';
@@ -8,6 +8,63 @@ import { ProjectStore } from '../src/project/project-store.ts';
 import { ProjectController } from '../src/native/project-controller.ts';
 import { SourceRegistry } from '../src/native/source-registry.ts';
 import { legacyFixture, originalProof, processes } from './legacy-fixture.mjs';
+import { disposeNativeChecks } from '../src/native/windows-check-worker.ts';
+after(() => disposeNativeChecks());
+
+test('choosing a legacy output discovers its source and adopts after preview without extra folder dialogs', async (t) => {
+  const f = await legacyFixture(t);
+  const original = await originalProof(f);
+  let dialogs = 0;
+  const controller = new ProjectController(
+    path.join(f.root, 'user-data'),
+    new SourceRegistry(),
+    {
+      directory: async () => {
+        dialogs++;
+        return f.oldOutputRoot;
+      },
+      confirm: async () => {
+        throw new Error('The preview is the confirmation');
+      },
+      openFolder: async () => {},
+    },
+  );
+  t.after(async () => {
+    await controller.close();
+  });
+  const result = await controller.begin();
+  assert.equal(result.kind, 'legacy');
+  assert.equal(result.preview.acceptedCount, 1);
+  const adopted = await controller.legacyAdopt(result.preview.previewToken);
+  assert.equal(dialogs, 1);
+  assert.equal(adopted.acceptedCount, 1);
+  assert.equal(adopted.skippedCount, 1);
+  assert.deepEqual(await originalProof(f), original);
+  await controller.close();
+  const reopened = await controller.begin();
+  assert.equal(reopened.kind, 'existing');
+  assert.equal(reopened.workspace.projectId, adopted.projectId);
+  await controller.close();
+});
+
+test('one-picker discovery rejects malformed manifests without rewriting them', async (t) => {
+  const f = await legacyFixture(t);
+  const controller = new ProjectController(
+    path.join(f.root, 'user-data'),
+    new SourceRegistry(),
+    {
+      directory: async () => f.oldOutputRoot,
+      confirm: async () => true,
+      openFolder: async () => {},
+    },
+  );
+  for (const bytes of ['{broken', 'null', '[]']) {
+    await writeFile(f.manifestPath, bytes);
+    await assert.rejects(controller.begin(), { code: 'LEGACY_INVALID' });
+    assert.equal(await readFile(f.manifestPath, 'utf8'), bytes);
+  }
+  await controller.close();
+});
 describe('read-only legacy contract', { concurrency: 6 }, () => {
   for (const schemaVersion of [1, 2])
     for (const direction of ['ascending', 'descending'])

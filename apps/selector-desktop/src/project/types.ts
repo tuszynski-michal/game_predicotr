@@ -22,7 +22,7 @@ export type ProjectCommand =
   | { kind: 'accept'; imagePath: string }
   | { kind: 'skip' }
   | { kind: 'navigate'; imagePath: string }
-  | { kind: 'range'; start: number }
+  | { kind: 'range'; start: number; direction?: 'ascending' | 'descending' }
   | { kind: 'undo' }
   | { kind: 'restart'; expectedRevision: number; previewChecksum: string }
   | { kind: 'relink'; sourceRoot?: string; outputRoot?: string };

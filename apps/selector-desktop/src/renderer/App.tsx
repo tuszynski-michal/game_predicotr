@@ -14,6 +14,7 @@ import type {
   LegacyPreviewSummary,
   NewProjectDraft,
 } from '../contracts.ts';
+import { MAX_SEQUENCE_NUMBER } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -35,7 +36,6 @@ export function App() {
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
-  const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const closingProject = useRef(false);
@@ -44,6 +44,9 @@ export function App() {
   const [decoded, setDecoded] = useState<string | null>(null);
   const [rangeEditor, setRangeEditor] = useState(false);
   const [rangeStart, setRangeStart] = useState('');
+  const [rangeDirection, setRangeDirection] = useState<
+    'ascending' | 'descending'
+  >('ascending');
   const [restart, setRestart] = useState<RestartSummary | null>(null);
   function applyFullscreen(active: boolean) {
     setFullscreen(active);
@@ -95,6 +98,26 @@ export function App() {
     setRangeEditor(false);
     setRestart(null);
     setLegacy(null);
+  }
+  function beginSelection(keepGame = false) {
+    void run(async () => {
+      const result = unwrap(await window.selector.begin());
+      if (!result) return;
+      if (result.kind === 'existing') await install(result.workspace);
+      else if (result.kind === 'legacy') {
+        setDraft(null);
+        setLegacy(result.preview);
+      } else {
+        setDraft(result.draft);
+        setLegacy(null);
+        setGameName(keepGame ? (workspace?.gameName ?? '') : '');
+        setFirst(keepGame ? '' : '1');
+        setLast('');
+        setDirection(
+          keepGame ? (workspace?.direction ?? 'ascending') : 'ascending',
+        );
+      }
+    });
   }
   function changeView(view: ViewPreferences) {
     const current = latest.current;
@@ -218,375 +241,35 @@ export function App() {
     if (workspace && !workspace.selectionComplete)
       range = rangeForStart(
         workspace.nextRangeStart,
-        workspace.sequenceUpperBound,
+        Math.min(
+          workspace.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER,
+          MAX_SEQUENCE_NUMBER,
+        ),
       );
   } catch {
     /* A terminal project has no next range. */
   }
   return (
     <main
-      className={workspace && fullscreen ? 'fullscreen' : ''}
+      className={
+        workspace && !draft && !legacy
+          ? fullscreen
+            ? 'selection fullscreen'
+            : 'selection'
+          : ''
+      }
       aria-busy={busy}
     >
-      <header>
-        <div>
-          <h1>Selektor zdjęć</h1>
-          <p>Zdjęcia i wyniki pozostają na tym komputerze.</p>
-        </div>
-        <button
-          onClick={() =>
-            void window.selector
-              .openLogs()
-              .then(unwrap)
-              .catch((e) => setError(e.message))
-          }
-        >
-          Otwórz logi
-        </button>
-      </header>
-      {legacy && (
-        <section className="legacy-preview">
-          <h2>Podgląd sesji Reviewera</h2>
-          <p>
-            Źródło: {legacy.sourceName} · Stary wynik: {legacy.oldOutputName}
-          </p>
-          <p>
-            Zdjęcia: {legacy.fileCount} · Wybrane: {legacy.acceptedCount} ·
-            Pominięte zakresy: {legacy.skippedCount}
-          </p>
-          <p>
-            Pierwsza plansza: {legacy.firstLayout} · Ostatnia plansza:{' '}
-            {legacy.sequenceUpperBound ?? 'bez granicy'} · Kierunek:{' '}
-            {legacy.direction === 'ascending' ? 'rosnący' : 'malejący'}
-          </p>
-          <p>
-            Aktualne zdjęcie: {legacy.currentPhoto} ·{' '}
-            {legacy.selectionComplete
-              ? 'Selekcja zakończona'
-              : `Następny zakres od: ${legacy.nextRangeStart}`}
-          </p>
-          {legacy.legacyCursor && (
-            <p>
-              Pozycja zdjęcia została odtworzona według historycznych zasad
-              Reviewera.
-            </p>
-          )}
-          <p>
-            Sprawdzono źródło i sumy kontrolne JPEG-ów. Powstanie osobny projekt
-            i nowy wynik. Oryginały pozostaną bez zmian.
-          </p>
-          <nav>
+      <header className="toolbar viewer-toolbar">
+        <h1>Selektor zdjęć</h1>
+        {workspace && !draft && !legacy ? (
+          <>
             <button
+              className="secondaryButton configuration"
               disabled={busy}
-              onClick={() =>
-                void run(async () =>
-                  install(
-                    unwrap(
-                      await window.selector.legacyAdopt(legacy.previewToken),
-                    ),
-                  ),
-                )
-              }
+              onClick={() => beginSelection(true)}
             >
-              Utwórz nowy projekt z tej sesji
-            </button>
-            <button disabled={busy} onClick={() => setLegacy(null)}>
-              Anuluj przejęcie
-            </button>
-          </nav>
-        </section>
-      )}
-      {!workspace ? (
-        <section className="start">
-          <nav>
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  const result = unwrap(await window.selector.begin());
-                  if (!result) return;
-                  if (result.kind === 'existing') {
-                    await install(result.workspace);
-                  } else {
-                    setDraft(result.draft);
-                    setLegacy(null);
-                    setGameName('');
-                    setFirst('1');
-                    setLast('');
-                    setDirection('ascending');
-                    setConfirmed(false);
-                  }
-                })
-              }
-            >
-              Wybierz folder zdjęć
-            </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () =>
-                  install(unwrap(await window.selector.open())),
-                )
-              }
-            >
-              Otwórz projekt
-            </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  setDraft(null);
-                  setLegacy(unwrap(await window.selector.legacyPreview()));
-                })
-              }
-            >
-              Przejmij sesję Reviewera
-            </button>
-          </nav>
-          {!draft && (
-            <p>
-              Wybierz zdjęcia, aby zacząć lub wrócić do zapisanej pracy. Wyniki
-              zapisujemy automatycznie obok tego folderu.
-            </p>
-          )}
-          {draft && (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void run(async () =>
-                  install(
-                    unwrap(
-                      await window.selector.create({
-                        sourceToken: draft.sourceToken,
-                        gameName,
-                        firstLayout: Number(first),
-                        direction,
-                        sequenceUpperBound: last === '' ? null : Number(last),
-                        customLocations: false,
-                        localStorageConfirmed: confirmed,
-                      }),
-                    ),
-                  ),
-                );
-              }}
-            >
-              <h2>Nowa partia zdjęć</h2>
-              <p>
-                Zdjęcia: <strong>{draft.sourceName}</strong>
-              </p>
-              <label>
-                Nazwa gry
-                <input
-                  autoFocus
-                  aria-label="Nazwa gry"
-                  required
-                  maxLength={80}
-                  placeholder="np. Mumie lub Siódemki"
-                  value={gameName}
-                  onChange={(e) => setGameName(e.target.value)}
-                />
-              </label>
-              <label>
-                Pierwsza plansza
-                <input
-                  aria-label="Pierwsza plansza"
-                  type="number"
-                  min="1"
-                  required
-                  value={first}
-                  onChange={(e) => setFirst(e.target.value)}
-                />
-              </label>
-              <label>
-                Ostatnia plansza (opcjonalnie)
-                <input
-                  aria-label="Ostatnia plansza"
-                  type="number"
-                  min={first}
-                  value={last}
-                  onChange={(e) => setLast(e.target.value)}
-                />
-              </label>
-              <label>
-                Kierunek numeracji
-                <select
-                  aria-label="Kierunek numeracji"
-                  value={direction}
-                  onChange={(e) =>
-                    setDirection(e.target.value as typeof direction)
-                  }
-                >
-                  <option value="ascending">Rosnący</option>
-                  <option value="descending">Malejący</option>
-                </select>
-              </label>
-              <div className="folder-summary">
-                <p>Zdjęcia: {draft.sourcePath}</p>
-                <p>Wybrane zdjęcia: {draft.outputPath}</p>
-                <p>Postęp: {draft.projectPath}</p>
-                <p>
-                  Foldery utworzymy automatycznie. Nie musisz zapisywać ręcznie.
-                </p>
-              </div>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  required
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                />
-                Projekt i wynik będą na lokalnym dysku, poza synchronizacją i
-                udziałami sieciowymi.
-              </label>
-              <nav>
-                <button
-                  className="primary"
-                  disabled={busy || !confirmed || !gameName.trim()}
-                  type="submit"
-                >
-                  Rozpocznij wybieranie
-                </button>
-                <button
-                  disabled={busy}
-                  type="button"
-                  onClick={() => setDraft(null)}
-                >
-                  Anuluj
-                </button>
-              </nav>
-            </form>
-          )}
-          {!draft && recent.length > 0 && (
-            <section className="history">
-              <h2>Historia wyboru zdjęć</h2>
-              <label>
-                Ostatnie projekty
-                <select
-                  aria-label="Ostatnie projekty"
-                  disabled={busy}
-                  value={recentId}
-                  onChange={(event) => setRecentId(event.target.value)}
-                >
-                  <option value="">Wybierz grę i partię zdjęć</option>
-                  {recent.map((project) => (
-                    <option key={project.projectId} value={project.projectId}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                disabled={busy || !recentId}
-                onClick={() =>
-                  void run(async () =>
-                    install(unwrap(await window.selector.continue(recentId))),
-                  )
-                }
-              >
-                Kontynuuj
-              </button>
-            </section>
-          )}
-        </section>
-      ) : (
-        <>
-          <div className="project-info">
-            <strong>
-              {workspace.gameName
-                ? `${workspace.gameName} — ${workspace.sourceName}`
-                : workspace.sourceName}
-            </strong>
-            <span>
-              Projekt: {workspace.projectName} · Wynik: {workspace.outputName}
-            </span>
-            <span data-testid="counts">
-              Wybrane: {workspace.acceptedCount} · Pominięte zakresy:{' '}
-              {workspace.skippedCount}
-            </span>
-          </div>
-          <nav className="toolbar selection-actions">
-            <button disabled={!canAccept} onClick={accept}>
-              Wybierz (Enter / F)
-            </button>
-            <button
-              disabled={blocked || workspace.selectionComplete}
-              onClick={skip}
-            >
-              Pomiń zakres (Tab)
-            </button>
-            <button
-              disabled={blocked || !workspace.decisionCount}
-              onClick={undo}
-            >
-              Cofnij (A / Ctrl+Z)
-            </button>
-            <button
-              disabled={blocked || workspace.selectionComplete}
-              onClick={() => {
-                setRangeStart(String(workspace.nextRangeStart));
-                setRangeEditor(true);
-              }}
-            >
-              Zmień zakres
-            </button>
-          </nav>
-          {rangeEditor && (
-            <form
-              className="inline-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                execute({ kind: 'range', start: Number(rangeStart) });
-              }}
-            >
-              <label>
-                Początek zakresu
-                <input
-                  autoFocus
-                  aria-label="Początek zakresu"
-                  type="number"
-                  min="1"
-                  required
-                  value={rangeStart}
-                  onChange={(e) => setRangeStart(e.target.value)}
-                />
-              </label>
-              <span>
-                Koniec wyliczany automatycznie: 9 plansz lub końcówka.
-              </span>
-              <button disabled={busy}>Zapisz zakres</button>
-              <button type="button" onClick={() => setRangeEditor(false)}>
-                Anuluj zakres
-              </button>
-            </form>
-          )}
-          <nav
-            className="toolbar viewer-toolbar"
-            aria-label="Sterowanie podglądem"
-          >
-            <button
-              disabled={blocked || ordinal <= 0}
-              onClick={() => move(-workspace.view.navigationStep)}
-            >
-              Poprzednie
-            </button>
-            <span data-testid="cursor">
-              {image
-                ? `${ordinal + 1} / ${source!.images.length} · ${image.relativePath}`
-                : 'Źródło niedostępne'}
-            </span>
-            {fullscreen && (
-              <span data-testid="fullscreen-counts">
-                Wybrane: {workspace.acceptedCount}
-              </span>
-            )}
-            <button
-              disabled={
-                blocked || !source || ordinal >= source.images.length - 1
-              }
-              onClick={() => move(workspace.view.navigationStep)}
-            >
-              Następne
+              Wybierz kolejny folder
             </button>
             <label>
               Skok
@@ -624,15 +307,359 @@ export function App() {
                 ))}
               </select>
             </label>
+            {fullscreen && (
+              <span data-testid="fullscreen-counts">
+                <span data-testid="cursor">
+                  {ordinal + 1} / {source?.images.length ?? 0}
+                </span>{' '}
+                · Wybrane: {workspace.acceptedCount}
+              </span>
+            )}
             <button
+              className="secondaryButton"
               onClick={() => void toggleFullscreen()}
               aria-pressed={fullscreen}
             >
-              {fullscreen
-                ? 'Wyjdź z pełnego ekranu (F11)'
-                : 'Pełny ekran (F11)'}
+              {fullscreen ? 'Wyjdź (F11)' : 'Pełny ekran (F11)'}
+            </button>
+          </>
+        ) : (
+          <button
+            className="secondaryButton"
+            onClick={() =>
+              void window.selector
+                .openLogs()
+                .then(unwrap)
+                .catch((e) => setError(e.message))
+            }
+          >
+            Otwórz logi
+          </button>
+        )}
+      </header>
+      {legacy && (
+        <section className="legacy-preview">
+          <h2>Podgląd sesji Reviewera</h2>
+          <p>
+            Źródło: {legacy.sourceName} · Stary wynik: {legacy.oldOutputName}
+          </p>
+          {legacy.projectName && (
+            <p>
+              Nowy projekt: {legacy.projectName} · Nowy wynik:{' '}
+              {legacy.outputName}
+            </p>
+          )}
+          <p>
+            Zdjęcia: {legacy.fileCount} · Wybrane: {legacy.acceptedCount} ·
+            Pominięte zakresy: {legacy.skippedCount}
+          </p>
+          <p>
+            Pierwsza plansza: {legacy.firstLayout} · Ostatnia plansza:{' '}
+            {legacy.sequenceUpperBound ?? 'bez granicy'} · Kierunek:{' '}
+            {legacy.direction === 'ascending' ? 'rosnący' : 'malejący'}
+          </p>
+          <p>
+            Aktualne zdjęcie: {legacy.currentPhoto} ·{' '}
+            {legacy.selectionComplete
+              ? 'Selekcja zakończona'
+              : `Następny zakres od: ${legacy.nextRangeStart}`}
+          </p>
+          {legacy.legacyCursor && (
+            <p>
+              Pozycja zdjęcia została odtworzona według historycznych zasad
+              Reviewera.
+            </p>
+          )}
+          <p>
+            Sprawdzono źródło i sumy kontrolne JPEG-ów. Powstanie osobny projekt
+            i nowy wynik. Oryginały pozostaną bez zmian.
+          </p>
+          <nav>
+            <button
+              className="secondaryButton"
+              disabled={busy}
+              onClick={() =>
+                void run(async () =>
+                  install(
+                    unwrap(
+                      await window.selector.legacyAdopt(legacy.previewToken),
+                    ),
+                  ),
+                )
+              }
+            >
+              Utwórz nowy projekt z tej sesji
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={busy}
+              onClick={() => setLegacy(null)}
+            >
+              Anuluj przejęcie
             </button>
           </nav>
+        </section>
+      )}
+      {legacy ? null : !workspace || draft ? (
+        <section className="start">
+          <nav>
+            <button
+              className="primaryButton"
+              disabled={busy}
+              onClick={() => beginSelection(Boolean(workspace))}
+            >
+              Wybierz folder zdjęć
+            </button>
+          </nav>
+          {draft && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run(async () =>
+                  install(
+                    unwrap(
+                      await window.selector.create({
+                        sourceToken: draft.sourceToken,
+                        gameName,
+                        firstLayout: Number(first),
+                        direction,
+                        sequenceUpperBound: last === '' ? null : Number(last),
+                        customLocations: false,
+                        localStorageConfirmed: true,
+                      }),
+                    ),
+                  ),
+                );
+              }}
+            >
+              <h2>Nowa partia zdjęć</h2>
+              <p>
+                Zdjęcia: <strong>{draft.sourceName}</strong>
+              </p>
+              <label>
+                Nazwa gry
+                <input
+                  autoFocus
+                  aria-label="Nazwa gry"
+                  required
+                  maxLength={80}
+                  placeholder="np. Mumie lub Siódemki"
+                  value={gameName}
+                  onChange={(e) => setGameName(e.target.value)}
+                />
+              </label>
+              <label>
+                Pierwsza plansza
+                <input
+                  aria-label="Pierwsza plansza"
+                  type="number"
+                  min="1"
+                  max={MAX_SEQUENCE_NUMBER}
+                  required
+                  value={first}
+                  onChange={(e) => setFirst(e.target.value)}
+                />
+              </label>
+              <label>
+                Ostatnia plansza (opcjonalnie)
+                <input
+                  aria-label="Ostatnia plansza"
+                  type="number"
+                  min={first}
+                  max={MAX_SEQUENCE_NUMBER}
+                  placeholder={String(MAX_SEQUENCE_NUMBER)}
+                  value={last}
+                  onChange={(e) => setLast(e.target.value)}
+                />
+              </label>
+              <label>
+                Kierunek numeracji
+                <select
+                  aria-label="Kierunek numeracji"
+                  value={direction}
+                  onChange={(e) =>
+                    setDirection(e.target.value as typeof direction)
+                  }
+                >
+                  <option value="ascending">Rosnący</option>
+                  <option value="descending">Malejący</option>
+                </select>
+              </label>
+              <div className="folder-summary">
+                <p>Zdjęcia: {draft.sourcePath}</p>
+                <p>Wybrane zdjęcia: {draft.outputPath}</p>
+                <p>Postęp: {draft.projectPath}</p>
+              </div>
+              <nav>
+                <button
+                  className="primaryButton"
+                  disabled={busy || !gameName.trim()}
+                  type="submit"
+                >
+                  Rozpocznij wybieranie
+                </button>
+                <button
+                  className="secondaryButton"
+                  disabled={busy}
+                  type="button"
+                  onClick={() => setDraft(null)}
+                >
+                  Anuluj
+                </button>
+              </nav>
+            </form>
+          )}
+          {!draft && recent.length > 0 && (
+            <section className="history">
+              <h2>Historia wyboru zdjęć</h2>
+              <label>
+                Ostatnie projekty
+                <select
+                  aria-label="Ostatnie projekty"
+                  disabled={busy}
+                  value={recentId}
+                  onChange={(event) => setRecentId(event.target.value)}
+                >
+                  <option value="">Wybierz grę i partię zdjęć</option>
+                  {recent.map((project) => (
+                    <option key={project.projectId} value={project.projectId}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="secondaryButton"
+                disabled={busy || !recentId}
+                onClick={() =>
+                  void run(async () =>
+                    install(unwrap(await window.selector.continue(recentId))),
+                  )
+                }
+              >
+                Kontynuuj
+              </button>
+            </section>
+          )}
+        </section>
+      ) : (
+        <>
+          <div className="project-info">
+            <strong>
+              {workspace.gameName
+                ? `${workspace.gameName} — ${workspace.sourceName}`
+                : workspace.sourceName}
+            </strong>
+            <span data-testid="counts">
+              Wybrane: {workspace.acceptedCount} · Pominięte zakresy:{' '}
+              {workspace.skippedCount}
+            </span>
+          </div>
+          <nav className="toolbar selection-actions">
+            <button
+              className="primaryButton"
+              disabled={!canAccept}
+              onClick={accept}
+            >
+              Wybierz (Enter / F)
+            </button>
+            <button
+              className="secondaryButton"
+              title="Pomiń zakres (Tab)"
+              disabled={blocked || workspace.selectionComplete}
+              onClick={skip}
+            >
+              Pomiń
+            </button>
+            <button
+              className="secondaryButton"
+              title="Cofnij ostatnią decyzję (A / Ctrl+Z)"
+              disabled={blocked || !workspace.decisionCount}
+              onClick={undo}
+            >
+              Cofnij
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={blocked}
+              onClick={() => {
+                setRangeStart(
+                  String(
+                    Math.min(
+                      workspace.nextRangeStart,
+                      workspace.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER,
+                      MAX_SEQUENCE_NUMBER,
+                    ),
+                  ),
+                );
+                setRangeDirection(workspace.direction);
+                setRangeEditor(true);
+              }}
+            >
+              Zakres
+            </button>
+          </nav>
+          {rangeEditor && (
+            <form
+              className="inline-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                execute({
+                  kind: 'range',
+                  start: Number(rangeStart),
+                  direction: rangeDirection,
+                });
+              }}
+            >
+              <label>
+                Początek zakresu
+                <input
+                  autoFocus
+                  aria-label="Początek zakresu"
+                  type="number"
+                  min="1"
+                  max={Math.min(
+                    workspace.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER,
+                    MAX_SEQUENCE_NUMBER,
+                  )}
+                  required
+                  value={rangeStart}
+                  onChange={(e) => setRangeStart(e.target.value)}
+                />
+              </label>
+              <label>
+                Kierunek numeracji
+                <select
+                  aria-label="Kierunek numeracji"
+                  value={rangeDirection}
+                  onChange={(e) =>
+                    setRangeDirection(e.target.value as typeof rangeDirection)
+                  }
+                >
+                  <option value="ascending">Rosnący</option>
+                  <option value="descending">Malejący</option>
+                </select>
+              </label>
+              <button className="secondaryButton" disabled={busy}>
+                Zapisz
+              </button>
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() => setRangeEditor(false)}
+              >
+                Anuluj
+              </button>
+            </form>
+          )}
+          <div
+            className="photo-caption"
+            data-testid={fullscreen ? undefined : 'cursor'}
+          >
+            {image
+              ? `${ordinal + 1} / ${source!.images.length} · ${image.relativePath}`
+              : 'Źródło niedostępne'}
+          </div>
           <div className="range-indicator">
             <strong data-testid={fullscreen ? 'fullscreen-range' : 'range'}>
               {workspace.selectionComplete
@@ -657,6 +684,7 @@ export function App() {
           )}
           <nav>
             <button
+              className="secondaryButton"
               disabled={blocked}
               onClick={() =>
                 void window.selector
@@ -668,6 +696,7 @@ export function App() {
               Otwórz folder wynikowy
             </button>
             <button
+              className="secondaryButton"
               disabled={blocked || !workspace.decisionCount}
               onClick={() =>
                 void run(async () =>
@@ -678,6 +707,7 @@ export function App() {
               Restart partii
             </button>
             <button
+              className="secondaryButton"
               disabled={busy}
               onClick={() =>
                 void run(async () => {
@@ -705,6 +735,7 @@ export function App() {
               </p>
               <nav>
                 <button
+                  className="secondaryButton"
                   disabled={busy}
                   onClick={() =>
                     void run(async () =>
@@ -715,6 +746,7 @@ export function App() {
                   Wskaż ponownie źródło
                 </button>
                 <button
+                  className="secondaryButton"
                   disabled={busy}
                   onClick={() =>
                     void run(async () =>
@@ -740,6 +772,7 @@ export function App() {
                 pozostaną.
               </p>
               <button
+                className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
                   execute({
@@ -751,7 +784,11 @@ export function App() {
               >
                 Potwierdź restart partii
               </button>
-              <button disabled={busy} onClick={() => setRestart(null)}>
+              <button
+                className="secondaryButton"
+                disabled={busy}
+                onClick={() => setRestart(null)}
+              >
                 Anuluj restart
               </button>
             </section>
@@ -772,6 +809,7 @@ export function App() {
             </p>
             <nav>
               <button
+                className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
                   void run(async () =>
@@ -782,6 +820,7 @@ export function App() {
                 Wznów po naprawie
               </button>
               <button
+                className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
                   void run(async () =>
@@ -792,6 +831,7 @@ export function App() {
                 Wskaż ponownie źródło
               </button>
               <button
+                className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
                   void run(async () =>

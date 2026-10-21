@@ -1,10 +1,22 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-10-13
+last_updated: 2026-10-21
 ---
 
 # Lokalna ręczna selekcja zdjęć
+
+## Bieżący interfejs Windows — 1.0.1, TASK-1078
+
+Jedno wejście „Wybierz folder zdjęć” rozpoznaje źródło, folder projektu oraz wynik z manifestem operator-local. Projekt wznawia zapisany postęp. Dla starego wyniku aplikacja sprawdza źródło i JPEG-i, pokazuje preview, a po akceptacji tworzy sąsiedni `<źródło> selekcja` i `<źródło> wybrane przejete`. Przy nieznanym położeniu źródła prosi o jego wskazanie; błędny dowód blokuje import. Istniejący projekt ma pierwszeństwo przed importem jego projekcji wynikowej.
+
+Nowa partia wymaga nazwy gry, pierwszej planszy i kierunku. Opcjonalna ostatnia plansza domyślnie wynosi 500000; wartości spoza 1–500000 są odrzucane. Zapis zakresu 499996 tworzy `seq_499996-500000.jpg` z pięcioma aktywnymi planszami i spójnym manifestem. Starszy projekt bez granicy otrzymuje limit przy następnej decyzji lub edycji zakresu; historyczne pliki przekraczające limit wymagają cofnięcia błędnego wyboru, bez automatycznej podmiany.
+
+Nie ma checkboxa potwierdzającego lokalny dysk ani rutynowych opisów lokalności. Natywne kontrole katalogów pozostają. Podczas selekcji nagłówek zawiera skok, zoom, pełny ekran i „Wybierz kolejny folder”; logi są dostępne na ekranie startowym. Przyciski „Wybierz (Enter / F)”, „Pomiń”, „Cofnij” i „Zakres” mieszczą się w jednym rzędzie. Skróty pomijania i cofania są w podpowiedziach przycisków. Nawigację zdjęć obsługują strzałki, bez osobnych przycisków. Nazwa zdjęcia jest pod sterowaniem; operacje wyniku, restartu i zamknięcia projektu pozostają na dole.
+
+„Zakres” edytuje początek i kierunek dalszej numeracji, także po zakończeniu selekcji; nie przepisuje wcześniejszych decyzji. Cofnięcie decyzji zachowuje aktualnie ustawiony kierunek. „Wybierz kolejny folder” zachowuje grę i kierunek, ale wymaga ustawienia pierwszej planszy. Anulowanie dialogu lub formularza zachowuje poprzednią pracę.
+
+Przyciski główne i pomocnicze oraz paleta pochodzą z tych samych arkuszy `packages/ui/src/{theme,buttons}.css`, które importuje Admin. Selektor ustawia wysokość 32 px, a domyślna wysokość przycisków Admina pozostaje 42 px. Starsze opisy UI poniżej dokumentują poprzednie wydania i w tym zakresie są zastąpione przez tę sekcję.
 
 Aktualny kontrakt wydania 1.0.0: D-547. Brak narzuconej granicy liczby zdjęć i wpisów katalogowych. Rutynowe komunikaty pozycji są wyłączone; potrzebne informacje pozostają przy dolnej krawędzi. Zdjęcie jest wyśrodkowane w obu osiach, zakres pośrodku nad zdjęciem. Fullscreen pokazuje pozycję/liczbę wybranych, skok, zoom i wyjście; zmiana konfiguracji wymaga wyjścia. Odbiór TASK-0979 zamknięty jawną decyzją operatora, bez dopisania niewykonanych testów fizycznych. Szczegóły w quality/OFFLINE_PHOTO_SELECTOR_RELEASE_1_0_0_20261013.md. Poniższe dane starszych paczek są historią implementacji.
 

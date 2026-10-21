@@ -14,6 +14,20 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-567 — Edytowalny kierunek i granica 500000 w selektorze Windows
+
+**Status:** accepted
+
+**Data:** 2026-10-21
+
+**Źródło:** polecenie operatora, TASK-1078.
+
+Selektor Windows ogranicza nowe zakresy do 1–500000. Brak opcjonalnej ostatniej planszy oznacza 500000. Stary projekt bez granicy albo z większą granicą otrzymuje limit w transakcji następnej decyzji lub edycji zakresu, jeżeli pierwsza plansza i historia mieszczą się w limicie. Błędne historyczne pliki nie są automatycznie zmieniane; operator cofa wybór przed ponownym zapisem.
+
+Edycja zakresu może zmienić kierunek dalszej numeracji i wznowić zakończoną selekcję. Dotychczasowe decyzje pozostają bez zmian; undo zachowuje aktualnie ustawiony kierunek. Kierunek nie zmienia porządku zdjęć. Polecenie i konfiguracja są utrwalane we wspólnym journalu i ledgerach z zachowaniem retry operationId. Wspólny rdzeń oraz webowy Reviewer nie otrzymują globalnego limitu.
+
+Interfejs ma jedno wejście rozpoznające źródło, projekt i manifest, bez checkboxa lokalności; kontrole natywne pozostają. Paleta i przyciski są współdzielone z Adminem, a wysokość 32 px jest lokalnym ustawieniem desktopu. Zastępuje sprzeczne detale interfejsu wcześniejszych wydań, pozostawiając ich reguły tożsamości, trwałości i ochrony źródeł.
+
 ## D-566 — Kolejka masowej weryfikacji symboli
 
 - **Date:** 2026-10-19.

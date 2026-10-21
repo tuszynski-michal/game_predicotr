@@ -12,6 +12,12 @@ import { RecentProjects } from '../project/recent-projects.ts';
 import type { ProjectCommand } from '../project/types.ts';
 import { SourceRegistry } from './source-registry.ts';
 import {
+  PROJECT_STATE_NAME,
+  PROJECT_BACKUP_NAME,
+  PROJECT_JOURNAL_NAME,
+} from '../project/state-codec.ts';
+import { OUTPUT_MANIFEST_NAME } from '../manifest/operator-local.ts';
+import {
   inspectLegacy,
   sameLegacyProof,
   type LegacyProof,
@@ -24,6 +30,7 @@ import {
 } from './view-preferences.ts';
 import {
   SelectorError,
+  MAX_SEQUENCE_NUMBER,
   validateGameName,
   type CreateProjectRequest,
   type SourceIndex,
@@ -64,16 +71,18 @@ export function validateCreate(value: unknown): CreateProjectRequest {
   if (
     !Number.isSafeInteger(v.firstLayout) ||
     Number(v.firstLayout) < 1 ||
+    Number(v.firstLayout) > MAX_SEQUENCE_NUMBER ||
     !['ascending', 'descending'].includes(String(v.direction)) ||
     (v.sequenceUpperBound !== null &&
       (!Number.isSafeInteger(v.sequenceUpperBound) ||
-        Number(v.sequenceUpperBound) < Number(v.firstLayout))) ||
+        Number(v.sequenceUpperBound) < Number(v.firstLayout) ||
+        Number(v.sequenceUpperBound) > MAX_SEQUENCE_NUMBER)) ||
     typeof v.customLocations !== 'boolean' ||
     v.localStorageConfirmed !== true
   )
     throw new SelectorError(
       'INVALID_ARGUMENT',
-      'Podaj prawidłową numerację i potwierdź lokalne katalogi.',
+      'Podaj numerację od 1 do 500000.',
     );
   if (v.sourceToken !== undefined) {
     validateId(v.sourceToken);
@@ -86,6 +95,7 @@ export function validateCreate(value: unknown): CreateProjectRequest {
   }
   return {
     ...v,
+    sequenceUpperBound: v.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER,
     ...(v.gameName === undefined
       ? {}
       : { gameName: validateGameName(v.gameName) }),
@@ -105,6 +115,8 @@ export class ProjectController {
     token: string;
     proof: LegacyProof;
     result: DesktopWorkspace | null;
+    automatic?: boolean;
+    gameName?: string;
   } | null = null;
   private draft: {
     value: NewProjectDraft;
@@ -245,31 +257,50 @@ export class ProjectController {
         'Wybierz stary wynik sesji Reviewera',
       );
       if (!output) return null;
-      const proof = await inspectLegacy(source, output);
-      const token = randomUUID();
-      this.legacyProof = { token, proof, result: null };
-      const s = proof.seed;
-      return {
-        previewToken: token,
-        schemaVersion: proof.schemaVersion,
-        sourceName: s.sourceDirectoryName,
-        oldOutputName: path.basename(proof.oldOutputRoot),
-        fileCount: s.inventory.length,
-        firstLayout: s.firstLayout,
-        direction: s.direction,
-        sequenceUpperBound: s.sequenceUpperBound,
-        nextRangeStart: s.nextRangeStart,
-        selectionComplete: s.selectionComplete,
-        currentPhoto:
-          s.inventory.findIndex(
-            (i) => i.relativePath === s.currentRelativePath,
-          ) + 1,
-        acceptedCount: s.decisions.filter((d) => d.action === 'accepted')
-          .length,
-        skippedCount: s.decisions.filter((d) => d.action === 'skipped').length,
-        legacyCursor: proof.legacyCursor,
-      };
+      return this.inspectLegacySelection(source, output);
     });
+  }
+  private async inspectLegacySelection(
+    source: string,
+    output: string,
+    automatic = false,
+  ): Promise<LegacyPreviewSummary> {
+    const proof = await inspectLegacy(source, output);
+    const token = randomUUID();
+    this.legacyProof = {
+      token,
+      proof,
+      result: null,
+      automatic,
+      gameName: automatic
+        ? this.store?.workspaceSnapshot().gameName
+        : undefined,
+    };
+    const s = proof.seed;
+    return {
+      ...(automatic
+        ? {
+            projectName: `${s.sourceDirectoryName} selekcja`,
+            outputName: `${s.sourceDirectoryName} wybrane przejete`,
+          }
+        : {}),
+      previewToken: token,
+      schemaVersion: proof.schemaVersion,
+      sourceName: s.sourceDirectoryName,
+      oldOutputName: path.basename(proof.oldOutputRoot),
+      fileCount: s.inventory.length,
+      firstLayout: s.firstLayout,
+      direction: s.direction,
+      sequenceUpperBound: s.sequenceUpperBound,
+      nextRangeStart: s.nextRangeStart,
+      selectionComplete: s.selectionComplete,
+      currentPhoto:
+        s.inventory.findIndex((i) => i.relativePath === s.currentRelativePath) +
+        1,
+      acceptedCount: s.decisions.filter((d) => d.action === 'accepted').length,
+      skippedCount: s.decisions.filter((d) => d.action === 'skipped').length,
+      legacyCursor: proof.legacyCursor,
+    };
   }
   legacyAdopt(token: unknown): Promise<DesktopWorkspace | null> {
     return this.serial(async () => {
@@ -290,15 +321,16 @@ export class ProjectController {
           );
         return this.snapshot();
       }
-      const projectRoot = await this.dialogs.directory(
-        'Wybierz nowy pusty katalog projektu',
-      );
+      const projectRoot = preview.automatic
+        ? `${preview.proof.sourceRoot} selekcja`
+        : await this.dialogs.directory('Wybierz nowy pusty katalog projektu');
       if (!projectRoot) return null;
-      const outputRoot = await this.dialogs.directory(
-        'Wybierz nowy pusty katalog wynikowy',
-      );
+      const outputRoot = preview.automatic
+        ? `${preview.proof.sourceRoot} wybrane przejete`
+        : await this.dialogs.directory('Wybierz nowy pusty katalog wynikowy');
       if (!outputRoot) return null;
       if (
+        !preview.automatic &&
         !(await this.dialogs.confirm(
           `Przejęcie sesji: ${preview.proof.seed.sourceDirectoryName}\nNowy projekt: ${projectRoot}\nNowy wynik: ${outputRoot}\n\nProjekt i nowy wynik są na lokalnym dysku poza synchronizacją. Stary wynik i źródło pozostaną bez zmian. Utworzyć nowy projekt?`,
         ))
@@ -318,6 +350,7 @@ export class ProjectController {
           sourceRoot: proof.sourceRoot,
           projectRoot,
           outputRoot,
+          ...(preview.gameName ? { gameName: preview.gameName } : {}),
           firstLayout: proof.seed.firstLayout,
           direction: proof.seed.direction,
           sequenceUpperBound: proof.seed.sequenceUpperBound,
@@ -348,84 +381,153 @@ export class ProjectController {
       if (!(await lstat(chosen)).isDirectory())
         throw new SelectorError('NOT_DIRECTORY', 'Wybierz folder zdjęć.');
       const sourceRoot = await canonicalDirectoryLocation(chosen);
-      const projectRoot = `${sourceRoot} selekcja`;
-      const candidates = new Map<
-        string,
-        { root: string; projectId?: string }
-      >();
-      const key = (root: string) => path.resolve(root).toLowerCase();
-      try {
-        const files = new SecureFiles(projectRoot);
-        await files.verifyRoot();
-        if ((await files.names()).length)
-          candidates.set(key(projectRoot), { root: projectRoot });
-      } catch (error) {
-        if (!isMissing(error)) throw error;
-      }
-      const cachedRoots = new Set<string>();
-      for (const entry of await this.recentCache.list()) {
-        const rootKey = key(entry.projectRoot);
-        if (cachedRoots.has(rootKey)) continue;
-        cachedRoots.add(rootKey);
-        if (entry.sourceRoot && key(entry.sourceRoot) === key(sourceRoot))
-          candidates.set(key(entry.projectRoot), {
-            root: entry.projectRoot,
-            projectId: entry.projectId,
-          });
-      }
-      if (candidates.size > 1)
-        throw new SelectorError(
-          'SOURCE_PROJECT_AMBIGUOUS',
-          'Ten folder ma kilka projektów. Wybierz właściwy z historii.',
+      const selectedFiles = new SecureFiles(sourceRoot);
+      const selectedNames = await selectedFiles.names();
+      if (
+        [PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME].some(
+          (name) => selectedNames.includes(name),
+        )
+      ) {
+        await this.closeInternal();
+        const workspace = await this.replaceStore(
+          await ProjectStore.open(sourceRoot),
         );
-      const existing = candidates.values().next().value;
-      if (existing) {
-        let missing = false;
+        this.draft = null;
+        return { kind: 'existing', workspace };
+      }
+      if (selectedNames.includes(OUTPUT_MANIFEST_NAME)) {
+        // Metadata is only a hint. inspectLegacy proves the source identity and
+        // every selected JPEG before presenting an adoption preview.
+        let raw: Record<string, unknown>;
         try {
-          await lstat(existing.root);
-        } catch (error) {
-          if (!isMissing(error)) throw error;
-          missing = true;
+          raw = JSON.parse(
+            (await selectedFiles.read(OUTPUT_MANIFEST_NAME))!.toString(),
+          ) as Record<string, unknown>;
+          if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+            throw new Error('manifest');
+        } catch {
+          throw new SelectorError(
+            'LEGACY_INVALID',
+            'Manifest sesji jest uszkodzony.',
+          );
         }
-        if (missing) {
-          if (
-            !(await this.dialogs.confirm(
-              `Nie znaleziono folderu projektu:\n${existing.root}\n\nJeżeli projekt został przeniesiony, anuluj i wskaż go przez „Otwórz projekt”. „Nowa partia” zapomina tylko martwy wpis historii i otwiera nową konfigurację. Nie usuwa plików. Rozpocząć nową partię?`,
-              'Nowa partia',
-            ))
-          )
-            return null;
-          // A moved/restored project may reappear while the dialog is open.
-          // Never discard its identity or progress based on the old check.
+        const name = raw.sourceDirectoryName;
+        let oldSource: string | null = null;
+        if (
+          typeof name === 'string' &&
+          name !== '.' &&
+          name !== '..' &&
+          !/[\\/:]/.test(name)
+        ) {
+          const sibling = path.join(path.dirname(sourceRoot), name);
           try {
-            await lstat(existing.root);
-            missing = false;
+            if ((await lstat(sibling)).isDirectory()) oldSource = sibling;
           } catch (error) {
             if (!isMissing(error)) throw error;
           }
-          if (missing) await this.recentCache.forgetRoot(existing.root);
         }
-        if (!missing) {
-          await this.closeInternal();
-          const store = await ProjectStore.open(existing.root, {
-            expectedSourceRoot: sourceRoot,
-            expectedProjectId: existing.projectId,
-          });
-          const workspace = await this.replaceStore(store);
-          this.draft = null;
-          return { kind: 'existing', workspace };
-        }
+        oldSource ??= await this.dialogs.directory(
+          'Wybierz folder źródłowych zdjęć tej sesji',
+        );
+        if (!oldSource) return null;
+        return this.beginSource(oldSource, sourceRoot);
       }
-      const draft: NewProjectDraft = {
-        sourceToken: randomUUID(),
-        sourceName: path.basename(sourceRoot),
-        sourcePath: sourceRoot,
-        projectPath: projectRoot,
-        outputPath: `${sourceRoot} wybrane`,
-      };
-      this.draft = { value: draft };
-      return { kind: 'new', draft: { ...draft } };
+      return this.beginSource(sourceRoot);
     });
+  }
+  private async beginSource(
+    sourceRoot: string,
+    legacyOutput?: string,
+  ): Promise<StartSelectionResult | null> {
+    const projectRoot = `${sourceRoot} selekcja`;
+    const candidates = new Map<string, { root: string; projectId?: string }>();
+    const key = (root: string) => path.resolve(root).toLowerCase();
+    try {
+      const files = new SecureFiles(projectRoot);
+      await files.verifyRoot();
+      if ((await files.names()).length)
+        candidates.set(key(projectRoot), { root: projectRoot });
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+    }
+    const cachedRoots = new Set<string>();
+    for (const entry of await this.recentCache.list()) {
+      const rootKey = key(entry.projectRoot);
+      if (cachedRoots.has(rootKey)) continue;
+      cachedRoots.add(rootKey);
+      if (entry.sourceRoot && key(entry.sourceRoot) === key(sourceRoot))
+        candidates.set(key(entry.projectRoot), {
+          root: entry.projectRoot,
+          projectId: entry.projectId,
+        });
+    }
+    if (candidates.size > 1)
+      throw new SelectorError(
+        'SOURCE_PROJECT_AMBIGUOUS',
+        'Ten folder ma kilka projektów. Wybierz właściwy z historii.',
+      );
+    const existing = candidates.values().next().value;
+    if (existing) {
+      let missing = false;
+      try {
+        await lstat(existing.root);
+      } catch (error) {
+        if (!isMissing(error)) throw error;
+        missing = true;
+      }
+      if (missing) {
+        if (
+          !(await this.dialogs.confirm(
+            `Nie znaleziono folderu projektu:\n${existing.root}\n\nJeżeli projekt został przeniesiony, anuluj i wskaż go przez „Wybierz folder zdjęć”. „Nowa partia” zapomina tylko martwy wpis historii i otwiera nową konfigurację. Nie usuwa plików. Rozpocząć nową partię?`,
+            'Nowa partia',
+          ))
+        )
+          return null;
+        // A moved/restored project may reappear while the dialog is open.
+        // Never discard its identity or progress based on the old check.
+        try {
+          await lstat(existing.root);
+          missing = false;
+        } catch (error) {
+          if (!isMissing(error)) throw error;
+        }
+        if (missing) await this.recentCache.forgetRoot(existing.root);
+      }
+      if (!missing) {
+        await this.closeInternal();
+        const store = await ProjectStore.open(existing.root, {
+          expectedSourceRoot: sourceRoot,
+          expectedProjectId: existing.projectId,
+        });
+        const workspace = await this.replaceStore(store);
+        this.draft = null;
+        return { kind: 'existing', workspace };
+      }
+    }
+    const oldOutput = legacyOutput ?? `${sourceRoot} wybrane`;
+    try {
+      const files = new SecureFiles(oldOutput);
+      if ((await files.names()).includes(OUTPUT_MANIFEST_NAME))
+        return {
+          kind: 'legacy',
+          preview: await this.inspectLegacySelection(
+            sourceRoot,
+            oldOutput,
+            true,
+          ),
+        };
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+    }
+    const draft: NewProjectDraft = {
+      sourceToken: randomUUID(),
+      sourceName: path.basename(sourceRoot),
+      sourcePath: sourceRoot,
+      projectPath: projectRoot,
+      outputPath: `${sourceRoot} wybrane`,
+    };
+    this.draft = { value: draft };
+    return { kind: 'new', draft: { ...draft } };
   }
   create(value: unknown): Promise<DesktopWorkspace | null> {
     return this.serial(async () => {
@@ -477,15 +579,20 @@ export class ProjectController {
         ))
       )
         return null;
-      await this.closeInternal();
-      const result = await this.replaceStore(
-        await ProjectStore.create({
-          sourceRoot,
-          projectRoot,
-          outputRoot,
-          ...options,
-        }),
-      );
+      const store = await ProjectStore.create({
+        sourceRoot,
+        projectRoot,
+        outputRoot,
+        ...options,
+      });
+      let result: DesktopWorkspace;
+      try {
+        await this.closeInternal();
+        result = await this.replaceStore(store);
+      } catch (error) {
+        await store.close();
+        throw error;
+      }
       if (draft) {
         draft.request = JSON.stringify(options);
         draft.result = result;
@@ -529,6 +636,7 @@ export class ProjectController {
         'kind',
         'imageId',
         'start',
+        'direction',
         'expectedRevision',
         'previewChecksum',
       ]);
@@ -556,15 +664,26 @@ export class ProjectController {
         native = { kind: command.kind };
       } else if (command.kind === 'range') {
         if (
-          Object.keys(command).sort().join(',') !== 'kind,start' ||
+          !['kind,start', 'direction,kind,start'].includes(
+            Object.keys(command).sort().join(','),
+          ) ||
           !Number.isSafeInteger(command.start) ||
-          Number(command.start) < 1
+          Number(command.start) < 1 ||
+          Number(command.start) > MAX_SEQUENCE_NUMBER ||
+          (command.direction !== undefined &&
+            !['ascending', 'descending'].includes(String(command.direction)))
         )
           throw new SelectorError(
             'INVALID_ARGUMENT',
-            'Podaj dodatni początek zakresu.',
+            'Podaj zakres od 1 do 500000 i prawidłowy kierunek.',
           );
-        native = { kind: 'range', start: Number(command.start) };
+        native = {
+          kind: 'range',
+          start: Number(command.start),
+          ...(command.direction === undefined
+            ? {}
+            : { direction: command.direction as 'ascending' | 'descending' }),
+        };
       } else if (command.kind === 'restart') {
         if (
           Object.keys(command).sort().join(',') !==

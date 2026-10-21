@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1081 — Podwójny podgląd wyszukanej planszy (done)
 
 - Plik: tasks/completed/1081-board-search-duplicate-preview.md.
-- Commit: **v1.7.455**.
+- Commit: **v1.7.455 / `ec72da2d9bff4e75ce1b37e195ffc951619aed04`**.
 - Usunięto konflikt kluczy zdjęcia i modala wspólnej wyszukiwarki; jeden podgląd po otwarciu okna i zmianie planszy, także w widoku kompaktowym.
 - Regresja przed zmianą odtwarza dwa obrazy; po zmianie 104 testy unit i 91 interakcji PASS, lint, typecheck, format, mapa kodu i docs PASS.
 - Bez restartu usług, scalenia, push i ręcznego odbioru przeglądarki.

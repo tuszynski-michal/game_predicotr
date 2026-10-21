@@ -85,7 +85,7 @@ require operator acceptance; the regression reproduces actual DOM duplication.
 
 ## Outcome
 
-Commit: v1.7.455 (hash dopisuje kolejny commit).
+Commit: v1.7.455 / `ec72da2d9bff4e75ce1b37e195ffc951619aed04`.
 
 ### Changed
 

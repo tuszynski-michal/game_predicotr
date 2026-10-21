@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 — tasks/completed/1081-board-search-duplicate-preview.md
+- **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md
 - **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 / `6a10b8b2` — tasks/completed/1079-super-symbol-board-highlights.md
 - **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 / `206e1755` — tasks/completed/1078-selector-compact-workflow.md
 - **TASK-1075** — Automatyczne przejście po zapisie super symbolu — v1.7.449 / `1ca03918` — tasks/completed/1075-share-super-auto-next.md

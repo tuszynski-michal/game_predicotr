@@ -56,7 +56,7 @@ and after the task.
 
 ## Outcome
 
-Commit: v1.7.458 (hash dopisuje kolejny commit).
+Commit: v1.7.458 / `787e8e271ff372f5594e358a85381bc7864e8255`.
 
 ### Changed
 

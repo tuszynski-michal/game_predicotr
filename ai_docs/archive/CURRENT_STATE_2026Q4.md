@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1082 — Sprzątanie po scaleniu (done)
 
 - Plik: tasks/completed/1082-mandatory-merge-cleanup.md.
-- Commit: **v1.7.458**.
+- Commit: **v1.7.458 / `787e8e271ff372f5594e358a85381bc7864e8255`**.
 - AGENTS.md i skill merge-to-main wymagają usunięcia worktree i lokalnej gałęzi po merge i pushu, bez kolejnej zgody; kontrola commitów i ochrona cudzych zmian pozostają.
 - docs:check, budżety, mirror skilla, quick_validate.py i diff --check PASS. Bez zmian aplikacji, merge i push.
 

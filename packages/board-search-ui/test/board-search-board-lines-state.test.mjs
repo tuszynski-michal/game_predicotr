@@ -132,6 +132,29 @@ test('line offsets are centred and bounded', () => {
   assert.ok(Math.abs(boardLineOffset(0, 20)) <= 0.12);
 });
 
+test('preserved wins explain only the unpaid difference, never the full original twice', () => {
+  const original = match('top', 0, [0, 1, 2, 3, 4], 240);
+  const value = detail([], {
+    payoutCredits: 300,
+    countMatches: [{ payoutCredits: 20 }],
+    expansion: { payoutCredits: 50 },
+    preservedWins: [
+      {
+        match: original,
+        expandedPayoutCredits: 10,
+        additionalPayoutCredits: 230,
+      },
+    ],
+  });
+  assert.deepEqual(boardLinesConsistency(value, 300, 'rules-1'), {
+    kind: 'consistent',
+  });
+  assert.deepEqual(
+    boardLinesConsistency({ ...value, preservedWins: [] }, 300, 'rules-1'),
+    { kind: 'inconsistent', reason: 'lines' },
+  );
+});
+
 test('schema cells are row-major 100-unit squares', () => {
   assert.deepEqual(boardSchemaCellPolygon(7)[0], { x: 200, y: 100 });
   assert.deepEqual(boardSchemaCellPolygon(14)[2], { x: 500, y: 300 });

@@ -585,6 +585,7 @@ export type {
   BoardSearchPanelOpen,
   BoardSearchPanelPublicGameResponse,
   BoardSearchPanelResponse,
+  BoardSearchPreservedWinResponse,
   BoardSearchResponse,
   BoardSearchResultResponse,
   BoardSearchScope,

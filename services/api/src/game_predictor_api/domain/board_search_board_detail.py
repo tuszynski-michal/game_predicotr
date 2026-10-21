@@ -103,6 +103,13 @@ class BoardSearchLineMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class BoardPreservedWin:
+    match: BoardSearchLineMatch
+    expanded_payout_credits: int
+    additional_payout_credits: int
+
+
+@dataclass(frozen=True, slots=True)
 class BoardCountMatch:
     """A super game trigger symbol paid per count of its cells on the board
     (`payout-v4-wild-count`); unknown cells are never counted."""

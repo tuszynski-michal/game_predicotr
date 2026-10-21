@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-19
+last_updated: 2026-10-21
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,34 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-568 — Zachowanie wygranych sprzed rozwinięcia super symbolu
+
+**Status:** accepted
+
+**Data:** 2026-10-21
+
+**Źródło:** jawne potwierdzenie operatora: te same wygrane tylko raz; polecenie
+wdrożenia TASK-1080.
+
+**Decyzja:** w `wild_super_spins` płacić maksimum sprzed i po rozwinięciu
+osobno dla każdej pary (aktywna linia, symbol). Wypłata rozwinięcia nadal
+wynosi `payout_line(X, k) × liczba aktywnych linii`; oryginalna wygrana X
+z Wildami dopłaca tylko różnicę ponad wypłatę jednej linii rozwinięcia.
+Przykryte wygrane innych symboli pozostają. Sztuki symbolu uruchamiającego
+liczyć jeden raz, na planszy oryginalnej. API i modal wyjaśniają dopłatę
+osobno od pełnej oryginalnej wygranej (`preservedWins`).
+
+**Granice:** zastępuje wyłącznie utratę wygranych przy przykryciu w D-537.
+Plansza uruchamiająca pozostaje bazowa, bez rozwinięcia. Próg naturalnych
+kolumn, Wild, retrigger, darmowe spiny i klasyfikacja prowizoryczna bez zmian.
+Bez migracji, zmiany danych i przeliczania zamrożonej historii.
+
+**Alternatywa odrzucona:** suma obu etapów dublowałaby tę samą wygraną i sztuki.
+
+**Konsekwencje:** zgodna implementacja Python/TypeScript i wspólne przypadki
+złote. Bieżące kalkulacje uwzględniają regułę; zapisane wyniki pozostają
+migawkami z momentu ich zapisania.
 
 ## D-567 — Edytowalny kierunek i granica 500000 w selektorze Windows
 

@@ -2213,7 +2213,7 @@
             "title": "Cells"
           },
           "countMatches": {
-            "description": "Count payouts of super game trigger symbols, counted on the original board; payoutCredits is the sum of matches, countMatches and expansion.",
+            "description": "Count payouts of super game trigger symbols, counted on the original board; payoutCredits sums matches, countMatches, expansion and preservedWins.additionalPayoutCredits.",
             "items": {
               "$ref": "#/components/schemas/BoardSearchCountMatchResponse"
             },
@@ -2296,6 +2296,15 @@
             ],
             "title": "Payoutkind",
             "type": "string"
+          },
+          "preservedWins": {
+            "default": [],
+            "description": "Original-board wins preserved over the expanded pair. Add only additionalPayoutCredits to matches, countMatches and expansion.",
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchPreservedWinResponse"
+            },
+            "title": "Preservedwins",
+            "type": "array"
           },
           "rules": {
             "$ref": "#/components/schemas/ApproximateWinRulesResponse"
@@ -2837,6 +2846,32 @@
           "shareUrl"
         ],
         "title": "BoardSearchPanelResponse",
+        "type": "object"
+      },
+      "BoardSearchPreservedWinResponse": {
+        "additionalProperties": false,
+        "description": "Original match evidence; only the positive unpaid difference is added.",
+        "properties": {
+          "additionalPayoutCredits": {
+            "exclusiveMinimum": 0.0,
+            "title": "Additionalpayoutcredits",
+            "type": "integer"
+          },
+          "expandedPayoutCredits": {
+            "minimum": 0.0,
+            "title": "Expandedpayoutcredits",
+            "type": "integer"
+          },
+          "match": {
+            "$ref": "#/components/schemas/BoardSearchLineMatchResponse"
+          }
+        },
+        "required": [
+          "match",
+          "expandedPayoutCredits",
+          "additionalPayoutCredits"
+        ],
+        "title": "BoardSearchPreservedWinResponse",
         "type": "object"
       },
       "BoardSearchResponse": {
@@ -3563,6 +3598,14 @@
             ],
             "title": "Payoutkind",
             "type": "string"
+          },
+          "preservedWins": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchPreservedWinResponse"
+            },
+            "title": "Preservedwins",
+            "type": "array"
           },
           "rules": {
             "$ref": "#/components/schemas/ApproximateWinRulesResponse"

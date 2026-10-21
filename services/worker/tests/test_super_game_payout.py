@@ -8,6 +8,7 @@ executes the same ``wildSuperSpinsScenario`` section of
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any, cast
 
 import pytest
@@ -111,6 +112,16 @@ def _serialize(result: SeriesBoardEvaluation, columns: int) -> dict[str, Any]:
             for match in result.count_matches
         ],
         "retrigger": result.retrigger,
+        "preservedWins": [
+            {
+                "match": _serialize(
+                    replace(result, matches=(win.match,), preserved_wins=()), columns
+                )["matches"][0],
+                "expandedPayoutCredits": win.expanded_payout_credits,
+                "additionalPayoutCredits": win.additional_payout_credits,
+            }
+            for win in result.preserved_wins
+        ],
     }
 
 
@@ -127,6 +138,7 @@ def test_wild_super_spins_golden_cases(case: Mapping[str, Any]) -> None:
         sum(match.payout_credits for match in result.matches)
         + sum(match.payout_credits for match in result.count_matches)
         + (0 if result.expansion is None else result.expansion.payout_credits)
+        + sum(win.additional_payout_credits for win in result.preserved_wins)
     )
     assert result.total_payout == total
 
@@ -151,16 +163,16 @@ def test_worked_example_of_the_plan_pays_ten_times_five() -> None:
     assert result.payout_kind is SeriesPayoutKind.EXACT
 
 
-def test_undefined_super_symbol_is_neither_a_lower_nor_an_upper_bound() -> None:
+def test_defined_expansion_preserves_original_wins_of_an_undefined_preview() -> None:
     grows = _evaluate(_case("undefined-super-symbol-is-provisional-and-may-grow"))
     grown = _evaluate(_case("expansion-covers-a-line-win-underneath"))
-    shrinks = _evaluate(_case("undefined-super-symbol-is-provisional-and-may-shrink"))
+    shrinks = _evaluate(_case("undefined-super-symbol-with-original-wins-is-provisional"))
     shrunk = _evaluate(_case("defined-super-symbol-covers-a-larger-win"))
 
     assert grows.payout_kind is SeriesPayoutKind.PROVISIONAL
     assert shrinks.payout_kind is SeriesPayoutKind.PROVISIONAL
     assert grows.total_payout < grown.total_payout
-    assert shrinks.total_payout > shrunk.total_payout
+    assert shrinks.total_payout <= shrunk.total_payout
 
 
 def test_unknown_cell_outside_super_columns_can_cross_the_threshold() -> None:
@@ -171,7 +183,7 @@ def test_unknown_cell_outside_super_columns_can_cross_the_threshold() -> None:
     assert before.expansion is None
     assert after.expansion is not None
     assert after.expansion.column_count == 3
-    # The covered column removed the base-mode A line: not a lower bound.
+    # Expansion covers the A line visually, but its original payout is preserved.
     assert [match.symbol_mobile_code for match in before.matches] == [5]
     assert after.matches == ()
     assert before.total_payout != after.total_payout

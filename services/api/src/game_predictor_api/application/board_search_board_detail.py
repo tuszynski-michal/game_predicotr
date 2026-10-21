@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
+from game_predictor_worker.domain.contracts import PayoutMatch
 from game_predictor_worker.domain.errors import DomainValidationError
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -45,6 +46,7 @@ from game_predictor_api.domain.board_search_board_detail import (
     BoardCountMatch,
     BoardExpansion,
     BoardPayoutKind,
+    BoardPreservedWin,
     BoardSearchBoardCell,
     BoardSearchBoardDocument,
     BoardSearchBoardView,
@@ -129,6 +131,31 @@ class BoardSearchBoardDetail:
     """The board the lines were evaluated on when the super symbol expanded;
     `None` without an expansion. `symbol_codes` stays the original board."""
     expansion: BoardExpansion | None = None
+    preserved_wins: tuple[BoardPreservedWin, ...] = ()
+
+
+def _line_match(
+    match: PayoutMatch, labels: Mapping[str, PaylineLabel], codes: Mapping[int, str]
+) -> BoardSearchLineMatch:
+    label = labels.get(match.payline_id)
+    symbol_code = codes.get(match.symbol_mobile_code)
+    if label is None or symbol_code is None:
+        raise BoardSearchError(
+            "APPROXIMATE_WIN_RULES_INVALID",
+            "A winning payline or symbol is missing from the selected rules.",
+        )
+    return BoardSearchLineMatch(
+        payline_id=match.payline_id,
+        payline_code=label.code,
+        payline_name=label.name,
+        payline_display_order=label.display_order,
+        row_path=label.row_path,
+        symbol_code=symbol_code,
+        matched_length=match.matched_length,
+        matched_cells=tuple(match.matched_cells),
+        joker_cells=tuple(match.joker_cells),
+        payout_credits=match.payout_credits,
+    )
 
 
 def _board_not_found() -> BoardSearchError:
@@ -280,31 +307,7 @@ class BoardSearchBoardDetailService:
         labels = self._repository.payline_labels(configuration.rules_version_id)
         codes = self._repository.symbol_codes(game_id)
         line_matches = evaluation.matches if series is None else series.matches
-        matches: list[BoardSearchLineMatch] = []
-        for match in line_matches:
-            label = labels.get(match.payline_id)
-            symbol_code = codes.get(match.symbol_mobile_code)
-            if label is None or symbol_code is None:
-                # Evaluator and labels come from the same rules version; a gap
-                # here is a data defect, never a line to hide silently.
-                raise BoardSearchError(
-                    "APPROXIMATE_WIN_RULES_INVALID",
-                    "A winning payline or symbol is missing from the selected rules.",
-                )
-            matches.append(
-                BoardSearchLineMatch(
-                    payline_id=match.payline_id,
-                    payline_code=label.code,
-                    payline_name=label.name,
-                    payline_display_order=label.display_order,
-                    row_path=label.row_path,
-                    symbol_code=symbol_code,
-                    matched_length=match.matched_length,
-                    matched_cells=tuple(match.matched_cells),
-                    joker_cells=tuple(match.joker_cells),
-                    payout_credits=match.payout_credits,
-                )
-            )
+        matches = [_line_match(match, labels, codes) for match in line_matches]
         matches.sort(key=lambda item: (item.payline_display_order, item.payline_code))
 
         source = self._repository.board_view_source(game_id=game_id, document=document)
@@ -393,6 +396,14 @@ class BoardSearchBoardDetailService:
             ),
             expanded_symbol_codes=expanded_symbol_codes,
             expansion=expansion,
+            preserved_wins=tuple(
+                BoardPreservedWin(
+                    match=_line_match(win.match, labels, codes),
+                    expanded_payout_credits=win.expanded_payout_credits,
+                    additional_payout_credits=win.additional_payout_credits,
+                )
+                for win in (() if series is None else series.preserved_wins)
+            ),
         )
 
     def refresh(self, *, game_id: UUID, sequence_number: int) -> BoardSearchBoardRefreshResult:

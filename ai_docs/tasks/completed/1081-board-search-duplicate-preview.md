@@ -120,5 +120,15 @@ Commit: v1.7.455 / `ec72da2d9bff4e75ce1b37e195ffc951619aed04`.
 
 ### Recommended next task
 
-Operator acceptance and explicit merge approval; then reload the search page
-to discard DOM nodes left by the old implementation.
+Reload the search page after integration to discard DOM nodes left by the
+old implementation.
+
+### Integration acceptance — 2026-10-21
+
+- Operator accepted the result and explicitly authorized merge to main and push.
+- Synchronized with main at a3a4d189; both TASK-1080 and TASK-1081 completion
+  entries are preserved in the archive and the rolling window remains at ten.
+- After synchronization: 105 unit tests and 92 interaction tests passed;
+  shared UI typecheck, docs:check and git diff --check passed.
+- Version collisions v1.7.455 / v1.7.456 are retained as permitted by the
+  merge-to-main procedure; task and migration identifiers do not collide.

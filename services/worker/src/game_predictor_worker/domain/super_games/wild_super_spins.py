@@ -16,16 +16,17 @@ A board inside the series is evaluated in four steps (TASK-0936):
    of trigger symbols on the original board. ``X``'s own line wins on the
    expanded board are *replaced* by the expansion payout
    ``payout_line(X, k) × number of active paylines``; line wins of other
-   symbols on the expanded board stay.
+   symbols on the expanded board stay. For each original (payline, symbol),
+   preserve only the positive difference over the amount already paid after
+   expansion (D-568). Identical wins and trigger counts are never paid twice.
 4. The spin costs nothing; a board with at least ``N`` trigger symbols pays
    its count payout and extends the series (derived by TASK-0933).
 
 The result is ``exact`` only for a fully known board with a defined super
 symbol in a fresh series generation; any unknown cell, an undefined super
-symbol or a stale generation makes it ``provisional`` (an unknown cell outside
-the ``X`` columns can add a column, cross the threshold and cover an earlier
-win; one inside a covered column can still change the count payout and the
-retrigger).
+symbol or a stale generation makes it ``provisional``. Unknown cells can
+change expansion, count payouts and retriggers; preservation does not change
+the existing confidence classification.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from typing import Final
 from game_predictor_worker.domain.contracts import PayoutEvaluation
 from game_predictor_worker.domain.payout import PreparedPayoutEvaluator
 from game_predictor_worker.domain.super_games.definition import (
+    PreservedLineWin,
     SeriesBoardEvaluation,
     SeriesExpansion,
     SeriesPayoutKind,
@@ -166,10 +168,31 @@ def evaluate_series_board(
                 payout_credits=line_payout * payline_count,
             )
 
+    preserved_wins: list[PreservedLineWin] = []
+    if expansion is not None:
+        expanded_payouts = {
+            (match.payline_id, match.symbol_mobile_code): match.payout_credits for match in matches
+        }
+        for payline in evaluator.paylines:
+            expanded_payouts[(payline.id, expansion.symbol_mobile_code)] = (
+                expansion.line_payout_credits
+            )
+        for match in base.matches:
+            paid = expanded_payouts.get((match.payline_id, match.symbol_mobile_code), 0)
+            if match.payout_credits > paid:
+                preserved_wins.append(
+                    PreservedLineWin(
+                        match=match,
+                        expanded_payout_credits=paid,
+                        additional_payout_credits=match.payout_credits - paid,
+                    )
+                )
+
     total = (
         sum(match.payout_credits for match in matches)
         + sum(match.payout_credits for match in base.count_matches)
         + (0 if expansion is None else expansion.payout_credits)
+        + sum(win.additional_payout_credits for win in preserved_wins)
     )
     return SeriesBoardEvaluation(
         evaluated_cells=evaluated_cells,
@@ -179,6 +202,7 @@ def evaluate_series_board(
         total_payout=total,
         payout_kind=payout_kind,
         retrigger=retrigger,
+        preserved_wins=tuple(preserved_wins),
     )
 
 

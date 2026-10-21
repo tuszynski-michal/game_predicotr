@@ -244,13 +244,17 @@ super symbolu `X` (zwykły symbol liniowy wybrany przez operatora):
    symbolu uruchamiającego na planszy **oryginalnej**. Wygrane liniowe `X` z
    planszy rozwiniętej są **zastąpione** (nie sumują się) wartością
    rozwinięcia `payout_line(X, k) × liczba aktywnych linii`; wygrane linii
-   innych symboli z planszy rozwiniętej zostają.
+   innych symboli z planszy rozwiniętej zostają. Następnie dla każdej pary
+   (linia, symbol) zachowuje się większą wypłatę sprzed i po rozwinięciu
+   (D-568). Do wyniku dodaje się tylko dodatnią różnicę; ta sama wygrana
+   nie jest liczona dwukrotnie, także dla super symbolu z Wildami.
 4. Koszt spinu = 0. Plansza serii z co najmniej `N` symbolami
    uruchamiającymi dostaje wypłatę za sztuki i przedłuża serię
    (wyprowadzanie serii, TASK-0933).
 
 `total = linie innych symboli (plansza rozwinięta) + sztuki (plansza
-oryginalna) + rozwinięcie`. Wynik ma osobne składowe: linie, sztuki i
+oryginalna, tylko raz) + rozwinięcie + zachowane dodatnie różnice`.
+Wynik ma osobne składowe: linie, sztuki, zachowane wygrane i
 rozwinięcie (`symbol`, kolumny, `k`, `payout_line(X, k)`, liczba linii,
 wypłata).
 
@@ -264,14 +268,11 @@ rozwinięcia, w dwóch → `payout_line(Sarkofag, 2) × 5`.
 wyłącznie dla planszy w pełni znanej, ze zdefiniowanym super symbolem i przy
 świeżej generacji serii (`superGameState.fresh = true`). Każdy inny przypadek
 jest `provisional`: brak super symbolu (system liczy linie z Wildem i sztuki,
-ale nie zna rozwinięcia, które może zarówno dodać wygraną, jak i przykryć
-wygrane innych symboli), nieaktualna generacja serii albo **jakakolwiek**
-nieznana komórka — nieznana komórka poza kolumnami `X` może dodać kolumnę,
-przekroczyć próg i przykryć wcześniejszą wygraną, a nieznana komórka w
-kolumnie już przykrytej nie zmienia linii, ale nadal może zmienić wypłatę za
-sztuki i retrigger (sztuki liczone są na planszy oryginalnej). Wynik
-prowizoryczny nie jest dolnym ograniczeniem; `confirmed_minimum` w trybie
-`super` nie występuje. Super symbol, który w liczonej wersji reguł nie jest
+ale nie zna rozwinięcia), nieaktualna generacja serii albo **jakakolwiek**
+nieznana komórka. Nieznane pola mogą zmienić liczbę kolumn rozwinięcia,
+wypłatę za sztuki i retrigger. Zachowanie wcześniejszych wygranych nie
+zmienia klasyfikacji: wynik pozostaje prowizoryczny, bez gwarancji dolnego
+ograniczenia; `confirmed_minimum` w trybie `super` nie występuje. Super symbol, który w liczonej wersji reguł nie jest
 zwykłym symbolem liniowym (np. zmieniona rola w drafcie), jest traktowany
 jak niezdefiniowany.
 

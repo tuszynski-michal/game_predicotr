@@ -1105,15 +1105,15 @@ function BoardLinesView({
             </p>
             <p className="boardSearchBoardLinesNote">
               Kolumny z super symbolem są wypełnione w całości i przykrywają
-              symbole pod spodem; linie liczone są na planszy rozwiniętej, a
-              sztuki na planszy oryginalnej.
+              symbole pod spodem. Wygrane sprzed rozwinięcia są zachowane bez
+              podwójnego naliczania; sztuki liczone są na planszy oryginalnej.
             </p>
           </section>
         ) : null}
         {detail.matches.length === 0 ? (
           <p>
             {expansion !== null
-              ? 'Poza rozwinięciem ta plansza nie ma wygrywającej linii.'
+              ? 'Na planszy po rozwinięciu nie ma dodatkowej wygrywającej linii.'
               : 'Ta plansza nie ma wygrywającej linii.'}
           </p>
         ) : (
@@ -1161,6 +1161,24 @@ function BoardLinesView({
             })}
           </ul>
         )}
+        {(detail.preservedWins ?? []).length > 0 ? (
+          <section aria-label="Zachowane wygrane sprzed rozwinięcia">
+            <h3>Zachowane wygrane sprzed rozwinięcia</h3>
+            <ul>
+              {(detail.preservedWins ?? []).map((win) => (
+                <li key={boardLineKey(win.match)}>
+                  Linia {win.match.paylineName}:{' '}
+                  {symbolByCode.get(win.match.symbolCode)?.name ??
+                    win.match.symbolCode}{' '}
+                  ×{win.match.matchedLength} — przed rozwinięciem{' '}
+                  {formatAmount(win.match.payoutCredits)}, po rozwinięciu{' '}
+                  {formatAmount(win.expandedPayoutCredits)}. Zachowana dopłata:{' '}
+                  <strong>+{formatAmount(win.additionalPayoutCredits)}</strong>.
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {countMatches.length > 0 ? (
           <section
             aria-label="Sztuki na planszy"

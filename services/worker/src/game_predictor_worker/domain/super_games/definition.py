@@ -17,9 +17,9 @@ class SeriesPayoutKind(StrEnum):
     """How far the payout of one series board can be trusted (D-537).
 
     ``exact``: a fully known board with a defined super symbol in a fresh
-    generation. ``provisional``: anything else; the payout can still grow or
-    shrink (an expansion may add a win or cover one), so it is never a lower
-    bound and is summed apart from ``exact`` and ``confirmed_minimum``.
+    generation. ``provisional``: anything else; this classification remains
+    separate from ``exact`` and ``confirmed_minimum`` after preservation of
+    pre-expansion wins (D-568).
     """
 
     EXACT = "exact"
@@ -44,6 +44,15 @@ class SeriesExpansion:
 
 
 @dataclass(frozen=True, slots=True)
+class PreservedLineWin:
+    """Original line evidence and its unpaid difference over the expanded pair."""
+
+    match: PayoutMatch
+    expanded_payout_credits: int
+    additional_payout_credits: int
+
+
+@dataclass(frozen=True, slots=True)
 class SeriesBoardEvaluation:
     """The payout of one board inside a super game series.
 
@@ -51,8 +60,9 @@ class SeriesBoardEvaluation:
     board when ``expansion`` is set, otherwise the original board. ``matches``
     are line wins on that board (the super symbol's own line wins are replaced
     by ``expansion``), ``count_matches`` are always counted on the original
-    board and ``retrigger`` says whether its trigger symbols reach the trigger
-    threshold (the series is extended by the derivation, TASK-0933).
+    board. ``preserved_wins`` explains positive differences retained from
+    original line wins without duplicates. ``retrigger`` says whether trigger
+    symbols reach the threshold (the derivation extends the series, TASK-0933).
     """
 
     evaluated_cells: tuple[int, ...]
@@ -62,6 +72,7 @@ class SeriesBoardEvaluation:
     total_payout: int
     payout_kind: SeriesPayoutKind
     retrigger: bool
+    preserved_wins: tuple[PreservedLineWin, ...] = ()
 
 
 class SeriesBoardEvaluator(Protocol):

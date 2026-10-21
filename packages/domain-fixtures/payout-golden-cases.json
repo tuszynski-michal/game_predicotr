@@ -902,7 +902,7 @@
   "wildSuperSpinsScenario": {
     "algorithmVersion": "payout-v4-wild-count",
     "superGameKind": "wild_super_spins",
-    "description": "Mumie-like game in a wild_super_spins series (D-535, D-537, TASK-0936): 5 paylines, K/10/J/Q/A minimum 3, Sarkofag minimum 2, Mumia is Wild and a super game trigger (3). evaluate_series_board(board, superSymbol, rules): k = number of original columns containing the super symbol X; with k >= minimum(X) those columns are filled with X, lines are evaluated on the expanded board with X's own line wins replaced by payout_line(X, k) x paylines, counts on the original board. payoutKind is exact only for a fully known board with a defined super symbol in a fresh generation, otherwise provisional. evaluatedRows is the expanded board (or the original board without expansion).",
+    "description": "Mumie-like game in a wild_super_spins series (D-535, D-537, TASK-0936): 5 paylines, K/10/J/Q/A minimum 3, Sarkofag minimum 2, Mumia is Wild and a super game trigger (3). evaluate_series_board(board, superSymbol, rules): k = number of original columns containing the super symbol X; with k >= minimum(X) those columns are filled with X, lines are evaluated on the expanded board with X's own line wins replaced by payout_line(X, k) x paylines, counts on the original board. payoutKind is exact only for a fully known board with a defined super symbol in a fresh generation, otherwise provisional. evaluatedRows is the expanded board (or the original board without expansion). TASK-1080: preserve the maximum payout per (payline, symbol) before/after expansion; preservedWins contains only positive unpaid differences. Count payouts occur once.",
     "game": {
       "id": "payout-wild-super-spins-game",
       "code": "PAYOUT_WILD_SUPER_SPINS",
@@ -1163,7 +1163,8 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
@@ -1201,17 +1202,15 @@
             }
           ],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
         "id": "expansion-covers-a-line-win-underneath",
         "superSymbolMobileCode": 4,
         "manualCalculation": [
-          "base mode would pay middle A,A,A,Q = A x3 = 15",
-          "K in columns 2, 4, 5: k = 3, column 2 is filled with K and covers the middle A",
-          "expanded middle line A,K,A,K,K wins nothing: the A win disappears",
-          "total = expansion 10 x 5 = 50, exact"
+          "Expansion K: 10 x 5 = 50; original A x3 on B remains 15. Total 65."
         ],
         "rows": [
           [1, 4, 2, 4, 3],
@@ -1219,7 +1218,7 @@
           [3, 2, 1, 2, 1]
         ],
         "expected": {
-          "totalPayout": 50,
+          "totalPayout": 65,
           "payoutKind": "exact",
           "evaluatedRows": [
             [1, 4, 2, 4, 4],
@@ -1236,7 +1235,23 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 5,
+                "paylineId": "B",
+                "startColumn": 0,
+                "matchedLength": 3,
+                "matchedCells": [5, 6, 7],
+                "jokerCells": [],
+                "payoutCredits": 15,
+                "interpretation": []
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 15
+            }
+          ]
         }
       },
       {
@@ -1271,17 +1286,15 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
         "id": "retrigger-board-in-series-pays-counts",
         "superSymbolMobileCode": 4,
         "manualCalculation": [
-          "K in columns 2, 4, 5: expansion 10 x 5 = 50; the expanded board has no other line win",
-          "Mumia (Wild + trigger 3) appears 4 times on the original board (cells 0, 7, 10, 13), cell 13 lies in a covered column and still counts",
-          "count rule 4 pays 200; 4 >= 3 is a retrigger (the derivation extends the series)",
-          "total = 50 + 200 = 250, exact"
+          "Expansion K = 50; original Q x4 on D = 16 is preserved; four Mumias count once for 200. Total 266."
         ],
         "rows": [
           [7, 4, 1, 4, 2],
@@ -1289,7 +1302,7 @@
           [7, 5, 3, 7, 1]
         ],
         "expected": {
-          "totalPayout": 250,
+          "totalPayout": 266,
           "payoutKind": "exact",
           "evaluatedRows": [
             [7, 4, 1, 4, 4],
@@ -1313,7 +1326,28 @@
               "payoutCredits": 200
             }
           ],
-          "retrigger": true
+          "retrigger": true,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 3,
+                "paylineId": "D",
+                "startColumn": 0,
+                "matchedLength": 4,
+                "matchedCells": [0, 6, 12, 8],
+                "jokerCells": [0],
+                "payoutCredits": 16,
+                "interpretation": [
+                  {
+                    "cellIndex": 0,
+                    "asSymbolMobileCode": 3
+                  }
+                ]
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 16
+            }
+          ]
         }
       },
       {
@@ -1351,11 +1385,12 @@
             }
           ],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
-        "id": "undefined-super-symbol-is-provisional-and-may-shrink",
+        "id": "undefined-super-symbol-with-original-wins-is-provisional",
         "superSymbolMobileCode": null,
         "manualCalculation": [
           "no super symbol yet: top 10,10,10,J pays 10 x3 = 5, middle A x5 = 60",
@@ -1398,16 +1433,15 @@
             }
           ],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
         "id": "defined-super-symbol-covers-a-larger-win",
         "superSymbolMobileCode": 1,
         "manualCalculation": [
-          "same board with super symbol 10: 10 in columns 1, 2, 3, k = 3",
-          "expanded columns 1-3 cover the middle A x5 (60); every line starts 10,10,10 and its 10 wins are replaced",
-          "expansion = payout_line(10, 3) x 5 = 5 x 5 = 25; total = 25 < 65: defining the symbol shrank the result"
+          "Expansion 10 = 5 x 5 = 25; original A x5 on B remains 60. Total 85."
         ],
         "rows": [
           [1, 1, 1, 2, 3],
@@ -1415,7 +1449,7 @@
           [3, 2, 4, 3, 2]
         ],
         "expected": {
-          "totalPayout": 25,
+          "totalPayout": 85,
           "payoutKind": "exact",
           "evaluatedRows": [
             [1, 1, 1, 2, 3],
@@ -1432,7 +1466,23 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 5,
+                "paylineId": "B",
+                "startColumn": 0,
+                "matchedLength": 5,
+                "matchedCells": [5, 6, 7, 8, 9],
+                "jokerCells": [],
+                "payoutCredits": 60,
+                "interpretation": []
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 60
+            }
+          ]
         }
       },
       {
@@ -1469,16 +1519,15 @@
             }
           ],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
         "id": "unknown-cell-outside-super-columns-filled-as-super-symbol",
         "superSymbolMobileCode": 4,
         "manualCalculation": [
-          "the unknown cell 14 of the previous case is K: k = 3 crosses the threshold",
-          "column 2 is covered, the middle A x3 disappears; expansion 10 x 5 = 50",
-          "total = 50, exact: filling one unknown cell changed 15 to 50"
+          "Expansion K = 50; original A x3 on B remains 15. Total 65."
         ],
         "rows": [
           [1, 4, 2, 3, 5],
@@ -1486,7 +1535,7 @@
           [3, 2, 1, 2, 4]
         ],
         "expected": {
-          "totalPayout": 50,
+          "totalPayout": 65,
           "payoutKind": "exact",
           "evaluatedRows": [
             [1, 4, 2, 4, 4],
@@ -1503,16 +1552,30 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 5,
+                "paylineId": "B",
+                "startColumn": 0,
+                "matchedLength": 3,
+                "matchedCells": [5, 6, 7],
+                "jokerCells": [],
+                "payoutCredits": 15,
+                "interpretation": []
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 15
+            }
+          ]
         }
       },
       {
         "id": "two-mumias-and-unknown-cell-in-covered-column",
         "superSymbolMobileCode": 4,
         "manualCalculation": [
-          "K in columns 2, 4, 5: expansion 50; cell 13 (column 4, covered) is unknown and becomes K on the expanded board",
-          "Mumia known twice (cells 0, 7): 2 < 3, no count payout, no retrigger",
-          "total = 50, provisional"
+          "Expansion K = 50; original Q x4 on D = 16 remains. Two Mumias have no count payout; unknown cell keeps provisional status. Total 66."
         ],
         "rows": [
           [7, 4, 1, 4, 2],
@@ -1520,7 +1583,7 @@
           [2, 5, 3, 0, 1]
         ],
         "expected": {
-          "totalPayout": 50,
+          "totalPayout": 66,
           "payoutKind": "provisional",
           "evaluatedRows": [
             [7, 4, 1, 4, 4],
@@ -1537,16 +1600,35 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 3,
+                "paylineId": "D",
+                "startColumn": 0,
+                "matchedLength": 4,
+                "matchedCells": [0, 6, 12, 8],
+                "jokerCells": [0],
+                "payoutCredits": 16,
+                "interpretation": [
+                  {
+                    "cellIndex": 0,
+                    "asSymbolMobileCode": 3
+                  }
+                ]
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 16
+            }
+          ]
         }
       },
       {
         "id": "two-mumias-unknown-cell-filled-as-mumia",
         "superSymbolMobileCode": 4,
         "manualCalculation": [
-          "the unknown cell 13 of the previous case is Mumia: lines on the expanded board are unchanged (expansion 50)",
-          "Mumia now appears 3 times on the original board: count rule 3 pays 20 and retriggers",
-          "total = 70, exact"
+          "Expansion K = 50; original Q x4 on D remains 16; three Mumias pay 20 once. Total 86."
         ],
         "rows": [
           [7, 4, 1, 4, 2],
@@ -1554,7 +1636,7 @@
           [2, 5, 3, 7, 1]
         ],
         "expected": {
-          "totalPayout": 70,
+          "totalPayout": 86,
           "payoutKind": "exact",
           "evaluatedRows": [
             [7, 4, 1, 4, 4],
@@ -1578,7 +1660,28 @@
               "payoutCredits": 20
             }
           ],
-          "retrigger": true
+          "retrigger": true,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 3,
+                "paylineId": "D",
+                "startColumn": 0,
+                "matchedLength": 4,
+                "matchedCells": [0, 6, 12, 8],
+                "jokerCells": [0],
+                "payoutCredits": 16,
+                "interpretation": [
+                  {
+                    "cellIndex": 0,
+                    "asSymbolMobileCode": 3
+                  }
+                ]
+              },
+              "expandedPayoutCredits": 0,
+              "additionalPayoutCredits": 16
+            }
+          ]
         }
       },
       {
@@ -1612,7 +1715,8 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
@@ -1638,7 +1742,8 @@
           "expansion": null,
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
@@ -1672,7 +1777,8 @@
           },
           "matches": [],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
         }
       },
       {
@@ -1717,7 +1823,164 @@
             }
           ],
           "countMatches": [],
-          "retrigger": false
+          "retrigger": false,
+          "preservedWins": []
+        }
+      },
+      {
+        "id": "original-five-super-symbols-with-wilds-preserved",
+        "rows": [
+          [4, 1, 5, 2, 1],
+          [2, 5, 7, 7, 3],
+          [5, 2, 3, 3, 7]
+        ],
+        "superSymbolMobileCode": 5,
+        "manualCalculation": [
+          "Original A x5 on E = 60; expansion A x3 pays 15 on each other line (4 x 15); three Mumias pay 20 once. Total 140. E keeps max(60,15), adding 45 over expansion."
+        ],
+        "expected": {
+          "totalPayout": 140,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [5, 5, 5, 2, 1],
+            [5, 5, 5, 7, 3],
+            [5, 5, 5, 3, 7]
+          ],
+          "expansion": {
+            "symbolMobileCode": 5,
+            "columns": [0, 1, 2],
+            "columnCount": 3,
+            "linePayoutCredits": 15,
+            "paylineCount": 5,
+            "payoutCredits": 75
+          },
+          "matches": [],
+          "countMatches": [
+            {
+              "symbolMobileCode": 7,
+              "count": 3,
+              "matchedCells": [7, 8, 14],
+              "payoutCredits": 20
+            }
+          ],
+          "retrigger": true,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 5,
+                "paylineId": "E",
+                "startColumn": 0,
+                "matchedLength": 5,
+                "matchedCells": [10, 6, 2, 8, 14],
+                "jokerCells": [8, 14],
+                "payoutCredits": 60,
+                "interpretation": [
+                  {
+                    "cellIndex": 8,
+                    "asSymbolMobileCode": 5
+                  },
+                  {
+                    "cellIndex": 14,
+                    "asSymbolMobileCode": 5
+                  }
+                ]
+              },
+              "expandedPayoutCredits": 15,
+              "additionalPayoutCredits": 45
+            }
+          ]
+        }
+      },
+      {
+        "id": "same-symbol-shorter-expanded-line-is-not-paid-twice",
+        "rows": [
+          [6, 6, 6, 1, 2],
+          [1, 2, 3, 3, 3],
+          [2, 1, 2, 1, 2]
+        ],
+        "superSymbolMobileCode": 3,
+        "manualCalculation": [
+          "Original Sarkofag x3 on A = 20; after Q expansion it pays x2 = 5. Keep 20 once, plus Q expansion 8 x 5 = 40. Total 60, additional contribution 15."
+        ],
+        "expected": {
+          "totalPayout": 60,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [6, 6, 3, 3, 3],
+            [1, 2, 3, 3, 3],
+            [2, 1, 3, 3, 3]
+          ],
+          "expansion": {
+            "symbolMobileCode": 3,
+            "columns": [2, 3, 4],
+            "columnCount": 3,
+            "linePayoutCredits": 8,
+            "paylineCount": 5,
+            "payoutCredits": 40
+          },
+          "matches": [
+            {
+              "symbolMobileCode": 6,
+              "paylineId": "A",
+              "startColumn": 0,
+              "matchedLength": 2,
+              "matchedCells": [0, 1],
+              "jokerCells": [],
+              "payoutCredits": 5,
+              "interpretation": []
+            }
+          ],
+          "countMatches": [],
+          "retrigger": false,
+          "preservedWins": [
+            {
+              "match": {
+                "symbolMobileCode": 6,
+                "paylineId": "A",
+                "startColumn": 0,
+                "matchedLength": 3,
+                "matchedCells": [0, 1, 2],
+                "jokerCells": [],
+                "payoutCredits": 20,
+                "interpretation": []
+              },
+              "expandedPayoutCredits": 5,
+              "additionalPayoutCredits": 15
+            }
+          ]
+        }
+      },
+      {
+        "id": "unchanged-original-super-wins-not-paid-twice",
+        "rows": [
+          [5, 5, 5, 5, 5],
+          [5, 5, 5, 5, 5],
+          [5, 5, 5, 5, 5]
+        ],
+        "superSymbolMobileCode": 5,
+        "manualCalculation": [
+          "All five original paylines pay A x5 = 60, identical to the expansion payment. Five lines x60 = 300, not 600; no preserved contribution."
+        ],
+        "expected": {
+          "totalPayout": 300,
+          "payoutKind": "exact",
+          "evaluatedRows": [
+            [5, 5, 5, 5, 5],
+            [5, 5, 5, 5, 5],
+            [5, 5, 5, 5, 5]
+          ],
+          "expansion": {
+            "symbolMobileCode": 5,
+            "columns": [0, 1, 2, 3, 4],
+            "columnCount": 5,
+            "linePayoutCredits": 60,
+            "paylineCount": 5,
+            "payoutCredits": 300
+          },
+          "matches": [],
+          "countMatches": [],
+          "retrigger": false,
+          "preservedWins": []
         }
       }
     ]

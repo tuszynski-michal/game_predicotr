@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1080 — Zachowanie wygranych przed rozwinięciem (done)
 
 - Task: `ai_docs/tasks/completed/1080-mumie-preserve-pre-expansion-wins.md`.
-- Commit: **v1.7.455** (hash dopisuje kolejny commit).
+- Commit: **v1.7.455 / `e424e0f4dae0c59478fb6b883f0965b923575ba5`** (hash dopisuje kolejny commit).
 - D-568: maksimum per (linia, symbol), sztuki raz; plansza inicjalna, próg i koszty bez zmian. Python/TS, dodatkowy ślad API i modal.
 - Weryfikacja: Python84, API24, TS68, UI7+2; lint/typecheck zmienionego zakresu, OpenAPI, mapa kodu i docs. 2159 spinów: netto1990/9190 PLN. Pełny mypy ma wcześniejsze błędy importowanego modułu; zakres taska przeszedł.
 - Bez migracji, zmian danych, restartu, przeliczenia historii i merge/push; brak wymaganego dodatkowego audytu.

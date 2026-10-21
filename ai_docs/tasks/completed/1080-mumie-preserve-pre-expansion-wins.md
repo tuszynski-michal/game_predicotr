@@ -130,7 +130,7 @@ No unresolved product question; duplicate handling was explicitly confirmed.
 
 ## Outcome
 
-Commit: v1.7.455 (hash dopisuje kolejny commit).
+Commit: v1.7.455 / `e424e0f4dae0c59478fb6b883f0965b923575ba5`.
 
 Implemented D-568 in the Python and TypeScript series evaluators: add only
 the unpaid positive difference for each original (payline, symbol). Count

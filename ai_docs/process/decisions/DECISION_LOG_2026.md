@@ -14,7 +14,7 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
-## D-569 — Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2
+## D-570 — Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2
 
 **Status:** accepted
 

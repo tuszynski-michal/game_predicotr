@@ -471,7 +471,7 @@ jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejnoś
 score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
 `sequence_number` i stabilna tożsamość źródła.
 
-Wyjątek eksperymentalny dla gry o kodzie `777a2` (TASK-1087, D-569):
+Wyjątek eksperymentalny dla gry o kodzie `777a2` (TASK-1087, D-570):
 nierozpoznana pozycja zapisanej planszy pasuje do dowolnego znanego symbolu
 wzoru i daje pełny punkt, nadal pozostając brakiem rozpoznania, bez zwiększania
 exact ani alternatyw. Dotyczy logicznego braku dowodu istniejącego indeksu:

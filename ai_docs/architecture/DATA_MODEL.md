@@ -3014,7 +3014,7 @@ nie trafia do `known_evidence_positions`. Ranking v2 nie uznaje takiej pozycji
 ani za dopasowanie, ani za sprzeczność. W zapytaniu `?` również nie jest
 symbolem katalogowym i zostaje usunięte przed wyliczeniem denominatora.
 
-TASK-1087 / D-569 wprowadza wyłącznie wyjątek odczytu dla `games.code=777a2`:
+TASK-1087 / D-570 wprowadza wyłącznie wyjątek odczytu dla `games.code=777a2`:
 pozycja bez dowodu w fast document jest wildcardem w rankingu, ale nadal
 raportuje się jako unknown. Obejmuje to wszystkie stany sprowadzone przez
 projekcję do braku dowodu, także `Nieczytelny` i problemy siatki/kadru.

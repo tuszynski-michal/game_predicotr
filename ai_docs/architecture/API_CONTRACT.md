@@ -485,7 +485,7 @@ Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
 sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 
-Wyjątek TASK-1087 / D-569: dla `GameModel.code=777a2` score zawiera
+Wyjątek TASK-1087 / D-570: dla `GameModel.code=777a2` score zawiera
 `unknownMatchesAll=true`; brak dowodu na porównywanej pozycji otrzymuje pełny
 punkt, pozostaje w `unknownCount` i nie zwiększa `exactMatchCount` ani
 `alternativeMatchCount`. Takie pozycje dopuszczają wynik także bez innych

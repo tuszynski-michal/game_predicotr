@@ -115,7 +115,8 @@ Commit: v1.7.464 / `56d763a974dbcf7d9702d129e797692088062fd2`.
 
 ### Documentation updates
 
-- D-569, wymagania Admina, kontrakt API, opis istniejącej projekcji i wygenerowana mapa kodu. Założenie o wszystkich logicznych brakach (w tym problemach siatki/kadru) zapisano przed kodowaniem i podano operatorowi w czacie.
+- Kontrola przed integracją wykryła kolizję D-569 z `codex/geometry-gap-corrections`. Własną decyzję i odwołania przenumerowano na wolne D-570; kod bez zmian. Operator zaakceptował wynik, scalenie, push i sprzątanie 2026-10-23.
+- D-570, wymagania Admina, kontrakt API, opis istniejącej projekcji i wygenerowana mapa kodu. Założenie o wszystkich logicznych brakach (w tym problemach siatki/kadru) zapisano przed kodowaniem i podano operatorowi w czacie.
 - Kryteria akceptacji i właściwe punkty Definition of Done porównano punkt po punkcie: ranking i granice — testy domeny/SQL; kontrakt — eksport i żądania; UX — dwa warianty panelu i komunikat tekstowy niezależny od koloru; trwałość — zapis kodu i nowe sesje SQL; dokumentacja — zaktualizowana. Nie ma zmiany schematu ani operacji na danych operatora.
 
 ### Recommended next task

@@ -36,7 +36,19 @@ class ImportJobPayload(ApiModel):
     contract_version: Literal[1]
 
 
-class LegacyImageImportJobPayload(ApiModel):
+class SourceDirectoryRelocationPayload(ApiModel):
+    contract_version: int = Field(strict=True, ge=1, le=1)
+    previous: str = Field(min_length=1, max_length=2048)
+    current: str = Field(min_length=1, max_length=2048)
+
+
+class RelocatableSourceJobPayload(ApiModel):
+    source_directory_relocation: SourceDirectoryRelocationPayload | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+
+class LegacyImageImportJobPayload(RelocatableSourceJobPayload):
     schema_version: Literal[1] = 1
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -281,7 +293,7 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
         return self
 
 
-class ImageImportJobPayload(ApiModel):
+class ImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
@@ -340,7 +352,7 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
     page_geometry_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
-class BrowserImageImportJobPayload(ApiModel):
+class BrowserImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[5]
@@ -364,7 +376,7 @@ class BrowserImageImportJobPayload(ApiModel):
     geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload | None = None
 
 
-class ResolvedBrowserImageImportJobPayload(ApiModel):
+class ResolvedBrowserImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     managed_source_job_id: UUID | None = None
@@ -395,7 +407,7 @@ class ResolvedBrowserImageImportJobPayload(ApiModel):
     geometry_systemic_guard_policy: ImageGeometrySystemicGuardPolicyJobPayload
 
 
-class CuratedImageImportJobPayload(ApiModel):
+class CuratedImageImportJobPayload(RelocatableSourceJobPayload):
     schema_version: Literal[3]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID
@@ -417,7 +429,7 @@ class CuratedImageImportJobPayload(ApiModel):
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
-class ManagedImageReprocessJobPayload(ApiModel):
+class ManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
     schema_version: Literal[4]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -434,7 +446,7 @@ class ManagedImageReprocessJobPayload(ApiModel):
     image_geometry_rollout: ImageGeometryRolloutJobSnapshotPayload | None = None
 
 
-class PinnedManagedImageReprocessJobPayload(ApiModel):
+class PinnedManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[6]
@@ -573,7 +585,7 @@ class BasePageGeometryManifestPayload(ApiModel):
     base_override_fingerprints: dict[str, str] | None = None
 
 
-class PageGeometryPreflightJobPayload(ApiModel):
+class PageGeometryPreflightJobPayload(RelocatableSourceJobPayload):
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]

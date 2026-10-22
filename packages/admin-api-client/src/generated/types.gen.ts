@@ -2656,6 +2656,7 @@ export type BrowserImageImportJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -3852,6 +3853,7 @@ export type CuratedImageImportJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -10911,6 +10913,7 @@ export type ImageImportJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory?: string | null;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -13176,6 +13179,7 @@ export type LegacyImageImportJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory?: string | null;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -13221,6 +13225,7 @@ export type ManagedImageReprocessJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -15533,6 +15538,7 @@ export type PageGeometryPreflightJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -16087,6 +16093,7 @@ export type PinnedManagedImageReprocessJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -17765,6 +17772,7 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Sourcedirectory
    */
   sourceDirectory: string;
+  sourceDirectoryRelocation?: SourceDirectoryRelocationPayload | null;
   /**
    * Sourcedisplayname
    */
@@ -19965,6 +19973,24 @@ export type SourceCropScopeModel = {
    * Onlychecksums
    */
   onlyChecksums?: Array<string> | null;
+};
+
+/**
+ * SourceDirectoryRelocationPayload
+ */
+export type SourceDirectoryRelocationPayload = {
+  /**
+   * Contractversion
+   */
+  contractVersion: number;
+  /**
+   * Current
+   */
+  current: string;
+  /**
+   * Previous
+   */
+  previous: string;
 };
 
 /**

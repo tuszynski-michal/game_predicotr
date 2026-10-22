@@ -61,8 +61,10 @@ def _job(source: Path):
     )
 
 
+@pytest.mark.parametrize("reprocess", [False, True])
 def test_relocated_job_recovers_original_in_new_process_without_rewriting_manifest(
     tmp_path: Path,
+    reprocess: bool,
 ) -> None:
     source = tmp_path / "legacy-c"
     source.mkdir()
@@ -87,10 +89,27 @@ def test_relocated_job_recovers_original_in_new_process_without_rewriting_manife
             },
         },
     )
+    if reprocess:
+        parent_id = job.id
+        job = create_job(
+            JobType.IMPORT,
+            game_id=job.game_id,
+            input_payload={
+                **relocated.input_payload,
+                "schema_version": 4,
+                "managed_source_job_id": str(parent_id),
+                "source_pipeline_fingerprint": FINGERPRINT,
+            },
+            created_at=NOW,
+        )
+        relocated = job
+        ManagedOriginalStore(artifacts).load_or_create_manifest(job, source_directory=moved)
     loaded = ManagedOriginalStore(artifacts).load_existing_manifest(relocated)
     assert loaded.source_directory == moved
-    assert loaded.content == pinned_bytes
-    assert loaded.checksum_sha256 == original_manifest.checksum_sha256
+    assert json.loads(loaded.content)["sourceDirectory"] == str(source.resolve())
+    if not reprocess:
+        assert loaded.content == pinned_bytes
+        assert loaded.checksum_sha256 == original_manifest.checksum_sha256
     program = """
 import json, sys
 from dataclasses import replace

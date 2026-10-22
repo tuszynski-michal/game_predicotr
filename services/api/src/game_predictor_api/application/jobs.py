@@ -1319,7 +1319,11 @@ class JobService:
                 key: source.input_payload[key] for key in required_snapshots
             }
             continuation["image_geometry_rollout"] = continuation_rollout.to_payload()
-            for key in ("normalization_adapter_version", "image_selection_run_id"):
+            for key in (
+                "normalization_adapter_version",
+                "image_selection_run_id",
+                "source_directory_relocation",
+            ):
                 if key in source.input_payload:
                     continuation[key] = source.input_payload[key]
             continuation.update(
@@ -1418,6 +1422,10 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
+        if "source_directory_relocation" in source.input_payload:
+            payload["source_directory_relocation"] = source.input_payload[
+                "source_directory_relocation"
+            ]
         neural_snapshot = self._neural_import_snapshot(
             game_id=source.game_id,
             selection_id=evidence.source_selection_id,

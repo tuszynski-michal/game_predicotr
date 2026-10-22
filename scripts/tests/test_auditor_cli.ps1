@@ -22,6 +22,21 @@ function Assert-Equal($Expected, $Actual, $Label) {
     if ($Expected -ne $Actual) { throw "$Label expected '$Expected', got '$Actual'" }
     Write-Output "PASS: $Label"
 }
+$argumentBuilder = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.IfStatementAst] -and
+    $node.Extent.Text.Contains('$helpArguments = @(''exec'', ''--help'')')
+}, $true)
+if ($null -eq $argumentBuilder) { throw 'Auditor argument builder not found' }
+$Auditor = 'claude'
+foreach ($Effort in @('medium', 'high', '')) {
+    $cliArguments = @()
+    $requiredFlags = @()
+    . ([scriptblock]::Create($argumentBuilder.Extent.Text))
+    $expected = '-p --permission-mode plan'
+    if ($Effort -ne '') { $expected += " --effort $Effort" }
+    Assert-Equal $expected ($cliArguments -join ' ') "Claude argument construction ($Effort)"
+    Assert-Equal ($Effort -ne '') ($requiredFlags -contains '--effort') 'Validate advertised effort support'
+}
 function Add-CliFixture($RelativePath) {
     $path = Join-Path $fixture $RelativePath
     New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null

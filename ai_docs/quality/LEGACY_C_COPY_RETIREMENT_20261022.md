@@ -13,8 +13,9 @@ Zabezpieczenie plików i przygotowanie techniczne ukończone. Nie usuwać jeszcz
 Nie wykonano migracji danych, scalenia, restartów ani zmiany nazwy starego
 katalogu. Claude Code z aplikacji znaleziony w nowym katalogu danych;
 wykrywanie poprawione. [Audyt Claude](TASK-1085_AUDIT_claude-opus-5-5.md)
-zakończył się PASS, bez P0/P1. Uwagi P2 poniżej ograniczają gotowość do
-wykonania migracji i odcięcia C; PASS dotyczy przygotowania.
+zakończył się PASS, bez P0/P1. TASK-1086 rozlicza zabezpieczenia P2 poniżej;
+wdrożenie, restart usług przez operatora i zgoda na migrację/odcięcie
+pozostają warunkami wykonania. PASS dotyczy przygotowania.
 
 Świeży końcowy odczyt: **434131 plików, zero błędów**. 311795 zgodnych
 plików jest w aktywnym D (76020477970 B), 122336 starszych lub brakujących
@@ -22,9 +23,17 @@ wersji zabezpieczono osobno (9822323477 B). Łącznie 85842801447 B.
 W podglądzie migracji **179 jobów, 55 źródeł z ponownym SHA, blockers=[]**.
 
 Pełne before/after: `D:\game_predicotr\artifacts\maintenance\legacy-c-20261022\job-paths-preview.json`.
-SHA tego podglądu:
+SHA pierwotnego podglądu v1 (nie uruchamiać po TASK-1086):
 `e8b592828aea9e4f33dc701ec85ec95089b84a9a820734b549e3f6835345efe2`.
 Zmiana joba po podglądzie wymaga ponownego podglądu; nie osłabiać walidacji.
+
+Aktualizacja TASK-1086: przygotowano preview **v2**, wymagający jawnego katalogu
+artefaktów, dokładnego zestawu manifestów z SHA oraz kontroli odpowiedzi API.
+Plik `job-paths-preview-v2.json` w tym samym katalogu zabezpieczenia: 179 jobów,
+176 manifestów, 55 źródeł z ponownym SHA, blockers=[]. SHA:
+`b6089b4c5cff7b42b11673f11f1b973c6439fd20fb69b47ccbecdd147ec96ca0`.
+Nie uruchomiono apply. Operator zastąpił pełny skan historii analizą
+rzeczywistych zależności od plików; wynik i ograniczenia opisano niżej.
 
 ## Czy stare importy są potrzebne
 
@@ -149,25 +158,76 @@ Katalog: `D:\game_predicotr\artifacts\maintenance\legacy-c-20261022`.
 
 ## Ograniczenia po audycie i warunki wykonania
 
-Uwagi pozostają jawnie otwarte jako P2 dla przygotowania. Nie są zgodą na
-użycie apply ani usunięcie C. Przed wykonaniem trzeba je ponownie ocenić
-w kontekście aktualnego stanu, a warunki poniżej muszą zostać spełnione.
+Poniższa tabela podaje końcowe rozliczenie jednej rundy poprawek TASK-1086.
+Nie stanowi zgody na apply ani usunięcie C. Warunki operatorskie trzeba
+spełnić dla aktualnego stanu usług i danych.
 
 | Uwaga | Rozliczenie i warunek przed wykonaniem |
 |---|---|
-| P2-1 | `verify_worker` pomija brakujące manifesty pod domyślną ścieżką. W tej kontroli nowy proces odczytał 176 manifestów, ale apply nie wymusza tej liczby. Przed migracją potwierdzić skonfigurowany katalog i kompletny zestaw manifestów; nie uznawać samego przejścia funkcji za dowód. |
+| P2-1 | Rozwiązane w v2: jawny artifact_root, kompletny zestaw ID/SHA manifestów zapisany w preview; brak albo zmiana manifestu blokuje apply. Zweryfikowano 176 manifestów. |
 | P2-2 | Kontrola loadera dotyczy procesu skryptu. Nie kontroluje kodu już uruchomionych workerów. Scalenie oraz restart wszystkich workerów przez operatora i weryfikacja ich katalogów są obowiązkowe przed apply. |
-| P2-3 | SHA zatwierdza cały plik, a apply ufa jego `after_payload`. Nie edytować ręcznie podglądu i nie przeliczać SHA dla zmienionej treści. Przed zatwierdzeniem porównać pełne before/after: wyłącznie source_directory i receipt, bez innych zmian payloadu. |
-| P2-4 | Joby managed reprocess nie dziedziczą receiptu. Przy braku zarządzanego oryginału ich fallback może wrócić do C. Przed odcięciem C trzeba obsłużyć propagację relokacji i sprawdzić reprocess z brakującym oryginałem. Obecność 112423 oryginałów dziś nie usuwa tego ryzyka na przyszłość. |
-| P2-5 | Ten raport nie potwierdza skanu wszystkich kolumn tekstowych/JSON bazy. Przed odcięciem wykonać odczyt całej bazy pod kątem starego korzenia i rozliczyć konsumentów znalezionych ścieżek, także poza jobs/sessions. |
-| P2-6 | Jawny effort udokumentowano; uruchomienie audytu dowodzi obsługi medium w obecnym CLI. Brak osobnego automatycznego testu składania argumentów, starszy CLI jest jawnie odrzucany. To ograniczenie narzędzia audytu, niezależne od relokacji danych. |
-| P2-7 | Testy nie wykonują pełnego preview/apply na PostgreSQL. Przed migracją dodać i uruchomić test izolowanej transakcji, konfliktu stanu, rollbacku i odczytu JSONB oraz brakującego manifestu. Nie testować tego przez zapis na danych operatora. |
+| P2-3 | Rozwiązane: apply wylicza dozwolony after_payload z before i korzeni; dodatkowa zmiana jest odrzucana także po przeliczeniu SHA. |
+| P2-4 | Rozwiązane: obie ścieżki managed reprocess dziedziczą receipt. Test nowego procesu usuwa stare źródło i zarządzany oryginał; odtworzenie z D zachowuje bajty manifestu. |
+| P2-5 | Rozliczone w zakresie jawnie zmienionym przez operatora: wszystkie 133 kolumny ścieżkowe/108 tabel oraz analiza konsumentów JSON i odpowiadających danych. Pełny skan dowolnej historii poza zakresem; szczegóły poniżej. |
+| P2-6 | Rozwiązane: sześć asercji rzeczywistego budowania argumentów Claude, łącznie 16 asercji CLI PASS, bez ponownego audytu. |
+| P2-7 | Rozwiązane: izolowany PostgreSQL z Alembic head; konflikt stanu, NOWAIT, rollback po pierwszym UPDATE, zapis JSONB i retry po utracie odpowiedzi — PASS. Brak/zmiana manifestu dodatkowo testowane bez danych operatora. |
 
 ## Kolejny krok po akceptacji
 
-Najpierw domknąć warunki wykonania z tabeli powyżej; przygotowanie narzędzia
-nie jest odbiorem migracji. Po zamknięciu taska i zgodzie na scalenie: wdrożyć poprawkę z gałęzi
-codex/retire-c-copy. Operator restartuje workery w swoich terminalach.
+Aktualizacja zabezpieczeń TASK-1086 rozlicza P2-1, P2-3, P2-4, P2-6 i P2-7:
+apply przypina katalog i zestaw/SHA manifestów, wylicza dozwolony payload,
+kontroluje jego serializację API; obie ścieżki reprocessu dziedziczą receipt.
+Nowy proces odtwarza oryginał także ze sklonowanego manifestu po relokacji.
+P2-2 pozostaje jawną bramką wdrożenia i restartu usług przez operatora.
+Potwierdzenie testami: 76 testów Python, pełna transakcja PostgreSQL na
+własnej bazie UUID (konflikt, NOWAIT, częściowy zapis/rollback, retry, JSONB),
+test wrappera i GET API, typy/generowanie klienta oraz 16 asercji CLI — PASS.
+
+## Analiza rzeczywistych zależności od plików — TASK-1086
+
+Operator zatwierdził zastąpienie pełnego skanu historycznych tekstów i JSON
+analizą konsumentów plików i odczytem odpowiadających danych. Końcowy odczyt
+READ ONLY objął wszystkie **133 kolumny ścieżkowe w 108 tabelach**:
+complete=true, errors=[]. Jedyne trafienie: 14 historycznych
+remote_manual_selection_sessions.host_base_path, rozliczonych powyżej.
+Inwentaryzacja uwzględnia teksty, domeny i tablice; kolumny dobierane po
+nazwach path/directory/root/filename/uri/url/location. To nie zastępuje
+analizy ścieżek zapisanych w dowolnym JSON, którą przeprowadzono osobno.
+
+| Źródło operacyjne | Konsument i wynik |
+|---|---|
+| jobs.input_payload.source_directory / receipt | Loader managed originals i jobów; 179 rekordów objętych preview v2, 55 źródeł D z SHA, 176 niezmiennych manifestów z SHA. Wymagana zatwierdzona relokacja. |
+| V7 context_payload.outputRoot i feedbackSnapshot.sourceRoot | Worker semi_automatic_selection/v7_delivery.py:_operation_output_root i storage/v7_selection_feedback.py:verify_feedback_source; odczyt całej tabeli operacji V7: 0 rekordów. |
+| jobs.input_payload.source_manifest_relative_path | Worker job.py i storage/local_source_manifest.py:load_local_source_manifest, absolutny sourceRoot plus względne files[].relativePath; 0 odwołań w jobach, 0 lokalnych plików source-manifest.json w katalogu eksportów. |
+| artifacts/v7-draft-folders/*.json.directory | Worker v7_draft_catalog.py:draft_folder/read_draft; 0 plików przypiętych draftów. |
+| Ścieżki zdjęć, modeli, cohortów, wydań | image_review_assets.py:_safe_candidate, symbol_model_snapshot_resolver.py:_managed_path, grid_training_cohort_artifacts.py, grid_quality_manifest.py oraz release_artifacts.py:resolve_mobile_release_apk kontrolują względne lokalizacje i granice skonfigurowanych korzeni. Skan kolumn nie znalazł C. |
+| Niezmienne dowody / eligibility | Historyczne pochodzenie, sprawdzany hash dowodu; brak otwierania historycznych ścieżek przez runtime. Nie przepisywać. |
+| ApiSettings w nowym procesie | artifact_root, import_root, runtime V7, model OCR, review_crop_root i review_source_root wskazują D. Korpusy CLI/testów nie są utrwalonymi źródłami API/workera. |
+
+Prywatne wyniki w katalogu zabezpieczenia:
+`database-operational-paths.json` i `operational-json-sources.json`.
+Ten drugi potwierdza read_only=on, complete=true, errors=[], brak dalszych
+legacy_dependencies. Analiza nie znalazła dodatkowego operacyjnego źródła
+plików z absolutnym korzeniem C poza jobami i pustymi wygasłymi sesjami.
+
+Pełny wcześniejszy skan historii pozostaje celowo nieukończony: 825/2092
+kolumn, 169/392 tabel, baza 147370317503 B (~137.3 GiB). Nie dowodzi braku
+tekstu C w pozostałej historii. Checkpointy: database-scan-partial-summary.json
+oraz database-paths-part0.json–database-paths-part2.json. Odcinki odczytu
+REPEATABLE READ pochodzą z różnych chwil; nie są jedną globalną migawką.
+Wszystkie własne procesy skanu zakończone. Własne bazy testowe TASK-1086
+usunięte; baza operatora pozostała bez zmian.
+
+Mypy API z zachowaniem typów Pydantic i domeny, pomijając importowany graf
+storage/workera, daje identyczne 23 wcześniejsze błędy w 13 plikach jak na
+niezmienionym main. Brak nowych błędów w zmienionych modułach; pełny typecheck
+API nie jest zielony. Mypy dwóch skryptów i typy klienta — PASS.
+
+## Wykonanie po odrębnych zgodach
+
+Przygotowanie narzędzia nie jest odbiorem migracji. Po zamknięciu taska i
+zgodzie na scalenie: wdrożyć poprawkę z gałęzi codex/retire-c-copy.
+Operator restartuje API i wszystkie workery w swoich terminalach.
 Odświeżyć podgląd (stare updated_at mogą się zdezaktualizować), pokazać
 operatorowi liczbę wierszy, before/after oraz SHA i uzyskać odrębną zgodę
 na migrację danych. Następnie apply z zatwierdzonym SHA i ponowny odczyt.
@@ -178,5 +238,5 @@ na odcięcie: czasowo zmienić nazwę C, wykonać odbiór bez dawnej nazwy
 Nie uruchamiać importu na próbę na danych operatora bez osobnej zgody.
 Usunięcie starego katalogu pozostaje osobną, końcową decyzją.
 
-Worktree przygotowania ma junction `.venv` do `D:\game_predicotr\.venv`;
-przy sprzątaniu najpierw usunąć samo dowiązanie zgodnie z merge-to-main.
+Worktree przygotowania ma junction `.venv` i `node_modules` do głównego D;
+przy sprzątaniu najpierw usunąć same dowiązania zgodnie z merge-to-main.

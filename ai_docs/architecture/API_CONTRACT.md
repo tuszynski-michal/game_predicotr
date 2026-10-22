@@ -2850,6 +2850,13 @@ pipeline’u Android.
 Zwraca najwyżej 200 najnowszych rekordów. Obsługuje filtry `status`,
 `job_type`, `game_id` oraz bounded `limit`, domyślnie 50.
 
+Payloady importów obrazów i preflightów zwracane przez listę i GET joba mogą
+zawierać opcjonalne `sourceDirectoryRelocation`: `contractVersion` (ściśle
+liczba całkowita 1), `previous` i `current` (niepuste ścieżki). Jest to jawne
+potwierdzenie utrzymaniowego przeniesienia źródła, opisane w DATA_MODEL.md.
+Brak pola zachowuje poprzednią odpowiedź; managed reprocess i ręczna kontynuacja
+dziedziczą potwierdzenie. Pole nie tworzy nowej akcji ani endpointu migracji.
+
 ### GET `/api/v1/admin/worker-lanes`
 
 Zwraca zawsze dwa rekordy w kolejności `general`, `image_selection`, niezależnie

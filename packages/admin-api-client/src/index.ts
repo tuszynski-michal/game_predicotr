@@ -846,6 +846,7 @@ export type {
   CuratedImageImportSourceResponse,
   ManagedImageReprocessJobPayload,
   PinnedManagedImageReprocessJobPayload,
+  SourceDirectoryRelocationPayload,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,

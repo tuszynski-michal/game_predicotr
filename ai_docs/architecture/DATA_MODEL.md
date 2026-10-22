@@ -18,10 +18,16 @@ odpowiada dokładnie `sourceDirectory` manifestu, a `current` odpowiada
 bieżącemu `input_payload.source_directory`. Każdy odtwarzany oryginał nadal
 musi zgadzać się rozmiarem i SHA-256. Bez tego jawnego potwierdzenia katalog
 manifestu pozostaje źródłem operacyjnym, także przy managed reprocess.
-Obecny managed reprocess nie propaguje receiptu z joba rodzica. Przy braku
-zarządzanego oryginału jego fallback może zatem nadal użyć starej bazy z
-manifestu. Przed fizycznym odcięciem starego źródła trzeba obsłużyć propagację
-relokacji i sprawdzić reprocess z brakującym oryginałem (P2-4 audytu TASK-1085).
+Managed reprocess propaguje receipt z joba rodzica, także w ręcznej kontynuacji
+(TASK-1086). Nowy proces odtwarza brakujący oryginał z nowej bazy, również gdy
+sklonowany niezmienny manifest zachowuje starą ścieżkę. Job bez receiptu
+zachowuje dotychczasowe zachowanie.
+
+Podgląd utrzymaniowy v2 przypina jawny artifact_root i pełny zestaw istniejących
+manifestów z SHA. Brak/zmiana manifestu albo niedozwolona zmiana after_payload
+blokuje apply, także po przeliczeniu SHA podglądu. Kontrola loadera i odpowiedzi
+API dotyczy procesu narzędzia; operator musi osobno wdrożyć kod i zrestartować
+działające usługi przed wykonaniem. Stary podgląd v1 jest odrzucany.
 
 Podgląd operacji zawiera wartości przed zmianą. Zapis blokuje i porównuje
 wszystkie joby przed pierwszym UPDATE; nie zmienia statusów, checkpointów,

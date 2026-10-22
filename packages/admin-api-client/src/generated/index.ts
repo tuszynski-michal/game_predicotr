@@ -3121,6 +3121,7 @@ export type {
   SourceCropRunResponse,
   SourceCropRunStart,
   SourceCropScopeModel,
+  SourceDirectoryRelocationPayload,
   SourceImageGeometryExceptionCommand,
   SourceImageGeometryExceptionResponse,
   SourceImageGeometryStatus,

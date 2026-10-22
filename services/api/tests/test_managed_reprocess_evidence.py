@@ -323,13 +323,33 @@ def test_neural_managed_reprocess_preserves_provenance_and_cold_retry(
     )
 
 
-def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Path) -> None:
+@pytest.mark.parametrize("relocated", [False, True])
+def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(
+    tmp_path: Path, relocated: bool
+) -> None:
     repository, source, _source_checksum, descriptor = _arrange_source_with_evidence(tmp_path)
+    if relocated:
+        source = replace(
+            source,
+            input_payload={
+                **source.input_payload,
+                "source_directory": "D:/managed-source",
+                "source_directory_relocation": {
+                    "contract_version": 1,
+                    "previous": "C:/managed-source",
+                    "current": "D:/managed-source",
+                },
+            },
+        )
+        repository.items[source.id] = source
     service = JobService(repository, artifact_root=tmp_path / "artifacts")
 
     job = service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
 
     assert job.input_payload["schema_version"] == 6
+    assert job.input_payload.get("source_directory_relocation") == source.input_payload.get(
+        "source_directory_relocation"
+    )
     assert job.input_payload["page_geometry_manifest"] == descriptor
     assert job.input_payload["source_manifest_sha256"] == "b" * 64
     assert len(str(job.input_payload["managed_source_manifest_checksum_sha256"])) == 64
@@ -344,8 +364,10 @@ def test_managed_reprocess_v6_pins_exact_source_and_page_manifests(tmp_path: Pat
     assert JobResponse.from_domain(job).input_payload.schema_version == 6
 
 
+@pytest.mark.parametrize("relocated", [False, True])
 def test_manual_continuation_rebinds_virtual_crop_contract_and_is_idempotent(
     tmp_path: Path,
+    relocated: bool,
 ) -> None:
     repository, source, _checksum, descriptor = _arrange_source_with_evidence(tmp_path)
     service = JobService(repository, artifact_root=tmp_path / "artifacts")
@@ -367,6 +389,17 @@ def test_manual_continuation_rebinds_virtual_crop_contract_and_is_idempotent(
     payload["image_geometry_rollout"] = replace(
         old_rollout, virtual_renderer_version="virtual-cell-renderer-source-direct-v1"
     ).to_payload()
+    if relocated:
+        payload.update(
+            {
+                "source_directory": "D:/managed-source",
+                "source_directory_relocation": {
+                    "contract_version": 1,
+                    "previous": "C:/managed-source",
+                    "current": "D:/managed-source",
+                },
+            }
+        )
     source = replace(
         source,
         input_payload=payload,
@@ -381,6 +414,9 @@ def test_manual_continuation_rebinds_virtual_crop_contract_and_is_idempotent(
         source.id, pipeline_fingerprint="f" * 64, continue_with_manual_geometry=True
     )
     assert first.id == second.id and first.id != source.id
+    assert first.input_payload.get("source_directory_relocation") == source.input_payload.get(
+        "source_directory_relocation"
+    )
     assert first.input_payload["page_geometry_manifest"] == descriptor
     for key in ("symbol_model", "grid_profile", "board_cell_processing"):
         assert first.input_payload[key] == source.input_payload[key]

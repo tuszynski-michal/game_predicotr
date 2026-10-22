@@ -4737,6 +4737,16 @@
             "title": "Sourcedirectory",
             "type": "string"
           },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceDisplayName": {
             "maxLength": 255,
             "minLength": 1,
@@ -7073,6 +7083,16 @@
             "minLength": 1,
             "title": "Sourcedirectory",
             "type": "string"
+          },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceDisplayName": {
             "maxLength": 255,
@@ -19267,6 +19287,16 @@
             ],
             "title": "Sourcedirectory"
           },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceDisplayName": {
             "anyOf": [
               {
@@ -23450,6 +23480,16 @@
             ],
             "title": "Sourcedirectory"
           },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceDisplayName": {
             "anyOf": [
               {
@@ -23558,6 +23598,16 @@
             "minLength": 1,
             "title": "Sourcedirectory",
             "type": "string"
+          },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceDisplayName": {
             "maxLength": 255,
@@ -27484,6 +27534,16 @@
             "title": "Sourcedirectory",
             "type": "string"
           },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceDisplayName": {
             "anyOf": [
               {
@@ -28548,6 +28608,16 @@
             "minLength": 1,
             "title": "Sourcedirectory",
             "type": "string"
+          },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceDisplayName": {
             "maxLength": 255,
@@ -31479,6 +31549,16 @@
             "minLength": 1,
             "title": "Sourcedirectory",
             "type": "string"
+          },
+          "sourceDirectoryRelocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceDirectoryRelocationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sourceDisplayName": {
             "maxLength": 255,
@@ -35397,6 +35477,36 @@
           }
         },
         "title": "SourceCropScopeModel",
+        "type": "object"
+      },
+      "SourceDirectoryRelocationPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Contractversion",
+            "type": "integer"
+          },
+          "current": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Current",
+            "type": "string"
+          },
+          "previous": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Previous",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "previous",
+          "current"
+        ],
+        "title": "SourceDirectoryRelocationPayload",
         "type": "object"
       },
       "SourceImageGeometryExceptionCommand": {

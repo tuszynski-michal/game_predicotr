@@ -933,6 +933,32 @@ def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:
         assert cancelled.json()["finishedAt"] is not None
 
 
+def test_get_relocated_image_job_preserves_optional_relocation_contract(tmp_path: Path) -> None:
+    client, game_id, _service, repository = _client(tmp_path)
+    receipt = {"contract_version": 1, "previous": "C:/old/source", "current": "D:/new/source"}
+    job = create_job(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_directory": "D:/new/source",
+            "pipeline_fingerprint": "a" * 64,
+            "source_directory_relocation": receipt,
+        },
+        created_at=datetime.now(UTC),
+    )
+    repository.add_job(job)
+    with client:
+        response = client.get(f"/api/v1/admin/jobs/{job.id}")
+    assert response.status_code == 200
+    assert response.json()["inputPayload"]["sourceDirectoryRelocation"] == {
+        "contractVersion": 1,
+        "previous": receipt["previous"],
+        "current": receipt["current"],
+    }
+
+
 def test_delete_cancelled_image_selection_job_contract(tmp_path: Path) -> None:
     client, game_id, service, repository = _client(tmp_path)
     source_selection_id = uuid4()

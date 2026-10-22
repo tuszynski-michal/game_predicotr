@@ -25,6 +25,7 @@ from uuid import UUID
 import psycopg
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
 from psycopg.rows import dict_row
 from sqlalchemy.engine import make_url
@@ -39,7 +40,7 @@ from scripts.prepare_legacy_copy_retirement import (  # noqa: E402
     ordinary_target,
 )
 
-CONTRACT = "legacy-job-path-relocation-v1"
+CONTRACT = "legacy-job-path-relocation-v2"
 SELECT_JOBS = (
     "select id::text,game_id::text,job_type::text,status::text,input_payload,"
     "checkpoint_payload,updated_at::text from public.jobs order by id"
@@ -117,8 +118,52 @@ def verify_input_receipts(plan: dict[str, Any]) -> None:
             print(f"verified_input_directory={index}/{len(directories)}", flush=True)
 
 
+def manifest_inventory(jobs: list[dict[str, Any]], artifact_root: Path) -> dict[str, str]:
+    if not artifact_root.is_dir():
+        raise ValueError("Configured artifact root is missing")
+    result = {}
+    for item in jobs:
+        before = item["before"]
+        path = artifact_root / "data/originals/manifests" / f"{UUID(before['id'])}.json"
+        if path.is_file():
+            result[before["id"]] = checksum(path)
+        elif before["status"] not in {"failed", "cancelled"}:
+            raise ValueError(f"Required source manifest is missing: {before['id']}")
+    if jobs and not result:
+        raise ValueError("No source manifests verified; check the configured artifact root")
+    return result
+
+
+def validate_after_payloads(plan: dict[str, Any]) -> None:
+    seen = set()
+    for item in plan["jobs"]:
+        before = item["before"]
+        if before["id"] in seen:
+            raise ValueError("Duplicate job in preview")
+        seen.add(before["id"])
+        payload = before["input_payload"]
+        previous = payload["source_directory"]
+        if "source_directory_relocation" in payload:
+            raise ValueError("Source already relocated")
+        after = target_directory(previous, plan["source"], plan["destination"])
+        expected = {
+            **payload,
+            "source_directory": after,
+            "source_directory_relocation": {
+                "contract_version": 1,
+                "previous": previous,
+                "current": after,
+            },
+        }
+        if item["after"] != after or item["after_payload"] != expected:
+            raise ValueError("Preview contains changes outside the permitted source relocation")
+
+
 def verify_worker(plan: dict[str, Any]) -> None:
-    store = ManagedOriginalStore(Path(plan["destination"]) / "artifacts")
+    artifact_root = Path(plan["artifact_root"])
+    if manifest_inventory(plan["jobs"], artifact_root) != plan["manifests"]:
+        raise ValueError("Source manifest inventory changed since preview")
+    store = ManagedOriginalStore(artifact_root)
     for item in plan["jobs"]:
         before = item["before"]
         job = create_job(
@@ -128,16 +173,19 @@ def verify_worker(plan: dict[str, Any]) -> None:
             created_at=datetime.now(UTC),
         )
         job = replace(job, id=UUID(before["id"]))
-        manifest_path = (
-            Path(plan["destination"]) / "artifacts/data/originals/manifests" / f"{job.id}.json"
-        )
-        if manifest_path.is_file():
+        JobResponse.from_domain(job)
+        if str(job.id) in plan["manifests"]:
             loaded = store.load_existing_manifest(job)
             if loaded.source_directory != Path(item["after"]):
-                raise ValueError("Deploy the relocation-aware worker before migrating job paths")
+                raise ValueError(
+                    "This process has no relocation-aware loader; "
+                    "restart deployed workers separately"
+                )
 
 
-def preview(source: Path, destination: Path, files_summary: Path) -> dict[str, Any]:
+def preview(
+    source: Path, destination: Path, files_summary: Path, artifact_root: Path
+) -> dict[str, Any]:
     jobs: list[dict[str, Any]] = []
     blockers: list[str] = []
     with connect(readonly=True) as connection:
@@ -193,12 +241,16 @@ def preview(source: Path, destination: Path, files_summary: Path) -> dict[str, A
         "source": str(source),
         "destination": str(destination),
         "files_summary": str(files_summary),
+        "artifact_root": str(artifact_root.resolve()),
         "jobs": jobs,
         "sessions_unchanged": sessions,
         "blockers": blockers,
         "counts": dict(Counter(item["before"]["status"] for item in jobs)),
     }
     try:
+        plan["manifests"] = manifest_inventory(jobs, artifact_root)
+        validate_after_payloads(plan)
+        verify_worker(plan)
         verify_input_receipts(plan)
         plan["files_ready"] = True
     except (OSError, ValueError, sqlite3.Error) as error:
@@ -214,6 +266,7 @@ def apply(plan_path: Path, expected_sha256: str) -> int:
     plan = json.loads(content)
     if plan["contract"] != CONTRACT or plan["blockers"] or not plan["files_ready"]:
         raise ValueError("Preview has unresolved blockers")
+    validate_after_payloads(plan)
     verify_input_receipts(plan)
     verify_worker(plan)
     before_by_id = {item["before"]["id"]: item["before"] for item in plan["jobs"]}
@@ -247,6 +300,7 @@ def main() -> int:
     prepare.add_argument("--source", type=Path, required=True)
     prepare.add_argument("--destination", type=Path, required=True)
     prepare.add_argument("--files-summary", type=Path, required=True)
+    prepare.add_argument("--artifact-root", type=Path, required=True)
     prepare.add_argument("--output", type=Path, required=True)
     execute = commands.add_parser("apply")
     execute.add_argument("--plan", type=Path, required=True)
@@ -255,7 +309,7 @@ def main() -> int:
     if args.command == "apply":
         print(f"updated_jobs={apply(args.plan, args.approve_sha256)}")
     else:
-        plan = preview(args.source, args.destination, args.files_summary)
+        plan = preview(args.source, args.destination, args.files_summary, args.artifact_root)
         content = json.dumps(plan, ensure_ascii=False, indent=2).encode("utf-8")
         args.output.write_bytes(content)
         print(json.dumps({"counts": plan["counts"], "blockers": plan["blockers"]}))

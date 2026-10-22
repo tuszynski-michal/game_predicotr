@@ -6,6 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1086 — Zabezpieczenia relokacji źródeł C (done)
+
+- Plik: `tasks/completed/1086-harden-legacy-source-relocation.md`.
+- Commit: **v1.7.462** (hash dopisuje kolejny commit).
+- Obie ścieżki managed reprocess dziedziczą receipt; preview/apply v2 wymaga jawnego artifact_root, dokładnego zestawu manifestów z SHA i wylicza dozwolony payload. Opcjonalny kontrakt API, OpenAPI, klient i test żądania zaktualizowane razem.
+- Operator zastąpił pełny historyczny skan analizą rzeczywistych zależności od plików. Wszystkie 133 kolumny ścieżkowe w 108 tabelach i operacyjne deskryptory JSON rozliczone: dodatkowo tylko 14 pustych wygasłych sesji; 179 jobów ma zweryfikowany podgląd v2. Bez zapisu bazy operatora.
+- Testy: 76 Python PASS; izolowana transakcja PostgreSQL z Alembic head PASS (16.21 s), konflikt/NOWAIT/rollback/JSONB/retry oraz skaner; klient i 16 asercji CLI PASS. Ruff, mypy skryptów, typy klienta, generowanie/OpenAPI, mapa i docs:check PASS. Mypy API ma identyczne 23 wcześniejsze błędy co main; bez nowych regresji.
+- Jedna runda poprawek P2 po audycie Claude TASK-1085, bez ponowienia audytu. Pełny historyczny skan poza zatwierdzonym nowym zakresem, checkpointy zachowane. Raport: `quality/LEGACY_C_COPY_RETIREMENT_20261022.md`.
+- Nie wykonano merge/push, restartów, migracji ścieżek, odcięcia ani usunięcia C. Te kroki pozostają osobno zatwierdzane. Przed sprzątaniem worktree odpiąć same junction .venv i node_modules do głównego D.
+
 ### TASK-1085 — Przygotowanie usunięcia starej kopii C (done)
 
 - Plik: `tasks/completed/1085-prepare-legacy-c-copy-retirement.md`. Commit **v1.7.460 / `1cfa71323c0818c62a9d92e2337dc84b4d175184`**.

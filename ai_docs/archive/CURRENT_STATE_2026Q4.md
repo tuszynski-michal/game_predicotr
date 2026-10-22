@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1085 — Przygotowanie usunięcia starej kopii C (done)
+
+- Plik: `tasks/completed/1085-prepare-legacy-c-copy-retirement.md`. Commit **v1.7.460**.
+- Zabezpieczono 434131 plików, 39 referencji Git i oba stare worktree; różnice zachowane osobno, aktywny D bez nadpisania.
+- Podgląd 179 ścieżek i 55 katalogów z SHA, loader z jawnym potwierdzeniem relokacji, niezmienne manifesty.
+- 78 testów PASS, po zmianie wznowienia 16 testów PASS; 10 testów wykrywania Claude PASS. Ruff, format, mypy nowych narzędzi, docs:check i mapa PASS; wcześniejsze błędy mypy workera poza zakresem.
+- Audyt claude-opus-5-5 / medium PASS, bez P0/P1. Siedem P2 jawnie rozliczonych w raporcie; przed wykonaniem pozostają reprocess, pełny skan bazy, test transakcji i kontrola manifestów/workerów.
+- Brak zapisu danych, restartów, odcięcia C, merge i push. Junction .venv worktree prowadzi do głównego D. Raport: ai_docs/quality/LEGACY_C_COPY_RETIREMENT_20261022.md.
+
 ### TASK-1082 — Sprzątanie po scaleniu (done)
 
 - Plik: tasks/completed/1082-mandatory-merge-cleanup.md.

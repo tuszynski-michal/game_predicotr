@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (415 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (417 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (115 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -278,7 +278,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (173 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (175 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -298,7 +298,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `measure_*` (2): `measure_image_import_job.ps1`, `measure_symbol_review_page.py`
 - `mumie_*` (2): `mumie_control_truth_prepare.py`, `mumie_folder_gallery.html`
 - `preflight_*` (2): `preflight_vision_lab_hybrid.ps1`, `preflight_vision_lab_hybrid.py`
-- `prepare_*` (6): `prepare_crop_v11_independent_sample.mjs`, `prepare_m34_device_candidate.py`, `prepare_management_browser_fixture.py` (+3)
+- `prepare_*` (7): `prepare_crop_v11_independent_sample.mjs`, `prepare_legacy_copy_retirement.py`, `prepare_m34_device_candidate.py` (+4)
 - `preview_*` (6): `preview_management_receipt_migration.py`, `preview_manual_selection_manifest_v2.mjs`, `preview_screen_layout_v3.py` (+3)
 - `probe_*` (3): `probe_v7_grid_label_corpus.py`, `probe_v7_grid_labels.py`, `probe_v7_selection_environment.py`
 - `provision_*` (2): `provision_database_roles.py`, `provision_v7_sequence_ocr_model.ps1`
@@ -316,7 +316,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `verify_*` (8): `verify_android_apk.ps1`, `verify_artifact_references.py`, `verify_m2_acceptance.ps1` (+5)
 - `vision_*` (5): `vision_lab_assisted_annotation.ps1`, `vision_lab_export.py`, `vision_lab_geometry_export.py` (+2)
 
-Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `close_task.py`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `diagnose_selected_crop_v11.mjs`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `integration_preflight.py`, `inventory_worktrees.ps1`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
+Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `close_task.py`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `diagnose_selected_crop_v11.mjs`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `integration_preflight.py`, `inventory_worktrees.ps1`, `legacy_job_path_migration.py`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
 
 npm scripts wg prefiksu (liczba): `admin:`3, `android:`7, `api:`2, `code-map:`1, `data:`1, `db:`10, `docs:`1, `fixture:`1, `format:`2, `image-import:`1, `images:`2, `lint:`1, `m2:`1, `m35:`7, `m4:`2, `m5:`15, `m6:`10, `m7:`10, `openapi:`2, `powershell:`1, `python:`3, `quality:`1, `remote-selection:`3, `repository:`1, `reviewer:`8, `selector:`4, `snapshot:`2, `test:`1, `typecheck:`1, `v01:`3, `v02:`1, `v04:`2, `vision-lab:`4, `windows:`3, `worker:`5, `workers:`5
 

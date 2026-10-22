@@ -12,6 +12,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+- **Odłączenie starego C / TASK-1085 (2026-10-22):** zabezpieczenie plików i Git oraz podgląd 179 ścieżek gotowe; audyt Claude PASS. Nie wykonano migracji ani usunięcia. Przed apply/odcięciem trzeba rozliczyć warunki P2: fallback reprocessu, pełny skan bazy, test transakcji i kontrolę manifestów/workerów. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md), sekcja ograniczeń po audycie.
+
 Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zweryfikuj odczytem, bez zmian w systemie. Pełne, niezmienione teksty dawnych punktów (także skróconych poniżej) są na początku archiwum Q4, sekcja „Przeniesione z okna 2026-10-16 (TASK-1022)”.
 
 - **Gałąź integracyjna = `main`** (operator, 2026-10-16): nowe gałęzie od `main`, scalanie do `main`. `v1.1-vision-lab-hybrid-geometry` jest w `main` i usunięta lokalnie oraz na `origin` (2026-10-16, polecenie operatora). Starsze wzmianki o „gałęzi integracyjnej” dotyczą tamtej gałęzi. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
@@ -63,6 +65,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 — tasks/completed/1085-prepare-legacy-c-copy-retirement.md
 - **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 / `787e8e27` — tasks/completed/1082-mandatory-merge-cleanup.md
 - **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md
 - **TASK-1080** — Zachowanie wygranych przed rozwinięciem — v1.7.455 / `e424e0f4` — tasks/completed/1080-mumie-preserve-pre-expansion-wins.md
@@ -72,4 +75,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1071** — Kolejka operacji masowej weryfikacji symboli — v1.7.447 / `a88af5c2` — tasks/completed/1071-symbol-review-bulk-queue.md
 - **TASK-1070** — Rozmiar strony weryfikacji symboli — v1.7.445 / `a978fa70` — tasks/completed/1070-symbol-review-page-size.md
 - **TASK-1069** — Kompaktowy styl zakresu pewności symboli — v1.7.443 / `d08130d0` — tasks/completed/1069-symbol-confidence-compact-style.md
-- **TASK-1068** — Zakres pewności symboli — v1.7.441 / `659673fa` — tasks/completed/1068-symbol-confidence-range.md

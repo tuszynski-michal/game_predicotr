@@ -43,6 +43,12 @@ try {
     Assert-Equal $null (Resolve-AuditorCli git $fixture) 'do not substitute Claude for Git'
     $roaming = Add-CliFixture 'AppData/Roaming/Claude/claude-code/3.0.0/hash/claude.exe'
     Assert-Equal $roaming (Resolve-AuditorCli claude $fixture) 'unpackaged Roaming installation'
+    $desktop = Add-CliFixture 'AppData/Local/Claude-Data/claude_test/claude-code/3.1.9/hash/claude.exe'
+    Assert-Equal $desktop (Resolve-AuditorCli claude $fixture) 'desktop data installation without PATH'
+    $desktopUpdate = Add-CliFixture 'AppData/Local/Claude-Data/claude_other/claude-code/3.1.10/new-hash/claude.exe'
+    Add-CliFixture 'AppData/Local/Claude-Data/claude_other/claude-code/not-a-version/hash/claude.exe' | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $fixture 'AppData/Local/Claude-Data/claude_other/claude-code/99.0.0/incomplete') -Force | Out-Null
+    Assert-Equal $desktopUpdate (Resolve-AuditorCli claude $fixture) 'desktop update; ignore invalid and incomplete versions'
     $native = Add-CliFixture '.local/bin/claude.exe'
     Assert-Equal $native (Resolve-AuditorCli claude $fixture) 'native installation precedence'
     $script:commandSource = 'C:\explicit\claude.cmd'

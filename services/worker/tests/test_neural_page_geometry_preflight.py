@@ -151,6 +151,20 @@ def result(root: Path, context: Context) -> dict[str, object]:
     return json.loads((root / checkpoint["geometry_manifest_relative_path"]).read_bytes())  # type: ignore[index,operator]
 
 
+def test_neural_preflight_accepts_explicit_source_relocation_receipt(tmp_path: Path) -> None:
+    from game_predictor_worker.images.neural_page_geometry_preflight import _input
+
+    job, _checksums = job_fixture(tmp_path, files=1)
+    payload = dict(job.input_payload)
+    payload["source_directory_relocation"] = {
+        "contract_version": 1,
+        "previous": "C:/old/source",
+        "current": payload["source_directory"],
+    }
+    relocated = replace(job, input_payload=payload)
+    assert _input(relocated) == _input(job)
+
+
 def test_mixed_folder_is_durable_review_without_fabricated_binding(tmp_path: Path) -> None:
     job, checksums = job_fixture(tmp_path)
     root = tmp_path / "artifacts"

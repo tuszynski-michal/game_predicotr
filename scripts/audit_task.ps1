@@ -59,8 +59,8 @@ script exits with code 1 instead of writing an empty brief.
 Write the brief and print what would be executed; never start the auditor.
 
 .PARAMETER Effort
-Reasoning effort passed to the Codex auditor (low, medium, high; default medium,
-the quick audit of the audit-task skill, "Zasady"). Ignored for the Claude auditor.
+Reasoning effort passed to the auditor (low, medium, high; default medium,
+the quick audit of the audit-task skill, "Zasady").
 
 .PARAMETER CodexWindowsSandbox
 Windows sandbox mode for the Codex CLI run (default unelevated; the elevated mode
@@ -317,6 +317,13 @@ function Resolve-AuditorCli {
     # Windows-packaged Claude exposes a virtual Roaming path in process metadata.
     # Resolve the physical LocalCache path instead; never pin a version/hash.
     $roots = @((Join-Path $UserProfile 'AppData\Roaming\Claude\claude-code'))
+    # New desktop releases keep data outside the Windows package's LocalCache.
+    # Discover account directories dynamically; do not pin package/version names.
+    $desktopData = Join-Path $UserProfile 'AppData\Local\Claude-Data'
+    if (Test-Path -LiteralPath $desktopData -PathType Container) {
+        $roots += @(Get-ChildItem -LiteralPath $desktopData -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName 'claude-code' })
+    }
     $packages = Join-Path $UserProfile 'AppData\Local\Packages'
     if (Test-Path -LiteralPath $packages -PathType Container) {
         $roots += @(Get-ChildItem -LiteralPath $packages -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
@@ -558,6 +565,10 @@ Rules:
     else {
         $requiredFlags = @('--permission-mode', '--print')
         $cliArguments = @('-p', '--permission-mode', 'plan')
+        if ($Effort -ne '') {
+            $requiredFlags += '--effort'
+            $cliArguments += @('--effort', $Effort)
+        }
     }
     if ($Model -ne '') { $cliArguments += @('--model', $Model) }
     $cliArguments += $prompt

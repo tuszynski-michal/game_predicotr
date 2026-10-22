@@ -1,4 +1,9 @@
 import hashlib
+import json
+import os
+import subprocess
+import sys
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -54,6 +59,121 @@ def _job(source: Path):
         },
         created_at=NOW,
     )
+
+
+def test_relocated_job_recovers_original_in_new_process_without_rewriting_manifest(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "legacy-c"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "a.jpg", "JPEG")
+    artifacts = tmp_path / "artifacts"
+    job = _job(source)
+    store = ManagedOriginalStore(artifacts)
+    original_manifest = store.load_or_create_manifest(job, source_directory=source)
+    manifest_path = artifacts / original_manifest.relative_path
+    pinned_bytes = manifest_path.read_bytes()
+    moved = tmp_path / "active-d"
+    source.rename(moved)
+    relocated = replace(
+        job,
+        input_payload={
+            **job.input_payload,
+            "source_directory": str(moved),
+            "source_directory_relocation": {
+                "contract_version": 1,
+                "previous": str(source.resolve()),
+                "current": str(moved),
+            },
+        },
+    )
+    loaded = ManagedOriginalStore(artifacts).load_existing_manifest(relocated)
+    assert loaded.source_directory == moved
+    assert loaded.content == pinned_bytes
+    assert loaded.checksum_sha256 == original_manifest.checksum_sha256
+    program = """
+import json, sys
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID
+from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
+value = json.loads(sys.stdin.read())
+job = create_job(JobType.IMPORT, game_id=UUID(value['game_id']),
+    input_payload=value['payload'], created_at=datetime.now(UTC))
+job = replace(job, id=UUID(value['job_id']))
+store = ManagedOriginalStore(Path(value['artifacts']))
+manifest = store.load_or_create_manifest(job, source_directory=Path(value['source']))
+for original in manifest.originals:
+    store.ensure_original(manifest, original)
+"""
+    subprocess.run(
+        [sys.executable, "-c", program],
+        input=json.dumps(
+            {
+                "game_id": str(job.game_id),
+                "job_id": str(job.id),
+                "payload": dict(relocated.input_payload),
+                "artifacts": str(artifacts),
+                "source": str(moved),
+            }
+        ),
+        text=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                str(Path(__file__).resolve().parents[3] / "services" / name / "src")
+                for name in ("api", "worker")
+            ),
+        },
+        capture_output=True,
+        timeout=20,
+        check=True,
+    )
+    recovered = artifacts / original_manifest.originals[0].managed_relative_path
+    assert recovered.read_bytes() == (moved / "a.jpg").read_bytes()
+    assert manifest_path.read_bytes() == pinned_bytes
+
+
+def test_relocated_source_still_rejects_different_original_bytes(tmp_path: Path) -> None:
+    source = tmp_path / "legacy"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "a.jpg", "JPEG")
+    job = _job(source)
+    store = ManagedOriginalStore(tmp_path / "artifacts")
+    store.load_or_create_manifest(job, source_directory=source)
+    moved = tmp_path / "moved"
+    source.rename(moved)
+    Image.new("RGB", (32, 24), (0, 0, 255)).save(moved / "a.jpg", "JPEG")
+    relocated = replace(
+        job,
+        input_payload={
+            **job.input_payload,
+            "source_directory": str(moved),
+            "source_directory_relocation": {
+                "contract_version": 1,
+                "previous": str(source.resolve()),
+                "current": str(moved),
+            },
+        },
+    )
+    manifest = store.load_existing_manifest(relocated)
+    with pytest.raises(JobHandlerError, match="changed"):
+        store.ensure_original(manifest, manifest.originals[0])
+
+
+def test_unrelocated_managed_manifest_keeps_its_original_source_base(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "a.jpg", "JPEG")
+    job = _job(source)
+    store = ManagedOriginalStore(tmp_path / "artifacts")
+    store.load_or_create_manifest(job, source_directory=source)
+    managed_job = replace(
+        job, input_payload={**job.input_payload, "source_directory": str(tmp_path / "artifacts")}
+    )
+    assert store.load_existing_manifest(managed_job).source_directory == source.resolve()
 
 
 def test_ingestion_deduplicates_bytes_and_survives_removed_source(

@@ -1327,6 +1327,7 @@ def _input(job: Job) -> dict[str, object]:
         "canonical_sequence_numbers",
     }
     optional = {
+        "source_directory_relocation",
         "preflight_policy_version",
         "source_display_name",
         "source_exclusions",

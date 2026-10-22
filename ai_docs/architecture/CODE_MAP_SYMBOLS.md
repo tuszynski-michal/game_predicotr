@@ -1306,11 +1306,13 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - install_mumie_feedback_controls.py: install_controls, main
 - install_recording_provider.py: main
 - integration_preflight.py: class GitError, class Collision, class WorktreeState, class KindClaims, git, git_ok, local_branches, current_branch, require_branch, left_right, tree_paths, numbered_files, decision_headings, tree_claims, version_claims, subtract, added_by, occupied_on, find_collisions, worktree_paths, worktree_state, analyse, build_warnings, render_text, build_parser, main
+- legacy_job_path_migration.py: connect, target_directory, validate_current_row, verify_input_receipts, verify_worker, preview, apply, main
 - m8_gold_frame_pilot.py: class PilotError, class RunExistsError, class GoldRange, class PilotCell, class PrepareSummary, perimeter_mask, gold_mask, perimeter_gold_share, interior_gold_share, expand_quad, class Confusion, confusion, sweep_thresholds, best_threshold, normalize_label, select_cells, render_crops, write_sheet, prepare, class ScoredRow, read_labels, score_rows, visibility_summary, build_report, evaluate, parse_args, main
 - measure_symbol_review_page.py: class Measurement, main
 - migrate_cell_level_verification.py: arguments, write_report, run_preview, run_apply, summary, main
 - mumie_control_truth_prepare.py: prepare
 - normalize_m5_images.py: main
+- prepare_legacy_copy_retirement.py: io_path, fingerprint, checksum, validate_roots, inventory, ordinary_target, validate_parent, archive_file, open_receipt, preserve_entry, verify_files, legacy_values, main
 - prepare_m34_device_candidate.py: main
 - prepare_mumie_rgb_pilot.py: prepare, main
 - prepare_v7_pilot_fixtures.py: prepare, main

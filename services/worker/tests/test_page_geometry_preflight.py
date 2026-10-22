@@ -282,6 +282,18 @@ def _cold_start_job(
     )
 
 
+def test_classical_preflight_accepts_explicit_source_relocation_receipt(tmp_path: Path) -> None:
+    job, _checksums = _cold_start_job(tmp_path, image_count=1)
+    payload = dict(job.input_payload)
+    payload["source_directory_relocation"] = {
+        "contract_version": 1,
+        "previous": "C:/old/source",
+        "current": payload["source_directory"],
+    }
+    relocated = replace(job, input_payload=payload)
+    assert preflight_module._input(relocated) == preflight_module._input(job)
+
+
 def test_geometry_preflight_without_anchor_creates_review_queue(tmp_path: Path) -> None:
     job, checksums = _cold_start_job(tmp_path, image_count=2)
     context = _Context()

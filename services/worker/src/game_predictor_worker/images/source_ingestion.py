@@ -449,8 +449,31 @@ class ManagedOriginalStore:
                 "IMAGE_SOURCE_MANIFEST_INVALID",
                 "The managed source manifest has no originals.",
             )
+        operational_source = source_value
+        relocation = job.input_payload.get("source_directory_relocation")
+        if relocation is not None:
+            if (
+                not isinstance(relocation, Mapping)
+                or set(relocation) != {"contract_version", "previous", "current"}
+                or type(relocation["contract_version"]) is not int
+                or relocation["contract_version"] != 1
+                or not isinstance(relocation["previous"], str)
+                or not isinstance(relocation["current"], str)
+                or not relocation["previous"].strip()
+                or not relocation["current"].strip()
+                or relocation["current"] != job.input_payload.get("source_directory")
+            ):
+                raise JobHandlerError(
+                    "IMAGE_IMPORT_PAYLOAD_INVALID", "The source relocation receipt is invalid."
+                )
+            if source_value == relocation["previous"]:
+                operational_source = relocation["current"]
         return ManagedSourceManifest(
-            source_directory=Path(source_value),
+            # The immutable manifest preserves provenance. A maintenance move
+            # may explicitly relocate the operational source directory without
+            # changing these bytes or their pinned checksum. Every copied
+            # original still has to match its size and SHA-256 below.
+            source_directory=Path(operational_source),
             originals=originals,
             content=content,
             relative_path=relative_path,

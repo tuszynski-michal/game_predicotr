@@ -6,6 +6,28 @@ last_updated: 2026-10-16
 
 # Model danych
 
+## Przeniesienie źródła historycznego joba — TASK-1085
+
+Niezmienny manifest oryginałów zachowuje `sourceDirectory` jako informację
+o pochodzeniu i zachowuje swój SHA-256. Kontrolowana operacja utrzymaniowa
+może zmienić `jobs.input_payload.source_directory` po potwierdzeniu zgodności
+plików na nowym dysku. Dla importu zapisuje również
+`source_directory_relocation` z `contract_version=1`, `previous` i `current`.
+Worker korzysta z nowego katalogu tylko wtedy, gdy zapisane `previous`
+odpowiada dokładnie `sourceDirectory` manifestu, a `current` odpowiada
+bieżącemu `input_payload.source_directory`. Każdy odtwarzany oryginał nadal
+musi zgadzać się rozmiarem i SHA-256. Bez tego jawnego potwierdzenia katalog
+manifestu pozostaje źródłem operacyjnym, także przy managed reprocess.
+Obecny managed reprocess nie propaguje receiptu z joba rodzica. Przy braku
+zarządzanego oryginału jego fallback może zatem nadal użyć starej bazy z
+manifestu. Przed fizycznym odcięciem starego źródła trzeba obsłużyć propagację
+relokacji i sprawdzić reprocess z brakującym oryginałem (P2-4 audytu TASK-1085).
+
+Podgląd operacji zawiera wartości przed zmianą. Zapis blokuje i porównuje
+wszystkie joby przed pierwszym UPDATE; nie zmienia statusów, checkpointów,
+input_key, danych gier ani bajtów manifestów. Puste sesje selekcji po expires_at
+są historią i nie wymagają przenoszenia powiązania katalogu.
+
 ## Trwałe propozycje geometrii V3 — D-551 / TASK-1013
 
 Migracja `0160_grid_geometry_proposals` i frozen manifest v13 dodają dwa

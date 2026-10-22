@@ -219,6 +219,11 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
   — deferred audit scopes, corrected stage snapshots and remaining closure work.
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Przygotowanie usunięcia starej kopii C](quality/LEGACY_C_COPY_RETIREMENT_20261022.md)
+  — TASK-1085: przydatność importów, zabezpieczenie plików i bramki migracji
+  ścieżek przed odcięciem starego checkoutu.
+- [Audyt przygotowania usunięcia C](quality/TASK-1085_AUDIT_claude-opus-5-5.md)
+  — Claude PASS, jawne uwagi P2 i ograniczenia odbioru.
 - [Narzędzia oszczędzania tokenów](guides/TOKEN_TOOLING.md) — mapa kodu, hook
   odczytu, pilot Serena MCP i Graphify, wyłączanie i rejestracja (TASK-0939).
 - [Automatyzacje Claude Code](guides/CLAUDE_CODE_AUTOMATIONS.md) — hooki (blokada

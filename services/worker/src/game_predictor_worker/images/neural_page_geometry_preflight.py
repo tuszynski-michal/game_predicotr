@@ -69,6 +69,7 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
         "neural_grid_proposal",
     }
     optional = {
+        "source_directory_relocation",
         "source_display_name",
         "source_exclusions",
         "managed_source_job_id",

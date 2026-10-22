@@ -180,6 +180,7 @@ class FakeReferences:
 class FakeSearch:
     def __init__(self, super_game: SuperGameMarkers | None = None) -> None:
         self.calls: list[dict[str, object]] = []
+        self.unknown_matches_all = False
         self.super_game = super_game or SuperGameMarkers(state=NO_SUPER_GAME_STATE)
 
     def search_with_super_game(
@@ -208,6 +209,7 @@ class FakeSearch:
                     weighted_alternative_score=0.0,
                     mismatch_count=0,
                     unknown_count=1,
+                    unknown_matches_all=self.unknown_matches_all,
                 ),
             )
             for sequence_number in (11, 12, 13, 14, 15, 16)
@@ -449,10 +451,13 @@ def test_a_game_parameter_is_refused(client: tuple[TestClient, Harness]) -> None
     assert harness.search.calls == []
 
 
+@pytest.mark.parametrize("unknown_matches_all", [False, True])
 def test_search_reads_only_the_session_game_and_logs_the_full_pattern(
     client: tuple[TestClient, Harness],
+    unknown_matches_all: bool,
 ) -> None:
     test_client, harness = client
+    harness.search.unknown_matches_all = unknown_matches_all
     session_id = _signed_in(test_client, harness, DETAIL_GAME_ID)
     response = test_client.get(
         f"{BASE}/search",
@@ -462,6 +467,7 @@ def test_search_reads_only_the_session_game_and_logs_the_full_pattern(
     assert response.status_code == 200, response.text
     body = response.json()
     assert _forbidden_keys(body) == set()
+    assert body["results"][0]["score"]["unknownMatchesAll"] is unknown_matches_all
     assert [item["sequenceNumber"] for item in body["results"]] == [11, 12, 13, 14, 15, 16]
     assert harness.search.calls[0]["gameId"] == DETAIL_GAME_ID
     assert body["searchContextId"] == str(harness.log.entries[0]["id"])

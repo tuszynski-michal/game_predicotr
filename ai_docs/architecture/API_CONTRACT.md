@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-10-23
 ---
 
 # Kontrakty API i danych mobilnych
@@ -484,6 +484,15 @@ Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 `NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
 rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
 sprzeczności, status zatwierdzony, `sequence_number` i UUID.
+
+Wyjątek TASK-1087 / D-569: dla `GameModel.code=777a2` score zawiera
+`unknownMatchesAll=true`; brak dowodu na porównywanej pozycji otrzymuje pełny
+punkt, pozostaje w `unknownCount` i nie zwiększa `exactMatchCount` ani
+`alternativeMatchCount`. Takie pozycje dopuszczają wynik także bez innych
+trafień. W pozostałych grach `unknownMatchesAll=false` (domyślna wartość
+nowego pola). Publiczne odpowiedzi udostępniania zachowują ten znacznik.
+Nie zmienia to walidacji wzoru, kolejności rozstrzygania remisów ani oceny
+wypłat. Odczyt nadal korzysta wyłącznie z fast documents.
 
 #### Oznaczenie supergry w wynikach (TASK-0935, D-535)
 

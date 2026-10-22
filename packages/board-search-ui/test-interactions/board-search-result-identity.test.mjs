@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act, useState } from 'react';
@@ -30,6 +31,14 @@ dom.window.HTMLDialogElement.prototype.close = function () {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchResults } = await import('../src/board-search-results.tsx');
+
+const warningRule = readFileSync(
+  new URL('../src/board-search.css', import.meta.url),
+  'utf8',
+).match(/\.boardSearchUnknownWarning\s*\{[^}]+\}/)[0];
+const warningStyle = document.createElement('style');
+warningStyle.textContent = warningRule;
+document.head.append(warningStyle);
 after(() => dom.window.close());
 
 function result(
@@ -76,6 +85,60 @@ function assertSinglePreview(sequence) {
   const images = document.querySelectorAll('.boardSearchBoardAsset');
   assert.equal(images.length, 1, 'exactly one result photo remains in the DOM');
   assert.match(images[0].src, new RegExp(`/${sequence}/`));
+}
+
+for (const compact of [false, true]) {
+  test(`wildcard warning follows the active result and preserves ordinary search (compact=${compact})`, async () => {
+    const root = createRoot(document.getElementById('root'));
+    const wildcard = result(10);
+    wildcard.score = {
+      ...wildcard.score,
+      unknownCount: 3,
+      unknownMatchesAll: true,
+    };
+    const known = result(19);
+    known.score.unknownMatchesAll = true;
+    const ordinary = result(27);
+    ordinary.score.unknownCount = 4;
+    const results = [wildcard, known, ordinary];
+    async function render(activeIndex) {
+      await act(async () =>
+        root.render(
+          React.createElement(BoardSearchResults, {
+            client,
+            gameId: 'game',
+            state: { activeIndex, results },
+            onStateChange() {},
+            onBoardEdited() {},
+            symbols: [],
+            compact,
+          }),
+        ),
+      );
+    }
+    try {
+      await render(0);
+      const warning = document.querySelector('.boardSearchUnknownWarning');
+      assert.match(warning.textContent, /Nierozpoznane symbole: 3/);
+      assert.equal(warning.getAttribute('role'), 'status');
+      assert.match(warningRule, /color:\s*var\(--danger, #ff8a8a\)/);
+      for (const index of [1, 2]) {
+        await render(index);
+        assert.equal(
+          document.querySelector('.boardSearchUnknownWarning'),
+          null,
+        );
+      }
+      wildcard.score.unknownCount = 1;
+      await render(0);
+      assert.match(
+        document.querySelector('.boardSearchUnknownWarning').textContent,
+        /Nierozpoznane symbole: 1/,
+      );
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
 }
 
 for (const compact of [false, true]) {

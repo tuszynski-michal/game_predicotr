@@ -140,10 +140,15 @@ class BoardSearchScore:
     weighted_alternative_score: float
     mismatch_count: int
     unknown_count: int
+    unknown_matches_all: bool = False
 
     @property
     def has_positive_evidence(self) -> bool:
-        return self.exact_match_count > 0 or self.alternative_match_count > 0
+        return (
+            self.exact_match_count > 0
+            or self.alternative_match_count > 0
+            or (self.unknown_matches_all and self.unknown_count > 0)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,21 +276,28 @@ def validate_board_search_query(
 def score_board_search_candidate(
     query: Sequence[BoardSearchQueryCell],
     candidate: BoardSearchCandidate,
+    *,
+    unknown_matches_all: bool = False,
 ) -> BoardSearchScore:
     """Score one candidate using the immutable partial-match contract.
 
     A missing value (``None`` or ``?``) neither helps nor hurts.  An accepted
     or corrected board intentionally ignores alternative predictions; its
-    resolved code is the only evidence eligible for search.
+    resolved code is the only evidence eligible for search. With the explicit
+    wildcard option, missing evidence earns a point but remains unknown.
     """
 
     normalized_query = validate_board_search_query(query)
-    return _score_validated_board_search_candidate(normalized_query, candidate)
+    return _score_validated_board_search_candidate(
+        normalized_query, candidate, unknown_matches_all=unknown_matches_all
+    )
 
 
 def _score_validated_board_search_candidate(
     query: Sequence[BoardSearchQueryCell],
     candidate: BoardSearchCandidate,
+    *,
+    unknown_matches_all: bool = False,
 ) -> BoardSearchScore:
     exact_match_count = 0
     alternative_match_count = 0
@@ -326,7 +338,10 @@ def _score_validated_board_search_candidate(
         else:
             unknown_count += 1
 
-    normalized_score = (exact_match_count + weighted_alternative_score) / len(query) * 100.0
+    wildcard_points = unknown_count if unknown_matches_all else 0
+    normalized_score = (
+        (exact_match_count + weighted_alternative_score + wildcard_points) / len(query) * 100.0
+    )
     return BoardSearchScore(
         score=round(normalized_score, 1),
         exact_match_count=exact_match_count,
@@ -334,6 +349,7 @@ def _score_validated_board_search_candidate(
         weighted_alternative_score=round(weighted_alternative_score, 6),
         mismatch_count=mismatch_count,
         unknown_count=unknown_count,
+        unknown_matches_all=unknown_matches_all,
     )
 
 
@@ -342,15 +358,18 @@ def rank_board_search_candidates(
     candidates: Iterable[BoardSearchCandidate],
     *,
     scope: BoardSearchScope,
+    unknown_matches_all: bool = False,
 ) -> tuple[RankedBoardSearchCandidate, ...]:
-    """Filter and sort candidates without allowing zero-evidence noise."""
+    """Filter and sort candidates, optionally allowing explicit unknown wildcards."""
 
     query = validate_board_search_query(query_cells)
     ranked: list[RankedBoardSearchCandidate] = []
     for candidate in candidates:
         if scope is BoardSearchScope.APPROVED_ONLY and candidate.status not in _APPROVED_STATUSES:
             continue
-        score = _score_validated_board_search_candidate(query, candidate)
+        score = _score_validated_board_search_candidate(
+            query, candidate, unknown_matches_all=unknown_matches_all
+        )
         if score.has_positive_evidence:
             ranked.append(RankedBoardSearchCandidate(candidate=candidate, score=score))
 

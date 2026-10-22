@@ -17,8 +17,9 @@ from game_predictor_api.main import create_app
 
 
 class MemoryBoardSearchRepository:
-    def __init__(self, game_id: UUID) -> None:
+    def __init__(self, game_id: UUID, *, unknown_matches_all: bool = False) -> None:
         self.game_id = game_id
+        self.unknown_matches_all = unknown_matches_all
         self.calls: list[tuple[tuple[BoardSearchQueryCell, ...], BoardSearchScope, int]] = []
 
     def search(
@@ -48,6 +49,7 @@ class MemoryBoardSearchRepository:
                     weighted_alternative_score=0.6,
                     mismatch_count=0,
                     unknown_count=0,
+                    unknown_matches_all=self.unknown_matches_all,
                 ),
             ),
         )
@@ -92,6 +94,7 @@ def test_board_search_endpoint_parses_cells_and_returns_score() -> None:
         "weightedAlternativeScore": 0.6,
         "mismatchCount": 0,
         "unknownCount": 0,
+        "unknownMatchesAll": False,
     }
     assert repository.calls == [
         (
@@ -103,6 +106,25 @@ def test_board_search_endpoint_parses_cells_and_returns_score() -> None:
             10,
         )
     ]
+
+
+def test_board_search_transports_the_wildcard_policy_to_admin_and_public_scores() -> None:
+    from game_predictor_api.schemas.board_search import BoardSearchResponse
+    from game_predictor_api.schemas.board_search_shares import (
+        to_board_search_share_public_search_response,
+    )
+
+    game_id = uuid4()
+    with _client(MemoryBoardSearchRepository(game_id, unknown_matches_all=True)) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/board-search", params={"cell": "0:cherry"}
+        )
+    assert response.status_code == 200
+    assert response.json()["results"][0]["score"]["unknownMatchesAll"] is True
+    public = to_board_search_share_public_search_response(
+        BoardSearchResponse.model_validate(response.json())
+    )
+    assert public.results[0].score.unknown_matches_all is True
 
 
 def test_board_search_endpoint_accepts_unknown_as_missing_evidence() -> None:

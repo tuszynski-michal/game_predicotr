@@ -3114,6 +3114,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
+    // Keep the backend score policy (including unknownMatchesAll) in the response.
     searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
       searchGeneratedGameBoards({
         client,

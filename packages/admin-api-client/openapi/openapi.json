@@ -3045,6 +3045,12 @@
             "title": "Unknowncount",
             "type": "integer"
           },
+          "unknownMatchesAll": {
+            "default": false,
+            "description": "Unknown compared positions earn wildcard match points (777a2 only). They remain in unknownCount and never increase exactMatchCount.",
+            "title": "Unknownmatchesall",
+            "type": "boolean"
+          },
           "weightedAlternativeScore": {
             "maximum": 15.0,
             "minimum": 0.0,

@@ -110,6 +110,60 @@ def test_query_unknown_is_removed_from_scoring_denominator() -> None:
     assert ranked[0].score.unknown_count == 0
 
 
+@pytest.mark.parametrize("unknown", [None, "?"])
+def test_wildcard_missing_symbol_earns_a_point_without_becoming_exact(unknown: str | None) -> None:
+    query = (BoardSearchQueryCell(0, "seven"), BoardSearchQueryCell(1, "bell"))
+    candidate = _candidate(
+        identifier=1, sequence_number=1, primary=("seven", unknown) + ("lemon",) * 13
+    )
+    score = score_board_search_candidate(query, candidate, unknown_matches_all=True)
+    assert score.score == 100
+    assert score.exact_match_count == 1
+    assert score.unknown_count == 1
+    assert score.mismatch_count == score.alternative_match_count == 0
+    assert score.unknown_matches_all
+
+
+def test_wildcard_ranking_includes_unknown_only_but_prefers_real_exact() -> None:
+    query = (BoardSearchQueryCell(0, "seven"),)
+    unknown = _candidate(identifier=1, sequence_number=1, primary=(None,) * 15)
+    exact = _candidate(identifier=2, sequence_number=2, primary=("seven",) * 15)
+    mismatch = _candidate(identifier=3, sequence_number=3)
+    ranked = rank_board_search_candidates(
+        query,
+        (unknown, mismatch, exact),
+        scope=BoardSearchScope.ALL_SEARCHABLE,
+        unknown_matches_all=True,
+    )
+    assert [value.candidate for value in ranked] == [exact, unknown]
+    assert [value.score.score for value in ranked] == [100, 100]
+    assert ranked[1].score.exact_match_count == 0
+    assert ranked[1].score.unknown_count == 1
+    assert (
+        rank_board_search_candidates(query, (unknown,), scope=BoardSearchScope.ALL_SEARCHABLE) == ()
+    )
+
+
+def test_wildcard_preserves_known_alternatives_and_contradictions() -> None:
+    query = tuple(BoardSearchQueryCell(index, "seven") for index in range(3))
+    candidate = _candidate(
+        identifier=1,
+        sequence_number=1,
+        primary=(None, None, "lemon") + (None,) * 12,
+        alternatives=((), ("seven",), ()) + ((),) * 12,
+    )
+    score = score_board_search_candidate(query, candidate, unknown_matches_all=True)
+    assert score.score == 53.3
+    assert score.exact_match_count == 0
+    assert score.alternative_match_count == score.mismatch_count == score.unknown_count == 1
+    assert score.weighted_alternative_score == 0.6
+
+    with pytest.raises(BoardSearchError, match="Select at least one known symbol"):
+        score_board_search_candidate(
+            (BoardSearchQueryCell(0, "?"),), candidate, unknown_matches_all=True
+        )
+
+
 def test_approved_scope_excludes_pending_and_approved_ignores_alternatives() -> None:
     query = (BoardSearchQueryCell(cell_index=0, symbol_code="seven"),)
     pending = _candidate(

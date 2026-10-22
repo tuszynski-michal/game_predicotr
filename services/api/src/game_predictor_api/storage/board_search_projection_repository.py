@@ -356,8 +356,11 @@ class SqlAlchemyBoardSearchProjectionRepository:
         scope: BoardSearchScope,
         limit: int,
     ) -> tuple[BoardSearchResult, ...]:
-        if self._session.get(GameModel, game_id) is None:
+        game = self._session.get(GameModel, game_id)
+        if game is None:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
+        # TASK-1087: experimental search policy for this game only; never payouts.
+        unknown_matches_all = game.code == "777a2"
         document, asset_mode = self._document_source(game_id)
         active_mobile_codes: dict[str, int] = {
             code: int(mobile_code)
@@ -388,6 +391,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             document,
             query,
             mobile_codes_by_cell=mobile_codes_by_cell,
+            unknown_matches_all=unknown_matches_all,
         )
         scope_filter = (
             document.status.in_(("accepted", "corrected"))
@@ -405,6 +409,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             document,
             query,
             mobile_codes_by_cell=mobile_codes_by_cell,
+            unknown_matches_all=unknown_matches_all,
         )
         status_priority = case(
             (document.status.in_(("accepted", "corrected")), 0),
@@ -453,6 +458,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                     weighted_alternative_score=float(weighted_alternative_score),
                     mismatch_count=int(mismatch_count),
                     unknown_count=int(unknown_count),
+                    unknown_matches_all=unknown_matches_all,
                 ),
             )
             for (
@@ -1404,6 +1410,7 @@ def _search_score_expressions(
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],
+    unknown_matches_all: bool = False,
 ) -> tuple[
     ColumnElement[Any],
     ColumnElement[Any],
@@ -1476,6 +1483,8 @@ def _search_score_expressions(
             (has_known_evidence, 0),
             else_=1,
         )
+    if unknown_matches_all:
+        weighted_evidence = weighted_evidence + unknown_count
     score = func.round(
         (weighted_evidence * literal(100.0 / len(query))).cast(Numeric(10, 6)),
         1,
@@ -1495,11 +1504,14 @@ def _positive_evidence_expression(
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],
+    unknown_matches_all: bool = False,
 ) -> ColumnElement[bool]:
     matches: list[ColumnElement[bool]] = []
     for cell in query:
         mobile_code = mobile_codes_by_cell[cell.cell_index]
         postgres_index = cell.cell_index + 1
+        if unknown_matches_all:
+            matches.append(~document.known_evidence_positions.contains([str(cell.cell_index)]))
         matches.extend(
             (
                 document.primary_symbol_mobile_codes[postgres_index] == mobile_code,

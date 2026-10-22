@@ -388,12 +388,12 @@ def test_rebuild_writes_fast_documents_directly_from_candidates() -> None:
     assert "image_board_search_documents" not in sql
 
 
-def _search_session(*, projection_status: str = "ready") -> MagicMock:
+def _search_session(*, projection_status: str = "ready", game_code: str = "other") -> MagicMock:
     session = MagicMock()
 
     def get(model: object, _identity: object) -> object | None:
         if model is GameModel:
-            return object()
+            return SimpleNamespace(code=game_code)
         if model is ImageBoardSearchProjectionStateModel:
             return SimpleNamespace(
                 status=projection_status,
@@ -431,6 +431,23 @@ def test_search_reads_only_the_operational_fast_documents() -> None:
     sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
     assert "image_board_search_fast_documents" in sql
     assert "archive" not in sql
+
+
+@pytest.mark.parametrize("game_code", ["777a2", "7", "mumie", "777v2"])
+def test_search_enables_unknown_wildcards_only_for_777a2(game_code: str) -> None:
+    session = _search_session(game_code=game_code)
+    repository = SqlAlchemyBoardSearchProjectionRepository(session)
+    repository.search(
+        game_id=UUID(int=2),
+        query=(BoardSearchQueryCell(0, "cherry"),),
+        scope=BoardSearchScope.ALL_SEARCHABLE,
+        limit=10,
+    )
+    statement = session.execute.call_args_list[1].args[0]
+    where_sql = str(statement.whereclause.compile(dialect=postgresql.dialect()))
+    assert ("image_board_search_fast_documents.known_evidence_positions" in where_sql) == (
+        game_code == "777a2"
+    )
 
 
 def test_unready_projection_fails_closed() -> None:

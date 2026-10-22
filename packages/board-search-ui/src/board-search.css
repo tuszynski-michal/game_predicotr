@@ -365,6 +365,10 @@
   object-fit: fill;
 }
 
+.boardSearchUnknownWarning {
+  color: var(--danger, #ff8a8a);
+}
+
 .boardSearchBoardAssetError {
   display: grid;
   min-height: 260px;

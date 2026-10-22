@@ -1778,6 +1778,12 @@ export type BoardSearchScoreResponse = {
    */
   unknownCount: number;
   /**
+   * Unknownmatchesall
+   *
+   * Unknown compared positions earn wildcard match points (777a2 only). They remain in unknownCount and never increase exactMatchCount.
+   */
+  unknownMatchesAll?: boolean;
+  /**
    * Weightedalternativescore
    */
   weightedAlternativeScore: number;

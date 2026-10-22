@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-21
+last_updated: 2026-10-23
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,29 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-569 — Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2
+
+**Status:** accepted
+
+**Data:** 2026-10-23
+
+**Źródło:** polecenie operatora i doprecyzowanie w czacie: zapisane `?`
+oraz akcja `Nieczytelny` mają zastępować wszystkie symbole przy wyszukiwaniu.
+
+**Decyzja:** tylko dla kodu gry `777a2` logiczny brak dowodu w istniejącej
+projekcji wyszukiwania otrzymuje jeden punkt za dowolny znany symbol wzoru.
+Pozostaje w `unknownCount`, bez zwiększania exact ani alternatyw; response
+score zawiera `unknownMatchesAll=true`. Dopuszczone są wyniki z samym takim
+dopasowaniem; remisy nadal preferują rzeczywiste exact. Panel Admina i linku
+pokazuje czerwony licznik porównywanych nierozpoznanych pozycji.
+
+**Założenie implementacyjne:** używamy istniejącego logicznego braku dowodu,
+do którego indeks sprowadza także wstrzymane komórki z problemem siatki/kadru.
+Nie rozstrzygamy ich symboli. Dzięki temu nie potrzeba migracji ani backfillu.
+
+**Granice:** eksperyment zmienia wyłącznie ranking tej gry. Pozostałe gry,
+walidacja wzoru, domenowe stany review i obliczanie wypłat pozostają bez zmian.
 
 ## D-568 — Zachowanie wygranych sprzed rozwinięcia super symbolu
 

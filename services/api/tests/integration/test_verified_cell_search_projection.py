@@ -29,6 +29,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.board_search import BoardSearchQueryCell, BoardSearchScope
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewView
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
@@ -56,6 +57,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    GameModel,
     ImageBoardGeometryPendingModel,
     ImageBoardSearchFastDocumentModel,
     ImageLayoutStagingRowModel,
@@ -323,6 +325,58 @@ def _seed_pending_board(
         assert backfill.backfill_next_batch(game.id, batch_size=20).report.status == "ready"
         session.commit()
     return _Seed(game.id, job.id, review_item_id, second_symbol_id)
+
+
+def test_777a2_wildcard_sql_scores_persisted_unknowns_without_changing_other_games(
+    verified_cell_database: URL,
+) -> None:
+    command.upgrade(_migration_config(verified_cell_database), "head")
+    engine = create_engine(verified_cell_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    try:
+        seed = _seed_pending_board(session_factory, datetime(2026, 10, 23, 12, tzinfo=UTC))
+        for game_code, expected_score in (("777a2", 66.7), ("other-game", 33.3)):
+            with game_storage_scope(seed.game_id), session_factory() as session:
+                game = session.get(GameModel, seed.game_id)
+                assert game is not None
+                game.code = game_code
+                document = session.get(ImageBoardSearchFastDocumentModel, (seed.game_id, 1))
+                assert document is not None
+                document.primary_symbol_mobile_codes = [1, None, 2] + [None] * 12
+                document.known_evidence_positions = ["0", "2"]
+                for rank in range(1, 5):
+                    setattr(document, f"alternative_rank_{rank}_mobile_codes", [None] * 15)
+                session.commit()
+
+            # New sessions see the stored projection and the game policy.
+            with game_storage_scope(seed.game_id), session_factory() as session:
+                repository = SqlAlchemyBoardSearchProjectionRepository(session)
+                result = repository.search(
+                    game_id=seed.game_id,
+                    query=tuple(BoardSearchQueryCell(index, "first") for index in range(3)),
+                    scope=BoardSearchScope.ALL_SEARCHABLE,
+                    limit=15,
+                )
+                assert len(result) == 1
+                score = result[0].score
+                assert score.score == expected_score
+                assert score.exact_match_count == score.mismatch_count == score.unknown_count == 1
+                assert score.unknown_matches_all is (game_code == "777a2")
+                unknown_only = repository.search(
+                    game_id=seed.game_id,
+                    query=(BoardSearchQueryCell(1, "second"),),
+                    scope=BoardSearchScope.ALL_SEARCHABLE,
+                    limit=15,
+                )
+                if game_code == "777a2":
+                    assert len(unknown_only) == 1
+                    assert unknown_only[0].score.score == 100
+                    assert unknown_only[0].score.exact_match_count == 0
+                    assert unknown_only[0].score.unknown_count == 1
+                else:
+                    assert unknown_only == ()
+    finally:
+        engine.dispose()
 
 
 def test_verified_cells_reach_search_while_the_board_stays_pending(

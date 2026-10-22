@@ -27,6 +27,13 @@ class BoardSearchScoreResponse(ApiModel):
     weighted_alternative_score: float = Field(ge=0, le=15)
     mismatch_count: int = Field(ge=0, le=15)
     unknown_count: int = Field(ge=0, le=15)
+    unknown_matches_all: bool = Field(
+        default=False,
+        description=(
+            "Unknown compared positions earn wildcard match points (777a2 only). "
+            "They remain in unknownCount and never increase exactMatchCount."
+        ),
+    )
 
 
 class BoardSearchResultResponse(ApiModel):
@@ -96,6 +103,7 @@ def to_board_search_response(
                     weighted_alternative_score=result.score.weighted_alternative_score,
                     mismatch_count=result.score.mismatch_count,
                     unknown_count=result.score.unknown_count,
+                    unknown_matches_all=result.score.unknown_matches_all,
                 ),
                 super_game=marker_response_at(super_game, result.sequence_number),
             )

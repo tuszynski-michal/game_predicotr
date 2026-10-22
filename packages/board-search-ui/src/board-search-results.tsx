@@ -157,6 +157,13 @@ export function BoardSearchResults({
         </dl>
       </header>
 
+      {current.score.unknownMatchesAll && current.score.unknownCount > 0 ? (
+        <p className="boardSearchUnknownWarning" role="status">
+          Nierozpoznane symbole: {current.score.unknownCount}. Pasują do
+          dowolnego symbolu.
+        </p>
+      ) : null}
+
       {current.superGame ? (
         <SuperGameMarkerBadge
           gameId={gameId}

@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-10-23
 ---
 
 # Model danych
@@ -3013,6 +3013,12 @@ Logiczne `?` jest zapisane jako brak kodu mobilnego w odpowiedniej pozycji i
 nie trafia do `known_evidence_positions`. Ranking v2 nie uznaje takiej pozycji
 ani za dopasowanie, ani za sprzeczność. W zapytaniu `?` również nie jest
 symbolem katalogowym i zostaje usunięte przed wyliczeniem denominatora.
+
+TASK-1087 / D-569 wprowadza wyłącznie wyjątek odczytu dla `games.code=777a2`:
+pozycja bez dowodu w fast document jest wildcardem w rankingu, ale nadal
+raportuje się jako unknown. Obejmuje to wszystkie stany sprowadzone przez
+projekcję do braku dowodu, także `Nieczytelny` i problemy siatki/kadru.
+Nie zapisuje symbolu, nie zmienia projekcji ani schematu i nie zmienia wypłat.
 
 Klucz główny fast modelu pozostaje `(game_id, sequence_number)`, a unikalne
 `review_item_id` chroni przed wyświetleniem tej samej pozycji w dwóch wynikach.

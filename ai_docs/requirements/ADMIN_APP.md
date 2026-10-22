@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-15
+last_updated: 2026-10-23
 ---
 
 # Wymagania modułu administracyjnego
@@ -470,6 +470,19 @@ dokładnych dopasowań ani sprzeczności. Znany symbol zapytania zestawiony z `?
 jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejność:
 score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
 `sequence_number` i stabilna tożsamość źródła.
+
+Wyjątek eksperymentalny dla gry o kodzie `777a2` (TASK-1087, D-569):
+nierozpoznana pozycja zapisanej planszy pasuje do dowolnego znanego symbolu
+wzoru i daje pełny punkt, nadal pozostając brakiem rozpoznania, bez zwiększania
+exact ani alternatyw. Dotyczy logicznego braku dowodu istniejącego indeksu:
+`?`, `Nieczytelny` i innych wstrzymanych pozycji sprowadzonych do `NULL`.
+Nawet wynik oparty wyłącznie na takich brakach może zostać zwrócony;
+przy równym procencie więcej rzeczywistych exact ma pierwszeństwo.
+Przy wybranym wyniku z `unknownMatchesAll=true` i `unknownCount>0` panel
+pokazuje na czerwono „Nierozpoznane symbole: X. Pasują do dowolnego symbolu.”
+Licznik dotyczy tylko pozycji porównywanych ze znanymi symbolami zapytania.
+Obowiązuje w Adminie i przez link. Pozostałe gry, edytor wzoru, zapisane
+decyzje symboli i wyliczanie wypłat zachowują dotychczasowe zachowanie.
 
 Dowód planszy oczekującej (D-462, TASK-0722): komórka zweryfikowana w
 `Weryfikacji symboli` jest pewnym symbolem bez alternatyw od chwili zapisu

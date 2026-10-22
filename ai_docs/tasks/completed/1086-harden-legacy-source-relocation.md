@@ -98,7 +98,7 @@ Skan w odcinkach ≤90 s, pojedyncze zapytanie ≤10 s.
 
 ## Outcome
 
-Commit: v1.7.462 (hash dopisuje kolejny commit).
+Commit: v1.7.462 / `4e944081c388da40b11aaf4feee2d227284a9846`.
 
 ### Changed
 

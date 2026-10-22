@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1087 — Nierozpoznane symbole w wyszukiwaniu 777a2 (done)
 
 - Plik: `tasks/completed/1087-777a2-unknown-search-wildcards.md`.
-- Commit: **v1.7.464**.
+- Commit: **v1.7.464 / `56d763a974dbcf7d9702d129e797692088062fd2`**.
 - D-569: tylko kod gry 777a2 traktuje logiczne braki indeksu jako wildcard w rankingu, bez udawania exact i bez zmiany wypłat. Score API przenosi `unknownMatchesAll`; wspólny panel pokazuje czerwony licznik porównywanych braków.
 - Weryfikacja: backend 58 PASS, SQL PostgreSQL 1 PASS na izolowanej bazie i w nowych sesjach, UI 105 jednostkowych + 94 interakcji PASS, klient 133 PASS; lint, format, scoped Mypy, TypeScript, OpenAPI, mapa kodu i docs PASS. Szerszy Mypy: dwa niezwiązane błędy source_lattice_geometry i limit czasu; pełny publiczny pakiet testów przerwany limitem, zmienione żądanie publiczne sprawdzone osobno.
 - Brak zmian danych operatora, migracji, restartów, merge i push. Operator odbiera eksperyment; 100% może zawierać braki, co ujawnia licznik. Szczegóły zakresu i ograniczeń w Outcome.

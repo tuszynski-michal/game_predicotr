@@ -65,7 +65,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 — tasks/completed/1087-777a2-unknown-search-wildcards.md
+- **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 / `56d763a9` — tasks/completed/1087-777a2-unknown-search-wildcards.md
 - **TASK-1086** — Zabezpieczenia relokacji źródeł C — v1.7.462 / `4e944081` — tasks/completed/1086-harden-legacy-source-relocation.md
 - **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 / `1cfa7132` — tasks/completed/1085-prepare-legacy-c-copy-retirement.md
 - **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 / `787e8e27` — tasks/completed/1082-mandatory-merge-cleanup.md

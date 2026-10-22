@@ -87,7 +87,7 @@ Plansza z wieloma brakami może dostać 100%; czerwony licznik ujawnia niepewno�
 
 ## Outcome
 
-Commit: v1.7.464 (hash dopisuje kolejny commit).
+Commit: v1.7.464 / `56d763a974dbcf7d9702d129e797692088062fd2`.
 
 ### Changed
 

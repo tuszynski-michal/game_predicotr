@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1085 — Przygotowanie usunięcia starej kopii C (done)
 
-- Plik: `tasks/completed/1085-prepare-legacy-c-copy-retirement.md`. Commit **v1.7.460**.
+- Plik: `tasks/completed/1085-prepare-legacy-c-copy-retirement.md`. Commit **v1.7.460 / `1cfa71323c0818c62a9d92e2337dc84b4d175184`**.
 - Zabezpieczono 434131 plików, 39 referencji Git i oba stare worktree; różnice zachowane osobno, aktywny D bez nadpisania.
 - Podgląd 179 ścieżek i 55 katalogów z SHA, loader z jawnym potwierdzeniem relokacji, niezmienne manifesty.
 - 78 testów PASS, po zmianie wznowienia 16 testów PASS; 10 testów wykrywania Claude PASS. Ruff, format, mypy nowych narzędzi, docs:check i mapa PASS; wcześniejsze błędy mypy workera poza zakresem.

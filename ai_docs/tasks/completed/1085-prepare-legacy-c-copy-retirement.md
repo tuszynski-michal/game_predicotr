@@ -128,7 +128,7 @@ zmianą po podglądzie i wznowieniem; wyłącznie odizolowane fixture'y.
 
 ## Outcome
 
-Commit: v1.7.460 (hash dopisuje kolejny commit).
+Commit: v1.7.460 / `1cfa71323c0818c62a9d92e2337dc84b4d175184`.
 
 ### Changed
 

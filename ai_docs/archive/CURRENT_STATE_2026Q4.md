@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1089 — Nazwa folderu wynikowego selektora (done)
 
 - Plik: `tasks/completed/1089-selector-output-folder-name.md`.
-- Commit: **v1.7.469** (hash dopisuje kolejny commit).
+- Commit: **v1.7.469 / `54c33f1ae3fbbf1c44aa1632f96fa8065e7f6db1`** (hash dopisuje kolejny commit).
 - Nowy wynik jako gra aktualizacja pierwsza-ostatnia (np. 777 a2 1-500), wspólny podgląd i walidacja; stare ścieżki oraz nazwy JPEG bez zmian.
 - 21 testów, lint, typecheck, build i smoke ZIP 1.0.3 games/workflow PASS; docs i mapa PASS. Trwałość w nowych procesach, bez operacji na danych operatora i bez merge.
 

@@ -81,7 +81,7 @@ Nazwa odzwierciedla konfigurację początkową; późniejsza edycja numeracji ni
 
 ## Outcome
 
-Commit: v1.7.469 (hash dopisuje kolejny commit).
+Commit: v1.7.469 / `54c33f1ae3fbbf1c44aa1632f96fa8065e7f6db1`.
 
 ### Changed
 
@@ -93,6 +93,7 @@ Commit: v1.7.469 (hash dopisuje kolejny commit).
 
 - 21/21 testów output-folder/start-resume, lint i typecheck PASS.
 - Build wydania, weryfikacja ZIP/SHA-256/app.asar, smoke games i workflow PASS.
+- Końcowy ZIP 1.0.3 z commita v1.7.469, applicationSourceDirty=false: ponowny smoke games PASS. Gotowa kopia w `artifacts/selector-releases/1.0.3/`; parametry i SHA-256 w raporcie jakości.
 - docs:check i code-map:check PASS; dokumentacja ponownie sprawdzana po zamknięciu.
 - Kryteria i DoD: dokładna nazwa, podgląd, ochrona danych, odczyt po restarcie oraz stare projekty pokryte testami. Zmiana dotyczy Windows i lokalnego IPC, bez OpenAPI, bazy i migracji.
 

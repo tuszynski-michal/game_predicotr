@@ -9,11 +9,17 @@ Nowa partia tworzy sąsiedni folder `<gra> <aktualizacja> <pierwsza>-<ostatnia>`
 - Wydanie 1.0.3: build, SHA-256, rozpakowanie ZIP i zawartość app.asar PASS.
 - Smoke games: PASS. Sprawdza dokładny podgląd i folder `777 a2 1-500`, zapis `seq_1-9.jpg`, katalog gier, walidację aktualizacji, historię i wznowienie po restarcie.
 - Smoke workflow: PASS. Kompaktowy wspólny styl, granica 500000, zmiana kierunku, pełny ekran, następny folder i wznowienie.
-- docs:check i code-map:check przed zamknięciem: PASS.
+- docs:check po zamknięciu i code-map:check: PASS.
 
 ## Artefakty
 
-Końcowy ZIP z pochodzeniem z commita zostanie skopiowany do `artifacts/selector-releases/1.0.3/` wraz z `.sha256` i `.release.json`. Dowody UI: `games-update-form.png`, `games-update-history.png`, `selection.png`.
+Końcowy ZIP: `artifacts/selector-releases/1.0.3/Selektor zdjec-win32-x64-1.0.3.zip` (149415606 B), obok `.sha256` i `.release.json`.
+
+SHA-256: `ae7e099b5e6d2a29806accf9e805e0ad6a94ab9e532d3716dd274724fcb50aca`.
+
+Źródło: v1.7.469 / `54c33f1ae3fbbf1c44aa1632f96fa8065e7f6db1`; `applicationSourceDirty=false`. Globalne dirty=true wynika z pozostawionych wcześniejszych zmian operatora poza aplikacją. Kopia w artifacts ma identyczny SHA-256. Końcowy ZIP ponownie przeszedł smoke games z restartami i sprawdzeniem dokładnego folderu.
+
+Dowody UI: `games-update-form.png`, `games-update-history.png`, `selection.png`.
 
 ## Ograniczenia
 

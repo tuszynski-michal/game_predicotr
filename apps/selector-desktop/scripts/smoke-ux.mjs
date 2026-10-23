@@ -248,6 +248,8 @@ try {
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+    if (await page.getByLabel('Aktualizacja', { exact: true }).count())
+      await page.getByLabel('Aktualizacja', { exact: true }).fill('a1');
     assert.equal(await page.getByRole('checkbox').count(), 0);
     await page.getByRole('button', { name: 'Rozpocznij wybieranie' }).click();
     await ready();

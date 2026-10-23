@@ -1,10 +1,16 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-10-21
+last_updated: 2026-10-23
 ---
 
 # Lokalna ręczna selekcja zdjęć
+
+## Lista gier i aktualizacja — 1.0.2, TASK-1088, D-571
+
+Nazwa gry jest wyszukiwanym wyborem z listy. Wpisanie nowej nazwy i Enter dodaje ją trwale bez uruchamiania partii. Nazwy nie znikają po przekroczeniu 10 projektów w historii. Ponowne dodanie innej wielkości liter nie tworzy duplikatu. Utworzenie partii również zapamiętuje wpisaną nazwę. Dotychczasowe nazwy są przejmowane z dostępnej historii.
+
+Nowa partia wymaga pola „Aktualizacja”: `a` i co najmniej jedna cyfra ASCII albo `z_a` i cyfry (np. `a1`, `z_a003`). Spacje, znaki, inne prefiksy i sufiksy są odrzucane. Numer jest dowolnym ciągiem cyfr, także zer. Aktualizacja pojawia się obok nazwy gry w historii i bieżącej partii. Nie wpływa na nazwy folderów, zdjęć ani manifest eksportu. Kolejny folder zachowuje grę i aktualizację. Starsze projekty bez tego pola otwierają się z dotychczasową etykietą.
 
 ## Bieżący interfejs Windows — 1.0.1, TASK-1078
 

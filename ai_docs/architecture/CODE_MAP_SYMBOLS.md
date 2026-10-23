@@ -1087,13 +1087,14 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 ## apps/selector-desktop/src
 
-- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, GAME_UPDATE_PATTERN, isGameUpdate, validateGameUpdate, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, FileIdentity, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/desktop-lifecycle.ts: DesktopLifecycle
 - native/diagnostic-log.ts: DiagnosticMetadata, DiagnosticLog
+- native/game-catalog.ts: GameCatalog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController
 - native/source-registry.ts: VerifiedSourceScan, scanSource, SourceRegistry
@@ -1107,6 +1108,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal, ProjectScalar, ProjectDiskHead, ProjectDecisionDelta, ProjectLedgerPayload, ProjectLedgerRecord, ProjectCompactJournal, ProjectUpgradeJournal
 - renderer/App.tsx: App
 - renderer/desktop-shortcuts.ts: resolveDesktopShortcut
+- renderer/game-select.tsx: GameSelect
 - renderer/image-viewer.tsx: ImageViewer
 
 ## apps/mobile/src

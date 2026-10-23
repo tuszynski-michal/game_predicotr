@@ -1,10 +1,16 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-10-21
+last_updated: 2026-10-23
 ---
 
 # Architektura lokalnej ręcznej selekcji
+
+## Katalog i metadane aktualizacji Windows 1.0.2 — TASK-1088, D-571
+
+`GameCatalog` zapisuje `selector-games-v1.json` w userData przez SecureFiles.replace; własna kolejka serializuje zmiany. Typowane IPC `games` i `addGame` korzysta ze wspólnej kontroli nadawcy i liczby argumentów. Odczyt zasila katalog nazwami z istniejącego cache historii, nowa partia zapamiętuje nazwę przed utworzeniem projektu. Katalog nie ma limitu 10 wpisów; uszkodzony plik zwraca GAME_CATALOG_CORRUPT i pozostaje niezmieniony.
+
+`GameSelect` realizuje combobox z filtrowaniem, listą, strzałkami i Enterem; przyciski stosują wspólny arkusz UI oraz wysokość 32 px. `gameUpdate` jest wymagane w create IPC, walidowane wspólnym predykatem dokładnego formatu a+cyfry albo z_a+cyfry. W ProjectState/ProjectScalar jest opcjonalne dla zgodności wstecz; zachowują je przygotowanie, ledger, backup i wznowienie. Etykieta RecentProjects zawiera aktualizację. `projectManifest` pozostaje bez zmian, podobnie jak generowanie ścieżek. Kopiowanie kontekstu do kolejnego folderu obejmuje grę i aktualizację.
 
 ## Konfiguracja i interfejs Windows 1.0.1 — TASK-1078, D-567
 

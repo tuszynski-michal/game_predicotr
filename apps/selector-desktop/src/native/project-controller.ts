@@ -8,6 +8,7 @@ import {
   isMissing,
 } from '../filesystem/secure-files.ts';
 import { ProjectStore } from '../project/project-store.ts';
+import { GameCatalog } from './game-catalog.ts';
 import { RecentProjects } from '../project/recent-projects.ts';
 import type { ProjectCommand } from '../project/types.ts';
 import { SourceRegistry } from './source-registry.ts';
@@ -32,6 +33,7 @@ import {
   SelectorError,
   MAX_SEQUENCE_NUMBER,
   validateGameName,
+  validateGameUpdate,
   type CreateProjectRequest,
   type SourceIndex,
   type DesktopWorkspace,
@@ -67,6 +69,7 @@ export function validateCreate(value: unknown): CreateProjectRequest {
     'localStorageConfirmed',
     'sourceToken',
     'gameName',
+    'gameUpdate',
   ]);
   if (
     !Number.isSafeInteger(v.firstLayout) ||
@@ -93,8 +96,10 @@ export function validateCreate(value: unknown): CreateProjectRequest {
       );
     validateGameName(v.gameName);
   }
+  const gameUpdate = validateGameUpdate(v.gameUpdate);
   return {
     ...v,
+    gameUpdate,
     sequenceUpperBound: v.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER,
     ...(v.gameName === undefined
       ? {}
@@ -110,6 +115,7 @@ export class ProjectController {
   readonly registry: SourceRegistry;
   private dialogs: NativeDialogs;
   private recentCache: RecentProjects;
+  private gameCatalog: GameCatalog;
   private views: ViewPreferencesStore;
   private legacyProof: {
     token: string;
@@ -117,6 +123,7 @@ export class ProjectController {
     result: DesktopWorkspace | null;
     automatic?: boolean;
     gameName?: string;
+    gameUpdate?: string;
   } | null = null;
   private draft: {
     value: NewProjectDraft;
@@ -131,6 +138,7 @@ export class ProjectController {
     this.registry = registry;
     this.dialogs = dialogs;
     this.recentCache = new RecentProjects(userData);
+    this.gameCatalog = new GameCatalog(userData);
     this.views = new ViewPreferencesStore(path.join(userData, 'views'));
   }
   private serial<T>(work: () => Promise<T>): Promise<T> {
@@ -142,11 +150,23 @@ export class ProjectController {
     if (!this.store) throw new SelectorError('NO_PROJECT', 'Otwórz projekt.');
     return this.store;
   }
+  games(): Promise<string[]> {
+    return this.serial(async () =>
+      this.gameCatalog.addMany(
+        (await this.recentCache.list()).flatMap((r) =>
+          r.gameName ? [r.gameName] : [],
+        ),
+      ),
+    );
+  }
+  addGame(name: unknown): Promise<string[]> {
+    return this.serial(() => this.gameCatalog.add(validateGameName(name)));
+  }
   async recent() {
     return (await this.recentCache.list()).map((r) => ({
       projectId: r.projectId,
       name: r.gameName
-        ? `${r.gameName} — ${r.sourceDirectoryName}`
+        ? `${r.gameName}${r.gameUpdate ? ` ${r.gameUpdate}` : ''} — ${r.sourceDirectoryName}`
         : r.sourceDirectoryName,
       openedAt: r.openedAt,
     }));
@@ -192,6 +212,7 @@ export class ProjectController {
     return {
       projectId: s.projectId,
       ...(s.gameName ? { gameName: s.gameName } : {}),
+      ...(s.gameUpdate ? { gameUpdate: s.gameUpdate } : {}),
       revision: s.revision,
       source: this.source,
       sourceName: s.sourceDirectoryName,
@@ -230,6 +251,7 @@ export class ProjectController {
       sourceDirectoryName: s.sourceDirectoryName,
       sourceRoot: s.sourceRoot,
       ...(s.gameName ? { gameName: s.gameName } : {}),
+      ...(s.gameUpdate ? { gameUpdate: s.gameUpdate } : {}),
       openedAt: new Date().toISOString(),
     });
   }
@@ -274,6 +296,9 @@ export class ProjectController {
       automatic,
       gameName: automatic
         ? this.store?.workspaceSnapshot().gameName
+        : undefined,
+      gameUpdate: automatic
+        ? this.store?.workspaceSnapshot().gameUpdate
         : undefined,
     };
     const s = proof.seed;
@@ -351,6 +376,7 @@ export class ProjectController {
           projectRoot,
           outputRoot,
           ...(preview.gameName ? { gameName: preview.gameName } : {}),
+          ...(preview.gameUpdate ? { gameUpdate: preview.gameUpdate } : {}),
           firstLayout: proof.seed.firstLayout,
           direction: proof.seed.direction,
           sequenceUpperBound: proof.seed.sequenceUpperBound,
@@ -579,6 +605,7 @@ export class ProjectController {
         ))
       )
         return null;
+      if (options.gameName) await this.gameCatalog.add(options.gameName);
       const store = await ProjectStore.create({
         sourceRoot,
         projectRoot,

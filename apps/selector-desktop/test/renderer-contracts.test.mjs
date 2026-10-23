@@ -83,6 +83,7 @@ test('native view cache validates every field and rejects extra paths', () => {
 });
 test('new project validates numbering and explicit local storage confirmation', () => {
   const valid = {
+    gameUpdate: 'a1',
     firstLayout: 1,
     direction: 'ascending',
     sequenceUpperBound: null,

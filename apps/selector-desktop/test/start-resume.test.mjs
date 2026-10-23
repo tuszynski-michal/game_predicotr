@@ -36,6 +36,7 @@ test('pending creation restores the game label; a foreign pending source is reje
           projectRoot,
           outputRoot,
           gameName: 'Mumie',
+          gameUpdate: 'z_a007',
           firstLayout: 20,
           direction: 'descending',
           localStorageConfirmed: true,
@@ -58,6 +59,7 @@ test('pending creation restores the game label; a foreign pending source is reje
   const recovered = await c.begin();
   assert.equal(recovered.workspace.issue, null);
   assert.equal(recovered.workspace.gameName, 'Mumie');
+  assert.equal(recovered.workspace.gameUpdate, 'z_a007');
   assert.equal(recovered.workspace.direction, 'descending');
   await c.close();
   const other = path.join(f.root, 'other-source');
@@ -150,6 +152,7 @@ function request(draft, direction = 'ascending') {
   return {
     sourceToken: draft.sourceToken,
     gameName: ' Mumie ',
+    gameUpdate: 'a1',
     firstLayout: 20,
     direction,
     sequenceUpperBound: null,
@@ -164,6 +167,26 @@ async function command(controller, cmd) {
     command: cmd,
   });
 }
+test('old history seeds the permanent game catalog; deleting history keeps all games', async (t) => {
+  const f = await fixture(t);
+  const cache = new RecentProjects(f.userData);
+  await cache.remember({
+    projectId: randomUUID(),
+    projectRoot: path.join(f.root, 'old-project'),
+    sourceDirectoryName: 'old-source',
+    gameName: 'Stara gra',
+    openedAt: new Date().toISOString(),
+  });
+  const c = f.controller();
+  assert.deepEqual(await c.games(), ['Stara gra']);
+  await unlink(path.join(f.userData, 'selector-recent-projects-v1.json'));
+  await Promise.all(
+    Array.from({ length: 12 }, (_, index) => c.addGame(`Gra ${index}`)),
+  );
+  const names = await f.controller().games();
+  assert.equal(names.length, 13);
+  assert.ok(names.includes('Stara gra'));
+});
 function position(state) {
   return state.source.images.find((i) => i.id === state.currentImageId)
     .relativePath;
@@ -217,6 +240,8 @@ for (const direction of ['ascending', 'descending']) {
     assert.equal(f.pickers, 1);
     assert.equal(f.confirmations, 0);
     assert.equal(created.gameName, 'Mumie');
+    assert.equal(created.gameUpdate, 'a1');
+    assert.ok((await c.games()).includes('Mumie'));
     assert.equal((await c.create(options)).projectId, created.projectId);
     assert.equal(f.pickers, 1);
     await assert.rejects(c.create({ ...options, gameName: 'Siódemki' }), {
@@ -249,6 +274,7 @@ for (const direction of ['ascending', 'descending']) {
     s = resumed.workspace;
     assert.equal(s.projectId, created.projectId);
     assert.equal(s.gameName, 'Mumie');
+    assert.equal(s.gameUpdate, 'a1');
     assert.equal(s.direction, direction);
     assert.equal(s.firstLayout, 20);
     assert.equal(s.nextRangeStart, next);
@@ -256,7 +282,7 @@ for (const direction of ['ascending', 'descending']) {
     assert.equal(s.skippedCount, 1);
     assert.equal(position(s), 'photo10.jpg');
     assert.deepEqual(s.view, view);
-    assert.equal((await reopened.recent())[0].name, 'Mumie — 123');
+    assert.equal((await reopened.recent())[0].name, 'Mumie a1 — 123');
     const original = await readFile(path.join(f.source, 'photo1.jpg'));
     assert.deepEqual(
       await readFile(path.join(`${f.source} wybrane`, 'seq_20-28.jpg')),

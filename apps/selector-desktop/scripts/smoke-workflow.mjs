@@ -98,6 +98,8 @@ try {
       0,
     );
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+    if (await page.getByLabel('Aktualizacja', { exact: true }).count())
+      await page.getByLabel('Aktualizacja', { exact: true }).fill('a1');
     await page.getByLabel('Pierwsza plansza', { exact: true }).fill('499996');
     await page
       .getByRole('button', { name: 'Rozpocznij wybieranie', exact: true })
@@ -182,7 +184,7 @@ try {
     await page
       .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
       .waitFor();
-    const evidence = path.resolve('../../artifacts/selector-releases/1.0.1');
+    const evidence = path.resolve('../../artifacts/selector-releases/1.0.2');
     await mkdir(evidence, { recursive: true });
     await page.screenshot({ path: path.join(evidence, 'selection.png') });
     await choose(null);

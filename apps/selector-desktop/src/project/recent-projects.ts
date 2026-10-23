@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isGameUpdate } from '../contracts.ts';
 import {
   ensureDirectory,
   SecureFiles,
@@ -11,6 +12,7 @@ export interface RecentProject {
   sourceDirectoryName: string;
   sourceRoot?: string;
   gameName?: string;
+  gameUpdate?: string;
   openedAt: string;
 }
 function rootKey(root: string): string {
@@ -45,7 +47,12 @@ export class RecentProjects {
               typeof project.sourceRoot === 'string') &&
             (project.gameName === undefined ||
               (typeof project.gameName === 'string' &&
+                project.gameName === project.gameName.trim() &&
+                project.gameName.length > 0 &&
+                !/[\u0000-\u001f\u007f]/.test(project.gameName) &&
                 project.gameName.length <= 80)) &&
+            (project.gameUpdate === undefined ||
+              isGameUpdate(project.gameUpdate)) &&
             Number.isFinite(Date.parse(project.openedAt)),
         )
         .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt))

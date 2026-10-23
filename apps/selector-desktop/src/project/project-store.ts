@@ -10,6 +10,7 @@ import {
 import {
   SelectorError,
   validateGameName,
+  validateGameUpdate,
   MAX_SEQUENCE_NUMBER,
 } from '../contracts.ts';
 import {
@@ -222,6 +223,10 @@ export class ProjectStore {
     adoption?: ProjectAdoptionSeed,
     oldOutputRoot?: string,
   ): Promise<ProjectStore> {
+    const gameUpdate =
+      input.gameUpdate === undefined
+        ? undefined
+        : validateGameUpdate(input.gameUpdate);
     const gameName =
       input.gameName === undefined
         ? undefined
@@ -316,6 +321,7 @@ export class ProjectStore {
     );
     const state: ProjectState = {
       ...(gameName === undefined ? {} : { gameName }),
+      ...(gameUpdate === undefined ? {} : { gameUpdate }),
       schemaVersion: 1,
       projectId: randomUUID(),
       revision: 0,

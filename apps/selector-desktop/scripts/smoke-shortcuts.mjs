@@ -50,6 +50,8 @@ try {
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+    if (await page.getByLabel('Aktualizacja', { exact: true }).count())
+      await page.getByLabel('Aktualizacja', { exact: true }).fill('a1');
     await page.getByLabel('Pierwsza plansza', { exact: true }).fill('19');
     await page.getByLabel('Ostatnia plansza', { exact: true }).fill('20');
     await page.getByLabel('Kierunek numeracji').selectOption('descending');

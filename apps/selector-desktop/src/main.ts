@@ -284,6 +284,8 @@ else {
       handle(CHANNELS.legacyAdopt, (token) => controller.legacyAdopt(token), 1);
       handle(CHANNELS.open, () => controller.open());
       handle(CHANNELS.recent, () => controller.recent());
+      handle(CHANNELS.games, () => controller.games());
+      handle(CHANNELS.addGame, (name) => controller.addGame(name), 1);
       handle(CHANNELS.continue, (projectId) => controller.open(projectId), 1);
       handle(CHANNELS.snapshot, () => controller.snapshot());
       handle(CHANNELS.execute, (request) => controller.execute(request), 1);

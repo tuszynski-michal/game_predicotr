@@ -87,6 +87,54 @@ select {
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
+.game-select {
+  display: inline-block;
+  position: relative;
+  vertical-align: bottom;
+  margin: 8px 14px 8px 0;
+}
+.game-select label {
+  display: block;
+  margin: 0 0 6px;
+}
+.game-input {
+  display: flex;
+  gap: 4px;
+}
+.game-input input {
+  width: 210px;
+}
+.game-options {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px #0008;
+}
+.game-options [role='option'] {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.game-options [role='option']:hover,
+.game-options .active {
+  background: var(--panel-soft);
+  outline: 1px solid var(--accent);
+}
+.game-empty {
+  padding: 6px 8px;
+  color: var(--muted);
+}
 .history select {
   min-width: 280px;
   max-width: min(600px, 80vw);

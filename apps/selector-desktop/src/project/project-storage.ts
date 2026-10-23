@@ -374,6 +374,7 @@ export class ProjectStorage {
     validateReceipt(p.receipt, p.scalar.revision, this.paths);
     for (const key of [
       'gameName',
+      'gameUpdate',
       'sourceDirectoryName',
       'sourceManifestChecksumSha256',
       'firstLayout',

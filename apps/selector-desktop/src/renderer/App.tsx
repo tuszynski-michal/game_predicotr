@@ -14,7 +14,8 @@ import type {
   LegacyPreviewSummary,
   NewProjectDraft,
 } from '../contracts.ts';
-import { MAX_SEQUENCE_NUMBER } from '../contracts.ts';
+import { GameSelect } from './game-select.tsx';
+import { MAX_SEQUENCE_NUMBER, GAME_UPDATE_PATTERN } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -29,6 +30,8 @@ export function App() {
   const [recent, setRecent] = useState<RecentProjectSummary[]>([]);
   const [draft, setDraft] = useState<NewProjectDraft | null>(null);
   const [gameName, setGameName] = useState('');
+  const [gameUpdate, setGameUpdate] = useState('');
+  const [games, setGames] = useState<string[]>([]);
   const [recentId, setRecentId] = useState('');
   const [legacy, setLegacy] = useState<LegacyPreviewSummary | null>(null);
   const [first, setFirst] = useState('1');
@@ -67,6 +70,10 @@ export function App() {
   }
   useEffect(() => {
     void window.selector
+      .games()
+      .then((result) => setGames(unwrap(result)))
+      .catch((e) => setError(e.message));
+    void window.selector
       .recent()
       .then((result) => setRecent(unwrap(result)))
       .catch((e) => setError(e.message));
@@ -98,6 +105,7 @@ export function App() {
     setRangeEditor(false);
     setRestart(null);
     setLegacy(null);
+    setGames(unwrap(await window.selector.games()));
   }
   function beginSelection(keepGame = false) {
     void run(async () => {
@@ -111,6 +119,7 @@ export function App() {
         setDraft(result.draft);
         setLegacy(null);
         setGameName(keepGame ? (workspace?.gameName ?? '') : '');
+        setGameUpdate(keepGame ? (workspace?.gameUpdate ?? '') : '');
         setFirst(keepGame ? '' : '1');
         setLast('');
         setDirection(
@@ -421,6 +430,7 @@ export function App() {
                       await window.selector.create({
                         sourceToken: draft.sourceToken,
                         gameName,
+                        gameUpdate,
                         firstLayout: Number(first),
                         direction,
                         sequenceUpperBound: last === '' ? null : Number(last),
@@ -436,16 +446,34 @@ export function App() {
               <p>
                 Zdjęcia: <strong>{draft.sourceName}</strong>
               </p>
+              <GameSelect
+                value={gameName}
+                games={games}
+                disabled={busy}
+                onChange={setGameName}
+                onAdd={(name) =>
+                  run(async () => {
+                    const updated = unwrap(await window.selector.addGame(name));
+                    setGames(updated);
+                    setGameName(
+                      updated.find(
+                        (game) =>
+                          game.toLowerCase() === name.trim().toLowerCase(),
+                      ) ?? name.trim(),
+                    );
+                  })
+                }
+              />
               <label>
-                Nazwa gry
+                Aktualizacja
                 <input
-                  autoFocus
-                  aria-label="Nazwa gry"
+                  aria-label="Aktualizacja"
                   required
-                  maxLength={80}
-                  placeholder="np. Mumie lub Siódemki"
-                  value={gameName}
-                  onChange={(e) => setGameName(e.target.value)}
+                  pattern={GAME_UPDATE_PATTERN}
+                  placeholder="a1 lub z_a1"
+                  title="Wpisz a i cyfry albo z_a i cyfry, np. a1, z_a2."
+                  value={gameUpdate}
+                  onChange={(e) => setGameUpdate(e.target.value)}
                 />
               </label>
               <label>
@@ -547,7 +575,7 @@ export function App() {
           <div className="project-info">
             <strong>
               {workspace.gameName
-                ? `${workspace.gameName} — ${workspace.sourceName}`
+                ? `${workspace.gameName}${workspace.gameUpdate ? ` ${workspace.gameUpdate}` : ''} — ${workspace.sourceName}`
                 : workspace.sourceName}
             </strong>
             <span data-testid="counts">

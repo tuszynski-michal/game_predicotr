@@ -2,7 +2,7 @@ import {
   rangeForStart,
   isManualSelectionRangeTerminal,
 } from '@game-predictor/manual-image-selection-core';
-import { SelectorError } from '../contracts.ts';
+import { SelectorError, isGameUpdate } from '../contracts.ts';
 import { checksum, stableStringify } from '../filesystem/secure-files.ts';
 import { containedPath } from '../native/path-security.ts';
 import {
@@ -90,6 +90,7 @@ export function validateScalar(
         scalar.gameName !== scalar.gameName.trim() ||
         scalar.gameName.length > 80 ||
         /[\u0000-\u001f\u007f]/.test(scalar.gameName))) ||
+    (scalar.gameUpdate !== undefined && !isGameUpdate(scalar.gameUpdate)) ||
     typeof scalar.sourceManifestChecksumSha256 !== 'string' ||
     !/^[a-f0-9]{64}$/.test(scalar.sourceManifestChecksumSha256) ||
     typeof scalar.updatedAt !== 'string' ||
@@ -214,7 +215,7 @@ function validateDiskHeadStructure(head: ProjectDiskHead): void {
     'outputRoot',
     'scalar',
   ]);
-  assertShape(head.scalar, scalarKeys, ['gameName']);
+  assertShape(head.scalar, scalarKeys, ['gameName', 'gameUpdate']);
   validateScalar(head.scalar);
   if (
     head.schemaVersion !== 2 ||
@@ -291,7 +292,7 @@ function validateLedgerStructure(record: ProjectLedgerRecord): void {
     'scalar',
     'delta',
   ]);
-  assertShape(payload.scalar, scalarKeys, ['gameName']);
+  assertShape(payload.scalar, scalarKeys, ['gameName', 'gameUpdate']);
   validateScalar(payload.scalar);
   assertShape(payload.receipt, receiptKeys);
   validateReceiptStructure(payload.receipt, payload.scalar.revision);

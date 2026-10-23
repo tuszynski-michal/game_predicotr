@@ -6,6 +6,8 @@ export const CHANNELS = {
   begin: 'selector:begin',
   open: 'selector:open',
   recent: 'selector:recent',
+  games: 'selector:games',
+  addGame: 'selector:add-game',
   continue: 'selector:continue',
   snapshot: 'selector:snapshot',
   execute: 'selector:execute',
@@ -37,6 +39,8 @@ export type NativeResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string } };
 export interface SelectorBridge {
+  games(): Promise<NativeResult<string[]>>;
+  addGame(name: string): Promise<NativeResult<string[]>>;
   begin(): Promise<NativeResult<StartSelectionResult | null>>;
   legacyPreview(): Promise<NativeResult<LegacyPreviewSummary | null>>;
   legacyAdopt(
@@ -92,6 +96,7 @@ export interface ViewPreferences {
 export interface CreateProjectRequest {
   sourceToken?: string;
   gameName?: string;
+  gameUpdate: string;
   firstLayout: number;
   direction: 'ascending' | 'descending';
   sequenceUpperBound: number | null;
@@ -122,6 +127,23 @@ export function validateGameName(value: unknown): string {
     );
   return value.trim();
 }
+export const GAME_UPDATE_PATTERN = '(?:z_)?a[0-9]+';
+const gameUpdateExpression = new RegExp(`^(?:${GAME_UPDATE_PATTERN})$`);
+export function isGameUpdate(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.trim() === value &&
+    gameUpdateExpression.test(value)
+  );
+}
+export function validateGameUpdate(value: unknown): string {
+  if (!isGameUpdate(value))
+    throw new SelectorError(
+      'INVALID_ARGUMENT',
+      'Podaj aktualizację w formacie a1 lub z_a1 (litery a albo z_a i cyfry).',
+    );
+  return value;
+}
 export type DesktopCommand =
   | { kind: 'accept' | 'navigate'; imageId: string }
   | { kind: 'skip' | 'undo' }
@@ -145,6 +167,7 @@ export interface RecentProjectSummary {
 }
 export interface DesktopWorkspace {
   gameName?: string;
+  gameUpdate?: string;
   projectId: string;
   revision: number;
   source: SourceIndex | null;

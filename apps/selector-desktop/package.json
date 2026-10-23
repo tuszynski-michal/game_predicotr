@@ -1,7 +1,7 @@
 {
   "name": "@game-predictor/selector-desktop",
   "productName": "Selektor zdjec",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "Local offline JPEG selection for Windows",
@@ -36,7 +36,9 @@
     "smoke:start": "node scripts/smoke-start.mjs",
     "smoke:release:start": "node scripts/smoke-release.mjs --start",
     "smoke:workflow": "node scripts/smoke-workflow.mjs",
-    "smoke:release:workflow": "node scripts/smoke-release.mjs --workflow"
+    "smoke:release:workflow": "node scripts/smoke-release.mjs --workflow",
+    "smoke:games": "node scripts/smoke-games.mjs",
+    "smoke:release:games": "node scripts/smoke-release.mjs --games"
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",

@@ -153,6 +153,8 @@ try {
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page.getByLabel('Nazwa gry', { exact: true }).fill('Mumie');
+    if (await page.getByLabel('Aktualizacja', { exact: true }).count())
+      await page.getByLabel('Aktualizacja', { exact: true }).fill('a1');
     await page.screenshot({ path: path.resolve('.tmp/ui-start.png') });
     await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
     assert.equal(await page.getByRole('checkbox').count(), 0);

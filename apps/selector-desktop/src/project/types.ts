@@ -37,6 +37,7 @@ export interface OperationReceipt {
 export interface ProjectState {
   /** Optional display metadata; absent in older schema-1 projects. */
   gameName?: string;
+  gameUpdate?: string;
   schemaVersion: 1;
   projectId: string;
   revision: number;
@@ -58,6 +59,7 @@ export interface ProjectState {
 }
 export interface ProjectCreateOptions {
   gameName?: string;
+  gameUpdate?: string;
   sourceRoot: string;
   projectRoot: string;
   outputRoot: string;

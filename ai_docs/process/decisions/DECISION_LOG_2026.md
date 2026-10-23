@@ -14,6 +14,24 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-571 — Trwały katalog gier i aktualizacja partii selektora
+
+Status: accepted. Data: 2026-10-23. Źródło: polecenie operatora i zatwierdzenie TASK-1088.
+
+### Kontekst
+
+Powtórne wpisywanie gry spowalnia konfigurację. Aktualizacja identyfikuje partię w historii, ale operator wykluczył zmianę nazw katalogów i zdjęć.
+
+### Decyzja
+
+Katalog gier zapisujemy niezależnie od pomocniczej historii 10 projektów, w profilu selektora. Dodanie Enterem zapisuje nazwę od razu; utworzenie partii także ją zapamiętuje. Nazwy porównujemy po trimowaniu i bez wielkości liter, zachowując pierwszą pisownię. Katalog zasila się nazwami dostępnymi w poprzedniej historii, bez skanowania dysku.
+
+Nowe partie wymagają `gameUpdate` zgodnego dokładnie z `(?:z_)?a[0-9]+`. Cyfry są tekstem ASCII: zero i zera wiodące są dozwolone, bez limitu wartości liczbowej. Aktualizacja jest opcjonalna w trwałym stanie starszych projektów. Etykieta historii i aktywnej partii pokazuje grę i aktualizację. Kolejny folder zachowuje obie wartości. Nie zmieniamy folderów, JPEG-ów ani kontraktu manifestu operator-local.
+
+### Alternatywy i konsekwencje
+
+Lista wyprowadzona wyłącznie z historii gubiłaby starsze gry. Prefiks w nazwie gry mieszałby dwa różne pola. Osobny plik katalogu wymaga jawnego błędu przy uszkodzeniu zamiast nadpisania; trwałe metadane aktualizacji przechodzą przez istniejący journal, ledger i backup. Starsze paczki mogą odrzucać projekty z nowym opcjonalnym polem — kontynuacja następuje w 1.0.2.
+
 ## D-570 — Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2
 
 **Status:** accepted

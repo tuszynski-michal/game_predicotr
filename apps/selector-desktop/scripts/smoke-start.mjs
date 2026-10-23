@@ -145,7 +145,13 @@ try {
       assert.equal(savedPath, 'photo2.jpg');
       assert.equal(saved.nextRangeStart, direction === 'ascending' ? 29 : 11);
       assert.deepEqual(
-        await readFile(path.join(`${source} wybrane`, 'seq_20-28.jpg')),
+        await readFile(
+          path.join(
+            path.dirname(source),
+            `${game} a1 20-500000`,
+            'seq_20-28.jpg',
+          ),
+        ),
         Buffer.from(jpeg, 'base64'),
       );
       await smoke.close(application);

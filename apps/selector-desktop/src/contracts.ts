@@ -108,7 +108,7 @@ export interface NewProjectDraft {
   sourceName: string;
   sourcePath: string;
   projectPath: string;
-  outputPath: string;
+  outputParentPath: string;
 }
 export type StartSelectionResult =
   | { kind: 'new'; draft: NewProjectDraft }
@@ -143,6 +143,37 @@ export function validateGameUpdate(value: unknown): string {
       'Podaj aktualizację w formacie a1 lub z_a1 (litery a albo z_a i cyfry).',
     );
   return value;
+}
+/** The configured batch range labels its directory; individual JPEG names are separate. */
+export function outputDirectoryName(
+  options: Pick<
+    CreateProjectRequest,
+    'gameName' | 'gameUpdate' | 'firstLayout' | 'sequenceUpperBound'
+  >,
+): string {
+  const game = validateGameName(options.gameName);
+  const update = validateGameUpdate(options.gameUpdate);
+  const end = options.sequenceUpperBound ?? MAX_SEQUENCE_NUMBER;
+  if (
+    !Number.isSafeInteger(options.firstLayout) ||
+    options.firstLayout < 1 ||
+    !Number.isSafeInteger(end) ||
+    end < options.firstLayout ||
+    end > MAX_SEQUENCE_NUMBER
+  )
+    throw new SelectorError('INVALID_ARGUMENT', 'Podaj zakres od 1 do 500000.');
+  const name = `${game} ${update} ${options.firstLayout}-${end}`;
+  if (/[<>:"/\\|?*]/.test(name))
+    throw new SelectorError(
+      'INVALID_ARGUMENT',
+      'Nazwa gry nie może zawierać znaków folderu Windows: < > : " / \\ | ? *.',
+    );
+  if (name.length > 255)
+    throw new SelectorError(
+      'INVALID_ARGUMENT',
+      'Nazwa folderu jest za długa. Skróć nazwę gry lub aktualizację.',
+    );
+  return name;
 }
 export type DesktopCommand =
   | { kind: 'accept' | 'navigate'; imageId: string }

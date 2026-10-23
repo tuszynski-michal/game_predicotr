@@ -6,11 +6,17 @@ last_updated: 2026-10-23
 
 # Lokalna ręczna selekcja zdjęć
 
+## Nazwa folderu wynikowego — 1.0.3, TASK-1089, D-572
+
+Nowa partia zapisuje wynik obok źródła w folderze `<gra> <aktualizacja> <pierwsza>-<ostatnia>`, np. `777 a2 1-500`. Zakres pochodzi z początkowych pól formularza; pusta ostatnia plansza oznacza 500000. Podgląd wskazuje docelową ścieżkę. Znaki niedozwolone w nazwach folderów Windows i przekroczenie długości komponentu blokują utworzenie partii z czytelnym błędem. Kolizja z niepustym folderem nie nadpisuje plików.
+
+Nazwa folderu jest stała po utworzeniu partii, także po edycji numeracji. Starsze projekty zachowują zapisane lokalizacje. Nazwy zdjęć `seq_<od>-<do>.jpg`, manifest i folder postępu pozostają zgodne z poprzednimi wydaniami. Ta sekcja zastępuje ustalenie 1.0.2 o niezmienianiu nazw folderów nowych partii.
+
 ## Lista gier i aktualizacja — 1.0.2, TASK-1088, D-571
 
 Nazwa gry jest wyszukiwanym wyborem z listy. Wpisanie nowej nazwy i Enter dodaje ją trwale bez uruchamiania partii. Nazwy nie znikają po przekroczeniu 10 projektów w historii. Ponowne dodanie innej wielkości liter nie tworzy duplikatu. Utworzenie partii również zapamiętuje wpisaną nazwę. Dotychczasowe nazwy są przejmowane z dostępnej historii.
 
-Nowa partia wymaga pola „Aktualizacja”: `a` i co najmniej jedna cyfra ASCII albo `z_a` i cyfry (np. `a1`, `z_a003`). Spacje, znaki, inne prefiksy i sufiksy są odrzucane. Numer jest dowolnym ciągiem cyfr, także zer. Aktualizacja pojawia się obok nazwy gry w historii i bieżącej partii. Nie wpływa na nazwy folderów, zdjęć ani manifest eksportu. Kolejny folder zachowuje grę i aktualizację. Starsze projekty bez tego pola otwierają się z dotychczasową etykietą.
+Nowa partia wymaga pola „Aktualizacja”: `a` i co najmniej jedna cyfra ASCII albo `z_a` i cyfry (np. `a1`, `z_a003`). Spacje, znaki, inne prefiksy i sufiksy są odrzucane. Numer jest dowolnym ciągiem cyfr, także zer. Aktualizacja pojawia się obok nazwy gry w historii i bieżącej partii. Nie wpływa na nazwy zdjęć ani manifest eksportu; nazwy folderów nowych partii od 1.0.3 określa sekcja powyżej. Kolejny folder zachowuje grę i aktualizację. Starsze projekty bez tego pola otwierają się z dotychczasową etykietą.
 
 ## Bieżący interfejs Windows — 1.0.1, TASK-1078
 

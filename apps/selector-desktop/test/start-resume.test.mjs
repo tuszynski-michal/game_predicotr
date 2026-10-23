@@ -131,6 +131,7 @@ async function fixture(t) {
     source,
     root,
     userData,
+    newOutput: path.join(path.dirname(source), 'Mumie a1 20-500000'),
     controller,
     choose(value) {
       chosen = value;
@@ -191,13 +192,48 @@ function position(state) {
   return state.source.images.find((i) => i.id === state.currentImageId)
     .relativePath;
 }
+test('game/update/range names the output; JPEGs and saved paths survive range edits and a new process', async (t) => {
+  const f = await fixture(t);
+  const c = f.controller();
+  const draft = (await c.begin()).draft;
+  const created = await c.create({
+    ...request(draft),
+    gameName: '777',
+    gameUpdate: 'a2',
+    firstLayout: 1,
+    sequenceUpperBound: 500,
+  });
+  const output = path.join(path.dirname(f.source), '777 a2 1-500');
+  assert.equal(created.outputName, '777 a2 1-500');
+  await command(c, { kind: 'accept', imageId: created.currentImageId });
+  assert.deepEqual(
+    await readFile(path.join(output, 'seq_1-9.jpg')),
+    await readFile(path.join(f.source, 'photo1.jpg')),
+  );
+  await command(c, { kind: 'range', start: 100, direction: 'descending' });
+  assert.equal(c.snapshot().outputName, '777 a2 1-500');
+  await c.close();
+  await unlink(path.join(f.userData, 'selector-recent-projects-v1.json'));
+  const restarted = (await beginInNewProcess(f)).workspace;
+  assert.equal(restarted.projectId, created.projectId);
+  assert.equal(restarted.outputName, '777 a2 1-500');
+  assert.equal(restarted.nextRangeStart, 100);
+  for (const folder of [output, `${f.source} selekcja`]) {
+    f.choose(folder);
+    const reopened = (await c.begin()).workspace;
+    assert.equal(reopened.projectId, created.projectId);
+    assert.equal(reopened.outputName, '777 a2 1-500');
+    assert.equal(reopened.acceptedCount, 1);
+    await c.close();
+  }
+});
 test('one picker also opens project folders and output manifests; a next-folder draft preserves the active project', async (t) => {
   const f = await fixture(t);
   const c = f.controller();
   const created = await c.create(request((await c.begin()).draft));
   await command(c, { kind: 'accept', imageId: created.currentImageId });
   await c.close();
-  for (const selected of [`${f.source} selekcja`, `${f.source} wybrane`]) {
+  for (const selected of [`${f.source} selekcja`, f.newOutput]) {
     f.choose(selected);
     const opened = await c.begin();
     assert.equal(opened.kind, 'existing');
@@ -234,7 +270,7 @@ for (const direction of ['ascending', 'descending']) {
     const start = await c.begin();
     assert.equal(start.kind, 'new');
     assert.equal(start.draft.projectPath, `${f.source} selekcja`);
-    assert.equal(start.draft.outputPath, `${f.source} wybrane`);
+    assert.equal(start.draft.outputParentPath, path.dirname(f.source));
     const options = request(start.draft, direction);
     const created = await c.create(options);
     assert.equal(f.pickers, 1);
@@ -285,17 +321,14 @@ for (const direction of ['ascending', 'descending']) {
     assert.equal((await reopened.recent())[0].name, 'Mumie a1 — 123');
     const original = await readFile(path.join(f.source, 'photo1.jpg'));
     assert.deepEqual(
-      await readFile(path.join(`${f.source} wybrane`, 'seq_20-28.jpg')),
+      await readFile(path.join(f.newOutput, 'seq_20-28.jpg')),
       original,
     );
     s = await command(reopened, { kind: 'accept', imageId: s.currentImageId });
     assert.equal(s.acceptedCount, 2);
     const manifest = JSON.parse(
       await readFile(
-        path.join(
-          `${f.source} wybrane`,
-          'manual-image-selection-output-v1.json',
-        ),
+        path.join(f.newOutput, 'manual-image-selection-output-v1.json'),
         'utf8',
       ),
     );
@@ -517,7 +550,7 @@ test('missing history has a stable path error; cancel keeps cache, explicit new 
   const movedProject = path.join(f.root, 'moved-project');
   const movedOutput = path.join(f.root, 'moved-output');
   await rename(oldRoot, movedProject);
-  await rename(`${f.source} wybrane`, movedOutput);
+  await rename(f.newOutput, movedOutput);
   const oldState = await readFile(
     path.join(movedProject, 'selector-project-v1.json'),
   );
@@ -607,21 +640,21 @@ test('foreign output blocks draft create without creating the missing project fo
   const f = await fixture(t);
   const c = f.controller();
   const draft = (await c.begin()).draft;
-  await mkdir(draft.outputPath);
-  const foreign = path.join(draft.outputPath, 'foreign.txt');
+  await mkdir(f.newOutput);
+  const foreign = path.join(f.newOutput, 'foreign.txt');
   await writeFile(foreign, 'preserve exact foreign bytes');
   await assert.rejects(
     c.create(request(draft)),
     (error) =>
       error.code === 'OUTPUT_FOLDER_NOT_EMPTY' &&
-      error.message.includes(draft.outputPath),
+      error.message.includes(f.newOutput),
   );
   assert.ok(
     !(await readdir(path.dirname(f.source))).includes(
       path.basename(draft.projectPath),
     ),
   );
-  assert.deepEqual(await readdir(draft.outputPath), ['foreign.txt']);
+  assert.deepEqual(await readdir(f.newOutput), ['foreign.txt']);
   assert.equal(await readFile(foreign, 'utf8'), 'preserve exact foreign bytes');
 });
 

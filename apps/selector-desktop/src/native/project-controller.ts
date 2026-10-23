@@ -34,6 +34,7 @@ import {
   MAX_SEQUENCE_NUMBER,
   validateGameName,
   validateGameUpdate,
+  outputDirectoryName,
   type CreateProjectRequest,
   type SourceIndex,
   type DesktopWorkspace,
@@ -95,6 +96,7 @@ export function validateCreate(value: unknown): CreateProjectRequest {
         'Katalogi powstają obok zdjęć.',
       );
     validateGameName(v.gameName);
+    outputDirectoryName(v as unknown as CreateProjectRequest);
   }
   const gameUpdate = validateGameUpdate(v.gameUpdate);
   return {
@@ -550,7 +552,7 @@ export class ProjectController {
       sourceName: path.basename(sourceRoot),
       sourcePath: sourceRoot,
       projectPath: projectRoot,
-      outputPath: `${sourceRoot} wybrane`,
+      outputParentPath: path.dirname(sourceRoot),
     };
     this.draft = { value: draft };
     return { kind: 'new', draft: { ...draft } };
@@ -583,7 +585,9 @@ export class ProjectController {
         : await this.dialogs.directory('Wybierz katalog źródłowych zdjęć');
       if (!sourceRoot) return null;
       let projectRoot = `${sourceRoot} selekcja`;
-      let outputRoot = `${sourceRoot} wybrane`;
+      let outputRoot = draft
+        ? path.join(path.dirname(sourceRoot), outputDirectoryName(options))
+        : `${sourceRoot} wybrane`;
       if (options.customLocations) {
         const selectedProject = await this.dialogs.directory(
           'Wybierz pusty katalog projektu',

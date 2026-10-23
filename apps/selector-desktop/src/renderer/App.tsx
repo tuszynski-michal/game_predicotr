@@ -15,7 +15,11 @@ import type {
   NewProjectDraft,
 } from '../contracts.ts';
 import { GameSelect } from './game-select.tsx';
-import { MAX_SEQUENCE_NUMBER, GAME_UPDATE_PATTERN } from '../contracts.ts';
+import {
+  MAX_SEQUENCE_NUMBER,
+  GAME_UPDATE_PATTERN,
+  outputDirectoryName,
+} from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -32,10 +36,25 @@ export function App() {
   const [gameName, setGameName] = useState('');
   const [gameUpdate, setGameUpdate] = useState('');
   const [games, setGames] = useState<string[]>([]);
-  const [recentId, setRecentId] = useState('');
-  const [legacy, setLegacy] = useState<LegacyPreviewSummary | null>(null);
   const [first, setFirst] = useState('1');
   const [last, setLast] = useState('');
+  let outputPreview = 'Uzupełnij grę, aktualizację i zakres.';
+  if (draft) {
+    try {
+      const folder = outputDirectoryName({
+        gameName,
+        gameUpdate,
+        firstLayout: Number(first),
+        sequenceUpperBound: last === '' ? null : Number(last),
+      });
+      outputPreview = `${draft.outputParentPath.replace(/[\\/]+$/, '')}\\${folder}`;
+    } catch (cause) {
+      if (gameName && gameUpdate && first)
+        outputPreview = cause instanceof Error ? cause.message : outputPreview;
+    }
+  }
+  const [recentId, setRecentId] = useState('');
+  const [legacy, setLegacy] = useState<LegacyPreviewSummary | null>(null);
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
   );
@@ -515,7 +534,7 @@ export function App() {
               </label>
               <div className="folder-summary">
                 <p>Zdjęcia: {draft.sourcePath}</p>
-                <p>Wybrane zdjęcia: {draft.outputPath}</p>
+                <p>Wybrane zdjęcia: {outputPreview}</p>
                 <p>Postęp: {draft.projectPath}</p>
               </div>
               <nav>

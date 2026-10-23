@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1089 — Nazwa folderu wynikowego selektora (done)
+
+- Plik: `tasks/completed/1089-selector-output-folder-name.md`.
+- Commit: **v1.7.469** (hash dopisuje kolejny commit).
+- Nowy wynik jako gra aktualizacja pierwsza-ostatnia (np. 777 a2 1-500), wspólny podgląd i walidacja; stare ścieżki oraz nazwy JPEG bez zmian.
+- 21 testów, lint, typecheck, build i smoke ZIP 1.0.3 games/workflow PASS; docs i mapa PASS. Trwałość w nowych procesach, bez operacji na danych operatora i bez merge.
+
 ### TASK-1088 — Lista gier i aktualizacja selektora (done)
 
 - Plik: `tasks/completed/1088-selector-game-catalog-updates.md`.

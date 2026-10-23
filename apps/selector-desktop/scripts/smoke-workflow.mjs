@@ -150,7 +150,11 @@ try {
     await accept(1);
     const manifest = JSON.parse(
       await readFile(
-        path.join(`${source} wybrane`, 'manual-image-selection-output-v1.json'),
+        path.join(
+          fixture,
+          'Mumie a1 499996-500000',
+          'manual-image-selection-output-v1.json',
+        ),
         'utf8',
       ),
     );
@@ -184,7 +188,7 @@ try {
     await page
       .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
       .waitFor();
-    const evidence = path.resolve('../../artifacts/selector-releases/1.0.2');
+    const evidence = path.resolve('../../artifacts/selector-releases/1.0.3');
     await mkdir(evidence, { recursive: true });
     await page.screenshot({ path: path.join(evidence, 'selection.png') });
     await choose(null);

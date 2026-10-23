@@ -6,11 +6,17 @@ last_updated: 2026-10-23
 
 # Architektura lokalnej ręcznej selekcji
 
+## Nazwa wyniku Windows 1.0.3 — TASK-1089, D-572
+
+`outputDirectoryName` w contracts.ts jest wspólnym czystym builderem nazwy. Sprawdza metadane, zakres 1–500000, niedozwolone znaki Windows i limit 255 jednostek UTF-16. Nowy draft przekazuje `outputParentPath` zamiast z góry wybranej `outputPath`, ponieważ basename zależy od formularza. Renderer wylicza podgląd, a ProjectController.create wyznacza autorytatywną ścieżkę z rodzica źródła i zweryfikowanych argumentów; renderer nie przesyła ścieżki w create.
+
+Natywny ProjectStore nadal sprawdza rozłączność ścieżek oraz pusty wynik przed utworzeniem katalogów. Zapisany outputRoot pozostaje jedyną ścieżką wyniku podczas recovery, wznowienia i edycji zakresu. Nowa nazwa nie zmienia manifestu ani JPEG. Domyślny folder projektu postępu zachowuje nazwę `<źródło> selekcja`, a wybrany wynik rozpoznawany jest przez istniejący manifest i sourceDirectoryName. Jawne starsze lokalizacje i przejęcie legacy pozostają zgodne.
+
 ## Katalog i metadane aktualizacji Windows 1.0.2 — TASK-1088, D-571
 
 `GameCatalog` zapisuje `selector-games-v1.json` w userData przez SecureFiles.replace; własna kolejka serializuje zmiany. Typowane IPC `games` i `addGame` korzysta ze wspólnej kontroli nadawcy i liczby argumentów. Odczyt zasila katalog nazwami z istniejącego cache historii, nowa partia zapamiętuje nazwę przed utworzeniem projektu. Katalog nie ma limitu 10 wpisów; uszkodzony plik zwraca GAME_CATALOG_CORRUPT i pozostaje niezmieniony.
 
-`GameSelect` realizuje combobox z filtrowaniem, listą, strzałkami i Enterem; przyciski stosują wspólny arkusz UI oraz wysokość 32 px. `gameUpdate` jest wymagane w create IPC, walidowane wspólnym predykatem dokładnego formatu a+cyfry albo z_a+cyfry. W ProjectState/ProjectScalar jest opcjonalne dla zgodności wstecz; zachowują je przygotowanie, ledger, backup i wznowienie. Etykieta RecentProjects zawiera aktualizację. `projectManifest` pozostaje bez zmian, podobnie jak generowanie ścieżek. Kopiowanie kontekstu do kolejnego folderu obejmuje grę i aktualizację.
+`GameSelect` realizuje combobox z filtrowaniem, listą, strzałkami i Enterem; przyciski stosują wspólny arkusz UI oraz wysokość 32 px. `gameUpdate` jest wymagane w create IPC, walidowane wspólnym predykatem dokładnego formatu a+cyfry albo z_a+cyfry. W ProjectState/ProjectScalar jest opcjonalne dla zgodności wstecz; zachowują je przygotowanie, ledger, backup i wznowienie. Etykieta RecentProjects zawiera aktualizację. `projectManifest` pozostaje bez zmian; regułę folderu nowych partii od 1.0.3 określa sekcja powyżej. Kopiowanie kontekstu do kolejnego folderu obejmuje grę i aktualizację.
 
 ## Konfiguracja i interfejs Windows 1.0.1 — TASK-1078, D-567
 

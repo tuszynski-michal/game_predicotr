@@ -14,6 +14,18 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-572 — Nazwa folderu wynikowego selektora
+
+**Status:** accepted
+
+**Data:** 2026-10-23
+
+**Źródło:** operator: folder ma zawierać grę, aktualizację i zakres, np. `777 a2 1-500`; nazwy zdjęć mogą zostać bez zmian.
+
+**Decyzja:** nowe partie z formularza Windows 1.0.3 tworzą wynik obok źródła jako `<gra> <aktualizacja> <pierwsza>-<ostatnia>`. Zakres jest początkową konfiguracją pól formularza, niezależnie od kierunku. Brak ostatniej planszy oznacza 500000. Podgląd i native korzystają ze wspólnego buildera. Nie zmieniamy nazw JPEG, manifestu operator-local ani ścieżek istniejących projektów. Edycja zakresu po utworzeniu partii nie przenosi folderu. Zastępuje to wyłącznie regułę niezmieniania nazw folderów nowych partii z D-571.
+
+**Alternatywy i konsekwencje:** nie zmieniamy identyfikatora gry przez ciche zastępowanie niedozwolonych znaków Windows; zamiast tego czytelny błąd blokuje utworzenie folderu. Limit komponentu wynosi 255 jednostek UTF-16. Kolizja z niepustym katalogiem pozostaje błędem istniejącego preflightu, bez nadpisania lub automatycznego sufiksu. Zapisany outputRoot jest źródłem prawdy po wznowieniu. Folder postępu pozostaje `<źródło> selekcja`, więc ponowny wybór źródła rozpoznaje projekt również bez historii.
+
 ## D-571 — Trwały katalog gier i aktualizacja partii selektora
 
 Status: accepted. Data: 2026-10-23. Źródło: polecenie operatora i zatwierdzenie TASK-1088.

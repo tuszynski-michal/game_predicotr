@@ -108,8 +108,14 @@ try {
         null,
       );
     }
-    await update.fill('z_a003');
-    const evidence = path.resolve('../../artifacts/selector-releases/1.0.2');
+    await update.fill('a2');
+    await page.getByLabel('Ostatnia plansza', { exact: true }).fill('500');
+    await page
+      .getByText(`Wybrane zdjęcia: ${path.join(fixture, '777 a2 1-500')}`, {
+        exact: true,
+      })
+      .waitFor();
+    const evidence = path.resolve('../../artifacts/selector-releases/1.0.3');
     await mkdir(evidence, { recursive: true });
     await page.screenshot({
       path: path.join(evidence, 'games-update-form.png'),
@@ -118,8 +124,7 @@ try {
       .getByRole('button', { name: 'Rozpocznij wybieranie', exact: true })
       .click();
     await page.waitForFunction(
-      async () =>
-        (await window.selector.snapshot()).value?.gameUpdate === 'z_a003',
+      async () => (await window.selector.snapshot()).value?.gameUpdate === 'a2',
     );
     await page.waitForFunction(
       () =>
@@ -138,7 +143,11 @@ try {
     );
     const manifest = JSON.parse(
       await readFile(
-        path.join(`${source} wybrane`, 'manual-image-selection-output-v1.json'),
+        path.join(
+          fixture,
+          '777 a2 1-500',
+          'manual-image-selection-output-v1.json',
+        ),
         'utf8',
       ),
     );
@@ -148,7 +157,7 @@ try {
     await launch();
     await page.getByLabel('Ostatnie projekty', { exact: true }).waitFor();
     await page
-      .getByRole('option', { name: '777 z_a003 — source', exact: true })
+      .getByRole('option', { name: '777 a2 — source', exact: true })
       .waitFor({ state: 'attached' });
     await page.screenshot({
       path: path.join(evidence, 'games-update-history.png'),
@@ -157,8 +166,7 @@ try {
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
     await page.waitForFunction(
-      async () =>
-        (await window.selector.snapshot()).value?.gameUpdate === 'z_a003',
+      async () => (await window.selector.snapshot()).value?.gameUpdate === 'a2',
     );
     await page.waitForFunction(
       () =>

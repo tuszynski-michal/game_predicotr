@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1088 — Lista gier i aktualizacja selektora (done)
 
 - Plik: `tasks/completed/1088-selector-game-catalog-updates.md`.
-- Commit: **v1.7.467** (hash dopisuje kolejny commit).
+- Commit: **v1.7.467 / `6909ef00c73d29cdb176db7a4cd2ddcfc4d7083d`** (hash dopisuje kolejny commit).
 - Trwały katalog gier z Enterem i filtrowaniem; aktualizacja a+cyfry albo z_a+cyfry w historii i stanie projektu; nazwy eksportu bez zmian.
 - 29 testów, lint, typecheck, build ZIP 1.0.2, smoke workflow/games, docs i mapa kodu PASS. Nowe procesy potwierdzają trwałość; fizyczny restart i drugi komputer niewykonane. Merge wymaga odbioru.
 

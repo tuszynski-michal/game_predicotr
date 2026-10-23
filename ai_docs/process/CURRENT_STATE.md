@@ -65,7 +65,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1088** — Lista gier i aktualizacja selektora — v1.7.467 — tasks/completed/1088-selector-game-catalog-updates.md
+- **TASK-1088** — Lista gier i aktualizacja selektora — v1.7.467 / `6909ef00` — tasks/completed/1088-selector-game-catalog-updates.md
 - **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 / `56d763a9` — tasks/completed/1087-777a2-unknown-search-wildcards.md
 - **TASK-1086** — Zabezpieczenia relokacji źródeł C — v1.7.462 / `4e944081` — tasks/completed/1086-harden-legacy-source-relocation.md
 - **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 / `1cfa7132` — tasks/completed/1085-prepare-legacy-c-copy-retirement.md

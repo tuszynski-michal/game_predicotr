@@ -79,7 +79,7 @@ Brak otwartych pytań. Starsza historia udostępnia najwyżej 10 dotychczasowych
 
 ## Outcome
 
-Commit: v1.7.467 (hash dopisuje kolejny commit).
+Commit: v1.7.467 / `6909ef00c73d29cdb176db7a4cd2ddcfc4d7083d`.
 
 ### Changed
 
@@ -92,6 +92,7 @@ Commit: v1.7.467 (hash dopisuje kolejny commit).
 - 27/27: start-resume, game-catalog, renderer-contracts; 2/2: release.
 - Lint, typecheck, build wydania, SHA-256 i zawartość rozpakowanego ZIP-a: PASS.
 - Smoke workflow i games: PASS, w tym katalog zapisany przed utworzeniem projektu i historia po nowym procesie.
+- Końcowa paczka 1.0.2 z commita v1.7.467, applicationSourceDirty=false: ponowny smoke games PASS. Kopia ZIP w `artifacts/selector-releases/1.0.2/`, SHA-256 i parametry w raporcie jakości.
 - docs:check i code-map:check: PASS przed zamknięciem, ponowna kontrola dokumentacji po zamknięciu.
 - Kryteria akceptacji porównane punkt po punkcie: wszystkie spełnione. DoD: trwałość sprawdzona w nowym procesie; brak zmiany backendu i bazy, dlatego OpenAPI/Alembic nie dotyczą. UI przeznaczone wyłącznie dla Windows.
 

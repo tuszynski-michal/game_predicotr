@@ -61,7 +61,7 @@ nie wymaga zmiany.
 
 ## Outcome
 
-Commit: v1.7.471 (hash dopisuje kolejny commit).
+Commit: v1.7.471 / `26c4be9c8938062a54874f834dca5780ebbe890e`.
 
 ### Changed
 

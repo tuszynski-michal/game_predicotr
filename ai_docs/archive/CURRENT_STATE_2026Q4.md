@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1090 — Domyślna ważność linków 24 h (done)
 
 - Plik: tasks/completed/1090-sharing-default-24h.md.
-- Commit: **v1.7.471** (hash dopisuje kolejny commit).
+- Commit: **v1.7.471 / `26c4be9c8938062a54874f834dca5780ebbe890e`** (hash dopisuje kolejny commit).
 - Formularz Udostępnianie wybiera 24 h. Istniejące sesje i kontrakt API zachowane.
 - Interakcje 2/2, ESLint, typecheck Admina, format, mapa i docs:check PASS; odbiór po odświeżeniu strony i utworzenie dodatkowej sesji operatora na 24 h.
 - Bez builda, restartów, audytu, scalenia i pushu.

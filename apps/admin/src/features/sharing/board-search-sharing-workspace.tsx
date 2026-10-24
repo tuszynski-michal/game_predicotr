@@ -43,7 +43,7 @@ export function BoardSearchSharingWorkspace({
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [keys, setKeys] = useState<PanelKeys>({});
   const [label, setLabel] = useState('');
-  const [lifetime, setLifetime] = useState(480);
+  const [lifetime, setLifetime] = useState(1440);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');

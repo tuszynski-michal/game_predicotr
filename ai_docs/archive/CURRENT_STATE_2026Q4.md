@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1090 — Domyślna ważność linków 24 h (done)
+
+- Plik: tasks/completed/1090-sharing-default-24h.md.
+- Commit: **v1.7.471** (hash dopisuje kolejny commit).
+- Formularz Udostępnianie wybiera 24 h. Istniejące sesje i kontrakt API zachowane.
+- Interakcje 2/2, ESLint, typecheck Admina, format, mapa i docs:check PASS; odbiór po odświeżeniu strony i utworzenie dodatkowej sesji operatora na 24 h.
+- Bez builda, restartów, audytu, scalenia i pushu.
+
 ### TASK-1089 — Nazwa folderu wynikowego selektora (done)
 
 - Plik: `tasks/completed/1089-selector-output-folder-name.md`.

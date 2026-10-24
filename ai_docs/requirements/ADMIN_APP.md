@@ -778,7 +778,7 @@ wyłącznie do odczytu.
 
 **D-548 / TASK-0991 — zakładka „Udostępnianie”.** Operator wybiera gry
 z obecnego katalogu niearchiwalnych gier (także gotowe drafty), nazwę linku
-i ważność 1/4/8/24/48/72 h, domyślnie 8 h. Jeden link otwiera panel odbiorcy
+i ważność 1/4/8/24/48/72 h, domyślnie 24 h. Jeden link otwiera panel odbiorcy
 bez ręcznego kodu. Lista wybranych gier pozostaje stała. Każda gra musi mieć
 gotową wyszukiwarkę i opublikowane reguły; niegotowa gra blokuje utworzenie
 całego linku z komunikatem wskazującym grę. Pojedynczy panel obejmuje do

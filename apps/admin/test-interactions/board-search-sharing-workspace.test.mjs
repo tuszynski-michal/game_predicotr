@@ -125,6 +125,7 @@ test('selects only available games, creates one code-free link, restores a new t
     }),
   };
   let root = await render(client);
+  assert.equal(document.querySelector('fieldset select').value, '1440');
   const checkboxes = [...document.querySelectorAll('input[type=checkbox]')];
   assert.equal(checkboxes.length, 2);
   assert.equal(button('Utwórz link').disabled, true);
@@ -157,6 +158,7 @@ test('selects only available games, creates one code-free link, restores a new t
   await act(async () => root.unmount());
   panels = [{ ...panel, shareUrl: panel.shareUrl.replace('old.', 'new.') }];
   root = await render(client);
+  assert.equal(document.querySelector('fieldset select').value, '1440');
   assert.match(
     document.querySelector('input[aria-label="Link do panelu"]').value,
     /^https:\/\/new\.trycloudflare\.com/,
@@ -179,17 +181,22 @@ test('selects only available games, creates one code-free link, restores a new t
 });
 
 test('a failed create preserves the chosen games and displays a retryable error', async () => {
+  const creates = [];
   const client = {
     listGames: async () => ({ data: games }),
     listBoardSearchPanels: async () => ({ data: { panels: [] } }),
-    createBoardSearchPanel: async () => ({
-      error: { code: 'BOARD_SEARCH_SHARE_ACTIVE_LIMIT' },
-    }),
+    createBoardSearchPanel: async (body) => {
+      creates.push(body);
+      return { error: { code: 'BOARD_SEARCH_SHARE_ACTIVE_LIMIT' } };
+    },
   };
   const root = await render(client);
   await click(document.querySelector('input[type=checkbox]'));
   await click(button('Utwórz link'));
   await settle();
+  assert.deepEqual(creates, [
+    { gameIds: [ids[0]], label: null, lifetimeMinutes: 1440 },
+  ]);
   assert.ok(document.querySelector('[role=alert]'));
   assert.equal(document.querySelector('input[type=checkbox]').checked, true);
   assert.equal(button('Utwórz link').disabled, false);

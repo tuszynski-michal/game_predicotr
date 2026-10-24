@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1092 — Wyszukiwanie ciągu plansz: badże i trwałość (done)
 
-- Plik: `tasks/completed/1092-board-search-sequence-ui.md`. Commit **v1.7.468**.
+- Plik: `tasks/completed/1092-board-search-sequence-ui.md`. Commit **v1.7.468 / `402477cdc1c4797fe7ab626b5c5bdbc6519d446c`**.
 - Badże 1–4, wspólne wyniki, trwały lokalny draft, pełny replay i historia v2 w Adminie oraz obu linkach; management zachowuje stary przepływ.
 - 108 testów jednostkowych, 113 interakcji, Reviewer 293 PASS; typy/build/lint/docs/mapa PASS. Edge: nowy proces, desktop i mobile viewport, 6 kontroli PASS.
 - Claude Code medium: R1 REVISE, poprawki P1/P2, R2 PASS bez P0/P1 po osobnej zgodzie na koszt. P2-3/P2-4 jawne w Outcome; audyt A pozostał timeoutem bez werdyktu.

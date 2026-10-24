@@ -82,7 +82,7 @@ Inny origin tunelu nie odzyska localStorage. Odbiór urządzenia i ewentualne bl
 
 ## Outcome
 
-Commit: v1.7.468 (hash dopisuje kolejny commit).
+Commit: v1.7.468 / `402477cdc1c4797fe7ab626b5c5bdbc6519d446c`.
 
 ### Changed
 

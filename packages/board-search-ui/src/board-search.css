@@ -1023,3 +1023,27 @@
 .boardSearchSuperGameStale {
   border-color: var(--warning, #f2c66d);
 }
+.boardSearchSequenceBadges,
+.boardSearchSequenceResults {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+
+.boardSearchSequenceBadges button[aria-pressed='true'] {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.boardSearchSequenceResults small {
+  flex-basis: 100%;
+}
+
+.boardSearchSequenceBoard {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

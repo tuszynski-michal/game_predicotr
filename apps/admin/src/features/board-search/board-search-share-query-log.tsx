@@ -24,7 +24,8 @@ import {
   boardSearchQueryFollowUpRange,
   boardSearchQueryOccurrenceTimes,
   type BoardSearchQueryRange,
-  boardSearchQueryPatternCells,
+  boardSearchQueryPatterns,
+  describeBoardSearchQueryEntry,
 } from './board-search-share-query-log-state';
 import {
   boardSearchShareErrorMessage,
@@ -230,7 +231,7 @@ export function BoardSearchShareQueryLog({
       ) : null}
       <ol>
         {state.entries.map((entry) => {
-          const pattern = boardSearchQueryPatternCells(entry);
+          const patterns = boardSearchQueryPatterns(entry);
           const range = boardSearchQueryFollowUpRange(entry);
           return (
             <li className="boardSearchShareQuery" key={entry.id}>
@@ -241,9 +242,14 @@ export function BoardSearchShareQueryLog({
                   sessionId={sessionId}
                   symbols={symbols}
                   pattern={
-                    Array.isArray(entry.request.cells)
-                      ? (entry.request.cells as string[])
-                      : []
+                    entry.request.version === 2
+                      ? undefined
+                      : Array.isArray(entry.request.cells)
+                        ? (entry.request.cells as string[])
+                        : []
+                  }
+                  searchEventId={
+                    entry.request.version === 2 ? entry.id : undefined
                   }
                 />
               ) : null}
@@ -312,50 +318,62 @@ export function BoardSearchShareQueryLog({
                   )}
                 </span>
               </div>
+              <p>{describeBoardSearchQueryEntry(entry).details}</p>
               <div className="boardSearchShareQueryBody">
-                {pattern !== null ? (
-                  <div
-                    aria-label="Wzór zapytania 3 na 5"
-                    className="boardSearchShareMiniBoard"
-                    role="img"
-                  >
-                    {pattern.map((code, cellIndex) => {
-                      const symbol =
-                        code !== null && code !== '?'
-                          ? symbolByCode.get(code)
-                          : undefined;
-                      return (
-                        <span
-                          className="boardSearchShareMiniCell"
-                          key={cellIndex}
-                          title={
-                            code === null
-                              ? 'puste'
-                              : code === '?'
-                                ? 'nieznany'
-                                : (symbol?.name ?? code)
-                          }
-                        >
-                          {symbol?.imagePath ? (
-                            <img
-                              alt=""
-                              src={client.symbolImageAssetUrl(
-                                gameId,
-                                symbol.id,
-                              )}
-                            />
-                          ) : code === null ? (
-                            ''
-                          ) : code === '?' ? (
-                            '?'
-                          ) : (
-                            code.slice(0, 2)
-                          )}
-                        </span>
-                      );
-                    })}
+                {patterns.map((pattern, patternIndex) => (
+                  <div key={patternIndex}>
+                    {patterns.length > 1 ? (
+                      <p>
+                        Układ {patternIndex + 1} z {patterns.length}
+                      </p>
+                    ) : null}
+                    <div
+                      aria-label={
+                        patterns.length > 1
+                          ? `Wzór zapytania ${patternIndex + 1} z ${patterns.length}, 3 na 5`
+                          : 'Wzór zapytania 3 na 5'
+                      }
+                      className="boardSearchShareMiniBoard"
+                      role="img"
+                    >
+                      {pattern.map((code, cellIndex) => {
+                        const symbol =
+                          code !== null && code !== '?'
+                            ? symbolByCode.get(code)
+                            : undefined;
+                        return (
+                          <span
+                            className="boardSearchShareMiniCell"
+                            key={cellIndex}
+                            title={
+                              code === null
+                                ? 'puste'
+                                : code === '?'
+                                  ? 'nieznany'
+                                  : (symbol?.name ?? code)
+                            }
+                          >
+                            {symbol?.imagePath ? (
+                              <img
+                                alt=""
+                                src={client.symbolImageAssetUrl(
+                                  gameId,
+                                  symbol.id,
+                                )}
+                              />
+                            ) : code === null ? (
+                              ''
+                            ) : code === '?' ? (
+                              '?'
+                            ) : (
+                              code.slice(0, 2)
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : null}
+                ))}
                 {range !== null ? (
                   <QueryChart
                     client={client}

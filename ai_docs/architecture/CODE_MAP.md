@@ -143,7 +143,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Katalogi
 
 - `apps/admin/src/features/` (199 ts/tsx) - funkcje panelu (podkatalogi poniżej)
-  - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+29)
+  - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
   - `datasets/` (6 plików): DatasetsClient, GenerateMockDatasetResult, generateMockDataset, GetDatasetValidationReportResult, getDatasetValidationReport, ListDatasetLayoutsResult, listDatasetLayouts, DatasetTransitionResult (+13)
@@ -180,7 +180,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (122 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (123 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-interactions/` (37 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
@@ -216,7 +216,7 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (36 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (37 plików w katalogu testów, rekurencyjnie)
 - `apps/reviewer/test-interactions/` (13 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -232,7 +232,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Katalogi
 
-- `packages/board-search-ui/src/` (39 ts/tsx) - wspólny UI wyszukiwarki plansz
+- `packages/board-search-ui/src/` (41 ts/tsx) - wspólny UI wyszukiwarki plansz
 - `packages/shared-ts/src/` (9 ts/tsx) - kontrakty domenowe i kodek sygnatur (też mobile)
 - `packages/admin-api-client/src/` (2 ts/tsx) - wrappery klienta wygenerowanego z OpenAPI
 - `packages/manual-image-selection-core/src/` (11 ts/tsx) - wspólna logika ręcznej selekcji
@@ -242,7 +242,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Testy
 
-- `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
+- `packages/board-search-ui/test/` (12 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
 - `packages/admin-api-client/test/` (31 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)

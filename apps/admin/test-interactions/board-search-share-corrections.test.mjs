@@ -33,6 +33,8 @@ globalThis.React = React;
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchShareCorrections } =
   await import('../src/features/board-search/board-search-share-corrections.tsx');
+const { BoardSearchShareQueryLog } =
+  await import('../src/features/board-search/board-search-share-query-log.tsx');
 after(() => dom.window.close());
 const symbols = ['A', 'B'].map((code, index) => ({
   id: code,
@@ -230,5 +232,84 @@ test('queue is lazy, close leaves pending, local correction works and review che
     expectedBoardVersion: 'c'.repeat(64),
   });
   assert.equal(pending, false);
+  await act(async () => root.unmount());
+});
+
+test('v2 history renders every grid and filters corrections by search event with an explicit sequence label', async () => {
+  const filters = [];
+  const replays = [];
+  const entry = {
+    id: 'search-event',
+    kind: 'search',
+    occurredAt: '2026-10-24T10:00:00Z',
+    outcomeCode: 'ok',
+    request: {
+      version: 2,
+      patterns: [{ cells: ['0:A'] }, { cells: ['5:B'] }],
+      scope: 'all_searchable',
+      limit: 15,
+    },
+    resultSummary: {
+      patternCount: 2,
+      resultCount: 1,
+      firstEndSequenceNumbers: [1],
+    },
+  };
+  const client = {
+    listSymbols: async () => ({ data: symbols }),
+    symbolImageAssetUrl: () => '',
+    listBoardSearchShareQueries: async () => ({
+      data: { entries: [entry], nextCursor: null },
+    }),
+    listBoardSearchShareCorrections: async (_session, options) => {
+      filters.push(options);
+      return {
+        data: {
+          entries: [
+            {
+              sequenceNumber: 6,
+              patternCount: 2,
+              revision: 1,
+              pending: true,
+              changedCellCount: 1,
+              lastChangedAt: '2026-10-24T10:00:00Z',
+              lastEventId: 'correction',
+              stakeGrosze: null,
+              startSequenceNumber: 6,
+            },
+          ],
+          nextCursor: null,
+          totalCount: 1,
+          pendingCount: 1,
+        },
+      };
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  await act(async () =>
+    root.render(
+      React.createElement(BoardSearchShareQueryLog, {
+        client,
+        gameId: 'g',
+        sessionId: 's',
+        onReplay: (id) => replays.push(id),
+      }),
+    ),
+  );
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchShareMiniBoard').length === 2 &&
+      filters.some((filter) => filter.searchEventId === 'search-event'),
+  );
+  assert.match(document.body.textContent, /Układ 1 z 2.*Układ 2 z 2/s);
+  assert.match(document.body.textContent, /Ciąg: 2 układów/);
+  assert.match(document.body.textContent, /końce ciągów: #1/);
+  const filter = filters.find(
+    (filter) => filter.searchEventId === 'search-event',
+  );
+  assert.equal(filter.pattern, undefined);
+  assert.equal(filter.status, 'all');
+  await click(button('Odtwórz w wyszukiwarce'));
+  assert.deepEqual(replays, ['search-event']);
   await act(async () => root.unmount());
 });

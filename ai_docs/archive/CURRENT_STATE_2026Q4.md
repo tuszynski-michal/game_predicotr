@@ -6,9 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1092 — Wyszukiwanie ciągu plansz: badże i trwałość (done)
+
+- Plik: `tasks/completed/1092-board-search-sequence-ui.md`. Commit **v1.7.468**.
+- Badże 1–4, wspólne wyniki, trwały lokalny draft, pełny replay i historia v2 w Adminie oraz obu linkach; management zachowuje stary przepływ.
+- 108 testów jednostkowych, 113 interakcji, Reviewer 293 PASS; typy/build/lint/docs/mapa PASS. Edge: nowy proces, desktop i mobile viewport, 6 kontroli PASS.
+- Claude Code medium: R1 REVISE, poprawki P1/P2, R2 PASS bez P0/P1 po osobnej zgodzie na koszt. P2-3/P2-4 jawne w Outcome; audyt A pozostał timeoutem bez werdyktu.
+- Bez fizycznego Androida, migracji operatora, restartów, merge i push. Dalej odbiór oraz osobno uzgodnione wdrożenie.
+
 ### TASK-1091 — Wyszukiwanie ciągu plansz: API i historia (done)
 
-- Plik: `tasks/completed/1091-board-search-sequence-api.md`. Commit **v1.7.467**.
+- Plik: `tasks/completed/1091-board-search-sequence-api.md`. Commit **v1.7.467 / `9319bde6392c2e913a49cccb08eafa7a3290ebed`**.
 - Ranking SQL/domena 1–4 kolejnych plansz, POST Admin/public, proxy 32 KiB, historia v2 i korekty, klient OpenAPI.
 - Testy API/domena/repo 89 PASS, PostgreSQL 8+1 PASS, klient 134 PASS, Reviewer 290 PASS; lint/typy/docs/mapa/OpenAPI PASS.
 - Audyt Claude Code high: timeout 480 s, brak werdyktu, bez ponowienia; zapis w quality/TASK-1091_AUDIT_TIMEOUT_20261024.md.

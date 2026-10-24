@@ -8,6 +8,12 @@ export const BOARD_SEARCH_REPLAY_PARAMETER = 'boardSearchReplay';
 export type BoardSearchReplayScope = 'all_searchable' | 'approved_only';
 
 export type BoardSearchReplayPlan = {
+  readonly patterns?: {
+    readonly cells: {
+      readonly cellIndex: number;
+      readonly symbolCode: string | null;
+    }[];
+  }[];
   /** Changes for every replay, so the same entry can be replayed again. */
   readonly id: string;
   readonly cells: readonly {
@@ -56,8 +62,27 @@ export function boardSearchReplayPlan(
       message: describeMissingSearch(source.event),
     };
   }
-  const cells = parseCells(search.request.cells);
-  if (cells === null) {
+  const sequence = search.request.version === 2;
+  const rawPatterns = search.request.patterns;
+  const patterns =
+    sequence &&
+    Array.isArray(rawPatterns) &&
+    rawPatterns.length >= 1 &&
+    rawPatterns.length <= 4
+      ? rawPatterns.map((pattern: unknown) =>
+          pattern !== null && typeof pattern === 'object' && 'cells' in pattern
+            ? parseCells(pattern.cells)
+            : null,
+        )
+      : null;
+  const cells = sequence
+    ? (patterns?.at(-1) ?? null)
+    : parseCells(search.request.cells);
+  if (
+    cells === null ||
+    (sequence &&
+      (patterns === null || patterns.some((pattern) => pattern === null)))
+  ) {
     return {
       kind: 'no_search',
       message: 'Wzoru z tego wpisu nie da się odczytać.',
@@ -89,6 +114,9 @@ export function boardSearchReplayPlan(
       approximateWin,
       boardSequenceNumber,
       cells,
+      ...(sequence
+        ? { patterns: patterns!.map((pattern) => ({ cells: pattern! })) }
+        : {}),
       id: `${source.event.id}:${nonce}`,
       limit,
       scope,

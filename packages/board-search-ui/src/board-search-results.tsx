@@ -5,6 +5,7 @@
 
 import type {
   BoardSearchResponse,
+  BoardSearchSequenceResultResponse,
   SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
@@ -51,6 +52,7 @@ type BoardSearchResultsClient = BoardLinesClient &
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
+  readonly sequenceResult?: BoardSearchSequenceResultResponse | null;
   readonly compact?: boolean;
   readonly client: BoardSearchResultsClient;
   readonly gameId: string;
@@ -73,6 +75,7 @@ interface BoardSearchResultsProps {
 }
 
 export function BoardSearchResults({
+  sequenceResult = null,
   compact = false,
   client: api,
   gameId,
@@ -87,7 +90,9 @@ export function BoardSearchResults({
   superGameState = null,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
+  const evidenceScore = sequenceResult?.score ?? current?.score;
   const [boardOpen, setBoardOpen] = useState(false);
+  const [detailSequence, setDetailSequence] = useState<number | null>(null);
   const boardTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -148,18 +153,68 @@ export function BoardSearchResults({
         <dl className="boardSearchResultMetrics">
           <div>
             <dt>Dopasowanie</dt>
-            <dd>{current.score.score.toFixed(1)}%</dd>
+            <dd>
+              {(sequenceResult?.score.score ?? current.score.score).toFixed(1)}%
+            </dd>
           </div>
           <div>
-            <dt>Plansza</dt>
-            <dd>#{current.sequenceNumber}</dd>
+            <dt>{sequenceResult === null ? 'Plansza' : 'Ciąg'}</dt>
+            <dd>
+              {sequenceResult === null
+                ? `#${current.sequenceNumber}`
+                : `#${sequenceResult.startSequenceNumber} → #${sequenceResult.endSequenceNumber}`}
+            </dd>
           </div>
         </dl>
       </header>
 
-      {current.score.unknownMatchesAll && current.score.unknownCount > 0 ? (
+      {sequenceResult !== null ? (
+        <div
+          className="boardSearchSequenceResults"
+          aria-label="Plansze dopasowanego ciągu"
+        >
+          {sequenceResult.boards.map((board, index) => (
+            <span
+              className="boardSearchSequenceBoard"
+              key={board.sequenceNumber}
+            >
+              <button
+                className="secondaryButton"
+                type="button"
+                key={board.sequenceNumber}
+                onClick={() => {
+                  setDetailSequence(board.sequenceNumber);
+                  setBoardOpen(true);
+                }}
+              >
+                Układ {index + 1}: #{board.sequenceNumber} ·{' '}
+                {board.score.score.toFixed(1)}%
+              </button>
+              {index < sequenceResult.boards.length - 1 && board.superGame ? (
+                <SuperGameMarkerBadge
+                  gameId={gameId}
+                  marker={board.superGame}
+                  seriesHref={api.superGameSeriesHref}
+                  onOpenSeries={
+                    onOpenSuperGameSeries === undefined
+                      ? undefined
+                      : (seriesId) =>
+                          onOpenSuperGameSeries(seriesId, board.sequenceNumber)
+                  }
+                />
+              ) : null}
+            </span>
+          ))}
+          <small>
+            Podgląd i wygrane od ostatniej planszy: #
+            {sequenceResult.endSequenceNumber}.
+          </small>
+        </div>
+      ) : null}
+
+      {evidenceScore?.unknownMatchesAll && evidenceScore.unknownCount > 0 ? (
         <p className="boardSearchUnknownWarning" role="status">
-          Nierozpoznane symbole: {current.score.unknownCount}. Pasują do
+          Nierozpoznane symbole: {evidenceScore.unknownCount}. Pasują do
           dowolnego symbolu.
         </p>
       ) : null}
@@ -268,9 +323,10 @@ export function BoardSearchResults({
             )}${unitNoun(display.unit)}`;
           }}
           gameId={gameId}
-          key={`detail:${gameId}:${boardSearchResultIdentity(current)}`}
+          key={`detail:${gameId}:${detailSequence ?? current.sequenceNumber}:${boardSearchResultIdentity(current)}`}
           onClose={(edited) => {
             setBoardOpen(false);
+            setDetailSequence(null);
             if (edited) {
               onBoardEdited();
               return;
@@ -281,10 +337,16 @@ export function BoardSearchResults({
           row={null}
           rulesVersionId={null}
           rulesVersions={rulesVersions}
-          sequenceNumber={current.sequenceNumber}
+          sequenceNumber={detailSequence ?? current.sequenceNumber}
           symbols={symbols}
           fixedStakeGrosze={fixedStakeGrosze}
-          correctionContext={correctionContext}
+          correctionContext={
+            sequenceResult === null
+              ? correctionContext
+              : {
+                  startSequenceNumber: detailSequence ?? current.sequenceNumber,
+                }
+          }
         />
       ) : null}
 

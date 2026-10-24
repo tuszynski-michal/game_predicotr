@@ -83,7 +83,7 @@ Nie uruchamiać nowego kodu na starej bazie operatora. Brak benchmarku i fizyczn
 
 ## Outcome
 
-Commit: v1.7.467 (hash dopisuje kolejny commit).
+Commit: v1.7.467 / `9319bde6392c2e913a49cccb08eafa7a3290ebed`.
 
 ### Changed
 

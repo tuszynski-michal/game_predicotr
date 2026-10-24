@@ -1419,6 +1419,7 @@ export interface SearchGameBoardsOptions {
 }
 
 export type {
+  BoardSearchPattern,
   BoardSearchSequenceRequest,
   BoardSearchSequenceResponse,
   BoardSearchSequenceResultResponse,

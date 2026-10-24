@@ -13,6 +13,18 @@ implementacji wskazane w tabeli (A high, B medium), niezależne od już
 wykorzystanych prób audytu planu. Dalsza runda po utrzymanym P0/P1 wymaga
 zatrzymania i decyzji operatora zgodnie z AGENTS.md.
 
+2026-10-24 operator osobno zatwierdził koszt dodatkowego audytu poprawek B:
+Claude Code `claude-opus-5-5` / `medium`, maksymalnie 480 s. Po PASS należy
+zamknąć TASK-1092 i wykonać lokalny commit. Bez migracji bazy operatora,
+restartów, scalenia do main i push. Jest to runda 2 audytu B, trzeci audyt
+implementacji; nie zmienia limitu wykorzystanych audytów planu.
+
+Wynik implementacji: TASK-1091 i TASK-1092 wykonane (v1.7.467–468).
+Audyt A: timeout bez werdyktu; audyt B: R1 REVISE, R2 PASS bez P0/P1.
+P2-3/P2-4 i ograniczenia odbioru zapisano w Outcome oraz
+[raporcie odbioru](../quality/BOARD_SEARCH_SEQUENCE_IMPLEMENTATION_20261024.md).
+Fizyczny Android, odbiór na usługach operatora i wdrożenie pozostają niewykonane.
+
 Rewizja 3 otrzymała PASS w trzeciej próbie audytu Claude Code,
 bez otwartych P0/P1. Następnie doprecyzowano dwie uwagi P2 z tego raportu
 (niższy istniejący timeout i etykieta korekty z ciągu); tych dopisków nie

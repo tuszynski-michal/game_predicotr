@@ -85,6 +85,10 @@ type ApproximateWinClient = Pick<
   BoardLinesClient;
 
 interface BoardSearchApproximateWinProps {
+  /** Optional request identity; changing it refreshes data without clearing stake/pins. */
+  readonly calculationKey?: string;
+  readonly onBusyChange?: (busy: boolean) => void;
+  readonly suspended?: boolean;
   readonly compact?: boolean;
   readonly client: ApproximateWinClient;
   readonly gameId: string;
@@ -134,6 +138,9 @@ type StakeChoice = {
 const CALCULATION_DELAY_MS = 400;
 
 export function BoardSearchApproximateWin({
+  calculationKey,
+  onBusyChange,
+  suspended = false,
   compact = false,
   client: api,
   gameId,
@@ -173,6 +180,13 @@ export function BoardSearchApproximateWin({
     APPROXIMATE_WIN_IDLE_STATE,
   );
   const requestIdRef = useRef(0);
+  const pendingCalculations = useRef(0);
+  const busyCallback = useRef(onBusyChange);
+  const suspendedRef = useRef(suspended);
+  useEffect(() => {
+    busyCallback.current = onBusyChange;
+    suspendedRef.current = suspended;
+  }, [onBusyChange, suspended]);
   const [unit, setUnit] = useState<ApproximateWinAmountUnit>(
     () => loadApproximateWinDisplay().unit,
   );
@@ -211,13 +225,19 @@ export function BoardSearchApproximateWin({
     resultIdentity !== null
       ? approximateWinRequestKey({
           gameId,
-          resultIdentity,
+          resultIdentity:
+            calculationKey === undefined
+              ? resultIdentity
+              : `${resultIdentity}:${calculationKey}`,
           rulesVersionId,
           spinCount: range,
         })
       : null;
 
   function runCalculation(key: string, sequenceNumber: number) {
+    if (suspendedRef.current) return;
+    pendingCalculations.current += 1;
+    busyCallback.current?.(true);
     const requestId = ++requestIdRef.current;
     setState({ key, kind: 'loading' });
     void api
@@ -255,6 +275,10 @@ export function BoardSearchApproximateWin({
               'Połączenie z lokalnym Admin API zostało przerwane podczas obliczania.',
           });
         }
+      })
+      .finally(() => {
+        pendingCalculations.current -= 1;
+        busyCallback.current?.(pendingCalculations.current > 0);
       });
   }
 
@@ -264,7 +288,7 @@ export function BoardSearchApproximateWin({
     if (!shouldRequestApproximateWin({ isOpen: true, requestKey, state })) {
       return;
     }
-    if (requestKey === null || sequenceNumber === null) {
+    if (suspended || requestKey === null || sequenceNumber === null) {
       return;
     }
     const key = requestKey;
@@ -283,7 +307,7 @@ export function BoardSearchApproximateWin({
     // the guard above but must not itself retrigger this effect, or every
     // setState here would immediately refire it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestKey]);
+  }, [requestKey, suspended]);
 
   useEffect(() => {
     if (spinCount !== undefined)

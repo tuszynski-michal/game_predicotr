@@ -22,6 +22,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.api.board_search_panels import create_board_search_panels_router
+from game_predictor_api.api.board_search_sequence_body import (
+    BoardSearchSequenceBodyMiddleware,
+    is_sequence_search,
+)
 from game_predictor_api.api.grid_model_evaluations import create_grid_model_evaluations_router
 from game_predictor_api.api.grid_model_registry import create_grid_model_registry_router
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
@@ -2041,6 +2045,8 @@ def create_app(
         ],
     )
 
+    application.add_middleware(BoardSearchSequenceBodyMiddleware)
+
     @application.middleware("http")
     async def bind_game_storage_request(
         request: Request, call_next: Callable[[Request], Any]
@@ -2605,9 +2611,15 @@ def create_app(
             status_code = 404
         # "APPROXIMATE_WIN_SPIN_COUNT_INVALID" and any other/unknown code
         # fall through to the 422 default (malformed query parameters).
+        if error.code == "BOARD_SEARCH_SEQUENCE_TIMEOUT":
+            status_code = 503
         return JSONResponse(
             status_code=status_code,
-            content={"code": error.code, "message": error.message, "details": {}},
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": getattr(error, "details", {}),
+            },
         )
 
     @application.exception_handler(SymbolCellReviewError)
@@ -3024,6 +3036,25 @@ def create_app(
         _request: Request,
         error: RequestValidationError,
     ) -> JSONResponse:
+        if is_sequence_search(_request.scope):
+            index = next(
+                (
+                    item["loc"][2]
+                    for item in error.errors()
+                    if len(item["loc"]) > 2
+                    and item["loc"][1] == "patterns"
+                    and isinstance(item["loc"][2], int)
+                ),
+                None,
+            )
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "code": "BOARD_SEARCH_SEQUENCE_INVALID",
+                    "message": "Invalid board patterns.",
+                    "details": {} if index is None else {"patternIndex": index},
+                },
+            )
         error_types = {str(item["type"]) for item in error.errors()}
         # An explicit domain refusal raised inside request validation keeps its
         # own code (D-467: a removed legacy image engine policy).

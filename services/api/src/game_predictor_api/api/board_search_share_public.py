@@ -66,6 +66,7 @@ from game_predictor_api.domain.board_search_share_queries import (
     build_board_search_share_query_entry,
     search_query_request,
     search_query_summary,
+    sequence_search_query_request,
 )
 from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_COOKIE_NAME,
@@ -84,6 +85,12 @@ from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinResponse,
     to_approximate_win_response,
     to_board_search_board_detail_response,
+)
+from game_predictor_api.schemas.board_search_sequence import (
+    BoardSearchSequenceRequest,
+    BoardSearchSharePublicSequenceResponse,
+    to_board_search_sequence_response,
+    to_public_sequence_response,
 )
 from game_predictor_api.schemas.board_search_shares import (
     BoardSearchShareCellCorrectionRequest,
@@ -346,6 +353,68 @@ def create_board_search_share_public_router(
             content=path.read_bytes(),
             media_type=media_type,
             headers={"Cache-Control": IMAGE_CACHE_CONTROL},
+        )
+
+    @router.post(
+        "/search",
+        response_model=BoardSearchSharePublicSequenceResponse,
+        operation_id="searchBoardSearchShareSequence",
+        responses=PUBLIC_ERROR_RESPONSES,
+        summary="Find consecutive boards of the shared game",
+    )
+    def search_board_sequence(
+        body: BoardSearchSequenceRequest,
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        search: Annotated[BoardSearchService, search_parameter],
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchSharePublicSequenceResponse:
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        queries = body.queries()
+        request = sequence_search_query_request(
+            patterns=[
+                [(cell.cell_index, cell.symbol_code) for cell in pattern.cells]
+                for pattern in body.patterns
+            ],
+            scope=body.scope.value,
+            limit=body.limit,
+        )
+        context_ids: list[UUID | None] = []
+
+        def summary(found: object) -> dict[str, object]:
+            from game_predictor_api.application.board_search import BoardSearchSequenceOutcome
+
+            assert isinstance(found, BoardSearchSequenceOutcome)
+            positions = [item.end_sequence_number for item in found.results]
+            if len(queries) == 1:
+                return search_query_summary(positions)
+            return {
+                "resultCount": len(positions),
+                "patternCount": len(queries),
+                "firstEndSequenceNumbers": positions[:5],
+            }
+
+        with rate_limiter.calculation_slot(context.session_id):
+            outcome = logged(
+                context,
+                BoardSearchShareQueryKind.SEARCH,
+                request,
+                lambda: search.search_sequence_with_super_game(
+                    game_id=context.game_id,
+                    patterns=queries,
+                    scope=body.scope,
+                    limit=body.limit,
+                ),
+                summary,
+                on_recorded=context_ids.append,
+            )
+        return to_public_sequence_response(
+            to_board_search_sequence_response(
+                game_id=context.game_id,
+                scope=body.scope,
+                query_cell_counts=tuple(map(len, queries)),
+                outcome=outcome,
+            ),
+            context_ids[0],
         )
 
     @router.get(

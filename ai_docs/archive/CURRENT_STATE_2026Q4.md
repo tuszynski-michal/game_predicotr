@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1091 — Wyszukiwanie ciągu plansz: API i historia (done)
+
+- Plik: `tasks/completed/1091-board-search-sequence-api.md`. Commit **v1.7.467**.
+- Ranking SQL/domena 1–4 kolejnych plansz, POST Admin/public, proxy 32 KiB, historia v2 i korekty, klient OpenAPI.
+- Testy API/domena/repo 89 PASS, PostgreSQL 8+1 PASS, klient 134 PASS, Reviewer 290 PASS; lint/typy/docs/mapa/OpenAPI PASS.
+- Audyt Claude Code high: timeout 480 s, brak werdyktu, bez ponowienia; zapis w quality/TASK-1091_AUDIT_TIMEOUT_20261024.md.
+- Migracja 0169 tylko w bazach testowych; bez bazy operatora, restartów, merge i push. Dalej TASK-1092.
+
 ### TASK-1087 — Nierozpoznane symbole w wyszukiwaniu 777a2 (done)
 
 - Plik: `tasks/completed/1087-777a2-unknown-search-wildcards.md`.

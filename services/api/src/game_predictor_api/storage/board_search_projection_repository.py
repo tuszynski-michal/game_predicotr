@@ -31,6 +31,7 @@ from game_predictor_api.domain.board_search import (
 )
 from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
 from game_predictor_api.domain.board_search_board_detail import BoardSearchBoardDocument
+from game_predictor_api.domain.board_search_sequence import BoardSearchSequenceResult
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
@@ -475,6 +476,25 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch_count,
                 unknown_count,
             ) in self._session.execute(statement).all()
+        )
+
+    def search_sequence(
+        self,
+        *,
+        game_id: UUID,
+        patterns: Sequence[Sequence[BoardSearchQueryCell]],
+        scope: BoardSearchScope,
+        limit: int,
+    ) -> tuple[BoardSearchSequenceResult, ...]:
+        from game_predictor_api.storage.board_search_sequence import search_board_sequences
+
+        return search_board_sequences(
+            self._session,
+            self._document_source,
+            game_id=game_id,
+            patterns=patterns,
+            scope=scope,
+            limit=limit,
         )
 
     def _document_source(

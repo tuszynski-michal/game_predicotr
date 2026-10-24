@@ -19,7 +19,7 @@ from uuid import UUID
 
 from game_predictor_api.domain.board_search_shares import BoardSearchShareError
 
-QUERY_REQUEST_MAX_BYTES: Final = 4096
+QUERY_REQUEST_MAX_BYTES: Final = 32768
 QUERY_RESULT_SUMMARY_MAX_BYTES: Final = 2048
 QUERY_SUMMARY_SEQUENCE_NUMBERS_MAX: Final = 5
 QUERY_OUTCOME_OK: Final = "ok"
@@ -56,6 +56,25 @@ def search_query_request(
         "cells": [
             f"{index}:{'?' if code is None else code}"
             for index, code in sorted(cells, key=lambda cell: cell[0])
+        ],
+        "scope": scope,
+        "limit": limit,
+    }
+
+
+def sequence_search_query_request(
+    *,
+    patterns: Sequence[Sequence[tuple[int, str | None]]],
+    scope: str,
+    limit: int,
+) -> dict[str, object]:
+    if len(patterns) == 1:
+        return search_query_request(cells=patterns[0], scope=scope, limit=limit)
+    return {
+        "version": 2,
+        "patterns": [
+            {"cells": search_query_request(cells=cells, scope=scope, limit=limit)["cells"]}
+            for cells in patterns
         ],
         "scope": scope,
         "limit": limit,
@@ -120,7 +139,10 @@ def board_detail_query_summary(*, payout_credits: int, document_stale: bool) -> 
 
 
 _REQUEST_KEYS: Final = {
-    BoardSearchShareQueryKind.SEARCH: (frozenset({"cells", "scope", "limit"}),),
+    BoardSearchShareQueryKind.SEARCH: (
+        frozenset({"cells", "scope", "limit"}),
+        frozenset({"version", "patterns", "scope", "limit"}),
+    ),
     BoardSearchShareQueryKind.APPROXIMATE_WIN: (
         frozenset({"startSequenceNumber", "spinCount"}),
         frozenset({"startSequenceNumber", "spinCount", "stakeGrosze"}),
@@ -147,7 +169,7 @@ def build_board_search_share_query_entry(
     if outcome_code != QUERY_OUTCOME_OK and summary:
         raise ValueError("A failed query has no result summary.")
     if _json_size(request) > QUERY_REQUEST_MAX_BYTES:
-        raise ValueError("Query log request exceeds 4 KiB.")
+        raise ValueError("Query log request exceeds 32 KiB.")
     if _json_size(summary) > QUERY_RESULT_SUMMARY_MAX_BYTES:
         raise ValueError("Query log result summary exceeds 2 KiB.")
     return BoardSearchShareQueryEntry(

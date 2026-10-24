@@ -60,15 +60,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (55 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/api/` (56 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (106 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (86 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (58 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (170 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/domain/` (88 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/schemas/` (59 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (171 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (174 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (175 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (418 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (116 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (422 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (117 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -216,7 +216,7 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (35 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (36 plików w katalogu testów, rekurencyjnie)
 - `apps/reviewer/test-interactions/` (13 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -244,7 +244,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (11 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (30 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (31 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

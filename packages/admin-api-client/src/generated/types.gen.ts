@@ -1673,6 +1673,30 @@ export type BoardSearchPanelResponse = {
 };
 
 /**
+ * BoardSearchPattern
+ */
+export type BoardSearchPattern = {
+  /**
+   * Cells
+   */
+  cells: Array<BoardSearchPatternCell>;
+};
+
+/**
+ * BoardSearchPatternCell
+ */
+export type BoardSearchPatternCell = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string | null;
+};
+
+/**
  * BoardSearchPreservedWinResponse
  *
  * Original match evidence; only the positive unpaid difference is added.
@@ -1790,6 +1814,100 @@ export type BoardSearchScoreResponse = {
 };
 
 /**
+ * BoardSearchSequenceRequest
+ */
+export type BoardSearchSequenceRequest = {
+  /**
+   * Limit
+   */
+  limit?: number;
+  /**
+   * Patterns
+   */
+  patterns: Array<BoardSearchPattern>;
+  scope?: BoardSearchScope;
+};
+
+/**
+ * BoardSearchSequenceResponse
+ */
+export type BoardSearchSequenceResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Patterncount
+   */
+  patternCount: number;
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchSequenceResultResponse>;
+  scope: BoardSearchScope;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * BoardSearchSequenceResultResponse
+ */
+export type BoardSearchSequenceResultResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<BoardSearchResultResponse>;
+  /**
+   * Endsequencenumber
+   */
+  endSequenceNumber: number;
+  score: BoardSearchSequenceScoreResponse;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
+};
+
+/**
+ * BoardSearchSequenceScoreResponse
+ */
+export type BoardSearchSequenceScoreResponse = {
+  /**
+   * Alternativematchcount
+   */
+  alternativeMatchCount: number;
+  /**
+   * Exactmatchcount
+   */
+  exactMatchCount: number;
+  /**
+   * Mismatchcount
+   */
+  mismatchCount: number;
+  /**
+   * Score
+   */
+  score: number;
+  /**
+   * Unknowncount
+   */
+  unknownCount: number;
+  /**
+   * Unknownmatchesall
+   *
+   * Unknown compared positions earn wildcard match points (777a2 only). They remain in unknownCount and never increase exactMatchCount.
+   */
+  unknownMatchesAll?: boolean;
+  /**
+   * Weightedalternativescore
+   */
+  weightedAlternativeScore: number;
+};
+
+/**
  * BoardSearchShareCellCorrectionRequest
  */
 export type BoardSearchShareCellCorrectionRequest = {
@@ -1869,6 +1987,10 @@ export type BoardSearchShareCorrectionBoardResponse = {
    * Lasteventid
    */
   lastEventId: string;
+  /**
+   * Patterncount
+   */
+  patternCount?: number;
   /**
    * Pending
    */
@@ -2186,6 +2308,49 @@ export type BoardSearchSharePublicSearchResultResponse = {
    * Super game role of this board. The share carries `seriesId` so the recipient can open the series (D-564); the management panel omits it.
    */
   superGame?: SuperGameMarkerResponse | null;
+};
+
+/**
+ * BoardSearchSharePublicSequenceResponse
+ */
+export type BoardSearchSharePublicSequenceResponse = {
+  /**
+   * Patterncount
+   */
+  patternCount: number;
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchSharePublicSequenceResultResponse>;
+  scope: BoardSearchScope;
+  /**
+   * Searchcontextid
+   */
+  searchContextId?: string | null;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * BoardSearchSharePublicSequenceResultResponse
+ */
+export type BoardSearchSharePublicSequenceResultResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<BoardSearchSharePublicSearchResultResponse>;
+  /**
+   * Endsequencenumber
+   */
+  endSequenceNumber: number;
+  score: BoardSearchSequenceScoreResponse;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
 };
 
 /**
@@ -24032,6 +24197,10 @@ export type ListBoardSearchShareCorrectionsData = {
      * Pattern
      */
     pattern?: Array<string> | null;
+    /**
+     * Searcheventid
+     */
+    searchEventId?: string | null;
   };
   url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections';
 };
@@ -24716,6 +24885,50 @@ export type SearchGameBoardsResponses = {
 
 export type SearchGameBoardsResponse =
   SearchGameBoardsResponses[keyof SearchGameBoardsResponses];
+
+export type SearchGameBoardSequenceData = {
+  body: BoardSearchSequenceRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-search';
+};
+
+export type SearchGameBoardSequenceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Board-search projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid partial board query
+   */
+  422: ErrorResponse;
+};
+
+export type SearchGameBoardSequenceError =
+  SearchGameBoardSequenceErrors[keyof SearchGameBoardSequenceErrors];
+
+export type SearchGameBoardSequenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSequenceResponse;
+};
+
+export type SearchGameBoardSequenceResponse =
+  SearchGameBoardSequenceResponses[keyof SearchGameBoardSequenceResponses];
 
 export type GetBoardSearchApproximateWinData = {
   body?: never;
@@ -41797,6 +42010,63 @@ export type SearchBoardSearchShareBoardsResponses = {
 
 export type SearchBoardSearchShareBoardsResponse =
   SearchBoardSearchShareBoardsResponses[keyof SearchBoardSearchShareBoardsResponses];
+
+export type SearchBoardSearchShareSequenceData = {
+  body: BoardSearchSequenceRequest;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/search';
+};
+
+export type SearchBoardSearchShareSequenceErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type SearchBoardSearchShareSequenceError =
+  SearchBoardSearchShareSequenceErrors[keyof SearchBoardSearchShareSequenceErrors];
+
+export type SearchBoardSearchShareSequenceResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicSequenceResponse;
+};
+
+export type SearchBoardSearchShareSequenceResponse =
+  SearchBoardSearchShareSequenceResponses[keyof SearchBoardSearchShareSequenceResponses];
 
 export type UnlockBoardSearchShareSessionData = {
   body: BoardSearchShareUnlock;

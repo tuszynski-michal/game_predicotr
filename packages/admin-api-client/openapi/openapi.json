@@ -2848,6 +2848,54 @@
         "title": "BoardSearchPanelResponse",
         "type": "object"
       },
+      "BoardSearchPattern": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchPatternCell"
+            },
+            "maxItems": 15,
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "BoardSearchPattern",
+        "type": "object"
+      },
+      "BoardSearchPatternCell": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolcode"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "symbolCode"
+        ],
+        "title": "BoardSearchPatternCell",
+        "type": "object"
+      },
       "BoardSearchPreservedWinResponse": {
         "additionalProperties": false,
         "description": "Original match evidence; only the positive unpaid difference is added.",
@@ -3069,6 +3117,174 @@
         "title": "BoardSearchScoreResponse",
         "type": "object"
       },
+      "BoardSearchSequenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 100,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchPattern"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Patterns",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope",
+            "default": "all_searchable"
+          }
+        },
+        "required": [
+          "patterns"
+        ],
+        "title": "BoardSearchSequenceRequest",
+        "type": "object"
+      },
+      "BoardSearchSequenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "patternCount": {
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Patterncount",
+            "type": "integer"
+          },
+          "queryCellCount": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Querycellcount",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchSequenceResultResponse"
+            },
+            "maxItems": 100,
+            "title": "Results",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope"
+          },
+          "superGameState": {
+            "$ref": "#/components/schemas/SuperGameStateResponse"
+          }
+        },
+        "required": [
+          "gameId",
+          "scope",
+          "patternCount",
+          "queryCellCount",
+          "results",
+          "superGameState"
+        ],
+        "title": "BoardSearchSequenceResponse",
+        "type": "object"
+      },
+      "BoardSearchSequenceResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchResultResponse"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Boards",
+            "type": "array"
+          },
+          "endSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Endsequencenumber",
+            "type": "integer"
+          },
+          "score": {
+            "$ref": "#/components/schemas/BoardSearchSequenceScoreResponse"
+          },
+          "startSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Startsequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "startSequenceNumber",
+          "endSequenceNumber",
+          "score",
+          "boards"
+        ],
+        "title": "BoardSearchSequenceResultResponse",
+        "type": "object"
+      },
+      "BoardSearchSequenceScoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternativeMatchCount": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Alternativematchcount",
+            "type": "integer"
+          },
+          "exactMatchCount": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Exactmatchcount",
+            "type": "integer"
+          },
+          "mismatchCount": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Mismatchcount",
+            "type": "integer"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "unknownCount": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Unknowncount",
+            "type": "integer"
+          },
+          "unknownMatchesAll": {
+            "default": false,
+            "description": "Unknown compared positions earn wildcard match points (777a2 only). They remain in unknownCount and never increase exactMatchCount.",
+            "title": "Unknownmatchesall",
+            "type": "boolean"
+          },
+          "weightedAlternativeScore": {
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Weightedalternativescore",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "exactMatchCount",
+          "alternativeMatchCount",
+          "weightedAlternativeScore",
+          "mismatchCount",
+          "unknownCount"
+        ],
+        "title": "BoardSearchSequenceScoreResponse",
+        "type": "object"
+      },
       "BoardSearchShareCellCorrectionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3215,6 +3431,13 @@
             "format": "uuid",
             "title": "Lasteventid",
             "type": "string"
+          },
+          "patternCount": {
+            "default": 1,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Patterncount",
+            "type": "integer"
           },
           "pending": {
             "title": "Pending",
@@ -3858,6 +4081,93 @@
           "score"
         ],
         "title": "BoardSearchSharePublicSearchResultResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicSequenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "patternCount": {
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Patterncount",
+            "type": "integer"
+          },
+          "queryCellCount": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Querycellcount",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchSharePublicSequenceResultResponse"
+            },
+            "maxItems": 100,
+            "title": "Results",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope"
+          },
+          "searchContextId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchcontextid"
+          },
+          "superGameState": {
+            "$ref": "#/components/schemas/SuperGameStateResponse"
+          }
+        },
+        "required": [
+          "scope",
+          "patternCount",
+          "queryCellCount",
+          "results",
+          "superGameState"
+        ],
+        "title": "BoardSearchSharePublicSequenceResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicSequenceResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchSharePublicSearchResultResponse"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Boards",
+            "type": "array"
+          },
+          "endSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Endsequencenumber",
+            "type": "integer"
+          },
+          "score": {
+            "$ref": "#/components/schemas/BoardSearchSequenceScoreResponse"
+          },
+          "startSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Startsequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "startSequenceNumber",
+          "endSequenceNumber",
+          "score",
+          "boards"
+        ],
+        "title": "BoardSearchSharePublicSequenceResultResponse",
         "type": "object"
       },
       "BoardSearchSharePublicSeriesBoardResponse": {
@@ -43017,6 +43327,23 @@
               ],
               "title": "Pattern"
             }
+          },
+          {
+            "in": "query",
+            "name": "searchEventId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Searcheventid"
+            }
           }
         ],
         "responses": {
@@ -44278,6 +44605,92 @@
           }
         },
         "summary": "Find logical boards by a partial symbol pattern",
+        "tags": [
+          "board-search"
+        ]
+      },
+      "post": {
+        "operationId": "searchGameBoardSequence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchSequenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSequenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board-search projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid partial board query"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Find consecutive boards by one to four partial patterns",
         "tags": [
           "board-search"
         ]
@@ -76793,6 +77206,139 @@
           }
         },
         "summary": "Find boards of the shared game by a partial symbol pattern",
+        "tags": [
+          "board-search-share-public"
+        ]
+      },
+      "post": {
+        "operationId": "searchBoardSearchShareSequence",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchSequenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicSequenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Find consecutive boards of the shared game",
         "tags": [
           "board-search-share-public"
         ]

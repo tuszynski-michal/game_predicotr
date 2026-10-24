@@ -587,6 +587,7 @@ import {
   selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
   selectSymbolReferenceFromCellReview as selectGeneratedSymbolReferenceFromCellReview,
   searchGameBoards as searchGeneratedGameBoards,
+  searchGameBoardSequence as searchGeneratedGameBoardSequence,
   startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
   startSymbolCellReviewProjectionBackfill as startGeneratedSymbolCellReviewProjectionBackfill,
@@ -1416,6 +1417,14 @@ export interface SearchGameBoardsOptions {
   readonly scope?: BoardSearchScope;
   readonly limit?: number;
 }
+
+export type {
+  BoardSearchSequenceRequest,
+  BoardSearchSequenceResponse,
+  BoardSearchSequenceResultResponse,
+  BoardSearchSequenceScoreResponse,
+  BoardSearchSharePublicSequenceResponse,
+} from './generated/types.gen';
 
 export interface BoardSearchQueryCell {
   readonly cellIndex: number;
@@ -3115,6 +3124,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         },
       }),
     // Keep the backend score policy (including unknownMatchesAll) in the response.
+    searchGameBoardSequence: (
+      gameId: string,
+      body: import('./generated/types.gen').BoardSearchSequenceRequest,
+    ) =>
+      searchGeneratedGameBoardSequence({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
     searchGameBoards: (gameId: string, options: SearchGameBoardsOptions) =>
       searchGeneratedGameBoards({
         client,

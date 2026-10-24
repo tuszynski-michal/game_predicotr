@@ -38,7 +38,8 @@ const publicOperations = Object.entries(openapi.paths)
 test('every public share route in OpenAPI is allowlisted by the proxy', () => {
   // D-492 adds the exact cell-correction POST to D-487's nine routes; D-564
   // adds the four super game series routes (three reads and the PUT).
-  assert.equal(publicOperations.length, 14);
+  // TASK-1091 adds the exact bounded sequence search POST.
+  assert.equal(publicOperations.length, 15);
   for (const [method, path] of publicOperations) {
     assert.notEqual(
       boardSearchShareRoute(method, concrete(path)),
@@ -95,6 +96,8 @@ test('public share responses carry no query log, identities or paths', () => {
     'BoardSearchSharePublicSymbolResponse',
     'BoardSearchSharePublicSearchResponse',
     'BoardSearchSharePublicSearchResultResponse',
+    'BoardSearchSharePublicSequenceResponse',
+    'BoardSearchSharePublicSequenceResultResponse',
     'BoardSearchSharePublicSeriesResponse',
     'BoardSearchSharePublicSeriesBoardResponse',
     'BoardSearchSharePublicSeriesBoardsResponse',

@@ -6966,7 +6966,7 @@ class BoardSearchShareQueryEventModel(Base):
             name="ck_bss_query_kind",
         ),
         CheckConstraint(
-            "jsonb_typeof(request) = 'object' AND octet_length(request::text) <= 4096",
+            "jsonb_typeof(request) = 'object' AND octet_length(request::text) <= 32768",
             name="ck_bss_query_request",
         ),
         CheckConstraint(

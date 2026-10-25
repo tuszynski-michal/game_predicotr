@@ -70,6 +70,7 @@ class ShareCorrectionBoard:
     last_event_id: UUID
     stake_grosze: int | None
     start_sequence_number: int | None
+    pattern_count: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +118,7 @@ class BoardSearchShareCorrectionRepository(Protocol):
         before: str | None,
         limit: int,
         pattern: list[str] | None,
+        search_event_id: UUID | None = None,
     ) -> ShareCorrectionPage: ...
 
     def detail(
@@ -153,7 +155,23 @@ class BoardSearchShareCorrectionService:
         before: str | None = None,
         limit: int = 25,
         pattern: list[str] | None = None,
+        search_event_id: UUID | None = None,
     ) -> ShareCorrectionPage:
+        if search_event_id is not None:
+            from game_predictor_api.domain.board_search_shares import BoardSearchShareError
+
+            if pattern is not None:
+                raise BoardSearchShareError(
+                    "BOARD_SEARCH_SHARE_QUERY_INVALID", "Choose pattern or searchEventId, not both."
+                )
+            return self._repository.list_boards(
+                session_id,
+                status=status,
+                before=before,
+                limit=limit,
+                pattern=None,
+                search_event_id=search_event_id,
+            )
         return self._repository.list_boards(
             session_id, status=status, before=before, limit=limit, pattern=pattern
         )

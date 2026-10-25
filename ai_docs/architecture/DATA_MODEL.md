@@ -58,6 +58,13 @@ propozycjami i retained targetami. Downgrade z historią odmawia jej utraty.
 
 ## Korekty symboli udostępnionej wyszukiwarki — D-492 / TASK-0845
 
+**D-573 / TASK-1091:** migracja `0169_board_search_sequence_logs` zwiększa
+constraint `ck_bss_query_request` w tej tabeli z 4096 do 32768 bajtów,
+bez zmian rekordów i manifestów magazynów gier. Wyszukiwanie v2 i
+`searchSnapshot` korekty mogą przechowywać do czterech uporządkowanych
+wzorów. Podsumowanie nadal ma limit 2048 bajtów. Downgrade odmawia obniżenia
+limitu, jeśli istnieje większy wpis; nie usuwa i nie skraca historii.
+
 Migracja `0141_share_symbol_corrections` rozszerza CHECK istniejącej tabeli
 `public.board_search_share_query_events` o `symbol_correction` i
 `correction_review`. Nie zmienia ownership magazynu, manifestów ani tabel

@@ -446,6 +446,49 @@ a zmieniony stan tworzy nową wersję.
 
 ### Wyszukiwanie plansz z niepełnym wzorem
 
+**D-573 — kolejne układy (TASK-1091–1092, zaakceptowane 2026-10-24).**
+Admin, link pojedynczej gry i panel udostępniania pozwalają dopasować 1–4
+kolejne spiny. Badże nad edytorem przełączają wpisane wzory; wspólne wyniki
+poniżej i wybrany ciąg pozostają niezależne od aktywnego badża. „Następny
+układ” dodaje pusty wzór po udanym wyszukiwaniu bieżącego zestawu. „Resetuj”
+czyści tylko aktywny wzór; „Nowe szukanie” rozpoczyna pusty zestaw. Pusty
+koniec nie uczestniczy w szukaniu, luka w środku i wzór z samymi `?` wymagają
+uzupełnienia. Edycja nie ukrywa poprzednich wyników, lecz oznacza je jako
+nieaktualne do ponownego wyszukania.
+
+Po edycji wzoru zmiana liczby wyników tylko zapamiętuje nowy limit.
+Pierwsze kliknięcie „Szukaj plansz” wysyła aktualny wzór z tym limitem.
+Jeśli wzór jest zgodny z ostatnim wyszukiwaniem, zmiana limitu automatycznie
+odświeża wyniki, zachowując wybrane dopasowanie i czekając na trwające obliczenia.
+Jeżeli użytkownik zmieni wzór podczas oczekiwania, odświeżenie limitu jest
+anulowane; jawne wyszukiwanie użyje nowego wzoru i zapamiętanego limitu.
+Odświeżenie po zapisanej korekcie planszy nadal dotyczy widocznych wyników,
+także przy zmienionym wzorze w edytorze.
+Przy niezmienionym wzorze zmiana limitu podczas oczekiwania na to
+odświeżenie aktualizuje jego limit; nie usuwa potrzeby odczytu wyników
+po zapisanej korekcie. Po edycji wzoru limit jest tylko zapamiętywany:
+odświeżenie korekty zachowuje wcześniejszy limit, a jawne wyszukiwanie
+używa nowego.
+
+Zmiana blokady wyszukiwania lub kontekstu korekt nie ponawia odczytu
+otwartej planszy ani wstępnego pobierania tych samych sąsiednich wyników.
+Zapis korekty nadal używa aktualnego kontekstu, a trwające wyszukiwanie
+blokuje edycję. Celowe odświeżenie po zapisie i zmiana planszy lub reguł
+nadal pobierają nowy odczyt.
+
+Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
+jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca
+odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując
+reguły dowodów i wyjątek 777a2. Wygrane liczone są po ostatniej planszy
+wybranego ciągu. Detale wcześniejszych plansz i ich korekty nie przesuwają
+kotwicy wygranych.
+
+Zestaw i wybór są pamiętane w przeglądarce per gra/link/panel, także po
+ponownym otwarciu; nie zapisuje się odpowiedzi API ani sekretów. Odtworzenie
+historii ma pierwszeństwo przed lokalnym zapisem. Wygasły link nadal blokuje
+dostęp. Historia i korekty oznaczają liczbę układów; pojedyncze wyszukiwania
+i panel zarządzania zachowują dotychczasowy workflow.
+
 Edytor wzoru pozwala wskazać aktywny symbol, pozostawić pole puste albo jawnie
 oznaczyć je jako `?`. Puste pole i `?` są dla rankingu równoważnym brakiem
 dowodu: pozostają widoczne w lokalnym wzorze i historii `Cofnij`, ale nie są

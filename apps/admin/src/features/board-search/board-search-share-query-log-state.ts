@@ -29,6 +29,31 @@ export function boardSearchQueryPatternCells(
   return board;
 }
 
+/** v2 never falls back to the legacy cells field. */
+export function boardSearchQueryPatterns(
+  entry: Entry,
+): readonly (readonly (string | null)[])[] {
+  if (entry.kind !== 'search') return [];
+  if (entry.request.version === 2) {
+    if (!Array.isArray(entry.request.patterns)) return [];
+    return entry.request.patterns.flatMap((pattern: unknown) => {
+      if (
+        pattern === null ||
+        typeof pattern !== 'object' ||
+        !('cells' in pattern)
+      )
+        return [];
+      const cells = boardSearchQueryPatternCells({
+        ...entry,
+        request: { cells: pattern.cells },
+      });
+      return cells === null ? [] : [cells];
+    });
+  }
+  const cells = boardSearchQueryPatternCells(entry);
+  return cells === null ? [] : [cells];
+}
+
 /**
  * When the entry's query was made, newest first. A grouped search carries
  * the time of every search of its pattern (TASK-0816).
@@ -93,15 +118,19 @@ export function describeBoardSearchQueryEntry(entry: Entry): {
       request.scope === 'approved_only'
         ? 'tylko zatwierdzone'
         : 'wszystkie plansze';
-    const found = Array.isArray(summary.firstSequenceNumbers)
-      ? (summary.firstSequenceNumbers as unknown[])
+    const sequence = request.version === 2;
+    const numbers = sequence
+      ? summary.firstEndSequenceNumbers
+      : summary.firstSequenceNumbers;
+    const found = Array.isArray(numbers)
+      ? (numbers as unknown[])
           .filter((item): item is number => typeof item === 'number')
           .map((item) => `#${item}`)
           .join(', ')
       : '';
     return {
       details: ok
-        ? `Zakres: ${scope} · limit ${numberValue(request.limit)} · wyniki: ${numberValue(summary.resultCount)}${found ? ` (${found}${Number(summary.resultCount) > 5 ? ', …' : ''})` : ''}`
+        ? `${sequence ? `Ciąg: ${numberValue(summary.patternCount)} układów · ` : ''}Zakres: ${scope} · limit ${numberValue(request.limit)} · wyniki: ${numberValue(summary.resultCount)}${found ? ` (${sequence ? 'końce ciągów: ' : ''}${found}${Number(summary.resultCount) > 5 ? ', …' : ''})` : ''}`
         : `Zakres: ${scope} · limit ${numberValue(request.limit)}`,
       title: 'Wyszukiwanie',
     };

@@ -4,6 +4,8 @@ import type {
   BoardSearchShareCellCorrectionRequest,
   BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
+  BoardSearchSequenceResponse,
+  BoardSearchSharePublicSequenceResponse,
   BoardSearchSharePublicContextResponse,
   BoardSearchSharePublicSearchResponse,
   BoardSearchSharePublicSeriesBoardsResponse,
@@ -75,7 +77,16 @@ export function createBoardSearchShareDataSource(
     number,
     BoardSearchSharePublicBoardDetailResponse
   >();
+  const sequenceCache = new Map<
+    string,
+    {
+      readonly expiresAt: number;
+      readonly value: BoardSearchSequenceResponse;
+      readonly searchContextId: string | null;
+    }
+  >();
   let searchContextId: string | null = null;
+  let cacheGeneration = 0;
   let storage = options.storage;
   if (storage === undefined && typeof window !== 'undefined') {
     try {
@@ -108,7 +119,10 @@ export function createBoardSearchShareDataSource(
   }
 
   function clearData() {
+    cacheGeneration += 1;
+    searchContextId = null;
     searchCache.clear();
+    sequenceCache.clear();
     detailCache.clear();
     rangeFingerprint = null;
   }
@@ -244,6 +258,7 @@ export function createBoardSearchShareDataSource(
       }`,
 
     searchGameBoards: async (_gameId, searchOptions) => {
+      const generation = cacheGeneration;
       const key = searchCacheKey(searchOptions);
       const cached = searchCache.get(key);
       if (
@@ -255,7 +270,12 @@ export function createBoardSearchShareDataSource(
         searchCache.delete(key);
         searchCache.set(key, cached);
         searchContextId = cached.searchContextId;
-        return { data: cached.value };
+        return {
+          data: cached.value,
+          ...(cached.searchContextId === null
+            ? {}
+            : { searchContextId: cached.searchContextId }),
+        };
       }
       searchCache.delete(key);
       const result = await get<BoardSearchSharePublicSearchResponse>(
@@ -267,7 +287,7 @@ export function createBoardSearchShareDataSource(
       // Super game markers change with the series (a defined super symbol,
       // a recalculation): an answer carrying one, or being recalculated
       // (`fresh = false`), is never kept for five minutes (TASK-0935).
-      if (!hasSuperGameMarkers(value)) {
+      if (generation === cacheGeneration && !hasSuperGameMarkers(value)) {
         searchCache.set(key, {
           expiresAt: now() + SEARCH_CACHE_TTL_MS,
           value,
@@ -279,7 +299,93 @@ export function createBoardSearchShareDataSource(
         if (oldest === undefined) break;
         searchCache.delete(oldest);
       }
-      return { data: value };
+      return {
+        data: value,
+        ...(searchContextId === null ? {} : { searchContextId }),
+      };
+    },
+
+    searchGameBoardSequence: async (_gameId, request) => {
+      const generation = cacheGeneration;
+      const key = JSON.stringify([
+        'sequence',
+        request.patterns.map((pattern) =>
+          [...pattern.cells].sort((a, b) => a.cellIndex - b.cellIndex),
+        ),
+        request.scope ?? 'all_searchable',
+        request.limit ?? 100,
+      ]);
+      const cached = sequenceCache.get(key);
+      if (cached !== undefined && cached.expiresAt > now()) {
+        sequenceCache.delete(key);
+        sequenceCache.set(key, cached);
+        return {
+          data: cached.value,
+          ...(cached.searchContextId === null
+            ? {}
+            : { searchContextId: cached.searchContextId }),
+        };
+      }
+      sequenceCache.delete(key);
+      const response = await fetchImplementation(`${apiBase}/search`, {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearData();
+          options.onUnauthorized?.();
+        }
+        return { error: await errorBody(response) };
+      }
+      const publicValue =
+        (await response.json()) as BoardSearchSharePublicSequenceResponse;
+      const value: BoardSearchSequenceResponse = {
+        gameId: BOARD_SEARCH_SHARE_GAME_ID,
+        scope: publicValue.scope,
+        patternCount: publicValue.patternCount,
+        queryCellCount: publicValue.queryCellCount,
+        superGameState: publicValue.superGameState,
+        results: publicValue.results.map((result) => ({
+          ...result,
+          boards: toAdminSearch({
+            ...publicValue,
+            queryCellCount: 1,
+            results: result.boards,
+          }).results,
+        })),
+      };
+      const context = publicValue.searchContextId ?? null;
+      // Only the returned receipt binds the active result. A late response
+      // must not overwrite the legacy closure used by other consumers.
+      if (
+        generation === cacheGeneration &&
+        value.superGameState?.fresh !== false &&
+        !value.results.some((result) =>
+          result.boards.some((board) => Boolean(board.superGame)),
+        )
+      ) {
+        sequenceCache.set(key, {
+          expiresAt: now() + SEARCH_CACHE_TTL_MS,
+          value,
+          searchContextId: context,
+        });
+      }
+      while (sequenceCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+        const oldest = sequenceCache.keys().next().value;
+        if (oldest === undefined) break;
+        sequenceCache.delete(oldest);
+      }
+      return {
+        data: value,
+        ...(context === null ? {} : { searchContextId: context }),
+      };
     },
 
     getBoardSearchApproximateWin: async (
@@ -346,7 +452,13 @@ export function createBoardSearchShareDataSource(
       cellIndex,
       request,
     ) => {
-      const body = { ...request, searchContextId };
+      const body = {
+        ...request,
+        searchContextId:
+          request.searchContextId === undefined
+            ? searchContextId
+            : request.searchContextId,
+      };
       if (pending !== null) {
         const { operationId: _operationId, ...previous } = pending.body;
         if (

@@ -71,9 +71,15 @@ def create_board_search_shares_admin_router(
         before: Annotated[str | None, Query(max_length=256)] = None,
         limit: Annotated[int, Query(ge=1, le=50)] = 25,
         pattern: Annotated[list[str] | None, Query(max_length=15)] = None,
+        search_event_id: Annotated[UUID | None, Query(alias="searchEventId")] = None,
     ) -> BoardSearchShareCorrectionPageResponse:
         page = service.list_boards(
-            session_id, status=status, before=before, limit=limit, pattern=pattern
+            session_id,
+            status=status,
+            before=before,
+            limit=limit,
+            pattern=pattern,
+            search_event_id=search_event_id,
         )
         return BoardSearchShareCorrectionPageResponse(
             entries=[

@@ -1188,7 +1188,13 @@ import type {
   SearchBoardSearchShareBoardsData,
   SearchBoardSearchShareBoardsErrors,
   SearchBoardSearchShareBoardsResponses,
+  SearchBoardSearchShareSequenceData,
+  SearchBoardSearchShareSequenceErrors,
+  SearchBoardSearchShareSequenceResponses,
   SearchGameBoardsData,
+  SearchGameBoardSequenceData,
+  SearchGameBoardSequenceErrors,
+  SearchGameBoardSequenceResponses,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
   SearchManagementBoardsData,
@@ -1807,6 +1813,30 @@ export const searchGameBoards = <ThrowOnError extends boolean = false>(
     SearchGameBoardsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/board-search', ...options });
+
+/**
+ * Find consecutive boards by one to four partial patterns
+ */
+export const searchGameBoardSequence = <ThrowOnError extends boolean = false>(
+  options: Options<SearchGameBoardSequenceData, ThrowOnError>,
+): RequestResult<
+  SearchGameBoardSequenceResponses,
+  SearchGameBoardSequenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchGameBoardSequenceResponses,
+    SearchGameBoardSequenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Calculate a careful, read-only lower-bound payout estimate for a sequence range
@@ -9894,6 +9924,31 @@ export const searchBoardSearchShareBoards = <
     SearchBoardSearchShareBoardsErrors,
     ThrowOnError
   >({ url: '/api/v1/board-search-shares/search', ...options });
+
+/**
+ * Find consecutive boards of the shared game
+ */
+export const searchBoardSearchShareSequence = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SearchBoardSearchShareSequenceData, ThrowOnError>,
+): RequestResult<
+  SearchBoardSearchShareSequenceResponses,
+  SearchBoardSearchShareSequenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchBoardSearchShareSequenceResponses,
+    SearchBoardSearchShareSequenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Exchange a share link's access code for a session cookie

@@ -486,6 +486,7 @@ class BoardSearchShareCorrectionBoardResponse(ApiModel):
     last_event_id: UUID
     stake_grosze: int | None
     start_sequence_number: int | None
+    pattern_count: int = Field(default=1, ge=1, le=4)
 
     @classmethod
     def from_board(cls, value: ShareCorrectionBoard) -> Self:

@@ -94,3 +94,7 @@ Commit: v1.7.471 / `26c4be9c8938062a54874f834dca5780ebbe890e`.
 ### Recommended next task
 
 - Odbiór zmiany i osobna zgoda na scalenie.
+
+### Kontrole integracji 2026-10-25
+
+Operator zatwierdził merge, push i cleanup całej gałęzi. Kontrole po połączeniu z main oraz ponowny odbiór gotowego ZIP 1.0.3 zapisano w `../../quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`, sekcja „Kontrole integracji z main”. Historyczne wyniki i ograniczenia powyżej pozostają zapisem chwili zamknięcia taska.

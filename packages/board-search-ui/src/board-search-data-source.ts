@@ -8,6 +8,8 @@ import type {
   BoardSearchShareCellCorrectionRequest,
   BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
+  BoardSearchSequenceRequest,
+  BoardSearchSequenceResponse,
   GetBoardSearchApproximateWinOptions,
   GetBoardSearchBoardDetailOptions,
   SearchGameBoardsOptions,
@@ -31,6 +33,7 @@ export type BoardSearchModalDetail =
 export type BoardSearchEditableCell =
   BoardSearchBoardCellResponse | BoardSearchSharePublicCellResponse;
 export type BoardSearchCorrectionContext = {
+  readonly searchContextId?: string | null;
   readonly startSequenceNumber: number;
   readonly spinCount?: number;
   readonly stakeGrosze?: number;
@@ -74,7 +77,7 @@ export type BoardSearchDataSource = {
     request: Omit<
       BoardSearchShareCellCorrectionRequest,
       'operationId' | 'searchContextId'
-    >,
+    > & { readonly searchContextId?: string | null },
   ) => BoardSearchApiResult<BoardSearchShareCellCorrectionResponse>;
   readonly hasPendingBoardSearchCell?: (
     gameId: string,
@@ -91,6 +94,11 @@ export type BoardSearchDataSource = {
     gameId: string,
     options: SearchGameBoardsOptions,
   ) => BoardSearchApiResult<BoardSearchResponse>;
+  /** Enables consecutive patterns in ordinary search. Management keeps its workflow. */
+  readonly searchGameBoardSequence?: (
+    gameId: string,
+    request: BoardSearchSequenceRequest,
+  ) => BoardSearchApiResult<BoardSearchSequenceResponse>;
   readonly symbolImageAssetUrl: (gameId: string, symbolId: string) => string;
   /**
    * Admin only (TASK-0935): the URL of a series in the Admin's „Supergry”

@@ -33,6 +33,11 @@ from game_predictor_api.schemas.board_search_approximate_win import (
     to_approximate_win_response,
     to_board_search_board_detail_response,
 )
+from game_predictor_api.schemas.board_search_sequence import (
+    BoardSearchSequenceRequest,
+    BoardSearchSequenceResponse,
+    to_board_search_sequence_response,
+)
 from game_predictor_api.schemas.catalog import ErrorResponse
 
 BoardSearchServiceDependency = Callable[..., object]
@@ -102,6 +107,32 @@ def create_board_search_router(
     approximate_win_service_parameter = Depends(approximate_win_service_dependency)
     board_detail_service_parameter = Depends(board_detail_service_dependency)
     board_view_service_parameter = Depends(board_view_service_dependency)
+
+    @router.post(
+        "/{game_id}/board-search",
+        response_model=BoardSearchSequenceResponse,
+        operation_id="searchGameBoardSequence",
+        responses=ERROR_RESPONSES,
+        summary="Find consecutive boards by one to four partial patterns",
+    )
+    def search_game_board_sequence(
+        game_id: UUID,
+        body: BoardSearchSequenceRequest,
+        service: Annotated[BoardSearchService, service_parameter],
+    ) -> BoardSearchSequenceResponse:
+        queries = body.queries()
+        outcome = service.search_sequence_with_super_game(
+            game_id=game_id,
+            patterns=queries,
+            scope=body.scope,
+            limit=body.limit,
+        )
+        return to_board_search_sequence_response(
+            game_id=game_id,
+            scope=body.scope,
+            query_cell_counts=tuple(map(len, queries)),
+            outcome=outcome,
+        )
 
     @router.get(
         "/{game_id}/board-search",

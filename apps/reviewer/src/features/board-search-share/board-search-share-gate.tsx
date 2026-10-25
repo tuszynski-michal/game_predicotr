@@ -232,6 +232,7 @@ export function BoardSearchShareGate({
       <BoardSearchWorkspace
         client={dataSource}
         gameId={BOARD_SEARCH_SHARE_GAME_ID}
+        scopeKey={`share:${state.context.sessionId}`}
         superGameSeries={{ client: dataSource }}
       />
     </main>

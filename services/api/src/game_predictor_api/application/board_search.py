@@ -14,6 +14,10 @@ from game_predictor_api.domain.board_search import (
     BoardSearchScope,
     validate_board_search_query,
 )
+from game_predictor_api.domain.board_search_sequence import (
+    BoardSearchSequenceResult,
+    validate_board_search_patterns,
+)
 from game_predictor_api.domain.super_game_markers import (
     NO_SUPER_GAME_STATE,
     SuperGameMarkers,
@@ -21,6 +25,15 @@ from game_predictor_api.domain.super_game_markers import (
 
 
 class BoardSearchRepository(Protocol):
+    def search_sequence(
+        self,
+        *,
+        game_id: UUID,
+        patterns: Sequence[Sequence[BoardSearchQueryCell]],
+        scope: BoardSearchScope,
+        limit: int,
+    ) -> tuple[BoardSearchSequenceResult, ...]: ...
+
     def search(
         self,
         *,
@@ -40,6 +53,12 @@ class BoardSearchOutcome:
     super_game: SuperGameMarkers
 
 
+@dataclass(frozen=True, slots=True)
+class BoardSearchSequenceOutcome:
+    results: tuple[BoardSearchSequenceResult, ...]
+    super_game: SuperGameMarkers
+
+
 class BoardSearchService:
     def __init__(
         self,
@@ -48,6 +67,36 @@ class BoardSearchService:
     ) -> None:
         self._repository = repository
         self._super_game_markers = super_game_markers
+
+    def search_sequence_with_super_game(
+        self,
+        *,
+        game_id: UUID,
+        patterns: Sequence[Iterable[BoardSearchQueryCell]],
+        scope: BoardSearchScope,
+        limit: int,
+    ) -> BoardSearchSequenceOutcome:
+        queries = validate_board_search_patterns(patterns)
+        if not 1 <= limit <= 100:
+            raise ValueError("board-search limit must be between 1 and 100")
+        if len(queries) == 1:
+            results = tuple(
+                BoardSearchSequenceResult((board,), board.score)
+                for board in self.search(
+                    game_id=game_id, cells=queries[0], scope=scope, limit=limit
+                )
+            )
+        else:
+            results = self._repository.search_sequence(
+                game_id=game_id, patterns=queries, scope=scope, limit=limit
+            )
+        positions = sorted({board.sequence_number for result in results for board in result.boards})
+        markers = (
+            SuperGameMarkers(state=NO_SUPER_GAME_STATE)
+            if self._super_game_markers is None
+            else self._super_game_markers.markers(game_id, positions)
+        )
+        return BoardSearchSequenceOutcome(results, markers)
 
     def search(
         self,

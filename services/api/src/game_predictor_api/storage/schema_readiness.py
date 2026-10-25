@@ -1,9 +1,9 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
-The storage router accepts only the manifest version created by the newest
-migration (``game-data-v2-manifest-v19`` since 0168). Code running against an
-older or newer schema would fail on every game-scoped request, so API, worker
-and maintenance scripts refuse to start instead.  One ``SELECT``.
+The ownership manifest remains ``game-data-v2-manifest-v19`` since 0168;
+0169 widens only the bounded search request log. API, worker and maintenance
+scripts still require the exact supported Alembic head before starting.
+One ``SELECT``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0168_source_crop_runs"
+EXPECTED_ALEMBIC_HEAD: Final = "0169_board_search_sequence_logs"
 
 
 class AlembicHeadMismatchError(RuntimeError):

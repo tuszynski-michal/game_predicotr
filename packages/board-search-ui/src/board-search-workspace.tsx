@@ -5,6 +5,7 @@
 
 import type {
   BoardSearchResponse,
+  BoardSearchPattern,
   BoardSearchScope,
   SymbolResponse,
   SearchGameBoardsOptions,
@@ -12,6 +13,8 @@ import type {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
+import { useBoardSearchSequence } from './use-board-search-sequence';
+import { boardSearchSequenceEditorsFromPatterns } from './board-search-sequence-state';
 import type { BoardSearchDataSource } from './board-search-data-source';
 import {
   digitShortcutLabel,
@@ -79,6 +82,7 @@ type SearchState =
  * the board whose payline modal to show. A new `id` replays again.
  */
 export type BoardSearchReplayRequest = {
+  readonly patterns?: BoardSearchPattern[];
   readonly id: string;
   readonly cells: readonly {
     readonly cellIndex: number;
@@ -155,6 +159,7 @@ function BoardSearchWorkspaceContent({
   compact = false,
   saveLabel = 'Zapisz układ',
   superGameSeries,
+  scopeKey,
 }: BoardSearchWorkspaceProps) {
   const managed =
     onSave !== undefined ||
@@ -207,7 +212,7 @@ function BoardSearchWorkspaceContent({
   const rulesVersions = useBoardSearchRulesVersions(api, gameId);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
-  const [editor, setEditor] = useState(() =>
+  const [legacyEditor, setLegacyEditor] = useState(() =>
     savedSelection === null
       ? createBoardSearchEditorState()
       : boardSearchEditorFromPattern(
@@ -219,12 +224,14 @@ function BoardSearchWorkspaceContent({
           ),
         ).state,
   );
-  const [entryOrder, setEntryOrder] =
+  const [legacyEntryOrder, setLegacyEntryOrder] =
     useState<BoardSearchEntryOrder>('columns');
-  const [searchState, setSearchState] = useState<SearchState>({ kind: 'idle' });
-  const [resultsState, setResultsState] =
+  const [legacySearchState, setSearchState] = useState<SearchState>({
+    kind: 'idle',
+  });
+  const [legacyResultsState, setLegacyResultsState] =
     useState<BoardSearchResultsState | null>(null);
-  const [limit, setLimit] = useState(
+  const [legacyLimit, setLegacyLimit] = useState(
     savedSelection?.query.limit ?? BOARD_SEARCH_LIMIT_DEFAULT,
   );
   const [limitInput, setLimitInput] = useState(
@@ -233,7 +240,7 @@ function BoardSearchWorkspaceContent({
   const [limitError, setLimitError] = useState<string | null>(null);
   // Identity of the last searched pattern; the approximate win keeps its
   // stake per pattern (D-476).
-  const [searchKey, setSearchKey] = useState(
+  const [legacySearchKey, setSearchKey] = useState(
     savedSelection === null ? '' : `saved:${savedSelection.id}`,
   );
   const symbolsRequestId = useRef(0);
@@ -244,6 +251,76 @@ function BoardSearchWorkspaceContent({
   const [replayNotices, setReplayNotices] = useState<readonly string[]>([]);
   const [approximateReplay, setApproximateReplay] =
     useState<BoardSearchApproximateWinReplay | null>(null);
+
+  const sequenceEnabled = !managed && api.searchGameBoardSequence !== undefined;
+  const activeCodes = useMemo(
+    () =>
+      new Set(
+        symbols
+          .filter((symbol) => symbol.status === 'active')
+          .map((symbol) => symbol.code),
+      ),
+    [symbols],
+  );
+  const sequence = useBoardSearchSequence({
+    enabled: sequenceEnabled,
+    api,
+    gameId,
+    scope: scopeKey ?? `admin:${gameId}`,
+    ready: symbolsState === 'ready',
+    activeCodes,
+    hasReplay: replay !== null,
+  });
+  const editor = sequenceEnabled ? sequence.editor : legacyEditor;
+  const setEditor = sequenceEnabled ? sequence.setEditor : setLegacyEditor;
+  const entryOrder = sequenceEnabled ? sequence.entryOrder : legacyEntryOrder;
+  const setEntryOrder = sequenceEnabled
+    ? sequence.setEntryOrder
+    : setLegacyEntryOrder;
+  const searchState = sequenceEnabled ? sequence.status : legacySearchState;
+  const resultsState = sequenceEnabled ? sequence.results : legacyResultsState;
+  const limit = sequenceEnabled ? sequence.limit : legacyLimit;
+  const setLimit = sequenceEnabled ? sequence.setLimit : setLegacyLimit;
+  const searchKey = sequenceEnabled ? sequence.searchKey : legacySearchKey;
+  const visibleResponse = sequenceEnabled
+    ? sequence.response
+    : searchState.kind === 'ready'
+      ? searchState.result
+      : null;
+  function setResultsState(
+    action: React.SetStateAction<BoardSearchResultsState | null>,
+  ) {
+    if (sequenceEnabled)
+      sequence.setResults(
+        typeof action === 'function' ? action(sequence.results) : action,
+      );
+    else setLegacyResultsState(action);
+  }
+  const resultClient = useMemo<BoardSearchDataSource>(() => {
+    if (!sequenceEnabled) return api;
+    if (searchState.kind === 'loading')
+      return {
+        ...api,
+        correctBoardSearchCell: undefined,
+        applySymbolCellReviewDecision: undefined,
+        retryBoardSearchCell: undefined,
+      };
+    return {
+      ...api,
+      ...(api.correctBoardSearchCell === undefined
+        ? {}
+        : {
+            correctBoardSearchCell: (id, number, index, request) =>
+              api.correctBoardSearchCell!(id, number, index, {
+                ...request,
+                searchContextId: sequence.contextId,
+              }),
+          }),
+    };
+  }, [api, sequenceEnabled, searchState.kind, sequence.contextId]);
+  useEffect(() => {
+    if (sequenceEnabled) queueMicrotask(() => setLimitInput(String(limit)));
+  }, [sequenceEnabled, limit]);
 
   const draft: BoardSearchDraft = {
     query:
@@ -324,6 +401,7 @@ function BoardSearchWorkspaceContent({
   }
 
   function invalidateDraft() {
+    if (sequenceEnabled) return;
     searchRequestId.current += 1;
     if (managed) {
       setSearchContextId(null);
@@ -402,15 +480,19 @@ function BoardSearchWorkspaceContent({
     setEditor((current) =>
       placeBoardSearchSymbol(current, symbolCode, entryOrder),
     );
-    setSearchState({ kind: 'idle' });
-    setResultsState(null);
+    if (!sequenceEnabled) {
+      setSearchState({ kind: 'idle' });
+      setResultsState(null);
+    }
   }
 
   function placeUnknown() {
     invalidateDraft();
     setEditor((current) => placeBoardSearchUnknown(current, entryOrder));
-    setSearchState({ kind: 'idle' });
-    setResultsState(null);
+    if (!sequenceEnabled) {
+      setSearchState({ kind: 'idle' });
+      setResultsState(null);
+    }
   }
 
   function changeEntryOrder(nextEntryOrder: BoardSearchEntryOrder) {
@@ -423,15 +505,19 @@ function BoardSearchWorkspaceContent({
   function undo() {
     invalidateDraft();
     setEditor((current) => undoBoardSearchEdit(current));
-    setSearchState({ kind: 'idle' });
-    setResultsState(null);
+    if (!sequenceEnabled) {
+      setSearchState({ kind: 'idle' });
+      setResultsState(null);
+    }
   }
 
   function reset() {
     invalidateDraft();
     setEditor((current) => resetBoardSearchEditor(current));
-    setSearchState({ kind: 'idle' });
-    setResultsState(null);
+    if (!sequenceEnabled) {
+      setSearchState({ kind: 'idle' });
+      setResultsState(null);
+    }
     if (compact && managed) {
       setPins([]);
       setSpinCount(APPROXIMATE_WIN_RANGE_DEFAULT);
@@ -444,9 +530,22 @@ function BoardSearchWorkspaceContent({
       readonly preserveSelection?: boolean;
       /** Replay: the pattern to search with right away. */
       readonly editor?: typeof editor;
+      readonly patterns?: BoardSearchPattern[];
+      readonly scope?: BoardSearchScope;
       readonly onResults?: (state: BoardSearchResultsState) => void;
     } = {},
   ) {
+    if (sequenceEnabled) {
+      sequence.search({
+        ...options,
+        patterns:
+          options.patterns ??
+          (options.editor === undefined
+            ? undefined
+            : [{ cells: [...patternBoardSearchCells(options.editor)] }]),
+      });
+      return;
+    }
     const searchEditor = options.editor ?? editor;
     if (
       selectedBoardSearchCells(searchEditor).length === 0 ||
@@ -532,6 +631,13 @@ function BoardSearchWorkspaceContent({
     setLimitInput(String(parsed.value));
     const changed = parsed.value !== limit;
     setLimit(parsed.value);
+    if (sequenceEnabled) {
+      // A blur immediately before Search must not start the previous query
+      // and disable the click intended for the edited pattern.
+      if (changed && !sequence.draftChanged)
+        sequence.repeatWithLimit(parsed.value);
+      return;
+    }
     if (managed && changed) {
       invalidateDraft();
       setResultsState(null);
@@ -571,7 +677,9 @@ function BoardSearchWorkspaceContent({
         !(composerRef.current?.contains(target) ?? false);
       if (
         outsideComposer ||
-        selectedCells.length === 0 ||
+        (sequenceEnabled
+          ? sequence.inputError !== null || sequence.calculationBusy
+          : selectedCells.length === 0) ||
         searchState.kind === 'loading'
       ) {
         return;
@@ -599,15 +707,22 @@ function BoardSearchWorkspaceContent({
   });
 
   function applyReplay(request: BoardSearchReplayRequest) {
-    const { state: nextEditor, inactiveCodes } = boardSearchEditorFromPattern(
-      request.cells,
-      new Set(activeSymbols.map((symbol) => symbol.code)),
-    );
+    const patterns = request.patterns ?? [{ cells: [...request.cells] }];
+    const { state: nextEditor, inactiveCodes } = sequenceEnabled
+      ? {
+          state: boardSearchSequenceEditorsFromPatterns(patterns).at(-1)!,
+          inactiveCodes: [],
+        }
+      : boardSearchEditorFromPattern(
+          request.cells,
+          new Set(activeSymbols.map((symbol) => symbol.code)),
+        );
     const notices: string[] = inactiveCodes.map(
       (code) =>
         `Symbol „${code}” nie jest już aktywny — w jego miejscu jest ?.`,
     );
-    setEditor(nextEditor);
+    if (sequenceEnabled) sequence.replaceDraft(patterns, request.limit);
+    else setEditor(nextEditor);
     setLimit(request.limit);
     setLimitInput(String(request.limit));
     setLimitError(null);
@@ -624,6 +739,8 @@ function BoardSearchWorkspaceContent({
     }
     runSearch({
       editor: nextEditor,
+      patterns,
+      scope: request.scope,
       limit: request.limit,
       onResults: (results) => {
         const range = request.approximateWin;
@@ -661,6 +778,7 @@ function BoardSearchWorkspaceContent({
     if (
       replay === null ||
       symbolsState !== 'ready' ||
+      (sequenceEnabled && sequence.calculationBusy) ||
       appliedReplayId.current === replay.id
     ) {
       return;
@@ -673,7 +791,7 @@ function BoardSearchWorkspaceContent({
     });
     // Applied once per replay id, as soon as the symbols are known.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replay?.id, symbolsState]);
+  }, [replay?.id, symbolsState, sequenceEnabled, sequence.calculationBusy]);
 
   return (
     <section
@@ -828,6 +946,24 @@ function BoardSearchWorkspaceContent({
           </aside>
 
           <div className="boardSearchPattern">
+            {sequenceEnabled ? (
+              <div
+                className="boardSearchSequenceBadges"
+                aria-label="Wpisane układy"
+              >
+                {sequence.editors.map((_, index) => (
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    key={index}
+                    aria-pressed={sequence.activeIndex === index}
+                    onClick={() => sequence.setActiveIndex(index)}
+                  >
+                    Układ {index + 1}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <header>
               <h2>Twój wzór</h2>
               <p>
@@ -929,18 +1065,76 @@ function BoardSearchWorkspaceContent({
               <button
                 className="primaryButton"
                 disabled={
-                  selectedCells.length === 0 || searchState.kind === 'loading'
+                  sequenceEnabled
+                    ? sequence.inputError !== null ||
+                      searchState.kind === 'loading' ||
+                      sequence.calculationBusy ||
+                      !sequence.hydrated
+                    : selectedCells.length === 0 ||
+                      searchState.kind === 'loading'
                 }
                 onClick={() => runSearch()}
                 type="button"
               >
-                {searchState.kind === 'loading'
-                  ? 'Wyszukiwanie…'
-                  : 'Szukaj plansz'}
+                {sequenceEnabled && sequence.calculationBusy
+                  ? 'Trwa obliczanie wygranej…'
+                  : searchState.kind === 'loading'
+                    ? 'Wyszukiwanie…'
+                    : 'Szukaj plansz'}
               </button>
+              {sequenceEnabled ? (
+                <>
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    disabled={!sequence.canNext}
+                    onClick={sequence.next}
+                  >
+                    Następny układ
+                  </button>
+                  <button
+                    className="secondaryButton"
+                    type="button"
+                    onClick={() => {
+                      sequence.clear();
+                      setApproximateReplay(null);
+                      setReplayNotices([]);
+                    }}
+                  >
+                    Nowe szukanie
+                  </button>
+                </>
+              ) : null}
             </footer>
+            {sequenceEnabled &&
+            sequence.inputError !== null &&
+            (patternCellCount > 0 || sequence.editors.length > 1) ? (
+              <p className="boardSearchFeedback" role="status">
+                {sequence.inputError}
+              </p>
+            ) : null}
           </div>
         </div>
+      ) : null}
+
+      {sequenceEnabled && sequence.storageNotice !== null ? (
+        <p className="feedbackBanner" role="status">
+          {sequence.storageNotice}
+        </p>
+      ) : null}
+      {sequenceEnabled && sequence.notice !== null ? (
+        <p className="feedbackBanner" role="status">
+          {sequence.notice}
+        </p>
+      ) : null}
+      {sequenceEnabled && sequence.stale ? (
+        <p className="feedbackBanner" role="status">
+          {searchState.kind === 'loading'
+            ? 'Trwa wyszukiwanie. Poniżej poprzednie wyniki.'
+            : searchState.kind === 'error'
+              ? 'Poniżej wyniki poprzedniego udanego wyszukiwania.'
+              : 'Wzór zmieniony — wyszukaj ponownie.'}
+        </p>
       ) : null}
 
       {replayNotices.length > 0 ? (
@@ -957,15 +1151,20 @@ function BoardSearchWorkspaceContent({
           {searchState.message}
         </p>
       ) : null}
-      {searchState.kind === 'ready' && resultsState !== null ? (
+      {visibleResponse !== null && resultsState !== null ? (
         <>
           <BoardSearchResults
             compact={compact}
-            client={api}
+            client={resultClient}
             gameId={gameId}
             rulesVersions={rulesVersions}
-            superGameState={searchState.result.superGameState ?? null}
-            onBoardEdited={() => runSearch({ preserveSelection: true })}
+            superGameState={visibleResponse.superGameState ?? null}
+            sequenceResult={sequenceEnabled ? sequence.activeSequence : null}
+            onBoardEdited={() =>
+              sequenceEnabled
+                ? sequence.repeat()
+                : runSearch({ preserveSelection: true })
+            }
             onOpenSuperGameSeries={openSuperGameSeries}
             onStateChange={(state) => {
               setSavedSequence(null);
@@ -984,7 +1183,7 @@ function BoardSearchWorkspaceContent({
                 : undefined
             }
           />
-          {!managed ? (
+          {!managed && !sequenceEnabled ? (
             <BoardSearchApproximateWin
               client={api}
               gameId={gameId}
@@ -1000,6 +1199,30 @@ function BoardSearchWorkspaceContent({
             />
           ) : null}
         </>
+      ) : null}
+      {sequenceEnabled ? (
+        <div hidden={resultsState === null}>
+          <BoardSearchApproximateWin
+            client={resultClient}
+            calculationKey={`${sequence.searchKey}:${sequence.resultRevision}`}
+            gameId={gameId}
+            rulesVersions={rulesVersions}
+            searchKey={searchKey}
+            onOpenSuperGameSeries={openSuperGameSeries}
+            onReplayNotice={(notice) =>
+              setReplayNotices((current) => [...current, notice])
+            }
+            replay={approximateReplay}
+            selectedResult={
+              resultsState === null
+                ? null
+                : activeBoardSearchResult(resultsState)
+            }
+            symbols={symbols}
+            onBusyChange={sequence.onBusyChange}
+            suspended={searchState.kind === 'loading'}
+          />
+        </div>
       ) : null}
       {managed && draft.startSequenceNumber !== null ? (
         <>
@@ -1069,8 +1292,11 @@ function BoardSearchWorkspaceContent({
             if (!edited) return;
             // A saved super symbol or cell correction changes the markers
             // and the payouts: the results and the range are read again.
-            runSearch({ preserveSelection: true });
-            setSearchKey((key) => `${key}:refresh`);
+            if (sequenceEnabled) sequence.repeat();
+            else {
+              runSearch({ preserveSelection: true });
+              setSearchKey((key) => `${key}:refresh`);
+            }
           }}
           seriesId={openSeries.seriesId}
           symbols={symbols}

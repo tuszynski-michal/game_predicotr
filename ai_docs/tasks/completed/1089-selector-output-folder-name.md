@@ -108,3 +108,7 @@ D-572, wymagania i architektura obszaru, mapa kodu oraz `ai_docs/quality/SELECTO
 ### Recommended next task
 
 Odbiór paczki 1.0.3 i po akceptacji scalenie gałęzi obejmującej TASK-1088 i TASK-1089.
+
+### Kontrole integracji 2026-10-25
+
+Operator zatwierdził merge, push i cleanup całej gałęzi. Kontrole po połączeniu z main oraz ponowny odbiór gotowego ZIP 1.0.3 zapisano w `../../quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`, sekcja „Kontrole integracji z main”. Historyczne wyniki i ograniczenia powyżej pozostają zapisem chwili zamknięcia taska.

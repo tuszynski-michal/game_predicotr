@@ -6,6 +6,63 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1097 — Gotowość API i workera do migracji 0169 (done)
+
+- Plik: tasks/completed/1097-board-search-schema-readiness.md.
+- Commit: **v1.7.479 / `c2e870454a808baa29a508badcb352c334ac11c0`** (hash dopisuje kolejny commit).
+- Exact-head guard zgodny z 0169, poprzednia 0168 odrzucana; manifest v19 bez zmian. Usunięty bloker startu po przyszłej migracji.
+- RED odtworzony. 29 testów gotowości/domeny/API i 9 disposable PostgreSQL PASS, w tym rzeczywisty upgrade/guard/downgrade. Ruff, format, mypy, docs i mapa PASS; pierwszy mypy timeout rozliczony, brak osieroconych procesów.
+- Offline SQL preview gotowy. Operator zezwolił na migrację i potrzebne restarty, lecz baza nadal 0168/4096, usługi bez zmian. Integracja main i ochrona obcej pracy przed rolloutem wymagają uzgodnienia.
+- Zapisano hash poprzedniego TASK-1096. Bez nowego audytu, merge, push ani rzeczywistej migracji operatora.
+
+### TASK-1096 — Stabilne odczyty planszy podczas zmiany kontekstu korekt (done)
+
+- Plik: tasks/completed/1096-board-search-read-dependencies.md.
+- Commit: **v1.7.478 / `e8018ef1eb34b1825d30f1f7d406e603ab50915a`** (hash dopisuje kolejny commit).
+- Dawne TASK-1092/P2-3 usunięte: efekty odczytu zależą od metod odczytu, nie opakowania klienta. Blokada korekt i aktualny kontekst zachowane.
+- RED odtworzony. 108 unit, 120 interactions, 293 Reviewer i 18 kontroli Edge PASS. Lint, format, typy, oba buildy, docs i mapa PASS; bez nowego audytu.
+- Preflight wykazał osobny bloker gotowości 0169 (1 test failed, 14 passed), do TASK-1097. Migracja i potrzebne restarty zlecone, ale nie wykonane. Bez merge i push.
+
+### TASK-1095 — Pierwszeństwo korekty i zakończone odpowiedzi fixture (done)
+
+- Plik: tasks/completed/1095-board-search-correction-priority.md.
+- Commit: **v1.7.476 / `213665deec96dd2166c84a3515a523a6515e504b`** (hash dopisuje kolejny commit).
+- Obie uwagi TASK-1094/P2-1–2 poprawione: limit zachowuje priorytet oczekującej korekty, fixture czeka na gotową odpowiedź i nowy render.
+- RED obu kolejności odtworzony. Końcowo 108 unit, 119 interactions, 293 Reviewer i 18 kontroli Edge PASS. Lint, format, typy trzech pakietów, buildy Admin/Reviewer, docs i mapa PASS.
+- Jeden audyt Claude Code claude-opus-5-5/medium do 480 s: PASS bez P0/P1. Dwie drobne P2 dokumentacji/testów rozliczono w jednej rundzie poprawek; bez kolejnego audytu i bez zmian produkcyjnych po audycie.
+- Dawne TASK-1092/P2-3 odłożone. Bez migracji bazy operatora, restartów, merge i push. Fizyczny Android nieodebrany.
+
+### TASK-1094 — Anulowanie starego odświeżenia limitu i testy kliknięcia (done)
+
+- Plik: tasks/completed/1094-board-search-pending-limit.md.
+- Commit: **v1.7.473 / `27bb5be09ba49698c3bee2db73e0ffe8b0f2239d`** (hash dopisuje kolejny commit).
+- Trzy P2 z TASK-1093 poprawione: edycja anuluje kolejkę limitu, korekty nadal odświeżają widoczne wyniki; browser test sprawdza końcową liczbę żądań i rzeczywisty click czystego wzoru.
+- RED odtworzony; 108 unit, 116 interactions, 293 Reviewer oraz 18 kontroli Edge PASS. Lint, format, typy trzech pakietów, buildy Admin/Reviewer, docs i mapa PASS. Mapa wygenerowana bez zmian.
+- Dawne TASK-1092/P2-3 odłożone. Bez nowego audytu Claude, migracji bazy operatora, restartów, merge i push. Fizyczny Android nieodebrany.
+
+### TASK-1093 — P2-4: pierwsze kliknięcie po zmianie limitu (done)
+
+- Plik: `tasks/completed/1093-board-search-limit-click.md`. Commit **v1.7.470 / `efaa3c507721c427fa8c3978d9871d132b6a3779`**.
+- Brudny wzór: limit bez starego zapytania, pierwszy click wysyła aktualny draft. Czysty wzór zachowuje auto-refresh, wybór i kolejkę kalkulatora. P2-3 bez zmian.
+- RED w realnym Edge przed poprawką (szybka i opóźniona odpowiedź), GREEN po niej dla Admina i obu linków. 14 kontroli browser, 108 jednostkowych i 114 interakcji PASS; lint/format/typy/build obu aplikacji/docs/mapa PASS.
+- Bez migracji operatora, restartów, merge, push i nowego audytu Claude. Fizyczny Android poza odbiorem.
+
+### TASK-1092 — Wyszukiwanie ciągu plansz: badże i trwałość (done)
+
+- Plik: `tasks/completed/1092-board-search-sequence-ui.md`. Commit **v1.7.468 / `402477cdc1c4797fe7ab626b5c5bdbc6519d446c`**.
+- Badże 1–4, wspólne wyniki, trwały lokalny draft, pełny replay i historia v2 w Adminie oraz obu linkach; management zachowuje stary przepływ.
+- 108 testów jednostkowych, 113 interakcji, Reviewer 293 PASS; typy/build/lint/docs/mapa PASS. Edge: nowy proces, desktop i mobile viewport, 6 kontroli PASS.
+- Claude Code medium: R1 REVISE, poprawki P1/P2, R2 PASS bez P0/P1 po osobnej zgodzie na koszt. P2-3/P2-4 jawne w Outcome; audyt A pozostał timeoutem bez werdyktu.
+- Bez fizycznego Androida, migracji operatora, restartów, merge i push. Dalej odbiór oraz osobno uzgodnione wdrożenie.
+
+### TASK-1091 — Wyszukiwanie ciągu plansz: API i historia (done)
+
+- Plik: `tasks/completed/1091-board-search-sequence-api.md`. Commit **v1.7.467 / `9319bde6392c2e913a49cccb08eafa7a3290ebed`**.
+- Ranking SQL/domena 1–4 kolejnych plansz, POST Admin/public, proxy 32 KiB, historia v2 i korekty, klient OpenAPI.
+- Testy API/domena/repo 89 PASS, PostgreSQL 8+1 PASS, klient 134 PASS, Reviewer 290 PASS; lint/typy/docs/mapa/OpenAPI PASS.
+- Audyt Claude Code high: timeout 480 s, brak werdyktu, bez ponowienia; zapis w quality/TASK-1091_AUDIT_TIMEOUT_20261024.md.
+- Migracja 0169 tylko w bazach testowych; bez bazy operatora, restartów, merge i push. Dalej TASK-1092.
+
 ### TASK-1090 — Domyślna ważność linków 24 h (done)
 
 - Plik: tasks/completed/1090-sharing-default-24h.md.

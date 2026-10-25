@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -236,7 +235,9 @@ _EventGroups = list[_EventGroup]
 
 
 def _pattern_key(event: BoardSearchShareQueryEvent) -> str:
-    return json.dumps(event.request.get("cells"), ensure_ascii=False)
+    from game_predictor_api.domain.board_search_pattern_identity import search_pattern_key
+
+    return search_pattern_key(event.request)
 
 
 class BoardSearchShareQueryLogService:

@@ -34,15 +34,17 @@ export function BoardSearchShareCorrections({
   sessionId,
   symbols,
   pattern,
+  searchEventId,
 }: {
   readonly client: BoardSearchShareCorrectionClient;
   readonly gameId: string;
   readonly sessionId: string;
   readonly symbols: readonly SymbolResponse[];
   readonly pattern?: readonly string[];
+  readonly searchEventId?: string;
 }) {
   const [status, setStatus] = useState<'pending' | 'reviewed' | 'all'>(
-    pattern === undefined ? 'pending' : 'all',
+    pattern === undefined && searchEventId === undefined ? 'pending' : 'all',
   );
   const [page, setPage] =
     useState<BoardSearchShareCorrectionPageResponse | null>(null);
@@ -83,6 +85,7 @@ export function BoardSearchShareCorrections({
           limit: 25,
           ...(before === undefined ? {} : { before }),
           ...(parsedPattern === null ? {} : { pattern: parsedPattern }),
+          ...(searchEventId === undefined ? {} : { searchEventId }),
         });
         if (id !== requestId.current) return;
         if (result.data === undefined)
@@ -112,7 +115,7 @@ export function BoardSearchShareCorrections({
         if (id === requestId.current) setLoading(false);
       }
     },
-    [client, sessionId, status, patternKey],
+    [client, sessionId, status, patternKey, searchEventId],
   );
 
   useEffect(() => {
@@ -240,11 +243,13 @@ export function BoardSearchShareCorrections({
     <section
       className="boardSearchShareCorrections"
       aria-label={
-        pattern === undefined ? 'Poprawione plansze' : 'Poprawki wyszukiwania'
+        pattern === undefined && searchEventId === undefined
+          ? 'Poprawione plansze'
+          : 'Poprawki wyszukiwania'
       }
     >
       <h4>
-        {pattern === undefined
+        {pattern === undefined && searchEventId === undefined
           ? 'Poprawione plansze'
           : 'Poprawki tego wyszukiwania'}
       </h4>
@@ -254,7 +259,7 @@ export function BoardSearchShareCorrections({
           przeglądu.
         </p>
       ) : null}
-      {pattern === undefined ? (
+      {pattern === undefined && searchEventId === undefined ? (
         <label>
           Stan przeglądu{' '}
           <select
@@ -285,6 +290,9 @@ export function BoardSearchShareCorrections({
           {page.entries.map((board) => (
             <li key={board.sequenceNumber}>
               <strong>Plansza #{board.sequenceNumber}</strong> ·{' '}
+              {(board.patternCount ?? 1) > 1
+                ? `Ciąg: ${board.patternCount} układów · `
+                : ''}
               {board.changedCellCount} zmienionych pól ·{' '}
               {board.pending ? 'Do przeglądu' : 'Przejrzana'}
               {' · '}

@@ -442,6 +442,62 @@ nieprodukcyjną propozycję `symbolGridQuad`. `needs_review` może jawnie zwróc
 
 ### Wyszukiwanie plansz częściowym układem
 
+**D-573 / TASK-1091 — addytywny kontrakt ciągu.**
+
+```text
+POST /api/v1/admin/games/{gameId}/board-search
+POST /api/v1/board-search-shares/search
+{ patterns: [{ cells: [{ cellIndex, symbolCode }] }], scope?, limit? }
+```
+
+OpenAPI jest właścicielem typów. 1–4 wzory po 1–15 komórek; znany symbol
+jest wymagany w każdym wzorze, `null`/`?` nie daje dowodu. UI dla jednego
+wzoru nadal używa GET; POST z jednym wzorem deleguje do tej samej ścieżki.
+Odpowiedź zawiera `patternCount`, `queryCellCount` (do 60), `superGameState`
+oraz wyniki `{startSequenceNumber,endSequenceNumber,score,boards}`. `boards`
+zachowuje kolejność wzorów i dotychczasowe oceny pojedynczych plansz. Publiczny
+model nie zawiera identyfikatorów wewnętrznych także wewnątrz `boards`;
+ma `searchContextId`, bez `gameId`.
+
+Dla 2–4 wzorów pozycja i to `((start-1+i)%expected_layout_count)+1`;
+liczba wzorów nie przekracza długości gry. Wymagane są wszystkie dokumenty,
+bez przeskakiwania braków. Ranking SQL używa do trzech złączeń fast documents;
+LIMIT występuje dopiero po wspólnej ocenie. Procent pochodzi z sumy surowych
+punktów podzielonej przez sumę znanych pól zapytania, nie ze średniej procentów.
+
+Body obu POST jest ograniczone strumieniowo do 32768 bajtów w API i obu proxy;
+pozostałe mutacje mają dotychczasowe limity. JSON bez query string, istniejące
+cookie, Origin/Sec-Fetch-Site i proxy-intent pozostają wymagane. Błędy:
+413 `BOARD_SEARCH_SEQUENCE_BODY_TOO_LARGE`, 415 `BOARD_SEARCH_SEQUENCE_CONTENT_TYPE_INVALID`,
+422 `BOARD_SEARCH_SEQUENCE_INVALID` (opcjonalny `details.patternIndex`) lub
+`BOARD_SEARCH_SEQUENCE_LENGTH_INVALID`. Timeout SQL daje 503
+`BOARD_SEARCH_SEQUENCE_TIMEOUT`, jest logowany z tym kodem i nie zwraca danych.
+SAVEPOINT zachowuje zdolność dalszych zapytań; istniejącego krótszego
+statement_timeout nie wolno podnieść. Publiczny POST korzysta z koszyka JSON
+i slotu obliczeń sesji, z 429 przy kolizji.
+
+Log `kind=search` zachowuje legacy `{cells,scope,limit}`. Wielowzorowy wpis
+ma `{version:2,patterns:[{cells:["i:code|?"]}],scope,limit}`; podsumowanie v2
+ma `resultCount`, `patternCount`, `firstEndSequenceNumbers`. Dwa adaptery
+tożsamości legacy zachowują dotychczasową serializację i hash; v2 uwzględnia
+uporządkowaną listę wzorów. Migracja `0169_board_search_sequence_logs` zwiększa
+wyłącznie `ck_bss_query_request` do 32768 bajtów; downgrade odmawia przy
+większych istniejących wpisach. Dotyczy również `searchSnapshot` korekty.
+
+API, worker i skrypty utrzymaniowe wymagają dokładnej głowy Alembic
+`0169_board_search_sequence_logs`. Manifest ownership pozostaje v19.
+Kod dla 0168 nie może być ponownie uruchamiany po tej migracji; nowy kod
+odmawia startu na 0168 do czasu kontrolowanego przejścia.
+
+GET listy korekt przyjmuje addytywne `searchEventId` zamiast `pattern` dla v2;
+oba naraz dają 422. Wydarzenie musi należeć do tej samej sesji i udanego
+wyszukiwania. Korekta detalu ciągu nadal używa własnej planszy jako początku
+kontekstu, a `searchContextId` identyfikuje pełny wzór. Nie rozszerza to
+reguły zakresu korekty i nie zmienia kotwicy kalkulatora.
+Odpowiedź listy/detalu korekt Admina ma addytywne `patternCount` (domyślnie 1),
+wyprowadzane z wersji i liczby wzorów `searchSnapshot`; UI nie musi otrzymywać
+całego snapshotu tylko po to, aby oznaczyć korektę z ciągu.
+
 ```text
 GET /api/v1/admin/games/{gameId}/board-search?scope=all_searchable|approved_only&cell={0..14}:{symbolCode|?}&limit=1..100
 ```

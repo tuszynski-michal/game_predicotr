@@ -14,6 +14,33 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-573 — Wyszukiwanie po kolejnych układach
+
+Status: accepted
+Data: 2026-10-24
+
+### Kontekst
+
+Operator potrzebuje dopasować bieżące miejsce po 1–4 kolejnych wpisanych planszach w Adminie i obu linkach. Plan 3.1 oraz koszt całej implementacji zaakceptował 2026-10-24, bez zgody na migrację jego bazy, restarty i merge.
+
+### Decyzja
+
+Ranking czyta pełne fast documents per game_id + sequence_number. Dla wielu wzorów porównuje kolejne pozycje cykliczne według expected_layout_count, bez top-N po pojedynczych wzorach i bez przeskakiwania braków. Suma surowych punktów dzielona jest przez liczbę znanych pól wszystkich zapytań; D-570 pozostaje wyjątkiem 777a2.
+
+POST pod istniejącymi ścieżkami rozszerza kontrakt, zachowując GET i reguły dostępu. Publiczny log przechowuje wersjonowany pełny wzór; tożsamości legacy pozostają zgodne. Limit logu zwiększa wyłącznie migracja Alembic 0169 do 32 KiB, z ochroną przed obcinającym downgrade.
+
+Badże przełączają tylko wpisane wzory; wspólne wyniki poniżej pozostają niezależne. Wygrane liczone po ostatniej planszy ciągu. Korekta wcześniejszej planszy używa dotychczasowego kontekstu pojedynczej planszy, nie zmieniając kotwicy wygranych. Stan przeglądarki jest wersjonowany i izolowany per gra/link/panel, bez trwałych odpowiedzi i sekretów.
+
+### Alternatywy
+
+Odrzucono przecinanie top-N wyników, bo pomija najlepszy ciąg, oraz powielenie UI dla każdego hosta. Synchronizacja między urządzeniami nie należy do zakresu.
+
+### Konsekwencje
+
+Taski 1091–1092 realizują jeden wspólny pion. Dwa audyty implementacji należą do nowo zaakceptowanego kosztu, osobno od trzech wykorzystanych prób audytu planu. Baza operatora, usługi i main wymagają odrębnych zgód.
+
+Źródło: [zaakceptowany plan](../../delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md).
+
 ## D-572 — Nazwa folderu wynikowego selektora
 
 **Status:** accepted

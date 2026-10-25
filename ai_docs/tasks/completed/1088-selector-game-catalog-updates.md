@@ -108,3 +108,7 @@ Commit: v1.7.467 / `6909ef00c73d29cdb176db7a4cd2ddcfc4d7083d`.
 ### Recommended next task
 
 Odbiór paczki 1.0.2 przez operatora; po akceptacji scalenie do main.
+
+### Kontrole integracji 2026-10-25
+
+Operator zatwierdził merge, push i cleanup całej gałęzi. Kontrole po połączeniu z main oraz ponowny odbiór gotowego ZIP 1.0.3 zapisano w `../../quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`, sekcja „Kontrole integracji z main”. Historyczne wyniki i ograniczenia powyżej pozostają zapisem chwili zamknięcia taska.

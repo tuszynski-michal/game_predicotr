@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-543](DECISION_LOG_2026.md#d-543--odrzucanie-przyciętych-plansz-po-imporcie-i-przejęcie-sekwencji-przez-zdjęcie-zastępcze) | Odrzucanie przyciętych plansz po imporcie i przejęcie sekwencji przez zdjęcie zastępcze | accepted | 2026-10-10 | odrzucony slot lub plansza czeka na zamiennik; nowe zdjęcie przejmuje tylko sekwencje odrzucone albo bez właściciela, żywa pozycja `pending` innego zdjęcia zostaje (zmienia D-238). |
 | [D-542](DECISION_LOG_2026.md#d-542--cofnięcie-ostatniej-ręcznej-korekty-cięcia-siatki) | Cofnięcie ostatniej ręcznej korekty cięcia siatki | accepted | 2026-10-10 | tylko najnowsza korekta planszy, fail-closed, migawka audytu przy usuwaniu wierszy slotu (zmienia D-462), migracja `0154`. |
 | [D-541](DECISION_LOG_2026.md#d-541--lokalny-reviewer-pracuje-w-zakresie-gry-i-pokazuje-realne-braki-geometrii-zdjęć) | Lokalny Reviewer pracuje w zakresie gry i pokazuje realne braki geometrii zdjęć | accepted | 2026-10-10 | lokalny Reviewer ma zakładki „Do korekty” i „Braki zdjęć” (realne braki D-484), „Siatka niepotwierdzona” zostaje licznikiem w Adminie, UI wyjątków bramki usunięte z Admina. |
 | [D-540](DECISION_LOG_2026.md#d-540--przeniesienie-aplikacji-i-bazy-na-dysk-d) | Przeniesienie aplikacji i bazy na dysk D | accepted | 2026-10-10 | aplikacja z D, baza z obrazem dysku Docker Desktop, kopie i bramki przełączenia według planu DISK_D. |

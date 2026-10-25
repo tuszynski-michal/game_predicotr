@@ -31,6 +31,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 )
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
 from game_predictor_api.domain.board_search_board_detail import BoardSearchBoardCell
+from game_predictor_api.domain.board_search_pattern_identity import search_pattern_fingerprint
 from game_predictor_api.domain.board_search_share_queries import (
     decode_query_log_cursor,
     encode_query_log_cursor,
@@ -278,7 +279,7 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
             if command.search_context_id
             else None,
             "searchSnapshot": snapshot,
-            "patternFingerprint": pattern_fingerprint(snapshot.get("cells", [])),
+            "patternFingerprint": search_pattern_fingerprint(snapshot),
             "startSequenceNumber": command.start_sequence_number,
             "spinCount": command.spin_count,
             "stakeGrosze": command.stake_grosze,
@@ -311,7 +312,13 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
         self._session.flush()
         return receipt
 
-    def _boards_statement(self, session_id: UUID, pattern: list[str] | None = None) -> Any:
+    def _boards_statement(
+        self,
+        session_id: UUID,
+        pattern: list[str] | None = None,
+        *,
+        fingerprint: str | None = None,
+    ) -> Any:
         model = BoardSearchShareQueryEventModel
         sequence = model.request["sequenceNumber"].as_integer()
         filters = (
@@ -365,13 +372,17 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
             .join(counts, counts.c.sequence_number == ranked.c.sequence_number)
             .where(ranked.c.position == 1)
         )
-        if pattern is not None:
+        if pattern is not None or fingerprint is not None:
             statement = statement.where(
                 ranked.c.sequence_number.in_(
                     select(sequence).where(
                         *filters,
                         model.request["patternFingerprint"].as_string()
-                        == (pattern_fingerprint(pattern)),
+                        == (
+                            fingerprint
+                            if fingerprint is not None
+                            else pattern_fingerprint(pattern or [])
+                        ),
                     )
                 )
             )
@@ -385,10 +396,25 @@ class SqlAlchemyBoardSearchShareCorrectionRepository:
         before: str | None,
         limit: int,
         pattern: list[str] | None,
+        search_event_id: UUID | None = None,
     ) -> ShareCorrectionPage:
-        self._share(session_id)
+        share = self._share(session_id)
         _validate_limit(limit)
-        statement = self._boards_statement(session_id, pattern).subquery()
+        fingerprint = None
+        if search_event_id is not None:
+            event = self._session.scalar(
+                select(BoardSearchShareQueryEventModel).where(
+                    BoardSearchShareQueryEventModel.id == search_event_id,
+                    BoardSearchShareQueryEventModel.session_id == session_id,
+                    BoardSearchShareQueryEventModel.game_id == share.game_id,
+                    BoardSearchShareQueryEventModel.kind == "search",
+                    BoardSearchShareQueryEventModel.outcome_code == "ok",
+                )
+            )
+            if event is None:
+                raise _missing()
+            fingerprint = search_pattern_fingerprint(event.request)
+        statement = self._boards_statement(session_id, pattern, fingerprint=fingerprint).subquery()
         total, pending = self._session.execute(
             select(func.count(), func.count().filter(statement.c.pending.is_(True))).select_from(
                 statement
@@ -557,6 +583,8 @@ def _receipt(value: dict[str, Any]) -> ShareCellCorrectionReceipt:
 
 
 def _board(row: dict[str, Any]) -> ShareCorrectionBoard:
+    snapshot = row["request"].get("searchSnapshot", {})
+    pattern_count = len(snapshot["patterns"]) if snapshot.get("version") == 2 else 1
     return ShareCorrectionBoard(
         sequence_number=int(row["sequence_number"]),
         revision=int(row["revision"]),
@@ -566,4 +594,5 @@ def _board(row: dict[str, Any]) -> ShareCorrectionBoard:
         last_event_id=row["id"],
         stake_grosze=row["request"].get("stakeGrosze"),
         start_sequence_number=row["request"].get("startSequenceNumber"),
+        pattern_count=pattern_count,
     )

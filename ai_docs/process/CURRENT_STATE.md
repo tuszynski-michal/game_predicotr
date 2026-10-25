@@ -12,6 +12,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+- **Selektor Windows 1.0.3 / TASK-1088–1090 (2026-10-25):** operator zatwierdził integrację, push i cleanup. Zakres: trwały katalog gier, aktualizacja partii, nazwa wyniku i domyślne 24 h nowego panelu udostępniania. Kontrole integracji i odbiór gotowego ZIP games/workflow PASS; pełny zestaw 276/276 zakończył się po limicie zewnętrznego runnera (124), szczegóły w raporcie. Bez migracji i restartów; fizyczny Windows/drugi komputer nieweryfikowane. Źródło: `quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`.
+
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 
 Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zweryfikuj odczytem, bez zmian w systemie. Pełne, niezmienione teksty dawnych punktów (także skróconych poniżej) są na początku archiwum Q4, sekcja „Przeniesione z okna 2026-10-16 (TASK-1022)”.
@@ -21,7 +23,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Zgoda na scalenie obejmuje push `main` do origin (operator, 2026-10-16); restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975, 0991, D-548) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. TASK-1024 istnieje na `main` (zamknięcie tasków) i na `codex/v3-grid-fine-tuning`. TASK-1030–1033 (etap 2 odczytu startowego, `main`) zajął także tor V3 na `codex/v3-grid-fine-tuning`; kolejne numery bierz od TASK-1040 w górę po sprawdzeniu obu. Źródło: archiwum Q3/Q4.
 - **Cykl życia usług:** API, Admin, Reviewer i workery uruchamia, zatrzymuje i restartuje wyłącznie operator; zgoda na restart dotyczy jednego zadania. Usługi działają z `D:\game_predicotr` (API z `--reload`); z `C:\Users\tuszy\Documents\game_predicotr` nie uruchamiać usług. Źródło: `AGENTS.md`, „Kontrola lokalnych usług API i Admin”.
-- **Migracje bazy operatora tylko za osobną zgodą**, w przejściu stop usług → scalenie → `db:migrate` → start; test na `*_test` nie jest zgodą. Nie scalaj do `main` kodu wymagającego niewykonanej migracji (API z `--reload` nie wystartuje). Ostatni zapis: `0167_source_image_crops` (2026-10-17, etap A przycinania oryginałów). Źródło: archiwum Q4, „Hybrydowy silnik siatek V3…”.
+- **Wyszukiwarka ciągów / migracja 0169 (2026-10-25):** po akceptacji integracji wykonano stop usług, fast-forward do main i migrację operatora do `0169_board_search_sequence_logs`; `ck_bss_query_request` = 32768, manifest v19. API, Admin, Reviewer i general worker (7 wątków) uruchomione ponownie. Live smoke 1/2/4 wzory i kotwica wygranych PASS. Gałąź selektora i lokalne zmiany zabezpieczone osobno; wersje v1.7.467–472 kolidują wyłącznie numerami z gałęzią selektora, bez przepisywania historii. Źródło: `tasks/completed/1097-board-search-schema-readiness.md`, raport odbioru wyszukiwarki.
 - **Operacje destrukcyjne** (GC, cleanup, usuwanie legacy, `db:reset:local`, DROP baz): implementacja nie jest zgodą na wykonanie; wymagany podgląd i jawne potwierdzenie. Źródło: `AGENTS.md`, „Trwałe workflowy i operacje danych”.
 - **Masowe odświeżenie odczytów wyszukiwarki** (TASK-0773, D-474, ok. 88 260 plansz gry 7) to osobne zadanie za zgodą operatora; okno planszy odświeża jedną planszę. Źródło: archiwum Q3, „D-470 / D-471 — Przybliżona wygrana…”.
 - **Odłożone braki `npm run quality`** (TASK-0940): 3 pomijane testy historycznych migracji, testy korpusów M5 bez korpusu, test junction tylko w worktree, 4 stare testy CLI (TASK-0928). Nie naprawiaj ich w innym zadaniu bez decyzji. Źródło: `tasks/completed/0940-green-quality-gate.md`.
@@ -37,6 +39,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | wdrożony 2026-10-25; P2 rozliczone, Alembic 0169, live smoke PASS; A audit timeout, B R2 i TASK-1095 PASS | fizyczny odbiór Androida niewykonany | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
@@ -65,13 +68,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md
+- **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md
+- **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
+- **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
+- **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
+- **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
+- **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md
 - **TASK-1090** — Domyślna ważność linków 24 h — v1.7.471 / `26c4be9c` — tasks/completed/1090-sharing-default-24h.md
 - **TASK-1089** — Nazwa folderu wynikowego selektora — v1.7.469 / `54c33f1a` — tasks/completed/1089-selector-output-folder-name.md
 - **TASK-1088** — Lista gier i aktualizacja selektora — v1.7.467 / `6909ef00` — tasks/completed/1088-selector-game-catalog-updates.md
-- **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 / `56d763a9` — tasks/completed/1087-777a2-unknown-search-wildcards.md
-- **TASK-1086** — Zabezpieczenia relokacji źródeł C — v1.7.462 / `4e944081` — tasks/completed/1086-harden-legacy-source-relocation.md
-- **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 / `1cfa7132` — tasks/completed/1085-prepare-legacy-c-copy-retirement.md
-- **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 / `787e8e27` — tasks/completed/1082-mandatory-merge-cleanup.md
-- **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md
-- **TASK-1080** — Zachowanie wygranych przed rozwinięciem — v1.7.455 / `e424e0f4` — tasks/completed/1080-mumie-preserve-pre-expansion-wins.md
-- **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 / `6a10b8b2` — tasks/completed/1079-super-symbol-board-highlights.md

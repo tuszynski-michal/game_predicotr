@@ -9,6 +9,7 @@ import {
   readCookie,
   validateRequestOrigin,
   type BoardSearchShareProxyOptions,
+  BOARD_SEARCH_SEQUENCE_MAX_REQUEST_BYTES,
 } from './board-search-share-proxy.ts';
 
 export const PANEL_PROXY_PREFIX = '/board-search-panel-api';
@@ -79,11 +80,19 @@ export async function proxyBoardSearchPanelRequest(
   // Mutations of the game allowlist: the cell correction (POST) and the
   // super symbol of a series (PUT, D-564); the panel's own `open` is a POST.
   const hasBody = request.method === 'POST' || request.method === 'PUT';
+  const sequenceSearch =
+    request.method === 'POST' &&
+    new RegExp(`^games/(${UUID})/api/v1/board-search-shares/search$`, 'i').test(
+      suffix,
+    );
+  const bodyLimit = sequenceSearch
+    ? BOARD_SEARCH_SEQUENCE_MAX_REQUEST_BYTES
+    : 4096;
   if (hasBody) {
     const declared = Number(request.headers.get('content-length') ?? 0);
-    if (!Number.isFinite(declared) || declared < 0 || declared > 4096)
+    if (!Number.isFinite(declared) || declared < 0 || declared > bodyLimit)
       return error(413, 'BOARD_SEARCH_PANEL_BODY_TOO_LARGE');
-    const bytes = await boundedBody(new Response(request.body), 4096);
+    const bytes = await boundedBody(new Response(request.body), bodyLimit);
     if (bytes === null) return error(413, 'BOARD_SEARCH_PANEL_BODY_TOO_LARGE');
     requestBody = bytes.buffer;
   }

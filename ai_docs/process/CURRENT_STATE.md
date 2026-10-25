@@ -37,7 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; implementacja 2/2, B R2 PASS, A audit timeout; P2 w Outcome | brak (odbiór i wdrożenie za osobną zgodą) | `codex/board-search-sequence-implementation` |
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; 2/2 done, B R2 PASS, A audit timeout; P2-4 poprawione w TASK-1093, P2-3 odłożone | brak (odbiór i wdrożenie za osobną zgodą) | `codex/board-search-sequence-implementation` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
@@ -66,6 +66,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 — tasks/completed/1093-board-search-limit-click.md
 - **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
 - **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md
 - **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 / `56d763a9` — tasks/completed/1087-777a2-unknown-search-wildcards.md
@@ -75,4 +76,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md
 - **TASK-1080** — Zachowanie wygranych przed rozwinięciem — v1.7.455 / `e424e0f4` — tasks/completed/1080-mumie-preserve-pre-expansion-wins.md
 - **TASK-1079** — Wyróżnienie super symbolu na planszach serii — v1.7.453 / `6a10b8b2` — tasks/completed/1079-super-symbol-board-highlights.md
-- **TASK-1078** — Kompaktowy selektor Windows i granica numeracji — v1.7.451 / `206e1755` — tasks/completed/1078-selector-compact-workflow.md

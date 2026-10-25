@@ -26,3 +26,11 @@ Fizycznego Androida ani działających usług operatora nie odebrano. Mobile ozn
 Audyt A: Claude Code high, timeout 480 s bez werdyktu; [osobny zapis](TASK-1091_AUDIT_TIMEOUT_20261024.md). B: [R1 REVISE](TASK-1092_AUDIT_R1_claude-opus-5-5.md), po poprawkach i osobnej zgodzie na koszt [R2 PASS](TASK-1092_AUDIT_claude-opus-5-5.md), bez P0/P1. [Zapis poprawek](TASK-1092_AUDIT_FIXES_20261024.md). Pozostały P2-3 (dodatkowe odczyty modalu) i P2-4 (możliwe ponowne kliknięcie po blur nowego limitu przy brudnym wzorze; wniosek statyczny, nieodtworzony testem). Zapisano je w Outcome. Oba zadania implementacji zamknięto, z ograniczeniami odbioru poniżej. Timeout A nie jest PASS i R2 B go nie zastępuje.
 
 Nie wykonano migracji operatora, restartów, merge ani push. Nowy kod nie powinien być uruchomiony na starej bazie. Dalsze wdrożenie według planu, po osobnych zgodach.
+
+## Aktualizacja 2026-10-25 — P2-4
+
+Osobne polecenie operatora: [TASK-1093](../tasks/completed/1093-board-search-limit-click.md). P2-4 odtworzono w realnym headless Edge na kodzie sprzed poprawki: szybka odpowiedź powodowała dwa żądania (stary i nowy wzór), a przy opóźnieniu 100 ms wysyłano tylko stary wzór i właściwe kliknięcie przepadało. Logi RED pozostają lokalnie w `artifacts/board-search-sequence-browser/p2-4-before-fix*.log`.
+
+Poprawka rozdziela zmianę komórek draftu od ogólnego stale. Przy brudnym wzorze zatwierdzenie limitu nie uruchamia starego zapytania. Przy czystym nadal działa automatyczne odświeżenie i zachowanie wyboru. Ten sam test po poprawce wysyła dokładnie raz aktualny wzór z nowym limitem w Adminie, linku pojedynczym i panelu. Rozszerzony browser fixture: 14 kontroli PASS (szybkie i opóźnione odpowiedzi), bez błędów strony, w tym wcześniejsze kontrole nowego procesu i mobilnego viewportu. Regresje: 108 jednostkowych i 114 interakcji PASS; typy, lint i buildy obu aplikacji PASS.
+
+P2-3 pozostaje odłożone na wyraźne polecenie operatora. Historycznych raportów R1/R2 i ich werdyktów nie zmieniono; nie uruchamiano nowej rundy audytu. Bieżący wynik pozostałych regresji zapisano w Outcome TASK-1093.

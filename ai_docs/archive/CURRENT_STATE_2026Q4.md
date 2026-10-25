@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1093 — P2-4: pierwsze kliknięcie po zmianie limitu (done)
+
+- Plik: `tasks/completed/1093-board-search-limit-click.md`. Commit **v1.7.470**.
+- Brudny wzór: limit bez starego zapytania, pierwszy click wysyła aktualny draft. Czysty wzór zachowuje auto-refresh, wybór i kolejkę kalkulatora. P2-3 bez zmian.
+- RED w realnym Edge przed poprawką (szybka i opóźniona odpowiedź), GREEN po niej dla Admina i obu linków. 14 kontroli browser, 108 jednostkowych i 114 interakcji PASS; lint/format/typy/build obu aplikacji/docs/mapa PASS.
+- Bez migracji operatora, restartów, merge, push i nowego audytu Claude. Fizyczny Android poza odbiorem.
+
 ### TASK-1092 — Wyszukiwanie ciągu plansz: badże i trwałość (done)
 
 - Plik: `tasks/completed/1092-board-search-sequence-ui.md`. Commit **v1.7.468 / `402477cdc1c4797fe7ab626b5c5bdbc6519d446c`**.

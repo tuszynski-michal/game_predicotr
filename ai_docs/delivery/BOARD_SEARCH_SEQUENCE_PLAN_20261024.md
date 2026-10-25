@@ -25,6 +25,10 @@ P2-3/P2-4 i ograniczenia odbioru zapisano w Outcome oraz
 [raporcie odbioru](../quality/BOARD_SEARCH_SEQUENCE_IMPLEMENTATION_20261024.md).
 Fizyczny Android, odbiór na usługach operatora i wdrożenie pozostają niewykonane.
 
+2026-10-25 operator zlecił niezależną poprawkę P2-4 w TASK-1093 z testem
+odtwarzającym i regresjami. P2-3 pozostaje odłożone; poprzednie raporty audytu
+zachowują historyczny stan z 2026-10-24. Aktualizacja odbioru jest w raporcie powyżej.
+
 Rewizja 3 otrzymała PASS w trzeciej próbie audytu Claude Code,
 bez otwartych P0/P1. Następnie doprecyzowano dwie uwagi P2 z tego raportu
 (niższy istniejący timeout i etykieta korekty z ciągu); tych dopisków nie

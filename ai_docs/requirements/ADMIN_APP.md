@@ -456,6 +456,11 @@ koniec nie uczestniczy w szukaniu, luka w środku i wzór z samymi `?` wymagają
 uzupełnienia. Edycja nie ukrywa poprzednich wyników, lecz oznacza je jako
 nieaktualne do ponownego wyszukania.
 
+Po edycji wzoru zmiana liczby wyników tylko zapamiętuje nowy limit.
+Pierwsze kliknięcie „Szukaj plansz” wysyła aktualny wzór z tym limitem.
+Jeśli wzór jest zgodny z ostatnim wyszukiwaniem, zmiana limitu automatycznie
+odświeża wyniki, zachowując wybrane dopasowanie i czekając na trwające obliczenia.
+
 Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
 jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca
 odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując

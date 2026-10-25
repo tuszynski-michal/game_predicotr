@@ -55,11 +55,12 @@ const sequence=(count)=>({gameId:'g',scope:'all_searchable',queryCellCount:count
 const single=()=>({gameId:'g',scope:'all_searchable',queryCellCount:1,superGameState:state,searchContextId:'fixture-context',results:[board(6),board(2)]});
 const range=(request)=>({gameId:'g',dataSource:'operational_review',dataFingerprintSha256:'a'.repeat(64),startSequenceNumber:request.startSequenceNumber,requestedSpinCount:request.spinCount,evaluatedSpinCount:request.spinCount,sequenceLength:6,wrappedAtSequenceEnd:true,startBoardStatus:null,rules:{rulesVersionId:'r',rulesVersion:1,spinCost:0},completeness:{completeBoardCount:0,missingBoardCount:request.spinCount,partialBoardCount:0},rows:[],summary:{balanceCredits:0,recognizedPayoutCredits:0,spinCostCredits:0}});
 window.fixtureRequests=[];
-const api={listSymbols:async()=>({data:symbols}),symbolImageAssetUrl:()=>'/view.svg',boardSearchBoardViewUrl:()=>'/view.svg',searchGameBoards:async(_id,request)=>{window.fixtureRequests.push({kind:'single',request});return {data:single()};},searchGameBoardSequence:async(_id,request)=>{window.fixtureRequests.push({kind:'sequence',request});return {data:sequence(request.patterns.length)};},getBoardSearchApproximateWin:async(_id,request)=>({data:range(request)}),getBoardSearchBoardDetail:async()=>({error:{code:'FIXTURE',message:'Fixture'}})};
+const waitForSearch=()=>new Promise(resolve=>setTimeout(resolve,new URLSearchParams(location.search).has('slowSearch')?100:0));
+const api={listSymbols:async()=>({data:symbols}),symbolImageAssetUrl:()=>'/view.svg',boardSearchBoardViewUrl:()=>'/view.svg',searchGameBoards:async(_id,request)=>{window.fixtureRequests.push({kind:'single',request});await waitForSearch();return {data:single()};},searchGameBoardSequence:async(_id,request)=>{window.fixtureRequests.push({kind:'sequence',request});await waitForSearch();return {data:sequence(request.patterns.length)};},getBoardSearchApproximateWin:async(_id,request)=>({data:range(request)}),getBoardSearchBoardDetail:async()=>({error:{code:'FIXTURE',message:'Fixture'}})};
 const share=host==='admin'?null:createBoardSearchShareDataSource({sessionId:'s',apiBase:host==='panel'?'/fixture/panel':'/fixture/share',fetchImplementation:async(url,options={})=>{
  const parsed=new URL(url,location.href);let body;
  if(parsed.pathname.endsWith('/symbols'))body=symbols;
- else if(parsed.pathname.endsWith('/search')){const request=options.method==='POST'?JSON.parse(options.body):{};window.fixtureRequests.push({kind:options.method==='POST'?'sequence':'single',request});body=options.method==='POST'?sequence(request.patterns.length):single();}
+ else if(parsed.pathname.endsWith('/search')){const request=options.method==='POST'?JSON.parse(options.body):{};window.fixtureRequests.push({kind:options.method==='POST'?'sequence':'single',request});body=options.method==='POST'?sequence(request.patterns.length):single();await waitForSearch();}
  else if(parsed.pathname.endsWith('/approximate-win'))body=range({startSequenceNumber:Number(parsed.searchParams.get('startSequenceNumber')),spinCount:Number(parsed.searchParams.get('spinCount'))});
  else throw new Error('Unexpected fixture route '+url);
  return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
@@ -165,10 +166,107 @@ async function compose(page, count) {
     await search(page);
   }
 }
+
+async function limitClickRegression(page, host, count, slowSearch = true) {
+  await page.goto(
+    `${origin}/?host=${host}${slowSearch ? '&slowSearch=1' : ''}`,
+  );
+  const timing = slowSearch ? 'delayed' : 'immediate';
+  await compose(page, count);
+  await page.getByRole('heading', { name: /^Plansza startowa #/ }).waitFor();
+  await palette(page, 'Cytryna');
+  const expected = await page.evaluate(() => {
+    const previous = window.fixtureRequests.at(-1);
+    const request = structuredClone(previous.request);
+    const cells =
+      previous.kind === 'single'
+        ? request.cells
+        : request.patterns.at(-1).cells;
+    cells.push({ cellIndex: 5, symbolCode: 'B' });
+    request.limit = 7;
+    return { kind: previous.kind, request };
+  });
+  const before = await page.evaluate(() => window.fixtureRequests.length);
+  const limit = page.getByRole('spinbutton', {
+    name: 'Liczba wyników wyszukiwania',
+  });
+  await limit.fill('7');
+  // A real browser click performs pointerdown -> focusout/blur -> pointerup
+  // -> click. Dispatching click alone cannot reproduce P2-4.
+  await click(page, 'Szukaj plansz');
+  await page.waitForFunction(
+    (before) => window.fixtureRequests.length > before,
+    before,
+  );
+  const sent = await page.evaluate(
+    (before) => window.fixtureRequests.slice(before),
+    before,
+  );
+  assert.deepEqual(
+    sent,
+    [expected],
+    `${host}: first click sends only the current draft with the new limit`,
+  );
+  checks.push(
+    `${host} (${timing}): P2-4 real blur/click sends the edited pattern exactly once`,
+  );
+
+  await page
+    .getByRole('button', { name: 'Szukaj plansz', exact: true })
+    .waitFor();
+  await page.getByRole('heading', { name: /^Plansza startowa #/ }).waitFor();
+  await click(page, 'Następna →');
+  const end = count === 1 ? 2 : 3;
+  await page
+    .getByRole('heading', {
+      name: new RegExp('^Plansza startowa #' + end + ' ·'),
+    })
+    .waitFor();
+  const cleanBefore = await page.evaluate(() => window.fixtureRequests.length);
+  await limit.fill('8');
+  await limit.press('Enter');
+  await page.waitForFunction(
+    (before) => window.fixtureRequests.length > before,
+    cleanBefore,
+  );
+  const clean = await page.evaluate(
+    (before) => window.fixtureRequests.slice(before),
+    cleanBefore,
+  );
+  assert.deepEqual(
+    clean,
+    [{ ...expected, request: { ...expected.request, limit: 8 } }],
+    `${host}: a clean pattern still refreshes automatically`,
+  );
+  await page
+    .getByRole('button', { name: 'Szukaj plansz', exact: true })
+    .waitFor();
+  await page
+    .getByRole('heading', {
+      name: new RegExp('^Plansza startowa #' + end + ' ·'),
+    })
+    .waitFor();
+  assert.match(
+    await page.locator('.boardSearchResultMetrics').textContent(),
+    count === 1 ? /#2/ : /#2 → #3/,
+  );
+  checks.push(
+    `${host} (${timing}): clean limit refresh preserves the selected match`,
+  );
+  await click(page, 'Nowe szukanie');
+}
 try {
   context = await launch();
   let page = context.pages()[0];
   page.on('pageerror', (error) => failures.push(error.message));
+  for (const [host, count] of [
+    ['admin', 1],
+    ['share', 2],
+    ['panel', 2],
+  ]) {
+    await limitClickRegression(page, host, count);
+  }
+  await limitClickRegression(page, 'admin', 1, false);
   await page.goto(`${origin}/?host=admin`);
   await compose(page, 4);
   await click(page, 'Następna →');

@@ -808,7 +808,47 @@ test('P1-1 approved-only replay and restore are one-shot; manual searches and Ne
   await unmount(root);
 });
 
-test('P2-1 limit refresh uses the visible snapshot, retains dirty draft and waits for the calculator', async () => {
+test('clean limit refresh preserves the submitted pattern and waits for the calculator', async () => {
+  let finish;
+  const { api, calls } = fixture({
+    getBoardSearchApproximateWin: (_id, options) =>
+      new Promise((resolve) => {
+        finish = () => resolve({ data: range(options) });
+      }),
+  });
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await waitFor(() => finish !== undefined);
+  const input = document.querySelector(
+    'input[aria-label="Liczba wyników wyszukiwania"]',
+  );
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    ).set.call(input, '7');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () =>
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    ),
+  );
+  assert.equal(calls.single.length, 1, 'queued until calculator settles');
+  await act(async () => finish());
+  await waitFor(() => calls.single.length === 2);
+  assert.deepEqual(calls.single[1].cells, pattern('A').cells);
+  assert.equal(calls.single[1].limit, 7);
+  assert.doesNotMatch(document.body.textContent, /Wzór zmieniony/);
+  assert.match(
+    document.querySelector('.boardSearchResultMetrics').textContent,
+    /#6/,
+  );
+  await unmount(root);
+});
+
+test('P2-4 dirty limit commit never queues the previous query, even while the calculator is busy', async () => {
   let finish;
   const { api, calls } = fixture({
     getBoardSearchApproximateWin: (_id, options) =>
@@ -836,13 +876,22 @@ test('P2-1 limit refresh uses the visible snapshot, retains dirty draft and wait
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
     ),
   );
-  assert.equal(calls.single.length, 1, 'queued until calculator settles');
+  assert.equal(calls.single.length, 1);
   await act(async () => finish());
-  await waitFor(() => calls.single.length === 2);
-  assert.deepEqual(calls.single[1].cells, pattern('A').cells);
-  assert.equal(calls.single[1].limit, 7);
+  await waitFor(() => button('Szukaj plansz')?.disabled === false);
+  assert.equal(
+    calls.single.length,
+    1,
+    'committing the new limit did not enqueue the previous snapshot',
+  );
   assert.match(document.body.textContent, /Wzór zmieniony/);
-  assert.match(document.querySelector('.boardSearchGrid').textContent, /B/);
+  await search();
+  assert.equal(calls.single.length, 2);
+  assert.deepEqual(calls.single[1], {
+    cells: [...pattern('A').cells, { cellIndex: 5, symbolCode: 'B' }],
+    limit: 7,
+    scope: 'all_searchable',
+  });
   await unmount(root);
 });
 

@@ -632,7 +632,10 @@ function BoardSearchWorkspaceContent({
     const changed = parsed.value !== limit;
     setLimit(parsed.value);
     if (sequenceEnabled) {
-      if (changed) sequence.repeatWithLimit(parsed.value);
+      // A blur immediately before Search must not start the previous query
+      // and disable the click intended for the edited pattern.
+      if (changed && !sequence.draftChanged)
+        sequence.repeatWithLimit(parsed.value);
       return;
     }
     if (managed && changed) {

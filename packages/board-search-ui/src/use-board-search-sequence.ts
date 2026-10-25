@@ -114,6 +114,7 @@ export function useBoardSearchSequence({
     visibleSubmitted === null
       ? ''
       : boardSearchSequenceKey(visibleSubmitted.patterns);
+  const draftChanged = input.error !== null || inputKey !== visibleKey;
   const activeSequence =
     sequenceResponse?.results[results?.activeIndex ?? 0] ?? null;
 
@@ -494,10 +495,10 @@ export function useBoardSearchSequence({
     resultRevision,
     onBusyChange,
     inputError: input.error,
+    draftChanged,
     stale:
       response !== null &&
-      (input.error !== null ||
-        inputKey !== visibleKey ||
+      (draftChanged ||
         visibleSubmitted?.limit !== limit ||
         status.kind === 'loading' ||
         status.kind === 'error'),

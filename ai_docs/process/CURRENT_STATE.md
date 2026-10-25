@@ -66,7 +66,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 — tasks/completed/1094-board-search-pending-limit.md
+- **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
 - **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
 - **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
 - **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md

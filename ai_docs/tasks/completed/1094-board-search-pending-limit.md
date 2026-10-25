@@ -68,7 +68,7 @@ Nie wolno anulować kolejki korekty tylko dlatego, że draft odbiega od wyników
 
 ## Outcome
 
-Commit: v1.7.473 (hash dopisuje kolejny commit).
+Commit: v1.7.473 / `27bb5be09ba49698c3bee2db73e0ffe8b0f2239d`.
 
 ### Changed
 

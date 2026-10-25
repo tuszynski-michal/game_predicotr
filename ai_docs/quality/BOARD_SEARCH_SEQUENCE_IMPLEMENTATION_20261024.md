@@ -48,3 +48,11 @@ Na osobne polecenie operatora [TASK-1094](../tasks/completed/1094-board-search-p
 P2-2: browser fixture ponownie porównuje pełną listę żądań po zakończeniu wyszukiwania. P2-3: czysty wzór sprawdzany jest przez Enter oraz rzeczywisty click po blur limitu, z dokładnie jednym równoważnym żądaniem i zachowaniem wybranego wyniku. Admin, link i panel; dodatkowo wariant natychmiastowej odpowiedzi Admina. Wynik: 18 kontroli PASS, bez błędów strony, w tym przywrócenie w nowym procesie i emulowany mobilny viewport. Regresje wspólnego UI: 108 jednostkowych i 116 interakcji PASS.
 
 Historyczny audyt TASK-1093 pozostaje niezmieniony. Nie uruchamiano kolejnego audytu Claude; bieżące poprawki i weryfikacje należą do wykonawcy. TASK-1092/P2-3 pozostaje odłożone. Bez migracji bazy operatora, restartów, merge i push. Pełne wyniki kontroli i ograniczenia w Outcome TASK-1094.
+
+## Audyt TASK-1094 — 2026-10-25
+
+Po osobnej zgodzie operatora wykonano [jedną rundę Claude Code](TASK-1094_AUDIT_claude-opus-5-5.md), claude-opus-5-5 / medium, w limicie 480 s. Werdykt PASS, bez P0/P1. Przegląd statyczny potwierdza główne scenariusze trzech poprawek; nie był niezależnym uruchomieniem testów.
+
+Raport wskazuje dwa nowe P2: TASK-1094/P2-1 — zatwierdzenie limitu może zastąpić oczekującą przyczynę correction przez limit; późniejsza edycja anuluje wtedy także odświeżenie po zapisanej korekcie. TASK-1094/P2-2 — oczekiwanie na włączony przycisk i zachowany nagłówek może zbyt wcześnie potwierdzić zakończenie odpowiedzi; zalecany licznik zakończonych odpowiedzi fixture. Pierwszą uwagę warto poprawić przed wdrożeniem, drugą zabezpieczyć dodatkową synchronizacją testu. Obie pozostają otwarte; brak deklaracji akceptacji ryzyka przez operatora. Szczegóły i testy w raporcie oraz Outcome TASK-1094.
+
+Zlecenie obejmowało audyt, więc nie zmieniono aplikacji ani testów i nie uruchamiano następnej rundy. Historyczne raporty zachowano. Dawne TASK-1092/P2-3 nadal odłożone. Bez migracji bazy operatora, restartów, merge i push.

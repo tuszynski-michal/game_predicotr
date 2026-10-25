@@ -19,11 +19,11 @@ Operator zlecił 2026-10-25 poprawienie TASK-1093/P2-1–3, wskazane testy, regr
 
 ## Dependencies / entry conditions
 
-Przeczytany raport TASK-1093 i zakres B zaakceptowanego planu. Brak pytań blokujących i zmian API, domeny lub schematu. To osobna mała poprawka; nie uruchamia kolejnego płatnego audytu.
+Przeczytany raport TASK-1093 i zakres B zaakceptowanego planu. Brak pytań blokujących i zmian API, domeny lub schematu. Pierwotna implementacja bez kolejnego płatnego audytu. Po commicie operator osobno zlecił 2026-10-25 audyt trzech poprawek i zatwierdził koszt.
 
 ## Recommended execution
 
-gpt-6.1-sol / high, bez delegowania. Rozdzielenie przyczyny kolejki i kontrola kolejności zdarzeń React. Eskalacja przy regresji korekt lub konieczności rozszerzenia kontraktu.
+gpt-6.1-sol / high, bez delegowania wykonawczego. Rozdzielenie przyczyny kolejki i kontrola kolejności zdarzeń React. Eskalacja przy regresji korekt lub konieczności rozszerzenia kontraktu. Dodatkowy audyt po commicie: Claude Code claude-opus-5-5 / medium, jedna runda, limit 480 s, tylko do odczytu; osobna zgoda operatora 2026-10-25.
 
 ## Relevant docs
 
@@ -45,7 +45,7 @@ P2-1: anulować oczekujące automatyczne odświeżenie limitu po zmianie wzoru, 
 
 ## Out of scope
 
-TASK-1092/P2-3, nowe audyty Claude, API, dane operatora, migracje, restarty, merge, push, fizyczny Android.
+TASK-1092/P2-3, API, dane operatora, migracje, restarty, merge, push, fizyczny Android. Pierwotnie także bez nowego audytu Claude; późniejsza osobna zgoda obejmuje jeden audyt trzech poprawek, bez automatycznych kolejnych rund.
 
 ## Acceptance criteria
 
@@ -94,7 +94,7 @@ Wszystkie komendy miały jawny timeout 120 s (odczyty git 15 s). Testy i buildy 
 ### Not completed
 
 - TASK-1092/P2-3 (identity resultClient) świadomie odłożone na polecenie operatora; kod tego obszaru bez zmian.
-- Nie uruchamiano kolejnego audytu Claude. Historyczny raport TASK-1093 pozostaje bez zmian; niniejsze poprawki nie otrzymały nowego niezależnego werdyktu.
+- Przy pierwotnym commicie nie uruchamiano kolejnego audytu Claude. Późniejszą osobną zgodę i wynik opisuje sekcja Audit poniżej. Historyczny raport TASK-1093 pozostaje bez zmian.
 - Bez migracji bazy operatora, restartów, merge, push ani wdrożenia. Brak zmian API/schematu; testów PostgreSQL nie ponawiano. Fizyczny Android nieodebrany; mobilny viewport jest emulacją.
 
 ### Documentation updates / Definition of Done
@@ -105,10 +105,23 @@ Wszystkie komendy miały jawny timeout 120 s (odczyty git 15 s). Testy i buildy 
 
 ### Recommended next task
 
-Odbiór operatora i osobno uzgodnione wdrożenie. Migracja 0169, restarty i merge nadal wymagają odrębnych zgód. Dawne TASK-1092/P2-3 pozostaje zadaniem na później.
+Po audycie zalecana osobno zlecona poprawka TASK-1094/P2-1 i wzmocnienie synchronizacji testu TASK-1094/P2-2 przed wdrożeniem. Migracja 0169, restarty i merge nadal wymagają odrębnych zgód. Dawne TASK-1092/P2-3 pozostaje zadaniem na później.
+
+### Audit — osobna zgoda 2026-10-25
+
+Operator zlecił audyt trzech poprawek P2 z TASK-1094 i zatwierdził koszt, medium. Jedna runda Claude Code claude-opus-5-5 / medium, limit 480 s, przegląd statyczny bez zmian plików i uruchamiania testów. Zakres: zamknięcie TASK-1093/P2-1–3, ochrona odświeżenia po korekcie przy dirty drafcie i busy, asercje po zakończeniu wyszukiwania oraz rzeczywisty clean+click w Admin/share/panel. Dawne TASK-1092/P2-3 pozostaje poza zakresem. Wyniki testów z poprzedniej sekcji należą do wykonawcy; audytor rozróżnił przegląd statyczny od niezależnego uruchomienia testów. Runda 1 TASK-1094 jest odrębna od audytów TASK-1092 i TASK-1093.
+
+Wynik: [PASS — audyt Claude Code TASK-1094](../../quality/TASK-1094_AUDIT_claude-opus-5-5.md), bez P0/P1, zakończony w limicie 480 s. Potwierdzono główny przepływ anulowania starego limitu, ochronę korekty przy dirty drafcie w testowanej kolejności oraz obecność asercji i rzeczywistego clean+click dla trzech hostów. Audytor nie zmieniał plików i nie uruchamiał testów. Wykonawca po audycie zmienił tylko dokumentację, bez ponawiania testów aplikacji i bez kolejnego audytu.
+
+Nowe lokalne uwagi TASK-1094 (odrębne od TASK-1093 oraz dawnego TASK-1092/P2-3):
+
+- P2-1: przy zajętym kalkulatorze korekta kolejkuje odświeżenie, następnie zatwierdzenie limitu przy jeszcze czystym wzorze zastępuje przyczynę correction przez limit. Późniejsza edycja anuluje tę kolejkę, gubiąc również potrzebne odświeżenie po korekcie. Widoczne znaczniki i wygrane mogą pozostać sprzed korekty. Statycznie wskazana regresja wąskiej kolejności zdarzeń; warto poprawić przed wdrożeniem, zachowując pierwszeństwo przyczyny correction i aktualizując sam limit. Zalecany test: korekta → limit → edycja → koniec kalkulacji, jedno odświeżenie widocznego snapshotu z nowym limitem i ponowna kalkulacja.
+- P2-2: końcowe czekanie w browser fixture może trafić między zapis żądania a render loading, gdy przycisk i nagłówek nadal pokazują poprzedni stan. Wtedy asercja wykonuje się przed odpowiedzią. Mało prawdopodobne przy rzeczywistych opóźnieniach CDP, lecz zalecany jest jawny licznik zakończonych odpowiedzi fixture i oczekiwanie na niego przed końcową asercją.
+
+Obie uwagi pozostają otwarte po zleceniu wyłącznie audytu. Nie oznacza to akceptacji ryzyka przez operatora. Nie wykonano kolejnych poprawek ani nowej rundy audytu. Dawne TASK-1092/P2-3 pozostaje osobno odłożone.
 
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1094 — Trzy P2 po audycie TASK-1093 | gpt-6.1-sol | high | Mała zmiana kolejki UI z testem kolejności zdarzeń i ochroną korekt. | Bez nowego audytu w tym zleceniu; regresje wykonawcy. |
+| TASK-1094 — Trzy P2 po audycie TASK-1093 | gpt-6.1-sol | high | Mała zmiana kolejki UI z testem kolejności zdarzeń i ochroną korekt. | Claude Code claude-opus-5-5 / medium, jedna runda do 480 s; osobna zgoda operatora 2026-10-25 na audyt po commicie. |

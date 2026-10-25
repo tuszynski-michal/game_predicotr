@@ -65,7 +65,7 @@ Zwykły limit nie może zmienić przyczyny oczekującej korekty. Licznik odpowie
 
 ## Outcome
 
-Commit: v1.7.476 (hash dopisuje kolejny commit).
+Commit: v1.7.476 / `213665deec96dd2166c84a3515a523a6515e504b`.
 
 ### Changed
 

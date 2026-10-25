@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1095 — Pierwszeństwo korekty i zakończone odpowiedzi fixture (done)
 
 - Plik: tasks/completed/1095-board-search-correction-priority.md.
-- Commit: **v1.7.476** (hash dopisuje kolejny commit).
+- Commit: **v1.7.476 / `213665deec96dd2166c84a3515a523a6515e504b`** (hash dopisuje kolejny commit).
 - Obie uwagi TASK-1094/P2-1–2 poprawione: limit zachowuje priorytet oczekującej korekty, fixture czeka na gotową odpowiedź i nowy render.
 - RED obu kolejności odtworzony. Końcowo 108 unit, 119 interactions, 293 Reviewer i 18 kontroli Edge PASS. Lint, format, typy trzech pakietów, buildy Admin/Reviewer, docs i mapa PASS.
 - Jeden audyt Claude Code claude-opus-5-5/medium do 480 s: PASS bez P0/P1. Dwie drobne P2 dokumentacji/testów rozliczono w jednej rundzie poprawek; bez kolejnego audytu i bez zmian produkcyjnych po audycie.

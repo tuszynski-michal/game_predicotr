@@ -21,7 +21,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Akceptacja przed scaleniem** (operator, 2026-10-14, TASK-0992): wykonaj cały zlecony task, etap albo plan z kontrolami, dokumentacją i commitami, potem zapytaj o akceptację wyniku i zgodę na scalenie; scal po wyraźnym potwierdzeniu. Zgoda na scalenie obejmuje push `main` do origin (operator, 2026-10-16); restart usług i migracje mają osobne bramki. Źródło: `AGENTS.md`, „Scalanie do gałęzi integracyjnej”.
 - **Kolizje numeracji:** równoległe gałęzie kolidują w numerach TASK, D- i `vX.Y.N`; przed numerowaniem sprawdź czubek `main` i otwartych gałęzi. Istniejące kolizje (TASK-0603, 0649–0653, 0825, 0975, 0991, D-548) zostają: identyfikuj task pełną ścieżką pliku, bez przenumerowania commitów i raportów. TASK-1024 istnieje na `main` (zamknięcie tasków) i na `codex/v3-grid-fine-tuning`. TASK-1030–1033 (etap 2 odczytu startowego, `main`) zajął także tor V3 na `codex/v3-grid-fine-tuning`; kolejne numery bierz od TASK-1040 w górę po sprawdzeniu obu. Źródło: archiwum Q3/Q4.
 - **Cykl życia usług:** API, Admin, Reviewer i workery uruchamia, zatrzymuje i restartuje wyłącznie operator; zgoda na restart dotyczy jednego zadania. Usługi działają z `D:\game_predicotr` (API z `--reload`); z `C:\Users\tuszy\Documents\game_predicotr` nie uruchamiać usług. Źródło: `AGENTS.md`, „Kontrola lokalnych usług API i Admin”.
-- **Migracje bazy operatora tylko za osobną zgodą**, w przejściu stop usług → scalenie → `db:migrate` → start; test na `*_test` nie jest zgodą. Nie scalaj do `main` kodu wymagającego niewykonanej migracji (API z `--reload` nie wystartuje). Ostatni zapis: `0167_source_image_crops` (2026-10-17, etap A przycinania oryginałów). Źródło: archiwum Q4, „Hybrydowy silnik siatek V3…”.
+- **Migracja operatora 0169:** polecenie i zgoda na potrzebne restarty 2026-10-25. Odczyt potwierdził nadal `0168_source_crop_runs` i limit logu 4096. Migracja jeszcze niewykonana: wymaga uzgodnionej integracji zgodnego kodu (exact-head 0169), ochrony cudzych zmian w głównym checkout i przejścia stop → integracja → migrate → start. Testy `*_test` nie są migracją operatora. Źródło: `tasks/completed/1097-board-search-schema-readiness.md`.
 - **Operacje destrukcyjne** (GC, cleanup, usuwanie legacy, `db:reset:local`, DROP baz): implementacja nie jest zgodą na wykonanie; wymagany podgląd i jawne potwierdzenie. Źródło: `AGENTS.md`, „Trwałe workflowy i operacje danych”.
 - **Masowe odświeżenie odczytów wyszukiwarki** (TASK-0773, D-474, ok. 88 260 plansz gry 7) to osobne zadanie za zgodą operatora; okno planszy odświeża jedną planszę. Źródło: archiwum Q3, „D-470 / D-471 — Przybliżona wygrana…”.
 - **Odłożone braki `npm run quality`** (TASK-0940): 3 pomijane testy historycznych migracji, testy korpusów M5 bez korpusu, test junction tylko w worktree, 4 stare testy CLI (TASK-0928). Nie naprawiaj ich w innym zadaniu bez decyzji. Źródło: `tasks/completed/0940-green-quality-gate.md`.
@@ -37,7 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; A audit timeout, B R2 i TASK-1095 PASS; dawne P2-3 poprawione TASK-1096; migracja/restarty zlecone, bloker head 0169 do naprawy | gotowość 0169, integracja i odbiór | `codex/board-search-sequence-implementation` |
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; A audit timeout, B R2 i TASK-1095 PASS; P2-3 zamknięte TASK-1096, head 0169 poprawiony TASK-1097; migracja/restarty zlecone | akceptacja integracji, migracja i odbiór | `codex/board-search-sequence-implementation` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
@@ -66,7 +66,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 — tasks/completed/1096-board-search-read-dependencies.md
+- **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 — tasks/completed/1097-board-search-schema-readiness.md
+- **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md
 - **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
 - **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
 - **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
@@ -75,4 +76,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1087** — Nierozpoznane symbole w wyszukiwaniu 777a2 — v1.7.464 / `56d763a9` — tasks/completed/1087-777a2-unknown-search-wildcards.md
 - **TASK-1086** — Zabezpieczenia relokacji źródeł C — v1.7.462 / `4e944081` — tasks/completed/1086-harden-legacy-source-relocation.md
 - **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 / `1cfa7132` — tasks/completed/1085-prepare-legacy-c-copy-retirement.md
-- **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 / `787e8e27` — tasks/completed/1082-mandatory-merge-cleanup.md

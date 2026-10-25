@@ -20,6 +20,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
 from game_predictor_api.storage.board_search_sequence import _rank_with_timeout
 from game_predictor_api.storage.database import GameStorageSession
 from game_predictor_api.storage.models import GameModel, SymbolModel
+from game_predictor_api.storage.schema_readiness import require_alembic_head
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from test_board_search_approximate_win_repository import (
@@ -36,6 +37,11 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
     reason="Opt in to isolated PostgreSQL tests.",
 )
+
+
+def test_migrated_database_passes_startup_readiness(database):
+    assert database.url.database.endswith("_test")
+    require_alembic_head(database)
 
 
 @pytest.fixture(scope="module")

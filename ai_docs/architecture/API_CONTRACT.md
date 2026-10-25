@@ -484,6 +484,11 @@ uporządkowaną listę wzorów. Migracja `0169_board_search_sequence_logs` zwię
 wyłącznie `ck_bss_query_request` do 32768 bajtów; downgrade odmawia przy
 większych istniejących wpisach. Dotyczy również `searchSnapshot` korekty.
 
+API, worker i skrypty utrzymaniowe wymagają dokładnej głowy Alembic
+`0169_board_search_sequence_logs`. Manifest ownership pozostaje v19.
+Kod dla 0168 nie może być ponownie uruchamiany po tej migracji; nowy kod
+odmawia startu na 0168 do czasu kontrolowanego przejścia.
+
 GET listy korekt przyjmuje addytywne `searchEventId` zamiast `pattern` dla v2;
 oba naraz dają 422. Wydarzenie musi należeć do tej samej sesji i udanego
 wyszukiwania. Korekta detalu ciągu nadal używa własnej planszy jako początku

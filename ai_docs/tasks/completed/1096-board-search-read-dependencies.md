@@ -57,7 +57,7 @@ API, schema, migracja i restarty w tym commicie. Migracja 0169 wymaga osobnego s
 
 ## Outcome
 
-Commit: v1.7.478 (hash dopisuje kolejny commit).
+Commit: v1.7.478 / `e8018ef1eb34b1825d30f1f7d406e603ab50915a`.
 
 ### Changed
 

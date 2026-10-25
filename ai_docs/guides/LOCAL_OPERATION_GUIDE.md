@@ -1823,3 +1823,31 @@ z uwzględnieniem istniejącej procedury migracji i jej warunków wstępnych.
 TASK-1004 nie wykonuje tej operacji ani restartu API/Admin/workerów.
 Przed migracją nie należy uruchamiać nowego kodu przeciw starej głowie;
 startup poprawnie blokuje niezgodność0157/v10 z wymaganiem0158/v11.
+
+## Wyszukiwanie kolejnych układów: głowa 0169 (TASK-1097)
+
+Wyszukiwarka 1–4 kolejnych plansz wymaga Alembic
+`0169_board_search_sequence_logs`. Zmienia tylko limit requestu w
+`ck_bss_query_request` z 4096 do 32768 bajtów; manifest ownership pozostaje
+v19, bez przepisania rekordów domenowych. API, worker i skrypty utrzymaniowe
+wymagają dokładnej głowy 0169. Stary kod wymagający 0168 odmówi startu po
+migracji, a nowy odmówi startu przed nią.
+
+Kontrolowane przejście, po zgodzie operatora na migrację i potrzebne operacje:
+
+1. Przygotuj zgodny kod, testy i commit. Sprawdź głowę bazy, aktywne usługi,
+   gałąź głównego checkoutu i cudze niezapisane zmiany.
+2. Uzyskaj osobną akceptację wyniku i zgodę na integrację do main; zabezpiecz
+   cudzą pracę. Sama zgoda na migrację nie zastępuje tej akceptacji.
+3. Zatrzymaj zidentyfikowane API, Reviewer i workery na czas przejścia;
+   wykonaj zaakceptowaną integrację zgodnie z procedurą scalania.
+4. Z katalogu zgodnego kodu wykonaj `npm run db:migrate`, następnie
+   `npm run db:current`. Wynik musi wskazywać 0169. Sprawdź definicję
+   `ck_bss_query_request` (32768) i `require_alembic_head` w nowym procesie.
+5. Uruchom zgodne usługi i sprawdź pojedynczy wzór oraz ciąg przez Admina,
+   link gry i panel. Restart/uruchomienie usług wymaga polecenia operatora
+   w bieżącym zadaniu; agent nie przejmuje nieznanych procesów.
+
+Downgrade odmawia obniżenia limitu, jeśli istnieją requesty większe niż
+4096 bajtów. Testy na disposable `*_test` nie oznaczają migracji bazy
+operatora; rzeczywisty wynik przejścia zapisz oddzielnie w raporcie odbioru.

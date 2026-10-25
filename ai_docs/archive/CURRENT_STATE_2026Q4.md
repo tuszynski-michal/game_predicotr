@@ -6,10 +6,19 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1097 — Gotowość API i workera do migracji 0169 (done)
+
+- Plik: tasks/completed/1097-board-search-schema-readiness.md.
+- Commit: **v1.7.479** (hash dopisuje kolejny commit).
+- Exact-head guard zgodny z 0169, poprzednia 0168 odrzucana; manifest v19 bez zmian. Usunięty bloker startu po przyszłej migracji.
+- RED odtworzony. 29 testów gotowości/domeny/API i 9 disposable PostgreSQL PASS, w tym rzeczywisty upgrade/guard/downgrade. Ruff, format, mypy, docs i mapa PASS; pierwszy mypy timeout rozliczony, brak osieroconych procesów.
+- Offline SQL preview gotowy. Operator zezwolił na migrację i potrzebne restarty, lecz baza nadal 0168/4096, usługi bez zmian. Integracja main i ochrona obcej pracy przed rolloutem wymagają uzgodnienia.
+- Zapisano hash poprzedniego TASK-1096. Bez nowego audytu, merge, push ani rzeczywistej migracji operatora.
+
 ### TASK-1096 — Stabilne odczyty planszy podczas zmiany kontekstu korekt (done)
 
 - Plik: tasks/completed/1096-board-search-read-dependencies.md.
-- Commit: **v1.7.478** (hash dopisuje kolejny commit).
+- Commit: **v1.7.478 / `e8018ef1eb34b1825d30f1f7d406e603ab50915a`** (hash dopisuje kolejny commit).
 - Dawne TASK-1092/P2-3 usunięte: efekty odczytu zależą od metod odczytu, nie opakowania klienta. Blokada korekt i aktualny kontekst zachowane.
 - RED odtworzony. 108 unit, 120 interactions, 293 Reviewer i 18 kontroli Edge PASS. Lint, format, typy, oba buildy, docs i mapa PASS; bez nowego audytu.
 - Preflight wykazał osobny bloker gotowości 0169 (1 test failed, 14 passed), do TASK-1097. Migracja i potrzebne restarty zlecone, ale nie wykonane. Bez merge i push.

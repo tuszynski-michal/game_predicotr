@@ -23,7 +23,7 @@ Punkt startu: v1.7.469 / 921921fc, czysty worktree. Numer 1093 sprawdzony w loka
 
 ## Recommended execution
 
-gpt-6.1-sol / high. Mała zmiana współdzielonego React UI, wymagająca testu kolejności blur/click oraz regresji kalkulatora i management. Bez delegowania i nowej rundy audytu Claude; ten zakres obejmuje poprawkę i testy, nie rozszerza wykorzystanego budżetu wcześniejszych audytów.
+gpt-6.1-sol / high. Mała zmiana współdzielonego React UI, wymagająca testu kolejności blur/click oraz regresji kalkulatora i management. Pierwotne wykonanie bez delegowania i nowego audytu. Po commicie operator osobno zatwierdził 2026-10-25 audyt tej poprawki i koszt: Claude Code claude-opus-5-5 / medium, maksymalnie 480 s, tylko do odczytu.
 
 ## Relevant docs
 
@@ -48,7 +48,7 @@ gpt-6.1-sol / high. Mała zmiana współdzielonego React UI, wymagająca testu k
 
 ## Out of scope
 
-P2-3, API, schemat/migracje, dane operatora, restarty, merge, push i nowe audyty krzyżowe.
+P2-3, API, schemat/migracje, dane operatora, restarty, merge i push. Po osobnej zgodzie operatora zakres rozszerzono wyłącznie o jeden audyt poprawki P2-4 po commicie, medium/480 s.
 
 ## Acceptance criteria
 
@@ -98,11 +98,27 @@ Commit: v1.7.470 / `efaa3c507721c427fa8c3978d9871d132b6a3779`.
 - Mapa zregenerowana i aktualna, docs:check oraz git diff --check PASS. Kontrole dokumentacji powtórzono po zamknięciu taska.
 - Wszystkie skończone komendy miały timeout ≤120 s. Browser fixture działał poza sandboxem z loopback i nowym profilem Edge, bez usług aplikacji i danych operatora. Po wprowadzeniu opóźnienia uściślono oczekiwanie na odpowiedź przed nawigacją wyników w harnessie; nie zmieniano asercji odtwarzającej błąd.
 
+### Audit po commicie — zgoda 2026-10-25
+
+Operator zlecił jeszcze audyt Claude Code poprawki P2-4 i zatwierdził koszt: claude-opus-5-5 / medium, maksymalnie 480 s. Audyt statyczny, tylko do odczytu; bez migracji operatora, restartów i merge.
+
+Zakres dla audytora: commit efaa3c507721c427fa8c3978d9871d132b6a3779 względem 921921fc6cb23ba39da9e6d61182cc115ad30a5a, odpowiadające fragmenty use-board-search-sequence.ts i board-search-workspace.tsx oraz zmienione testy test-interactions/board-search-sequence.test.mjs i test-browser/board-search-sequence.mjs. Sprawdzić usunięcie P2-4, trafność asercji rzeczywistych zdarzeń, zachowanie brudnego/czystego draftu, busy oraz brak naruszenia wyboru wyniku i innych konsumentów. P2-3 pozostaje świadomie odłożone; nie jest przedmiotem tej poprawki. Wyniki testów w Outcome należą do wykonawcy, audytor nie ma ich uruchamiać. To runda 1 audytu TASK-1093, odrębna od R1/R2 TASK-1092.
+
+Wynik: [PASS — audyt Claude Code TASK-1093](../../quality/TASK-1093_AUDIT_claude-opus-5-5.md), runda 1, claude-opus-5-5 / medium, zakończony w limicie 480 s. Brak P0/P1. Audytor potwierdził minimalny zakres poprawki, usunięcie przyczyny blur/click dla brudnego draftu oraz zachowanie odświeżania czystego wzoru. Nie uruchamiał testów ani nie zmieniał plików; po audycie wykonawca również nie zmieniał kodu aplikacji i testów. Bez automatycznego ponawiania audytu.
+
+Nowe uwagi z tego raportu (identyfikatory lokalne dla TASK-1093, odrębne od TASK-1092):
+
+- P2-1: odświeżenie zakolejkowane przy jeszcze czystym wzorze i zajętym kalkulatorze nie jest anulowane, jeśli dopiero później użytkownik zmieni wzór. Po zakończeniu kalkulatora może ruszyć stary snapshot i na krótko zablokować Szukaj. To węższe resztkowe ryzyko, wskazane statycznie; nie było przedmiotem testu odtwarzającego P2-4. Zalecana dalsza poprawka: anulowanie takiego odświeżenia i osobny test kolejności commit limitu → edycja → koniec kalkulatora.
+- P2-2: browser test powinien ponownie sprawdzać dokładną liczbę żądań po zakończeniu całego wyszukiwania, aby wykluczyć dodatkowe spóźnione żądanie; obecna asercja występuje po pierwszym wpisie w fixtureRequests.
+- P2-3: browser test czystego wzoru obejmuje Enter, ale warto dodać też prawdziwy click po blur limitu z asercją jednego równoważnego żądania. Jest to uwaga o pokryciu testowym, nie odłożona wcześniej uwaga TASK-1092/P2-3 dotycząca identity resultClient.
+
+Pozostawiono je jako jawne P2 po audycie-only, bez deklarowania akceptacji ryzyka przez operatora. Nie uruchamiano nowych testów ani kolejnej rundy audytu. Aktualne zlecenie obejmowało przegląd, nie kolejne poprawki. P2-3 z TASK-1092 pozostaje osobno odłożone na polecenie operatora.
+
 ### Not completed
 
 - P2-3 pozostaje odłożone na wyraźne polecenie operatora; resultClient i porty korekt bez zmian.
 - Nie wykonywano migracji, restartów, merge, push ani wdrożenia na usługach operatora. API, OpenAPI i schemat nie zmieniały się; testów PostgreSQL nie powtarzano.
-- Fizyczny Android nieodebrany; mobile viewport to emulacja. Nie uruchamiano nowego audytu Claude — brak dodatkowego review w tym niezależnym tasku, zakres zlecenia to poprawka, regresje i commit. Historyczne audyty R1/R2 zachowano bez zmian.
+- Fizyczny Android nieodebrany; mobile viewport to emulacja. Przy pierwotnym commicie nie uruchamiano nowego audytu Claude; późniejszą osobną zgodę i wynik opisuje sekcja Audit powyżej. Historyczne audyty R1/R2 zachowano bez zmian.
 
 ### Documentation updates
 
@@ -117,4 +133,4 @@ Odbiór operatora i osobno uzgodnione wdrożenie z migracją 0169. P2-3 może by
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1093 — P2-4 limit i kliknięcie | gpt-6.1-sol | high | Kolejność zdarzeń React i realnej przeglądarki, mały zakres regresji. | Nie; test odtwarzający w browser fixture i istniejące regresje. Bez nowego audytu Claude. |
+| TASK-1093 — P2-4 limit i kliknięcie | gpt-6.1-sol | high | Kolejność zdarzeń React i realnej przeglądarki, mały zakres regresji. | Claude Code claude-opus-5-5 / medium, do 480 s; osobna zgoda operatora 2026-10-25 na audyt po commicie. |

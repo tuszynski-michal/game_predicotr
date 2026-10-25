@@ -34,3 +34,9 @@ Osobne polecenie operatora: [TASK-1093](../tasks/completed/1093-board-search-lim
 Poprawka rozdziela zmianę komórek draftu od ogólnego stale. Przy brudnym wzorze zatwierdzenie limitu nie uruchamia starego zapytania. Przy czystym nadal działa automatyczne odświeżenie i zachowanie wyboru. Ten sam test po poprawce wysyła dokładnie raz aktualny wzór z nowym limitem w Adminie, linku pojedynczym i panelu. Rozszerzony browser fixture: 14 kontroli PASS (szybkie i opóźnione odpowiedzi), bez błędów strony, w tym wcześniejsze kontrole nowego procesu i mobilnego viewportu. Regresje: 108 jednostkowych i 114 interakcji PASS; typy, lint i buildy obu aplikacji PASS.
 
 P2-3 pozostaje odłożone na wyraźne polecenie operatora. Historycznych raportów R1/R2 i ich werdyktów nie zmieniono; nie uruchamiano nowej rundy audytu. Bieżący wynik pozostałych regresji zapisano w Outcome TASK-1093.
+
+## Audyt poprawki P2-4 — 2026-10-25
+
+Po osobnej zgodzie na koszt wykonano [audyt TASK-1093](TASK-1093_AUDIT_claude-opus-5-5.md), claude-opus-5-5 / medium, do 480 s. Werdykt PASS, bez P0/P1; niezależnie potwierdzono usunięcie przyczyny podstawowego przypadku P2-4. Audyt był statyczny, bez nowych testów i bez zmian kodu.
+
+Pozostały trzy lokalne uwagi P2 z TASK-1093: P2-1 o wcześniej zakolejkowanym odświeżeniu czystego wzoru, który użytkownik zmieni dopiero podczas oczekiwania na kalkulator; P2-2 o ponownej kontroli liczby żądań po zakończeniu wyszukiwania; P2-3 o brakującym wariancie clean+click w browser teście. Dokładne scenariusze i dalsze zalecenia są w raporcie i Outcome. Nie oznaczają ponownego otwarcia wcześniejszych identyfikatorów TASK-1092. Odłożone TASK-1092/P2-3 (resultClient) nie było ponownie oceniane i pozostaje bez zmian.

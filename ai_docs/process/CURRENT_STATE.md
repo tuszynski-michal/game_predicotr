@@ -37,7 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; 2/2 done, B R2 PASS, A audit timeout; P2-4 poprawione w TASK-1093, P2-3 odłożone | brak (odbiór i wdrożenie za osobną zgodą) | `codex/board-search-sequence-implementation` |
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; 2/2 done, B R2 PASS, A audit timeout; TASK-1093 audit PASS z 3 P2 w Outcome; dawne P2-3 odłożone | brak (odbiór i wdrożenie za osobną zgodą) | `codex/board-search-sequence-implementation` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |

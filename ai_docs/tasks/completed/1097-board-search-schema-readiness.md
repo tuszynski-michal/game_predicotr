@@ -74,7 +74,7 @@ Zsynchronizowano EXPECTED_ALEMBIC_HEAD z jedyną głową Alembic 0169_board_sear
 
 ### Not completed
 
-Rzeczywista migracja i potrzebne restarty są zlecone, ale pozostają niewykonane. Najpierw potrzebne uzgodnione przejście do zgodnego kodu: osobna akceptacja main oraz ochrona cudzych zmian. Stary kod odmówi startu po 0169, więc nie pozostawiono działającej instalacji w takim stanie. Brak merge/push i nowego audytu Claude. Nie deklarować testowego upgrade jako wdrożenia. Pierwotny audyt A miał timeout bez werdyktu; ta mała poprawka ma testy, nie nowy niezależny audyt.
+Przy zamknięciu poprawki kodu rzeczywista migracja i restarty pozostawały niewykonane, do osobnej akceptacji main i ochrony cudzych zmian. Po jej uzyskaniu wykonano rollout opisany poniżej. Pierwotny audyt A miał timeout bez werdyktu; ta mała poprawka ma testy, nie nowy niezależny audyt. Fizycznego odbioru Androida nadal nie wykonano.
 
 ### Documentation updates / Definition of Done
 
@@ -82,7 +82,20 @@ API_CONTRACT opisuje wymagany head 0169 przy manifest v19; LOCAL_OPERATION_GUIDE
 
 ### Recommended next task
 
-Preflight całej gałęzi, akceptacja gotowego wyniku i decyzja operatora o integracji main z ochroną obcej pracy; potem wykonanie zatwierdzonej migracji oraz uruchomienie zgodnych usług i rzeczywisty odbiór Admin/link/panel. Nie jest potrzebna ponowna zgoda na samą migrację i konieczne restarty w tym zleceniu.
+Fizyczny odbiór Androida przez operatora; integracja, migracja i uruchomienie zostały wykonane w późniejszym zatwierdzonym rollout. Żaden dodatkowy audyt nie został uruchomiony.
+
+### Zatwierdzone wdrożenie operatora — 2026-10-25
+
+Operator zaakceptował scalenie 14 commitów 9319bde6–28e3d361 do main, push oraz usunięcie gałęzi/worktree, z zachowaniem gałęzi selektora i lokalnych zmian. Migracja i potrzebne restarty były już zatwierdzone. Ponowny preflight: ahead=14, behind=0, fast-forward; brak kolizji TASK/decyzji/migracji, tylko sześć powtórzonych numerów v1.7.467–472 z gałęzią selektora (historia zachowana).
+
+- Root był na codex/selector-games-updates / 91c253bb. Weryfikowana kopia sześciu dokumentów, patch zmian i ich oryginały: artifacts/board-search-cutover-backups/20261025-e41edd49/. Stash cdede61b77b13251777291c2ad7ca42a53e82b7c zachowuje zmiany DOC_INDEX i dwie wcześniejsze deletions artefaktów. Oryginalne dokumenty proposed są zachowane w kopii; ich zaakceptowane, rozwinięte wersje weszły wraz z funkcją. Gałąź selektora pozostaje bez zmiany commita.
+- Nie było queued/processing jobs. Zatrzymano wyłącznie zidentyfikowane drzewa API, Admina, Reviewera i general workera. Finalizacja statusu zatrzymanego workera przekroczyła 10 s; brak pozostałych procesów potwierdzono dokładnym filtrem, następnie ta sama finalizacja przez istniejące CLI zakończyła się poprawnie. Pierwsza próba przeniesienia dokumentów zatrzymała się na kontroli ścieżki (escape w skrypcie operacyjnym); poprawiono walidację z normalizowanych ścieżek, bez utraty plików.
+- Po przełączeniu root na main wykonano fast-forward 59ddbca3→28e3d361. npm run db:migrate na bazie operatora zakończył upgrade 0168→0169 i provisioning roli compliant, bez bypass RLS. Nowy proces require_alembic_head PASS; definicja ck_bss_query_request potwierdzona 32768. Dane domenowe bez przepisywania/usuwania; ownership manifest v19 bez zmian.
+- W głównym katalogu przebudowano admin-api-client, Admina i Reviewera. API wróciło z --reload, Admin w trybie dev, Reviewer w trybie start. General worker wrócił z wcześniejszym limitem 7 wątków; pozostałe lane nie zostały uruchomione. Porty 8000/3000/3001 gotowe. PID-y i logi w .runtime/board-search-api.pid.json, board-search-admin.pid.json, local-reviewer.json i worker-lanes.json.
+- Live smoke na istniejącej grze: POST dla 1/2/4 wzorów zwrócił po 2 wyniki, liczba plansz i cykliczny koniec poprawne. Approximate-win startuje od końca wybranego ciągu. Admin oraz /board-search i /board-search-panel w Reviewer HTTP 200. Nie tworzono testowych gier ani sesji udostępniania w bazie operatora. Pierwsze ręczne próby POST bez wymaganego X-Admin-Intent zostały prawidłowo odrzucone 403; po użyciu protokołu klienta Admina smoke PASS. Nie osłabiano zabezpieczeń.
+- Publiczny pełny workflow z uprawnieniami jest pokryty wcześniejszym fixture (18 kontroli i testy adapterów); live sprawdzono dostępność stron, bez tworzenia nowych sesji operatora. Fizyczny Android nadal nieweryfikowany. Wynik live-smoke.json i kopia 47 plików weryfikacji są w katalogu backupu.
+
+Dokumentacyjny zapis wdrożenia jest osobnym commitem po poprawce gotowości. Końcowe hashe main/origin i wynik push/sprzątania raportuje etap integracji, bez przypisywania ich do pierwotnego commita kodu v1.7.479.
 
 ## Przypisanie modeli do zadań
 

@@ -67,8 +67,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 ### Dostarczanie
 
 - [Wyszukiwanie po kolejnych układach](delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md)
-  — `accepted` 2026-10-24: do czterech kolejnych spinów, badże wzorów i wspólny ranking
-  w Adminie i udostępnianiu; TASK-1091–1092, bez zgody na migrację operatora lub merge.
+  — `accepted` 2026-10-24, wdrożony 2026-10-25: do czterech kolejnych spinów,
+  badże i wspólny ranking w Adminie i udostępnianiu; poprawki P2, main i Alembic 0169.
 
 - [Widok serii supergry dla odbiorcy linku](delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md)
   — `accepted` 2026-10-19, wykonany tego dnia (TASK-1056–1060, v1.7.426–430):

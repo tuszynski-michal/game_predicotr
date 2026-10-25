@@ -12,7 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **Selektor Windows 1.0.3 / TASK-1088–1090 (2026-10-25):** operator zatwierdził integrację, push i cleanup. Zakres: trwały katalog gier, aktualizacja partii, nazwa wyniku i domyślne 24 h nowego panelu udostępniania. Kontrole integracji i odbiór gotowego ZIP games/workflow PASS; pełny zestaw 276/276 zakończył się po limicie zewnętrznego runnera (124), szczegóły w raporcie. Bez migracji i restartów; fizyczny Windows/drugi komputer nieweryfikowane. Źródło: `quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`.
+- **Selektor 1.0.3 / TASK-1088–1090 (2026-10-25):** zgoda na merge/push/cleanup; katalog gier, aktualizacja, nazwa wyniku i domyślne 24 h panelu. Odbiór ZIP games/workflow PASS. Pełny zestaw: 276/276 po limicie runnera (124). Bez migracji i restartów. Źródło i ograniczenia: `quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 

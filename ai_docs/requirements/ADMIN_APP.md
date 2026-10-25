@@ -464,6 +464,11 @@ Jeżeli użytkownik zmieni wzór podczas oczekiwania, odświeżenie limitu jest
 anulowane; jawne wyszukiwanie użyje nowego wzoru i zapamiętanego limitu.
 Odświeżenie po zapisanej korekcie planszy nadal dotyczy widocznych wyników,
 także przy zmienionym wzorze w edytorze.
+Przy niezmienionym wzorze zmiana limitu podczas oczekiwania na to
+odświeżenie aktualizuje jego limit; nie usuwa potrzeby odczytu wyników
+po zapisanej korekcie. Po edycji wzoru limit jest tylko zapamiętywany:
+odświeżenie korekty zachowuje wcześniejszy limit, a jawne wyszukiwanie
+używa nowego.
 
 Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
 jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca

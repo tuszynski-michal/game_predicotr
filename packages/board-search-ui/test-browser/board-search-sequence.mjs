@@ -55,12 +55,22 @@ const sequence=(count)=>({gameId:'g',scope:'all_searchable',queryCellCount:count
 const single=()=>({gameId:'g',scope:'all_searchable',queryCellCount:1,superGameState:state,searchContextId:'fixture-context',results:[board(6),board(2)]});
 const range=(request)=>({gameId:'g',dataSource:'operational_review',dataFingerprintSha256:'a'.repeat(64),startSequenceNumber:request.startSequenceNumber,requestedSpinCount:request.spinCount,evaluatedSpinCount:request.spinCount,sequenceLength:6,wrappedAtSequenceEnd:true,startBoardStatus:null,rules:{rulesVersionId:'r',rulesVersion:1,spinCost:0},completeness:{completeBoardCount:0,missingBoardCount:request.spinCount,partialBoardCount:0},rows:[],summary:{balanceCredits:0,recognizedPayoutCredits:0,spinCostCredits:0}});
 window.fixtureRequests=[];
+window.fixtureResponses=[];
 const waitForSearch=()=>new Promise(resolve=>setTimeout(resolve,new URLSearchParams(location.search).has('slowSearch')?100:0));
-const api={listSymbols:async()=>({data:symbols}),symbolImageAssetUrl:()=>'/view.svg',boardSearchBoardViewUrl:()=>'/view.svg',searchGameBoards:async(_id,request)=>{window.fixtureRequests.push({kind:'single',request});await waitForSearch();return {data:single()};},searchGameBoardSequence:async(_id,request)=>{window.fixtureRequests.push({kind:'sequence',request});await waitForSearch();return {data:sequence(request.patterns.length)};},getBoardSearchApproximateWin:async(_id,request)=>({data:range(request)}),getBoardSearchBoardDetail:async()=>({error:{code:'FIXTURE',message:'Fixture'}})};
+const fixtureSearch=async(kind,request)=>{
+ const receipt={kind,request};window.fixtureRequests.push(receipt);
+ await waitForSearch();
+ const body=kind==='sequence'?sequence(request.patterns.length):single();
+ // Distinct scores for limits 7/8/9 prove the new response was rendered;
+ // an old enabled button or unchanged heading cannot satisfy the wait.
+ for(const result of body.results)result.score.score=request.limit??100;
+ window.fixtureResponses.push(receipt);return body;
+};
+const api={listSymbols:async()=>({data:symbols}),symbolImageAssetUrl:()=>'/view.svg',boardSearchBoardViewUrl:()=>'/view.svg',searchGameBoards:async(_id,request)=>({data:await fixtureSearch('single',request)}),searchGameBoardSequence:async(_id,request)=>({data:await fixtureSearch('sequence',request)}),getBoardSearchApproximateWin:async(_id,request)=>({data:range(request)}),getBoardSearchBoardDetail:async()=>({error:{code:'FIXTURE',message:'Fixture'}})};
 const share=host==='admin'?null:createBoardSearchShareDataSource({sessionId:'s',apiBase:host==='panel'?'/fixture/panel':'/fixture/share',fetchImplementation:async(url,options={})=>{
  const parsed=new URL(url,location.href);let body;
  if(parsed.pathname.endsWith('/symbols'))body=symbols;
- else if(parsed.pathname.endsWith('/search')){const request=options.method==='POST'?JSON.parse(options.body):{};window.fixtureRequests.push({kind:options.method==='POST'?'sequence':'single',request});body=options.method==='POST'?sequence(request.patterns.length):single();await waitForSearch();}
+ else if(parsed.pathname.endsWith('/search')){const request=options.method==='POST'?JSON.parse(options.body):{};body=await fixtureSearch(options.method==='POST'?'sequence':'single',request);}
  else if(parsed.pathname.endsWith('/approximate-win'))body=range({startSequenceNumber:Number(parsed.searchParams.get('startSequenceNumber')),spinCount:Number(parsed.searchParams.get('spinCount'))});
  else throw new Error('Unexpected fixture route '+url);
  return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
@@ -167,6 +177,30 @@ async function compose(page, count) {
   }
 }
 
+async function waitForSearchResponse(page, responsesBefore, expected) {
+  await page.waitForFunction(
+    (before) => window.fixtureResponses.length > before,
+    responsesBefore,
+  );
+  await page
+    .locator('.boardSearchResultMetrics')
+    .getByText(`${expected.request.limit.toFixed(1)}%`, { exact: true })
+    .waitFor();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('button')].some(
+      (button) => button.textContent === 'Szukaj plansz' && !button.disabled,
+    ),
+  );
+  assert.deepEqual(
+    await page.evaluate(
+      (before) => window.fixtureResponses.slice(before),
+      responsesBefore,
+    ),
+    [expected],
+    'exactly one completed response with the current query',
+  );
+}
+
 async function limitClickRegression(page, host, count, slowSearch = true) {
   await page.goto(
     `${origin}/?host=${host}${slowSearch ? '&slowSearch=1' : ''}`,
@@ -187,6 +221,9 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
     return { kind: previous.kind, request };
   });
   const before = await page.evaluate(() => window.fixtureRequests.length);
+  const responsesBefore = await page.evaluate(
+    () => window.fixtureResponses.length,
+  );
   const limit = page.getByRole('spinbutton', {
     name: 'Liczba wyników wyszukiwania',
   });
@@ -211,14 +248,7 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
     `${host} (${timing}): P2-4 real blur/click sends the edited pattern exactly once`,
   );
 
-  await page
-    .getByRole('button', { name: 'Szukaj plansz', exact: true })
-    .waitFor({ state: 'visible' });
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('button')].some(
-      (button) => button.textContent === 'Szukaj plansz' && !button.disabled,
-    ),
-  );
+  await waitForSearchResponse(page, responsesBefore, expected);
   await page.getByRole('heading', { name: /^Plansza startowa #/ }).waitFor();
   assert.deepEqual(
     await page.evaluate(
@@ -242,6 +272,9 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
     const cleanBefore = await page.evaluate(
       () => window.fixtureRequests.length,
     );
+    const cleanResponsesBefore = await page.evaluate(
+      () => window.fixtureResponses.length,
+    );
     await limit.fill(String(nextLimit));
     if (method === 'Enter') await limit.press('Enter');
     else await click(page, 'Szukaj plansz');
@@ -260,11 +293,7 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
       cleanExpected,
       `${host}: clean pattern ${method} sends one equivalent request`,
     );
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll('button')].some(
-        (button) => button.textContent === 'Szukaj plansz' && !button.disabled,
-      ),
-    );
+    await waitForSearchResponse(page, cleanResponsesBefore, cleanExpected[0]);
     await page
       .getByRole('heading', {
         name: new RegExp('^Plansza startowa #' + end + ' ·'),

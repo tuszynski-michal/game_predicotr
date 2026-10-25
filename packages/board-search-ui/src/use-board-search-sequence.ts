@@ -540,14 +540,17 @@ export function useBoardSearchSequence({
     },
     repeatWithLimit: (nextLimit: number) => {
       if (visibleSubmitted !== null && !loading.current)
-        setRepeatPending({
-          reason: 'limit',
+        setRepeatPending((pending) => ({
+          // A new limit may update a correction refresh, never downgrade it.
+          reason: pending?.reason === 'correction' ? 'correction' : 'limit',
           options: {
-            ...visibleSubmitted,
+            ...(pending?.reason === 'correction'
+              ? pending.options
+              : visibleSubmitted),
             limit: nextLimit,
             preserveSelection: true,
           },
-        });
+        }));
     },
     replaceDraft,
     clear,

@@ -933,6 +933,91 @@ test('TASK-1093 P2-1 correction refresh survives a dirty draft while calculation
   await unmount(root);
 });
 
+for (const order of ['correction-first', 'limit-first', 'draft-before-limit']) {
+  test(`TASK-1094 P2-1 ${order}: later limits preserve a queued correction through draft edits`, async () => {
+    let finish;
+    const { api, calls } = fixture({
+      getBoardSearchApproximateWin: (_id, options) => {
+        calls.range.push(options);
+        return new Promise((resolve) => {
+          finish = () => resolve({ data: range(options) });
+        });
+      },
+    });
+    const root = await mount(api, {
+      replay: {
+        id: order,
+        cells: pattern('A').cells,
+        patterns: [pattern('A'), pattern('B')],
+        scope: 'all_searchable',
+        limit: 15,
+        approximateWin: null,
+        boardSequenceNumber: null,
+      },
+    });
+    await waitFor(() => calls.range.length === 1);
+    const commitLimit = async (value) => {
+      const input = document.querySelector(
+        'input[aria-label="Liczba wyników wyszukiwania"]',
+      );
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        ).set.call(input, String(value));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await act(async () =>
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+        ),
+      );
+    };
+    if (order === 'limit-first') await commitLimit(7);
+    await click(button('Układ 1: #6 · 100.0%'));
+    await waitFor(() => button('Popraw symbole'));
+    await click(button('Popraw symbole'));
+    await click(document.querySelector('.boardSearchBoardCellTarget'));
+    await click(
+      document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
+    );
+    await waitFor(() => calls.correction.length === 1);
+    await click(button('Zamknij'));
+    if (order === 'correction-first') await commitLimit(7);
+    if (order === 'draft-before-limit') await click(symbol('A'));
+    await commitLimit(9);
+    if (order !== 'draft-before-limit') await click(symbol('A'));
+    assert.equal(calls.multi.length, 1, 'all refreshes wait for calculation');
+    await act(async () => finish());
+    assert.equal(
+      calls.multi.length,
+      2,
+      'correction was not cancelled as a limit',
+    );
+    assert.deepEqual(calls.multi[1], {
+      patterns: [pattern('A'), pattern('B')],
+      limit: order === 'draft-before-limit' ? 15 : 9,
+      scope: 'all_searchable',
+    });
+    await waitFor(() => calls.range.length === 2);
+    assert.equal(calls.range[1].startSequenceNumber, 1);
+    assert.match(document.body.textContent, /Wzór zmieniony/);
+    await act(async () => finish());
+    assert.equal(calls.multi.length, 2, 'exactly one correction refresh');
+    if (order === 'draft-before-limit') {
+      await search();
+      assert.deepEqual(calls.multi[2], {
+        patterns: [pattern('A'), pattern('A')],
+        limit: 9,
+        scope: 'all_searchable',
+      });
+      await waitFor(() => calls.range.length === 3);
+      await act(async () => finish());
+    }
+    await unmount(root);
+  });
+}
+
 test('P2-4 dirty limit commit never queues the previous query, even while the calculator is busy', async () => {
   let finish;
   const { api, calls } = fixture({

@@ -79,7 +79,7 @@ Brak pytań blokujących i nowych decyzji domenowych. Fizyczny Android poza zakr
 
 ## Outcome
 
-Commit: v1.7.470 (hash dopisuje kolejny commit).
+Commit: v1.7.470 / `efaa3c507721c427fa8c3978d9871d132b6a3779`.
 
 ### Changed
 

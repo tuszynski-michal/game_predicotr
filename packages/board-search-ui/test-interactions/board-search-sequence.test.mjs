@@ -776,6 +776,119 @@ test('a correction refresh keeps selection and recalculates the same end positio
   await unmount(root);
 });
 
+test('TASK-1092 P2-3 correction capabilities change without reloading details or preloading old results', async () => {
+  const { api, calls } = fixture();
+  const originalSearch = api.searchGameBoards;
+  let finish;
+  let holdSearch = false;
+  api.searchGameBoards = (id, request) => {
+    if (!holdSearch) return originalSearch(id, request);
+    calls.single.push(request);
+    return new Promise((resolve) => {
+      finish = () =>
+        resolve({ data: single(), searchContextId: 'new-context' });
+    });
+  };
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await click(button('Pokaż planszę'));
+  await waitFor(() => button('Popraw symbole'));
+  assert.equal(calls.detail.length, 1);
+  let preloads = 0;
+  const originalImage = globalThis.Image;
+  Object.defineProperty(globalThis, 'Image', {
+    configurable: true,
+    value: class {
+      set src(_value) {
+        preloads++;
+      }
+    },
+  });
+  const replay = {
+    id: 'new-receipt',
+    cells: pattern('A').cells,
+    scope: 'all_searchable',
+    limit: 15,
+    approximateWin: null,
+    boardSequenceNumber: null,
+  };
+  try {
+    holdSearch = true;
+    await act(async () =>
+      root.render(
+        React.createElement(BoardSearchWorkspace, {
+          client: api,
+          gameId: 'g',
+          replay,
+        }),
+      ),
+    );
+    await waitFor(() => finish !== undefined);
+    assert.equal(
+      button('Popraw symbole'),
+      undefined,
+      'corrections are unavailable during search',
+    );
+    assert.equal(
+      calls.detail.length,
+      1,
+      'loading capability change does not reload the board',
+    );
+    assert.equal(
+      preloads,
+      0,
+      'loading does not preload the unchanged result list',
+    );
+    await act(async () => finish());
+    await waitFor(() => button('Popraw symbole'));
+    assert.equal(
+      calls.detail.length,
+      1,
+      'new correction context does not reload the same board',
+    );
+    assert.equal(
+      preloads,
+      1,
+      'the fresh result list still preloads its neighbour',
+    );
+    await click(button('Popraw symbole'));
+    await click(document.querySelector('.boardSearchBoardCellTarget'));
+    await click(
+      document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
+    );
+    await waitFor(() => calls.correction.length === 1);
+    assert.equal(calls.correction[0][3].searchContextId, 'new-context');
+    await waitFor(() => calls.detail.length === 2);
+    const originalRead = api.getBoardSearchBoardDetail;
+    const nextApi = {
+      ...api,
+      getBoardSearchBoardDetail: (...args) => originalRead(...args),
+    };
+    await act(async () =>
+      root.render(
+        React.createElement(BoardSearchWorkspace, {
+          client: nextApi,
+          gameId: 'g',
+          replay,
+        }),
+      ),
+    );
+    await waitFor(() => calls.detail.length === 3);
+    assert.equal(
+      preloads,
+      1,
+      'changing only the detail reader does not preload images',
+    );
+  } finally {
+    Object.defineProperty(globalThis, 'Image', {
+      configurable: true,
+      value: originalImage,
+    });
+    await unmount(root);
+  }
+});
+
 test('P1-1 approved-only replay and restore are one-shot; manual searches and New Search always use all searchable', async () => {
   const replay = {
     id: 'approved',

@@ -470,6 +470,12 @@ po zapisanej korekcie. Po edycji wzoru limit jest tylko zapamiętywany:
 odświeżenie korekty zachowuje wcześniejszy limit, a jawne wyszukiwanie
 używa nowego.
 
+Zmiana blokady wyszukiwania lub kontekstu korekt nie ponawia odczytu
+otwartej planszy ani wstępnego pobierania tych samych sąsiednich wyników.
+Zapis korekty nadal używa aktualnego kontekstu, a trwające wyszukiwanie
+blokuje edycję. Celowe odświeżenie po zapisie i zmiana planszy lub reguł
+nadal pobierają nowy odczyt.
+
 Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
 jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca
 odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując

@@ -174,6 +174,7 @@ export function BoardSearchBoardLinesModal({
   >(requestedRulesVersionId);
   const tableComparable =
     row !== null && selectedRulesVersionId === requestedRulesVersionId;
+  const getBoardDetail = api.getBoardSearchBoardDetail;
 
   useEffect(() => {
     const element = dialog.current;
@@ -194,8 +195,8 @@ export function BoardSearchBoardLinesModal({
       setImageFailed(false);
       void (
         selectedRulesVersionId === null
-          ? api.getBoardSearchBoardDetail(gameId, sequenceNumber)
-          : api.getBoardSearchBoardDetail(gameId, sequenceNumber, {
+          ? getBoardDetail(gameId, sequenceNumber)
+          : getBoardDetail(gameId, sequenceNumber, {
               rulesVersionId: selectedRulesVersionId,
             })
       )
@@ -228,7 +229,7 @@ export function BoardSearchBoardLinesModal({
     return () => {
       cancelled = true;
     };
-  }, [api, gameId, sequenceNumber, attempt, selectedRulesVersionId]);
+  }, [getBoardDetail, gameId, sequenceNumber, attempt, selectedRulesVersionId]);
 
   // Close the native modal first: while it is open everything else is
   // inert, so the parent could not move focus back to the row button.

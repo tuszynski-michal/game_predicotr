@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1096 — Stabilne odczyty planszy podczas zmiany kontekstu korekt (done)
+
+- Plik: tasks/completed/1096-board-search-read-dependencies.md.
+- Commit: **v1.7.478** (hash dopisuje kolejny commit).
+- Dawne TASK-1092/P2-3 usunięte: efekty odczytu zależą od metod odczytu, nie opakowania klienta. Blokada korekt i aktualny kontekst zachowane.
+- RED odtworzony. 108 unit, 120 interactions, 293 Reviewer i 18 kontroli Edge PASS. Lint, format, typy, oba buildy, docs i mapa PASS; bez nowego audytu.
+- Preflight wykazał osobny bloker gotowości 0169 (1 test failed, 14 passed), do TASK-1097. Migracja i potrzebne restarty zlecone, ale nie wykonane. Bez merge i push.
+
 ### TASK-1095 — Pierwszeństwo korekty i zakończone odpowiedzi fixture (done)
 
 - Plik: tasks/completed/1095-board-search-correction-priority.md.

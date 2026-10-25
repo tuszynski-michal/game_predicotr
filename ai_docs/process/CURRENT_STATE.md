@@ -37,7 +37,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; 2/2 done, B R2 PASS, A audit timeout; poprawki TASK-1095 audit PASS, drobne P2 rozliczone po audycie; dawne TASK-1092/P2-3 odłożone | brak (odbiór i wdrożenie za osobną zgodą) | `codex/board-search-sequence-implementation` |
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | rev. 3.1; A audit timeout, B R2 i TASK-1095 PASS; dawne P2-3 poprawione TASK-1096; migracja/restarty zlecone, bloker head 0169 do naprawy | gotowość 0169, integracja i odbiór | `codex/board-search-sequence-implementation` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
@@ -66,6 +66,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 — tasks/completed/1096-board-search-read-dependencies.md
 - **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
 - **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
 - **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
@@ -75,4 +76,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1086** — Zabezpieczenia relokacji źródeł C — v1.7.462 / `4e944081` — tasks/completed/1086-harden-legacy-source-relocation.md
 - **TASK-1085** — Przygotowanie usunięcia starej kopii C — v1.7.460 / `1cfa7132` — tasks/completed/1085-prepare-legacy-c-copy-retirement.md
 - **TASK-1082** — Sprzątanie po scaleniu — v1.7.458 / `787e8e27` — tasks/completed/1082-mandatory-merge-cleanup.md
-- **TASK-1081** — Podwójny podgląd wyszukanej planszy — v1.7.455 / `ec72da2d` — tasks/completed/1081-board-search-duplicate-preview.md

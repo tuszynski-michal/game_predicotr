@@ -94,6 +94,7 @@ export function BoardSearchResults({
   const [boardOpen, setBoardOpen] = useState(false);
   const [detailSequence, setDetailSequence] = useState<number | null>(null);
   const boardTriggerRef = useRef<HTMLButtonElement>(null);
+  const boardViewUrl = api.boardSearchBoardViewUrl;
 
   useEffect(() => {
     for (const index of boardSearchNeighbourIndexes(state)) {
@@ -102,9 +103,13 @@ export function BoardSearchResults({
         continue;
       }
       const image = new Image();
-      image.src = boardSearchViewUrl(api, gameId, neighbour);
+      image.src = boardViewUrl(
+        gameId,
+        neighbour.sequenceNumber,
+        neighbour.boardChecksumSha256,
+      );
     }
-  }, [api, gameId, state]);
+  }, [boardViewUrl, gameId, state]);
 
   function move(direction: -1 | 1) {
     onStateChange(moveBoardSearchResult(state, direction));
@@ -474,6 +479,7 @@ function FullPhotoCrop({
     readonly height: number;
   } | null>(null);
   const cancelledRef = useRef(false);
+  const getReviewItem = api.getOperationalImageReviewItem;
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -482,7 +488,6 @@ function FullPhotoCrop({
     // changes, so `quad`/`naturalSize` already start out null for a
     // new board — assigning them again here would be a synchronous
     // setState in the effect body for no behavioural benefit.
-    const getReviewItem = api.getOperationalImageReviewItem;
     if (
       result.reviewItemId === null ||
       result.importJobId === null ||
@@ -513,7 +518,7 @@ function FullPhotoCrop({
     return () => {
       cancelledRef.current = true;
     };
-  }, [api, gameId, result]);
+  }, [getReviewItem, gameId, result]);
 
   if (failed) {
     return <BoardAssetError />;

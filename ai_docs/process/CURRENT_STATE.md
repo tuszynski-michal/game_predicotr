@@ -66,7 +66,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 — tasks/completed/1097-board-search-schema-readiness.md
+- **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md
 - **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md
 - **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
 - **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md

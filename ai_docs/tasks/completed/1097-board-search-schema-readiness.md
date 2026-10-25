@@ -56,7 +56,7 @@ Zmiana kontraktu API, nowy schemat, downgrade bazy operatora i jakiekolwiek usuw
 
 ## Outcome
 
-Commit: v1.7.479 (hash dopisuje kolejny commit).
+Commit: v1.7.479 / `c2e870454a808baa29a508badcb352c334ac11c0`.
 
 ### Changed
 

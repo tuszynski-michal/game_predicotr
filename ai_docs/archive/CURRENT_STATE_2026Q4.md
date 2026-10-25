@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1097 — Gotowość API i workera do migracji 0169 (done)
 
 - Plik: tasks/completed/1097-board-search-schema-readiness.md.
-- Commit: **v1.7.479** (hash dopisuje kolejny commit).
+- Commit: **v1.7.479 / `c2e870454a808baa29a508badcb352c334ac11c0`** (hash dopisuje kolejny commit).
 - Exact-head guard zgodny z 0169, poprzednia 0168 odrzucana; manifest v19 bez zmian. Usunięty bloker startu po przyszłej migracji.
 - RED odtworzony. 29 testów gotowości/domeny/API i 9 disposable PostgreSQL PASS, w tym rzeczywisty upgrade/guard/downgrade. Ruff, format, mypy, docs i mapa PASS; pierwszy mypy timeout rozliczony, brak osieroconych procesów.
 - Offline SQL preview gotowy. Operator zezwolił na migrację i potrzebne restarty, lecz baza nadal 0168/4096, usługi bez zmian. Integracja main i ochrona obcej pracy przed rolloutem wymagają uzgodnienia.

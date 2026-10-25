@@ -101,8 +101,10 @@ export function useBoardSearchSequence({
   const mounted = useRef(true);
   const [calculationBusy, setCalculationBusy] = useState(false);
   const [resultRevision, setResultRevision] = useState(0);
-  const [repeatPending, setRepeatPending] =
-    useState<SequenceSearchOptions | null>(null);
+  const [repeatPending, setRepeatPending] = useState<{
+    reason: 'limit' | 'correction';
+    options: SequenceSearchOptions;
+  } | null>(null);
   const calculationBusyRef = useRef(false);
   const storageKey = boardSearchSequenceStorageKey(scope);
   const input = useMemo(
@@ -455,8 +457,22 @@ export function useBoardSearchSequence({
     visibleSubmitted?.limit === limit &&
     status.kind === 'ready';
   useEffect(() => {
+    if (repeatPending === null) return;
+    let cancelled = false;
+    // Limit refreshes belong to the unchanged draft. Corrections belong to
+    // the visible results and must still refresh them after draft edits.
+    if (repeatPending.reason === 'limit' && draftChanged) {
+      queueMicrotask(() => {
+        if (!cancelled && mounted.current)
+          setRepeatPending((pending) =>
+            pending === repeatPending ? null : pending,
+          );
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     if (
-      repeatPending === null ||
       calculationBusy ||
       status.kind === 'loading' ||
       visibleSubmitted === null
@@ -464,14 +480,17 @@ export function useBoardSearchSequence({
       return;
     const revision = epoch.current;
     queueMicrotask(() => {
-      if (!mounted.current || revision !== epoch.current) return;
+      if (cancelled || !mounted.current || revision !== epoch.current) return;
       setRepeatPending(null);
-      search(repeatPending);
+      search(repeatPending.options);
     });
-    // The request is a one-shot refresh after an edit; waiting for a real
-    // calculation to settle must not silently drop it.
+    return () => {
+      cancelled = true;
+    };
+    // Corrections are one-shot refreshes of the visible snapshot, while a
+    // limit refresh becomes obsolete as soon as the draft changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repeatPending, calculationBusy, status.kind]);
+  }, [repeatPending, calculationBusy, status.kind, draftChanged]);
   return {
     editor: editors[activeIndex],
     editors,
@@ -515,17 +534,19 @@ export function useBoardSearchSequence({
     repeat: () => {
       if (visibleSubmitted !== null)
         setRepeatPending({
-          ...visibleSubmitted,
-          limit,
-          preserveSelection: true,
+          reason: 'correction',
+          options: { ...visibleSubmitted, limit, preserveSelection: true },
         });
     },
     repeatWithLimit: (nextLimit: number) => {
       if (visibleSubmitted !== null && !loading.current)
         setRepeatPending({
-          ...visibleSubmitted,
-          limit: nextLimit,
-          preserveSelection: true,
+          reason: 'limit',
+          options: {
+            ...visibleSubmitted,
+            limit: nextLimit,
+            preserveSelection: true,
+          },
         });
     },
     replaceDraft,

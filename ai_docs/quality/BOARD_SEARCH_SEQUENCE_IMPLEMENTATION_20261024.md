@@ -40,3 +40,11 @@ P2-3 pozostaje odłożone na wyraźne polecenie operatora. Historycznych raport�
 Po osobnej zgodzie na koszt wykonano [audyt TASK-1093](TASK-1093_AUDIT_claude-opus-5-5.md), claude-opus-5-5 / medium, do 480 s. Werdykt PASS, bez P0/P1; niezależnie potwierdzono usunięcie przyczyny podstawowego przypadku P2-4. Audyt był statyczny, bez nowych testów i bez zmian kodu.
 
 Pozostały trzy lokalne uwagi P2 z TASK-1093: P2-1 o wcześniej zakolejkowanym odświeżeniu czystego wzoru, który użytkownik zmieni dopiero podczas oczekiwania na kalkulator; P2-2 o ponownej kontroli liczby żądań po zakończeniu wyszukiwania; P2-3 o brakującym wariancie clean+click w browser teście. Dokładne scenariusze i dalsze zalecenia są w raporcie i Outcome. Nie oznaczają ponownego otwarcia wcześniejszych identyfikatorów TASK-1092. Odłożone TASK-1092/P2-3 (resultClient) nie było ponownie oceniane i pozostaje bez zmian.
+
+## Poprawki trzech P2 z TASK-1093 — 2026-10-25
+
+Na osobne polecenie operatora [TASK-1094](../tasks/completed/1094-board-search-pending-limit.md) rozlicza wszystkie trzy nowe uwagi. P2-1 odtworzono testem interakcji: po zatwierdzeniu limitu przy czystym wzorze i zajętym kalkulatorze, późniejsza edycja powodowała drugie żądanie starego snapshotu (RED). Kolejka rozróżnia teraz limit od korekty; edycja anuluje oczekujący limit przed zakończeniem kalkulacji. Odświeżenie po korekcie zachowuje widoczny snapshot, wybór i ponowne obliczenie wygranych mimo zmienionego draftu. Oba scenariusze mają zaliczone testy.
+
+P2-2: browser fixture ponownie porównuje pełną listę żądań po zakończeniu wyszukiwania. P2-3: czysty wzór sprawdzany jest przez Enter oraz rzeczywisty click po blur limitu, z dokładnie jednym równoważnym żądaniem i zachowaniem wybranego wyniku. Admin, link i panel; dodatkowo wariant natychmiastowej odpowiedzi Admina. Wynik: 18 kontroli PASS, bez błędów strony, w tym przywrócenie w nowym procesie i emulowany mobilny viewport. Regresje wspólnego UI: 108 jednostkowych i 116 interakcji PASS.
+
+Historyczny audyt TASK-1093 pozostaje niezmieniony. Nie uruchamiano kolejnego audytu Claude; bieżące poprawki i weryfikacje należą do wykonawcy. TASK-1092/P2-3 pozostaje odłożone. Bez migracji bazy operatora, restartów, merge i push. Pełne wyniki kontroli i ograniczenia w Outcome TASK-1094.

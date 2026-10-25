@@ -848,6 +848,91 @@ test('clean limit refresh preserves the submitted pattern and waits for the calc
   await unmount(root);
 });
 
+test('TASK-1093 P2-1 editing a clean draft cancels a limit refresh queued during calculation', async () => {
+  let finish;
+  const { api, calls } = fixture({
+    getBoardSearchApproximateWin: (_id, options) =>
+      new Promise((resolve) => {
+        finish = () => resolve({ data: range(options) });
+      }),
+  });
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await waitFor(() => finish !== undefined);
+  const input = document.querySelector(
+    'input[aria-label="Liczba wyników wyszukiwania"]',
+  );
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    ).set.call(input, '7');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () =>
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    ),
+  );
+  assert.equal(calls.single.length, 1, 'clean refresh waits for calculation');
+  await click(symbol('B'));
+  await act(async () => finish());
+  await waitFor(() => button('Szukaj plansz')?.disabled === false);
+  assert.equal(calls.single.length, 1, 'editing cancels the old queued query');
+  await search();
+  assert.equal(calls.single.length, 2);
+  assert.deepEqual(calls.single[1], {
+    cells: [...pattern('A').cells, { cellIndex: 5, symbolCode: 'B' }],
+    limit: 7,
+    scope: 'all_searchable',
+  });
+  await unmount(root);
+});
+
+test('TASK-1093 P2-1 correction refresh survives a dirty draft while calculation is busy', async () => {
+  let finish;
+  const { api, calls } = fixture({
+    getBoardSearchApproximateWin: (_id, options) => {
+      calls.range.push(options);
+      return new Promise((resolve) => {
+        finish = () => resolve({ data: range(options) });
+      });
+    },
+  });
+  const root = await mount(api, {
+    replay: {
+      id: 'dirty-correction',
+      cells: pattern('A').cells,
+      patterns: [pattern('A'), pattern('B')],
+      scope: 'all_searchable',
+      limit: 15,
+      approximateWin: null,
+      boardSequenceNumber: null,
+    },
+  });
+  await waitFor(() => calls.range.length === 1);
+  await click(symbol('A'));
+  await click(button('Układ 1: #6 · 100.0%'));
+  await waitFor(() => button('Popraw symbole'));
+  await click(button('Popraw symbole'));
+  await click(document.querySelector('.boardSearchBoardCellTarget'));
+  await click(
+    document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
+  );
+  await waitFor(() => calls.correction.length === 1);
+  await click(button('Zamknij'));
+  assert.equal(calls.multi.length, 1, 'correction waits for calculation');
+  await act(async () => finish());
+  await waitFor(() => calls.multi.length === 2);
+  assert.deepEqual(calls.multi[1].patterns, [pattern('A'), pattern('B')]);
+  await waitFor(() => calls.range.length === 2);
+  assert.equal(calls.range[1].startSequenceNumber, 1);
+  assert.match(document.body.textContent, /Wzór zmieniony/);
+  await act(async () => finish());
+  await unmount(root);
+});
+
 test('P2-4 dirty limit commit never queues the previous query, even while the calculator is busy', async () => {
   let finish;
   const { api, calls } = fixture({

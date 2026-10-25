@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1094 — Anulowanie starego odświeżenia limitu i testy kliknięcia (done)
+
+- Plik: tasks/completed/1094-board-search-pending-limit.md.
+- Commit: **v1.7.473** (hash dopisuje kolejny commit).
+- Trzy P2 z TASK-1093 poprawione: edycja anuluje kolejkę limitu, korekty nadal odświeżają widoczne wyniki; browser test sprawdza końcową liczbę żądań i rzeczywisty click czystego wzoru.
+- RED odtworzony; 108 unit, 116 interactions, 293 Reviewer oraz 18 kontroli Edge PASS. Lint, format, typy trzech pakietów, buildy Admin/Reviewer, docs i mapa PASS. Mapa wygenerowana bez zmian.
+- Dawne TASK-1092/P2-3 odłożone. Bez nowego audytu Claude, migracji bazy operatora, restartów, merge i push. Fizyczny Android nieodebrany.
+
 ### TASK-1093 — P2-4: pierwsze kliknięcie po zmianie limitu (done)
 
 - Plik: `tasks/completed/1093-board-search-limit-click.md`. Commit **v1.7.470 / `efaa3c507721c427fa8c3978d9871d132b6a3779`**.

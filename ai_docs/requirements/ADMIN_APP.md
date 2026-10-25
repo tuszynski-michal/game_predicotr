@@ -460,6 +460,10 @@ Po edycji wzoru zmiana liczby wyników tylko zapamiętuje nowy limit.
 Pierwsze kliknięcie „Szukaj plansz” wysyła aktualny wzór z tym limitem.
 Jeśli wzór jest zgodny z ostatnim wyszukiwaniem, zmiana limitu automatycznie
 odświeża wyniki, zachowując wybrane dopasowanie i czekając na trwające obliczenia.
+Jeżeli użytkownik zmieni wzór podczas oczekiwania, odświeżenie limitu jest
+anulowane; jawne wyszukiwanie użyje nowego wzoru i zapamiętanego limitu.
+Odświeżenie po zapisanej korekcie planszy nadal dotyczy widocznych wyników,
+także przy zmienionym wzorze w edytorze.
 
 Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
 jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca

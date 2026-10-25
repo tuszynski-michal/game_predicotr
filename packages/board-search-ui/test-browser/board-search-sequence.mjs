@@ -213,8 +213,21 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
 
   await page
     .getByRole('button', { name: 'Szukaj plansz', exact: true })
-    .waitFor();
+    .waitFor({ state: 'visible' });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('button')].some(
+      (button) => button.textContent === 'Szukaj plansz' && !button.disabled,
+    ),
+  );
   await page.getByRole('heading', { name: /^Plansza startowa #/ }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(
+      (before) => window.fixtureRequests.slice(before),
+      before,
+    ),
+    [expected],
+    `${host}: no additional request after the edited search settles`,
+  );
   await click(page, 'Następna →');
   const end = count === 1 ? 2 : 3;
   await page
@@ -222,37 +235,57 @@ async function limitClickRegression(page, host, count, slowSearch = true) {
       name: new RegExp('^Plansza startowa #' + end + ' ·'),
     })
     .waitFor();
-  const cleanBefore = await page.evaluate(() => window.fixtureRequests.length);
-  await limit.fill('8');
-  await limit.press('Enter');
-  await page.waitForFunction(
-    (before) => window.fixtureRequests.length > before,
-    cleanBefore,
-  );
-  const clean = await page.evaluate(
-    (before) => window.fixtureRequests.slice(before),
-    cleanBefore,
-  );
-  assert.deepEqual(
-    clean,
-    [{ ...expected, request: { ...expected.request, limit: 8 } }],
-    `${host}: a clean pattern still refreshes automatically`,
-  );
-  await page
-    .getByRole('button', { name: 'Szukaj plansz', exact: true })
-    .waitFor();
-  await page
-    .getByRole('heading', {
-      name: new RegExp('^Plansza startowa #' + end + ' ·'),
-    })
-    .waitFor();
-  assert.match(
-    await page.locator('.boardSearchResultMetrics').textContent(),
-    count === 1 ? /#2/ : /#2 → #3/,
-  );
-  checks.push(
-    `${host} (${timing}): clean limit refresh preserves the selected match`,
-  );
+  for (const [method, nextLimit] of [
+    ['Enter', 8],
+    ['click', 9],
+  ]) {
+    const cleanBefore = await page.evaluate(
+      () => window.fixtureRequests.length,
+    );
+    await limit.fill(String(nextLimit));
+    if (method === 'Enter') await limit.press('Enter');
+    else await click(page, 'Szukaj plansz');
+    await page.waitForFunction(
+      (before) => window.fixtureRequests.length > before,
+      cleanBefore,
+    );
+    const cleanExpected = [
+      { ...expected, request: { ...expected.request, limit: nextLimit } },
+    ];
+    assert.deepEqual(
+      await page.evaluate(
+        (before) => window.fixtureRequests.slice(before),
+        cleanBefore,
+      ),
+      cleanExpected,
+      `${host}: clean pattern ${method} sends one equivalent request`,
+    );
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('button')].some(
+        (button) => button.textContent === 'Szukaj plansz' && !button.disabled,
+      ),
+    );
+    await page
+      .getByRole('heading', {
+        name: new RegExp('^Plansza startowa #' + end + ' ·'),
+      })
+      .waitFor();
+    assert.deepEqual(
+      await page.evaluate(
+        (before) => window.fixtureRequests.slice(before),
+        cleanBefore,
+      ),
+      cleanExpected,
+      `${host}: no additional request after clean ${method} settles`,
+    );
+    assert.match(
+      await page.locator('.boardSearchResultMetrics').textContent(),
+      count === 1 ? /#2/ : /#2 → #3/,
+    );
+    checks.push(
+      `${host} (${timing}): clean ${method} refresh sends exactly once and preserves selection`,
+    );
+  }
   await click(page, 'Nowe szukanie');
 }
 try {

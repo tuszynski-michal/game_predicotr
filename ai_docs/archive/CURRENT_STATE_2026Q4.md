@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1100 — Domyślnie 40 wyników wyszukiwania plansz (done)
 
 - Plik: `tasks/completed/1100-board-search-default-forty.md`.
-- Commit: **v1.7.487** (hash dopisuje kolejny commit).
+- Commit: **v1.7.487 / `2b972a23a808d2ab1953ade1d8723578bd291195`** (hash dopisuje kolejny commit).
 - Nowe wyszukiwania domyślnie używają 40 zamiast 15 wyników; wspólna stała dla zwykłego UI i hooka ciągów. Jawne limity z historii i zapisanych ustawień zachowane.
 - Weryfikacja: 127/127 interakcji, ESLint, typecheck i Prettier PASS. Mapa zregenerowana bez zmiany treści; docs i code-map sprawdzone przed commitem. Bez zmian API, danych, restartów, buildów, merge i push.
 

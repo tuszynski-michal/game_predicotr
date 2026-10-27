@@ -58,7 +58,7 @@ Z katalogu repozytorium; jawny timeout każdej komendy 120 s. Testy interakcji p
 
 ## Outcome
 
-Commit: v1.7.487 (hash dopisuje kolejny commit).
+Commit: v1.7.487 / `2b972a23a808d2ab1953ade1d8723578bd291195`.
 
 ### Changed
 

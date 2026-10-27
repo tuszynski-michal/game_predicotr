@@ -70,7 +70,7 @@ Z katalogu repozytorium; każda skończona komenda z jawnym timeoutem do 120 s. 
 
 ## Outcome
 
-Commit: v1.7.490 (hash dopisuje kolejny commit).
+Commit: v1.7.490 / `93f7697e1071290f23c2467e59c8394bf6fd32a4`.
 
 ### Changed
 

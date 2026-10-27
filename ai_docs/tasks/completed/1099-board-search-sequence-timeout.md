@@ -85,7 +85,7 @@ Zmiana daje więcej czasu, nie stanowi pomiaru szybkości rankingu na danych ope
 
 ## Outcome
 
-Commit: v1.7.485 (hash dopisuje kolejny commit).
+Commit: v1.7.485 / `cdf943e75f575d9cb1a12e8343871859b66a810d`.
 
 ### Changed
 

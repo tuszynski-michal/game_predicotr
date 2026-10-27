@@ -68,7 +68,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 — tasks/completed/1099-board-search-sequence-timeout.md
+- **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md
 - **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md
 - **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md
 - **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md

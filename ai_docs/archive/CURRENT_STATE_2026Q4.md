@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1099 — Dłuższy limit wyszukiwania ciągów plansz (done)
 
 - Plik: `tasks/completed/1099-board-search-sequence-timeout.md`.
-- Commit: **v1.7.485** (hash dopisuje kolejny commit).
+- Commit: **v1.7.485 / `cdf943e75f575d9cb1a12e8343871859b66a810d`** (hash dopisuje kolejny commit).
 - Ranking ciągów ma 60 s zamiast 10 s. Zachowuje krótszy jawny limit bazy, odtwarzanie ustawień i rollback SAVEPOINT. Lokalna baza ma bazowy limit 0. Ten sam backend obsługuje Admina i linki.
 - Weryfikacja: 24/24 testy limitu, domeny i obu API; rzeczywisty PostgreSQL w nowym procesie potwierdził 60000 ms i powrót ustawień po sukcesie/anulowaniu. Ruff i mypy zmienionego modułu PASS; pełne śledzenie zależności mypy przekroczyło 60 s. Testy ponowiono po błędach fixture w ograniczonym środowisku; brak osieroconych procesów. Bez zapisów danych, benchmarku, restartów, merge i push. Zapisano hash TASK-1098.
 

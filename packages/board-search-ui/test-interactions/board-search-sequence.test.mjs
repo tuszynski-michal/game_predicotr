@@ -310,7 +310,7 @@ const photoNumber = () =>
       .textContent.match(/Zdjęcie #(\d+)/)[1],
   );
 
-test('four matched photos plus ten extra, bounded backtracking, same ranking and win anchor', async () => {
+test('four matched photos, fifteen before and fifteen after, same ranking and win anchor', async () => {
   const { api, calls } = fixture({
     searchGameBoardSequence: async () => ({
       data: {
@@ -338,8 +338,8 @@ test('four matched photos plus ten extra, bounded backtracking, same ranking and
   const rangeCount = calls.range.length;
   assert.equal(calls.range.at(-1).startSequenceNumber, 243);
   assert.equal(photoNumber(), 240);
-  assert.equal(button('Poprzedni układ').disabled, true);
-  for (let number = 241; number <= 253; number++) {
+  assert.equal(button('Poprzedni układ').disabled, false);
+  for (let number = 241; number <= 258; number++) {
     await click(button('Następny układ'));
     await waitFor(() => photoNumber() === number);
     assert.ok(photo().querySelector(`img[src="/view/${number}"]`));
@@ -347,19 +347,45 @@ test('four matched photos plus ten extra, bounded backtracking, same ranking and
   assert.equal(button('Następny układ').disabled, true);
   assert.deepEqual(
     calls.detail,
-    Array.from({ length: 10 }, (_, index) => 244 + index),
+    Array.from({ length: 15 }, (_, index) => 244 + index),
   );
   assert.equal(calls.range.length, rangeCount);
   assert.match(
     document.querySelector('.boardSearchResultMetrics').textContent,
     /#240 → #243/,
   );
-  for (let number = 252; number >= 240; number--) {
+  for (let number = 257; number >= 240; number--) {
     await click(button('Poprzedni układ'));
     assert.equal(photoNumber(), number);
   }
+  assert.equal(button('Poprzedni układ').disabled, false);
+  assert.equal(calls.detail.length, 15, 'backtracking uses the loaded photos');
+  for (let number = 239; number >= 225; number--) {
+    await click(button('Poprzedni układ'));
+    await waitFor(() => photoNumber() === number);
+    assert.ok(photo().querySelector(`img[src="/view/${number}"]`));
+  }
   assert.equal(button('Poprzedni układ').disabled, true);
-  assert.equal(calls.detail.length, 10, 'backtracking uses the loaded photos');
+  assert.match(photo().textContent, /Przed dopasowanym ciągiem/);
+  assert.deepEqual(
+    calls.detail.slice(15),
+    Array.from({ length: 15 }, (_, index) => 239 - index),
+  );
+  for (let number = 226; number <= 258; number++) {
+    await click(button('Następny układ'));
+    assert.equal(photoNumber(), number);
+  }
+  assert.equal(
+    calls.detail.length,
+    30,
+    'both directions reuse the loaded photos',
+  );
+  assert.equal(button('Następny układ').disabled, true);
+  assert.equal(calls.range.length, rangeCount);
+  assert.match(
+    document.querySelector('.boardSearchResultMetrics').textContent,
+    /#240 → #243/,
+  );
   await click(button('Następna →'));
   assert.equal(
     photoNumber(),
@@ -369,7 +395,96 @@ test('four matched photos plus ten extra, bounded backtracking, same ranking and
   await unmount(root);
 });
 
-test('single pattern permits ten extra photos; failed or stale reads retain position and retry the same number', async () => {
+for (const scopeKey of [undefined, 'share:previous', 'panel:previous:g']) {
+  test(`earlier photos stop at sequence one and return to the match: ${scopeKey ?? 'admin'}`, async () => {
+    const { api, calls } = fixture();
+    const root = await mount(api, { scopeKey });
+    await click(symbol('A'));
+    await search();
+    assert.equal(photoNumber(), 6);
+    for (let number = 5; number >= 1; number--) {
+      await click(button('Poprzedni układ'));
+      await waitFor(() => photoNumber() === number);
+    }
+    assert.equal(button('Poprzedni układ').disabled, true);
+    assert.deepEqual(calls.detail, [5, 4, 3, 2, 1]);
+    for (let number = 2; number <= 6; number++) {
+      await click(button('Następny układ'));
+      assert.equal(photoNumber(), number);
+    }
+    assert.equal(calls.detail.length, 5);
+    assert.equal(calls.single.length, 1);
+    await unmount(root);
+  });
+}
+
+test('earlier photo errors retry the same number and a late backward read cannot change another match', async () => {
+  const { api } = fixture();
+  const original = api.getBoardSearchBoardDetail;
+  let mode = 'missing';
+  let finish;
+  const attempts = [];
+  api.getBoardSearchBoardDetail = async (id, number) => {
+    attempts.push(number);
+    if (mode === 'missing')
+      return { error: { code: 'NOT_FOUND', message: 'Brak planszy' } };
+    if (mode === 'pending')
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    const result = await original(id, number);
+    if (mode === 'stale') result.data.documentStale = true;
+    return result;
+  };
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await click(button('Poprzedni układ'));
+  assert.equal(photoNumber(), 6);
+  assert.match(photo().textContent, /Brak planszy.*Poprzedni układ/s);
+  mode = 'stale';
+  await click(button('Poprzedni układ'));
+  assert.equal(photoNumber(), 6);
+  assert.match(photo().textContent, /nieaktualny/);
+  mode = 'ok';
+  await click(button('Poprzedni układ'));
+  await waitFor(() => photoNumber() === 5);
+  assert.deepEqual(attempts, [5, 5, 5]);
+  mode = 'pending';
+  await click(button('Poprzedni układ'));
+  assert.equal(button('Poprzedni układ').disabled, true);
+  assert.equal(button('Następny układ').disabled, true);
+  await click(button('Następna →'));
+  assert.equal(photoNumber(), 2);
+  await act(async () => finish(await original('g', 4)));
+  assert.equal(photoNumber(), 2);
+  await unmount(root);
+});
+
+test('an earlier photo opens and corrects its own position without moving the win anchor', async () => {
+  const { api, calls } = fixture();
+  const root = await mount(api, { scopeKey: 'share:earlier-correction' });
+  await click(symbol('A'));
+  await search();
+  await click(button('Poprzedni układ'));
+  await waitFor(() => photoNumber() === 5);
+  await click(button('Pokaż planszę'));
+  await waitFor(() => button('Popraw symbole'));
+  await click(button('Popraw symbole'));
+  await click(document.querySelector('.boardSearchBoardCellTarget'));
+  await click(
+    document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
+  );
+  await waitFor(() => calls.correction.length === 1);
+  assert.equal(calls.correction[0][1], 5);
+  assert.equal(calls.correction[0][3].startSequenceNumber, 5);
+  assert.equal(calls.correction[0][3].searchContextId, 'single-context');
+  await waitFor(() => calls.range.length > 0);
+  assert.equal(calls.range.at(-1).startSequenceNumber, 6);
+  await unmount(root);
+});
+
+test('single pattern permits fifteen extra photos; failed or stale reads retain position and retry the same number', async () => {
   const { api, calls } = fixture();
   const original = api.getBoardSearchBoardDetail;
   let mode = 'missing';
@@ -394,7 +509,7 @@ test('single pattern permits ten extra photos; failed or stale reads retain posi
   assert.equal(photoNumber(), 6);
   assert.match(photo().textContent, /nieaktualny/);
   mode = 'ok';
-  for (let number = 7; number <= 16; number++) {
+  for (let number = 7; number <= 21; number++) {
     await click(button('Następny układ'));
     await waitFor(() => photoNumber() === number);
   }
@@ -410,8 +525,8 @@ test('single pattern permits ten extra photos; failed or stale reads retain posi
     document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
   );
   await waitFor(() => calls.correction.length === 1);
-  assert.equal(calls.correction[0][1], 16);
-  assert.equal(calls.correction[0][3].startSequenceNumber, 16);
+  assert.equal(calls.correction[0][1], 21);
+  assert.equal(calls.correction[0][3].startSequenceNumber, 21);
   assert.equal(calls.correction[0][3].searchContextId, 'single-context');
   await unmount(root);
 });

@@ -56,6 +56,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - Decyzje architektoniczne: indeks 30 najnowszych w
   `ai_docs/process/DECISION_LOG.md` (starsze w archiwum indeksu); wszystkie wpisy mają status `accepted`
   albo `superseded`, brak wpisów `proposed`.
+- Timeout wyszukiwania ciągów 777a2 odtworzony przy limicie 60 s (TASK-1101). Operator 2026-10-27 wyłączył optymalizację zapytania z bieżącej pracy po ostrzeżeniu o koszcie; zakończyć wyłącznie nawigację ±15, buildy i restarty. Dalsza naprawa wymaga nowego zlecenia.
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
@@ -68,6 +69,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 — tasks/completed/1101-board-search-previous-photos.md
 - **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 / `2b972a23` — tasks/completed/1100-board-search-default-forty.md
 - **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md
 - **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md
@@ -77,4 +79,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
 - **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
 - **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
-- **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md

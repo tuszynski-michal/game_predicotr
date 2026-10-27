@@ -491,12 +491,15 @@ z zachowaniem krótszego jawnego limitu bazy. Przekroczenie nadal kończy się
 błędem bez częściowych wyników i bez automatycznego ponawiania.
 
 TASK-1098: podgląd wyniku zaczyna się od pierwszej planszy dopasowanego ciągu.
-„Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania
-oraz dziesięć kolejnych zdjęć po jego końcu. Dla czterech układów 240–243
-zakres podglądu wynosi 240–253; cofanie kończy się na 240. Dla jednego
-układu również dostępnych jest dziesięć dodatkowych zdjęć. Kolejność plansz
+„Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania,
+do piętnastu wcześniejszych zdjęć przed jego początkiem (TASK-1101,
+polecenie operatora 2026-10-27) oraz piętnaście kolejnych zdjęć po jego końcu
+(dalsze doprecyzowanie tego samego dnia, także dla pojedynczego wzoru).
+Dla czterech układów 240–243 zakres podglądu wynosi 225–258, początkowy
+podgląd nadal wskazuje 240. Cofanie kończy się najpóźniej na numerze 1,
+bez zawijania. Dla jednego układu obowiązują te same granice. Kolejność plansz
 dopasowania pochodzi z odpowiedzi API (także dla ciągu cyklicznego).
-Dodatkowe zdjęcia pobierane są pojedynczo po rosnącym numerze końca ciągu,
+Dodatkowe zdjęcia pobierane są pojedynczo według numeru przed początkiem albo po końcu ciągu,
 bez zawijania. Brak lub nieaktualny odczyt zachowuje poprzedni podgląd,
 pokazuje błąd i pozwala ponowić ten sam numer, bez przeskakiwania luk.
 Zdjęcia spoza dopasowania nie otrzymują procentu dopasowania.

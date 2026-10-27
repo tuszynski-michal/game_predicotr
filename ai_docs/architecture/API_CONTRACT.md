@@ -461,8 +461,10 @@ ma `searchContextId`, bez `gameId`.
 
 Dla 2–4 wzorów pozycja i to `((start-1+i)%expected_layout_count)+1`;
 liczba wzorów nie przekracza długości gry. Wymagane są wszystkie dokumenty,
-bez przeskakiwania braków. Ranking SQL używa do trzech złączeń fast documents;
-LIMIT występuje dopiero po wspólnej ocenie. Procent pochodzi z sumy surowych
+bez przeskakiwania braków. Od TASK-1102 SQL materializuje wąskie liczniki
+dowodów raz na wzór, a następnie łączy pozycje i ocenia całą populację.
+LIMIT występuje dopiero po wspólnej ocenie; metadane plansz są pobierane
+po ograniczeniu wyników w tym samym zapytaniu i snapshotcie. Procent pochodzi z sumy surowych
 punktów podzielonej przez sumę znanych pól zapytania, nie ze średniej procentów.
 
 Body obu POST jest ograniczone strumieniowo do 32768 bajtów w API i obu proxy;
@@ -476,7 +478,9 @@ SAVEPOINT zachowuje zdolność dalszych zapytań; istniejącego krótszego
 statement_timeout nie wolno podnieść. Od TASK-1099 (polecenie operatora
 2026-10-27) limit rankingu wynosi 60 sekund zamiast wcześniejszych 10 sekund,
 chyba że połączenie ma jawny krótszy limit. Po zakończeniu lub błędzie
-poprzednie ustawienie jest przywracane. Publiczny POST korzysta z koszyka JSON
+poprzednie ustawienie jest przywracane. TASK-1102 wyłącza JIT tylko wewnątrz
+SAVEPOINT rankingu, aby uniknąć kompilowania wyrażeń komórek przy każdym
+żądaniu; poprzednie `jit` wraca po sukcesie i rollbacku. Publiczny POST korzysta z koszyka JSON
 i slotu obliczeń sesji, z 429 przy kolizji.
 
 Log `kind=search` zachowuje legacy `{cells,scope,limit}`. Wielowzorowy wpis

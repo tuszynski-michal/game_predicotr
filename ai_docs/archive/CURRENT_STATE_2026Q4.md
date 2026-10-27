@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1102 — Ograniczenie kosztu rankingu ciągów plansz (done)
+
+- Plik: `tasks/completed/1102-board-search-query-timeout.md`.
+- Commit: **v1.7.490** (hash dopisuje kolejny commit).
+- Materializowane liczniki raz na wzór, globalny ranking bez wczesnego LIMIT, metadane po limicie. JIT wyłączony tylko w SAVEPOINT, odtworzenie ustawień po sukcesie i błędzie.
+- 91/91 testów PASS, w tym pełna zgodność PostgreSQL z domeną na własnej bazie *_test. SQL dwóch pełnych wzorów 95302 B zamiast około 470444 B. Ruff, format, mypy modułu i kontrole dokumentacji/mapy PASS.
+- Osobny worktree od main; główny checkout i usługi bez zmian. Bez pomiaru na danych operatora, wdrożenia, restartów, merge i push. Wersja koliduje numerem z TASK-1101 na innej gałęzi; historia bez zmian.
+
 ### TASK-1100 — Domyślnie 40 wyników wyszukiwania plansz (done)
 
 - Plik: `tasks/completed/1100-board-search-default-forty.md`.

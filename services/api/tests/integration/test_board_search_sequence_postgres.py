@@ -19,9 +19,14 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.board_search_sequence import _rank_with_timeout
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.models import GameModel, SymbolModel
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.models import (
+    GameModel,
+    ImageBoardSearchFastDocumentModel,
+    SymbolModel,
+)
 from game_predictor_api.storage.schema_readiness import require_alembic_head
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.orm import Session
 from test_board_search_approximate_win_repository import (
     _import_job,
@@ -122,18 +127,114 @@ def test_sql_matches_pure_ranking_including_wrap_and_gaps(database, seeded, patt
             == tuple(board.sequence_number for board in e.boards)
             for a, e in zip(actual, expected, strict=True)
         )
+        assert [tuple(board.score for board in item.boards) for item in actual] == [
+            item.scores for item in expected
+        ]
+
+
+@pytest.mark.parametrize("wildcard", [False, True])
+@pytest.mark.parametrize("scope", list(BoardSearchScope))
+@pytest.mark.parametrize("count,limit", [(2, 1), (2, 40), (3, 100), (4, 40)])
+@pytest.mark.parametrize("evidence_kind", ["mixed", "unknown", "alternatives_only"])
+def test_materialized_ranking_preserves_all_evidence_and_ties(
+    database, seeded, wildcard, scope, count, limit, evidence_kind
+):
+    game_id, original = seeded
+    codes = {"A": 1, "B": 2, "C": 3}
+    # Exercise each alternative rank, exact matches, mismatches and unknowns;
+    # duplicate alternatives must count only their first matching rank.
+    primary = ("A", "A", "A", "A", "B", "C", None) + (None,) * 8
+    alternatives = (("B",), ("C", "B"), ("C", "A", "B"), ("C", "A", "C", "B"), ("B",), (), ()) + (
+        (),
+    ) * 8
+    if evidence_kind != "mixed":
+        primary = (None,) * 15
+        if evidence_kind == "unknown":
+            alternatives = ((),) * 15
+    patterns = tuple(
+        tuple(BoardSearchQueryCell(i, "B" if index % 2 == 0 else "A") for i in range(size))
+        for index, size in enumerate((15, 7, 3, 11)[:count])
+    )
+    documents = []
+    with GameStorageSession(database) as session, session.begin():
+        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        if wildcard:
+            session.execute(update(GameModel).where(GameModel.id == game_id).values(code="777a2"))
+        for index, board in enumerate(original):
+            status = ("pending", "accepted", "corrected")[index % 3]
+            # Repeat the same evidence to produce ties resolved by approval and position.
+            candidate = BoardSearchCandidate(
+                board.review_item_id, board.sequence_number, status, primary, alternatives
+            )
+            documents.append(candidate)
+            session.execute(
+                update(ImageBoardSearchFastDocumentModel)
+                .where(
+                    ImageBoardSearchFastDocumentModel.game_id == game_id,
+                    ImageBoardSearchFastDocumentModel.sequence_number == board.sequence_number,
+                )
+                .values(
+                    status=status,
+                    primary_symbol_mobile_codes=[codes.get(code) for code in primary],
+                    known_evidence_positions=[
+                        str(cell)
+                        for cell in range(15)
+                        if primary[cell] is not None or (status == "pending" and alternatives[cell])
+                    ],
+                    **{
+                        f"alternative_rank_{rank + 1}_mobile_codes": [
+                            codes.get(values[rank]) if len(values) > rank else None
+                            for values in alternatives
+                        ]
+                        for rank in range(4)
+                    },
+                )
+            )
+        expected = rank_board_search_sequences(
+            patterns, documents, sequence_length=8, scope=scope, unknown_matches_all=wildcard
+        )[:limit]
+        actual = SqlAlchemyBoardSearchProjectionRepository(session).search_sequence(
+            game_id=game_id, patterns=patterns, scope=scope, limit=limit
+        )
+        assert [item.start_sequence_number for item in actual] == [
+            item.boards[0].sequence_number for item in expected
+        ]
+        for found, reference in zip(actual, expected, strict=True):
+            assert found.score == reference.score
+            assert tuple(board.score for board in found.boards) == reference.scores
+            assert tuple(
+                (board.review_item_id, board.status, board.sequence_number)
+                for board in found.boards
+            ) == tuple(
+                (board.review_item_id, board.status, board.sequence_number)
+                for board in reference.boards
+            )
+        # Roll back fixture mutations so each parameter set starts with the same projection.
+        session.rollback()
 
 
 def test_timeout_rolls_back_savepoint_and_preserves_lower_limit(database):
     with Session(database) as session:
+        session.execute(text("SET LOCAL jit='on'"))
         session.execute(text("SET LOCAL statement_timeout='5ms'"))
         with pytest.raises(BoardSearchSequenceError) as caught:
             _rank_with_timeout(session, text("SELECT pg_sleep(0.05)"))
         assert caught.value.code == "BOARD_SEARCH_SEQUENCE_TIMEOUT"
         assert session.execute(text("SELECT 1")).scalar_one() == 1
         assert session.execute(text("SHOW statement_timeout")).scalar_one() == "5ms"
+        assert session.execute(text("SHOW jit")).scalar_one() == "on"
         assert _rank_with_timeout(session, text("SELECT 42 AS answer"))[0]["answer"] == 42
         assert session.execute(text("SHOW statement_timeout")).scalar_one() == "5ms"
+        assert session.execute(text("SHOW jit")).scalar_one() == "on"
+
+
+@pytest.mark.parametrize("jit", ["on", "off"])
+def test_ranking_disables_jit_only_inside_savepoint(database, jit):
+    with Session(database) as session:
+        session.execute(text("SELECT set_config('jit', :jit, true)"), {"jit": jit})
+        rows = _rank_with_timeout(session, text("SELECT current_setting('jit') AS jit"))
+        assert rows == [{"jit": "off"}]
+        assert session.execute(text("SHOW jit")).scalar_one() == jit
 
 
 def test_log_constraint_upgrade_and_guarded_downgrade(database, seeded, monkeypatch):

@@ -398,6 +398,19 @@
   text-align: center;
 }
 
+.boardSearchPhotoNavigation {
+  display: grid;
+  gap: 12px;
+}
+
+.boardSearchPhotoNavigation > p {
+  margin: 0;
+}
+
+.boardSearchPhotoNavigation .boardSearchResultNavigation {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 860px) {
   .boardSearchComposer {
     grid-template-columns: 1fr;
@@ -430,6 +443,14 @@
 
   .boardSearchResultNavigation {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .boardSearchPhotoNavigation .boardSearchResultNavigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .boardSearchPhotoNavigation .boardSearchResultNavigation > :last-child {
+    grid-column: 1 / -1;
   }
 
   .boardSearchResultNavigation > span {

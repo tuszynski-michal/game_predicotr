@@ -7,6 +7,11 @@ last_updated: 2026-10-24
 # Wyszukiwanie po maksymalnie czterech kolejnych układach
 
 Rewizja 3.1, zaakceptowana wraz z kosztem i całym wykonaniem 2026-10-24.
+
+Zmiana operatora 2026-10-27 jest osobnym TASK-1098: przygotowanie wzorów
+przed wyszukiwaniem oraz podgląd zdjęć dopasowania i dziesięciu kolejnych.
+Zastępuje wcześniejszą bramkę dodawania wzoru po wyszukiwaniu; szczegóły,
+testy i ograniczenia zawiera task. Nie ponawia zakresu audytów zadań A/B.
 Zadanie A = TASK-1091, zadanie B = TASK-1092. Operator wyłączył migrację swojej
 bazy, restarty i scalenie do main. Zgoda na koszt obejmuje dwa audyty
 implementacji wskazane w tabeli (A high, B medium), niezależne od już
@@ -57,7 +62,7 @@ Wyszukiwarka dopasowuje od jednego do czterech kolejnych spinów. Funkcja dział
 
 - Nad edytorem pojawiają się badże „Układ 1”–„Układ 4”. Kliknięcie przywraca wpisany wzór do edycji. Badże nie przechowują wybranych wyników.
 - „Szukaj plansz” uwzględnia wszystkie przygotowane układy i aktualizuje wspólną listę dopasowań poniżej.
-- „Następny układ” dopisuje pusty wzór na końcu, nigdy między badżami. Przycisk jest dostępny tylko na ostatnim badżu, po udanym wyszukiwaniu dokładnie bieżącego zestawu (także przy 0 wyników), gdy nie trwa żądanie i liczba wzorów jest mniejsza niż 4.
+- „Dodaj układ” dopisuje pusty wzór na końcu, nigdy między badżami. Po zmianie operatora 2026-10-27 (TASK-1098) przycisk jest dostępny na ostatnim badżu po poprawnym wypełnieniu zestawu, także przed pierwszym wyszukiwaniem, gdy nie trwa żądanie ani obliczanie wygranej i liczba wzorów jest mniejsza niż 4.
 - „Resetuj” czyści tylko aktywny wzór, zachowując jego miejsce w kolejności.
 - „Nowe szukanie” usuwa cały lokalny zestaw i wyniki, pozostawiając pierwszy pusty edytor.
 - Przełączanie badży nie zmienia wspólnego wyniku ani wygranych. Edycja wzoru pozostawia dotychczasowe wyniki widoczne z informacją „Wzór zmieniony — wyszukaj ponownie”.
@@ -381,6 +386,7 @@ Implementacja wymaga wcześniejszej zgody na opisany koszt: pełny pion, testy i
 |---|---|---|---|---|
 | TASK-1091 — Ranking, API i historia | `gpt-6.1-sol` | `high` | Logika kolejności, ranking SQL, migracja i publiczny kontrakt. | Wymagany audyt implementacji: Claude Code `claude-opus-5-5`, `high`; koszt zaakceptowany 2026-10-24. |
 | TASK-1092 — Badże, trwałość i odbiór | `gpt-6.1-sol` | `high` | Wspólny stan kilku widoków, trwałość i ochrona przed spóźnionymi odpowiedziami. | Wymagany audyt implementacji: Claude Code `claude-opus-5-5`, `medium`; koszt zaakceptowany 2026-10-24. |
+| TASK-1098 — Układy przed szukaniem i nawigacja zdjęć | `gpt-6.1-sol` | `high` | Ograniczona zmiana wspólnego UI i testy interakcji, istniejący kontrakt odczytu. | Niewymagany dla tego niezależnego taska; eskalacja przy konieczności zmiany API. |
 
 Claude Code CLI i model `claude-opus-5-5` potwierdzone uruchomieniem rundy 1;
 CLI obsługuje `high` i `medium`. Bieżące audyty planu: `claude-opus-5-5` / `high`.

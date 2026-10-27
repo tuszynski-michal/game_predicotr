@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1098 — Układy przed szukaniem i nawigacja zdjęć (done)
+
+- Plik: `tasks/completed/1098-board-search-photo-navigation.md`.
+- Commit: **v1.7.484** (hash dopisuje kolejny commit).
+- Do czterech wzorów przed wyszukaniem; podgląd od pierwszej planszy dopasowania i dziesięciu kolejnych zdjęć, pełne cofanie, osobny ranking i stała kotwica wygranych. Wspólny widok Admina, linku gry i panelu.
+- Weryfikacja: 127/127 interakcji, 108/108 logiki, 38/38 adaptera i proxy; lint, formatowanie, typecheck trzech konsumentów, docs i code-map PASS. Bez restartów, buildów, fizycznego Androida, odbioru działającego linku, merge i push. Istniejący krótki timeout zgłoszony przez operatora przechodzi do TASK-1099.
+
 ### TASK-1097 — Gotowość API i workera do migracji 0169 (done)
 
 - Plik: tasks/completed/1097-board-search-schema-readiness.md.

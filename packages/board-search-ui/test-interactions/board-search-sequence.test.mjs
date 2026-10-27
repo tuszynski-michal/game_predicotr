@@ -117,7 +117,7 @@ function fixture(overrides = {}) {
   const api = {
     listSymbols: async () => ({ data: symbols }),
     symbolImageAssetUrl: () => '',
-    boardSearchBoardViewUrl: () => '/view',
+    boardSearchBoardViewUrl: (_game, number) => `/view/${number}`,
     searchGameBoards: async (_id, request) => {
       calls.single.push(request);
       return { data: single(), searchContextId: 'single-context' };
@@ -269,6 +269,190 @@ const saved = (
   selectedStartSequenceNumber: selected,
 });
 
+for (const scopeKey of [undefined, 'share:test', 'panel:test:g']) {
+  test(`prepare four patterns before one search: ${scopeKey ?? 'admin'}`, async () => {
+    const { api, calls } = fixture();
+    let root = await mount(api, { scopeKey });
+    assert.equal(button('Dodaj układ').disabled, true);
+    for (let index = 0; index < 4; index++) {
+      await click(symbol(index % 2 ? 'B' : 'A'));
+      if (index < 3) await click(button('Dodaj układ'));
+    }
+    assert.equal(calls.single.length, 0);
+    assert.equal(calls.multi.length, 0);
+    assert.equal(button('Dodaj układ').disabled, true);
+    await unmount(root);
+    root = await mount(api, { scopeKey });
+    assert.equal(button('Układ 4').getAttribute('aria-pressed'), 'true');
+    assert.equal(
+      calls.multi.length,
+      0,
+      'unsubmitted drafts do not search on restore',
+    );
+    await search();
+    assert.equal(calls.single.length, 0);
+    assert.equal(calls.multi.length, 1);
+    assert.deepEqual(
+      calls.multi[0].patterns,
+      ['A', 'B', 'A', 'B'].map(pattern),
+    );
+    await unmount(root);
+  });
+}
+
+const photo = () =>
+  document.querySelector('[aria-label="Przegląd zdjęć dopasowania"]');
+const photoNumber = () =>
+  Number(
+    photo()
+      .querySelector('[role="status"]')
+      .textContent.match(/Zdjęcie #(\d+)/)[1],
+  );
+
+test('four matched photos plus ten extra, bounded backtracking, same ranking and win anchor', async () => {
+  const { api, calls } = fixture({
+    searchGameBoardSequence: async () => ({
+      data: {
+        ...multi(4),
+        results: [240, 100].map((start) => ({
+          startSequenceNumber: start,
+          endSequenceNumber: start + 3,
+          score: board(1).score,
+          boards: Array.from({ length: 4 }, (_, index) => board(start + index)),
+        })),
+      },
+    }),
+  });
+  const root = await mount(api, {
+    replay: {
+      id: 'four',
+      cells: pattern('A').cells,
+      patterns: Array(4).fill(pattern('A')),
+      scope: 'all_searchable',
+      limit: 15,
+    },
+  });
+  await waitFor(() => photo());
+  await waitFor(() => calls.range.length > 0);
+  const rangeCount = calls.range.length;
+  assert.equal(calls.range.at(-1).startSequenceNumber, 243);
+  assert.equal(photoNumber(), 240);
+  assert.equal(button('Poprzedni układ').disabled, true);
+  for (let number = 241; number <= 253; number++) {
+    await click(button('Następny układ'));
+    await waitFor(() => photoNumber() === number);
+    assert.ok(photo().querySelector(`img[src="/view/${number}"]`));
+  }
+  assert.equal(button('Następny układ').disabled, true);
+  assert.deepEqual(
+    calls.detail,
+    Array.from({ length: 10 }, (_, index) => 244 + index),
+  );
+  assert.equal(calls.range.length, rangeCount);
+  assert.match(
+    document.querySelector('.boardSearchResultMetrics').textContent,
+    /#240 → #243/,
+  );
+  for (let number = 252; number >= 240; number--) {
+    await click(button('Poprzedni układ'));
+    assert.equal(photoNumber(), number);
+  }
+  assert.equal(button('Poprzedni układ').disabled, true);
+  assert.equal(calls.detail.length, 10, 'backtracking uses the loaded photos');
+  await click(button('Następna →'));
+  assert.equal(
+    photoNumber(),
+    100,
+    'another ranked match starts at its first photo',
+  );
+  await unmount(root);
+});
+
+test('single pattern permits ten extra photos; failed or stale reads retain position and retry the same number', async () => {
+  const { api, calls } = fixture();
+  const original = api.getBoardSearchBoardDetail;
+  let mode = 'missing';
+  const attempts = [];
+  api.getBoardSearchBoardDetail = async (id, number) => {
+    attempts.push(number);
+    if (mode === 'missing')
+      return { error: { code: 'NOT_FOUND', message: 'Brak planszy' } };
+    const response = await original(id, number);
+    if (mode === 'stale') response.data.documentStale = true;
+    return response;
+  };
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  assert.equal(photoNumber(), 6);
+  await click(button('Następny układ'));
+  assert.equal(photoNumber(), 6);
+  assert.match(photo().textContent, /Brak planszy/);
+  mode = 'stale';
+  await click(button('Następny układ'));
+  assert.equal(photoNumber(), 6);
+  assert.match(photo().textContent, /nieaktualny/);
+  mode = 'ok';
+  for (let number = 7; number <= 16; number++) {
+    await click(button('Następny układ'));
+    await waitFor(() => photoNumber() === number);
+  }
+  assert.deepEqual(attempts.slice(0, 3), [7, 7, 7]);
+  assert.equal(button('Następny układ').disabled, true);
+  assert.equal(calls.single.length, 1);
+  await click(button('Pokaż planszę'));
+  await waitFor(() => button('Popraw symbole'));
+  await click(button('Popraw symbole'));
+  await waitFor(() => document.querySelector('.boardSearchBoardCellTarget'));
+  await click(document.querySelector('.boardSearchBoardCellTarget'));
+  await click(
+    document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
+  );
+  await waitFor(() => calls.correction.length === 1);
+  assert.equal(calls.correction[0][1], 16);
+  assert.equal(calls.correction[0][3].startSequenceNumber, 16);
+  assert.equal(calls.correction[0][3].searchContextId, 'single-context');
+  await unmount(root);
+});
+
+test('late photo read cannot overwrite a different ranked match', async () => {
+  const { api } = fixture();
+  const original = api.getBoardSearchBoardDetail;
+  let finish;
+  api.getBoardSearchBoardDetail = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await click(button('Następny układ'));
+  assert.equal(button('Następny układ').disabled, true);
+  await click(button('Następna →'));
+  assert.equal(photoNumber(), 2);
+  await act(async () => finish(await original('g', 7)));
+  assert.equal(photoNumber(), 2);
+  assert.ok(photo().querySelector('img[src="/view/2"]'));
+  await unmount(root);
+});
+
+test('matched photos follow the cyclic order returned by the API', async () => {
+  const { api, calls } = fixture();
+  const root = await mount(api);
+  await click(symbol('A'));
+  await click(button('Dodaj układ'));
+  await click(symbol('B'));
+  await search();
+  assert.equal(photoNumber(), 6);
+  await click(button('Następny układ'));
+  assert.equal(photoNumber(), 1);
+  assert.equal(calls.detail.length, 0);
+  await click(button('Następny układ'));
+  assert.equal(photoNumber(), 2);
+  assert.deepEqual(calls.detail, [2]);
+  await unmount(root);
+});
+
 test('four badges, shared ranking, gaps, trailing slots, per-badge undo and complete reset', async () => {
   const { api, calls } = fixture();
   const root = await mount(api);
@@ -276,7 +460,7 @@ test('four badges, shared ranking, gaps, trailing slots, per-badge undo and comp
   await search();
   assert.equal(calls.single.length, 1);
   assert.equal(calls.multi.length, 0);
-  await click(button('Następny układ'));
+  await click(button('Dodaj układ'));
   assert.equal(button('Układ 2').getAttribute('aria-pressed'), 'true');
   assert.ok(
     document.querySelector('.boardSearchResults'),
@@ -298,14 +482,14 @@ test('four badges, shared ranking, gaps, trailing slots, per-badge undo and comp
   const rangeCount = calls.range.length;
   await click(button('Układ 2'));
   assert.equal(calls.range.length, rangeCount, 'badge sends no calculation');
-  await click(button('Następny układ'));
+  await click(button('Dodaj układ'));
   await click(symbol('A'));
   await search();
-  await click(button('Następny układ'));
+  await click(button('Dodaj układ'));
   await click(symbol('B'));
   await search();
   assert.equal(calls.multi.at(-1).patterns.length, 4);
-  assert.equal(button('Następny układ').disabled, true);
+  assert.equal(button('Dodaj układ').disabled, true);
   await click(button('Układ 2'));
   await click(symbol('A'));
   await click(button('Cofnij'));
@@ -343,8 +527,8 @@ test('only unknown is invalid; zero results still permit the next pattern', asyn
   assert.equal(button('Szukaj plansz').disabled, true);
   await click(symbol('A'));
   await search();
-  assert.equal(button('Następny układ').disabled, false);
-  await click(button('Następny układ'));
+  assert.equal(button('Dodaj układ').disabled, false);
+  await click(button('Dodaj układ'));
   await unmount(root);
 });
 
@@ -576,7 +760,7 @@ test('429 keeps previous results and typed patterns for a manual retry', async (
   const root = await mount(api);
   await click(symbol('A'));
   await search();
-  await click(button('Następny układ'));
+  await click(button('Dodaj układ'));
   await click(symbol('B'));
   reject = true;
   await search();

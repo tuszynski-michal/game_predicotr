@@ -12,6 +12,7 @@ import type {
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { unitNoun } from './board-search-approximate-win';
+import { BoardSearchPhotoNavigation } from './board-search-photo-navigation';
 import {
   BoardSearchBoardLinesModal,
   type BoardLinesClient,
@@ -52,6 +53,8 @@ type BoardSearchResultsClient = BoardLinesClient &
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
+  readonly photoNavigation?: boolean;
+  readonly photoRevision?: number;
   readonly sequenceResult?: BoardSearchSequenceResultResponse | null;
   readonly compact?: boolean;
   readonly client: BoardSearchResultsClient;
@@ -75,6 +78,8 @@ interface BoardSearchResultsProps {
 }
 
 export function BoardSearchResults({
+  photoNavigation = false,
+  photoRevision = 0,
   sequenceResult = null,
   compact = false,
   client: api,
@@ -211,8 +216,7 @@ export function BoardSearchResults({
             </span>
           ))}
           <small>
-            Podgląd i wygrane od ostatniej planszy: #
-            {sequenceResult.endSequenceNumber}.
+            Wygrane od ostatniej planszy: #{sequenceResult.endSequenceNumber}.
           </small>
         </div>
       ) : null}
@@ -224,7 +228,7 @@ export function BoardSearchResults({
         </p>
       ) : null}
 
-      {current.superGame ? (
+      {!photoNavigation && current.superGame ? (
         <SuperGameMarkerBadge
           gameId={gameId}
           marker={current.superGame}
@@ -256,7 +260,42 @@ export function BoardSearchResults({
           ))}
         </div>
       ) : null}
-      {compact ? (
+      {photoNavigation ? (
+        <BoardSearchPhotoNavigation
+          key={`${gameId}:${sequenceResult?.startSequenceNumber ?? current.sequenceNumber}:${boardSearchResultIdentity(current)}:${photoRevision}`}
+          api={api}
+          gameId={gameId}
+          boards={sequenceResult?.boards ?? [current]}
+          openButtonRef={boardTriggerRef}
+          onOpenBoard={(sequenceNumber) => {
+            setDetailSequence(sequenceNumber);
+            setBoardOpen(true);
+          }}
+          renderBoard={(board) => (
+            <>
+              {board.superGame ? (
+                <SuperGameMarkerBadge
+                  gameId={gameId}
+                  marker={board.superGame}
+                  seriesHref={api.superGameSeriesHref}
+                  onOpenSeries={
+                    onOpenSuperGameSeries === undefined
+                      ? undefined
+                      : (seriesId) =>
+                          onOpenSuperGameSeries(seriesId, board.sequenceNumber)
+                  }
+                />
+              ) : null}
+              <BoardCrop
+                api={api}
+                gameId={gameId}
+                key={`crop:${gameId}:${boardSearchResultIdentity(board)}`}
+                result={board}
+              />
+            </>
+          )}
+        />
+      ) : compact ? (
         <button
           className="boardSearchCompactBoard"
           type="button"
@@ -283,23 +322,23 @@ export function BoardSearchResults({
       <dl className="boardSearchEvidence">
         <div>
           <dt>Dokładne</dt>
-          <dd>{current.score.exactMatchCount}</dd>
+          <dd>{evidenceScore?.exactMatchCount}</dd>
         </div>
         <div>
           <dt>Alternatywy</dt>
-          <dd>{current.score.alternativeMatchCount}</dd>
+          <dd>{evidenceScore?.alternativeMatchCount}</dd>
         </div>
         <div>
           <dt>Sprzeczne</dt>
-          <dd>{current.score.mismatchCount}</dd>
+          <dd>{evidenceScore?.mismatchCount}</dd>
         </div>
         <div>
           <dt>Brak danych</dt>
-          <dd>{current.score.unknownCount}</dd>
+          <dd>{evidenceScore?.unknownCount}</dd>
         </div>
       </dl>
 
-      {compact ? null : (
+      {compact || photoNavigation ? null : (
         <div className="boardSearchResultNavigation">
           <button
             aria-label={`Pokaż planszę #${current.sequenceNumber} z liniami wypłat`}
@@ -346,7 +385,7 @@ export function BoardSearchResults({
           symbols={symbols}
           fixedStakeGrosze={fixedStakeGrosze}
           correctionContext={
-            sequenceResult === null
+            !photoNavigation && sequenceResult === null
               ? correctionContext
               : {
                   startSequenceNumber: detailSequence ?? current.sequenceNumber,
@@ -364,7 +403,7 @@ export function BoardSearchResults({
         >
           ← Poprzednia
         </button>
-        <span>Użyj ← / →, aby przejść o jedną planszę.</span>
+        <span>Użyj ← / →, aby przejść do innego dopasowania.</span>
         <button
           className="secondaryButton"
           disabled={state.activeIndex >= state.results.length - 1}

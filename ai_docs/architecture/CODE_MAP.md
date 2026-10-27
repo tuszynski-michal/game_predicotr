@@ -232,7 +232,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 ### Katalogi
 
-- `packages/board-search-ui/src/` (41 ts/tsx) - wspólny UI wyszukiwarki plansz
+- `packages/board-search-ui/src/` (42 ts/tsx) - wspólny UI wyszukiwarki plansz
 - `packages/shared-ts/src/` (9 ts/tsx) - kontrakty domenowe i kodek sygnatur (też mobile)
 - `packages/admin-api-client/src/` (2 ts/tsx) - wrappery klienta wygenerowanego z OpenAPI
 - `packages/manual-image-selection-core/src/` (11 ts/tsx) - wspólna logika ręcznej selekcji

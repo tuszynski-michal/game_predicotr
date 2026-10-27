@@ -31,6 +31,13 @@ POST pod istniejącymi ścieżkami rozszerza kontrakt, zachowując GET i reguły
 
 Badże przełączają tylko wpisane wzory; wspólne wyniki poniżej pozostają niezależne. Wygrane liczone po ostatniej planszy ciągu. Korekta wcześniejszej planszy używa dotychczasowego kontekstu pojedynczej planszy, nie zmieniając kotwicy wygranych. Stan przeglądarki jest wersjonowany i izolowany per gra/link/panel, bez trwałych odpowiedzi i sekretów.
 
+Doprecyzowanie operatora 2026-10-27 (TASK-1098): do czterech wzorów można
+przygotować przed jednym wyszukiwaniem. Osobny podgląd obejmuje wszystkie
+plansze wybranego dopasowania i dziesięć kolejnych zdjęć po jego końcu,
+z powrotem do pierwszego zdjęcia. Podgląd nie zmienia rankingu ani kotwicy
+wygranych. Dodatkowe numery są rosnące, bez zawijania i pomijania braków;
+odczyt wykorzystuje istniejące GET szczegółów i checksumowanego kadru.
+
 ### Alternatywy
 
 Odrzucono przecinanie top-N wyników, bo pomija najlepszy ciąg, oraz powielenie UI dla każdego hosta. Synchronizacja między urządzeniami nie należy do zakresu.

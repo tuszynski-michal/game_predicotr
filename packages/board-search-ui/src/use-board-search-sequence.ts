@@ -78,7 +78,6 @@ export function useBoardSearchSequence({
     useState<BoardSearchSubmittedSequence | null>(null);
   const [visibleSubmitted, setVisibleSubmitted] =
     useState<BoardSearchSubmittedSequence | null>(null);
-  const [successfulKey, setSuccessfulKey] = useState<string | null>(null);
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [response, setResponse] = useState<BoardSearchResponse | null>(null);
@@ -282,7 +281,6 @@ export function useBoardSearchSequence({
         setContextId(answer.searchContextId ?? null);
         setResultRevision((revision) => revision + 1);
         setVisibleSubmitted(submitted);
-        setSuccessfulKey(boardSearchSequenceKey(patterns));
         setStatus({ kind: 'ready', result: data });
         options.onResults?.(fresh);
       })
@@ -421,7 +419,6 @@ export function useBoardSearchSequence({
     setActiveIndex(0);
     setLastSubmitted(null);
     setVisibleSubmitted(null);
-    setSuccessfulKey(null);
     setResponse(null);
     setSequenceResponse(null);
     setResults(null);
@@ -453,9 +450,10 @@ export function useBoardSearchSequence({
     editors.length < 4 &&
     input.error === null &&
     input.patterns.length === editors.length &&
-    successfulKey === inputKey &&
-    visibleSubmitted?.limit === limit &&
-    status.kind === 'ready';
+    hydrated &&
+    ready &&
+    !calculationBusy &&
+    status.kind !== 'loading';
   useEffect(() => {
     if (repeatPending === null) return;
     let cancelled = false;

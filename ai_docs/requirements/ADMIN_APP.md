@@ -449,8 +449,11 @@ a zmieniony stan tworzy nową wersję.
 **D-573 — kolejne układy (TASK-1091–1092, zaakceptowane 2026-10-24).**
 Admin, link pojedynczej gry i panel udostępniania pozwalają dopasować 1–4
 kolejne spiny. Badże nad edytorem przełączają wpisane wzory; wspólne wyniki
-poniżej i wybrany ciąg pozostają niezależne od aktywnego badża. „Następny
-układ” dodaje pusty wzór po udanym wyszukiwaniu bieżącego zestawu. „Resetuj”
+poniżej i wybrany ciąg pozostają niezależne od aktywnego badża. „Dodaj
+układ” dodaje pusty wzór po poprawnym wypełnieniu bieżącego zestawu, także
+przed pierwszym wyszukiwaniem (zmiana operatora 2026-10-27, TASK-1098).
+Przycisk działa na ostatnim badżu, do czterech wzorów, poza trwającym
+wyszukiwaniem lub obliczaniem wygranej. „Resetuj”
 czyści tylko aktywny wzór; „Nowe szukanie” rozpoczyna pusty zestaw. Pusty
 koniec nie uczestniczy w szukaniu, luka w środku i wzór z samymi `?` wymagają
 uzupełnienia. Edycja nie ukrywa poprzednich wyników, lecz oznacza je jako
@@ -482,6 +485,23 @@ odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując
 reguły dowodów i wyjątek 777a2. Wygrane liczone są po ostatniej planszy
 wybranego ciągu. Detale wcześniejszych plansz i ich korekty nie przesuwają
 kotwicy wygranych.
+
+TASK-1098: podgląd wyniku zaczyna się od pierwszej planszy dopasowanego ciągu.
+„Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania
+oraz dziesięć kolejnych zdjęć po jego końcu. Dla czterech układów 240–243
+zakres podglądu wynosi 240–253; cofanie kończy się na 240. Dla jednego
+układu również dostępnych jest dziesięć dodatkowych zdjęć. Kolejność plansz
+dopasowania pochodzi z odpowiedzi API (także dla ciągu cyklicznego).
+Dodatkowe zdjęcia pobierane są pojedynczo po rosnącym numerze końca ciągu,
+bez zawijania. Brak lub nieaktualny odczyt zachowuje poprzedni podgląd,
+pokazuje błąd i pozwala ponowić ten sam numer, bez przeskakiwania luk.
+Zdjęcia spoza dopasowania nie otrzymują procentu dopasowania.
+Podgląd nie zmienia rankingu ani kotwicy wygranych; „Pokaż planszę” otwiera
+aktualnie oglądane zdjęcie z jego własnym kontekstem korekty. Nawigacja
+„Poprzednia”/„Następna” i strzałki klawiatury nadal zmieniają dopasowanie.
+Nowy wynik lub odświeżenie wyszukiwania rozpoczyna podgląd od jego pierwszej
+planszy. Zachowanie obowiązuje w lokalnym Adminie, linku gry i panelu
+udostępniania; panel zarządzania zachowuje dotychczasowy workflow.
 
 Zestaw i wybór są pamiętane w przeglądarce per gra/link/panel, także po
 ponownym otwarciu; nie zapisuje się odpowiedzi API ani sekretów. Odtworzenie

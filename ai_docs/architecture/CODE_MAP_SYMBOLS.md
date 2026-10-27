@@ -1155,6 +1155,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - board-search-data-source.ts: BoardSearchApiResult, BoardSearchModalDetail, BoardSearchEditableCell, BoardSearchCorrectionContext, BoardSearchDataSource
 - board-search-editor-state.ts: BOARD_SEARCH_ROWS, BOARD_SEARCH_COLUMNS, BOARD_SEARCH_CELL_COUNT, BOARD_SEARCH_UNKNOWN, BoardSearchEntryOrder, BoardSearchEditorSnapshot, BoardSearchEditorState, createBoardSearchEditorState, selectBoardSearchCell, placeBoardSearchSymbol, placeBoardSearchUnknown, selectBoardSearchEntryStart, undoBoardSearchEdit, resetBoardSearchEditor, selectedBoardSearchCells, boardSearchPatternCellCount, patternBoardSearchCells, boardSearchEditorFromPattern
 - board-search-keyboard.ts: BOARD_SEARCH_UNKNOWN_SHORTCUT, BoardSearchKeyboardCommand, resolveBoardSearchKeyboardCommand
+- board-search-photo-navigation.tsx: BoardSearchPhotoNavigation
 - board-search-results-state.ts: BOARD_SEARCH_LIMIT_MAX, BOARD_SEARCH_LIMIT_DEFAULT, BoardSearchResultsState, createBoardSearchResultsState, boardSearchResultIdentity, reconcileBoardSearchResultsState, ParsedBoardSearchLimit, parseBoardSearchLimit, activeBoardSearchResult, moveBoardSearchResult, boardSearchNeighbourIndexes, BoardCropPoint, parseBoardCropQuad, BoardCropTransform, computeBoardCropTransform, selectBoardSearchResultBySequence
 - board-search-results.tsx: BoardSearchResults
 - board-search-rules-version-select.tsx: useBoardSearchRulesVersions, BoardSearchRulesVersionSelect

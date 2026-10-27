@@ -1090,7 +1090,7 @@ function BoardSearchWorkspaceContent({
                     disabled={!sequence.canNext}
                     onClick={sequence.next}
                   >
-                    Następny układ
+                    Dodaj układ
                   </button>
                   <button
                     className="secondaryButton"
@@ -1154,6 +1154,8 @@ function BoardSearchWorkspaceContent({
       {visibleResponse !== null && resultsState !== null ? (
         <>
           <BoardSearchResults
+            photoNavigation={sequenceEnabled}
+            photoRevision={sequence.resultRevision}
             compact={compact}
             client={resultClient}
             gameId={gameId}

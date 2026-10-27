@@ -83,7 +83,7 @@ Małe testy zgodności nie dowodzą czasu na pełnej bazie operatora. Taki odbi�
 
 ## Outcome
 
-Commit: v1.7.490 (hash dopisuje kolejny commit).
+Commit: v1.7.490 / `6683e8c1831d5085ddeea69665a9f92083f553e7`.
 
 ### Changed
 

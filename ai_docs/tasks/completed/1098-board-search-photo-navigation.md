@@ -99,7 +99,7 @@ Nie wykonujemy fizycznego odbioru Androida ani restartów usług operatora. Doda
 
 ## Outcome
 
-Commit: v1.7.484 (hash dopisuje kolejny commit).
+Commit: v1.7.484 / `d44debca6d9bf7b176abead6925d8d31cb2b4401`.
 
 ### Changed
 

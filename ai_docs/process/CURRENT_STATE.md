@@ -39,7 +39,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | wdrożony 2026-10-25; TASK-1098: wzory przed szukaniem i podgląd +10 zdjęć, testy PASS, czeka na integrację | fizyczny odbiór Androida; zgłoszony limit czasu w TASK-1099 | `main`; poprawka `codex/board-search-photo-navigation` |
+| `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | wdrożony 2026-10-25; TASK-1098–1099: wzory przed szukaniem, podgląd +10 zdjęć i limit 60 s, testy PASS | akceptacja/integracja poprawek; fizyczny odbiór Androida | `main`; poprawki `codex/board-search-photo-navigation` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
 | `delivery/SHARE_SUPER_GAME_SERIES_EXECUTION_PLAN_20261018.md` | accepted 2026-10-19; 5/5 tasków done (v1.7.426–430, audyty Codex 1056/1057/1059 zamknięte); czeka na odbiór operatora (restart Reviewera i API, test linku Mumii) i zgodę na scalenie | brak (odbiór i scalenie) | `claude/share-super-series` |
@@ -68,7 +68,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 — tasks/completed/1098-board-search-photo-navigation.md
+- **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 — tasks/completed/1099-board-search-sequence-timeout.md
+- **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md
 - **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md
 - **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md
 - **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
@@ -77,4 +78,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
 - **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md
 - **TASK-1090** — Domyślna ważność linków 24 h — v1.7.471 / `26c4be9c` — tasks/completed/1090-sharing-default-24h.md
-- **TASK-1089** — Nazwa folderu wynikowego selektora — v1.7.469 / `54c33f1a` — tasks/completed/1089-selector-output-folder-name.md

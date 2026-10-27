@@ -38,6 +38,11 @@ z powrotem do pierwszego zdjęcia. Podgląd nie zmienia rankingu ani kotwicy
 wygranych. Dodatkowe numery są rosnące, bez zawijania i pomijania braków;
 odczyt wykorzystuje istniejące GET szczegółów i checksumowanego kadru.
 
+TASK-1099, polecenie operatora tego samego dnia po zgłoszonym timeout:
+ranking ciągów otrzymuje limit 60 sekund zamiast 10 sekund. Krótszy jawny
+limit połączenia nadal obowiązuje, a ustawienie jest odtwarzane po sukcesie
+i błędzie. Ranking i publiczny kod błędu pozostają zgodne z tą decyzją.
+
 ### Alternatywy
 
 Odrzucono przecinanie top-N wyników, bo pomija najlepszy ciąg, oraz powielenie UI dla każdego hosta. Synchronizacja między urządzeniami nie należy do zakresu.

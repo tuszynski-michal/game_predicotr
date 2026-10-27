@@ -473,7 +473,10 @@ cookie, Origin/Sec-Fetch-Site i proxy-intent pozostają wymagane. Błędy:
 `BOARD_SEARCH_SEQUENCE_LENGTH_INVALID`. Timeout SQL daje 503
 `BOARD_SEARCH_SEQUENCE_TIMEOUT`, jest logowany z tym kodem i nie zwraca danych.
 SAVEPOINT zachowuje zdolność dalszych zapytań; istniejącego krótszego
-statement_timeout nie wolno podnieść. Publiczny POST korzysta z koszyka JSON
+statement_timeout nie wolno podnieść. Od TASK-1099 (polecenie operatora
+2026-10-27) limit rankingu wynosi 60 sekund zamiast wcześniejszych 10 sekund,
+chyba że połączenie ma jawny krótszy limit. Po zakończeniu lub błędzie
+poprzednie ustawienie jest przywracane. Publiczny POST korzysta z koszyka JSON
 i slotu obliczeń sesji, z 429 przy kolizji.
 
 Log `kind=search` zachowuje legacy `{cells,scope,limit}`. Wielowzorowy wpis

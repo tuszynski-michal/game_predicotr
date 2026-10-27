@@ -486,6 +486,10 @@ reguły dowodów i wyjątek 777a2. Wygrane liczone są po ostatniej planszy
 wybranego ciągu. Detale wcześniejszych plansz i ich korekty nie przesuwają
 kotwicy wygranych.
 
+TASK-1099 (2026-10-27): wyszukiwanie wielu układów ma do 60 sekund na ranking,
+z zachowaniem krótszego jawnego limitu bazy. Przekroczenie nadal kończy się
+błędem bez częściowych wyników i bez automatycznego ponawiania.
+
 TASK-1098: podgląd wyniku zaczyna się od pierwszej planszy dopasowanego ciągu.
 „Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania
 oraz dziesięć kolejnych zdjęć po jego końcu. Dla czterech układów 240–243

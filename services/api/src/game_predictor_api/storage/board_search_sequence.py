@@ -46,6 +46,7 @@ _BOARD_FIELDS = (
     "status",
     "board_checksum_sha256",
 )
+_SEQUENCE_RANK_TIMEOUT_MS = 60_000
 
 
 def _score(row: Mapping[str, Any], prefix: str, wildcard: bool) -> BoardSearchScore:
@@ -67,7 +68,9 @@ def _rank_with_timeout(session: Session, statement: Any) -> list[Mapping[str, An
             text("SELECT setting FROM pg_settings WHERE name = 'statement_timeout'")
         ).scalar_one()
     )
-    timeout = min(previous_ms, 10000) if previous_ms else 10000
+    timeout = (
+        min(previous_ms, _SEQUENCE_RANK_TIMEOUT_MS) if previous_ms else _SEQUENCE_RANK_TIMEOUT_MS
+    )
     try:
         with session.begin_nested():
             session.execute(

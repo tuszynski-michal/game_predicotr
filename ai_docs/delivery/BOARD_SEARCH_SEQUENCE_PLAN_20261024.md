@@ -12,6 +12,10 @@ Zmiana operatora 2026-10-27 jest osobnym TASK-1098: przygotowanie wzorów
 przed wyszukiwaniem oraz podgląd zdjęć dopasowania i dziesięciu kolejnych.
 Zastępuje wcześniejszą bramkę dodawania wzoru po wyszukiwaniu; szczegóły,
 testy i ograniczenia zawiera task. Nie ponawia zakresu audytów zadań A/B.
+
+TASK-1099, dodatkowe zlecenie 2026-10-27: limit rankingu 60 sekund zamiast
+10 sekund po błędzie zgłoszonym przez operatora. Krótszy jawny limit bazy
+i odtwarzanie ustawień pozostają obowiązujące; bez zmiany rankingu.
 Zadanie A = TASK-1091, zadanie B = TASK-1092. Operator wyłączył migrację swojej
 bazy, restarty i scalenie do main. Zgoda na koszt obejmuje dwa audyty
 implementacji wskazane w tabeli (A high, B medium), niezależne od już
@@ -108,7 +112,7 @@ bez N+1; zachować spójny snapshot generacji supergry.
 
 Dla nowego rankingu zapamiętać `current_setting('statement_timeout')`, otworzyć
 SAVEPOINT (`session.begin_nested()`) i wewnątrz ustawić mniejszy z limitów:
-10 s oraz poprzedni limit znormalizowany do milisekund, jeśli jest niezerowy
+60 s (TASK-1099, wcześniej 10 s) oraz poprzedni limit znormalizowany do milisekund, jeśli jest niezerowy
 (0 oznacza brak limitu). Nie podnosić istniejącego krótszego timeoutu. Po sukcesie
 przywrócić poprzednią wartość przed zwolnieniem SAVEPOINT. Timeout rankingu
 (SQLSTATE 57014) wycofuje SAVEPOINT i przywraca transakcję oraz ustawienie.
@@ -387,6 +391,7 @@ Implementacja wymaga wcześniejszej zgody na opisany koszt: pełny pion, testy i
 | TASK-1091 — Ranking, API i historia | `gpt-6.1-sol` | `high` | Logika kolejności, ranking SQL, migracja i publiczny kontrakt. | Wymagany audyt implementacji: Claude Code `claude-opus-5-5`, `high`; koszt zaakceptowany 2026-10-24. |
 | TASK-1092 — Badże, trwałość i odbiór | `gpt-6.1-sol` | `high` | Wspólny stan kilku widoków, trwałość i ochrona przed spóźnionymi odpowiedziami. | Wymagany audyt implementacji: Claude Code `claude-opus-5-5`, `medium`; koszt zaakceptowany 2026-10-24. |
 | TASK-1098 — Układy przed szukaniem i nawigacja zdjęć | `gpt-6.1-sol` | `high` | Ograniczona zmiana wspólnego UI i testy interakcji, istniejący kontrakt odczytu. | Niewymagany dla tego niezależnego taska; eskalacja przy konieczności zmiany API. |
+| TASK-1099 — Dłuższy limit wyszukiwania ciągów | `gpt-6.1-sol` | `high` | Wąska zmiana limitu i testy odtworzenia ustawień; ranking bez zmian. | Niewymagany; eskalacja przy konieczności przebudowy zapytania. |
 
 Claude Code CLI i model `claude-opus-5-5` potwierdzone uruchomieniem rundy 1;
 CLI obsługuje `high` i `medium`. Bieżące audyty planu: `claude-opus-5-5` / `high`.

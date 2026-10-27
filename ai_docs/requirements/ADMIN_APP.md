@@ -599,7 +599,8 @@ czysto” w tabeli i w etykiecie są zaokrąglane do pełnych złotych (kredyty 
 mają części dziesiętnych); wkład zachowuje grosze.
 
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
-wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
+wyników” nad panelem, domyślnie 40 (TASK-1100, zmiana operatora 2026-10-27
+z wcześniejszych 15 z D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
 „Tylko zatwierdzone”) jest pokazywany w sekcji wyników, pod nagłówkiem
 karuzeli; jego zmiana przy widocznych wynikach powtarza wyszukiwanie tego

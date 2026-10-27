@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1100 — Domyślnie 40 wyników wyszukiwania plansz (done)
+
+- Plik: `tasks/completed/1100-board-search-default-forty.md`.
+- Commit: **v1.7.487** (hash dopisuje kolejny commit).
+- Nowe wyszukiwania domyślnie używają 40 zamiast 15 wyników; wspólna stała dla zwykłego UI i hooka ciągów. Jawne limity z historii i zapisanych ustawień zachowane.
+- Weryfikacja: 127/127 interakcji, ESLint, typecheck i Prettier PASS. Mapa zregenerowana bez zmiany treści; docs i code-map sprawdzone przed commitem. Bez zmian API, danych, restartów, buildów, merge i push.
+
 ### TASK-1099 — Dłuższy limit wyszukiwania ciągów plansz (done)
 
 - Plik: `tasks/completed/1099-board-search-sequence-timeout.md`.

@@ -2,7 +2,7 @@ import type { BoardSearchResultResponse } from '@game-predictor/admin-api-client
 
 /** Existing technical limit enforced by the board-search API (`limit=1..100`). */
 export const BOARD_SEARCH_LIMIT_MAX = 100;
-export const BOARD_SEARCH_LIMIT_DEFAULT = 15;
+export const BOARD_SEARCH_LIMIT_DEFAULT = 40;
 
 export interface BoardSearchResultsState {
   readonly activeIndex: number;

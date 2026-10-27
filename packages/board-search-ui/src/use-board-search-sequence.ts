@@ -20,6 +20,7 @@ import {
   type BoardSearchEntryOrder,
 } from './board-search-editor-state';
 import {
+  BOARD_SEARCH_LIMIT_DEFAULT,
   createBoardSearchResultsState,
   type BoardSearchResultsState,
 } from './board-search-results-state';
@@ -73,7 +74,7 @@ export function useBoardSearchSequence({
   const [activeIndex, setActiveIndex] = useState(0);
   const [entryOrder, setEntryOrder] =
     useState<BoardSearchEntryOrder>('columns');
-  const [limit, setLimit] = useState(15);
+  const [limit, setLimit] = useState(BOARD_SEARCH_LIMIT_DEFAULT);
   const [lastSubmitted, setLastSubmitted] =
     useState<BoardSearchSubmittedSequence | null>(null);
   const [visibleSubmitted, setVisibleSubmitted] =

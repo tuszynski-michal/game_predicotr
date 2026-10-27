@@ -292,6 +292,7 @@ for (const scopeKey of [undefined, 'share:test', 'panel:test:g']) {
     await search();
     assert.equal(calls.single.length, 0);
     assert.equal(calls.multi.length, 1);
+    assert.equal(calls.multi[0].limit, 40);
     assert.deepEqual(
       calls.multi[0].patterns,
       ['A', 'B', 'A', 'B'].map(pattern),

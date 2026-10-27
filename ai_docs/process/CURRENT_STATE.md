@@ -68,6 +68,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 — tasks/completed/1100-board-search-default-forty.md
 - **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md
 - **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md
 - **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md
@@ -77,4 +78,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md
 - **TASK-1092** — Wyszukiwanie ciągu plansz: badże i trwałość — v1.7.468 / `402477cd` — tasks/completed/1092-board-search-sequence-ui.md
 - **TASK-1091** — Wyszukiwanie ciągu plansz: API i historia — v1.7.467 / `9319bde6` — tasks/completed/1091-board-search-sequence-api.md
-- **TASK-1090** — Domyślna ważność linków 24 h — v1.7.471 / `26c4be9c` — tasks/completed/1090-sharing-default-24h.md

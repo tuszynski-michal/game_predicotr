@@ -1,12 +1,22 @@
 ---
 title: Wyszukiwanie po maksymalnie czterech kolejnych układach
 status: accepted
-last_updated: 2026-10-24
+last_updated: 2026-10-27
 ---
 
 # Wyszukiwanie po maksymalnie czterech kolejnych układach
 
 Rewizja 3.1, zaakceptowana wraz z kosztem i całym wykonaniem 2026-10-24.
+
+2026-10-27 operator zaakceptował wszystkie poprawki wyszukiwarki i zlecił
+scalenie do `main` oraz push do `origin`. Lokalny `main` zawiera TASK-1098–1100
+(v1.7.484–488, czubek kodu `0a1533ff346a8be761ed6b3a4b64192706bea5a6`):
+układy przed szukaniem, podgląd dopasowania i dziesięciu kolejnych zdjęć,
+limit rankingu 60 sekund oraz domyślnie 40 wyników. Preflight: bez kolizji
+numerów i nowych migracji, fast-forward. Zgoda obejmuje push i usunięcie
+lokalnej gałęzi roboczej. Usług nie restartowano; odbiór działającego linku
+i fizycznego Androida pozostaje osobnym krokiem operatora. Wyniki testów
+i ograniczenia kontroli są zapisane w Outcome tych trzech tasków.
 
 Zmiana operatora 2026-10-27 jest osobnym TASK-1098: przygotowanie wzorów
 przed wyszukiwaniem oraz podgląd zdjęć dopasowania i dziesięciu kolejnych.

@@ -56,7 +56,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - Decyzje architektoniczne: indeks 30 najnowszych w
   `ai_docs/process/DECISION_LOG.md` (starsze w archiwum indeksu); wszystkie wpisy mają status `accepted`
   albo `superseded`, brak wpisów `proposed`.
-- TASK-1102: operator zaakceptował optymalizację SQL oraz zlecił merge, push i wdrożenie z restartem API. Zachować działającą nawigację ±15 (TASK-1101), Admina, Reviewera i istniejący tunel. Migracja niewymagana; odbiór na pełnej bazie po wdrożeniu.
+- TASK-1102: zaakceptowany, scalony i wypchnięty razem z działającą nawigacją ±15 (TASK-1101); API zrestartowane za zgodą operatora. Ostatni zgłoszony wzór 777a2: POST HTTP 200, 40 wyników w 8,219 s zamiast timeoutu po 66,109 s. Admin, Reviewer i istniejący publiczny adres HTTP 200, bez ich restartu i bez migracji. Źródło: `tasks/completed/1102-board-search-query-timeout.md`, sekcja odbioru wdrożenia. Inne wzory i uwierzytelniony link odbiorcy nie były sprawdzane operacyjnie.
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.

@@ -14,6 +14,13 @@ last_updated: 2026-10-16
 - 91/91 testów PASS, w tym pełna zgodność PostgreSQL z domeną na własnej bazie *_test. SQL dwóch pełnych wzorów 95302 B zamiast około 470444 B. Ruff, format, mypy modułu i kontrole dokumentacji/mapy PASS.
 - Osobny worktree od main; główny checkout i usługi bez zmian. Bez pomiaru na danych operatora, wdrożenia, restartów, merge i push. Wersja koliduje numerem z TASK-1101 na innej gałęzi; historia bez zmian.
 
+### TASK-1101 — Nawigacja po piętnastu zdjęciach w obie strony (done)
+
+- Plik: `tasks/completed/1101-board-search-previous-photos.md`.
+- Commit: **v1.7.490 / `93f7697e1071290f23c2467e59c8394bf6fd32a4`** (hash dopisuje kolejny commit).
+- Podgląd dopasowania oraz po 15 zdjęć przed i po nim, także dla jednego wzoru; granica 1 bez zawijania, cache obu kierunków, obsługa błędów i niezmieniona kotwica wygranych.
+- 132/132 interakcji, lint, formatowanie, typecheck i oba buildy PASS. Z osobnej zgody wykonano build i restart API/Admina/Reviewera; trzy usługi oraz dotychczasowy publiczny adres HTTP 200, bez zmiany tunelu i workera. Odbiór w działającym Adminie: jeden wzór, 223129 do 223130 i do 223128, ranking nadal 223129. Timeout wielu wzorów przy 60 s odtworzony; optymalizacja wyłączona z zakresu przez operatora po ostrzeżeniu o koszcie. Bez merge/push nowej zmiany i bez fizycznego Androida.
+
 ### TASK-1100 — Domyślnie 40 wyników wyszukiwania plansz (done)
 
 - Plik: `tasks/completed/1100-board-search-default-forty.md`.

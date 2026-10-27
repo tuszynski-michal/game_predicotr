@@ -33,7 +33,9 @@ export function BoardSearchPhotoNavigation({
   readonly openButtonRef: Ref<HTMLButtonElement>;
 }) {
   const [index, setIndex] = useState(0);
-  const [extra, setExtra] = useState<readonly BoardSearchModalDetail[]>([]);
+  const [adjacent, setAdjacent] = useState<
+    ReadonlyMap<number, BoardSearchModalDetail>
+  >(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(true);
@@ -45,19 +47,27 @@ export function BoardSearchPhotoNavigation({
     };
   }, []);
   const matched = boards[index];
-  const detail = extra[index - boards.length];
+  const detail = adjacent.get(index);
   const sequenceNumber = matched?.sequenceNumber ?? detail?.sequenceNumber;
-  const total = boards.length + 10;
+  const minIndex = -Math.min(15, boards[0].sequenceNumber - 1);
+  const maxIndex = boards.length + 15 - 1;
+  const total = maxIndex - minIndex + 1;
 
-  async function next() {
-    if (pending.current || index >= total - 1) return;
+  async function move(direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (pending.current || nextIndex < minIndex || nextIndex > maxIndex) return;
     setError(null);
-    if (index + 1 < boards.length + extra.length) {
-      setIndex(index + 1);
+    if (boards[nextIndex] !== undefined || adjacent.has(nextIndex)) {
+      setIndex(nextIndex);
       return;
     }
     const requested =
-      boards[boards.length - 1].sequenceNumber + extra.length + 1;
+      nextIndex < 0
+        ? boards[0].sequenceNumber + nextIndex
+        : boards[boards.length - 1].sequenceNumber +
+          nextIndex -
+          boards.length +
+          1;
     pending.current = true;
     setLoading(true);
     try {
@@ -80,12 +90,12 @@ export function BoardSearchPhotoNavigation({
         );
       }
       const data = response.data;
-      setExtra((previous) => [...previous, data]);
-      setIndex(index + 1);
+      setAdjacent((previous) => new Map(previous).set(nextIndex, data));
+      setIndex(nextIndex);
     } catch (cause: unknown) {
       if (active.current)
         setError(
-          `${cause instanceof Error ? cause.message : apiErrorMessage(cause, `Nie udało się wczytać planszy #${requested}.`)} Poprzednie zdjęcie pozostaje widoczne. Kliknij „Następny układ”, aby ponowić.`,
+          `${cause instanceof Error ? cause.message : apiErrorMessage(cause, `Nie udało się wczytać planszy #${requested}.`)} Dotychczasowe zdjęcie pozostaje widoczne. Kliknij „${direction === 1 ? 'Następny układ' : 'Poprzedni układ'}”, aby ponowić.`,
         );
     } finally {
       pending.current = false;
@@ -100,10 +110,12 @@ export function BoardSearchPhotoNavigation({
       aria-busy={loading}
     >
       <p role="status">
-        Zdjęcie #{sequenceNumber} · {index + 1} z {total}
+        Zdjęcie #{sequenceNumber} · {index - minIndex + 1} z {total}
         {matched
           ? ` · Układ ${index + 1} dopasowania · ${matched.score.score.toFixed(1)}%`
-          : ' · Po dopasowanym ciągu'}
+          : index < 0
+            ? ' · Przed dopasowanym ciągiem'
+            : ' · Po dopasowanym ciągu'}
       </p>
       {matched ? (
         renderBoard(matched)
@@ -119,19 +131,16 @@ export function BoardSearchPhotoNavigation({
         <button
           className="secondaryButton"
           type="button"
-          disabled={loading || index === 0}
-          onClick={() => {
-            setError(null);
-            setIndex(index - 1);
-          }}
+          disabled={loading || index <= minIndex}
+          onClick={() => void move(-1)}
         >
           Poprzedni układ
         </button>
         <button
           className="secondaryButton"
           type="button"
-          disabled={loading || index >= total - 1}
-          onClick={() => void next()}
+          disabled={loading || index >= maxIndex}
+          onClick={() => void move(1)}
         >
           Następny układ
         </button>
@@ -147,7 +156,7 @@ export function BoardSearchPhotoNavigation({
           Pokaż planszę
         </button>
       </div>
-      {loading ? <p role="status">Wczytywanie następnego zdjęcia…</p> : null}
+      {loading ? <p role="status">Wczytywanie zdjęcia…</p> : null}
       {error ? <p role="alert">{error}</p> : null}
     </div>
   );

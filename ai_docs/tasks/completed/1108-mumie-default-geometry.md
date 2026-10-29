@@ -77,7 +77,7 @@ Brak nowego testu jakości na innych grach. Historyczny model jest punktem start
 
 ## Outcome
 
-Commit: v1.7.506 (hash dopisuje kolejny commit).
+Commit: v1.7.506 / `3d1f55f2f9b51ddcd8b679238111c7025ed9e257`.
 
 ### Changed
 

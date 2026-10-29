@@ -6,9 +6,8 @@ zmian oryginałów i ochrony, migracji, merge lub push.
 
 ## Status odbioru
 
-Task jest in_progress. Wydanie i odbiór finalnych bajtów ZIP pozostają pending
-do wykonania opisanych poniżej smoke. Fizyczny restart Windows i komputer
-odbiorcy pozostają pending również po lokalnych kontrolach.
+Lokalny odbiór finalnego ZIP PASS. Fizyczny restart Windows i komputer
+odbiorcy pozostają pending. Wynik nie jest gwarancją wydajności innego sprzętu.
 
 ## Zmiana
 
@@ -98,12 +97,59 @@ zachowując dokładne asercje manifestu. Pierwszy błąd odczytu manifestu był
 race harnessu, kolejne uruchomienie ujawniło powyższą rzeczywistą regresję.
 Kandydat c6d665ec8bc0b834779150c1faafd644c123d2cc0eaf7e9a1815c33f8f2266b0
 zachowany w `artifacts/selector-releases/1.0.4-candidate-b4251886/`.
-Nie jest finalną paczką do przekazania. Nowy build/smoke pending.
+Nie jest finalną paczką do przekazania. Zastąpiło ją poprawione wydanie poniżej.
 
-Pending: checkpoint kodu, wydanie 1.0.4, SHA-256/metadata/app.asar oraz smoke
-finalnego rozpakowanego ZIP: fluency, measurement, shortcuts, workflow i
-rzeczywista aktualizacja z zachowanego ZIP 1.0.3. Wpis zostanie zastąpiony
-rzeczywistymi wynikami przed zamknięciem TASK-1107.
+Finalny ZIP: `D:/game_predicotr/artifacts/selector-releases/1.0.4/Selektor zdjec-win32-x64-1.0.4.zip`, **149420406 B**, obok `.sha256` oraz `.release.json`.
+
+- SHA-256: `7e2d3f32515a72e6eb55b92bbdd9a4dc405bbe337b4e67ebf3381bd902b2c1b6`.
+- app.asar SHA-256: `71c7916a82abea15e9f85d4f020b3223c38f0c143dcb81c6aff66c8da57eae6c`.
+- Kod: v1.7.503 / `6681d53456cfd27d83b0ac56fe50d00638003f43`.
+- `applicationSourceDirty=false`; `dirty=true` zachowuje jawny stan repo z cudzymi zmianami poza aplikacją. Późniejsze poprawki synchronizacji smoke nie zmieniają app.asar.
+- Build i make wraz z verifierem PASS w limicie 300 s (finalny release ok. 24 s); SHA kopii identyczny. Stare wydania i pierwszy kandydat zachowane.
+
+Świeże kontrole tych samych finalnych bajtów, każde wywołanie ≤120 s:
+
+- `smoke:release:workflow` PASS: 500000, dokładny JPEG i manifest, zmiana zakresu/kierunku, ponowny F, fullscreen, kolejny folder i nowy proces.
+- `smoke:release:fluency` PASS: cache/protokół i tożsamość DOM, zoom/scroll/fullscreen, IPC i fallback, pinned F, decode/cancel, repeat, ten sam operationId po utracie odpowiedzi, crash przed odpowiedzią, SHA/manifest i close handshake/timeout/retry.
+- `smoke:release:measurement` PASS: 30 warm + 4 cold nawigacje i 10 wyborów, wszystkie zachowane po nowym procesie.
+- `smoke:release:shortcuts` PASS: descending F o jeden przy skoku 20, skrócony zakres, błędny JPEG i relink po nowym procesie.
+- `smoke-update --old-archive=...1.0.3.zip` PASS: rzeczywiste EXE 1.0.3→1.0.4, kopia projektu, decyzje/kursor/SHA i jawny relink wyniku, kolejne decyzje po restarcie. Oryginalne fixture i poprzedni ZIP bez zmian.
+- `smoke:release` PASS: pełny UI/offline, undo/repeat/double-submit, zoom/scroll/cache, nowy proces, recovery, relink kopii i backup/restore oraz zmiana lokalizacji programu. Zmiana lokalizacji tej samej wersji jest oddzielna od rzeczywistego upgrade.
+
+Release smoke weryfikuje SHA/metadata, rozpakowany app.asar i ścisły spis
+zawartości. Upgrade weryfikuje obie paczki. Pierwsza próba upgrade wysłała
+strzałkę, gdy historyczna aplikacja jeszcze obsługiwała skip; harness czeka
+teraz na widoczne potwierdzenie i busy=false. Pierwszy pełny smoke miał
+analogiczny race, ponieważ main aria-busy nie obejmuje SelectionIntents.
+`settled` sprawdza teraz aktywny Zakres, a relink używa outputName zamiast
+starego sufiksu „wybrane”. Asercje danych i kursora pozostały. Te poprawki
+dotyczą harnessów, nie runtime. Logi nieudanych prób zachowane. Po poprawkach
+wszystkie powyższe warianty PASS.
+
+## Pomiary finalnego ZIP
+
+Pełne próbki: `D:/game_predicotr/artifacts/selector-fluency-20261029/measurement-final2-zip.json`.
+Percentyle metodą nearest rank; tabela zaokrąglona do 0,1 ms.
+
+| Metryka | n | Mediana | p95 | Maksimum |
+|---|---:|---:|---:|---:|
+| Warm input–paint, ms |30|22,1|25,5|27,7|
+| Cold input–paint, ms |4|37,8|40,5|40,5|
+| Początkowy cold decode, ms |4|20,3|31,4|31,4|
+| F/Enter–widoczne potwierdzenie, ms |10|203,8|216,6|216,6|
+| Snapshot IPC, ms |30|0,7|1,0|1,0|
+| Native execute, ms |46|166,1|213,5|214,4|
+| JSON NativeResult, B |46|592|904|984|
+
+Cel warm p95 ≤50 ms PASS. Przy kontrolowanym opóźnieniu odpowiedzi 500 ms
+JPEG pojawił się przed jej zwolnieniem. Zero zgubionych wyborów i niezgodnych
+JPEG/range: 10/10 potwierdzonych po nowym procesie z SHA, manifestem i licznikiem.
+Zero nowych żądań dla aktywnych cache hitów; 15 żądań granicznego sąsiada
+prefetch w warm serii pozostaje jawne. Harness mierzy JSON wraz z kopertą
+NativeResult, produkcyjna metryka payload obejmuje samo value.
+Wynik nie jest prognozą dla dużego źródła lub innego komputera. Dwa testy
+regresji range/undo zwiększają liczbę unikalnych testów do 309; po małej
+poprawce wykonano zmieniony pion 37/37 zamiast powtarzania pięciu grup.
 
 ## Ograniczenia i odbiór operatora
 

@@ -297,7 +297,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1107 — Dowody płynności, diagnostyka i sprawdzona paczka
 
-- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
+- **Status:** done; tasks/completed/1107-selector-fluency-release.md, v1.7.504; finalny ZIP 1.0.4 sprawdzony lokalnie, reboot/odbiorca pending.
 - **Goal:** pokazać brak zgubionych wyborów w realnym Electronie, zakres
   poprawy na istniejących zdjęciach i zgodne wznowienie z finalnego ZIP.
 - **Dependencies:** TASK-1104–1106 po testach/audytach/commitach; osobna zgoda

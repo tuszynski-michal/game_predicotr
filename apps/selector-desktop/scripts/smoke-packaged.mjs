@@ -84,7 +84,11 @@ async function waitState(predicate) {
 }
 async function settled() {
   await page.waitForFunction(
-    () => document.querySelector('main')?.getAttribute('aria-busy') === 'false',
+    () =>
+      document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+      [...document.querySelectorAll('button')].find(
+        (button) => button.textContent.trim() === 'Zakres',
+      )?.disabled === false,
   );
 }
 async function imageReady() {
@@ -162,6 +166,7 @@ try {
     await imageReady();
     console.log('PASS: isolated project created and JPEG decoded.');
     let state = await snapshot();
+    const outputPath = path.join(fixture, state.outputName);
     assert.equal(state.acceptedCount, 0);
     assert.equal(state.nextRangeStart, 1);
     assert.equal(
@@ -363,7 +368,7 @@ try {
     await waitForHistory(page);
     await smoke.close(application);
     application = null;
-    await rename(`${source} wybrane`, path.join(fixture, 'moved-output'));
+    await rename(outputPath, path.join(fixture, 'moved-output'));
     await launch();
     await continueFromHistory(page);
     await page.getByRole('button', { name: 'Wznów po naprawie' }).waitFor();

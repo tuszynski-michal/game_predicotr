@@ -12,7 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **Selektor 1.0.3 / TASK-1088–1090 (2026-10-25):** zgoda na merge/push/cleanup; katalog gier, aktualizacja, nazwa wyniku i domyślne 24 h panelu. Odbiór ZIP games/workflow PASS. Pełny zestaw: 276/276 po limicie runnera (124). Bez migracji i restartów. Źródło i ograniczenia: `quality/SELECTOR_OUTPUT_FOLDER_1_0_3_20261023.md`.
+- **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 
@@ -39,7 +39,6 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/SELECTOR_FLUENCY_RELIABILITY_PLAN_20261029.md` | accepted, rev. 3; cały zakres i koszt 3–5 h zaakceptowane, wszystkie audyty pominięte 2026-10-29 | TASK-1107; TASK-1104–1106 done, testy i ZIP, bez merge/push | `codex/selector-reliability-plan` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -64,16 +63,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1107 — Dowody płynności i paczka (in_progress)
-
-- Plik: `tasks/1107-selector-fluency-release.md`. Pomiary na kopiach małej partii JPEG, testy i ZIP 1.0.4; bez usług/originalów/merge/push. Cold aplikacji nie oznacza cold cache OS; odbiór sprzętu odbiorcy pending.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md
 - **TASK-1105** — Mała aktualizacja workspace przez IPC — v1.7.498 / `af24adcc` — tasks/completed/1105-selector-workspace-updates.md
 - **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md
@@ -83,4 +79,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 / `2b972a23` — tasks/completed/1100-board-search-default-forty.md
 - **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md
 - **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md
-- **TASK-1097** — Gotowość API i workera do migracji 0169 — v1.7.479 / `c2e87045` — tasks/completed/1097-board-search-schema-readiness.md

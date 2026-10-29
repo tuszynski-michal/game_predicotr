@@ -6,6 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1107 — Dowody płynności i paczka Windows 1.0.4 (done)
+
+- Plik: `tasks/completed/1107-selector-fluency-release.md`.
+- Commit: **v1.7.504** (hash dopisuje kolejny commit). Kod wydania: v1.7.503 / 6681d53456cfd27d83b0ac56fe50d00638003f43; wcześniejszy checkpoint v1.7.502 / b4251886095bda7c1d9cec783942414e19ea9dd5.
+- Agregaty diagnostyczne bounded 256, bez danych JPEG i logowania każdego klawisza; range/undo zachowuje ready wyłącznie przy tym samym project/source/image bez decode error. Regresja wykryta podczas workflow i naprawiona u przyczyny.
+- Pełne grupy 306/306, dodatkowy test agregatów 2/2 i świeży zmieniony pion 37/37 po poprawce (309 unikalnych testów); lint/typecheck/build/mapa PASS. Trzy dawne timeouty native-checks tym razem PASS bez zmian; nie deklarujemy naprawy workera. Dodatkowy krótki runner uruchomiony podczas oczekiwania na persistence jawnie odnotowany w raporcie; pełne grupy nie nakładały się.
+- Finalny ZIP 1.0.4: 149420406 B, SHA-256 7e2d3f32515a72e6eb55b92bbdd9a4dc405bbe337b4e67ebf3381bd902b2c1b6, app.asar 71c7916a82abea15e9f85d4f020b3223c38f0c143dcb81c6aff66c8da57eae6c. Metadata i suma obok; applicationSourceDirty=false. Stare ZIP-y i kandydat zachowane.
+- Finalny rozpakowany ZIP: workflow/fluency/measurement/shortcuts/full oraz rzeczywisty upgrade 1.0.3→1.0.4 PASS. Nowe procesy, SHA/manifest, pinned F, utrata odpowiedzi, crash, close i relink zachowują dane. Wszystkie komendy kontrolowane czasowo.
+- Warm 30: mediana 22,1 ms, p95 25,5 ms, max 27,7 ms; cold 4 p95 40,5 ms; 10/10 wyborów po nowym procesie, zero zgubionych F lub błędnych JPEG/range. Cache hit przed odpowiedzią opóźnioną o 500 ms PASS. Ograniczony odbiór na 12 kopiach czterech istniejących JPEG, bez prognozy dla odbiorcy.
+- Raport: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`; pełne próbki i logi: `artifacts/selector-fluency-20261029/`. Audyt Claude pominięty decyzją operatora. Reboot Windows i odbiór innego komputera pending; bez usług, ochrony, oryginałów, migracji, merge/push. Cudze usunięcia/worktree poza zakresem.
+
 ### TASK-1106 — Jeden obiekt podglądu (done)
 
 - Task: `tasks/completed/1106-selector-preview-cache.md`.

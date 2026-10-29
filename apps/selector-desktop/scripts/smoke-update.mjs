@@ -265,6 +265,18 @@ try {
     await page.locator('h1').click();
     await page.keyboard.press('Tab');
     await waitState((value) => value.skippedCount === 1);
+    // Historical UI drops arrows while its native skip response is pending.
+    // Snapshot can see the store commit before the renderer releases busy.
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="counts"]')
+          ?.textContent.includes('Pominięte zakresy: 1') &&
+        document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+        [...document.querySelectorAll('button')].find((button) =>
+          /^Pomiń(?: zakres)?(?: \(Tab\))?$/.test(button.textContent.trim()),
+        )?.disabled === false,
+    );
     await page.locator('h1').click();
     await page.keyboard.press('ArrowRight');
     const old = await waitState(

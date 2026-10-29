@@ -67,6 +67,11 @@ Nie zmienia to liniowych odczytów inventory ProjectStore ani projectManifest.
 
 ## Maszyna intencji Windows — TASK-1104, D-574
 
+Aktualizacja range/undo zachowuje gotowość istniejącej bitmapy tylko przy
+zgodnym project/source/image i braku decode error. Niezmieniony ImageViewer
+nie wysyła nowego callbacku decode. Inny cel albo bootstrap nadal unieważnia
+gotowość; wybór czeka na właściwe zdjęcie (regresja wykryta w TASK-1107).
+
 `renderer/selection-intents.ts` oddziela committed workspace od displayedImageId.
 Utrzymuje jeden writer, jeden ostatni niewysłany cel oraz jeden AcceptIntent
 z kontekstem domenowym i niezmiennym ExecuteRequest. Stany idle/navigating/

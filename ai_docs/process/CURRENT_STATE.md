@@ -12,6 +12,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+- **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
+
 - **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
@@ -69,6 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 — tasks/completed/1108-mumie-default-geometry.md
 - **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md
 - **TASK-1105** — Mała aktualizacja workspace przez IPC — v1.7.498 / `af24adcc` — tasks/completed/1105-selector-workspace-updates.md
@@ -78,4 +81,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md
 - **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 / `2b972a23` — tasks/completed/1100-board-search-default-forty.md
 - **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md
-- **TASK-1098** — Układy przed szukaniem i nawigacja zdjęć — v1.7.484 / `d44debca` — tasks/completed/1098-board-search-photo-navigation.md

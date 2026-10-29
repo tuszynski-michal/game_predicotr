@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1108 — Wersja Mumii jako domyślna geometria (done)
+
+- Plik: `tasks/completed/1108-mumie-default-geometry.md`.
+- Commit: **v1.7.506**.
+- Na polecenie operatora opublikowano historyczną bazę Mumie v1 (`158a740f-1f54-523f-94f3-508477dbea7a`) i ustawiono jako default nowych gier, revision 1. To ta sama wersja i SHA manifestu co w Mumie a1.
+- Nowy proces odczytu API potwierdził available/published/eligible oraz brak zmiany assignment Mumie a1 (revision 1, eventCount 1). Zapisano polecenia i receipty: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
+- Bez treningu, nowego PASS jakości, importu, restartu usług, migracji, merge i push. Brak zmiany kodu; brak wymaganego audytu. Kontrola dokumentacji: `npm run docs:check`.
+
 ### TASK-1107 — Dowody płynności i paczka Windows 1.0.4 (done)
 
 - Plik: `tasks/completed/1107-selector-fluency-release.md`.

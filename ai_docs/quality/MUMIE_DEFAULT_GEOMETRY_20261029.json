@@ -1,0 +1,79 @@
+{
+  "task": "TASK-1108",
+  "date": "2026-10-29",
+  "sourceGameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+  "sourceGameName": "Mumie a1",
+  "versionId": "158a740f-1f54-523f-94f3-508477dbea7a",
+  "familyLabel": "Mumie",
+  "version": "v1",
+  "admission": "historical_baseline",
+  "manifestSha256": "1fc37b7caa75ca8fe64a9ab82cb73ca1b76245148396106e4d111c34991293d0",
+  "before": {
+    "available": true,
+    "published": false,
+    "defaultRevision": 0,
+    "defaultReasonCode": "GRID_MODEL_DEFAULT_REQUIRED",
+    "sourceAssignmentRevision": 1,
+    "sourceAssignmentEventCount": 1
+  },
+  "publishCommand": {
+    "idempotencyKey": "7c14670c-82d0-439c-8c67-cc6e54c86d04",
+    "expectedRevision": 0
+  },
+  "setDefaultCommand": {
+    "idempotencyKey": "9c92b48b-3890-4cd5-afbf-b8bb88de2b83",
+    "expectedRevision": 0,
+    "versionId": "158a740f-1f54-523f-94f3-508477dbea7a"
+  },
+  "publishReceipt": {
+    "eventId": null,
+    "kind": "publish",
+    "idempotencyKey": "7c14670c-82d0-439c-8c67-cc6e54c86d04",
+    "expectedRevision": 0,
+    "versionId": "158a740f-1f54-523f-94f3-508477dbea7a",
+    "gameId": null,
+    "evaluationId": null,
+    "actor": "local-owner",
+    "revision": 1,
+    "commandSha256": "e70fc50208c89fb06e2d09a5f29a9127e9b2c79300867c171d1689e08159aff8",
+    "manifestSha256": "1fc37b7caa75ca8fe64a9ab82cb73ca1b76245148396106e4d111c34991293d0",
+    "evidenceKind": "historical_admission",
+    "evidenceSha256": "21d944ed55b292480e1779b0b41467d9424ef4bce029b868e443ca0fddf90456",
+    "transfer": null,
+    "trainingFamilyId": null,
+    "mode": null,
+    "origin": null
+  },
+  "setDefaultReceipt": {
+    "eventId": null,
+    "kind": "set_default",
+    "idempotencyKey": "9c92b48b-3890-4cd5-afbf-b8bb88de2b83",
+    "expectedRevision": 0,
+    "versionId": "158a740f-1f54-523f-94f3-508477dbea7a",
+    "gameId": null,
+    "evaluationId": null,
+    "actor": "local-owner",
+    "revision": 1,
+    "commandSha256": "767822534218830b2fcab33c739fd8298ca2d20cbebf9ddc0e2c1f580a574d5b",
+    "manifestSha256": "1fc37b7caa75ca8fe64a9ab82cb73ca1b76245148396106e4d111c34991293d0",
+    "evidenceKind": "historical_admission",
+    "evidenceSha256": "21d944ed55b292480e1779b0b41467d9424ef4bce029b868e443ca0fddf90456",
+    "transfer": null,
+    "trainingFamilyId": null,
+    "mode": null,
+    "origin": null
+  },
+  "after": {
+    "verifiedAtUtc": "2026-10-29T20:14:33.2890144Z",
+    "verificationProcessId": 41144,
+    "versionId": "158a740f-1f54-523f-94f3-508477dbea7a",
+    "manifestSha256": "1fc37b7caa75ca8fe64a9ab82cb73ca1b76245148396106e4d111c34991293d0",
+    "available": true,
+    "published": true,
+    "eligible": true,
+    "defaultRevision": 1,
+    "defaultReasonCode": "GRID_MODEL_ELIGIBLE",
+    "sourceAssignmentRevision": 1,
+    "sourceAssignmentEventCount": 1
+  }
+}

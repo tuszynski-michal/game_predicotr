@@ -78,7 +78,7 @@ Brak fizycznego reboot Windows i dostępu do komputera odbiorcy. Nie ma gwarancj
 
 ## Outcome
 
-Commit: v1.7.504 (hash dopisuje kolejny commit).
+Commit: v1.7.504 / `ce67e623e9a6619d0f1ce29c9e89c19ce47225a8`.
 
 ### Changed
 

@@ -69,7 +69,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 — tasks/completed/1107-selector-fluency-release.md
+- **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md
 - **TASK-1105** — Mała aktualizacja workspace przez IPC — v1.7.498 / `af24adcc` — tasks/completed/1105-selector-workspace-updates.md
 - **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md

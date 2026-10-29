@@ -71,7 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 — tasks/completed/1111-expand-mumie-training-set-2.md
+- **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 / `a8727323` — tasks/completed/1111-expand-mumie-training-set-2.md
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
 - **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md
 - **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 / `3d1f55f2` — tasks/completed/1108-mumie-default-geometry.md

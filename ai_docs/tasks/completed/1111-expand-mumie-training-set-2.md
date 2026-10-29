@@ -66,7 +66,7 @@ Badamy identyczność nazw i zawartości plików, nie podobieństwo różnych ka
 
 ## Outcome
 
-Commit: v1.7.512 (hash dopisuje kolejny commit).
+Commit: v1.7.512 / `a872732336309711e629682bf31b3254bd267f87`.
 
 ### Changed
 

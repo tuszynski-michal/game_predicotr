@@ -71,7 +71,7 @@ Wykluczenia dotyczą identycznych nazw i bajtów. Podobne kadry z jednego nagran
 
 ## Outcome
 
-Commit: v1.7.510 (hash dopisuje kolejny commit).
+Commit: v1.7.510 / `c4afc20afa34fcb967b76036b40cc165b72108b0`.
 
 ### Changed
 

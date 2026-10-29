@@ -99,7 +99,7 @@ Zimny JPEG nadal wymaga decode. Brak gwarancji czasu native na dysku odbiorcy. B
 
 ## Outcome
 
-Commit: v1.7.496 (hash dopisuje kolejny commit).
+Commit: v1.7.496 / `b280ae39a7661fb91eef2b672763ce6e71ef7007`.
 
 ### Changed
 

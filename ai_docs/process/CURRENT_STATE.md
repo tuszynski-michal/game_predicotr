@@ -70,7 +70,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 — tasks/completed/1104-selector-selection-intents.md
+- **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md
 - **TASK-1103** — Plan płynności i niezawodności Selektora — v1.7.494 / `1e7a97e3` — tasks/completed/1103-selector-fluency-plan.md
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md
 - **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md

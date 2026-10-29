@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1104 — Płynna nawigacja i niezawodne F (done)
 
 - Plik: `tasks/completed/1104-selector-selection-intents.md`.
-- Commit: **v1.7.496** (hash dopisuje kolejny commit).
+- Commit: **v1.7.496 / `b280ae39a7661fb91eef2b672763ce6e71ef7007`** (hash dopisuje kolejny commit).
 - Jeden writer i ostatni niewysłany cel, optimistic preview oraz przypięty F/Enter/click z timeoutem/anulowaniem, obsłużonym snapshot i identycznym retry operationId. Typowany handshake kończy ogon przed close; timeout zachowuje okno i lock.
 - Testy 20/20, format/lint/typecheck/build, realny Electron fluency i shortcuts, docs:check oraz code-map:check PASS. Crash po commicie/przed odpowiedzią potwierdza SHA, manifest i trzy decyzje w nowym procesie. Audyty pominięte decyzją operatora; bez werdyktu PASS audytu.
 - Plan accepted rev.3, wymagania/architektura i D-574. Dalej TASK-1105–1107; finalny ZIP, pomiar p95 i fizyczny odbiór nie należą do1104. Bez usług, migracji, oryginałów, ochrony, merge/push; cudze zmiany zachowane.

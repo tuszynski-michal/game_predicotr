@@ -71,7 +71,7 @@ Jednorazowy decode nieznanego wymiaru może przekroczyć estymatę. Chromium nie
 
 ## Outcome
 
-Commit: v1.7.500 (hash dopisuje kolejny commit).
+Commit: v1.7.500 / `a081e9213717bb5af7c0930bc8a9721633059323`.
 
 ### Changed
 

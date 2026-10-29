@@ -77,7 +77,7 @@ Przyjęto najnowszą opublikowaną wersję źródła, a nie historyczną stawkę
 
 ## Outcome
 
-Commit: v1.7.508 (hash dopisuje kolejny commit).
+Commit: v1.7.508 / `0754a77a68366f53038a6c395cfdfabea84bfa23`.
 
 ### Changed
 

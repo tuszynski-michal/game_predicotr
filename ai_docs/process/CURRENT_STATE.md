@@ -71,7 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 — tasks/completed/1109-copy-mumie-rules-payout.md
+- **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md
 - **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 / `3d1f55f2` — tasks/completed/1108-mumie-default-geometry.md
 - **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md

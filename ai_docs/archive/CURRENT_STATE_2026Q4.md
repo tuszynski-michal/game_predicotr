@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1109 — Kopia reguł i wypłat Mumii (done)
 
 - Plik: `tasks/completed/1109-copy-mumie-rules-payout.md`.
-- Commit: **v1.7.508**.
+- Commit: **v1.7.508 / `0754a77a68366f53038a6c395cfdfabea84bfa23`**.
 - Na polecenie operatora skopiowano opublikowaną v3 Mumie a1 do nowej gry `mumie-aktu2`: szkic v1, 3 × 5, spin 10 kredytów, 5 linii, 10 konfiguracji symboli i 34 wypłaty. Mapowanie po kodach, bez zmiany katalogów symboli i źródła.
 - Nowy proces: konfiguracje źródła i celu identyczne po normalizacji; gotowość publikacji ready, zero blokad. Snapshot, żądania i wynik: `quality/MUMIE_RULES_COPY_20261029.json`.
 - Bez publikacji, importu, treningu, restartu, migracji, zmian kodu, dodatkowego audytu, merge i push. Kontrola dokumentacji: `npm run docs:check`.

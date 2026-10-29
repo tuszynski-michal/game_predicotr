@@ -79,7 +79,7 @@ AcceptedImageIds ma O(D), trwały zapis nadal ma dotychczasowy koszt. Brak otwar
 
 ## Outcome
 
-Commit: v1.7.498 (hash dopisuje kolejny commit).
+Commit: v1.7.498 / `af24adcc3e04b9cae2fd6cf1faa2258f736c67c8`.
 
 ### Changed
 

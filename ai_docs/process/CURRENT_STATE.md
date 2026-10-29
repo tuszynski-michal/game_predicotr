@@ -70,7 +70,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1105** — Mała aktualizacja workspace przez IPC — v1.7.498 — tasks/completed/1105-selector-workspace-updates.md
+- **TASK-1105** — Mała aktualizacja workspace przez IPC — v1.7.498 / `af24adcc` — tasks/completed/1105-selector-workspace-updates.md
 - **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md
 - **TASK-1103** — Plan płynności i niezawodności Selektora — v1.7.494 / `1e7a97e3` — tasks/completed/1103-selector-fluency-plan.md
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md

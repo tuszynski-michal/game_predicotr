@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1105 — Mała aktualizacja workspace przez IPC (done)
 
 - Plik: `tasks/completed/1105-selector-workspace-updates.md`.
-- Commit: **v1.7.498** (hash dopisuje kolejny commit).
+- Commit: **v1.7.498 / `af24adcc3e04b9cae2fd6cf1faa2258f736c67c8`** (hash dopisuje kolejny commit).
 - Execute zwraca mały update bez źródłowego inventory; indeks SourceLookup jest współdzielony raz na SourceIndex w każdym procesie. Zgodność projektu/źródła/rewizji i snapshot fallback chronią przypięte F.
 - Celowane47/47, lint/typecheck/build, prawdziwy IPC smoke fluency i shortcuts PASS; mapa/docs PASS. Trzy stare testy native timeout FAIL także na HEAD f9cd8eb0; poza zakresem, komenda baseline w Outcome. Wszystkie audyty pominięte przez operatora.
 - Bez zmiany trwałego zapisu/SHA, danych operatora, usług i merge/push. Dalej TASK-1106.

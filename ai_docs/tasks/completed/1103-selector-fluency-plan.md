@@ -136,7 +136,7 @@ przyszłej implementacji, wymagających osobnej zgody.
 
 ## Outcome
 
-Commit: v1.7.494 (hash dopisuje kolejny commit).
+Commit: v1.7.494 / `1e7a97e38830fea3a9d334934dd3241043fb7191`.
 
 ### Changed
 

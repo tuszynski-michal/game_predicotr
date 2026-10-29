@@ -1,0 +1,1834 @@
+{
+  "task": "TASK-1109",
+  "sourceGameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+  "targetGameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+  "startedAtUtc": "2026-10-29T21:54:22.756263+00:00",
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/games/246a1f54-eee8-49d5-b11a-0fde70e5eecd/rules-versions",
+      "body": {
+        "rows": 3,
+        "columns": 5,
+        "spinCost": 10
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "version": 1,
+        "rows": 3,
+        "columns": 5,
+        "spinCost": 10,
+        "status": "draft",
+        "createdAt": "2026-10-29T21:54:23.108958Z",
+        "publishedAt": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/paylines",
+      "body": {
+        "code": "A",
+        "name": "A",
+        "rowPath": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "displayOrder": 0,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "77dca79b-6874-47ff-a85b-0da7225d2963",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "code": "A",
+        "name": "A",
+        "rowPath": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "displayOrder": 0,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/paylines",
+      "body": {
+        "code": "B",
+        "name": "B",
+        "rowPath": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "displayOrder": 1,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "fe3af793-cd7a-4e49-ab61-c66ba2382888",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "code": "B",
+        "name": "B",
+        "rowPath": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "displayOrder": 1,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/paylines",
+      "body": {
+        "code": "C",
+        "name": "C",
+        "rowPath": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "displayOrder": 2,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "9bfbfdac-26de-4147-a457-fa93e2fced32",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "code": "C",
+        "name": "C",
+        "rowPath": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "displayOrder": 2,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/paylines",
+      "body": {
+        "code": "D",
+        "name": "D",
+        "rowPath": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "displayOrder": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "ca2c67da-6938-4183-8ccd-c4ed2ed42d41",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "code": "D",
+        "name": "D",
+        "rowPath": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "displayOrder": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/paylines",
+      "body": {
+        "code": "E",
+        "name": "E",
+        "rowPath": [
+          2,
+          1,
+          0,
+          1,
+          2
+        ],
+        "displayOrder": 4,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "1556f1b0-8cbb-46d7-b55b-cfcc29ac8be0",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "code": "E",
+        "name": "E",
+        "rowPath": [
+          2,
+          1,
+          0,
+          1,
+          2
+        ],
+        "displayOrder": 4,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/6dd028f9-2a90-470e-b22c-867c508b2138",
+      "body": {
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138",
+        "minimumMatchLength": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/e76c4394-51b9-4142-a6ad-918c89cf755c",
+      "body": {
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c",
+        "minimumMatchLength": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/7be36ec8-30b3-4d76-9cab-4c32570928f9",
+      "body": {
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9",
+        "minimumMatchLength": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+      "body": {
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+        "minimumMatchLength": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/8f11b45c-0e6c-4722-8ecc-967a79e96011",
+      "body": {
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011",
+        "minimumMatchLength": 3,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/4bc5b026-c853-4cc1-9150-e14019416063",
+      "body": {
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "minimumMatchLength": 2,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+      "body": {
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "minimumMatchLength": 2,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/9ea60982-1d0f-4850-b530-c677a8916566",
+      "body": {
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "minimumMatchLength": 2,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+      "body": {
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "minimumMatchLength": 2,
+        "isActive": true
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/symbols/b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+      "body": {
+        "minimumMatchLength": null,
+        "isActive": true
+      },
+      "state": "confirmed",
+      "response": {
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+        "minimumMatchLength": null,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "de50c508-0a80-4093-b78d-b16184ea4bd7",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true,
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "408672e1-409c-4176-a6f2-655430b9a40b",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true,
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "e7d6aace-eeb9-4644-9c92-6f4a71356e91",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "6dd028f9-2a90-470e-b22c-867c508b2138",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "dcb594f8-fe06-49f1-b3d9-2659502c3a5d",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true,
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "a8d01594-0302-462b-8601-d299726ed8f4",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true,
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "5de959e8-2b28-400d-9758-641bb5c7876d",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "8f11b45c-0e6c-4722-8ecc-967a79e96011",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "872b657a-0c3d-457d-9455-99ba6c4692e8",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true,
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "ee881635-7538-4971-8dee-7df8609d12d2",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 300,
+        "isActive": true,
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "58b4f793-1411-461b-a5f7-28d48d067908",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "matchLength": 4,
+        "payoutCredits": 300,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 3000,
+        "isActive": true,
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "521c0a85-236c-48d7-9e7f-7dab010733e0",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "matchLength": 5,
+        "payoutCredits": 3000,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "d82b96b5-c653-4494-b9a4-520c6f5b30ba",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true,
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "f7015299-e51e-47df-a84e-99874fb647cd",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true,
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "876cb26f-d6b2-4112-bcbf-9dcf40d3ee15",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "e76c4394-51b9-4142-a6ad-918c89cf755c",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "7288c703-9b8b-44c9-877e-61495521451f",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true,
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "47ed195e-9e14-4015-a7cf-e90eb57bce6a",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true,
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "7e059de7-011a-46e7-bcb6-c2123f0aa59c",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 20,
+        "isActive": true,
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "28c3529b-80a5-43da-9911-b65a137b7f78",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+        "matchLength": 3,
+        "payoutCredits": 20,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true,
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "1e397f06-b6ad-4e10-b16d-7923e040140a",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true,
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "e7703920-a577-4a63-98a0-e0377a178c2d",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "a5495bf3-0b3e-4031-bc82-deaeecf58000",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true,
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "7f4ffd74-3cf7-47a0-8743-faddf494f62c",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true,
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "0b8a7da2-740a-4ea9-8107-018de0b438fe",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "7be36ec8-30b3-4d76-9cab-4c32570928f9",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "6a7d6f39-7070-4ee4-9831-cd63eff2f73b",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true,
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "c1354fcb-cb6d-46be-909b-a8cbd13959a9",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true,
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "c603f639-9a1e-4940-ab14-75f4cc335cd4",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true,
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "97661e3b-c149-4220-8c9a-505979a8b080",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true,
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "ea9d6271-a1ee-4ca5-a11e-d24cf7e763c2",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true,
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "9bd9eb91-583f-4cc2-86c5-fa624c2f3f05",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true,
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "981408ec-ee68-4c5d-aabf-5f82b0b69a49",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true,
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "b3f7c9a8-8dda-418e-b717-d42c7b9cbc5e",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 2,
+        "payoutCredits": 20,
+        "isActive": true,
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "a4b38cde-defa-4871-a885-f6826d512302",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "matchLength": 2,
+        "payoutCredits": 20,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 3,
+        "payoutCredits": 200,
+        "isActive": true,
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "242a7772-bb4c-43fd-a2e7-ddd5e08e8af4",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "matchLength": 3,
+        "payoutCredits": 200,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 4,
+        "payoutCredits": 2000,
+        "isActive": true,
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "f4f9478f-1a54-448b-b6da-adb3cf982250",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "matchLength": 4,
+        "payoutCredits": 2000,
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/rules-versions/c7854ca8-3b8b-44a1-acc7-37d11128ce76/payout-rules",
+      "body": {
+        "matchLength": 5,
+        "payoutCredits": 10000,
+        "isActive": true,
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224"
+      },
+      "state": "confirmed",
+      "response": {
+        "id": "56139747-d288-449d-bae1-e38e0af9bc83",
+        "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+        "symbolId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "matchLength": 5,
+        "payoutCredits": 10000,
+        "isActive": true
+      }
+    }
+  ],
+  "before": {
+    "sourceGame": {
+      "id": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+      "code": "mumie",
+      "name": "Mumie a1",
+      "status": "active",
+      "expectedLayoutCount": 500000,
+      "createdAt": "2026-10-04T20:29:32.675405Z",
+      "updatedAt": "2026-10-11T10:54:26.045158Z",
+      "storageVersion": "game-data-v2-manifest-v19",
+      "storageSchema": "game_data_v2",
+      "storageGeneration": 2,
+      "storageStatus": "active",
+      "storageWriteAvailable": true,
+      "shapeGeometryConfiguration": "grid_profile_mumie_v1",
+      "shapeGeometryReadiness": {
+        "configuration": "grid_profile_mumie_v1",
+        "status": "manual_review_required",
+        "reasonCode": "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED",
+        "message": "Brak aktywnego wspólnego profilu geometrii; pierwszy import wymaga ręcznej korekty.",
+        "sharedProfile": null
+      },
+      "superGameKind": "wild_super_spins"
+    },
+    "targetGame": {
+      "id": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+      "code": "mumie-aktu2",
+      "name": "Mumie a2",
+      "status": "draft",
+      "expectedLayoutCount": 500000,
+      "createdAt": "2026-10-29T20:51:00.928410Z",
+      "updatedAt": "2026-10-29T21:39:13.825596Z",
+      "storageVersion": "game-data-v2-manifest-v19",
+      "storageSchema": "game_data_v2",
+      "storageGeneration": 2,
+      "storageStatus": "active",
+      "storageWriteAvailable": true,
+      "shapeGeometryConfiguration": "neural_grid_v3",
+      "shapeGeometryReadiness": {
+        "configuration": "neural_grid_v3",
+        "status": "manual_review_required",
+        "reasonCode": "GRID_MODEL_PREFLIGHT_REQUIRED",
+        "message": "Przypisana geometria V3 wymaga preflightu importu.",
+        "sharedProfile": null
+      },
+      "superGameKind": "wild_super_spins"
+    },
+    "sourceRules": {
+      "id": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+      "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+      "version": 3,
+      "rows": 3,
+      "columns": 5,
+      "spinCost": 10,
+      "status": "published",
+      "createdAt": "2026-10-19T19:46:02.947398Z",
+      "publishedAt": "2026-10-19T19:54:53.610801Z"
+    },
+    "targetRules": [],
+    "sourceSymbols": [
+      {
+        "id": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 1,
+        "code": "10",
+        "name": "10",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/62370393-0b21-42a4-b08d-bf6134b4b8ed/ed1a94ba42817b6aa1fea31cf00a9f5788d9b4f4e4d7f950584d486cce9775b4.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 0,
+        "status": "active"
+      },
+      {
+        "id": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 2,
+        "code": "J",
+        "name": "J",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/403c4676-7f34-4daa-a2d7-cdea68aff2fe/32a234c27d287c53d7b12cac4e0884fc672e6cb5447adeedc7edf093ea40147c.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 1,
+        "status": "active"
+      },
+      {
+        "id": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 3,
+        "code": "Q",
+        "name": "Q",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95/36d87123feb9c77b948c53f556d7c96c7381a7824aa44fed5ecc6df03a2b1264.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 2,
+        "status": "active"
+      },
+      {
+        "id": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 4,
+        "code": "K",
+        "name": "K",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/c01f8281-589b-4ea1-8eb4-5d7e5e5566b4/706a5a5ee3519ea5a7f60fc09ae8c13b7a07240469cf263d9aa0254ea2d24f2c.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 3,
+        "status": "active"
+      },
+      {
+        "id": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 5,
+        "code": "A",
+        "name": "A",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/eb326ce9-621f-4e76-8d74-7a2e6ddf635b/3be978cdbabd0553a28fb2d32bf81e105513c4efac3a8785e1f1b52f3b9dedd4.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 4,
+        "status": "active"
+      },
+      {
+        "id": "49e65f75-c530-4646-beb3-608ec4301811",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 7,
+        "code": "RA",
+        "name": "Ra",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/49e65f75-c530-4646-beb3-608ec4301811/8982a9ee3c6c658fa84921141600e39b6fdd50c26bc88398ec8b466746fefeb6.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 5,
+        "status": "active"
+      },
+      {
+        "id": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 6,
+        "code": "SARKOFAG",
+        "name": "Sarkofag",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/13afeaad-c13b-4b00-b5ac-eb8beae6a999/4f6ecc18701d6e34e8458cfe72fbc5eb7398a6a7983bfbd8f576db20ab03444e.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 6,
+        "status": "active"
+      },
+      {
+        "id": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 8,
+        "code": "FARAON",
+        "name": "Faraon",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/2b2a7d55-1047-44e0-b86d-f24e77afb4a2/db6794f54dd5b63320f7ca9502a24b4c33b6d0c4a453ad056a1d68b607a1b66e.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 7,
+        "status": "active"
+      },
+      {
+        "id": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 9,
+        "code": "SFINKS",
+        "name": "Sfinks",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/b9f4077f-fc78-4c04-a64d-f68779f09d40/0ce4ee8352eb04bf1ea3e2fc83cef29c3bd29e7f8f63dd8b2cb971a04e615c85.png",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 8,
+        "status": "active"
+      },
+      {
+        "id": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+        "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+        "mobileCode": 10,
+        "code": "MUMIA",
+        "name": "Mumia",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": "data/symbol-references/fea55cc1-ebf4-4cee-b3ab-a520017ed1be/d88ba72e-ea8f-4654-850a-ac403c3395bb/f67b20fe8a5fdc91b7dc1e26db3e6fe6d6bf0751bae847889ec11bc93c14c740.png",
+        "isWildcard": true,
+        "superGameTriggerCount": 3,
+        "displayOrder": 9,
+        "status": "active"
+      }
+    ],
+    "targetSymbols": [
+      {
+        "id": "6dd028f9-2a90-470e-b22c-867c508b2138",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 1,
+        "code": "10",
+        "name": "10",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 0,
+        "status": "active"
+      },
+      {
+        "id": "e76c4394-51b9-4142-a6ad-918c89cf755c",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 2,
+        "code": "J",
+        "name": "J",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 1,
+        "status": "active"
+      },
+      {
+        "id": "7be36ec8-30b3-4d76-9cab-4c32570928f9",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 3,
+        "code": "Q",
+        "name": "Q",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 2,
+        "status": "active"
+      },
+      {
+        "id": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 4,
+        "code": "K",
+        "name": "K",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 3,
+        "status": "active"
+      },
+      {
+        "id": "8f11b45c-0e6c-4722-8ecc-967a79e96011",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 5,
+        "code": "A",
+        "name": "A",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 4,
+        "status": "active"
+      },
+      {
+        "id": "4bc5b026-c853-4cc1-9150-e14019416063",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 6,
+        "code": "RA",
+        "name": "Ra",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 5,
+        "status": "active"
+      },
+      {
+        "id": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 7,
+        "code": "SARKOFAG",
+        "name": "Sarkofag",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 6,
+        "status": "active"
+      },
+      {
+        "id": "9ea60982-1d0f-4850-b530-c677a8916566",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 8,
+        "code": "FARAON",
+        "name": "Faraon",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 7,
+        "status": "active"
+      },
+      {
+        "id": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 9,
+        "code": "SFINKS",
+        "name": "Sfinks",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "displayOrder": 8,
+        "status": "active"
+      },
+      {
+        "id": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff",
+        "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+        "mobileCode": 10,
+        "code": "MUMIA",
+        "name": "Mumia",
+        "namePl": null,
+        "nameEn": null,
+        "imagePath": null,
+        "isWildcard": true,
+        "superGameTriggerCount": 3,
+        "displayOrder": 9,
+        "status": "active"
+      }
+    ],
+    "sourceConfigs": [
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "49e65f75-c530-4646-beb3-608ec4301811",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+        "minimumMatchLength": null,
+        "isActive": true
+      }
+    ],
+    "sourcePaylines": [
+      {
+        "id": "d2c73de2-17b8-4de3-9546-f54594e0185b",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "code": "A",
+        "name": "A",
+        "rowPath": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "displayOrder": 0,
+        "isActive": true
+      },
+      {
+        "id": "604221bb-2fae-4091-815f-42bfd56c15e9",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "code": "B",
+        "name": "B",
+        "rowPath": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "displayOrder": 1,
+        "isActive": true
+      },
+      {
+        "id": "5bc09c60-ce0e-4373-81ed-1c27484ec040",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "code": "C",
+        "name": "C",
+        "rowPath": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "displayOrder": 2,
+        "isActive": true
+      },
+      {
+        "id": "64151afb-d507-40d8-89d5-0ac5ed6e70aa",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "code": "D",
+        "name": "D",
+        "rowPath": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "displayOrder": 3,
+        "isActive": true
+      },
+      {
+        "id": "1377cafb-4eb4-4c9b-8c45-d677d22300a0",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "code": "E",
+        "name": "E",
+        "rowPath": [
+          2,
+          1,
+          0,
+          1,
+          2
+        ],
+        "displayOrder": 4,
+        "isActive": true
+      }
+    ],
+    "sourcePayouts": [
+      {
+        "id": "ef8bf003-6076-48ed-ab8c-ad24bb3193da",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "e9a8c8be-3bb6-44dd-95f4-2e7d368c198f",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "id": "a94b8968-2877-4e21-b32a-274ac2ccd520",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "id": "9c65ac2b-a12e-47ad-a0be-991c8c019dd3",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "c17e6c8e-7685-4d2b-9cd6-f1da8fe821b7",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "id": "e66e7f85-303c-4965-973e-54d42da60230",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "id": "e82c83ea-f15f-4357-9a07-efc592ca25ab",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "9e0a546d-f0ff-4241-9bd8-bba730b1653e",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "id": "78dabf05-319e-477a-9192-f755813e84ac",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "id": "85fa1b20-2e8d-405c-8cc5-637bb2de4042",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "48633c57-67fb-461b-bd82-34d9f9dffa81",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      },
+      {
+        "id": "5ffc06f7-178a-4645-a36a-6ed1bcc2c60c",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      },
+      {
+        "id": "f7e49013-0657-4d0f-ba6b-38bf47fd2265",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "8758c548-6292-4e59-86a5-f9123567bf6d",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      },
+      {
+        "id": "4bc75d02-4661-4346-b468-29c51dabd6b9",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      },
+      {
+        "id": "b4abbe8d-c7ed-4244-8f4d-cb95e8ec343d",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "49e65f75-c530-4646-beb3-608ec4301811",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "d508e9f8-9930-4679-849e-9d9a2996ef45",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "49e65f75-c530-4646-beb3-608ec4301811",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "id": "7b2fedfd-a432-4c40-bbfd-877583b26392",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "49e65f75-c530-4646-beb3-608ec4301811",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "id": "460bae06-ba93-43ff-b879-bafb1426fc79",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "49e65f75-c530-4646-beb3-608ec4301811",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "id": "bdaa2b95-e823-4767-b0d4-e137bb6eca67",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "0ce1fb43-f632-4d5e-9716-080f6ba7e923",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "id": "17f9cc08-b8fa-47e1-a7bb-14110bf0a98a",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "id": "2b1915ac-d056-4d86-aa7f-37eb5899c059",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "id": "650c3409-df0b-4ca2-a15a-2e34cf3d303d",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "id": "59b99efa-3887-4709-86a0-c1805d6e70ff",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "id": "037ebb5b-ee0b-4527-8b65-812196b2a223",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "matchLength": 4,
+        "payoutCredits": 300,
+        "isActive": true
+      },
+      {
+        "id": "a0a7ec02-5d8a-4800-9697-2b1e6bef3df3",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+        "matchLength": 5,
+        "payoutCredits": 3000,
+        "isActive": true
+      },
+      {
+        "id": "bdc383d3-994c-458d-9ea1-b4c7707e406c",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "matchLength": 2,
+        "payoutCredits": 20,
+        "isActive": true
+      },
+      {
+        "id": "25239032-aed2-4986-98c5-ca46b3811196",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "matchLength": 3,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "id": "e97ae996-0983-4f5f-9198-74c350ba4a82",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "matchLength": 4,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "id": "ca493178-903e-4120-8cc6-2dc9dfa2c326",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+        "matchLength": 5,
+        "payoutCredits": 10000,
+        "isActive": true
+      },
+      {
+        "id": "80ae378b-07b8-4a85-92eb-f5bd169ba699",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+        "matchLength": 3,
+        "payoutCredits": 20,
+        "isActive": true
+      },
+      {
+        "id": "cb51db73-d799-495b-bd5d-c9cae2ff806e",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "id": "88e7393f-eff2-43e9-8e6b-b883d66170ac",
+        "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+        "symbolId": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      }
+    ]
+  },
+  "symbolMap": [
+    {
+      "code": "10",
+      "sourceId": "62370393-0b21-42a4-b08d-bf6134b4b8ed",
+      "targetId": "6dd028f9-2a90-470e-b22c-867c508b2138"
+    },
+    {
+      "code": "A",
+      "sourceId": "eb326ce9-621f-4e76-8d74-7a2e6ddf635b",
+      "targetId": "8f11b45c-0e6c-4722-8ecc-967a79e96011"
+    },
+    {
+      "code": "FARAON",
+      "sourceId": "2b2a7d55-1047-44e0-b86d-f24e77afb4a2",
+      "targetId": "9ea60982-1d0f-4850-b530-c677a8916566"
+    },
+    {
+      "code": "J",
+      "sourceId": "403c4676-7f34-4daa-a2d7-cdea68aff2fe",
+      "targetId": "e76c4394-51b9-4142-a6ad-918c89cf755c"
+    },
+    {
+      "code": "K",
+      "sourceId": "c01f8281-589b-4ea1-8eb4-5d7e5e5566b4",
+      "targetId": "fc7d0c62-1190-4bd5-bbbe-e68e3fc8584c"
+    },
+    {
+      "code": "MUMIA",
+      "sourceId": "d88ba72e-ea8f-4654-850a-ac403c3395bb",
+      "targetId": "b1f73ff6-4f2f-4d21-b191-91f77b5670ff"
+    },
+    {
+      "code": "Q",
+      "sourceId": "1d1f9d6c-cc5a-47eb-96fc-a339ee8c9b95",
+      "targetId": "7be36ec8-30b3-4d76-9cab-4c32570928f9"
+    },
+    {
+      "code": "RA",
+      "sourceId": "49e65f75-c530-4646-beb3-608ec4301811",
+      "targetId": "4bc5b026-c853-4cc1-9150-e14019416063"
+    },
+    {
+      "code": "SARKOFAG",
+      "sourceId": "13afeaad-c13b-4b00-b5ac-eb8beae6a999",
+      "targetId": "fcb233ac-c9a1-429f-ad7f-95f9353bdb80"
+    },
+    {
+      "code": "SFINKS",
+      "sourceId": "b9f4077f-fc78-4c04-a64d-f68779f09d40",
+      "targetId": "0162d8ae-e788-4a6b-8d5f-e9553bbfa224"
+    }
+  ],
+  "sourceRulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+  "targetRulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+  "publicationReadiness": {
+    "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+    "ready": true,
+    "issues": []
+  },
+  "copyCompletedAtUtc": "2026-10-29T21:54:25.192623+00:00",
+  "verification": {
+    "verifiedAtUtc": "2026-10-29T21:54:49.677055+00:00",
+    "newProcess": true,
+    "sourceUnchanged": true,
+    "targetSymbolCatalogUnchanged": true,
+    "semanticEquality": true,
+    "semanticSha256": "52769e533951a4a65ff2f367668f35912f327820316c2da9dd9b02eb57a30d1f",
+    "targetRules": {
+      "id": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+      "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+      "version": 1,
+      "rows": 3,
+      "columns": 5,
+      "spinCost": 10,
+      "status": "draft",
+      "createdAt": "2026-10-29T21:54:23.108958Z",
+      "publishedAt": null
+    },
+    "paylineCount": 5,
+    "symbolConfigCount": 10,
+    "payoutCount": 34,
+    "publicationReadiness": {
+      "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+      "ready": true,
+      "issues": []
+    }
+  }
+}

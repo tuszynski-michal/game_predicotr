@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1111 — Rozszerzenie setu 2 do 1000 zdjęć (done)
+
+- Plik: `tasks/completed/1111-expand-mumie-training-set-2.md`.
+- Commit: **v1.7.512**.
+- Na polecenie operatora dodano 940 losowych JPEG do `D:\trening set 2`, zachowując poprzednie 60. Razem 1000 zdjęć, 212 627 551 B; wykluczenia po nazwach i SHA z setu 1 oraz bieżącego setu 2.
+- Nowy proces: 1000 unikalnych nazw i SHA, zero wspólnych z setem 1, zgodność kopii ze źródłami. Poprzednie 60, set 1 i pierwotny manifest bez zmian. Wykaz: `quality/MUMIE_TRAINING_SET_2_EXPANSION_20261030.json`.
+- Bez importu, treningu, zmian źródeł, modeli, bazy, usług, kodu, merge i push. Kontrola dokumentacji: `npm run docs:check`.
+
 ### TASK-1110 — Drugi losowy set 60 zdjęć (done)
 
 - Plik: `tasks/completed/1110-mumie-random-training-set-2.md`.

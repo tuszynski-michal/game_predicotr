@@ -71,6 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 — tasks/completed/1111-expand-mumie-training-set-2.md
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
 - **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md
 - **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 / `3d1f55f2` — tasks/completed/1108-mumie-default-geometry.md
@@ -80,4 +81,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md
 - **TASK-1103** — Plan płynności i niezawodności Selektora — v1.7.494 / `1e7a97e3` — tasks/completed/1103-selector-fluency-plan.md
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md
-- **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md

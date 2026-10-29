@@ -1,10 +1,31 @@
 ---
 title: Local manual image selection architecture
 status: accepted
-last_updated: 2026-10-23
+last_updated: 2026-10-29
 ---
 
 # Architektura lokalnej ręcznej selekcji
+
+## Maszyna intencji Windows — TASK-1104, D-574
+
+`renderer/selection-intents.ts` oddziela committed workspace od displayedImageId.
+Utrzymuje jeden writer, jeden ostatni niewysłany cel oraz jeden AcceptIntent
+z kontekstem domenowym i niezmiennym ExecuteRequest. Stany idle/navigating/
+waiting_to_accept/accepting/recovering/error opisują oczekiwanie i recovery.
+Efekty execute/snapshot/frame są wstrzyknięte przez adapter React; cel zmienia
+się w pamięci od razu, a renderowanie jest łączone przez requestAnimationFrame.
+Gotowość decode dotyczy dokładnego imageId, a stary JPEG znika po zmianie celu.
+Accept czeka na commit nawigacji i sprawdza aktualny kontekst zamiast rewizji
+sprzed nawigacji. Timer 10 s dotyczy wyłącznie niewysłanego accept. Utrata
+odpowiedzi próbuje snapshot i najwyżej jedno identyczne retry; błąd nie
+odblokowuje mutacji. Jawne wznowienie zachowuje ten sam request/operationId.
+
+Typowany handshake shutdownRequested/shutdownReady/shutdownCancelled łączy
+main, preload i renderer przed controller.close. Main waliduje zaufany frame,
+jednorazowy token i projectId. Renderer zamraża wejście i utrwala ogon.
+Niewysłany accept odmawia zamknięcia z jawną instrukcją. Timeout 10 s zachowuje
+okno i lock, umożliwiając ponowną próbę. Format head2/journal3/ledgerów,
+manifest, retencja receiptów, fsync i SHA pozostają bez zmian.
 
 ## Nazwa wyniku Windows 1.0.3 — TASK-1089, D-572
 

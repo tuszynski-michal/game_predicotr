@@ -14,6 +14,16 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-574 — Przypięty wybór i optymistyczna nawigacja Selektora
+
+- **Date:** 2026-10-29.
+- **Status:** accepted by explicit operator approval of the full selector fluency plan and 3–5 hour implementation scope.
+- **Decision:** UI displayed cursor may precede the durable cursor. One native writer, one unsent latest navigation target and one pinned accept bind project/source/image/range/direction/upper bound plus immutable operationId. Native formats and durability remain D-546.
+- **Interaction:** F/Enter/click wait for target navigation commit and decode, visibly; timeout 10 s cancels only unsent accept. Other mutations are blocked until resolution. Repeat never creates a decision. Lost response requires snapshot and at most one automatic identical retry; later failure remains blocked for explicit retry.
+- **Close:** typed main/renderer handshake verifies sender, token and project before existing controller.close releases the lock. Flush dispatched work and final navigation. Unsent accept requires explicit cancel or completion. Handshake timeout 10 s leaves the window open; crash/recovery remains separate.
+- **Scope:** TASK-1104–1107 on codex/selector-reliability-plan, tests and Windows ZIP. Operator waived all Claude audits, without asserting audit PASS. No merge/push, services, original images or protection changes.
+- **Source:** delivery/SELECTOR_FLUENCY_RELIABILITY_PLAN_20261029.md rev. 3; requirements and architecture MANUAL_IMAGE_SELECTION.md.
+
 ## D-573 — Wyszukiwanie po kolejnych układach
 
 Status: accepted

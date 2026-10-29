@@ -1,5 +1,6 @@
 import { waitForHistory, continueFromHistory } from './ui-smoke-support.mjs';
 import { _electron as electron } from 'playwright-core';
+import electronExecutable from 'electron';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
@@ -20,7 +21,9 @@ const smoke = createOwnedSmoke({
 });
 let application;
 const executablePath = path.resolve(
-  process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe',
+  process.argv.includes('--local')
+    ? electronExecutable
+    : (process.argv[2] ?? 'out/Selektor zdjec-win32-x64/Selektor-zdjec.exe'),
 );
 try {
   await smoke.run(async () => {
@@ -31,7 +34,10 @@ try {
 
     application = await smoke.launch(electron, {
       executablePath,
-      args: [`--user-data-dir=${userData}`],
+      args: [
+        ...(process.argv.includes('--local') ? ['.'] : []),
+        `--user-data-dir=${userData}`,
+      ],
       timeout: 20000,
     });
     let page = await application.firstWindow();
@@ -127,7 +133,10 @@ try {
     await rename(source, movedSource);
     application = await smoke.launch(electron, {
       executablePath,
-      args: [`--user-data-dir=${userData}`],
+      args: [
+        ...(process.argv.includes('--local') ? ['.'] : []),
+        `--user-data-dir=${userData}`,
+      ],
       timeout: 20000,
     });
     page = await application.firstWindow();

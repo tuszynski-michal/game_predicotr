@@ -27,7 +27,10 @@ import {
   disposeNativeChecks,
   nativeChecks,
 } from './native/windows-check-worker.ts';
-import { DesktopLifecycle } from './native/desktop-lifecycle.ts';
+import {
+  DesktopLifecycle,
+  ShutdownHandshake,
+} from './native/desktop-lifecycle.ts';
 
 // Standard Chromium/Electron switch also isolates native project/view caches.
 // It is a process-launch option, never a renderer filesystem capability.
@@ -51,6 +54,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 const registry = new SourceRegistry();
 const lifecycle = new DesktopLifecycle();
+const shutdown = new ShutdownHandshake();
 let window: BrowserWindow | null = null;
 let log: DiagnosticLog;
 let controller: ProjectController;
@@ -92,27 +96,42 @@ async function createWindow() {
     lifecycle.beginClosing();
     void (async () => {
       try {
+        await shutdown.request(
+          controller.snapshot()?.projectId ?? null,
+          (request) =>
+            window?.webContents.send(CHANNELS.shutdownRequested, request),
+        );
         await controller.close();
         const issue = controller.getCloseIssue();
         if (issue) await log.write('project-close-issue', issue.code);
+        try {
+          await disposeNativeChecks();
+        } catch {
+          await log.write('native-checks-dispose-failed', 'IO_ERROR');
+        }
+        closing = true;
+        window?.close();
       } catch (error) {
         await log.write(
           'project-close-failed',
           error instanceof SelectorError ? error.code : 'IO_ERROR',
         );
-      } finally {
-        try {
-          await disposeNativeChecks();
-        } catch {
-          await log.write('native-checks-dispose-failed', 'IO_ERROR');
-        } finally {
-          closing = true;
-          window?.close();
-        }
+        closingRequested = false;
+        lifecycle.cancelClosing();
+        window?.webContents.send(
+          CHANNELS.shutdownCancelled,
+          error instanceof Error
+            ? error.message
+            : 'Nie można zamknąć projektu.',
+        );
       }
     })().catch(() => {
-      closing = true;
-      window?.close();
+      closingRequested = false;
+      lifecycle.cancelClosing();
+      window?.webContents.send(
+        CHANNELS.shutdownCancelled,
+        'Nie można zamknąć projektu. Spróbuj ponownie.',
+      );
     });
   });
   window.on('enter-full-screen', () =>
@@ -288,6 +307,12 @@ else {
       handle(CHANNELS.addGame, (name) => controller.addGame(name), 1);
       handle(CHANNELS.continue, (projectId) => controller.open(projectId), 1);
       handle(CHANNELS.snapshot, () => controller.snapshot());
+      handle(
+        CHANNELS.shutdownReady,
+        (reply) =>
+          shutdown.reply(reply, controller.snapshot()?.projectId ?? null),
+        1,
+      );
       handle(CHANNELS.execute, (request) => controller.execute(request), 1);
       handle(CHANNELS.resume, () => controller.resume());
       handle(CHANNELS.relink, (kind) => controller.relink(kind), 1);

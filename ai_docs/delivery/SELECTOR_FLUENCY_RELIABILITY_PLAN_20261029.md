@@ -1,6 +1,6 @@
 ---
 title: Płynność i niezawodny wybór zdjęć w Selektorze Windows
-status: proposed
+status: accepted
 last_updated: 2026-10-29
 ---
 
@@ -8,21 +8,13 @@ last_updated: 2026-10-29
 
 ## Status, zakres zgody i koszt
 
-Rewizja 2. Plan opracowany; operator 2026-10-29 polecił kontynuować bez audytu
-tego planu po sprawdzeniu dostępu Claude Code i modelu Fable. Audyt pominięty
-decyzją operatora, bez deklaracji PASS. To nie jest zgoda na implementację, wydanie, merge ani zmianę
-ochrony Windows. TASK-1103 dostarcza wyłącznie dokumenty. TASK-1104–1107
-pozostają propozycją; ich numery sprawdzono w lokalnych gałęziach 2026-10-29
-i trzeba sprawdzić ponownie przed utworzeniem plików tasków.
-
-Prace planistyczne są ograniczone do Selektora. Nie uruchamiamy kolejnych prób
-audytu planu; ewentualny przyszły audyt ma limit 480 s. Rezygnacja dotyczy
-TASK-1103; review przyszłych implementacji w tabeli pozostają propozycją.
-Szacunek późniejszej implementacji: 3–5 godzin razem z testami trwałości,
-audytami i sprawdzeniem ZIP. To korekta wcześniejszego szacunku 1–2 godzin:
-uwzględnia teraz zgłoszone przycięcia, obsługę współbieżności nawigacji i F
-oraz testy paczki. Nie ma wiarygodnego przeliczenia na procent pakietu.
-Przed tą pracą wymagana jest osobna zgoda kosztowa zgodnie z AGENTS.md.
+Rewizja 3. Operator 2026-10-29 zaakceptował cały plan TASK-1104–1107,
+wykonanie kolejno, koszt 3–5 godzin, testy i gotowy ZIP Windows. Operator
+zrezygnował ze wszystkich audytów Claude implementacji, tak jak wcześniej
+z audytu TASK-1103. To rezygnacja, bez werdyktu PASS. Nie uruchamiamy prób
+ponownego audytu. Zgoda nie obejmuje merge/push, usług, danych oryginalnych
+ani zmian ochrony Windows. Zadania zamykamy osobno. Numery TASK-1104–1107
+ponownie sprawdzono we wszystkich lokalnych gałęziach: wolne.
 
 ## Stan obecny: fakty, hipotezy i ograniczenia diagnozy
 
@@ -61,10 +53,9 @@ poprzedniej transakcji. Każde osobne F/Enter ma zakończyć się jednym trwały
 wyborem, widocznym oczekiwaniem albo jawnym komunikatem odrzucenia. Nigdy nie
 wolno zapisać innego zdjęcia lub zakresu niż przypięte do tego naciśnięcia.
 
-Poniższe reguły są **propozycją do akceptacji**, a nie nowymi zaakceptowanymi
-decyzjami domenowymi. Po akceptacji, przed kodowaniem TASK-1104, trzeba zapisać
-zmianę interakcji w wymaganiach i architekturze; jeśli zmienia wiążące ustalenie
-D-546/D-547, dodać nową zaakceptowaną decyzję bez edycji historycznych wpisów.
+Poniższe reguły zaakceptował operator 2026-10-29. Właścicielami zachowania
+są wymagania i architektura ręcznej selekcji; decyzja D-574 uzupełnia D-546/D-547
+w zakresie interakcji i zamykania, bez zmiany trwałego formatu.
 
 1. Rozdzielamy `displayedImageId` (bieżący zamiar użytkownika) od kursora
    potwierdzonego przez `ProjectStore`. Podgląd może wyprzedzać dysk, licznik
@@ -207,7 +198,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1104 — Płynna nawigacja i niezawodne F
 
-- **Status:** proposed, plik taska jeszcze nieutworzony.
+- **Status:** done; `tasks/completed/1104-selector-selection-intents.md`, v1.7.496.
 - **Goal:** usunąć ciche gubienie F i zależność odświeżania podglądu od dysku,
   bez zmiany numeracji i momentu trwałego potwierdzenia.
 - **Dependencies:** zaakceptowany plan i koszt; zapis proponowanych reguł UI
@@ -239,13 +230,13 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
   jest ponownie wybrany dla następnego zakresu.
 - **Verification:** test modułu intencji i renderer-contracts (120 s), lint i
   typecheck (każde 120 s), `selector:build` (120 s), nowy smoke na lokalnym
-  buildzie (120 s), istniejący smoke shortcuts (120 s). Audyt przed commitem.
+  buildzie (120 s), istniejący smoke shortcuts (120 s). Audyt pominięty decyzją operatora 2026-10-29.
 - **Out of scope / risks:** nie tworzymy masowej kolejki wyborów i nie
   przyspieszamy dysku przez pominięcie trwałości. Zimny JPEG nadal wymaga decode.
 
 ### TASK-1105 — Mała aktualizacja workspace przez IPC
 
-- **Status:** proposed, plik taska jeszcze nieutworzony.
+- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
 - **Goal:** zwykły execute nie przesyła pełnego N zdjęć i nie buduje ponownie
   indeksu w warstwie controller/renderer. Istniejące liniowe odczyty inventory
   wewnątrz ProjectStore i projectManifest nie są objęte obietnicą O(1).
@@ -276,7 +267,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1106 — Priorytet bieżącego zdjęcia i jeden obiekt podglądu
 
-- **Status:** proposed, plik taska jeszcze nieutworzony.
+- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
 - **Goal:** jeden odczyt protokołu na cache miss podglądu i brak drugiego
   `<img>` dla tego samego cache entry; kontrolowana praca prefetch.
 - **Dependencies:** TASK-1104–1105; reguły preview i pamięci z tego planu.
@@ -306,7 +297,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1107 — Dowody płynności, diagnostyka i sprawdzona paczka
 
-- **Status:** proposed, plik taska jeszcze nieutworzony.
+- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
 - **Goal:** pokazać brak zgubionych wyborów w realnym Electronie, zakres
   poprawy na istniejących zdjęciach i zgodne wznowienie z finalnego ZIP.
 - **Dependencies:** TASK-1104–1106 po testach/audytach/commitach; osobna zgoda
@@ -436,8 +427,9 @@ Historyczny brief `artifacts/audits/TASK-1103_BRIEF_claude.md` nie jest raportem
 i nie opisuje końcowej rewizji 2. Nie ponawiamy audytu po rezygnacji operatora.
 Konfiguracje Codex poniżej są rekomendacjami z listy modeli narzędzia sesji;
 nie są odczytem identyfikatora modelu aktualnej rozmowy ani zmianą modelu.
-Przyszłe review implementacji są warunkowe do przywrócenia dostępu do Claude;
-rezygnacja z audytu planu nie jest automatyczną rezygnacją z tych review.
+Aktualizacja 2026-10-29: operator jawnie zrezygnował również ze wszystkich
+audytów implementacyjnych TASK-1104–1107. Historyczne propozycje audytów
+w opisach tasków powyżej są zastąpione tą decyzją i końcową tabelą.
 
 Niewiadome odbiorcze: wersja EXE u zgłaszającego, liczba i rozdzielczość JPEG,
 SSD/HDD, produkt ochrony, miejsce źródła/projektu/wyniku oraz ślad opóźnienia.
@@ -450,7 +442,7 @@ formatu projektu lub niewykonalny cel p95 zatrzymują zależną pracę do decyzj
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
 | TASK-1103 | gpt-6.1-sol | high | Plan obejmuje współbieżność UI, trwałość i granice ochrony. Rekomendacja dla wykonania planowania; nie identyfikacja modelu rozmowy. | Nie; operator 2026-10-29 zrezygnował z audytu planu po nieudanej próbie Fable. |
-| TASK-1104 | gpt-6.1-sol | high | Maszyna intencji musi zachować tożsamość JPEG-a, zakres i idempotencję mimo opóźnień i crasha. | Claude Code: claude-fable-5-1 / high, przed commitem. |
-| TASK-1105 | gpt-6.1-sol | medium | Skończony pion IPC i cache indeksu; przy zmianie recovery ponowna analiza na high. | Claude Code: claude-fable-5-1 / medium, przed commitem. |
-| TASK-1106 | gpt-6.1-sol | medium | Ograniczony cache bitmap i cykl życia DOM; przy naruszeniu aktualności plików eskalacja na high. | Claude Code: claude-fable-5-1 / medium, przed commitem. |
-| TASK-1107 | gpt-6.1-sol | medium | Odbiór, diagnostyka i weryfikacja istniejącego procesu wydania. | Claude Code: claude-fable-5-1 / high, niezależny przegląd dowodów przed commitem. |
+| TASK-1104 | gpt-6.1-sol | high | Maszyna intencji musi zachować tożsamość JPEG-a, zakres i idempotencję mimo opóźnień i crasha. | Nie; operator 2026-10-29 zrezygnował z audytów implementacji. |
+| TASK-1105 | gpt-6.1-sol | medium | Skończony pion IPC i cache indeksu; przy zmianie recovery ponowna analiza na high. | Nie; operator 2026-10-29 zrezygnował z audytów implementacji. |
+| TASK-1106 | gpt-6.1-sol | medium | Ograniczony cache bitmap i cykl życia DOM; przy naruszeniu aktualności plików eskalacja na high. | Nie; operator 2026-10-29 zrezygnował z audytów implementacji. |
+| TASK-1107 | gpt-6.1-sol | medium | Odbiór, diagnostyka i weryfikacja istniejącego procesu wydania. | Nie; operator 2026-10-29 zrezygnował z audytów implementacji. |

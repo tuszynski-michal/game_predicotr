@@ -19,6 +19,31 @@ const bridge = Object.freeze<SelectorBridge>({
   saveView: (projectId, view) =>
     ipcRenderer.invoke(CHANNELS.saveView, projectId, view),
   close: () => ipcRenderer.invoke(CHANNELS.close),
+  shutdownReady: (reply) => ipcRenderer.invoke(CHANNELS.shutdownReady, reply),
+  onShutdownRequested: (listener) => {
+    const receive = (_event: Electron.IpcRendererEvent, request: unknown) => {
+      if (
+        request &&
+        typeof request === 'object' &&
+        'token' in request &&
+        typeof request.token === 'string' &&
+        'projectId' in request &&
+        (request.projectId === null || typeof request.projectId === 'string')
+      )
+        listener(request as import('./contracts.ts').ShutdownRequest);
+    };
+    ipcRenderer.on(CHANNELS.shutdownRequested, receive);
+    return () =>
+      ipcRenderer.removeListener(CHANNELS.shutdownRequested, receive);
+  },
+  onShutdownCancelled: (listener) => {
+    const receive = (_event: Electron.IpcRendererEvent, message: unknown) => {
+      if (typeof message === 'string') listener(message);
+    };
+    ipcRenderer.on(CHANNELS.shutdownCancelled, receive);
+    return () =>
+      ipcRenderer.removeListener(CHANNELS.shutdownCancelled, receive);
+  },
   openOutput: () => ipcRenderer.invoke(CHANNELS.openOutput),
   fullscreen: () => ipcRenderer.invoke(CHANNELS.fullscreen),
   onFullscreenChanged: (listener) => {

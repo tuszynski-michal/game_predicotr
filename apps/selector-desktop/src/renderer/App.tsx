@@ -22,6 +22,7 @@ import {
 } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
 import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
+import { SelectionIntents } from './selection-intents.ts';
 function unwrap<T>(result: NativeResult<T>): T {
   if (!result.ok)
     throw new Error(`${result.error.message} (${result.error.code})`);
@@ -63,13 +64,91 @@ export function App() {
   const closingProject = useRef(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [error, setError] = useState('');
-  const [decoded, setDecoded] = useState<string | null>(null);
+  const [, setDecoded] = useState<string | null>(null);
   const [rangeEditor, setRangeEditor] = useState(false);
   const [rangeStart, setRangeStart] = useState('');
   const [rangeDirection, setRangeDirection] = useState<
     'ascending' | 'descending'
   >('ascending');
   const [restart, setRestart] = useState<RestartSummary | null>(null);
+  const [, refreshIntents] = useState(0);
+  const [displayedImageId, setDisplayedImageId] = useState<string | null>(null);
+  const [failedImageId, setFailedImageId] = useState<string | null>(null);
+  const intentsRef = useRef<SelectionIntents | null>(null);
+  if (!intentsRef.current) {
+    let paintScheduled = false;
+    intentsRef.current = new SelectionIntents({
+      execute: (request) => window.selector.execute(request),
+      snapshot: () => window.selector.snapshot(),
+      operationId: () => crypto.randomUUID(),
+      frame: (callback) => requestAnimationFrame(callback),
+      changed: () => {
+        const machine = intentsRef.current!;
+        latest.current = machine.workspace;
+        setWorkspace(machine.workspace);
+        refreshIntents((version) => version + 1);
+        if (!paintScheduled) {
+          paintScheduled = true;
+          requestAnimationFrame(() => {
+            paintScheduled = false;
+            setDisplayedImageId(intentsRef.current!.displayedImageId);
+          });
+        }
+      },
+    });
+  }
+  const intents = intentsRef.current;
+  const operationBlocked = busy || intents.mutating || intents.closing;
+  useEffect(() => {
+    let activeToken: string | null = null;
+    const unsubscribe = window.selector.onShutdownRequested((request) => {
+      activeToken = request.token;
+      void (async () => {
+        try {
+          if (
+            busyRef.current ||
+            (latest.current?.projectId ?? null) !== request.projectId
+          )
+            throw new Error(
+              'Operacja projektu nadal trwa. Spróbuj zamknąć ponownie.',
+            );
+          await intents.flushForClose();
+          if (activeToken !== request.token) return;
+          unwrap(
+            await window.selector.shutdownReady({ ...request, ready: true }),
+          );
+        } catch (cause) {
+          if (activeToken !== request.token) return;
+          const message =
+            cause instanceof Error
+              ? cause.message
+              : 'Nie można zamknąć projektu.';
+          intents.cancelClose(message);
+          try {
+            unwrap(
+              await window.selector.shutdownReady({
+                ...request,
+                ready: false,
+                message: message.slice(0, 500),
+              }),
+            );
+          } catch (replyError) {
+            setError(
+              replyError instanceof Error ? replyError.message : message,
+            );
+          }
+        }
+      })();
+    });
+    const cancelled = window.selector.onShutdownCancelled((message) => {
+      activeToken = null;
+      intents.cancelClose(message);
+    });
+    return () => {
+      unsubscribe();
+      cancelled();
+    };
+  }, [intents]);
   function applyFullscreen(active: boolean) {
     setFullscreen(active);
     if (active) {
@@ -97,8 +176,13 @@ export function App() {
       .then((result) => setRecent(unwrap(result)))
       .catch((e) => setError(e.message));
   }, []);
-  async function run(work: () => Promise<void>) {
-    if (busyRef.current) return;
+  async function run(work: () => Promise<void>, recovery = false) {
+    if (
+      busyRef.current ||
+      (intents.mutating && !(recovery && intents.recoverableError)) ||
+      intents.closing
+    )
+      return;
     busyRef.current = true;
     setBusy(true);
     setError('');
@@ -108,8 +192,14 @@ export function App() {
       setError(
         cause instanceof Error ? cause.message : 'Operacja nie powiodła się.',
       );
-      const snapshot = await window.selector.snapshot();
-      if (snapshot.ok) setWorkspace(snapshot.value);
+      try {
+        const snapshot = unwrap(await window.selector.snapshot());
+        intents.install(snapshot);
+      } catch (snapshotError) {
+        setError(
+          `Nie można odczytać projektu: ${snapshotError instanceof Error ? snapshotError.message : 'brak odpowiedzi'}`,
+        );
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -119,6 +209,9 @@ export function App() {
     if (!value) return;
     setWorkspace(value);
     latest.current = value;
+    intents.install(value);
+    setDisplayedImageId(value.currentImageId);
+    setFailedImageId(null);
     setDecoded(null);
     setDraft(null);
     setRangeEditor(false);
@@ -149,8 +242,9 @@ export function App() {
   }
   function changeView(view: ViewPreferences) {
     const current = latest.current;
-    if (!current || closingProject.current) return;
+    if (!current || closingProject.current || intents.closing) return;
     const updated = { ...current, view };
+    intents.updateView(updated);
     latest.current = updated;
     setWorkspace(updated);
     void window.selector
@@ -163,60 +257,43 @@ export function App() {
       );
   }
   function execute(command: DesktopCommand) {
-    const current = latest.current;
-    if (!current || current.issue || busyRef.current) return;
-    void run(async () => {
-      const result = unwrap(
-        await window.selector.execute({
-          projectId: current.projectId,
-          operationId: crypto.randomUUID(),
-          command,
-        }),
-      );
-      const updated = {
-        ...result,
-        view:
-          latest.current?.projectId === result.projectId
-            ? latest.current.view
-            : result.view,
-      };
-      setWorkspace(updated);
-      latest.current = updated;
-      setRangeEditor(false);
-      setRestart(null);
-    });
+    if (busyRef.current) return;
+    intents.command(command);
+    setRangeEditor(false);
+    setRestart(null);
   }
   const source = workspace?.source;
   const ordinal =
-    source?.images.findIndex((i) => i.id === workspace?.currentImageId) ?? -1;
+    source?.images.findIndex((i) => i.id === displayedImageId) ?? -1;
   const image = source?.images[ordinal];
   const accepted = image
     ? workspace?.acceptedImageIds.includes(image.id)
     : false;
   const canAccept = Boolean(
     image &&
-    decoded === image.id &&
+    failedImageId !== image.id &&
     !accepted &&
     !workspace?.selectionComplete &&
     !workspace?.issue &&
-    !busy,
+    !busy &&
+    !intents.closing &&
+    !intents.blocked &&
+    intents.phase !== 'error',
   );
-  const blocked = busy || Boolean(workspace?.issue);
+  const blocked =
+    operationBlocked || Boolean(workspace?.issue) || intents.phase === 'error';
   function accept() {
-    if (canAccept && image) execute({ kind: 'accept', imageId: image.id });
+    if (!busyRef.current) intents.accept();
   }
   function skip() {
     if (workspace && !workspace.selectionComplete && !blocked)
       execute({ kind: 'skip' });
   }
   function move(delta: number) {
-    if (!source || blocked || rangeEditor || restart) return;
-    const target = Math.max(
-      0,
-      Math.min(source.images.length - 1, ordinal + delta),
-    );
-    if (target !== ordinal)
-      execute({ kind: 'navigate', imageId: source.images[target].id });
+    if (!source || busyRef.current || rangeEditor || restart) return;
+    setDecoded(null);
+    setFailedImageId(null);
+    intents.move(delta);
   }
   function undo() {
     if (workspace?.decisionCount && !blocked) execute({ kind: 'undo' });
@@ -233,7 +310,16 @@ export function App() {
         void toggleFullscreen();
         return;
       }
-      if (!workspace || blocked || rangeEditor || restart || draft || legacy)
+      if (
+        !workspace ||
+        busy ||
+        intents.closing ||
+        workspace.issue ||
+        rangeEditor ||
+        restart ||
+        draft ||
+        legacy
+      )
         return;
       const shortcut = resolveDesktopShortcut({
         key: event.key,
@@ -294,7 +380,7 @@ export function App() {
           <>
             <button
               className="secondaryButton configuration"
-              disabled={busy}
+              disabled={operationBlocked}
               onClick={() => beginSelection(true)}
             >
               Wybierz kolejny folder
@@ -721,7 +807,14 @@ export function App() {
               image={image}
               view={workspace.view}
               changeView={changeView}
-              ready={setDecoded}
+              ready={(id) => {
+                setDecoded(id);
+                intents.decoded(id);
+              }}
+              failed={(id) => {
+                setFailedImageId(id);
+                intents.decoded(null, id);
+              }}
             />
           ) : (
             <p>
@@ -755,20 +848,29 @@ export function App() {
             </button>
             <button
               className="secondaryButton"
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
+              disabled={busy || intents.closing}
+              onClick={() => {
+                void (async () => {
                   closingProject.current = true;
                   try {
+                    await intents.flushForClose();
                     unwrap(await window.selector.close());
+                    intents.install(null);
                     setWorkspace(null);
                     latest.current = null;
                     setRecent(unwrap(await window.selector.recent()));
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : 'Nie można zamknąć projektu.',
+                    );
                   } finally {
                     closingProject.current = false;
+                    intents.cancelClose();
                   }
-                })
-              }
+                })();
+              }}
             >
               Zamknij projekt
             </button>
@@ -859,8 +961,9 @@ export function App() {
                 className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
-                  void run(async () =>
-                    install(unwrap(await window.selector.resume())),
+                  void run(
+                    async () => install(unwrap(await window.selector.resume())),
+                    true,
                   )
                 }
               >
@@ -870,8 +973,10 @@ export function App() {
                 className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
-                  void run(async () =>
-                    install(unwrap(await window.selector.relink('source'))),
+                  void run(
+                    async () =>
+                      install(unwrap(await window.selector.relink('source'))),
+                    true,
                   )
                 }
               >
@@ -881,8 +986,10 @@ export function App() {
                 className="secondaryButton"
                 disabled={busy}
                 onClick={() =>
-                  void run(async () =>
-                    install(unwrap(await window.selector.relink('output'))),
+                  void run(
+                    async () =>
+                      install(unwrap(await window.selector.relink('output'))),
+                    true,
                   )
                 }
               >
@@ -896,6 +1003,25 @@ export function App() {
           <p role="status">Weryfikacja źródła i sum kontrolnych JPEG-ów…</p>
         )}
         {error && <p role="alert">{error}</p>}
+        {intents.message && (
+          <p role={intents.phase === 'error' ? 'alert' : 'status'}>
+            {intents.message}
+          </p>
+        )}
+        {intents.acceptIntent && !intents.acceptIntent.dispatched && (
+          <button
+            className="secondaryButton"
+            onClick={() => intents.cancelAccept()}
+          >
+            Anuluj oczekiwanie
+          </button>
+        )}
+        {intents.phase === 'accepting' && <p role="status">Zapis trwa…</p>}
+        {intents.phase === 'error' && (
+          <button className="secondaryButton" onClick={() => intents.retry()}>
+            Wznów zapis
+          </button>
+        )}
         {workspace?.issue && fullscreen && (
           <p role="alert">
             Zapis zatrzymany: {workspace.issue.message}. Wyjdź z pełnego ekranu,

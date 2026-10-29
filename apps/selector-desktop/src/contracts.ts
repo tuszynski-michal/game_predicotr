@@ -16,6 +16,9 @@ export const CHANNELS = {
   restartPreview: 'selector:restart-preview',
   saveView: 'selector:save-view',
   close: 'selector:close',
+  shutdownRequested: 'selector:shutdown-requested',
+  shutdownReady: 'selector:shutdown-ready',
+  shutdownCancelled: 'selector:shutdown-cancelled',
   openOutput: 'selector:open-output',
   fullscreen: 'selector:fullscreen',
   fullscreenChanged: 'selector:fullscreen-changed',
@@ -68,6 +71,17 @@ export interface SelectorBridge {
   openOutput(): Promise<NativeResult<void>>;
   fullscreen(): Promise<NativeResult<boolean>>;
   onFullscreenChanged(listener: (active: boolean) => void): () => void;
+  onShutdownRequested(listener: (request: ShutdownRequest) => void): () => void;
+  shutdownReady(reply: ShutdownReply): Promise<NativeResult<void>>;
+  onShutdownCancelled(listener: (message: string) => void): () => void;
+}
+export interface ShutdownRequest {
+  token: string;
+  projectId: string | null;
+}
+export interface ShutdownReply extends ShutdownRequest {
+  ready: boolean;
+  message?: string;
 }
 export interface LegacyPreviewSummary {
   projectName?: string;

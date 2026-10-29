@@ -1,10 +1,30 @@
 ---
 title: Local manual image selection
 status: accepted
-last_updated: 2026-10-23
+last_updated: 2026-10-29
 ---
 
 # Lokalna ręczna selekcja zdjęć
+
+## Przypięty wybór i płynna nawigacja Windows — TASK-1104, D-574
+
+Widoczny kursor może wyprzedzać zapis. Strzałki liczą od ostatniego zamiaru,
+a niewysłane pośrednie cele łączą się do jednego. Native nadal zapisuje każdą
+wysłaną operację. Licznik i następny zakres zmieniają się dopiero po commicie.
+F, Enter i przycisk przypinają projekt, źródło, JPEG, zakres, kierunek, granicę
+i jeden operationId. Gdy nawigacja lub decode trwa, widać „Oczekuje na zapis”.
+Dalsze mutacje i zmiana projektu są wtedy zablokowane. Kolejne F nie dodaje
+wyboru, repeat decyzji jest ignorowany. Anulować można tylko przed dispatch.
+Po 10 s niewysłany wybór jest anulowany z jawnym komunikatem. Błąd JPEG-a,
+źródła lub kontekstu również odrzuca niewysłany wybór, nigdy nie zapisuje poprzedniego zdjęcia.
+Zapisany wybór przesuwa zdjęcie o jeden niezależnie od skoku strzałek.
+Utrata odpowiedzi blokuje mutacje; snapshot i najwyżej jedno automatyczne
+ponowienie identycznego accept z tym samym operationId rozliczają receipt.
+Dalszy błąd wymaga jawnego wznowienia. Błąd snapshot pozostaje widoczny.
+Zamknięcie kończy wysłaną operację i ostatnią nawigację. Niewysłany F wymaga
+anulowania albo dokończenia. Okno nie zamyka się po timeout handshake 10 s;
+lock jest zwalniany dopiero po zgodnym potwierdzeniu renderera. Crash może
+cofnąć tylko nieutrwalony podgląd, nie zatwierdzony wybór.
 
 ## Nazwa folderu wynikowego — 1.0.3, TASK-1089, D-572
 

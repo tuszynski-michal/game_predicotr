@@ -14,12 +14,14 @@ export function ImageViewer({
   view,
   changeView,
   ready,
+  failed,
 }: {
   source: SourceIndex;
   image: SourceImage;
   view: ViewPreferences;
   changeView: (value: ViewPreferences) => void;
   ready: (id: string | null) => void;
+  failed: (id: string) => void;
 }) {
   const cache = useRef(new Map<string, HTMLImageElement>());
   const container = useRef<HTMLDivElement>(null);
@@ -28,6 +30,7 @@ export function ImageViewer({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState({ width: 1, height: 1 });
   const [error, setError] = useState(false);
+  const [decodedFor, setDecodedFor] = useState<string | null>(null);
   useEffect(() => {
     const element = container.current!;
     const resize = new ResizeObserver(() =>
@@ -71,6 +74,7 @@ export function ImageViewer({
             width: current.naturalWidth,
             height: current.naturalHeight,
           });
+          setDecodedFor(image.id);
           ready(image.id);
         }
       })
@@ -78,6 +82,7 @@ export function ImageViewer({
         if (active) {
           setError(true);
           ready(null);
+          failed(image.id);
         }
       });
     return () => {
@@ -101,9 +106,10 @@ export function ImageViewer({
     });
     return () => cancelAnimationFrame(handle);
   }, [image.id, view.zoom, size.width, viewport.width, viewport.height]);
-  const display = size.width
-    ? fitManualImageToViewport(size, viewport, view.zoom / 100)
-    : null;
+  const display =
+    decodedFor === image.id && size.width
+      ? fitManualImageToViewport(size, viewport, view.zoom / 100)
+      : null;
   return (
     <div
       className="preview"

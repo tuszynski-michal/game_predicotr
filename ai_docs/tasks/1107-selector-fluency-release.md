@@ -60,6 +60,8 @@ Bezpieczne założenie: lokalne kopie niewielkiej partii istniejących JPEG są 
 
 ## Expected files
 
+Rozszerzenie konieczne po odbiorze workflow: `SelectionIntents.apply` zachowuje gotowość tej samej bitmapy po range/undo tylko przy zgodnym project/source/image i braku decode error. Nowy cel nadal wymaga decode. Rodzic potwierdził poprawkę w zakresie odbioru. Pierwszy kandydat ZIP z b4251886 zachowany osobno; nie jest wydaniem finalnym.
+
 Istniejące: native/diagnostic-log.ts, src/main.ts, scripts/smoke-fluency.mjs, scripts/smoke-release.mjs, package.json i package-lock.json, instrukcja operatora, mapa i stan. Proponowane: ograniczony moduł agregatów/test, skrypt odbiorczego pomiaru i raport jakości.
 
 ## Test cases

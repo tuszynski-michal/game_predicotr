@@ -47,7 +47,10 @@ async function ready() {
     return (
       image?.complete &&
       image.naturalWidth > 0 &&
-      document.querySelector('main')?.getAttribute('aria-busy') === 'false'
+      document.querySelector('main')?.getAttribute('aria-busy') === 'false' &&
+      [...document.querySelectorAll('button')].find(
+        (button) => button.textContent.trim() === 'Zamknij projekt',
+      )?.disabled === false
     );
   });
 }
@@ -62,8 +65,10 @@ async function accept(count) {
     .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
     .click();
   await page.waitForFunction(
-    async (count) =>
-      (await window.selector.snapshot()).value?.acceptedCount === count,
+    (count) =>
+      document
+        .querySelector('[data-testid="counts"]')
+        ?.textContent.includes(`Wybrane: ${count} ·`),
     count,
   );
   await ready();
@@ -188,7 +193,8 @@ try {
     await page
       .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
       .waitFor();
-    const evidence = path.resolve('../../artifacts/selector-releases/1.0.3');
+    const version = await application.evaluate(({ app }) => app.getVersion());
+    const evidence = path.resolve('../../artifacts/selector-releases', version);
     await mkdir(evidence, { recursive: true });
     await page.screenshot({ path: path.join(evidence, 'selection.png') });
     await choose(null);

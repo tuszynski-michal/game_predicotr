@@ -101,6 +101,63 @@ test('navigation is optimistic, bounded and combines unsent directions without s
   assert.equal(f.machine.phase, 'idle');
 });
 
+test('range and undo on the same ready target allow F without another decode', async () => {
+  for (const command of [
+    { kind: 'range', start: 499987, direction: 'descending' },
+    { kind: 'undo' },
+  ]) {
+    const f = fixture();
+    f.machine.decoded('a');
+    f.machine.command(command);
+    await turn();
+    f.responses
+      .shift()
+      .resolve({
+        ok: true,
+        value: {
+          ...delta(initial()),
+          revision: 2,
+          nextRangeStart: 499987,
+          direction: 'descending',
+        },
+      });
+    await turn();
+    assert.equal(f.machine.readyImageId, 'a');
+    f.machine.accept();
+    await turn();
+    assert.equal(f.requests.length, 2);
+    assert.equal(f.requests[1].command.kind, 'accept');
+    assert.equal(f.requests[1].command.imageId, 'a');
+    assert.equal(f.machine.acceptIntent.rangeStart, 499987);
+    assert.equal(f.machine.acceptIntent.direction, 'descending');
+  }
+});
+
+test('non-navigation response with a changed target still waits for that target decode', async () => {
+  const f = fixture();
+  f.machine.decoded('a');
+  f.machine.command({ kind: 'undo' });
+  await turn();
+  f.responses
+    .shift()
+    .resolve({
+      ok: true,
+      value: { ...delta(initial()), revision: 2, currentImageId: 'b' },
+    });
+  await turn();
+  assert.equal(f.machine.readyImageId, null);
+  f.machine.accept();
+  await turn();
+  assert.equal(f.requests.length, 1);
+  f.machine.decoded('a');
+  await turn();
+  assert.equal(f.requests.length, 1);
+  f.machine.decoded('b');
+  await turn();
+  assert.equal(f.requests.length, 2);
+  assert.equal(f.requests[1].command.imageId, 'b');
+});
+
 test('arrow then F pins new target and waits for both navigation and decode, with one accept', async () => {
   const f = fixture();
   f.machine.decoded('a');
@@ -390,12 +447,10 @@ for (const invalid of [
     f.machine.move(1);
     f.frame();
     await turn();
-    f.responses
-      .shift()
-      .resolve({
-        ok: true,
-        value: { ...delta(initial()), revision: 2, ...invalid },
-      });
+    f.responses.shift().resolve({
+      ok: true,
+      value: { ...delta(initial()), revision: 2, ...invalid },
+    });
     await turn();
     assert.equal(snapshots, 1);
     assert.equal(f.machine.workspace.source.id, 'source');

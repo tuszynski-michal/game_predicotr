@@ -287,10 +287,18 @@ export class SelectionIntents {
   }
   private apply(update: DesktopWorkspaceUpdate, request: ExecuteRequest) {
     const result = applyWorkspaceUpdate(this.workspace, update);
+    const keepReady =
+      this.workspace?.projectId === result.projectId &&
+      this.workspace?.source?.id === result.source?.id &&
+      this.displayedImageId === result.currentImageId &&
+      this.readyImageId === result.currentImageId &&
+      this.failedImageId !== result.currentImageId;
     this.workspace = result;
     if (request.command.kind !== 'navigate') {
       this.displayedImageId = result.currentImageId;
-      this.readyImageId = null;
+      // Range/undo can retain the same DOM image: no new decode callback follows.
+      // A different project/source/target or decode error must still wait.
+      if (!keepReady) this.readyImageId = null;
       this.pendingNavigation = null;
     }
     if (request.command.kind === 'accept') {

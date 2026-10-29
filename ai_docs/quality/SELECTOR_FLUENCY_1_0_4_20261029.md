@@ -86,6 +86,20 @@ dokładnego JPEG-a i zakresu pozostała. Nie było przekroczenia celu warm p95.
 
 ## Finalny artefakt i smoke
 
+Pierwszy kandydat z checkpointu v1.7.502/b4251886 miał poprawne SHA/asar oraz
+fluency/measurement/shortcuts PASS. Workflow wykrył regresję: range/undo
+zerowało readyImageId także przy niezmienionym JPEG, który nie dostaje nowego
+callbacku decode. F po edycji zakresu czekało mimo widocznej bitmapy. Poprawka
+zachowuje ready wyłącznie dla tego samego project/source/image i bez błędu
+decode; inny cel nadal czeka. Testy range→F, undo→F i zmiany celu dodane;
+zmieniony pion intents/cache/renderer/workspace 37/37 PASS, lint/typecheck
+PASS. Sam harness workflow czeka teraz na widoczny licznik i koniec operacji,
+zachowując dokładne asercje manifestu. Pierwszy błąd odczytu manifestu był
+race harnessu, kolejne uruchomienie ujawniło powyższą rzeczywistą regresję.
+Kandydat c6d665ec8bc0b834779150c1faafd644c123d2cc0eaf7e9a1815c33f8f2266b0
+zachowany w `artifacts/selector-releases/1.0.4-candidate-b4251886/`.
+Nie jest finalną paczką do przekazania. Nowy build/smoke pending.
+
 Pending: checkpoint kodu, wydanie 1.0.4, SHA-256/metadata/app.asar oraz smoke
 finalnego rozpakowanego ZIP: fluency, measurement, shortcuts, workflow i
 rzeczywista aktualizacja z zachowanego ZIP 1.0.3. Wpis zostanie zastąpiony

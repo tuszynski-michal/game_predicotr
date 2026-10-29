@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1110 — Drugi losowy set 60 zdjęć (done)
+
+- Plik: `tasks/completed/1110-mumie-random-training-set-2.md`.
+- Commit: **v1.7.510**.
+- Na polecenie operatora skopiowano 60 losowych JPEG z 50 037 zdjęć w `D:\mumie a2` do pustego `D:\trening set 2`. Set 1 ma 479 zdjęć; wykluczono jego nazwy i SHA, zachowując nazwy sekwencji.
+- Nowy proces: dokładnie 60 kopii, 60 różnych SHA, zero wspólnych nazw i SHA z setem 1; kopie zgodne ze źródłami, set 1 niezmieniony. Manifest: `quality/MUMIE_TRAINING_SET_2_20261030.json`.
+- Bez importu, treningu, zmian źródeł, usług, bazy, modeli, kodu, merge i push. Kontrola dokumentacji: `npm run docs:check`.
+
 ### TASK-1109 — Kopia reguł i wypłat Mumii (done)
 
 - Plik: `tasks/completed/1109-copy-mumie-rules-payout.md`.

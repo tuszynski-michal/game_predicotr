@@ -1,0 +1,509 @@
+{
+  "task": "TASK-1110",
+  "preparedAtUtc": "2026-10-29T23:02:27.070209+00:00",
+  "selectionMethod": "SystemRandom shuffled candidates; first 60 passing name and SHA exclusions",
+  "sourceDirectory": "D:\\mumie a2",
+  "previousDirectory": "D:\\trening set",
+  "destinationDirectory": "D:\\trening set 2",
+  "sourcePhotoCount": 50037,
+  "previousPhotoCount": 479,
+  "previousSetFingerprint": "ffee3b9f1af9140a946dee470b27c7bcc62c0b3cc6c1da51b86ef8df36e9d056",
+  "nameExcludedCount": 488,
+  "contentRejectedDuringSampling": 0,
+  "selectedCount": 60,
+  "status": "verified",
+  "files": [
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_266590-266598.jpg",
+      "destination": "D:\\trening set 2\\seq_266590-266598.jpg",
+      "name": "seq_266590-266598.jpg",
+      "sizeBytes": 228330,
+      "sha256": "64a5fb35ea1db6c1b009d96d42d02f2220cbcda2e775200f39f7b1b6687e3423",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\50041 - 79938\\seq_53011-53019.jpg",
+      "destination": "D:\\trening set 2\\seq_53011-53019.jpg",
+      "name": "seq_53011-53019.jpg",
+      "sizeBytes": 239029,
+      "sha256": "f4cd510c92045c207f8615f2b54ff4615974ebad2cac5294d41a3b21ecd57627",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_250228-250236.jpg",
+      "destination": "D:\\trening set 2\\seq_250228-250236.jpg",
+      "name": "seq_250228-250236.jpg",
+      "sizeBytes": 231793,
+      "sha256": "060da2d98a58c73c098dbc2d4600abdd7e1b0e15f2376651d93130a8ac313170",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_127495-127503.jpg",
+      "destination": "D:\\trening set 2\\seq_127495-127503.jpg",
+      "name": "seq_127495-127503.jpg",
+      "sizeBytes": 203561,
+      "sha256": "fb3304bdefefd851585c6b495a082b91c0078d047737d8110800dca0bb67b6dd",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_236629-236637.jpg",
+      "destination": "D:\\trening set 2\\seq_236629-236637.jpg",
+      "name": "seq_236629-236637.jpg",
+      "sizeBytes": 212878,
+      "sha256": "19f7199317d896f4522740ca860574ed08c7da26ceca0adb34192a6161b39cfe",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\449631 - 423685\\seq_424594-424602.jpg",
+      "destination": "D:\\trening set 2\\seq_424594-424602.jpg",
+      "name": "seq_424594-424602.jpg",
+      "sizeBytes": 208588,
+      "sha256": "28f015761ed49a63bb3940782a1e776086513bf4b1748ddba0bc0649b2d3056e",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\373599 - 349975\\seq_355573-355581.jpg",
+      "destination": "D:\\trening set 2\\seq_355573-355581.jpg",
+      "name": "seq_355573-355581.jpg",
+      "sizeBytes": 204578,
+      "sha256": "4cb8cbb351a95f113de9efc2b6ac8348f5784d238bd17a654407760f50b2e604",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_277273-277281.jpg",
+      "destination": "D:\\trening set 2\\seq_277273-277281.jpg",
+      "name": "seq_277273-277281.jpg",
+      "sizeBytes": 207522,
+      "sha256": "e7b107f044be642253539617709d642a3fbb576ce02e1bb593cb7ea4fe0f3e22",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_138826-138834.jpg",
+      "destination": "D:\\trening set 2\\seq_138826-138834.jpg",
+      "name": "seq_138826-138834.jpg",
+      "sizeBytes": 202580,
+      "sha256": "ce55cb03758684d83f8e984b0687430fec5d186bb1db359d7cc67ce0962be1db",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\373599 - 349975\\seq_372871-372879.jpg",
+      "destination": "D:\\trening set 2\\seq_372871-372879.jpg",
+      "name": "seq_372871-372879.jpg",
+      "sizeBytes": 208543,
+      "sha256": "90502d586fbf4be028243f547a8f26a766bf07edc26fdc20292e6ced9287153e",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\285148 - 323883\\seq_299836-299844.jpg",
+      "destination": "D:\\trening set 2\\seq_299836-299844.jpg",
+      "name": "seq_299836-299844.jpg",
+      "sizeBytes": 215863,
+      "sha256": "5c00d6f6039a87d05ce71585cfee0838c1478d04f3b36673ca38f9da614b4c94",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\500000 - 475687\\seq_475903-475911.jpg",
+      "destination": "D:\\trening set 2\\seq_475903-475911.jpg",
+      "name": "seq_475903-475911.jpg",
+      "sizeBytes": 190763,
+      "sha256": "084a6bff4aabcad50e5c66bc9efea24ca120e06b6bab10d2df492afebdb33ba7",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\500000 - 475687\\seq_496072-496080.jpg",
+      "destination": "D:\\trening set 2\\seq_496072-496080.jpg",
+      "name": "seq_496072-496080.jpg",
+      "sizeBytes": 200223,
+      "sha256": "6b3cc1201cd8db1f6d88be7f75b8d27bd754f14000f67b0d7f6a28364124dbc3",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\50041 - 79938\\seq_53974-53982.jpg",
+      "destination": "D:\\trening set 2\\seq_53974-53982.jpg",
+      "name": "seq_53974-53982.jpg",
+      "sizeBytes": 219994,
+      "sha256": "112553b02bddb7f10ee031eb906d4c6da7f7dd027edbcbbef171241fd9397122",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\10090-30312\\seq_28684-28692.jpg",
+      "destination": "D:\\trening set 2\\seq_28684-28692.jpg",
+      "name": "seq_28684-28692.jpg",
+      "sizeBytes": 210019,
+      "sha256": "2e450ee9a4d1fb29c40e2e0f0c4e5f79df2b506821882ea7597365fe683de336",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\373599 - 349975\\seq_372115-372123.jpg",
+      "destination": "D:\\trening set 2\\seq_372115-372123.jpg",
+      "name": "seq_372115-372123.jpg",
+      "sizeBytes": 204134,
+      "sha256": "1468bdaf75ecef5a98a22accb35a78c83eca653d6ea696b0a55baec5649248bc",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\323875 - 350577\\seq_341884-341892.jpg",
+      "destination": "D:\\trening set 2\\seq_341884-341892.jpg",
+      "name": "seq_341884-341892.jpg",
+      "sizeBytes": 210691,
+      "sha256": "1b739dd899f5dac73f6fd825f8c2fad5dfe34d8f04da6910a2a1634fdfa6ef2e",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_253549-253557.jpg",
+      "destination": "D:\\trening set 2\\seq_253549-253557.jpg",
+      "name": "seq_253549-253557.jpg",
+      "sizeBytes": 211979,
+      "sha256": "6e68b0d230bbb4cce9ed9895ce7d393bbf083eb65ab9ddc7f5a906d5c02b80e7",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\285148 - 323883\\seq_307819-307827.jpg",
+      "destination": "D:\\trening set 2\\seq_307819-307827.jpg",
+      "name": "seq_307819-307827.jpg",
+      "sizeBytes": 220884,
+      "sha256": "642fc1f651b43af2fd33d5efdc05e928685ce59aef726b9b7118a06b72e20fe2",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_236935-236943.jpg",
+      "destination": "D:\\trening set 2\\seq_236935-236943.jpg",
+      "name": "seq_236935-236943.jpg",
+      "sizeBytes": 209977,
+      "sha256": "d3956280082200aeca05e57d0b3e2fba1e1f8551889e563d522e3b1611ea186f",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\475695 - 449623\\seq_453844-453852.jpg",
+      "destination": "D:\\trening set 2\\seq_453844-453852.jpg",
+      "name": "seq_453844-453852.jpg",
+      "sizeBytes": 215949,
+      "sha256": "4253911d5a59aaf6f9ae2d25c3b30b211293a47c294c3738678b88d0db533f74",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\148825 - 180126\\seq_165988-165996.jpg",
+      "destination": "D:\\trening set 2\\seq_165988-165996.jpg",
+      "name": "seq_165988-165996.jpg",
+      "sizeBytes": 204802,
+      "sha256": "6d21a51c2d148647b417cec26bab8f1555fc5b0d7386c64d361e67e7b9e8907d",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\50041 - 79938\\seq_61912-61920.jpg",
+      "destination": "D:\\trening set 2\\seq_61912-61920.jpg",
+      "name": "seq_61912-61920.jpg",
+      "sizeBytes": 208009,
+      "sha256": "aa6be18a21238dea79323df2e320dc560ac46010033fb0f804c6c838227df36f",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\30313 - 50040\\seq_36226-36234.jpg",
+      "destination": "D:\\trening set 2\\seq_36226-36234.jpg",
+      "name": "seq_36226-36234.jpg",
+      "sizeBytes": 207284,
+      "sha256": "60e4dd973898c8e5ab76b048bb1800a5d90f0b023e578a711ec6710b17eaf1ad",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_263494-263502.jpg",
+      "destination": "D:\\trening set 2\\seq_263494-263502.jpg",
+      "name": "seq_263494-263502.jpg",
+      "sizeBytes": 214879,
+      "sha256": "463dd5dc39f18a8641f736e604746e64e0e29d4edf62f8de07c3005c956960e0",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\475695 - 449623\\seq_473365-473373.jpg",
+      "destination": "D:\\trening set 2\\seq_473365-473373.jpg",
+      "name": "seq_473365-473373.jpg",
+      "sizeBytes": 217231,
+      "sha256": "d52c67919718d6529b183fa7da66e6b02a19424f3ca46477408569aa3fac6f59",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\148825 - 180126\\seq_150238-150246.jpg",
+      "destination": "D:\\trening set 2\\seq_150238-150246.jpg",
+      "name": "seq_150238-150246.jpg",
+      "sizeBytes": 200833,
+      "sha256": "cdfd526ad93f991b9df7f248ca21cfe01b938df684a721e7fb00c06c93fe68ce",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_122284-122292.jpg",
+      "destination": "D:\\trening set 2\\seq_122284-122292.jpg",
+      "name": "seq_122284-122292.jpg",
+      "sizeBytes": 208161,
+      "sha256": "80ce4a344ee8ca4ac0058f522b735b0b1867d1feead7f6dc4a275639883f51a2",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\79939 - 113589\\seq_83125-83133.jpg",
+      "destination": "D:\\trening set 2\\seq_83125-83133.jpg",
+      "name": "seq_83125-83133.jpg",
+      "sizeBytes": 221777,
+      "sha256": "2bb4d18941853812f7d0c0027c01ea5b2179059b9661888eb2fcaf61267d0336",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_282106-282114.jpg",
+      "destination": "D:\\trening set 2\\seq_282106-282114.jpg",
+      "name": "seq_282106-282114.jpg",
+      "sizeBytes": 222295,
+      "sha256": "0a25e2958f1fc691f8cb81c203b2a4f6cec46f1ac7d85fd23e6dd6d63b53399b",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\50041 - 79938\\seq_64090-64098.jpg",
+      "destination": "D:\\trening set 2\\seq_64090-64098.jpg",
+      "name": "seq_64090-64098.jpg",
+      "sizeBytes": 216877,
+      "sha256": "03716ccb5747bb1177534aa8fc034a36291d8b9da9dc40bee5a66c6a12703f7f",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\285148 - 323883\\seq_305128-305136.jpg",
+      "destination": "D:\\trening set 2\\seq_305128-305136.jpg",
+      "name": "seq_305128-305136.jpg",
+      "sizeBytes": 252895,
+      "sha256": "f9c1919fe9d7f984b265d8a35767ca1349c8976799c41e9934d302fd40f9c4e7",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\323875 - 350577\\seq_350371-350379.jpg",
+      "destination": "D:\\trening set 2\\seq_350371-350379.jpg",
+      "name": "seq_350371-350379.jpg",
+      "sizeBytes": 204617,
+      "sha256": "90fbdb7173c9931548e1bb91340e3bfaaca126cf86d990b79b6ff463a0609b5b",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_241291-241299.jpg",
+      "destination": "D:\\trening set 2\\seq_241291-241299.jpg",
+      "name": "seq_241291-241299.jpg",
+      "sizeBytes": 230279,
+      "sha256": "b8f261f52f4ffa54352382a3463d53d53b9c1209df1c020e17566f046f214b8b",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\373599 - 349975\\seq_361396-361404.jpg",
+      "destination": "D:\\trening set 2\\seq_361396-361404.jpg",
+      "name": "seq_361396-361404.jpg",
+      "sizeBytes": 206442,
+      "sha256": "41147017938294b3ca712f14b80a1f3afc50839113289c43637b0b2a65f9672d",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_251317-251325.jpg",
+      "destination": "D:\\trening set 2\\seq_251317-251325.jpg",
+      "name": "seq_251317-251325.jpg",
+      "sizeBytes": 217461,
+      "sha256": "346e47190ba25539dc2eb1a2152fb2a1b84f937587cbbbd5720275b6ff6a2603",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\180118 - 217350\\seq_191188-191196.jpg",
+      "destination": "D:\\trening set 2\\seq_191188-191196.jpg",
+      "name": "seq_191188-191196.jpg",
+      "sizeBytes": 228673,
+      "sha256": "1d2e33b41152a94f42d90b0405e8d4a281cd7f948b2a5e13a8afbae591218c49",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\285148 - 323883\\seq_320878-320886.jpg",
+      "destination": "D:\\trening set 2\\seq_320878-320886.jpg",
+      "name": "seq_320878-320886.jpg",
+      "sizeBytes": 199219,
+      "sha256": "0885e37d472cb8bec94b78b836b3b9e41d6985312b95fe0a60115e385e43571b",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\79939 - 113589\\seq_102673-102681.jpg",
+      "destination": "D:\\trening set 2\\seq_102673-102681.jpg",
+      "name": "seq_102673-102681.jpg",
+      "sizeBytes": 236832,
+      "sha256": "61ecf7b4d860c153307a7e3b3f7e7637f94f0f77ee117ef576b7d44579b3403f",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_283744-283752.jpg",
+      "destination": "D:\\trening set 2\\seq_283744-283752.jpg",
+      "name": "seq_283744-283752.jpg",
+      "sizeBytes": 212942,
+      "sha256": "b442a72716dfa38a3f1f71a6d822e00fce4a854b6b55aacc971f84fb7df84f3e",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\252766 - 285156\\seq_263395-263403.jpg",
+      "destination": "D:\\trening set 2\\seq_263395-263403.jpg",
+      "name": "seq_263395-263403.jpg",
+      "sizeBytes": 213916,
+      "sha256": "0a050980863508ed1283b9eaee8ce235adce8ce5446efbcc98ac48f807e41a3e",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\449631 - 423685\\seq_438112-438120.jpg",
+      "destination": "D:\\trening set 2\\seq_438112-438120.jpg",
+      "name": "seq_438112-438120.jpg",
+      "sizeBytes": 215014,
+      "sha256": "443b3889955e7ba8cb545a05246d74277b1699f2819f78497a14432da3e32e95",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\323875 - 350577\\seq_334720-334728.jpg",
+      "destination": "D:\\trening set 2\\seq_334720-334728.jpg",
+      "name": "seq_334720-334728.jpg",
+      "sizeBytes": 235410,
+      "sha256": "4036cab45e5d2fb390ead7d790d7bda3f6ff7c1a02d49d72863ea6dab100f8a6",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\323875 - 350577\\seq_329653-329661.jpg",
+      "destination": "D:\\trening set 2\\seq_329653-329661.jpg",
+      "name": "seq_329653-329661.jpg",
+      "sizeBytes": 227447,
+      "sha256": "a1b65cd3277adf87164d2d834ef6c1b9536bb137afec55a04b3fad73e47958db",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\449631 - 423685\\seq_442621-442629.jpg",
+      "destination": "D:\\trening set 2\\seq_442621-442629.jpg",
+      "name": "seq_442621-442629.jpg",
+      "sizeBytes": 210527,
+      "sha256": "b19c50902c2825e616287f030395a5813a0bf9ffd33fab2365d2aa42885f0bef",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\285148 - 323883\\seq_317953-317961.jpg",
+      "destination": "D:\\trening set 2\\seq_317953-317961.jpg",
+      "name": "seq_317953-317961.jpg",
+      "sizeBytes": 208249,
+      "sha256": "3437403977ab2ff75af2cb1214c4e3692cbc5f27bd897e8cb48fd6cb3cd0aa49",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\217351 - 252774\\seq_248851-248859.jpg",
+      "destination": "D:\\trening set 2\\seq_248851-248859.jpg",
+      "name": "seq_248851-248859.jpg",
+      "sizeBytes": 215855,
+      "sha256": "c3361ecad97124505f7d2f2f54cdc5082e72079b43227bd5bf680f9eb588a1c2",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\180118 - 217350\\seq_188353-188361.jpg",
+      "destination": "D:\\trening set 2\\seq_188353-188361.jpg",
+      "name": "seq_188353-188361.jpg",
+      "sizeBytes": 229414,
+      "sha256": "dbd90b9ca6e4f21e8a11fd50826e5303471b0af401bd0af1a36408bc17a10500",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\323875 - 350577\\seq_343729-343737.jpg",
+      "destination": "D:\\trening set 2\\seq_343729-343737.jpg",
+      "name": "seq_343729-343737.jpg",
+      "sizeBytes": 204999,
+      "sha256": "43383ca71b3d7a9836904da8ac119992761d5d635af4411e09fbdfffeefe8f95",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\500000 - 475687\\seq_498592-498600.jpg",
+      "destination": "D:\\trening set 2\\seq_498592-498600.jpg",
+      "name": "seq_498592-498600.jpg",
+      "sizeBytes": 200172,
+      "sha256": "9a9eee0dbe3de28ee845af8c494ade37bb93af3993023865194a4e0d0fd333dd",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_136333-136341.jpg",
+      "destination": "D:\\trening set 2\\seq_136333-136341.jpg",
+      "name": "seq_136333-136341.jpg",
+      "sizeBytes": 198838,
+      "sha256": "aa20c9c3ebde97b3cc89ba5ddf8385abd14e973c4b8b6ba4bd3eed87c290b2a0",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\449631 - 423685\\seq_435916-435924.jpg",
+      "destination": "D:\\trening set 2\\seq_435916-435924.jpg",
+      "name": "seq_435916-435924.jpg",
+      "sizeBytes": 207816,
+      "sha256": "1dd1454a11037088b150655d761237fd6ab554719a294cfe8321a4069dded1af",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\50041 - 79938\\seq_79390-79398.jpg",
+      "destination": "D:\\trening set 2\\seq_79390-79398.jpg",
+      "name": "seq_79390-79398.jpg",
+      "sizeBytes": 222327,
+      "sha256": "0adc1f44b1c47cbb42afbb10a89d2b65de05a5f023bf76c82f00f49ca49b76ee",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\79939 - 113589\\seq_111691-111699.jpg",
+      "destination": "D:\\trening set 2\\seq_111691-111699.jpg",
+      "name": "seq_111691-111699.jpg",
+      "sizeBytes": 221031,
+      "sha256": "c25050f876169375a98d1b41f494afb2989b93da8ccc859f344c54a02e16ae9f",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\79939 - 113589\\seq_113113-113121.jpg",
+      "destination": "D:\\trening set 2\\seq_113113-113121.jpg",
+      "name": "seq_113113-113121.jpg",
+      "sizeBytes": 207270,
+      "sha256": "1cbb5d8f562ae225c9b3f59cfef47bdb86149c2f4247b1b0a40943b487d31c08",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_143524-143532.jpg",
+      "destination": "D:\\trening set 2\\seq_143524-143532.jpg",
+      "name": "seq_143524-143532.jpg",
+      "sizeBytes": 202324,
+      "sha256": "d89277cc1f4a7b306bec76b90d92e826554d8c6bbb88f1d343593c4666f3bd41",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\449631 - 423685\\seq_433846-433854.jpg",
+      "destination": "D:\\trening set 2\\seq_433846-433854.jpg",
+      "name": "seq_433846-433854.jpg",
+      "sizeBytes": 210679,
+      "sha256": "bdbd88592fd97a86f95e65c215e1af6c813d3c5302e4c8634940d94503d719e2",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\475695 - 449623\\seq_465274-465282.jpg",
+      "destination": "D:\\trening set 2\\seq_465274-465282.jpg",
+      "name": "seq_465274-465282.jpg",
+      "sizeBytes": 212768,
+      "sha256": "4bad3da44f0be2f7ce2616ff5ac7188450a320fbdf94aa17891f1539965fee56",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_122158-122166.jpg",
+      "destination": "D:\\trening set 2\\seq_122158-122166.jpg",
+      "name": "seq_122158-122166.jpg",
+      "sizeBytes": 202141,
+      "sha256": "09bb3c605fef96ffd26fe9947f72004b2e600b23bf9c3de23991ce098c342345",
+      "copied": true
+    },
+    {
+      "source": "D:\\mumie a2\\113590 - 148833\\seq_118900-118908.jpg",
+      "destination": "D:\\trening set 2\\seq_118900-118908.jpg",
+      "name": "seq_118900-118908.jpg",
+      "sizeBytes": 199599,
+      "sha256": "87a330b783fd7639fe196bbe82d8b9426b88044999550422723cf035ae29ea81",
+      "copied": true
+    }
+  ],
+  "copiedAtUtc": "2026-10-29T23:02:41.656112+00:00",
+  "verification": {
+    "verifiedAtUtc": "2026-10-29T23:02:56.301450+00:00",
+    "newProcess": true,
+    "destinationPhotoCount": 60,
+    "uniqueContentCount": 60,
+    "sharedNamesWithSet1": 0,
+    "sharedHashesWithSet1": 0,
+    "sourceCopiesMatch": true,
+    "previousSetUnchanged": true,
+    "totalBytes": 12815182
+  }
+}

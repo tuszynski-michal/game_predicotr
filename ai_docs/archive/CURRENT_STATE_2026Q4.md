@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1103 — Plan płynności i niezawodności Selektora (done)
+
+- Plik: `tasks/completed/1103-selector-fluency-plan.md`.
+- Commit: **v1.7.494** (hash dopisuje kolejny commit).
+- Opracowano plan proposed, rewizja 2: płynna nawigacja i przypięte F, małe IPC, jeden podgląd JPEG z ograniczonym prefetch, testy trwałości i paczki.
+- Audyt pominięty decyzją operatora 2026-10-29. To samo konto CLI/desktop Max; próba Fable zakończona komunikatem o wyłączonym dostępie subskrypcji do Code. Brak werdyktu audytora.
+- docs:check i kontrola diff; bez zmian aplikacji, danych, ochrony, usług, merge/push. TASK-1104–1107 czekają na zgodę na zakres i koszt 3–5 godzin.
+
 ### TASK-1102 — Ograniczenie kosztu rankingu ciągów plansz (done)
 
 - Plik: `tasks/completed/1102-board-search-query-timeout.md`.

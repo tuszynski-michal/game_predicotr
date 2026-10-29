@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-27
+last_updated: 2026-10-29
 ---
 
 # Current State
@@ -39,6 +39,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/SELECTOR_FLUENCY_RELIABILITY_PLAN_20261029.md` | proposed, rev. 2; plan ukończony, audyt pominięty decyzją operatora 2026-10-29 | proponowane TASK-1104–1107; czekają na akceptację zakresu i kosztu | `codex/selector-reliability-plan` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -69,6 +70,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1103** — Plan płynności i niezawodności Selektora — v1.7.494 — tasks/completed/1103-selector-fluency-plan.md
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md
 - **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md
 - **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 / `2b972a23` — tasks/completed/1100-board-search-default-forty.md
@@ -78,4 +80,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1096** — Stabilne odczyty planszy podczas zmiany kontekstu korekt — v1.7.478 / `e8018ef1` — tasks/completed/1096-board-search-read-dependencies.md
 - **TASK-1095** — Pierwszeństwo korekty i zakończone odpowiedzi fixture — v1.7.476 / `213665de` — tasks/completed/1095-board-search-correction-priority.md
 - **TASK-1094** — Anulowanie starego odświeżenia limitu i testy kliknięcia — v1.7.473 / `27bb5be0` — tasks/completed/1094-board-search-pending-limit.md
-- **TASK-1093** — P2-4: pierwsze kliknięcie po zmianie limitu — v1.7.470 / `efaa3c50` — tasks/completed/1093-board-search-limit-click.md

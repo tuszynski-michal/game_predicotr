@@ -57,7 +57,9 @@ export interface SelectorBridge {
   recent(): Promise<NativeResult<RecentProjectSummary[]>>;
   continue(projectId: string): Promise<NativeResult<DesktopWorkspace>>;
   snapshot(): Promise<NativeResult<DesktopWorkspace | null>>;
-  execute(request: ExecuteRequest): Promise<NativeResult<DesktopWorkspace>>;
+  execute(
+    request: ExecuteRequest,
+  ): Promise<NativeResult<DesktopWorkspaceUpdate>>;
   resume(): Promise<NativeResult<DesktopWorkspace>>;
   relink(
     kind: 'source' | 'output',
@@ -231,6 +233,13 @@ export interface DesktopWorkspace {
   decisionCount: number;
   issue: { code: string; message: string } | null;
   view: ViewPreferences;
+}
+/** Complete mutable workspace projection; source inventory belongs to bootstrap only. */
+export interface DesktopWorkspaceUpdate extends Omit<
+  DesktopWorkspace,
+  'source'
+> {
+  sourceId: string | null;
 }
 export class SelectorError extends Error {
   readonly code: string;

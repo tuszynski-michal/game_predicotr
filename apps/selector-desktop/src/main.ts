@@ -313,6 +313,7 @@ else {
           shutdown.reply(reply, controller.snapshot()?.projectId ?? null),
         1,
       );
+      // Forward the compact update without rebuilding SourceIndex.
       handle(CHANNELS.execute, (request) => controller.execute(request), 1);
       handle(CHANNELS.resume, () => controller.resume());
       handle(CHANNELS.relink, (kind) => controller.relink(kind), 1);

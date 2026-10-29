@@ -162,11 +162,14 @@ function request(draft, direction = 'ascending') {
   };
 }
 async function command(controller, cmd) {
-  return controller.execute({
+  const update = await controller.execute({
     projectId: controller.snapshot().projectId,
     operationId: randomUUID(),
     command: cmd,
   });
+  assert.equal(update.sourceId, controller.snapshot().source?.id ?? null);
+  assert.equal(Object.hasOwn(update, 'source'), false);
+  return controller.snapshot();
 }
 test('old history seeds the permanent game catalog; deleting history keeps all games', async (t) => {
   const f = await fixture(t);

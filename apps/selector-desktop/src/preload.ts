@@ -12,6 +12,7 @@ const bridge = Object.freeze<SelectorBridge>({
   addGame: (name) => ipcRenderer.invoke(CHANNELS.addGame, name),
   continue: (projectId) => ipcRenderer.invoke(CHANNELS.continue, projectId),
   snapshot: () => ipcRenderer.invoke(CHANNELS.snapshot),
+  // Only bootstrap includes source.images; execute returns DesktopWorkspaceUpdate.
   execute: (request) => ipcRenderer.invoke(CHANNELS.execute, request),
   resume: () => ipcRenderer.invoke(CHANNELS.resume),
   relink: (kind) => ipcRenderer.invoke(CHANNELS.relink, kind),

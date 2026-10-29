@@ -1,3 +1,4 @@
+import { sourceLookup } from '../source-index.ts';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   adjacentManualNavigationStep,
@@ -264,7 +265,9 @@ export function App() {
   }
   const source = workspace?.source;
   const ordinal =
-    source?.images.findIndex((i) => i.id === displayedImageId) ?? -1;
+    (source
+      ? sourceLookup(source).ordinal.get(displayedImageId ?? '')
+      : undefined) ?? -1;
   const image = source?.images[ordinal];
   const accepted = image
     ? workspace?.acceptedImageIds.includes(image.id)

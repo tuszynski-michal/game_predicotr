@@ -6,6 +6,26 @@ last_updated: 2026-10-29
 
 # Architektura lokalnej ręcznej selekcji
 
+## Mała aktualizacja workspace Windows — TASK-1105
+
+`SelectorBridge.execute` zwraca `DesktopWorkspaceUpdate`: komplet skalarów i
+acceptedImageIds oraz sourceId, bez SourceIndex, inventory, receiptów i ścieżek
+źródłowych. Main/preload przekazują ten wynik bez dodatkowej projekcji.
+Create/open/resume/relink/snapshot nadal zwracają pełny bootstrap.
+`sourceLookup` wiąże mapy imageId/path/ordinal z instancją niezmiennego SourceIndex
+przez WeakMap; controller, App, intencje i viewer korzystają z tego samego indeksu
+w swoim procesie. Relink i nowy bootstrap dostają nowy indeks. Zwykłe execute
+nie iteruje po zdjęciach w controller/renderer i nie serializuje ich do IPC.
+
+`applyWorkspaceUpdate` zachowuje obiekt źródła i lokalny view. Sprawdza projectId,
+sourceId, niemalejącą całkowitą rewizję i przynależność bieżącego/wybranych imageId.
+Komplet skalarów pozwala przyjąć lukę rewizji bez odtwarzania delt. Niezgodna lub
+nieodtwarzalna odpowiedź uruchamia dotychczasowy snapshot fallback; mutacje są
+zablokowane podczas recovery i aż do zgodnego bootstrapu oraz jawnego retry.
+Wyjście z projektu unieważnia stare odpowiedzi. Reguły operationId i F pozostają
+bez zmian. Koszt acceptedImageIds jest O(D); bootstrap i pamięć indeksu O(N+D)/O(N).
+Nie zmienia to liniowych odczytów inventory ProjectStore ani projectManifest.
+
 ## Maszyna intencji Windows — TASK-1104, D-574
 
 `renderer/selection-intents.ts` oddziela committed workspace od displayedImageId.

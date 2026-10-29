@@ -236,7 +236,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1105 — Mała aktualizacja workspace przez IPC
 
-- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
+- **Status:** done; `tasks/completed/1105-selector-workspace-updates.md`, v1.7.498.
 - **Goal:** zwykły execute nie przesyła pełnego N zdjęć i nie buduje ponownie
   indeksu w warstwie controller/renderer. Istniejące liniowe odczyty inventory
   wewnątrz ProjectStore i projectManifest nie są objęte obietnicą O(1).

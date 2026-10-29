@@ -112,12 +112,46 @@ try {
         committed: false,
         requests: [],
         release: null,
+        snapshots: 0,
+        holdSnapshot: false,
       };
+      const snapshot = ipcMain._invokeHandlers.get('selector:snapshot');
+      ipcMain.removeHandler('selector:snapshot');
+      ipcMain.handle('selector:snapshot', async (event) => {
+        const state = globalThis.fluency;
+        state.snapshots++;
+        if (state.holdSnapshot) {
+          state.holdSnapshot = false;
+          state.committed = true;
+          await new Promise((resolve) => {
+            state.release = resolve;
+          });
+        }
+        return snapshot(event);
+      });
       ipcMain.removeHandler('selector:execute');
       ipcMain.handle('selector:execute', async (event, request) => {
         const state = globalThis.fluency;
         state.requests.push(structuredClone(request));
         const result = await execute(event, request);
+        if (result.ok) {
+          const update = result.value;
+          if (
+            'source' in update ||
+            typeof update.sourceId !== 'string' ||
+            !Number.isSafeInteger(update.revision)
+          )
+            throw new Error(
+              'execute did not return a compact workspace update',
+            );
+          const wire = JSON.stringify(update);
+          if (
+            /"(?:images|inventory|receipts|sourceRoot|relativePath)"/.test(wire)
+          )
+            throw new Error(
+              'execute leaked source inventory or persistence internals',
+            );
+        }
         const mode = state.mode;
         if (
           (mode === 'navigate' && request.command.kind === 'navigate') ||
@@ -129,6 +163,21 @@ try {
             state.release = resolve;
           });
         }
+        if (['bad-source', 'bad-project', 'old-revision'].includes(mode)) {
+          state.mode = '';
+          state.holdSnapshot = true;
+          return {
+            ...result,
+            value: {
+              ...result.value,
+              ...(mode === 'bad-source'
+                ? { sourceId: 'foreign' }
+                : mode === 'bad-project'
+                  ? { projectId: 'foreign' }
+                  : { revision: -1 }),
+            },
+          };
+        }
         if (mode === 'lost' && request.command.kind === 'accept') {
           state.mode = '';
           throw new Error('test-only lost response after commit');
@@ -136,6 +185,57 @@ try {
         return result;
       });
     });
+    await page.locator('h1').click();
+    for (const mode of ['bad-source', 'bad-project', 'old-revision']) {
+      await arm(mode);
+      await page.keyboard.press('ArrowRight');
+      await committed(); // Snapshot fallback is deliberately held before bootstrap.
+      const before = await application.evaluate(
+        () => globalThis.fluency.requests.length,
+      );
+      await page.keyboard.press('f');
+      assert.equal(
+        await application.evaluate(() => globalThis.fluency.requests.length),
+        before,
+      );
+      await release();
+      await page
+        .getByRole('button', { name: 'Wznów zapis', exact: true })
+        .waitFor();
+      await page.keyboard.press('f');
+      assert.equal(
+        await application.evaluate(() => globalThis.fluency.requests.length),
+        before,
+      );
+      await page
+        .getByRole('button', { name: 'Wznów zapis', exact: true })
+        .click();
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll('button')].find(
+            (b) => b.textContent.trim() === 'Pomiń',
+          )?.disabled === false,
+      );
+      await page.locator('h1').click();
+      await page.keyboard.press('ArrowLeft');
+      await cursor(page, 1);
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll('button')].find(
+            (b) => b.textContent.trim() === 'Pomiń',
+          )?.disabled === false,
+      );
+    }
+    assert.equal(
+      await application.evaluate(() => globalThis.fluency.snapshots),
+      3,
+    );
+    await application.evaluate(() => {
+      globalThis.fluency.requests = [];
+    });
+    console.log(
+      'PASS: real preload/IPC compact updates; foreign source/project and stale revision trigger snapshot and block accept before bootstrap/retry.',
+    );
     await page.locator('h1').click();
     await arm('navigate');
     await page.keyboard.press('ArrowRight');

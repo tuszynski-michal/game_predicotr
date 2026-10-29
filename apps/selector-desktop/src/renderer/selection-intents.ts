@@ -1,6 +1,9 @@
+import { sourceLookup } from '../source-index.ts';
+import { applyWorkspaceUpdate } from './workspace-updates.ts';
 import type {
   DesktopCommand,
   DesktopWorkspace,
+  DesktopWorkspaceUpdate,
   ExecuteRequest,
   NativeResult,
 } from '../contracts.ts';
@@ -62,7 +65,7 @@ export class SelectionIntents {
   private effects: {
     execute: (
       request: ExecuteRequest,
-    ) => Promise<NativeResult<DesktopWorkspace>>;
+    ) => Promise<NativeResult<DesktopWorkspaceUpdate>>;
     snapshot: () => Promise<NativeResult<DesktopWorkspace | null>>;
     changed: () => void;
     frame: (callback: () => void) => void;
@@ -116,9 +119,8 @@ export class SelectionIntents {
       ['error', 'accepting', 'recovering'].includes(this.phase)
     )
       return;
-    const ordinal = source.images.findIndex(
-      (image) => image.id === this.displayedImageId,
-    );
+    const ordinal =
+      sourceLookup(source).ordinal.get(this.displayedImageId ?? '') ?? -1;
     const target =
       source.images[
         Math.max(0, Math.min(source.images.length - 1, ordinal + delta))
@@ -283,15 +285,9 @@ export class SelectionIntents {
       }
     }
   }
-  private apply(result: DesktopWorkspace, request: ExecuteRequest) {
-    if (
-      !this.workspace ||
-      result.projectId !== this.workspace.projectId ||
-      result.source?.id !== this.workspace.source?.id ||
-      result.revision < this.workspace.revision
-    )
-      throw new Error('Odpowiedź dotyczy innego projektu, źródła lub rewizji.');
-    this.workspace = { ...result, view: this.workspace.view };
+  private apply(update: DesktopWorkspaceUpdate, request: ExecuteRequest) {
+    const result = applyWorkspaceUpdate(this.workspace, update);
+    this.workspace = result;
     if (request.command.kind !== 'navigate') {
       this.displayedImageId = result.currentImageId;
       this.readyImageId = null;

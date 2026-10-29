@@ -18,6 +18,10 @@ const initial = () => ({
   issue: null,
   view: {},
 });
+function delta(workspace) {
+  const { source, ...scalars } = workspace;
+  return { ...scalars, sourceId: source?.id ?? null };
+}
 const turn = () => new Promise((resolve) => setImmediate(resolve));
 function fixture() {
   let state = initial();
@@ -69,7 +73,7 @@ function fixture() {
           request.command.imageId,
         ];
       }
-      resolve({ ok: true, value: structuredClone(state) });
+      resolve({ ok: true, value: delta(structuredClone(state)) });
     },
   };
 }
@@ -205,7 +209,7 @@ test('navigation changing the range rejects pinned F instead of selecting anothe
   f.responses.shift().resolve({
     ok: true,
     value: {
-      ...initial(),
+      ...delta(initial()),
       revision: 2,
       currentImageId: 'b',
       nextRangeStart: 31,
@@ -369,3 +373,40 @@ test('a decision in flight visibly rejects F and does not consume later navigati
   await turn();
   assert.equal(f.requests.length, 1);
 });
+
+for (const invalid of [
+  { sourceId: 'foreign' },
+  { projectId: 'foreign' },
+  { revision: 0 },
+  { currentImageId: 'missing' },
+]) {
+  test(`invalid delta ${JSON.stringify(invalid)} falls back to snapshot and blocks accept`, async () => {
+    const f = fixture();
+    let snapshots = 0;
+    f.machine.effects.snapshot = async () => {
+      snapshots++;
+      return { ok: true, value: structuredClone(f.state()) };
+    };
+    f.machine.move(1);
+    f.frame();
+    await turn();
+    f.responses
+      .shift()
+      .resolve({
+        ok: true,
+        value: { ...delta(initial()), revision: 2, ...invalid },
+      });
+    await turn();
+    assert.equal(snapshots, 1);
+    assert.equal(f.machine.workspace.source.id, 'source');
+    assert.equal(f.machine.phase, 'error');
+    f.machine.accept();
+    assert.equal(f.requests.length, 1);
+    f.machine.retry();
+    await turn();
+    f.commit();
+    await turn();
+    assert.equal(f.machine.phase, 'idle');
+    assert.equal(f.machine.workspace.currentImageId, 'b');
+  });
+}

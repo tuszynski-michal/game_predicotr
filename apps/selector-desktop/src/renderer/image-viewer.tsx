@@ -1,3 +1,4 @@
+import { sourceLookup } from '../source-index.ts';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   fitManualImageToViewport,
@@ -47,7 +48,8 @@ export function ImageViewer({
     ready(null);
     setSize({ width: 0, height: 0 });
     setError(false);
-    const ordinal = source.images.findIndex((i) => i.id === image.id);
+    const index = sourceLookup(source);
+    const ordinal = index.ordinal.get(image.id) ?? -1;
     const allowed = new Set(
       manualPreviewWindow(ordinal, source.images.length).map(
         (index) => source.images[index].id,
@@ -61,7 +63,7 @@ export function ImageViewer({
     for (const id of allowed)
       if (!cache.current.has(id)) {
         const entry = new Image();
-        entry.src = source.images.find((i) => i.id === id)!.url;
+        entry.src = index.byId.get(id)!.url;
         cache.current.set(id, entry);
         void entry.decode().catch(() => {});
       }

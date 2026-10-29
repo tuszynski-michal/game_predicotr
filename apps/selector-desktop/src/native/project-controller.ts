@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { sourceLookup } from '../source-index.ts';
 import { randomUUID } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import { assertNoLinks } from './path-security.ts';
@@ -38,6 +39,7 @@ import {
   type CreateProjectRequest,
   type SourceIndex,
   type DesktopWorkspace,
+  type DesktopWorkspaceUpdate,
   type ViewPreferences,
   type LegacyPreviewSummary,
   type NewProjectDraft,
@@ -207,20 +209,21 @@ export class ProjectController {
   }
   snapshot(): DesktopWorkspace | null {
     if (!this.store) return null;
-    const s = this.store.workspaceSnapshot();
-    const byPath = new Map(
-      this.source?.images.map((i) => [i.relativePath, i.id]),
-    );
+    return { ...this.update(), source: this.source };
+  }
+  private update(): DesktopWorkspaceUpdate {
+    const s = this.active().workspaceSnapshot();
+    const byPath = this.source ? sourceLookup(this.source).byPath : undefined;
     return {
       projectId: s.projectId,
       ...(s.gameName ? { gameName: s.gameName } : {}),
       ...(s.gameUpdate ? { gameUpdate: s.gameUpdate } : {}),
       revision: s.revision,
-      source: this.source,
+      sourceId: this.source?.id ?? null,
       sourceName: s.sourceDirectoryName,
-      projectName: path.basename(this.store.getProjectRoot()),
+      projectName: path.basename(this.active().getProjectRoot()),
       outputName: path.basename(s.outputRoot),
-      currentImageId: byPath.get(s.currentRelativePath ?? '') ?? null,
+      currentImageId: byPath?.get(s.currentRelativePath ?? '') ?? null,
       firstLayout: s.firstLayout,
       direction: s.direction,
       sequenceUpperBound: s.sequenceUpperBound,
@@ -230,10 +233,10 @@ export class ProjectController {
       skippedCount: s.decisions.filter((d) => d.action === 'skipped').length,
       acceptedImageIds: s.decisions
         .filter((d) => d.action === 'accepted')
-        .map((d) => byPath.get(d.imagePath ?? ''))
+        .map((d) => byPath?.get(d.imagePath ?? ''))
         .filter((id): id is string => Boolean(id)),
       decisionCount: s.decisions.length,
-      issue: this.store.getIssue(),
+      issue: this.active().getIssue(),
       view: { ...this.view },
     };
   }
@@ -655,7 +658,7 @@ export class ProjectController {
       );
     });
   }
-  execute(value: unknown): Promise<DesktopWorkspace> {
+  execute(value: unknown): Promise<DesktopWorkspaceUpdate> {
     return this.serial(async () => {
       const request = object(value, ['projectId', 'operationId', 'command']);
       validateId(request.projectId);
@@ -679,7 +682,9 @@ export class ProjectController {
             'Niedozwolone argumenty zdjęcia.',
           );
         validateId(command.imageId);
-        const image = this.source?.images.find((i) => i.id === command.imageId);
+        const image = this.source
+          ? sourceLookup(this.source).byId.get(command.imageId as string)
+          : undefined;
         if (!image || !store.hasImage(image.relativePath))
           throw new SelectorError(
             'UNKNOWN_IMAGE',
@@ -734,7 +739,7 @@ export class ProjectController {
         };
       } else throw new SelectorError('INVALID_ARGUMENT', 'Nieznane polecenie.');
       await store.execute(request.operationId as string, native);
-      return this.snapshot()!;
+      return this.update();
     });
   }
   resume(): Promise<DesktopWorkspace> {

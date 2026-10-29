@@ -1092,7 +1092,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 ## apps/selector-desktop/src
 
-- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ShutdownRequest, ShutdownReply, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, GAME_UPDATE_PATTERN, isGameUpdate, validateGameUpdate, outputDirectoryName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ShutdownRequest, ShutdownReply, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, GAME_UPDATE_PATTERN, isGameUpdate, validateGameUpdate, outputDirectoryName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, DesktopWorkspaceUpdate, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, FileIdentity, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
@@ -1116,6 +1116,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - renderer/game-select.tsx: GameSelect
 - renderer/image-viewer.tsx: ImageViewer
 - renderer/selection-intents.ts: SelectionPhase, AcceptIntent, matchesAcceptContext, SelectionIntents
+- renderer/workspace-updates.ts: applyWorkspaceUpdate
+- source-index.ts: SourceLookup, sourceLookup
 
 ## apps/mobile/src
 

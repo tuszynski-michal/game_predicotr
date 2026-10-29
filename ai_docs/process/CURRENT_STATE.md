@@ -64,6 +64,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1107 — Dowody płynności i paczka (in_progress)
+
+- Plik: `tasks/1107-selector-fluency-release.md`. Pomiary na kopiach małej partii JPEG, testy i ZIP 1.0.4; bez usług/originalów/merge/push. Cold aplikacji nie oznacza cold cache OS; odbiór sprzętu odbiorcy pending.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.

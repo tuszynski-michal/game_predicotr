@@ -12,10 +12,10 @@ const manifest = JSON.parse(await readFile('package.json', 'utf8'));
 const makeStartedAt = Date.now();
 execFileSync(
   process.execPath,
-  ['scripts/run-bounded.mjs', '110', 'npm', 'run', 'make'],
+  ['scripts/run-bounded.mjs', '280', 'npm', 'run', 'make'],
   {
     stdio: 'inherit',
-    timeout: 115000,
+    timeout: 285000,
     windowsHide: true,
   },
 );

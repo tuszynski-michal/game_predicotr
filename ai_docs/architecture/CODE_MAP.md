@@ -41,7 +41,7 @@ Statyczny renderer React, typowane IPC i natywne adaptery lokalnego filesystem; 
 
 ### Testy
 
-- `apps/selector-desktop/test/` (22 plików w katalogu testów, rekurencyjnie)
+- `apps/selector-desktop/test/` (23 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

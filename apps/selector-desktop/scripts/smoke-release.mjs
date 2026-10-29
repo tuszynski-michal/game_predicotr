@@ -22,6 +22,8 @@ try {
     '--start',
     '--workflow',
     '--games',
+    '--fluency',
+    '--measurement',
   ].filter((flag) => process.argv.includes(flag));
   if (options.length > 1)
     throw new Error('Choose only one release smoke variant');
@@ -34,6 +36,8 @@ try {
     '--start': 'smoke-start.mjs',
     '--workflow': 'smoke-workflow.mjs',
     '--games': 'smoke-games.mjs',
+    '--fluency': 'smoke-fluency.mjs',
+    '--measurement': 'smoke-measurement.mjs',
   };
   const archiveName = `${manifest.productName}-win32-x64-${manifest.version}.zip`;
   const archive = path.resolve('out/make/zip/win32/x64', archiveName);

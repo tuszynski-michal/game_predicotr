@@ -158,7 +158,9 @@ try {
         await readFile(`${archive}.release.json`, 'utf8'),
       );
       if (index === 0)
-        assert.ok(['0.1.0', '0.1.2'].includes(metadata.applicationVersion));
+        assert.ok(
+          ['0.1.0', '0.1.2', '1.0.3'].includes(metadata.applicationVersion),
+        );
       else assert.equal(metadata.applicationVersion, currentVersion);
       versions.push(metadata.applicationVersion);
       assert.equal(metadata.applicationSourceDirty, false);
@@ -216,9 +218,10 @@ try {
         .getByRole('button', { name: 'Nowy projekt', exact: true })
         .click();
       await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
-      await page
-        .getByRole('checkbox', { name: /Projekt i wynik będą/ })
-        .check();
+      const localConfirmation = page.getByRole('checkbox', {
+        name: /Projekt i wynik będą/,
+      });
+      if (await localConfirmation.count()) await localConfirmation.check();
       await page
         .getByRole('button', { name: 'Wybierz zdjęcia i utwórz projekt' })
         .click();
@@ -230,9 +233,10 @@ try {
       if (await page.getByLabel('Aktualizacja', { exact: true }).count())
         await page.getByLabel('Aktualizacja', { exact: true }).fill('a1');
       await page.getByLabel('Ostatnia plansza', { exact: true }).fill('30');
-      await page
-        .getByRole('checkbox', { name: /Projekt i wynik będą/ })
-        .check();
+      const localConfirmation = page.getByRole('checkbox', {
+        name: /Projekt i wynik będą/,
+      });
+      if (await localConfirmation.count()) await localConfirmation.check();
       await page
         .getByRole('button', { name: 'Rozpocznij wybieranie', exact: true })
         .click();
@@ -272,7 +276,10 @@ try {
     assert.equal(old.nextRangeStart, 19);
     await close();
     const project = `${source} selekcja`;
-    const output = `${source} wybrane`;
+    const output =
+      versions[0] === '1.0.3'
+        ? path.join(fixture, 'Smoke update a1 1-30')
+        : `${source} wybrane`;
     const oldCursor = cursor(old);
     assert.deepEqual(oldCursor, { ordinal: 2, relativePath: 'photo3.jpg' });
     assert.equal(await persistedCursor(project), oldCursor.relativePath);
@@ -322,7 +329,7 @@ try {
     await page
       .getByRole('button', { name: 'Wybierz (Enter / F)', exact: true })
       .click();
-    await waitState(
+    const advanced = await waitState(
       (value) => value.acceptedCount === 2 && value.nextRangeStart === 28,
     );
     await imageReady();
@@ -334,8 +341,11 @@ try {
     const continued = await snapshot();
     assert.equal(continued.acceptedCount, 2);
     assert.equal(continued.skippedCount, 1);
-    assert.deepEqual(cursor(continued), oldCursor);
-    assert.equal(await persistedCursor(copiedProject), oldCursor.relativePath);
+    assert.deepEqual(cursor(continued), cursor(advanced));
+    assert.equal(
+      await persistedCursor(copiedProject),
+      cursor(advanced).relativePath,
+    );
     assert.equal(continued.nextRangeStart, 28);
     assert.equal(
       await hashFile(path.join(copiedOutput, 'seq_1-9.jpg')),
@@ -364,21 +374,23 @@ try {
       tree(copiedProject),
       tree(copiedOutput),
     ]);
-    await launch(programs[0], versions[0], oldReaderUserData);
-    await select(copiedProject);
-    // Both verified historical preload contracts expose open() without args.
-    const refused = await page.evaluate(() => window.selector.open());
-    assert.equal(refused.ok, false);
-    assert.equal(refused.error.code, 'UNSUPPORTED_PROJECT_SCHEMA');
-    await smoke.close(application);
-    application = null;
-    assert.deepEqual(
-      await Promise.all([tree(copiedProject), tree(copiedOutput)]),
-      migratedFiles,
-    );
-    console.log(
-      `PASS: historical EXE ${versions[0]} refuses migrated head2 with UNSUPPORTED_PROJECT_SCHEMA; project/output bytes and mtimes unchanged.`,
-    );
+    if (versions[0] !== '1.0.3') {
+      await launch(programs[0], versions[0], oldReaderUserData);
+      await select(copiedProject);
+      // Both verified historical preload contracts expose open() without args.
+      const refused = await page.evaluate(() => window.selector.open());
+      assert.equal(refused.ok, false);
+      assert.equal(refused.error.code, 'UNSUPPORTED_PROJECT_SCHEMA');
+      await smoke.close(application);
+      application = null;
+      assert.deepEqual(
+        await Promise.all([tree(copiedProject), tree(copiedOutput)]),
+        migratedFiles,
+      );
+      console.log(
+        `PASS: historical EXE ${versions[0]} refuses migrated head2 with UNSUPPORTED_PROJECT_SCHEMA; project/output bytes and mtimes unchanged.`,
+      );
+    }
     assert.deepEqual(
       await Promise.all([tree(source), tree(project), tree(output)]),
       originals,

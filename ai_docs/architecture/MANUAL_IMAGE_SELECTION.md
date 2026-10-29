@@ -6,6 +6,19 @@ last_updated: 2026-10-29
 
 # Architektura lokalnej ręcznej selekcji
 
+## Agregaty diagnostyczne Windows — TASK-1107
+
+`DiagnosticAggregates` przechowuje najwyżej 256 ostatnich wartości na każdą
+z trzech stałych metryk: native execute, bajty aktualizacji execute oraz
+otwarcie strumienia zdjęcia. Nie przechowuje ID ani ścieżek. Zapis po serii
+następuje przy close/openLogs; błąd agregatu nie zmienia wyniku operacji.
+`DiagnosticMetadata` ma liczbową whitelistę count/sampleCount/median/p95/maximum.
+Log zapisuje liczność całej serii i statystykę ostatnich próbek; nie oznacza jej
+jako percentyla całej historii. Brak per-key append/fsync. Istniejąca rotacja
+1 MiB/trzy kopie pozostaje. Pomiar paint/decode/IPC i confirmation jest
+odbiorczym harness-em w rzeczywistym Electronie na kopiach fixture, bez
+trybu opóźniania prawdziwych danych w produkcie.
+
 ## Cache podglądu Windows — TASK-1106
 
 `renderer/preview-cache.ts` (`PreviewCache`) posiada rzeczywiste

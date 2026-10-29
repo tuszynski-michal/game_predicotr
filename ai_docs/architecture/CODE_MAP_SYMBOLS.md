@@ -1098,7 +1098,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
 - manifest/operator-local.ts: OUTPUT_MANIFEST_NAME, OperatorLocalManifestV2, projectManifest
 - native/desktop-lifecycle.ts: ShutdownHandshake, DesktopLifecycle
-- native/diagnostic-log.ts: DiagnosticMetadata, DiagnosticLog
+- native/diagnostic-log.ts: DiagnosticMetadata, PerformanceMetric, DiagnosticAggregates, DiagnosticLog
 - native/game-catalog.ts: GameCatalog
 - native/path-security.ts: containedPath, assertWindowsReparse, assertNoLinks, safeExistingPath
 - native/project-controller.ts: NativeDialogs, validateCreate, ProjectController

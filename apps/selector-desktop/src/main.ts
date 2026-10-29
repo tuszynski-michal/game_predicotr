@@ -21,7 +21,10 @@ import {
   type NativeResult,
 } from './contracts.ts';
 import { SourceRegistry } from './native/source-registry.ts';
-import { DiagnosticLog } from './native/diagnostic-log.ts';
+import {
+  DiagnosticLog,
+  DiagnosticAggregates,
+} from './native/diagnostic-log.ts';
 import { ProjectController } from './native/project-controller.ts';
 import {
   disposeNativeChecks,
@@ -58,6 +61,7 @@ const shutdown = new ShutdownHandshake();
 let window: BrowserWindow | null = null;
 let log: DiagnosticLog;
 let controller: ProjectController;
+const performanceMetrics = new DiagnosticAggregates();
 const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src selector-photo:; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 
@@ -102,6 +106,7 @@ async function createWindow() {
             window?.webContents.send(CHANNELS.shutdownRequested, request),
         );
         await controller.close();
+        await performanceMetrics.flush(log);
         const issue = controller.getCloseIssue();
         if (issue) await log.write('project-close-issue', issue.code);
         try {
@@ -231,7 +236,12 @@ else {
           if (request.method !== 'GET')
             return new Response(null, { status: 405 });
           const { sourceId, imageId } = parsePhotoUrl(request.url);
+          const openedAt = performance.now();
           const stream = await registry.openImage(sourceId, imageId);
+          performanceMetrics.record(
+            'photo-open-ms',
+            performance.now() - openedAt,
+          );
           return new Response(
             Readable.toWeb(stream) as ReadableStream<Uint8Array>,
             {
@@ -289,6 +299,7 @@ else {
           },
         );
       handle(CHANNELS.openLogs, async () => {
+        await performanceMetrics.flush(log);
         await log.write('open-logs');
         const error = await shell.openPath(log.directory);
         if (error)
@@ -314,7 +325,26 @@ else {
         1,
       );
       // Forward the compact update without rebuilding SourceIndex.
-      handle(CHANNELS.execute, (request) => controller.execute(request), 1);
+      handle(
+        CHANNELS.execute,
+        async (request) => {
+          const startedAt = performance.now();
+          try {
+            const update = await controller.execute(request);
+            performanceMetrics.record(
+              'execute-payload-bytes',
+              Buffer.byteLength(JSON.stringify(update)),
+            );
+            return update;
+          } finally {
+            performanceMetrics.record(
+              'native-execute-ms',
+              performance.now() - startedAt,
+            );
+          }
+        },
+        1,
+      );
       handle(CHANNELS.resume, () => controller.resume());
       handle(CHANNELS.relink, (kind) => controller.relink(kind), 1);
       handle(CHANNELS.restartPreview, () => controller.previewRestart());
@@ -325,6 +355,7 @@ else {
       );
       handle(CHANNELS.close, async () => {
         await controller.close();
+        await performanceMetrics.flush(log);
         const issue = controller.getCloseIssue();
         if (issue) await log.write('project-close-issue', issue.code);
       });

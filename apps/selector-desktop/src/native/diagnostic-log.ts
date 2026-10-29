@@ -3,6 +3,55 @@ import path from 'node:path';
 export interface DiagnosticMetadata {
   attempt?: number;
   elapsedMs?: number;
+  count?: number;
+  sampleCount?: number;
+  median?: number;
+  p95?: number;
+  maximum?: number;
+}
+export type PerformanceMetric =
+  'native-execute-ms' | 'execute-payload-bytes' | 'photo-open-ms';
+/** Last 256 samples per fixed metric; no identities, paths or per-key writes. */
+export class DiagnosticAggregates {
+  private samples = new Map<
+    PerformanceMetric,
+    { count: number; values: number[] }
+  >();
+  record(metric: PerformanceMetric, value: number): void {
+    if (!Number.isFinite(value) || value < 0) return;
+    const entry = this.samples.get(metric) ?? { count: 0, values: [] };
+    entry.count++;
+    if (entry.values.length === 256) entry.values.shift();
+    entry.values.push(Math.min(value, 1e12));
+    this.samples.set(metric, entry);
+  }
+  snapshot(): { metric: PerformanceMetric; metadata: DiagnosticMetadata }[] {
+    return [...this.samples].map(([metric, entry]) => {
+      const values = [...entry.values].sort((a, b) => a - b);
+      const percentile = (p: number) =>
+        values[Math.ceil(values.length * p) - 1]!;
+      return {
+        metric,
+        metadata: {
+          count: entry.count,
+          sampleCount: values.length,
+          median: percentile(0.5),
+          p95: percentile(0.95),
+          maximum: values.at(-1)!,
+        },
+      };
+    });
+  }
+  async flush(log: DiagnosticLog): Promise<void> {
+    const batch = this.snapshot();
+    this.samples.clear();
+    // Observability never changes an operation's success/failure.
+    await Promise.all(
+      batch.map(({ metric, metadata }) =>
+        log.write('performance-summary', metric, metadata).catch(() => {}),
+      ),
+    );
+  }
 }
 export class DiagnosticLog {
   private queue: Promise<void> = Promise.resolve();
@@ -21,6 +70,17 @@ export class DiagnosticLog {
   ): Promise<void> {
     // Explicit numeric whitelist prevents paths, identities and arbitrary dumps.
     const safe: DiagnosticMetadata = {};
+    for (const key of [
+      'count',
+      'sampleCount',
+      'median',
+      'p95',
+      'maximum',
+    ] as const) {
+      const value = metadata?.[key];
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+        safe[key] = Math.min(value, key === 'sampleCount' ? 256 : 1e12);
+    }
     if (metadata?.attempt === 1 || metadata?.attempt === 2)
       safe.attempt = metadata.attempt;
     if (

@@ -1,12 +1,48 @@
 ---
 title: Lokalny selektor Windows — instrukcja operatora
 status: accepted
-last_updated: 2026-10-21
+last_updated: 2026-10-29
 ---
 
 # Lokalny selektor Windows — instrukcja operatora
 
-## Wydanie 1.0.1 — aktualny przepływ
+## Wydanie 1.0.4 — płynny podgląd i przypięty wybór
+
+Paczka: `D:/game_predicotr/artifacts/selector-releases/1.0.4/Selektor zdjec-win32-x64-1.0.4.zip`, obok `.sha256` i `.release.json`. Sprawdź SHA-256, zamknij poprzednią aplikację, rozpakuj cały ZIP do nowego katalogu i uruchom EXE. Projekty z 1.0.3 zachowują dotychczasowe foldery i format. Nie kopiuj samego EXE. Dowody i ograniczenia: [raport 1.0.4](../quality/SELECTOR_FLUENCY_1_0_4_20261029.md).
+
+Strzałki zmieniają podgląd, gdy poprzednia nawigacja jeszcze zapisuje się na dysku. F/Enter przypina widoczne docelowe zdjęcie i zakres. Jeżeli podgląd albo zapis nie jest gotowy, pojawia się „Oczekuje na zapis”. Kolejne F nie dodaje drugiego wyboru. „Anuluj oczekiwanie” działa przed wysłaniem zapisu; po wysłaniu trzeba poczekać na wynik. Po 10 s niegotowego podglądu aplikacja jawnie odrzuca niewysłany wybór. Sprawdź komunikat i ponów po usunięciu przyczyny. Licznik i następny zakres oznaczają zatwierdzone wybory. Po wyborze zdjęcie przesuwa się o jeden niezależnie od skoku strzałek.
+
+Zamykając, zaczekaj na zapis. Przy niewysłanym wyborze dokończ go albo anuluj oczekiwanie. Błąd zamknięcia pozostawia okno i blokadę projektu; usuń przyczynę i ponów. Po awarii procesu aplikacja odtwarza trwałe decyzje; nieutrwalony podgląd może wrócić do ostatniej zapisanej pozycji.
+
+Nowa partia wymaga gry i aktualizacji (`a1` albo np. `z_a003`). Wynik powstaje obok źródła jako `<gra> <aktualizacja> <pierwsza>-<ostatnia>`, np. `777 a2 1-500`. Pusta ostatnia plansza oznacza 500000. Pozostałe skróty i kontrolki opisano poniżej.
+
+## Zgłoszenie przycięcia i diagnostyka
+
+Zapisz wersję z `.release.json`, model CPU, RAM, SSD/HDD i lokalność źródła/projektu/wyniku, liczbę oraz wymiary JPEG, nazwę i wersję ochrony. Opisz, czy to pierwsze otwarcie zdjęcia, czy powrót do niego, jaki skok i dokładna sekwencja strzałka/F/Enter. Czas podglądu i czas trwałego zapisu są różnymi pomiarami.
+
+Po krótkiej serii zamknij projekt i kliknij „Otwórz logi” na ekranie startowym. Log zawiera ograniczone agregaty: maksymalnie ostatnie 256 próbek na metrykę, liczność całej serii, medianę, p95 i maksimum. `native-execute-ms` obejmuje walidację, zapis/flush i projekcję; `execute-payload-bytes` mierzy rozmiar aktualizacji; `photo-open-ms` oznacza otwarcie strumienia, nie pełny transfer/decode. Agregaty zapisują się przy zamknięciu albo otwarciu logów. Nie ma logowania każdego klawisza ani ścieżek/nazw zdjęć. Rotacja pozostaje 1 MiB i trzy kopie. Crash może utracić niezapisane agregaty, nie zatwierdzone wybory.
+
+Dla Defendera operator może opcjonalnie nagrać krótką serię. Najpierw sprawdza dostępność i składnię lokalnych cmdletów. Na maszynie pomiarowej 2026-10-29 dostępny był parametr `-Seconds`. Jeśli lokalna wersja go nie udostępnia albo brak uprawnień, wynik brzmi „niezweryfikowane”; nie uruchamiaj bezterminowego nagrania. Przykład w PowerShell z wymaganymi uprawnieniami, po wskazaniu własnego katalogu:
+
+```powershell
+Get-Command New-MpPerformanceRecording,Get-MpPerformanceReport -Syntax
+New-MpPerformanceRecording -RecordTo "$env:TEMP\selector-performance.etl" -Seconds 30
+Get-MpPerformanceReport -Path "$env:TEMP\selector-performance.etl" -TopFiles 10 -TopProcesses 10
+```
+
+W czasie 30 s odtwórz problem; nie przekraczaj 60 s. Nagranie może ujawniać lokalne ścieżki: sprawdź raport przed przekazaniem. W tym zadaniu nie uruchamiano nagrania. Nie wyłączaj ochrony i nie dodawaj wyjątków. Sam podpis EXE nie usuwa skanowania. Odbiór na komputerze odbiorcy i fizyczny restart Windows pozostają osobnymi kontrolami.
+
+Kontrola odbiorcza nowego wydania z repo root (PowerShell):
+
+```powershell
+node apps/selector-desktop/scripts/run-bounded.mjs 300 npm run release --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:fluency --workspace @game-predictor/selector-desktop
+node apps/selector-desktop/scripts/run-bounded.mjs 120 npm run smoke:release:measurement --workspace @game-predictor/selector-desktop
+```
+
+Pomiar używa 12 kopii czterech istniejących JPEG 720×1280; raport z pełnymi próbkami trafia do `artifacts/selector-fluency-20261029/`. Nie jest prognozą dla innych zbiorów i komputerów. Testy selektora uruchamiaj z `--test-concurrency=1`, w grupach ≤120 s, bez drugiego runnera przed zakończeniem pierwszego.
+
+## Przepływ od wydania 1.0.1
 
 Paczka: `D:/game_predicotr/artifacts/selector-releases/1.0.1/Selektor zdjec-win32-x64-1.0.1.zip`. Wersję, sumę SHA-256 i pochodzenie buildu zawierają sąsiednie pliki `.sha256` oraz `.release.json`. Zamknij dotychczasowy program przed uruchomieniem nowej wersji z osobnego, całkowicie rozpakowanego katalogu. Projekt i zdjęcia pozostają w dotychczasowych folderach.
 

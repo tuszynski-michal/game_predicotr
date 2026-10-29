@@ -267,7 +267,7 @@ odczytów SHA wymagają osobnego dowodu, planu i zgody; nie są obejściem tutaj
 
 ### TASK-1106 — Priorytet bieżącego zdjęcia i jeden obiekt podglądu
 
-- **Status:** accepted; plik taska materializowany przy rozpoczęciu.
+- **Status:** done; `tasks/completed/1106-selector-preview-cache.md`, v1.7.500.
 - **Goal:** jeden odczyt protokołu na cache miss podglądu i brak drugiego
   `<img>` dla tego samego cache entry; kontrolowana praca prefetch.
 - **Dependencies:** TASK-1104–1105; reguły preview i pamięci z tego planu.

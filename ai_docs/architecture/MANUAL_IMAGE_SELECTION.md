@@ -6,6 +6,32 @@ last_updated: 2026-10-29
 
 # Architektura lokalnej ręcznej selekcji
 
+## Cache podglądu Windows — TASK-1106
+
+`renderer/preview-cache.ts` (`PreviewCache`) posiada rzeczywiste
+`HTMLImageElement`, indeksowane parą sourceId/imageId. Wymiana instancji
+SourceIndex również unieważnia cache; ordinale pochodzą ze wspólnego
+`sourceLookup`. `ImageViewer` przenosi zdekodowany element do pustego hosta DOM;
+React nie tworzy drugiego img z tym samym URL. Gotowy hit nie ustawia ponownie
+src i nie wywołuje ponownie decode. Każdy miss ma jedną ścieżkę src/decode.
+
+Aktywny decode poprzedza nowe odczyty sąsiadów; jeden prefetch jest szeregowy,
+w kolejności od najbliższych pozycji, w oknie ±3 (maksymalnie 7 entries).
+Zmiana aktywnego zdjęcia może ominąć trwający prefetch. Generacja celu i
+sprawdzenie tożsamości entry wykluczają późne odpowiedzi. Błąd aktywnego JPEG-a
+trafia do SelectionIntents; błąd sąsiada nie ustawia gotowości aktywnego.
+Zwolnienie entry usuwa element z DOM i atrybut src. Unmount i nowe źródło
+unieważniają generację i zwalniają entries.
+
+Estymata `naturalWidth * naturalHeight * 4` ma budżet 128 MiB. Po decode
+nieznanych wymiarów usuwane są najdalsze nieaktywne entries. Aktywny JPEG jest
+jedynym wyjątkiem i przy rozmiarze co najmniej budżetu wyłącza prefetch.
+Nieznany wymiar może chwilowo przekroczyć budżet; odrzucony duży sąsiad nie
+uruchamia pętli decode/evict. To limit referencji cache i estymaty bitmap,
+bez gwarancji maksymalnego RAM lub synchronicznego spadku RSS Chromium.
+`selector-photo` zachowuje no-store i pełne kontrole SourceRegistry;
+accept nadal sprawdza aktualny SHA źródła.
+
 ## Mała aktualizacja workspace Windows — TASK-1105
 
 `SelectorBridge.execute` zwraca `DesktopWorkspaceUpdate`: komplet skalarów i

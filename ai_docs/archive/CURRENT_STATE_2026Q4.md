@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1106 — Jeden obiekt podglądu (done)
+
+- Task: `tasks/completed/1106-selector-preview-cache.md`.
+- Commit: **v1.7.500** (hash dopisuje kolejny commit).
+- PreviewCache: ten sam HTMLImageElement w cache i hoście, aktywny JPEG przed sąsiadami, jeden prefetch decode, okno ±3/7 entries i estymata bitmap 128 MiB z wyjątkiem aktywnego. Generacja celu i źródła chronią późne odpowiedzi; SourceRegistry/no-store/SHA bez zmian.
+- Cache 7/7, intencje 18/18, workspace/renderer 10/10, źródło/junction 3/3 PASS; lint/typecheck/build PASS. Electron: jeden request na miss, zero na hit, tożsamość DOM, zoom/scroll/fullscreen, błędy i crash/reopen/close PASS. Shortcuts i relink po restarcie PASS po oczekiwaniu na koniec busy adaptera relink.
+- Audyt pominięty decyzją operatora, bez niezależnego PASS. Bez gwarancji RSS/odbioru innego komputera. ZIP i pełny zestaw należą do TASK-1107. Bez merge/push, usług i oryginałów. Obce zmiany poza commitem.
+
 ### TASK-1105 — Mała aktualizacja workspace przez IPC (done)
 
 - Plik: `tasks/completed/1105-selector-workspace-updates.md`.

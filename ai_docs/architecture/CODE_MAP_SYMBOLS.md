@@ -1115,6 +1115,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - renderer/desktop-shortcuts.ts: resolveDesktopShortcut
 - renderer/game-select.tsx: GameSelect
 - renderer/image-viewer.tsx: ImageViewer
+- renderer/preview-cache.ts: PREVIEW_BITMAP_BUDGET, PreviewCache
 - renderer/selection-intents.ts: SelectionPhase, AcceptIntent, matchesAcceptContext, SelectionIntents
 - renderer/workspace-updates.ts: applyWorkspaceUpdate
 - source-index.ts: SourceLookup, sourceLookup

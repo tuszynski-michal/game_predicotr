@@ -47,7 +47,7 @@ async function counts(page, n) {
 async function cursor(page, n) {
   await page
     .getByTestId('cursor')
-    .filter({ hasText: `${n} / 6` })
+    .filter({ hasText: `${n} / 8` })
     .waitFor();
 }
 async function ready(page) {
@@ -83,7 +83,24 @@ try {
         Buffer.concat([jpeg, Buffer.from(`fixture-photo-${n}`)]),
       );
     await writeFile(path.join(source, 'photo6.jpg'), 'broken jpeg');
+    for (const n of [7, 8])
+      await writeFile(path.join(source, `photo${n}.jpg`), jpeg);
     let page = await launch();
+    // Same small 800×600 fixture used by smoke-packaged: zoom needs real pixels.
+    const viewportJpeg = await application.evaluate(({ nativeImage }) =>
+      nativeImage
+        .createFromBitmap(Buffer.alloc(800 * 600 * 4, 180), {
+          width: 800,
+          height: 600,
+        })
+        .toJPEG(80)
+        .toString('base64'),
+    );
+    await writeFile(
+      path.join(source, 'photo1.jpg'),
+      Buffer.from(viewportJpeg, 'base64'),
+    );
+
     await application.evaluate(({ dialog }, source) => {
       dialog.showOpenDialog = async () => ({
         canceled: false,
@@ -91,6 +108,21 @@ try {
       });
       dialog.showMessageBox = async () => ({ response: 1 });
     }, source);
+    await application.evaluate(({ session }) => {
+      globalThis.previewRequests = [];
+      session.defaultSession.webRequest.onCompleted(
+        { urls: ['selector-photo://*/*'] },
+        (details) => globalThis.previewRequests.push(details.url),
+      );
+    });
+    await page.evaluate(() => {
+      window.previewElements = new Map();
+      const decode = HTMLImageElement.prototype.decode;
+      HTMLImageElement.prototype.decode = function () {
+        window.previewElements.set(this.src, this);
+        return decode.call(this);
+      };
+    });
     await page
       .getByRole('button', { name: 'Wybierz folder zdjęć', exact: true })
       .click();
@@ -101,6 +133,91 @@ try {
     await ready(page);
     const bootstrap = (await page.evaluate(() => window.selector.snapshot()))
       .value;
+    await page.waitForFunction(() => window.previewElements.size === 4);
+    const firstUrl = bootstrap.source.images[0].url;
+    assert.equal(
+      await page.evaluate(
+        (url) =>
+          document.querySelector('.preview img') ===
+          window.previewElements.get(url),
+        firstUrl,
+      ),
+      true,
+    );
+    await page.locator('h1').click();
+    await page.keyboard.press('ArrowRight');
+    await cursor(page, 2);
+    await ready(page);
+    await page.keyboard.press('ArrowLeft');
+    await cursor(page, 1);
+    await ready(page);
+    await page.getByRole('button', { name: 'Pomiń', exact: true }).waitFor();
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('button')].find(
+          (button) => button.textContent.trim() === 'Pomiń',
+        )?.disabled === false,
+    );
+    await page.getByLabel('Zoom', { exact: true }).selectOption('3000');
+    await page.waitForFunction(() => {
+      const preview = document.querySelector('.preview');
+      return (
+        preview.scrollWidth > preview.clientWidth &&
+        preview.scrollHeight > preview.clientHeight
+      );
+    });
+    await page.locator('.preview').evaluate((element) => {
+      element.scrollLeft = 120;
+      element.scrollTop = 100;
+      element.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForFunction(async () => {
+      const state = (await window.selector.snapshot()).value;
+      return state.view.scrollX === 120 && state.view.scrollY === 100;
+    });
+    await page
+      .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Wyjdź (F11)', exact: true })
+      .waitFor();
+    await page.keyboard.press('F11');
+    await page
+      .getByRole('button', { name: 'Pełny ekran (F11)', exact: true })
+      .waitFor();
+    assert.equal(
+      await page.evaluate(
+        (url) =>
+          document.querySelector('.preview img') ===
+          window.previewElements.get(url),
+        firstUrl,
+      ),
+      true,
+    );
+    await page.getByLabel('Zoom', { exact: true }).selectOption('100');
+    console.log(
+      'PASS: zoom 100–3000%, both scroll axes and native fullscreen retain the decoded DOM image.',
+    );
+    const protocolRequests = await application.evaluate(
+      () => globalThis.previewRequests,
+    );
+    for (const url of [firstUrl, bootstrap.source.images[1].url])
+      assert.equal(
+        protocolRequests.filter((request) => request === url).length,
+        1,
+      );
+    assert.equal(
+      await page.evaluate(
+        (url) =>
+          document.querySelector('.preview img') ===
+          window.previewElements.get(url),
+        firstUrl,
+      ),
+      true,
+    );
+    console.log(
+      'PASS: real selector-photo protocol sees one request per miss and none for warm hits; decoded object is the displayed DOM image.',
+    );
     // Test process only: wrap real validated IPC handlers after fixture bootstrap.
     // No application flag or operator project can enable these barriers.
     await application.evaluate(({ ipcMain }) => {
@@ -282,6 +399,13 @@ try {
     await page.evaluate((id) => {
       window.fluencyDecodeId = id;
     }, bootstrap.source.images[3].id);
+    // Evict image 4 before testing a genuinely cold decode (hits do not decode).
+    for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowRight');
+    await cursor(page, 8);
+    await ready(page);
+    for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowLeft');
+    await cursor(page, 3);
+    await ready(page);
     await page.keyboard.press('ArrowRight');
     await cursor(page, 4);
     await page.keyboard.press('f');
@@ -364,7 +488,13 @@ try {
     );
 
     await page.locator('h1').click();
-    await page.keyboard.press('ArrowRight');
+    const recoveredOrdinal = recovered.source.images.findIndex(
+      (image) => image.id === recovered.currentImageId,
+    );
+    for (let n = recoveredOrdinal; n < 5; n++)
+      await page.keyboard.press('ArrowRight');
+    for (let n = recoveredOrdinal; n > 5; n--)
+      await page.keyboard.press('ArrowLeft');
     await cursor(page, 6);
     await page
       .getByText('Nie można odczytać JPEG-a.', { exact: false })
@@ -383,11 +513,12 @@ try {
             window.fluencyDecodeRelease = resolve;
           });
       };
-      for (let i = 0; i < 3; i++)
-        window.dispatchEvent(
-          new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
-        );
     }, recovered.source.images[2].id);
+    // Image 3 must be evicted before the close/decode barrier, too.
+    for (let n = 0; n < 2; n++) await page.keyboard.press('ArrowRight');
+    await cursor(page, 8);
+    await ready(page);
+    for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowLeft');
     await cursor(page, 3);
     await page.keyboard.press('f');
     await page.getByText('Oczekuje na zapis', { exact: true }).waitFor();

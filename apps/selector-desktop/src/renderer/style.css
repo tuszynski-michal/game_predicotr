@@ -44,6 +44,9 @@ button:disabled {
   background: #090b0e;
   border-radius: 8px;
 }
+.preview-image-host {
+  display: contents;
+}
 .preview img {
   display: block;
   max-width: 100%;

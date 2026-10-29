@@ -6,6 +6,21 @@ last_updated: 2026-10-29
 
 # Lokalna ręczna selekcja zdjęć
 
+## Podgląd Windows — TASK-1106
+
+Bieżące zdjęcie ma priorytet przed odczytem sąsiadów. Podgląd utrzymuje najwyżej
+siedem obrazów w oknie ±3 oraz jeden dodatkowy decode prefetch naraz. Widok
+używa tego samego zdekodowanego elementu obrazu; powrót do gotowego obrazu
+w cache nie odczytuje JPEG-a ponownie. Zoom 100–3000%, obie osie scrolla
+oraz pełny ekran zachowują dotychczasowe działanie.
+
+Budżet cache wynosi 128 MiB szacowanych bitmap. Aktywny JPEG jest jedynym
+wyjątkiem; większe zdjęcie wyłącza prefetch. Nieznane wymiary mogą chwilowo
+przekroczyć budżet podczas decode. Nie jest to limit RAM całego procesu ani
+gwarancja natychmiastowego zwolnienia RSS przez Chromium. Zmiana źródła
+lub zamknięcie usuwa cache. Kontrole aktualności plików i SHA przy wyborze
+pozostają bez zmian.
+
 ## Przypięty wybór i płynna nawigacja Windows — TASK-1104, D-574
 
 Widoczny kursor może wyprzedzać zapis. Strzałki liczą od ostatniego zamiaru,

@@ -169,6 +169,14 @@ try {
     assert.equal(restored.value.projectId, state.projectId);
     assert.equal(restored.value.acceptedCount, 1);
     assert.equal(restored.value.nextRangeStart, 10);
+    // Native snapshot can finish before the renderer's relink adapter clears busy.
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('button')].find(
+          (button) => button.textContent.trim() === 'Zamknij projekt',
+        )?.disabled === false,
+    );
+
     console.log(
       'PASS: moved source recovered by explicit native relink after process restart; decisions and numbering preserved.',
     );

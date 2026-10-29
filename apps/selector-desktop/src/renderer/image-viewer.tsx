@@ -1,9 +1,6 @@
-import { sourceLookup } from '../source-index.ts';
+import { PreviewCache } from './preview-cache.ts';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  fitManualImageToViewport,
-  manualPreviewWindow,
-} from '@game-predictor/manual-image-selection-core';
+import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import type {
   SourceIndex,
   SourceImage,
@@ -24,7 +21,8 @@ export function ImageViewer({
   ready: (id: string | null) => void;
   failed: (id: string) => void;
 }) {
-  const cache = useRef(new Map<string, HTMLImageElement>());
+  const cache = useRef(new PreviewCache());
+  const host = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const preferences = useRef(view);
   preferences.current = view;
@@ -48,30 +46,14 @@ export function ImageViewer({
     ready(null);
     setSize({ width: 0, height: 0 });
     setError(false);
-    const index = sourceLookup(source);
-    const ordinal = index.ordinal.get(image.id) ?? -1;
-    const allowed = new Set(
-      manualPreviewWindow(ordinal, source.images.length).map(
-        (index) => source.images[index].id,
-      ),
-    );
-    for (const [id, entry] of cache.current)
-      if (!allowed.has(id)) {
-        entry.src = '';
-        cache.current.delete(id);
-      }
-    for (const id of allowed)
-      if (!cache.current.has(id)) {
-        const entry = new Image();
-        entry.src = index.byId.get(id)!.url;
-        cache.current.set(id, entry);
-        void entry.decode().catch(() => {});
-      }
-    const current = cache.current.get(image.id)!;
-    void current
-      .decode()
-      .then(() => {
+    host.current?.replaceChildren();
+    setDecodedFor(null);
+    void cache.current
+      .activate(source, image)
+      .then((current) => {
         if (active) {
+          current.alt = image.relativePath;
+          host.current?.replaceChildren(current);
           setSize({
             width: current.naturalWidth,
             height: current.naturalHeight,
@@ -90,10 +72,9 @@ export function ImageViewer({
     return () => {
       active = false;
     };
-  }, [source.id, image.id]);
+  }, [source, image.id]);
   useEffect(
     () => () => {
-      for (const entry of cache.current.values()) entry.src = '';
       cache.current.clear();
     },
     [],
@@ -112,6 +93,15 @@ export function ImageViewer({
     decodedFor === image.id && size.width
       ? fitManualImageToViewport(size, viewport, view.zoom / 100)
       : null;
+  useEffect(() => {
+    const current = host.current?.firstElementChild as HTMLImageElement | null;
+    if (current && display) {
+      current.style.width = `${display.width}px`;
+      current.style.height = `${display.height}px`;
+      current.style.maxWidth = 'none';
+      current.style.maxHeight = 'none';
+    }
+  }, [display?.width, display?.height, decodedFor]);
   return (
     <div
       className="preview"
@@ -135,18 +125,8 @@ export function ImageViewer({
           </p>
         ) : !display ? (
           <span className="image-loading" aria-label="Ładowanie zdjęcia" />
-        ) : (
-          <img
-            src={image.url}
-            alt={image.relativePath}
-            style={{
-              width: display.width,
-              height: display.height,
-              maxWidth: 'none',
-              maxHeight: 'none',
-            }}
-          />
-        )}
+        ) : null}
+        <div className="preview-image-host" ref={host} />
       </div>
     </div>
   );

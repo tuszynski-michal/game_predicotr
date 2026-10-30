@@ -8,8 +8,6 @@ import type {
   BoardSearchShareCellCorrectionRequest,
   BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
-  BoardSearchSequenceRequest,
-  BoardSearchSequenceResponse,
   GetBoardSearchApproximateWinOptions,
   GetBoardSearchBoardDetailOptions,
   SearchGameBoardsOptions,
@@ -94,11 +92,6 @@ export type BoardSearchDataSource = {
     gameId: string,
     options: SearchGameBoardsOptions,
   ) => BoardSearchApiResult<BoardSearchResponse>;
-  /** Enables consecutive patterns in ordinary search. Management keeps its workflow. */
-  readonly searchGameBoardSequence?: (
-    gameId: string,
-    request: BoardSearchSequenceRequest,
-  ) => BoardSearchApiResult<BoardSearchSequenceResponse>;
   readonly symbolImageAssetUrl: (gameId: string, symbolId: string) => string;
   /**
    * Admin only (TASK-0935): the URL of a series in the Admin's „Supergry”

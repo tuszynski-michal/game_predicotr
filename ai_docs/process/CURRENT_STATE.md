@@ -12,7 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **TASK-1112:** tylko plan; jedna plansza, ±15, historia bez replay wielu wzorów. TASK-1113 czeka na zgodę. Źródło: `tasks/1113-remove-multi-board-search.md`.
+- **TASK-1113:** jedna plansza i ±15; historia bez replay wielu wzorów. Bez wdrożenia. Źródło: `tasks/completed/1113-remove-multi-board-search.md`.
 
 - **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
 
@@ -41,7 +41,6 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md` | proposed; tylko plan, zakres i koszt wymagają akceptacji | TASK-1113 | `codex/remove-multi-board-search-plan` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -66,16 +65,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1113 — Usunięcie wyszukiwania wielu układów (todo)
-
-- Plik: `tasks/1113-remove-multi-board-search.md`. Czeka na akceptację planu i kosztu; zachowuje jedną planszę, nawigację ±15 i dane. Bez rozpoczętej implementacji.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1113** — Usunięcie wyszukiwania wielu układów — v1.7.508 — tasks/completed/1113-remove-multi-board-search.md
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
 - **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md
@@ -85,4 +81,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md
 - **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md
 - **TASK-1100** — Domyślnie 40 wyników wyszukiwania plansz — v1.7.487 / `2b972a23` — tasks/completed/1100-board-search-default-forty.md
-- **TASK-1099** — Dłuższy limit wyszukiwania ciągów plansz — v1.7.485 / `cdf943e7` — tasks/completed/1099-board-search-sequence-timeout.md

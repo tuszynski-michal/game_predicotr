@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1113 — Usunięcie wyszukiwania wielu układów (done)
+
+- Plik: `tasks/completed/1113-remove-multi-board-search.md`.
+- Commit: **v1.7.508**.
+- Usunięte UI, POST, ranking SQL, cache i automatyczne odtwarzanie wielu wzorów. Jedna plansza, ±15, kalkulator i korekty zachowane; dane i historia bez usuwania, migracja 0169 bez zmian.
+- PASS: 105 interakcji UI, 61 testów klienta/hostów, 29 API/historii, 26 publicznego API (1 wcześniejszy test odłożony), 3 stanu oraz ponowne 3 historii. TypeScript, lint, Ruff, OpenAPI/klient, oba buildy Webpack PASS; szczegóły w Outcome.
+- Pełny mypy przekroczył 120 s; kontrola serwisu/repozytorium PASS. Test limitu historii nadal oczekuje 4 KiB zamiast istniejących 32 KiB — poza zakresem. Bez fizycznego Androida, usług operatora, benchmarków, migracji danych, merge i push. Audyt niewymagany według planu.
+
 ### TASK-1112 — Plan usunięcia wyszukiwania wielu układów (done)
 
 - Plik: `tasks/completed/1112-single-board-removal-plan.md`.

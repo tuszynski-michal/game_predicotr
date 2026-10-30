@@ -9,7 +9,6 @@ from game_predictor_api.domain.board_search import (
     BoardSearchResult,
     BoardSearchScore,
 )
-from game_predictor_api.domain.board_search_sequence import BoardSearchSequenceResult
 from game_predictor_api.main import create_app
 
 GAME = UUID(int=1)
@@ -34,11 +33,6 @@ class Repository:
     def search(self, **kwargs):
         return (result(),)
 
-    def search_sequence(self, **kwargs):
-        return (
-            BoardSearchSequenceResult((result(1), result(2)), BoardSearchScore(100, 2, 0, 0, 0, 0)),
-        )
-
 
 @pytest.fixture(scope="module")
 def client():
@@ -52,40 +46,21 @@ def client():
         yield value
 
 
-def test_single_post_delegates_to_get(client):
-    old = client.get(PATH, params={"cell": "0:A"})
-    new = client.post(PATH, json={"patterns": [PATTERN]})
-    assert old.status_code == new.status_code == 200
-    assert new.json()["results"][0]["boards"] == old.json()["results"]
+@pytest.mark.parametrize("patterns", [[], [PATTERN], [PATTERN, PATTERN]])
+def test_removed_post_never_runs_search(client, monkeypatch, patterns):
+    def forbidden(**kwargs):
+        raise AssertionError("Removed search must not execute")
+
+    monkeypatch.setattr(Repository, "search", forbidden)
+    assert client.post(PATH, json={"patterns": patterns}).status_code == 405
 
 
-def test_sequence_contract_and_per_board_scores(client):
-    response = client.post(PATH, json={"patterns": [PATTERN, PATTERN]})
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["patternCount"] == data["queryCellCount"] == 2
-    assert data["results"][0]["endSequenceNumber"] == 2
-    assert data["results"][0]["score"]["exactMatchCount"] == 2
+def test_single_get_still_searches(client):
+    response = client.get(PATH, params={"cell": "0:A", "limit": 40})
+    assert response.status_code == 200
+    assert response.json()["results"][0]["sequenceNumber"] == 1
 
 
-@pytest.mark.parametrize(
-    "patterns",
-    [[], [PATTERN] * 5, [{"cells": []}], [{"cells": [{"cellIndex": 0, "symbolCode": "?"}]}]],
-)
-def test_invalid_patterns_have_stable_error(client, patterns):
-    response = client.post(PATH, json={"patterns": patterns})
-    assert response.status_code == 422
-    assert response.json()["code"] == "BOARD_SEARCH_SEQUENCE_INVALID"
-
-
-def test_actual_body_limit_and_content_type(client):
-    assert (
-        client.post(
-            PATH, content=b"x" * 32769, headers={"content-type": "application/json"}
-        ).status_code
-        == 413
-    )
-    assert (
-        client.post(PATH, content=b"{}", headers={"content-type": "text/plain"}).status_code == 415
-    )
-    assert client.post(PATH + "?limit=1", json={"patterns": [PATTERN]}).status_code == 422
+def test_openapi_only_exposes_get(client):
+    schema = client.get("/openapi.json").json()
+    assert "post" not in schema["paths"]["/api/v1/admin/games/{game_id}/board-search"]

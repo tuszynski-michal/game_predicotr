@@ -14,6 +14,22 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-575 — Powrót do wyszukiwania jednej planszy
+
+Status: accepted
+Data: 2026-10-30
+
+Operator zaakceptował plan oraz koszt 1–2 godzin i zlecił TASK-1113. Usuwamy
+wykonanie wyszukiwania wielu wzorów: UI, POST, SQL, cache i automatyczny replay.
+Zastępuje wielowzorowy zakres D-573; zachowuje pojedynczy GET i nawigację ±15.
+Historia i dane pozostają. Wielowzorowy storage/replay daje jawny komunikat
+bez cichego obcinania wzorów. Migracja 0169 i manifest v19 pozostają.
+Brak zgody na restarty, migracje danych, benchmarki, merge i push.
+Nie ustalono, czy wszystkie timeouty pochodzą z usuwanej funkcji.
+
+Źródło: [plan](../../delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md).
+
+
 ## D-574 — Przypięty wybór i optymistyczna nawigacja Selektora
 
 - **Date:** 2026-10-29.

@@ -16,7 +16,6 @@ export const BOARD_SEARCH_SHARE_COOKIE_PATH = '/board-search-api';
 export const BOARD_SEARCH_SHARE_PROXY_HEADER = 'X-Board-Search-Share-Proxy';
 export const BOARD_SEARCH_SHARE_PROXY_INTENT = 'reviewer-board-search-v1';
 export const BOARD_SEARCH_SHARE_MAX_REQUEST_BYTES = 4 * 1024;
-export const BOARD_SEARCH_SEQUENCE_MAX_REQUEST_BYTES = 32 * 1024;
 export const BOARD_SEARCH_SHARE_MAX_JSON_BYTES = 8 * 1024 * 1024;
 export const BOARD_SEARCH_SHARE_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const BOARD_SEARCH_SHARE_MAX_IMAGE_AGE_SECONDS = 86_400;
@@ -74,7 +73,6 @@ const FREE_TEXT_KEYS = new Set([
 ]);
 
 type Route =
-  | { readonly kind: 'search'; readonly query: QueryRule }
   | { readonly kind: 'unlock' }
   | { readonly kind: 'mutation'; readonly query: QueryRule }
   | { readonly kind: 'json'; readonly query: QueryRule }
@@ -103,9 +101,6 @@ export function boardSearchShareRoute(
   method: string,
   apiPath: string,
 ): Route | null {
-  if (method === 'POST' && apiPath === `${API_PREFIX}/search`) {
-    return { kind: 'search', query: noQuery };
-  }
   if (
     method === 'POST' &&
     new RegExp(`^${API_PREFIX}/sessions/${STRICT_UUID}/unlock$`).test(apiPath)
@@ -280,15 +275,8 @@ export async function proxyBoardSearchShareRequest(
     [BOARD_SEARCH_SHARE_PROXY_HEADER]: BOARD_SEARCH_SHARE_PROXY_INTENT,
   });
   let body: ArrayBuffer | undefined;
-  if (
-    route.kind === 'unlock' ||
-    route.kind === 'mutation' ||
-    route.kind === 'search'
-  ) {
-    const bodyLimit =
-      route.kind === 'search'
-        ? BOARD_SEARCH_SEQUENCE_MAX_REQUEST_BYTES
-        : BOARD_SEARCH_SHARE_MAX_REQUEST_BYTES;
+  if (route.kind === 'unlock' || route.kind === 'mutation') {
+    const bodyLimit = BOARD_SEARCH_SHARE_MAX_REQUEST_BYTES;
     const contentType = request.headers.get('content-type')?.split(';', 1)[0];
     if (contentType?.trim().toLowerCase() !== 'application/json') {
       return errorResponse(

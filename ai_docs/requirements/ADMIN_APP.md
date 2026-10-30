@@ -446,18 +446,9 @@ a zmieniony stan tworzy nową wersję.
 
 ### Wyszukiwanie plansz z niepełnym wzorem
 
-**D-573 — kolejne układy (TASK-1091–1092, zaakceptowane 2026-10-24).**
-Admin, link pojedynczej gry i panel udostępniania pozwalają dopasować 1–4
-kolejne spiny. Badże nad edytorem przełączają wpisane wzory; wspólne wyniki
-poniżej i wybrany ciąg pozostają niezależne od aktywnego badża. „Dodaj
-układ” dodaje pusty wzór po poprawnym wypełnieniu bieżącego zestawu, także
-przed pierwszym wyszukiwaniem (zmiana operatora 2026-10-27, TASK-1098).
-Przycisk działa na ostatnim badżu, do czterech wzorów, poza trwającym
-wyszukiwaniem lub obliczaniem wygranej. „Resetuj”
-czyści tylko aktywny wzór; „Nowe szukanie” rozpoczyna pusty zestaw. Pusty
-koniec nie uczestniczy w szukaniu, luka w środku i wzór z samymi `?` wymagają
-uzupełnienia. Edycja nie ukrywa poprzednich wyników, lecz oznacza je jako
-nieaktualne do ponownego wyszukania.
+**TASK-1113 / decyzja operatora 2026-10-30:** Admin, link jednej gry i panel
+udostępniania wyszukują wyłącznie jedną planszę. Dodawanie kolejnych wzorów
+i wspólny ranking wielu układów zostały usunięte. Domyślnie 40 wyników.
 
 Po edycji wzoru zmiana liczby wyników tylko zapamiętuje nowy limit.
 Pierwsze kliknięcie „Szukaj plansz” wysyła aktualny wzór z tym limitem.
@@ -479,42 +470,19 @@ Zapis korekty nadal używa aktualnego kontekstu, a trwające wyszukiwanie
 blokuje edycję. Celowe odświeżenie po zapisie i zmiana planszy lub reguł
 nadal pobierają nowy odczyt.
 
-Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
-jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca
-odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując
-reguły dowodów i wyjątek 777a2. Wygrane liczone są po ostatniej planszy
-wybranego ciągu. Detale wcześniejszych plansz i ich korekty nie przesuwają
-kotwicy wygranych.
+Podgląd zaczyna się na znalezionej planszy. „Poprzedni układ” i „Następny
+układ” przeglądają do 15 numerów w każdą stronę; dwa kliknięcia przechodzą
+o dwie plansze. Dolna granica wynosi 1, bez zawijania i pomijania luk.
+Brak lub nieaktualny odczyt zachowuje zdjęcie i pozwala ponowić ten numer.
+Podgląd nie zmienia rankingu ani kotwicy wygranych. „Pokaż planszę” oraz
+korekta dotyczą aktualnego zdjęcia. Panel zarządzania zachowuje swój workflow.
 
-TASK-1099 (2026-10-27): wyszukiwanie wielu układów ma do 60 sekund na ranking,
-z zachowaniem krótszego jawnego limitu bazy. Przekroczenie nadal kończy się
-błędem bez częściowych wyników i bez automatycznego ponawiania.
-
-TASK-1098: podgląd wyniku zaczyna się od pierwszej planszy dopasowanego ciągu.
-„Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania,
-do piętnastu wcześniejszych zdjęć przed jego początkiem (TASK-1101,
-polecenie operatora 2026-10-27) oraz piętnaście kolejnych zdjęć po jego końcu
-(dalsze doprecyzowanie tego samego dnia, także dla pojedynczego wzoru).
-Dla czterech układów 240–243 zakres podglądu wynosi 225–258, początkowy
-podgląd nadal wskazuje 240. Cofanie kończy się najpóźniej na numerze 1,
-bez zawijania. Dla jednego układu obowiązują te same granice. Kolejność plansz
-dopasowania pochodzi z odpowiedzi API (także dla ciągu cyklicznego).
-Dodatkowe zdjęcia pobierane są pojedynczo według numeru przed początkiem albo po końcu ciągu,
-bez zawijania. Brak lub nieaktualny odczyt zachowuje poprzedni podgląd,
-pokazuje błąd i pozwala ponowić ten sam numer, bez przeskakiwania luk.
-Zdjęcia spoza dopasowania nie otrzymują procentu dopasowania.
-Podgląd nie zmienia rankingu ani kotwicy wygranych; „Pokaż planszę” otwiera
-aktualnie oglądane zdjęcie z jego własnym kontekstem korekty. Nawigacja
-„Poprzednia”/„Następna” i strzałki klawiatury nadal zmieniają dopasowanie.
-Nowy wynik lub odświeżenie wyszukiwania rozpoczyna podgląd od jego pierwszej
-planszy. Zachowanie obowiązuje w lokalnym Adminie, linku gry i panelu
-udostępniania; panel zarządzania zachowuje dotychczasowy workflow.
-
-Zestaw i wybór są pamiętane w przeglądarce per gra/link/panel, także po
-ponownym otwarciu; nie zapisuje się odpowiedzi API ani sekretów. Odtworzenie
-historii ma pierwszeństwo przed lokalnym zapisem. Wygasły link nadal blokuje
-dostęp. Historia i korekty oznaczają liczbę układów; pojedyncze wyszukiwania
-i panel zarządzania zachowują dotychczasowy workflow.
+Nowy zapis przeglądarki zawiera jeden wzór. Dawny zapis jednowzorowy jest
+odtwarzany; wielowzorowy daje komunikat o usuniętej funkcji, bez zapytania
+i bez usuwania starego zapisu. Historia v2 i snapshoty korekt pozostają
+czytelne. Replay 2–4 wzorów i powiązanych zdarzeń jest odmawiany komunikatem;
+pojedynczy wzór (także v2/1) nadal jest odtwarzany. Replay ma pierwszeństwo
+przed lokalnym zapisem; wygasły link blokuje dostęp.
 
 Edytor wzoru pozwala wskazać aktywny symbol, pozostawić pole puste albo jawnie
 oznaczyć je jako `?`. Puste pole i `?` są dla rankingu równoważnym brakiem

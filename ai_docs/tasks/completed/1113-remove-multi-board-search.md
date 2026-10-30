@@ -1,6 +1,6 @@
 ---
 title: Usunięcie wyszukiwania wielu układów
-status: todo
+status: done
 last_updated: 2026-10-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-30
 
 ## Status
 
-`todo` — implementacja czeka na akceptację planu i kosztu.
+`done` — operator zaakceptował plan i koszt 1–2 h 2026-10-30.
 
 ## Goal
 
@@ -24,9 +24,8 @@ automatycznie ze storage oraz z odtwarzania historii.
 
 ## Dependencies / entry conditions
 
-- TASK-1112: ograniczona diagnoza i plan. Plan ma status `proposed`.
-- Wyraźna akceptacja zakresu oraz szacunku 1–2 godzin; obecna prośba dotyczy
-  wyłącznie przygotowania planu, więc nie uruchamia tego taska.
+- TASK-1112: ograniczona diagnoza i plan. Plan ma status `accepted`.
+- Operator jawnie zaakceptował zakres i koszt 1–2 godzin oraz zlecił wykonanie.
 - Sprawdzić HEAD, dostępność modelu, zależności i brudny worktree przed zmianą.
   Numery 1112/1113 sprawdzono w lokalnych gałęziach 2026-10-30; przed nowymi
   numerami wersji i decyzji wykonać ponowną kontrolę kolizji.
@@ -44,7 +43,7 @@ i korektę planu. Nie rozszerzać taska o inne źródła timeoutów.
 - `ai_docs/README.md`
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/process/DECISION_LOG.md`
-- [D-573](../process/decisions/DECISION_LOG_2026.md#d-573--wyszukiwanie-po-kolejnych-układach)
+- [D-573](../../process/decisions/DECISION_LOG_2026.md#d-573--wyszukiwanie-po-kolejnych-układach)
 - `ai_docs/process/PLAN_STANDARD.md`
 - `ai_docs/process/TASK_TEMPLATE.md`
 - `ai_docs/process/DEFINITION_OF_DONE.md`
@@ -75,16 +74,16 @@ benchmarki; usługi i ich restart; merge, push i wdrożenie.
 
 ## Acceptance criteria
 
-- [ ] Jeden edytor i jedno GET, brak dodawania wzorów we wszystkich trzech hostach.
-- [ ] Dawne POST odrzucone przed rankingiem; operacje usunięte z OpenAPI i klienta.
-- [ ] Brak produkcyjnego kodu wykonującego ranking wielu wzorów i cache ciągów.
-- [ ] Nawigacja ±1/±2/±15, granica 1, błędy i późne odpowiedzi przechodzą regresje.
-- [ ] Nawigacja/korekta nie zmienia rankingu ani kotwicy kalkulatora.
-- [ ] Ponowne otwarcie starego wielowzorowego zapisu i replay historii nie wysyła zapytań.
-- [ ] Historia i snapshoty korekt pozostają czytelne; pojedynczy replay działa.
-- [ ] Limit 40, zachowanie korekt, kolejkowania obliczeń i panelu zarządzania zachowane.
-- [ ] Testy, lint, typy, generacja, buildy i dokumentacja sprawdzone; ograniczenia opisane.
-- [ ] Outcome, `task-close` i commit, bez merge/push.
+- [x] Jeden edytor i jedno GET, brak dodawania wzorów we wszystkich trzech hostach.
+- [x] Dawne POST odrzucone przed rankingiem; operacje usunięte z OpenAPI i klienta.
+- [x] Brak produkcyjnego kodu wykonującego ranking wielu wzorów i cache ciągów.
+- [x] Nawigacja ±1/±2/±15, granica 1, błędy i późne odpowiedzi przechodzą regresje.
+- [x] Nawigacja/korekta nie zmienia rankingu ani kotwicy kalkulatora.
+- [x] Ponowne otwarcie starego wielowzorowego zapisu i replay historii nie wysyła zapytań.
+- [x] Historia i snapshoty korekt pozostają czytelne; pojedynczy replay działa.
+- [x] Limit 40, zachowanie korekt, kolejkowania obliczeń i panelu zarządzania zachowane.
+- [x] Testy, lint, typy, generacja, buildy i dokumentacja sprawdzone; ograniczenia opisane.
+- [x] Outcome, `task-close` i commit, bez merge/push.
 
 ## Technical notes
 
@@ -188,4 +187,70 @@ uruchamiania usług i bez przypadkowego zapisu w cudzym checkoutcie.
 
 ## Outcome
 
-Nie rozpoczęto implementacji. Testy powyżej są planowane, nie wykonane.
+Commit: v1.7.508 (hash dopisuje kolejny commit).
+
+### Changed
+
+- Usunięte trasy POST Admina i linku, ranking SQL ciągów, domena/schematy
+  wykonawcze, middleware, cache oraz metody klienta/proxy wielu wzorów.
+- Wspólny edytor ma jeden stan planszy. Nowe moduły `use-board-search.ts`
+  i `board-search-local-state.ts` zachowują blokadę kalkulatora, limit,
+  korekty i ochronę przed spóźnioną odpowiedzią. Nawigacja ±15 pozostaje.
+- Dawne wielowzorowe storage i replay odmawiane komunikatem bez żądania.
+  Pojedynczy zapis migruje do nowego klucza/cells; stary klucz zostaje.
+  Historia i snapshoty korekt nadal są czytelne. Bez zmian schematu i danych.
+- OpenAPI i klient wygenerowane. Testy usuniętego silnika świadomie zastąpiono
+  odmową POST i regresjami zachowanej funkcji. Niezależny audyt niewymagany.
+
+### Verification results
+
+- PASS: 105/105 testów interakcji board-search-ui, w tym ±1/±2/±15,
+  granica 1, błędne/stale zdjęcie, późna odpowiedź, kalkulator, korekta,
+  limit, StrictMode i ponowne otwarcie stanu. Dodatkowo 3/3 testy stanu.
+- PASS: 61/61 testów klienta, hostów, proxy, security-gate i historii Admina.
+- PASS: 29 testów API pojedynczego wyszukiwania, odmowy POST i historii.
+  Publiczne API: 26 PASS, 1 wcześniejszy test odłożony (szczegóły niżej).
+  Po przeniesieniu konstruktora historycznej fixture sprawdzono ponownie
+  jej moduł: 3/3 PASS.
+- PASS: lint UI i zmienionych źródeł hostów (istniejące ostrzeżenie
+  `_operationId` w adapterze Reviewera), Ruff format/check zmienionych Pythonów.
+- PASS: TypeScript board-search-ui, klienta, Admina i Reviewera. Mypy serwisu
+  aplikacyjnego i repozytorium: 2 moduły, `--follow-imports=skip`, PASS.
+- PASS: kompilacja produkcyjna Admina i Reviewera z Webpackiem. Turbopack
+  odmawiał junction poza rootem; potrzebna była lokalna kopia Next oraz
+  wskazanie tej samej kopii przez oba hosty (ignorowane zależności worktree).
+- PASS: zgodność OpenAPI i wygenerowanego klienta; mapa kodu zregenerowana.
+  Kontrole dokumentacji i diffu wykonywane także po zamknięciu taska.
+- Testy HTTP wymagały wykonania poza ograniczeniem środowiska; nie startowano
+  usług. Każda skończona kontrola miała limit 120 s.
+
+### Not completed
+
+- Pełny mypy z analizą wszystkich zależności przekroczył 120 s; nie raportujemy
+  go jako PASS. Próba pominięcia wszystkich importów dla routerów daje błędy
+  nietypowanych dekoratorów FastAPI i nie jest wynikiem pełnej kontroli.
+- Wcześniejszy `test_query_entries_are_validated_per_kind_and_size` oczekuje
+  odrzucenia 5000 B, choć `QUERY_REQUEST_MAX_BYTES` wynosi już 32768. Test
+  i ta stała nie zostały zmienione; potwierdzone porównaniem z HEAD sprzed
+  taska. Pozostaje poza zakresem, bez osłabiania asercji.
+- Bez fizycznego Androida i testu na działających usługach operatora.
+  Bez benchmarków, migracji, operacji danych, restartów, merge i push.
+  Nie wykazano, że wszystkie zgłoszone timeouty pochodziły z tej funkcji.
+
+### Documentation updates
+
+- D-575 zastępuje wielowzorowy zakres D-573. Wymagania, kontrakt API,
+  opis zachowanej migracji 0169, plan, indeks, CURRENT_STATE i mapa kodu.
+
+### Definition of Done / plan
+
+- Kryteria funkcjonalne 1–8 pokryte kodem i testami; historia i dane chronione.
+- Kontrakt usunięty w jednym pionie backend/OpenAPI/klient/proxy/test.
+- Jakość zmienionych części sprawdzona; zakres ograniczeń pełnego mypy,
+  wcześniejszego testu i urządzenia jawnie opisany powyżej. Bez otwartych P0/P1.
+- Zamknięcie skillem `task-close`, osobny commit i zapis hasha w kolejnym.
+
+### Recommended next task
+
+Odbiór wyniku przez operatora i ewentualna osobna zgoda na integrację.
+Po wdrożeniu odświeżyć otwarte strony; dopiero wtedy ocenić pozostałe timeouty.

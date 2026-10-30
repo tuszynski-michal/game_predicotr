@@ -67,8 +67,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 ### Dostarczanie
 
 - [Usunięcie wyszukiwania wielu układów](delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md)
-  — proposed, 2026-10-30; plan w TASK-1112, TASK-1113 czeka na
-  akceptację zakresu i kosztu. Jeden wzór, zachowana nawigacja ±15 i dane.
+  — accepted, 2026-10-30; TASK-1113 wykonany, bez integracji i wdrożenia. Jeden wzór, zachowana nawigacja ±15 i dane.
 
 - [Wyszukiwanie po kolejnych układach](delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md)
   — `accepted` 2026-10-24, wdrożony 2026-10-25: do czterech kolejnych spinów,

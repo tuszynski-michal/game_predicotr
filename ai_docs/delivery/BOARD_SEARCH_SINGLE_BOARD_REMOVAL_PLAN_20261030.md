@@ -1,6 +1,6 @@
 ---
 title: Usunięcie wyszukiwania wielu układów
-status: proposed
+status: accepted
 last_updated: 2026-10-30
 ---
 
@@ -10,8 +10,8 @@ last_updated: 2026-10-30
 
 Użytkownik polecił usunąć dodawanie kolejnych układów i wyszukiwanie ich razem.
 Ma pozostać wyszukiwanie jednej planszy oraz przeglądanie sąsiednich plansz.
-Najnowsze polecenie brzmi „Napisz do tego plan”: ten dokument nie upoważnia
-do implementacji, delegacji, restartów, migracji, merge ani push.
+Operator zaakceptował plan i koszt 1–2 godzin oraz zlecił TASK-1113
+2026-10-30. Bez zgody na restarty, migracje, merge i push.
 
 Plan przygotowano w TASK-1112 na bazie `main` v1.7.505 / `8b5bb2b7`.
 Ograniczona diagnoza kodu potwierdziła:
@@ -73,7 +73,9 @@ Ograniczona diagnoza kodu potwierdziła:
 ## Wykonanie — jeden etap, jeden task
 
 **TASK-1113 — Usunięcie wyszukiwania wielu układów.** Pełna karta:
-[1113-remove-multi-board-search.md](../tasks/1113-remove-multi-board-search.md).
+[1113-remove-multi-board-search.md](../tasks/completed/1113-remove-multi-board-search.md).
+
+Wykonano TASK-1113; wyniki i ograniczenia w jego Outcome.
 
 Jeden spójny commit implementacyjny obejmuje UI, backend, OpenAPI,
 wygenerowanego klienta, regresje i dokumentację. Kolejność pracy:

@@ -62,25 +62,6 @@ def search_query_request(
     }
 
 
-def sequence_search_query_request(
-    *,
-    patterns: Sequence[Sequence[tuple[int, str | None]]],
-    scope: str,
-    limit: int,
-) -> dict[str, object]:
-    if len(patterns) == 1:
-        return search_query_request(cells=patterns[0], scope=scope, limit=limit)
-    return {
-        "version": 2,
-        "patterns": [
-            {"cells": search_query_request(cells=cells, scope=scope, limit=limit)["cells"]}
-            for cells in patterns
-        ],
-        "scope": scope,
-        "limit": limit,
-    }
-
-
 def search_query_summary(sequence_numbers: Sequence[int]) -> dict[str, object]:
     return {
         "resultCount": len(sequence_numbers),

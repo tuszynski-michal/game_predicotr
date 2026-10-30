@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, test } from 'node:test';
+import { after, beforeEach, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 
@@ -29,6 +29,7 @@ const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
   await import('../src/board-search-workspace.tsx');
 
+beforeEach(() => window.localStorage.clear());
 after(() => dom.window.close());
 
 const gameId = '11111111-1111-4111-8111-111111111111';

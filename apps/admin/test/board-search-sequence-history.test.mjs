@@ -21,53 +21,6 @@ const entry = {
   },
   outcomeCode: 'ok',
 };
-test('v2 replay preserves every ordered pattern and follow-up end anchor', () => {
-  const approximateWin = {
-    id: 'range',
-    kind: 'approximate_win',
-    request: { startSequenceNumber: 1, spinCount: 50 },
-  };
-  const event = {
-    id: 'detail',
-    kind: 'board_detail',
-    request: { sequenceNumber: 3 },
-  };
-  const result = boardSearchReplayPlan(
-    { search: entry, event, approximateWin },
-    'nonce',
-  );
-  assert.equal(result.kind, 'plan');
-  assert.deepEqual(result.plan.patterns, [
-    {
-      cells: [
-        { cellIndex: 0, symbolCode: 'A' },
-        { cellIndex: 14, symbolCode: null },
-      ],
-    },
-    { cells: [{ cellIndex: 5, symbolCode: 'B' }] },
-  ]);
-  assert.deepEqual(result.plan.approximateWin, {
-    startSequenceNumber: 1,
-    spinCount: 50,
-  });
-  assert.equal(result.plan.boardSequenceNumber, 3);
-  assert.equal(result.plan.scope, 'approved_only');
-  const invalid = {
-    ...entry,
-    request: {
-      ...entry.request,
-      patterns: [{ cells: ['0:A'] }, { cells: ['15:B'] }],
-      cells: ['0:legacy'],
-    },
-  };
-  assert.equal(
-    boardSearchReplayPlan(
-      { search: invalid, event: invalid, approximateWin: null },
-      'x',
-    ).kind,
-    'no_search',
-  );
-});
 test('v2 log shows all grids and end numbers, legacy still shows board numbers', () => {
   const patterns = boardSearchQueryPatterns(entry);
   assert.equal(patterns.length, 2);
@@ -94,5 +47,29 @@ test('v2 log shows all grids and end numbers, legacy still shows board numbers',
       request: { version: 2, cells: ['0:legacy'] },
     }),
     [],
+  );
+});
+test('multi history and its follow-up are readable but cannot replay', () => {
+  for (const event of [
+    entry,
+    { id: 'detail', kind: 'board_detail', request: { sequenceNumber: 3 } },
+  ]) {
+    const result = boardSearchReplayPlan(
+      { search: entry, event, approximateWin: null },
+      'new',
+    );
+    assert.equal(result.kind, 'no_search');
+    assert.match(result.message, /zostało usunięte/);
+  }
+  const one = {
+    ...entry,
+    request: { ...entry.request, patterns: [entry.request.patterns[0]] },
+  };
+  assert.equal(
+    boardSearchReplayPlan(
+      { search: one, event: one, approximateWin: null },
+      'one',
+    ).kind,
+    'plan',
   );
 });

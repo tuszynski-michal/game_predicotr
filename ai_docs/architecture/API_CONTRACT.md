@@ -442,48 +442,14 @@ nieprodukcyjną propozycję `symbolGridQuad`. `needs_review` może jawnie zwróc
 
 ### Wyszukiwanie plansz częściowym układem
 
-**D-573 / TASK-1091 — addytywny kontrakt ciągu.**
+**TASK-1113 (2026-10-30):** wyszukiwanie wyłącznie pojedynczego wzoru przez GET.
+POST obu ścieżek wyszukiwania został usunięty z API, OpenAPI i klientów.
+Stary POST otrzymuje 405; proxy linku i panelu odrzucają go bez przekazania
+do API. Zmiana jest niezgodna ze starym klientem wielu wzorów; po wdrożeniu
+odświeżyć otwarte strony. Brak rankingu SQL ciągów i dedykowanego middleware.
+Uprawnienia, GET i zabezpieczenia pozostałych mutacji pozostają bez zmian.
 
-```text
-POST /api/v1/admin/games/{gameId}/board-search
-POST /api/v1/board-search-shares/search
-{ patterns: [{ cells: [{ cellIndex, symbolCode }] }], scope?, limit? }
-```
-
-OpenAPI jest właścicielem typów. 1–4 wzory po 1–15 komórek; znany symbol
-jest wymagany w każdym wzorze, `null`/`?` nie daje dowodu. UI dla jednego
-wzoru nadal używa GET; POST z jednym wzorem deleguje do tej samej ścieżki.
-Odpowiedź zawiera `patternCount`, `queryCellCount` (do 60), `superGameState`
-oraz wyniki `{startSequenceNumber,endSequenceNumber,score,boards}`. `boards`
-zachowuje kolejność wzorów i dotychczasowe oceny pojedynczych plansz. Publiczny
-model nie zawiera identyfikatorów wewnętrznych także wewnątrz `boards`;
-ma `searchContextId`, bez `gameId`.
-
-Dla 2–4 wzorów pozycja i to `((start-1+i)%expected_layout_count)+1`;
-liczba wzorów nie przekracza długości gry. Wymagane są wszystkie dokumenty,
-bez przeskakiwania braków. Od TASK-1102 SQL materializuje wąskie liczniki
-dowodów raz na wzór, a następnie łączy pozycje i ocenia całą populację.
-LIMIT występuje dopiero po wspólnej ocenie; metadane plansz są pobierane
-po ograniczeniu wyników w tym samym zapytaniu i snapshotcie. Procent pochodzi z sumy surowych
-punktów podzielonej przez sumę znanych pól zapytania, nie ze średniej procentów.
-
-Body obu POST jest ograniczone strumieniowo do 32768 bajtów w API i obu proxy;
-pozostałe mutacje mają dotychczasowe limity. JSON bez query string, istniejące
-cookie, Origin/Sec-Fetch-Site i proxy-intent pozostają wymagane. Błędy:
-413 `BOARD_SEARCH_SEQUENCE_BODY_TOO_LARGE`, 415 `BOARD_SEARCH_SEQUENCE_CONTENT_TYPE_INVALID`,
-422 `BOARD_SEARCH_SEQUENCE_INVALID` (opcjonalny `details.patternIndex`) lub
-`BOARD_SEARCH_SEQUENCE_LENGTH_INVALID`. Timeout SQL daje 503
-`BOARD_SEARCH_SEQUENCE_TIMEOUT`, jest logowany z tym kodem i nie zwraca danych.
-SAVEPOINT zachowuje zdolność dalszych zapytań; istniejącego krótszego
-statement_timeout nie wolno podnieść. Od TASK-1099 (polecenie operatora
-2026-10-27) limit rankingu wynosi 60 sekund zamiast wcześniejszych 10 sekund,
-chyba że połączenie ma jawny krótszy limit. Po zakończeniu lub błędzie
-poprzednie ustawienie jest przywracane. TASK-1102 wyłącza JIT tylko wewnątrz
-SAVEPOINT rankingu, aby uniknąć kompilowania wyrażeń komórek przy każdym
-żądaniu; poprzednie `jit` wraca po sukcesie i rollbacku. Publiczny POST korzysta z koszyka JSON
-i slotu obliczeń sesji, z 429 przy kolizji.
-
-Log `kind=search` zachowuje legacy `{cells,scope,limit}`. Wielowzorowy wpis
+Log `kind=search` zachowuje legacy `{cells,scope,limit}`. Historyczny wielowzorowy wpis
 ma `{version:2,patterns:[{cells:["i:code|?"]}],scope,limit}`; podsumowanie v2
 ma `resultCount`, `patternCount`, `firstEndSequenceNumbers`. Dwa adaptery
 tożsamości legacy zachowują dotychczasową serializację i hash; v2 uwzględnia

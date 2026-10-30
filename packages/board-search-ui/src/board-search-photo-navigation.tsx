@@ -114,8 +114,8 @@ export function BoardSearchPhotoNavigation({
         {matched
           ? ` · Układ ${index + 1} dopasowania · ${matched.score.score.toFixed(1)}%`
           : index < 0
-            ? ' · Przed dopasowanym ciągiem'
-            : ' · Po dopasowanym ciągu'}
+            ? ' · Przed znalezioną planszą'
+            : ' · Po znalezionej planszy'}
       </p>
       {matched ? (
         renderBoard(matched)

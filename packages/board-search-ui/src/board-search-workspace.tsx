@@ -5,7 +5,6 @@
 
 import type {
   BoardSearchResponse,
-  BoardSearchPattern,
   BoardSearchScope,
   SymbolResponse,
   SearchGameBoardsOptions,
@@ -13,8 +12,11 @@ import type {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
-import { useBoardSearchSequence } from './use-board-search-sequence';
-import { boardSearchSequenceEditorsFromPatterns } from './board-search-sequence-state';
+import { useBoardSearch } from './use-board-search';
+import {
+  type BoardSearchPattern,
+  boardSearchSequenceEditorsFromPatterns,
+} from './board-search-local-state';
 import type { BoardSearchDataSource } from './board-search-data-source';
 import {
   digitShortcutLabel,
@@ -252,7 +254,7 @@ function BoardSearchWorkspaceContent({
   const [approximateReplay, setApproximateReplay] =
     useState<BoardSearchApproximateWinReplay | null>(null);
 
-  const sequenceEnabled = !managed && api.searchGameBoardSequence !== undefined;
+  const sequenceEnabled = !managed;
   const activeCodes = useMemo(
     () =>
       new Set(
@@ -262,7 +264,7 @@ function BoardSearchWorkspaceContent({
       ),
     [symbols],
   );
-  const sequence = useBoardSearchSequence({
+  const sequence = useBoardSearch({
     enabled: sequenceEnabled,
     api,
     gameId,
@@ -707,6 +709,12 @@ function BoardSearchWorkspaceContent({
   });
 
   function applyReplay(request: BoardSearchReplayRequest) {
+    if (request.patterns !== undefined && request.patterns.length !== 1) {
+      setReplayNotices([
+        'Wyszukiwanie wielu układów zostało usunięte. Wpisz jedną planszę.',
+      ]);
+      return;
+    }
     const patterns = request.patterns ?? [{ cells: [...request.cells] }];
     const { state: nextEditor, inactiveCodes } = sequenceEnabled
       ? {
@@ -946,24 +954,6 @@ function BoardSearchWorkspaceContent({
           </aside>
 
           <div className="boardSearchPattern">
-            {sequenceEnabled ? (
-              <div
-                className="boardSearchSequenceBadges"
-                aria-label="Wpisane układy"
-              >
-                {sequence.editors.map((_, index) => (
-                  <button
-                    className="secondaryButton"
-                    type="button"
-                    key={index}
-                    aria-pressed={sequence.activeIndex === index}
-                    onClick={() => sequence.setActiveIndex(index)}
-                  >
-                    Układ {index + 1}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <header>
               <h2>Twój wzór</h2>
               <p>
@@ -1087,14 +1077,6 @@ function BoardSearchWorkspaceContent({
                   <button
                     className="secondaryButton"
                     type="button"
-                    disabled={!sequence.canNext}
-                    onClick={sequence.next}
-                  >
-                    Dodaj układ
-                  </button>
-                  <button
-                    className="secondaryButton"
-                    type="button"
                     onClick={() => {
                       sequence.clear();
                       setApproximateReplay(null);
@@ -1108,7 +1090,7 @@ function BoardSearchWorkspaceContent({
             </footer>
             {sequenceEnabled &&
             sequence.inputError !== null &&
-            (patternCellCount > 0 || sequence.editors.length > 1) ? (
+            patternCellCount > 0 ? (
               <p className="boardSearchFeedback" role="status">
                 {sequence.inputError}
               </p>
@@ -1161,7 +1143,6 @@ function BoardSearchWorkspaceContent({
             gameId={gameId}
             rulesVersions={rulesVersions}
             superGameState={visibleResponse.superGameState ?? null}
-            sequenceResult={sequenceEnabled ? sequence.activeSequence : null}
             onBoardEdited={() =>
               sequenceEnabled
                 ? sequence.repeat()

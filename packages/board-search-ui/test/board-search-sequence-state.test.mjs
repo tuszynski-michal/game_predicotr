@@ -3,56 +3,20 @@ import test from 'node:test';
 import {
   boardSearchSequenceInput,
   boardSearchSequenceEditorsFromPatterns,
-  boardSearchSequenceEditor,
-  boardSearchSequenceKey,
   readBoardSearchSequenceLocalState,
   boardSearchSequenceStorageKey,
-} from '../src/board-search-sequence-state.ts';
+} from '../src/board-search-local-state.ts';
 
 const pattern = (code) => ({ cells: [{ cellIndex: 0, symbolCode: code }] });
 const active = new Set(['A', 'B']);
-test('trailing empty slots are ignored; interior gaps and only-unknown slots block without shifting spins', () => {
-  const filled = boardSearchSequenceEditorsFromPatterns([
-    pattern('A'),
-    pattern('B'),
-  ]);
-  const empty = boardSearchSequenceEditor(Array(15).fill(null));
-  assert.deepEqual(
-    boardSearchSequenceInput([...filled, empty, empty], active).patterns,
-    [pattern('A'), pattern('B')],
-  );
-  assert.match(
-    boardSearchSequenceInput([filled[0], empty, filled[1]], active).error,
-    /układ 2/,
-  );
-  assert.match(
-    boardSearchSequenceInput(
-      boardSearchSequenceEditorsFromPatterns([pattern(null)]),
-      active,
-    ).error,
-    /znany symbol/,
-  );
-  assert.match(
-    boardSearchSequenceInput(
-      boardSearchSequenceEditorsFromPatterns([pattern('archived')]),
-      active,
-    ).error,
-    /nie jest już aktywny/,
-  );
-  assert.notEqual(
-    boardSearchSequenceKey([pattern('A'), pattern('B')]),
-    boardSearchSequenceKey([pattern('B'), pattern('A')]),
-  );
-});
 test('local v1 preserves dirty draft separately from submitted patterns and keeps scope keys isolated', () => {
   const record = {
     version: 1,
     scope: 'share:one',
-    patterns: boardSearchSequenceEditorsFromPatterns([
-      pattern('archived'),
-      pattern(null),
-    ]).map((editor) => editor.cells),
-    activeIndex: 1,
+    patterns: boardSearchSequenceEditorsFromPatterns([pattern('archived')]).map(
+      (editor) => editor.cells,
+    ),
+    activeIndex: 0,
     entryOrder: 'rows',
     lastSubmitted: {
       patterns: [pattern('A')],
@@ -68,8 +32,6 @@ test('local v1 preserves dirty draft separately from submitted patterns and keep
     'share:one',
   );
   assert.equal(read.patterns[0][0], 'archived');
-  assert.equal(read.patterns[1][0], '?');
-  assert.equal(read.patterns[1][1], null);
   assert.deepEqual(read.lastSubmitted.patterns, [pattern('A')]);
   assert.equal(read.searchContextId, undefined);
   assert.equal(read.results, undefined);
@@ -117,4 +79,28 @@ test('invalid versions, cells, selected identity and submitted requests never hy
       ),
     );
   assert.throws(() => readBoardSearchSequenceLocalState('{', 'admin:g'));
+});
+
+test('single input validates evidence and refuses multiple editors', () => {
+  assert.equal(
+    boardSearchSequenceInput(
+      boardSearchSequenceEditorsFromPatterns([pattern('A')]),
+      active,
+    ).error,
+    null,
+  );
+  assert.match(
+    boardSearchSequenceInput(
+      boardSearchSequenceEditorsFromPatterns([pattern('A'), pattern('B')]),
+      active,
+    ).error,
+    /zostało usunięte/,
+  );
+  assert.match(
+    boardSearchSequenceInput(
+      boardSearchSequenceEditorsFromPatterns([pattern(null)]),
+      active,
+    ).error,
+    /znany symbol/,
+  );
 });

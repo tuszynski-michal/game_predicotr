@@ -187,7 +187,7 @@ uruchamiania usług i bez przypadkowego zapisu w cudzym checkoutcie.
 
 ## Outcome
 
-Commit: v1.7.508 (hash dopisuje kolejny commit).
+Commit: v1.7.508 / `969c341c053509190be442f2ad1bb02e4e62c93f`.
 
 ### Changed
 

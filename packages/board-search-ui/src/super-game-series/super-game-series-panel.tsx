@@ -236,12 +236,13 @@ export function SuperGameSeriesPanel({
   const openSeriesId = useRef(seriesId);
   // After the host unmounts the panel (a closed modal) every answer is late.
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // StrictMode replays setup after its cleanup while retaining this ref.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const detailRequests = useRef(new Set<string>());
   const linesTrigger = useRef<HTMLButtonElement>(null);
   const lastRefreshToken = useRef(refreshToken);

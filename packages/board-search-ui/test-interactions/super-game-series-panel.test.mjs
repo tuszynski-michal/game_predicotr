@@ -214,10 +214,10 @@ function fakeClient({ store, undefinedAfter = {}, saveError = null } = {}) {
   };
 }
 
-async function mount(client, props = {}) {
+async function mount(client, props = {}, strictMode = false) {
   const container = document.getElementById('root');
   container.replaceChildren();
-  const root = createRoot(container);
+  const root = createRoot(container, { unstable_strictMode: strictMode });
   const events = { changes: [], loaded: [], saved: [], states: [], edited: 0 };
   const render = (next = {}) =>
     act(async () =>
@@ -243,6 +243,75 @@ async function mount(client, props = {}) {
   await settle();
   await settle();
   return { events, render, root };
+}
+
+test('StrictMode completes a save, unlocks the host and opens the next undefined series', async () => {
+  const next = series({ id: 'series-200', triggerSequenceNumber: 200 });
+  const { calls, client } = fakeClient({ undefinedAfter: { 100: [next] } });
+  const saving = [];
+  const { events, root } = await mount(
+    client,
+    {
+      onSavingChange: (value) => saving.push(value),
+    },
+    true,
+  );
+  try {
+    await press('2');
+    await click(button('Do retriggera'));
+    await click(button('Potwierdź retrigger'));
+    assert.equal(calls.saves.length, 1);
+    assert.deepEqual(events.saved, ['series-100']);
+    assert.deepEqual(events.changes, ['series-200']);
+    assert.equal(saving.includes(true), true);
+    assert.equal(saving.at(-1), false);
+    assert.equal(button('Zapisuję'), undefined);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+for (const failure of ['rejection', 'connection', 'conflict']) {
+  test(`StrictMode releases the save lock after ${failure}`, async () => {
+    const { calls, client } = fakeClient({
+      saveError:
+        failure === 'conflict'
+          ? { code: 'SUPER_GAME_SERIES_REVISION_CONFLICT', message: 'x' }
+          : { code: 'SUPER_SYMBOL_NOT_ORDINARY', message: 'Symbol rejected' },
+    });
+    if (failure === 'connection') {
+      client.setSuperGameSeriesSuperSymbol = async () => {
+        throw new Error('offline');
+      };
+    }
+    const saving = [];
+    const { root } = await mount(
+      client,
+      {
+        onSavingChange: (value) => saving.push(value),
+      },
+      true,
+    );
+    try {
+      await press('1');
+      await press('Enter');
+      await press('Enter');
+      assert.equal(saving.includes(true), true);
+      assert.equal(saving.at(-1), false);
+      assert.equal(button('Zapisuję'), undefined);
+      assert.deepEqual(calls.next, []);
+      if (failure === 'conflict')
+        assert.ok(notice().includes('zmieniona w międzyczasie'));
+      if (failure === 'connection')
+        assert.ok(notice().includes('Połączenie z API zostało przerwane'));
+      if (failure === 'rejection')
+        assert.ok(
+          notice().includes('Super symbolem może być tylko zwykły symbol'),
+        );
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
 }
 
 test('reads the series, marks the trigger cells and walks the carousel', async () => {

@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-10-30
 ---
 
-# TASK-1113 — Usunięcie wyszukiwania wielu układów
+# TASK-1114 — Usunięcie wyszukiwania wielu układów
 
 ## Status
 
@@ -188,6 +188,16 @@ uruchamiania usług i bez przypadkowego zapisu w cudzym checkoutcie.
 ## Outcome
 
 Commit: v1.7.508 / `969c341c053509190be442f2ad1bb02e4e62c93f`.
+
+### Integration preflight (2026-10-30)
+
+- Dawniej TASK-1113. Przenumerowano na wolny TASK-1114 zgodnie ze skillem
+  `merge-to-main`: lokalna gałąź `codex/fix-super-symbol-save` także ma TASK-1113.
+  Historia commitów i zapisany hash implementacji pozostają bez zmian.
+- Operator zaakceptował wynik dawnego TASK-1113 i zlecił merge/push/cleanup.
+  Scalenie oczekuje: główny checkout jest na innej gałęzi i ma cudze zmiany.
+- Kolizje numerów wersji v1.7.506–509 są dopuszczone przez procedurę;
+  nie przepisano historii. Nie rozszerzono zakresu o drugą gałąź.
 
 ### Changed
 

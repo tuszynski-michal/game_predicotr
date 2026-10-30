@@ -19,7 +19,7 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 Status: accepted
 Data: 2026-10-30
 
-Operator zaakceptował plan oraz koszt 1–2 godzin i zlecił TASK-1113. Usuwamy
+Operator zaakceptował plan oraz koszt 1–2 godzin i zlecił TASK-1114. Usuwamy
 wykonanie wyszukiwania wielu wzorów: UI, POST, SQL, cache i automatyczny replay.
 Zastępuje wielowzorowy zakres D-573; zachowuje pojedynczy GET i nawigację ±15.
 Historia i dane pozostają. Wielowzorowy storage/replay daje jawny komunikat

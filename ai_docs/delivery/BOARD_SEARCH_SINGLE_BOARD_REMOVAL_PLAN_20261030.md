@@ -10,7 +10,7 @@ last_updated: 2026-10-30
 
 Użytkownik polecił usunąć dodawanie kolejnych układów i wyszukiwanie ich razem.
 Ma pozostać wyszukiwanie jednej planszy oraz przeglądanie sąsiednich plansz.
-Operator zaakceptował plan i koszt 1–2 godzin oraz zlecił TASK-1113
+Operator zaakceptował plan i koszt 1–2 godzin oraz zlecił TASK-1114
 2026-10-30. Bez zgody na restarty, migracje, merge i push.
 
 Plan przygotowano w TASK-1112 na bazie `main` v1.7.505 / `8b5bb2b7`.
@@ -72,10 +72,10 @@ Ograniczona diagnoza kodu potwierdziła:
 
 ## Wykonanie — jeden etap, jeden task
 
-**TASK-1113 — Usunięcie wyszukiwania wielu układów.** Pełna karta:
-[1113-remove-multi-board-search.md](../tasks/completed/1113-remove-multi-board-search.md).
+**TASK-1114 — Usunięcie wyszukiwania wielu układów.** Pełna karta:
+[1114-remove-multi-board-search.md](../tasks/completed/1114-remove-multi-board-search.md).
 
-Wykonano TASK-1113; wyniki i ograniczenia w jego Outcome.
+Wykonano TASK-1114; wyniki i ograniczenia w jego Outcome.
 
 Jeden spójny commit implementacyjny obejmuje UI, backend, OpenAPI,
 wygenerowanego klienta, regresje i dokumentację. Kolejność pracy:
@@ -96,7 +96,7 @@ wygenerowanego klienta, regresje i dokumentację. Kolejność pracy:
 
 ## Odbiór i testy
 
-| Wymaganie / TASK-1113 | Dowód wymagany przed zamknięciem |
+| Wymaganie / TASK-1114 | Dowód wymagany przed zamknięciem |
 |---|---|
 | Jeden wzór w Adminie, linku i panelu | Test interakcji: brak dodawania i zakładek, jedno GET, poprawne wyniki; puste/wyłącznie `?` nie wysyłają żądania. |
 | Nie ma wykonania wielu wzorów | Testy HTTP i proxy: stary POST odrzucony bez wywołania wyszukiwarki; OpenAPI bez tych operacji; brak produkcyjnych odwołań do rankingu ciągów. |
@@ -119,7 +119,7 @@ odbiorem operatora, jeśli urządzenie nie jest dostępne.
 Szacunek implementacji wraz z testami i dokumentacją: 1–2 godziny pracy,
 bez wiarygodnego przeliczenia na procent pakietu. Koszt bierze się z trzech
 hostów, kontraktu API i zgodności zapisów, nie z nowego algorytmu. Uruchomienie
-TASK-1113 wymaga wyraźnego zatwierdzenia zakresu i tego szacunku. Istotny
+TASK-1114 wymaga wyraźnego zatwierdzenia zakresu i tego szacunku. Istotny
 wzrost kosztu lub zakresu wymaga zatrzymania i ponownej zgody według AGENTS.md.
 
 Bez otwartych decyzji blokujących napisanie kodu po akceptacji powyższych
@@ -139,4 +139,4 @@ nowych usług, migracji, pomiarów obciążenia ani automatycznej integracji.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1113 — Usunięcie wyszukiwania wielu układów | `gpt-6.1-sol` | `high` | Dostępny w bieżącym środowisku. Jeden wykonawca utrzyma spójność UI, kontraktu i stanu odtwarzania. Przy nieprzewidzianej zmianie uprawnień lub danych zatrzymać zadanie i zrewidować plan. | Nie jest wymagany osobny audyt; obowiązują testy kontraktu, regresje i przegląd diffu. Sama tabela nie upoważnia do delegacji. |
+| TASK-1114 — Usunięcie wyszukiwania wielu układów | `gpt-6.1-sol` | `high` | Dostępny w bieżącym środowisku. Jeden wykonawca utrzyma spójność UI, kontraktu i stanu odtwarzania. Przy nieprzewidzianej zmianie uprawnień lub danych zatrzymać zadanie i zrewidować plan. | Nie jest wymagany osobny audyt; obowiązują testy kontraktu, regresje i przegląd diffu. Sama tabela nie upoważnia do delegacji. |

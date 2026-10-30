@@ -446,7 +446,7 @@ a zmieniony stan tworzy nową wersję.
 
 ### Wyszukiwanie plansz z niepełnym wzorem
 
-**TASK-1113 / decyzja operatora 2026-10-30:** Admin, link jednej gry i panel
+**TASK-1114 / decyzja operatora 2026-10-30:** Admin, link jednej gry i panel
 udostępniania wyszukują wyłącznie jedną planszę. Dodawanie kolejnych wzorów
 i wspólny ranking wielu układów zostały usunięte. Domyślnie 40 wyników.
 

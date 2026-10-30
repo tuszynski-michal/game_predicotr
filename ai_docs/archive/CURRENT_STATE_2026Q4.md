@@ -6,9 +6,9 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
-### TASK-1113 — Usunięcie wyszukiwania wielu układów (done)
+### TASK-1114 — Usunięcie wyszukiwania wielu układów (done)
 
-- Plik: `tasks/completed/1113-remove-multi-board-search.md`.
+- Plik: `tasks/completed/1114-remove-multi-board-search.md`.
 - Commit: **v1.7.508 / `969c341c053509190be442f2ad1bb02e4e62c93f`**.
 - Usunięte UI, POST, ranking SQL, cache i automatyczne odtwarzanie wielu wzorów. Jedna plansza, ±15, kalkulator i korekty zachowane; dane i historia bez usuwania, migracja 0169 bez zmian.
 - PASS: 105 interakcji UI, 61 testów klienta/hostów, 29 API/historii, 26 publicznego API (1 wcześniejszy test odłożony), 3 stanu oraz ponowne 3 historii. TypeScript, lint, Ruff, OpenAPI/klient, oba buildy Webpack PASS; szczegóły w Outcome.
@@ -18,7 +18,7 @@ last_updated: 2026-10-16
 
 - Plik: `tasks/completed/1112-single-board-removal-plan.md`.
 - Commit: **v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`**.
-- Ograniczona diagnoza i plan `delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md`, status proposed; TASK-1113 czeka na akceptację zakresu i szacunku 1–2 godzin.
+- Ograniczona diagnoza i plan `delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md`, status proposed; TASK-1114 czeka na akceptację zakresu i szacunku 1–2 godzin.
 - Zakres: usunięcie UI, POST, rankingu i automatycznego odtwarzania wielu wzorów; jedna plansza, nawigacja ±15, historia i dane pozostają.
 - Cztery kontrole dokumentacji PASS (bezpośrednio systemowym Pythonem, brak lokalnej .venv). Bez implementacji, testów aplikacji, audytu, delegacji, benchmarków, migracji, usług, merge i push.
 

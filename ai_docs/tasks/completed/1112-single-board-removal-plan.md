@@ -40,7 +40,7 @@ powstały zmiany aplikacji. Plan zastępuje zamiar bieżącej implementacji.
 
 ## Scope
 
-Ograniczony odczyt kodu, plan `proposed`, karta TASK-1113, indeks dokumentów,
+Ograniczony odczyt kodu, plan `proposed`, karta TASK-1114, indeks dokumentów,
 CURRENT_STATE, kontrola dokumentacji i zamknięcie taska planistycznego.
 
 ## Out of scope
@@ -63,7 +63,7 @@ Commit: v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`.
 ### Changed
 
 - Plan `BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md`, status `proposed`.
-- TASK-1113 czeka na akceptację zakresu i szacunku 1–2 godzin. Nie rozpoczęto
+- TASK-1114 czeka na akceptację zakresu i szacunku 1–2 godzin. Nie rozpoczęto
   implementacji. Brak osobnego audytu: plan go nie wymaga.
 - Bez zmian kodu, danych, usług lub aktywnych kontraktów. D-573 pozostaje
   obowiązującym opisem wdrożonej funkcji do zatwierdzenia i wykonania zmiany.
@@ -79,11 +79,11 @@ Commit: v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`.
 - Pierwsza kontrola budżetu wskazała przekroczenie o 223 B po dodaniu opisu.
   Skrócono wyłącznie nowy wpis; ponowna kontrola PASS, 11/11 budżetów.
 - `git diff --check`: PASS. Kontrola planu względem PLAN_STANDARD: wszystkie
-  wymagania pokryte przez TASK-1113 i macierz odbioru, brak delegacji.
+  wymagania pokryte przez TASK-1114 i macierz odbioru, brak delegacji.
 
 ### Not completed
 
-- TASK-1113, testy aplikacji, odbiór urządzenia i wdrożenie nie należą do
+- TASK-1114, testy aplikacji, odbiór urządzenia i wdrożenie nie należą do
   bieżącego polecenia przygotowania planu.
 
 ### Documentation updates
@@ -93,5 +93,5 @@ Commit: v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`.
 
 ### Recommended next task
 
-Po akceptacji planu i kosztu wykonać TASK-1113. Merge/push i restarty pozostają
+Po akceptacji planu i kosztu wykonać TASK-1114. Merge/push i restarty pozostają
 osobnymi decyzjami użytkownika.

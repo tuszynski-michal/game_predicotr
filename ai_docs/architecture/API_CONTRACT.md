@@ -442,7 +442,7 @@ nieprodukcyjną propozycję `symbolGridQuad`. `needs_review` może jawnie zwróc
 
 ### Wyszukiwanie plansz częściowym układem
 
-**TASK-1113 (2026-10-30):** wyszukiwanie wyłącznie pojedynczego wzoru przez GET.
+**TASK-1114 (2026-10-30):** wyszukiwanie wyłącznie pojedynczego wzoru przez GET.
 POST obu ścieżek wyszukiwania został usunięty z API, OpenAPI i klientów.
 Stary POST otrzymuje 405; proxy linku i panelu odrzucają go bez przekazania
 do API. Zmiana jest niezgodna ze starym klientem wielu wzorów; po wdrożeniu

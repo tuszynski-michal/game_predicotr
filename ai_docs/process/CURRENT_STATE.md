@@ -12,7 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **TASK-1113:** jedna plansza i ±15; historia bez replay wielu wzorów. Bez wdrożenia. Źródło: `tasks/completed/1113-remove-multi-board-search.md`.
+- **TASK-1114:** jedna plansza i ±15; historia bez replay wielu wzorów. Bez wdrożenia. Źródło: `tasks/completed/1114-remove-multi-board-search.md`.
 
 - **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
 
@@ -71,7 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1113** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1113-remove-multi-board-search.md
+- **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
 - **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md
 - **TASK-1106** — Jeden obiekt podglądu — v1.7.500 / `a081e921` — tasks/completed/1106-selector-preview-cache.md

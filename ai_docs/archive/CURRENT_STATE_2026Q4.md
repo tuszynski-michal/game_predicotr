@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1113 — Odblokowanie zapisu super symbolu (done)
 
 - Task: `tasks/completed/1113-super-symbol-save-lock.md`.
-- Commit: **v1.7.514**.
+- Commit: **v1.7.514 / `923dd029f22a26569efb46d2aef55b49e5f1ad1a`**.
 - Naprawiono odrzucanie odpowiedzi zapisu po cleanupie React StrictMode. Regresje przed zmianą 0/4 PASS; po zmianie panel i modal 21/21 PASS. ESLint i typy PASS. Bez restartu usług, zmian danych, merge i push. Odbiór operatora po odświeżeniu strony.
 
 ### TASK-1111 — Rozszerzenie setu 2 do 1000 zdjęć (done)

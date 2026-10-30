@@ -51,7 +51,7 @@ Brak pytań blokujących. Założenie: naprawiamy odtworzoną przyczynę wisząc
 
 ## Outcome
 
-Commit: v1.7.514 (hash dopisuje kolejny commit).
+Commit: v1.7.514 / `923dd029f22a26569efb46d2aef55b49e5f1ad1a`.
 
 ### Changed
 

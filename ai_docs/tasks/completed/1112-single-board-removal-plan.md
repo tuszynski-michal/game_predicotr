@@ -58,7 +58,7 @@ danych i usługach, migracje, merge i push.
 
 ## Outcome
 
-Commit: v1.7.506 (hash dopisuje kolejny commit).
+Commit: v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`.
 
 ### Changed
 

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1112 — Plan usunięcia wyszukiwania wielu układów (done)
 
 - Plik: `tasks/completed/1112-single-board-removal-plan.md`.
-- Commit: **v1.7.506**.
+- Commit: **v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`**.
 - Ograniczona diagnoza i plan `delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md`, status proposed; TASK-1113 czeka na akceptację zakresu i szacunku 1–2 godzin.
 - Zakres: usunięcie UI, POST, rankingu i automatycznego odtwarzania wielu wzorów; jedna plansza, nawigacja ±15, historia i dane pozostają.
 - Cztery kontrole dokumentacji PASS (bezpośrednio systemowym Pythonem, brak lokalnej .venv). Bez implementacji, testów aplikacji, audytu, delegacji, benchmarków, migracji, usług, merge i push.

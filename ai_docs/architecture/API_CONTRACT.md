@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-23
+last_updated: 2026-11-01
 ---
 
 # Kontrakty API i danych mobilnych
@@ -599,6 +599,11 @@ najnowszej opublikowanej wersji reguł gry. Opcjonalny `rulesVersionId`
 (TASK-0932, D-535) wybiera w lokalnym Adminie wersję `draft` albo
 `published` tej samej gry; `rules.rulesVersionId` i
 `rules.algorithmVersion` odpowiedzi opisują faktycznie użytą wersję.
+
+TASK-1115 / D-576: ekran wyszukiwania Admina nie oferuje już wyboru wersji
+i pomija `rulesVersionId`, tak jak online. Pozostaje to wyborem najnowszej
+opublikowanej wersji przez backend. Sam parametr i kontrakt API pozostają
+dostępne dla innych konsumentów; zmiana prezentacji nie wymaga nowego endpointu.
 
 Odpowiedź:
 

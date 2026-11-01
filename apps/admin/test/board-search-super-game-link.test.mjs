@@ -36,7 +36,7 @@ function sources(directory) {
   });
 }
 
-test('only the Admin board search declares the series link capability', () => {
+test('board search no longer declares navigation to the separate series section', () => {
   const declaring = [
     ...sources(join(appsRoot, 'admin', 'src')),
     ...sources(join(appsRoot, 'reviewer', 'src')),
@@ -45,6 +45,6 @@ test('only the Admin board search declares the series link capability', () => {
   );
   assert.deepEqual(
     declaring.map((path) => relative(appsRoot, path).split(sep).join('/')),
-    ['admin/src/features/board-search/board-search-workspace.tsx'],
+    [],
   );
 });

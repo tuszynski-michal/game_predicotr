@@ -307,7 +307,10 @@ export function BoardSearchResults({
         <BoardSearchBoardLinesModal
           api={api}
           formatAmount={(credits) => {
-            const display = loadApproximateWinDisplay();
+            const display = {
+              ...loadApproximateWinDisplay(),
+              unit: 'pln' as const,
+            };
             // Base stake: credits x 10 grosze, whatever the spin cost is.
             return `${formatApproximateWinAmount(
               scaleApproximateWinAmount(credits, display, 0),

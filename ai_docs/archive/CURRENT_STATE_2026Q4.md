@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1115 — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie (done)
+
+- Plik: `tasks/completed/1115-board-search-screen-simplification.md`.
+- Commit: **v1.7.511**.
+- Osiem zmian operatora: tabela pod wykresem i suwak pod tabelą, usunięte opisy, zawsze PLN i najnowsze opublikowane reguły bez selectów, edytowalny modal supergry także w Adminie, `0` dla dziesiątego aktywnego symbolu. Pełna sekcja „Supergry” pozostaje.
+- PASS: 107 interakcji UI, 108 testów jednostkowych, 2 testy nawigacji, lint i TypeScript, oba buildy Webpack, mapa kodu i dokumentacja. Modal Admina sprawdzony pod StrictMode z zapisem CAS i odświeżeniem wyników.
+- Pełna sekcja Admina 22 PASS / 10 wcześniejszych FAIL; identyczne porażki potwierdzono na niezmienionym kodzie sprzed taska (brak `counts` w fixture). Bez osłabiania testów. Szczegóły w Outcome.
+- Bez fizycznego Androida, usług, danych, migracji, benchmarków, audytu i delegacji. Operator wstrzymał merge, push i cleanup.
+
 ### TASK-1114 — Usunięcie wyszukiwania wielu układów (done)
 
 - Plik: `tasks/completed/1114-remove-multi-board-search.md`.

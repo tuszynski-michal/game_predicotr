@@ -904,7 +904,7 @@ test('compact pin rows compose with restored free-spin costs', async () => {
       [...document.querySelectorAll('[role="status"]')].filter((node) =>
         node.textContent.includes('Wynik opiera się wyłącznie'),
       ).length,
-      1,
+      0,
     );
   } finally {
     await act(async () => root.unmount());

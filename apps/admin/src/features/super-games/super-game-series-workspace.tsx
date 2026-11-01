@@ -8,7 +8,6 @@ import type {
 import {
   SeriesBadges,
   SuperGameSeriesPanel,
-  type SuperGameSeriesViewClient,
 } from '@game-predictor/board-search-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -28,7 +27,6 @@ import {
   createSeriesListState,
   deriveResultMessage,
   failSeriesList,
-  nextUndefinedSeriesQuery,
   parseSeriesBoardRange,
   pickSeriesRulesVersion,
   reloadSeriesList,
@@ -45,6 +43,7 @@ import {
   superGameStateBanner,
   undefinedSeriesCountLabel,
 } from './super-game-series-state';
+import { createAdminSuperGameSeriesClient } from './super-game-series-client';
 import styles from './super-game-series-workspace.module.css';
 
 export type SuperGameSeriesClient = Pick<
@@ -76,35 +75,6 @@ type Toast = { readonly kind: 'success' | 'error'; readonly text: string };
 
 const TOAST_DURATION_MS = 6000;
 
-/**
- * The shared series view (TASK-1058) over the Admin client: the search for
- * the next series without a super symbol is the Admin list query with the
- * list filters (`nextUndefinedSeriesQuery`).
- */
-function seriesViewClient(
-  api: SuperGameSeriesClient,
-): SuperGameSeriesViewClient {
-  return {
-    applySymbolCellReviewDecision: (...args) =>
-      api.applySymbolCellReviewDecision(...args),
-    boardSearchBoardViewUrl: (...args) => api.boardSearchBoardViewUrl(...args),
-    getBoardSearchBoardDetail: (...args) =>
-      api.getBoardSearchBoardDetail(...args),
-    listNextUndefinedSuperGameSeries: (gameId, query) =>
-      api.listSuperGameSeries(
-        gameId,
-        nextUndefinedSeriesQuery(query.filters, query.afterTrigger),
-      ),
-    listSuperGameSeriesBoards: (...args) =>
-      api.listSuperGameSeriesBoards(...args),
-    refreshBoardSearchBoardDocument: (...args) =>
-      api.refreshBoardSearchBoardDocument(...args),
-    setSuperGameSeriesSuperSymbol: (...args) =>
-      api.setSuperGameSeriesSuperSymbol(...args),
-    symbolImageAssetUrl: (...args) => api.symbolImageAssetUrl(...args),
-  };
-}
-
 export function SuperGameSeriesWorkspace({
   apiBaseUrl,
   client,
@@ -116,7 +86,10 @@ export function SuperGameSeriesWorkspace({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const viewClient = useMemo(() => seriesViewClient(api), [api]);
+  const viewClient = useMemo(
+    () => createAdminSuperGameSeriesClient(api),
+    [api],
+  );
 
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [rules, setRules] = useState<{

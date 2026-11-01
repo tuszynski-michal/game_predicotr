@@ -3,11 +3,15 @@
 import {
   BoardSearchWorkspace as SharedBoardSearchWorkspace,
   type BoardSearchDataSource,
-  superGameSeriesAdminHref,
 } from '@game-predictor/board-search-ui';
 import { useMemo } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import {
+  createAdminSuperGameSeriesClient,
+  supportsAdminSuperGameSeriesModal,
+  type AdminSuperGameSeriesClientSource,
+} from '../super-games/super-game-series-client';
 
 import type { BoardSearchReplayPlan } from './board-search-replay-state';
 import { boardSearchReplayHref } from './board-search-replay-state';
@@ -17,7 +21,8 @@ import {
 } from './board-search-share-panel';
 
 type AdminBoardSearchClient = BoardSearchDataSource &
-  Partial<BoardSearchShareClient>;
+  Partial<BoardSearchShareClient> &
+  Partial<AdminSuperGameSeriesClientSource>;
 
 interface BoardSearchWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -54,13 +59,15 @@ export function BoardSearchWorkspace({
   replayMessage = null,
 }: BoardSearchWorkspaceProps) {
   const api = useMemo<AdminBoardSearchClient>(
-    () => ({
-      ...(client ?? createConfiguredAdminApiClient(apiBaseUrl)),
-      // Admin only (TASK-0935): a super game marker links to its series in
-      // the „Supergry” section; Reviewer and the management panel never do.
-      superGameSeriesHref: superGameSeriesAdminHref,
-    }),
+    () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
+  );
+  const series = useMemo(
+    () =>
+      supportsAdminSuperGameSeriesModal(api)
+        ? { client: createAdminSuperGameSeriesClient(api) }
+        : undefined,
+    [api],
   );
   const shareClient = useMemo<BoardSearchShareClient | null>(
     () =>
@@ -101,6 +108,7 @@ export function BoardSearchWorkspace({
       ) : null}
       <SharedBoardSearchWorkspace
         client={api}
+        superGameSeries={series}
         gameId={gameId}
         headerActions={
           shareClient === null ? undefined : (

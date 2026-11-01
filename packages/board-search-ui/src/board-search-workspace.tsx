@@ -19,7 +19,7 @@ import {
 } from './board-search-local-state';
 import type { BoardSearchDataSource } from './board-search-data-source';
 import {
-  digitShortcutLabel,
+  extendedDigitShortcutLabel,
   isTextEntryKeyboardTarget,
 } from './keyboard-shortcuts';
 
@@ -42,7 +42,6 @@ import {
 } from './board-search-editor-state';
 import { BoardSearchApproximateWin } from './board-search-approximate-win';
 import { BoardSearchBoardLinesModal } from './board-search-board-lines-modal';
-import { useBoardSearchRulesVersions } from './board-search-rules-version-select';
 import { APPROXIMATE_WIN_RANGE_DEFAULT } from './board-search-approximate-win-state';
 import {
   boardSearchDraftKey,
@@ -210,8 +209,6 @@ function BoardSearchWorkspaceContent({
     savedSelection === null ? null : boardSearchDraftKey(savedSelection),
   );
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
-  // Admin-only draft preview (D-535); `null` for share and management sources.
-  const rulesVersions = useBoardSearchRulesVersions(api, gameId);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
   const [legacyEditor, setLegacyEditor] = useState(() =>
@@ -899,9 +896,21 @@ function BoardSearchWorkspaceContent({
               <h2>Symbole</h2>
               <p>Kliknij symbol, aby wstawić go do zaznaczonego pola.</p>
               <p className="boardSearchShortcutHint">
-                Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> symbol · <kbd>0</kbd>{' '}
-                nieznany (?) · <kbd>Backspace</kbd> cofnij · <kbd>Enter</kbd>{' '}
-                szukaj
+                Klawiatura: <kbd>1</kbd>–<kbd>9</kbd>
+                {activeSymbols.length >= 10 ? (
+                  <>
+                    {' '}
+                    i <kbd>0</kbd>
+                  </>
+                ) : null}{' '}
+                symbol ·{' '}
+                {activeSymbols.length < 10 ? (
+                  <>
+                    <kbd>0</kbd> lub{' '}
+                  </>
+                ) : null}
+                <kbd>?</kbd> nieznany · <kbd>Backspace</kbd> cofnij ·{' '}
+                <kbd>Enter</kbd> szukaj
               </p>
             </header>
             {activeSymbols.length === 0 ? (
@@ -911,7 +920,7 @@ function BoardSearchWorkspaceContent({
             ) : (
               <div className="boardSearchPaletteGrid">
                 {activeSymbols.map((symbol, index) => {
-                  const shortcut = digitShortcutLabel(index);
+                  const shortcut = extendedDigitShortcutLabel(index);
                   return (
                     <button
                       aria-keyshortcuts={shortcut ?? undefined}
@@ -937,14 +946,16 @@ function BoardSearchWorkspaceContent({
                   );
                 })}
                 <button
-                  aria-keyshortcuts={BOARD_SEARCH_UNKNOWN_SHORTCUT}
+                  aria-keyshortcuts={activeSymbols.length >= 10 ? '?' : '0 ?'}
                   className="boardSearchSymbolButton boardSearchUnknownButton"
                   onClick={placeUnknown}
                   title="Nieznany symbol — brak dowodu"
                   type="button"
                 >
                   <kbd className="boardSearchSymbolShortcut">
-                    {BOARD_SEARCH_UNKNOWN_SHORTCUT}
+                    {activeSymbols.length >= 10
+                      ? BOARD_SEARCH_UNKNOWN_SHORTCUT
+                      : '0'}
                   </kbd>
                   <strong>?</strong>
                   <span>Nieznany</span>
@@ -1141,7 +1152,6 @@ function BoardSearchWorkspaceContent({
             compact={compact}
             client={resultClient}
             gameId={gameId}
-            rulesVersions={rulesVersions}
             superGameState={visibleResponse.superGameState ?? null}
             onBoardEdited={() =>
               sequenceEnabled
@@ -1170,7 +1180,6 @@ function BoardSearchWorkspaceContent({
             <BoardSearchApproximateWin
               client={api}
               gameId={gameId}
-              rulesVersions={rulesVersions}
               searchKey={searchKey}
               onOpenSuperGameSeries={openSuperGameSeries}
               onReplayNotice={(notice) =>
@@ -1189,7 +1198,6 @@ function BoardSearchWorkspaceContent({
             client={resultClient}
             calculationKey={`${sequence.searchKey}:${sequence.resultRevision}`}
             gameId={gameId}
-            rulesVersions={rulesVersions}
             searchKey={searchKey}
             onOpenSuperGameSeries={openSuperGameSeries}
             onReplayNotice={(notice) =>

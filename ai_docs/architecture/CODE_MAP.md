@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (199 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (200 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
@@ -162,7 +162,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
   - `sharing/` (3 plików): PanelKey, PanelKeys, loadPanelKeys, storePanelKeys, panelShareUrl, panelErrorMessage, BoardSearchSharingClient, BoardSearchSharingWorkspace
   - `storage/` (4 plików): SourceCropClient, SourceCropRunResult, planSourceCrop, refreshSourceCropRun, startSourceCrop, LoadRunsResult, loadSourceCropRuns, SourceCropPanel (+30)
-  - `super-games/` (3 plików): SERIES_PAGE_LIMIT, SeriesBoardRangeInput, parseSeriesBoardRange, COMPLETENESS_FILTER_OPTIONS, RUN_VERIFICATION_FILTER_OPTIONS, DEFINED_FILTER_OPTIONS, seriesFiltersKey, SeriesListQuery (+25)
+  - `super-games/` (4 plików): AdminSuperGameSeriesClientSource, supportsAdminSuperGameSeriesModal, createAdminSuperGameSeriesClient, SERIES_PAGE_LIMIT, SeriesBoardRangeInput, parseSeriesBoardRange, COMPLETENESS_FILTER_OPTIONS, RUN_VERIFICATION_FILTER_OPTIONS (+28)
   - `symbol-reviews/` (14 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+97)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
   - `unreadable-board-reviews/` (2 plików): UnreadableBoardReviewClient, loadUnreadableBoardPage, loadUnreadableBoardDetail, loadUnreadableBoardSymbols, saveUnreadableBoard, UnreadableBoardReviewWorkspace

@@ -1,15 +1,15 @@
 /**
  * Keyboard shortcuts of the board-search pattern editor: digits place the
- * active symbol with that number (catalog order), `0`/`?` places the unknown
+ * active symbol with that number (catalog order), `0` selects symbol ten when available; `?` places the unknown
  * marker, Backspace undoes and Enter runs the search.
  */
 import {
-  digitShortcutIndex,
+  extendedDigitShortcutIndex,
   hasShortcutModifier,
   type ShortcutKeyboardEvent,
 } from './keyboard-shortcuts.ts';
 
-export const BOARD_SEARCH_UNKNOWN_SHORTCUT = '0';
+export const BOARD_SEARCH_UNKNOWN_SHORTCUT = '?';
 
 export type BoardSearchKeyboardCommand =
   | { readonly kind: 'place_symbol'; readonly symbolCode: string }
@@ -24,10 +24,13 @@ export function resolveBoardSearchKeyboardCommand(
   if (hasShortcutModifier(event)) return null;
   if (event.key === 'Enter') return { kind: 'search' };
   if (event.key === 'Backspace') return { kind: 'undo' };
-  if (event.key === BOARD_SEARCH_UNKNOWN_SHORTCUT || event.key === '?') {
+  if (
+    event.key === BOARD_SEARCH_UNKNOWN_SHORTCUT ||
+    (event.key === '0' && symbols.length < 10)
+  ) {
     return { kind: 'place_unknown' };
   }
-  const index = digitShortcutIndex(event.key);
+  const index = extendedDigitShortcutIndex(event.key);
   const symbol = index === null ? undefined : symbols[index];
   return symbol === undefined
     ? null

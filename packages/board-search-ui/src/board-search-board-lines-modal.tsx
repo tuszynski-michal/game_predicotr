@@ -9,7 +9,6 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { apiErrorMessage } from './api-error';
 import {
   formatApproximateWinAmount,
-  loadApproximateWinDisplay,
   type ApproximateWinAmountUnit,
   scaleApproximateWinAmountAtStake,
 } from './board-search-stake';
@@ -104,7 +103,7 @@ export function BoardSearchBoardLinesModal({
   onCorrectionSaved,
   changedCellIndices = [],
   fixedStakeGrosze,
-  fixedStakeUnit = loadApproximateWinDisplay().unit,
+  fixedStakeUnit = 'pln',
   rulesVersions = null,
   requestedRulesVersionId = null,
 }: {

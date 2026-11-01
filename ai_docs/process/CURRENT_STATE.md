@@ -71,6 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 — tasks/completed/1116-board-search-chart-peak-snap.md
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
 - **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
@@ -80,4 +81,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1104** — Płynna nawigacja i niezawodne F — v1.7.496 / `b280ae39` — tasks/completed/1104-selector-selection-intents.md
 - **TASK-1103** — Plan płynności i niezawodności Selektora — v1.7.494 / `1e7a97e3` — tasks/completed/1103-selector-fluency-plan.md
 - **TASK-1102** — Ograniczenie kosztu rankingu ciągów plansz — v1.7.490 / `6683e8c1` — tasks/completed/1102-board-search-query-timeout.md
-- **TASK-1101** — Nawigacja po piętnastu zdjęciach w obie strony — v1.7.490 / `93f7697e` — tasks/completed/1101-board-search-previous-photos.md

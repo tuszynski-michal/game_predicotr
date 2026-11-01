@@ -34,6 +34,7 @@ import {
   approximateWinExtremes,
   approximateWinPointKey,
   approximateWinPointAtSpin,
+  approximateWinBestPointNearSpin,
   approximateWinMachineCashAtPoint,
   approximateWinStakeToPoint,
   approximateWinRequestKey,
@@ -1279,18 +1280,17 @@ export function ApproximateWinBalanceChart({
     ].map((point) => [approximateWinPointKey(point), point]),
   );
 
+  const spinAtPointer = (pointerX: number) =>
+    Math.max(
+      0,
+      Math.min(
+        result.evaluatedSpinCount,
+        Math.round(((pointerX - chartLeft) / chartWidth) * xHigh),
+      ),
+    );
   const closestPoint = (pointerX: number) =>
     controlled
-      ? approximateWinPointAtSpin(
-          result,
-          Math.max(
-            0,
-            Math.min(
-              result.evaluatedSpinCount,
-              Math.round(((pointerX - chartLeft) / chartWidth) * xHigh),
-            ),
-          ),
-        )!
+      ? approximateWinPointAtSpin(result, spinAtPointer(pointerX))!
       : labelPoints.reduce((best, point) =>
           Math.abs(toX(point.spinNumber) - pointerX) <
           Math.abs(toX(best.spinNumber) - pointerX)
@@ -1341,7 +1341,18 @@ export function ApproximateWinBalanceChart({
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
     const pointerX = pointerToViewBoxX(event);
     if (pointerX === null) return;
-    togglePin(closestPoint(pointerX));
+    const best = approximateWinBestPointNearSpin(
+      result,
+      spinAtPointer(pointerX),
+    );
+    if (best === null) return;
+    // Keep existing label identities, including a payout on the final spin.
+    const point = controlled
+      ? best
+      : (labelPoints.find((item) => item.spinNumber === best.spinNumber) ??
+        best);
+    setHoveredPoint(point);
+    togglePin(point);
   };
   const handleKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {

@@ -724,7 +724,14 @@ tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
 najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
 „Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
 się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
-Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
+**TASK-1116 (2026-11-01).** Kliknięcie lub tapnięcie przyciąga kursor do
+spinu o najwyższej „kasie na czysto” w domkniętym oknie 50 spinów w lewo
+i 50 w prawo od klikniętego spinu (według osi X, zaokrąglonego do całości).
+Okno jest ograniczone do 0…ostatni oceniony spin. Liczy się bilans po wypłacie,
+również dla spinów bez wygranej i darmowych; remisy rozstrzyga odległość od
+kliknięcia, następnie wcześniejszy spin. Filtr tabeli nie zmienia wyboru.
+Dotyczy Admina, online i zapisanych paneli. Najechanie i strzałki zachowują
+dotychczasowy precyzyjny wybór. Kliknięcie przypina wybrany punkt: jego etykieta zostaje widoczna na
 stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
 odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
 punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego

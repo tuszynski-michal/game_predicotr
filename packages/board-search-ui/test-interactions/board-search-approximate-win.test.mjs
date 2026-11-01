@@ -27,6 +27,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
   await import('../src/board-search-workspace.tsx');
+const { ApproximateWinBalanceChart } =
+  await import('../src/board-search-approximate-win.tsx');
 
 after(() => dom.window.close());
 
@@ -91,6 +93,122 @@ function approximateWinResponse(startSequenceNumber, overrides = {}) {
     wrappedAtSequenceEnd: false,
     ...overrides,
   };
+}
+
+for (const controlled of [false, true]) {
+  test(`click snaps the cursor and pin to a nearby peak (${controlled ? 'saved panel' : 'local chart'})`, async () => {
+    const result = approximateWinResponse(10, {
+      rows: [
+        {
+          spinNumber: 200,
+          payoutCredits: 10000,
+          cumulativePayoutCredits: 10000,
+          cumulativeBalanceCredits: 6000,
+        },
+        {
+          spinNumber: 240,
+          payoutCredits: 500,
+          cumulativePayoutCredits: 10500,
+          cumulativeBalanceCredits: 5700,
+        },
+        {
+          spinNumber: 280,
+          payoutCredits: 50000,
+          cumulativePayoutCredits: 60500,
+          cumulativeBalanceCredits: 54900,
+        },
+      ].map((row) => ({
+        ...row,
+        payoutKind: 'exact',
+        sequenceNumber: row.spinNumber + 10,
+      })),
+      summary: {
+        balanceCredits: 10500,
+        recognizedPayoutCredits: 60500,
+        spinCostCredits: 50000,
+      },
+    });
+    let savedPins = [];
+    function Chart() {
+      const [pins, setPins] = React.useState([]);
+      return React.createElement(ApproximateWinBalanceChart, {
+        display: { stakeGrosze: null, unit: 'pln' },
+        result,
+        ...(controlled
+          ? {
+              pinnedSpinPositions: pins,
+              onPinsChange: (next) => {
+                savedPins = next;
+                setPins(next);
+              },
+            }
+          : {}),
+      });
+    }
+    const root = createRoot(document.getElementById('root'));
+    await act(async () => root.render(React.createElement(Chart)));
+    try {
+      const chart = document.querySelector(
+        '.boardSearchApproximateWinChart svg',
+      );
+      Object.defineProperty(chart, 'getBoundingClientRect', {
+        value: () => ({ left: 0, width: 800 }),
+      });
+      const clickNearPeak = () =>
+        act(async () =>
+          chart.dispatchEvent(
+            new dom.window.MouseEvent('click', {
+              bubbles: true,
+              // Spin 225, rather than the nearest payout spin 240. Peak 280 is outside ±50.
+              clientX: 72 + (225 / 2500) * 710,
+            }),
+          ),
+        );
+      await clickNearPeak();
+      assert.match(
+        document.querySelector('.boardSearchApproximateWinChartPins')
+          .textContent,
+        /200 spinów/,
+      );
+      assert.equal(
+        document.querySelector(
+          '.boardSearchApproximateWinChartLabelPinned text',
+        ).textContent,
+        '200 spinów',
+      );
+      if (controlled) assert.deepEqual(savedPins, [200]);
+
+      await clickNearPeak();
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartPins'),
+        null,
+      );
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartLabel text')
+          .textContent,
+        '200 spinów',
+      );
+      if (controlled) assert.deepEqual(savedPins, []);
+
+      // Keyboard starts at the snapped cursor and retains its existing precision.
+      await act(async () =>
+        chart.dispatchEvent(
+          new dom.window.KeyboardEvent('keydown', {
+            bubbles: true,
+            key: 'ArrowRight',
+            cancelable: true,
+          }),
+        ),
+      );
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartLabel text')
+          .textContent,
+        `${controlled ? 201 : 240} spinów`,
+      );
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
 }
 
 function deferred() {
@@ -777,7 +895,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     'the label is connected to its point by a dotted leader line',
   );
 
-  // Clicking pins the nearest point; the pinned label stays without hover.
+  // A click at the end selects the best balance in its preceding 50 spins.
   await act(async () =>
     chart.dispatchEvent(
       new dom.window.MouseEvent('click', { bubbles: true, clientX: 800 }),
@@ -801,7 +919,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · wkład: 1750,00 zł · kasa na czysto -1750 zł · kredyty maszyna 0/,
+    /2450 spinów · wkład: 1650,00 zł · kasa na czysto -1650 zł · kredyty maszyna 0/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.

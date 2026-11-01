@@ -7,6 +7,7 @@ import {
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
   approximateWinAxisTicks,
+  approximateWinBestPointNearSpin,
   approximateWinChartPoints,
   approximateWinExtremes,
   approximateWinPointKey,
@@ -309,6 +310,106 @@ test('approximateWinAxisTicks widens a degenerate range symmetrically', () => {
   const five = approximateWinAxisTicks(5, 5);
   assertRoundTicks(five, 0, 10);
   assert.ok(five.every((tick) => !Object.is(tick, -0)));
+});
+
+function snapResult(payouts = [], options = {}) {
+  let cumulativePayoutCredits = 0;
+  return {
+    evaluatedSpinCount: 300,
+    rows: payouts.map(([spinNumber, payoutCredits, provisional = false]) => {
+      if (!provisional) cumulativePayoutCredits += payoutCredits;
+      return {
+        spinNumber,
+        payoutCredits,
+        payoutKind: provisional ? 'provisional' : 'exact',
+        cumulativePayoutCredits,
+      };
+    }),
+    rules: { spinCost: 1 },
+    summary: {},
+    ...options,
+  };
+}
+
+test('click snapping chooses the highest net balance, not the largest individual payout', () => {
+  const result = snapResult([
+    [60, 200],
+    [100, 20],
+    [140, 80],
+  ]);
+  assert.deepEqual(approximateWinBestPointNearSpin(result, 100), {
+    spinNumber: 140,
+    cumulativeBalanceCredits: 160,
+    kind: 'payout',
+  });
+});
+
+test('click snapping includes both ±50 boundaries and excludes spins just outside', () => {
+  assert.equal(
+    approximateWinBestPointNearSpin(
+      snapResult([
+        [49, 1000],
+        [50, 100],
+        [151, 10000],
+      ]),
+      100,
+    ).spinNumber,
+    50,
+  );
+  assert.equal(
+    approximateWinBestPointNearSpin(
+      snapResult([
+        [50, 200],
+        [150, 101],
+        [151, 10000],
+      ]),
+      100,
+    ).spinNumber,
+    150,
+  );
+});
+
+test('equal peaks prefer the closest spin, then the earlier spin', () => {
+  const result = snapResult([
+    [80, 200],
+    [120, 40],
+  ]);
+  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 80);
+  assert.equal(approximateWinBestPointNearSpin(result, 110).spinNumber, 120);
+});
+
+test('free-spin plateaus preserve the clicked spin and provisional payouts are excluded', () => {
+  const result = snapResult(
+    [
+      [50, 200],
+      [100, 1000, true],
+    ],
+    {
+      summary: {
+        superSpinCost: 0,
+        superSpinRanges: [{ startSpin: 51, endSpin: 150 }],
+      },
+    },
+  );
+  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 100);
+  assert.equal(
+    approximateWinBestPointNearSpin(result, 100).cumulativeBalanceCredits,
+    150,
+  );
+});
+
+test('click snapping handles losing stretches, origin, final spin and invalid input', () => {
+  const result = snapResult();
+  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 50);
+  assert.equal(approximateWinBestPointNearSpin(result, 0).kind, 'start');
+  assert.equal(approximateWinBestPointNearSpin(result, 300).spinNumber, 250);
+  assert.equal(
+    approximateWinBestPointNearSpin(snapResult([[300, 1000]]), 300).kind,
+    'end',
+  );
+  for (const spin of [-1, 301, 1.5, Number.NaN]) {
+    assert.equal(approximateWinBestPointNearSpin(result, spin), null);
+  }
 });
 
 const pinPoint = (spinNumber, kind = 'payout') => ({

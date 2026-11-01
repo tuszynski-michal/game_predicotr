@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1116 — Przyciąganie kliknięcia wykresu (done)
+
+- Plik: `ai_docs/tasks/completed/1116-board-search-chart-peak-snap.md`.
+- Commit: **v1.7.513** (hash dopisuje kolejny commit).
+- Admin i online: kliknięcie/tapnięcie wybiera najwyższą kasę na czysto w ±50 spinów, przesuwa kursor i przełącza przypięcie. Remisy: bliższy, potem wcześniejszy spin. Strzałki zachowują precyzję.
+- Weryfikacja: 113/113 unit, 109/109 interakcje, lint wspólnego UI, typy UI/Admin/Reviewer, Prettier, docs:check i code-map:check PASS. Granice, remisy, darmowe spiny, wypłaty prowizoryczne, odpinanie i zapisany panel objęte testami.
+- Bez fizycznego Androida i żywych usług; buildy z TASK-1115 niepowtarzane dla samej logiki kliknięcia. Brak wymaganego audytu krzyżowego, zmian API, migracji i operacji danych. Merge/push/cleanup nadal wstrzymane do nowej zgody operatora.
+
 ### TASK-1115 — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie (done)
 
 - Plik: `tasks/completed/1115-board-search-screen-simplification.md`.

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1115 — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie (done)
 
 - Plik: `tasks/completed/1115-board-search-screen-simplification.md`.
-- Commit: **v1.7.511**.
+- Commit: **v1.7.511 / `3ad50668393c13c9b54d4ecee797b3de47f17b89`**.
 - Osiem zmian operatora: tabela pod wykresem i suwak pod tabelą, usunięte opisy, zawsze PLN i najnowsze opublikowane reguły bez selectów, edytowalny modal supergry także w Adminie, `0` dla dziesiątego aktywnego symbolu. Pełna sekcja „Supergry” pozostaje.
 - PASS: 107 interakcji UI, 108 testów jednostkowych, 2 testy nawigacji, lint i TypeScript, oba buildy Webpack, mapa kodu i dokumentacja. Modal Admina sprawdzony pod StrictMode z zapisem CAS i odświeżeniem wyników.
 - Pełna sekcja Admina 22 PASS / 10 wcześniejszych FAIL; identyczne porażki potwierdzono na niezmienionym kodzie sprzed taska (brak `counts` w fixture). Bez osłabiania testów. Szczegóły w Outcome.

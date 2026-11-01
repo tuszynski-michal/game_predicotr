@@ -87,7 +87,7 @@ Bez benchmarków, usług, migracji i danych operatora. Testy planowane, nie wyni
 
 ## Outcome
 
-Commit: v1.7.511 (hash dopisuje kolejny commit).
+Commit: v1.7.511 / `3ad50668393c13c9b54d4ecee797b3de47f17b89`.
 
 ### Changed
 

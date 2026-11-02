@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-11-01
+last_updated: 2026-11-02
 ---
 
 # Wymagania modułu administracyjnego
@@ -43,6 +43,11 @@ panel nie proponuje nowego treningu ani niemożliwego opt-in, ale zachowuje hist
 i resume częściowego przebiegu. Drugi aktywny apply jest blokowany po stronie
 serwera. Ponowienie resume już wznowionego lub ukończonego przebiegu zwraca jego
 bieżący wynik, bez nowych kroków.
+
+Dotyczy to także próby wznowienia przerwanego apply: inny aktywny przebieg tego
+samego uczenia blokuje wznowienie. Konflikt dowodu ręcznej publikacji nadal blokuje
+nowe komendy, lecz nie ukrywa wcześniejszej historii. Odczyt potwierdza cudzą zgodną
+publikację dopiero po zakończeniu wcześniejszych porównań danego przebiegu.
 
 ### Porównanie siatek V3 — TASK-0805
 

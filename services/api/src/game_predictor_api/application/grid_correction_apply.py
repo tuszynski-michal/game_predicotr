@@ -393,6 +393,9 @@ class GridCorrectionApplyService:
                 )
             registry = self._registry(session)
             registry.repository.lock()
+            active = self._active(session, game, learning)
+            if active is not None and active != job.id:
+                raise _error("GRID_APPLY_BUSY", "Another apply operation is already active.")
             self._require_default(registry, job)
             # Keep child identity and comparison receipts after failure/restart.
             preview: Any = job.input_payload["preview"]
@@ -427,8 +430,10 @@ class GridCorrectionApplyService:
         state: dict[str, Any] = dict(job.checkpoint_payload or {})
         steps = [dict(step) for step in state.get("steps", self._steps(payload["preview"]))]
         registry = self._registry(session)
+        comparisons_complete = True
         for step in steps:
             if step["kind"] == "comparison":
+                comparisons_complete = comparisons_complete and step["status"] == "completed"
                 continue
             game = step["gameId"]
             receipt = registry.repository.control_receipt(
@@ -445,10 +450,19 @@ class GridCorrectionApplyService:
                         "GRID_MODEL_REGISTRY_CORRUPT", "Apply receipt pins differ."
                     )
                 step.update(status="completed", receipt=value)
-            elif step["kind"] == "publish" and step["status"] != "completed":
-                adopted = self._publication_receipt(
-                    registry, payload["pins"], apply_key(job.id, "publish")
-                )
+            elif (
+                step["kind"] == "publish" and step["status"] != "completed" and comparisons_complete
+            ):
+                try:
+                    adopted = self._publication_receipt(
+                        registry, payload["pins"], apply_key(job.id, "publish")
+                    )
+                except GridCohortError as error:
+                    if error.code != "GRID_APPLY_PUBLICATION_EVIDENCE_CONFLICT":
+                        raise
+                    # A conflicting external publication blocks new commands,
+                    # but must not hide this operation's earlier history.
+                    continue
                 if adopted is not None:
                     step.update(status="completed", receipt=adopted)
         state["steps"] = steps

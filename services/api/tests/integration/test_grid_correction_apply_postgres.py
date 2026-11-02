@@ -342,6 +342,24 @@ def test_real_apply_republication_recovery_import_and_history(
             }
 
         worker = SqlAlchemyWorkerJobStore(factory)
+        conflicted_history = None
+        if publication_origin == "different_evidence":
+            before_publication = service().preview(game, learning.id, [])
+            historical = service().start(
+                game, learning.id, command(before_publication), "fixture:1122"
+            )
+            claimed = _claim(worker)
+            assert str(claimed.id) == historical["applyId"]
+            _save(
+                factory,
+                fail_job(
+                    claimed,
+                    lease_token=claimed.lease_token,
+                    error_code="COMPARISON_INTERRUPTED",
+                    error_message="fixture before publication",
+                ),
+            )
+            conflicted_history = claimed.id
         if publication_origin in {"manual", "different_evidence"}:
             with factory() as session, session.begin():
                 execute(
@@ -357,7 +375,11 @@ def test_real_apply_republication_recovery_import_and_history(
             with pytest.raises(GridCohortError) as error:
                 service().start(game, learning.id, command(preview), "fixture:1122")
             assert error.value.code == "GRID_APPLY_PUBLICATION_EVIDENCE_CONFLICT"
-            assert service().list(game, learning.id)["items"] == []
+            history = service().list(game, learning.id)["items"]
+            assert len(history) == 1 and history[0]["applyId"] == str(conflicted_history)
+            assert history[0]["status"] == "failed"
+            assert history[0]["steps"][0]["status"] == "pending"
+            assert service().get(game, learning.id, conflicted_history) == history[0]
             assert _manual_snapshot(db.app_engine, game) == before_manual
             assert _asset_snapshot(root) == before_assets
             return
@@ -411,6 +433,10 @@ def test_real_apply_republication_recovery_import_and_history(
             assert fresh["canApply"] and fresh["previewSha256"] != preview["previewSha256"]
             started = service().start(game, learning.id, command(fresh), "fixture:1122")
             assert started["applyId"] != str(identifier)
+            with pytest.raises(GridCohortError) as competing_resume:
+                service().resume(game, learning.id, identifier, "fixture:1122")
+            assert competing_resume.value.code == "GRID_APPLY_BUSY"
+            assert _get(factory, identifier).status is JobStatus.FAILED
             identifier = UUID(started["applyId"])
         for index in range(3):
             job = _get(factory, identifier)

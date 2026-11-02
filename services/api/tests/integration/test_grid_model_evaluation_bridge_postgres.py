@@ -9,6 +9,7 @@ import pytest
 from _application_role_database import ALEMBIC_INI, application_role_database, provision_game
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from game_predictor_api.domain.grid_model_registry import historical_catalogue
 from game_predictor_api.storage.database_roles import describe_application_role
 from game_predictor_api.storage.game_partition_lifecycle import (
@@ -46,9 +47,11 @@ def test_notice_marks_are_trigger_only_and_proofs_are_append_only() -> None:
     with application_role_database("t0997b", ("marks",)) as db:
         game, cohort = db.games["marks"], uuid4()
         config = _config(db)
+        expected_head = ScriptDirectory.from_config(config).get_current_head()
+        assert expected_head is not None
         with db.owner_engine.connect() as connection:
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-                "0168_source_crop_runs"
+            assert (
+                connection.scalar(text("SELECT version_num FROM alembic_version")) == expected_head
             )
             assert (
                 "grid_model_evaluation"
@@ -81,6 +84,9 @@ def test_notice_marks_are_trigger_only_and_proofs_are_append_only() -> None:
             )
         command.upgrade(config, "head")
         with db.owner_engine.begin() as connection:
+            assert (
+                connection.scalar(text("SELECT version_num FROM alembic_version")) == expected_head
+            )
             # Default privileges grant DML to every new table; 0166 itself revokes the
             # watermark writes again, before any provisioning re-run.
             privileges = connection.execute(

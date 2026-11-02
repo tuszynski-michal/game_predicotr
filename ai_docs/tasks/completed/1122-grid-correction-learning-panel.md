@@ -56,7 +56,7 @@ Trening na danych operatora, zmiana defaultu lub przypisań, migracja bazy opera
 - [x] GET-only otwarcie; prowadzony workflow; full API vertical; lost response/restart bez duplicates; apply osobne i jawne, actual-assigned baseline, partial success.
 - [x] Właściwe testy, lint/typecheck i dokumentacja.
 - [x] Audyt Opus 5.5/high bez otwartych P0/P1.
-- [ ] Outcome, task-close, osobny wersjonowany commit i record-hash.
+- [x] Outcome, task-close, osobny wersjonowany commit i record-hash.
 
 ## Technical notes
 
@@ -97,7 +97,7 @@ Preflight i rzeczywista kwalifikacja danych mogą zatrzymać implementację prze
 
 ## Outcome
 
-Commit: v1.7.519 (hash dopisuje kolejny commit).
+Commit: v1.7.519 / `470faf466dc1b0184169e3800ea82c8f6b1ca1d9`.
 
 T3 rozpoczęto w odizolowanym `worktrees/grid-corrections-panel`; ta kopia jest
 zamrożona. Po audycie T2 R2 PASS lead przeniósł T3 do

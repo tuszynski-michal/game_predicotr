@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-11-02
 ---
 
 # Architektura laboratorium wizji
@@ -42,6 +42,12 @@ evidence fails both preview and advance. An active apply of the same learning
 blocks a second start under the registry lock; failed operations retain their
 history without blocking a fresh CAS-pinned preview. Resume of created,
 processing or completed operations returns the existing view without requeue.
+
+TASK-1123 also checks the active-operation guard when resuming a failed/cancelled
+apply, under the same registry lock. GET adoption requires all preceding comparison
+steps to be completed. A conflicting external publication remains a command blocker,
+but leaves the historical publish step pending instead of failing the whole read.
+Corrupt own receipts and other unexpected failures still fail closed.
 
 ## Photo-only correction split (D-577, TASK-1120)
 

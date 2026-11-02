@@ -604,6 +604,65 @@ def test_false_photo_only_confirmation_rejected_before_opening_any_session(monke
         service.start(GAME, LEARNING, {"confirmLimitedEvidence": False}, "fixture")
 
 
+def test_history_survives_conflicting_external_publication(monkeypatch, tmp_path):
+    catalogue = Catalogue()
+    publish_matching(catalogue)
+    catalogue.published.evaluation_id = OTHER
+    service, _ = service_for(monkeypatch, tmp_path, catalogue)
+    job = replace(parent(), status=JobStatus.FAILED, error_code="COMPARISON_INTERRUPTED")
+
+    view = service._view(None, job)
+
+    assert view["status"] == "failed" and view["errorCode"] == "COMPARISON_INTERRUPTED"
+    assert view["steps"][0]["status"] == "pending"
+    assert not job.checkpoint_payload and not catalogue.mutations
+    # Readability is not admission: the same publication still blocks a command.
+    with pytest.raises(GridCohortError) as failure:
+        service.advance(job)
+    assert failure.value.code == "GRID_APPLY_PUBLICATION_EVIDENCE_CONFLICT"
+
+
+@pytest.mark.parametrize("comparison_status", ["pending", "waiting"])
+def test_history_adopts_publication_only_after_prior_comparisons(
+    monkeypatch, tmp_path, comparison_status
+):
+    catalogue = Catalogue()
+    publish_matching(catalogue)
+    service, _ = service_for(monkeypatch, tmp_path, catalogue)
+    preview = preview_value()
+    preview["targets"][0].update(requiresComparison=True, assignedVersionId=str(OTHER))
+    steps = service._steps(preview)
+    steps[0]["status"] = comparison_status
+    job = replace(parent(preview), checkpoint_payload={"steps": steps})
+
+    assert service._view(None, job)["steps"][1]["status"] == "pending"
+    assert steps[1]["status"] == "pending" and not catalogue.mutations
+
+    steps[0]["status"] = "completed"
+    result = service._view(None, job)
+    assert result["steps"][1]["status"] == "completed"
+    assert result["steps"][1]["receipt"]["kind"] == "already-published"
+    assert steps[1]["status"] == "pending" and not catalogue.mutations
+
+
+@pytest.mark.parametrize("status", [JobStatus.FAILED, JobStatus.CANCELLED])
+def test_resume_refuses_a_competing_active_apply_without_mutating_parent(
+    monkeypatch, tmp_path, status
+):
+    catalogue = Catalogue()
+    service, _ = service_for(monkeypatch, tmp_path, catalogue)
+    job = replace(parent(), status=status)
+    monkeypatch.setattr(module.GridCorrectionLearningService, "_lock_step", lambda *args: None)
+    monkeypatch.setattr(service, "_job", lambda *args, **kwargs: job)
+    monkeypatch.setattr(service, "_active", lambda *args: OTHER)
+
+    with pytest.raises(GridCohortError) as busy:
+        service.resume(GAME, LEARNING, job.id, "fixture")
+
+    assert busy.value.code == "GRID_APPLY_BUSY"
+    assert job.status is status and not catalogue.mutations
+
+
 @pytest.mark.parametrize("problem", ["revision", "checksum", "verdict", "invalidated", "stale"])
 def test_assigned_report_requires_pinned_revision_checksum_pass_and_currentness(
     monkeypatch, tmp_path, problem

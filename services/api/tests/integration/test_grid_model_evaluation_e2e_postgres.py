@@ -189,16 +189,30 @@ class Context:
         self.states.append(copy.deepcopy(checkpoint_payload))
 
 
-def test_real_writer_binds_proves_and_a_later_notice_blocks_publication(monkeypatch):
+def test_real_writer_binds_proves_and_a_later_notice_blocks_publication(monkeypatch, tmp_path):
     repository = Path(__file__).resolve().parents[4]
-    evidence = repository / "artifacts/audits" / ("TASK-0997_E2E_" + uuid4().hex)
+    # Keep worker atomic-file suffixes below the Windows path limit. Pytest owns
+    # this data directory; guarded resource journals stay in repository artifacts.
+    evidence = tmp_path / "e"
     evidence.mkdir(parents=True)
-    monkeypatch.setenv("GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT", str(evidence / "resources"))
+    resource_parent = Path(
+        os.environ.get(
+            "GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT",
+            str(repository / "artifacts/t4r"),
+        )
+    )
+    resources = resource_parent / uuid4().hex
+    monkeypatch.setenv("GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT", str(resources))
     started, progress = time.monotonic(), []
 
     def checkpoint(label: str) -> None:
-        progress.append({"phase": label, "elapsedSeconds": round(time.monotonic() - started, 3)})
+        elapsed = round(time.monotonic() - started, 3)
+        previous = progress[-1]["elapsedSeconds"] if progress else 0
+        progress.append(
+            {"phase": label, "elapsedSeconds": elapsed, "stepSeconds": round(elapsed - previous, 3)}
+        )
         (evidence / "progress.json").write_text(json.dumps(progress, indent=2), encoding="utf-8")
+        print(f"0997 E2E {label} {elapsed}s", flush=True)
 
     with application_role_database("t0997e", ("eval-e2e",)) as db:
         game = next(iter(db.games.values()))

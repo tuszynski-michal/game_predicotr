@@ -434,6 +434,7 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
             == frozen
         )
     assert frozen["cohort"]["status"] == "frozen"
+    _assert_scoped_report_binding(db, game, cohort, version, family, frozen["cohort"])
     with db.owner_engine.connect() as connection:
         assert (
             connection.scalar(
@@ -452,3 +453,84 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
             )
             == 1
         )
+
+
+def _assert_scoped_report_binding(db, game, cohort, base, family, header):
+    """T2 SQL binding only; synthetic server report is not a domain PASS claim."""
+    from game_predictor_api.domain.grid_model_registry import canonical_json, descriptor_sha256
+
+    candidate, report_id, key = uuid4(), uuid4(), uuid4()
+    report = {
+        "schemaVersion": "grid-model-evaluation-read-v3",
+        "policyVersion": "grid-model-per-game-gate-v2",
+        "producer": "server:grid-model-evaluator-v1",
+        "versionId": str(candidate),
+        "manifestSha256": "c" * 64,
+        "baseVersionId": str(base),
+        "familyId": str(family),
+        "evidenceLevel": "photo-only",
+        "cohorts": [
+            {
+                "gameId": str(game),
+                "cohortId": str(cohort),
+                "manifestSha256": header["manifestSha256"],
+            }
+        ],
+    }
+    with db.owner_engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO public.grid_model_versions"
+                "(id,family_id,version,base_version_id,manifest_json,manifest_sha256) "
+                "VALUES(:i,:f,'fixture-scoped',:b,'{}',:sha)"
+            ),
+            {"i": candidate, "f": family, "b": base, "sha": "c" * 64},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO public.grid_model_evaluation_reports"
+                "(id,version_id,producer,report_json,report_sha256) VALUES(:i,:v,:p,:j,:s)"
+            ),
+            {
+                "i": report_id,
+                "v": candidate,
+                "p": report["producer"],
+                "j": canonical_json(report),
+                "s": descriptor_sha256(report),
+            },
+        )
+    body = {
+        "kind": "bind_existing_report",
+        "cohortId": str(cohort),
+        "idempotencyKey": str(key),
+        "expectedRevision": header["revision"],
+        "manifestSha256": header["manifestSha256"],
+        "reportId": str(report_id),
+    }
+
+    def invoke(session, payload):
+        scope(session, game)
+        return session.scalar(
+            text("SELECT public.recording_cohort_command_v3(:g,CAST(:q AS jsonb),'fixture:1121')"),
+            {"g": game, "q": json.dumps(payload)},
+        )
+
+    with Session(db.app_engine) as session, session.begin():
+        receipt = invoke(session, body)
+    with Session(db.app_engine) as session, session.begin():
+        assert invoke(session, body) == receipt
+        assert receipt["reportSha256"] == descriptor_sha256(report)
+    with (
+        Session(db.app_engine) as session,
+        session.begin(),
+        pytest.raises(DBAPIError, match="RECORDING_COMMAND_CONFLICT"),
+        session.begin_nested(),
+    ):
+        invoke(session, {**body, "manifestSha256": "d" * 64})
+    with (
+        Session(db.app_engine) as session,
+        session.begin(),
+        pytest.raises(DBAPIError, match="RECORDING_BINDING_INVALID"),
+        session.begin_nested(),
+    ):
+        invoke(session, {**body, "idempotencyKey": str(uuid4()), "manifestSha256": "d" * 64})

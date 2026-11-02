@@ -1,7 +1,8 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
 The ownership manifest remains ``game-data-v2-manifest-v19`` since 0168;
-0170 adds the private photo-role reservations for correction cohorts. API, worker and maintenance
+0171 adds the corrections parent and report binding after 0170 photo reservations.
+API, worker and maintenance
 scripts still require the exact supported Alembic head before starting.
 One ``SELECT``.
 """
@@ -14,7 +15,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0170_grid_correction_photo_roles"
+EXPECTED_ALEMBIC_HEAD: Final = "0171_grid_correction_learning"
 
 
 class AlembicHeadMismatchError(RuntimeError):

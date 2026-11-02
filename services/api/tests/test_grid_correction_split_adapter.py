@@ -127,16 +127,26 @@ def test_population_fence_allows_new_geometry_revision_with_identical_attestatio
     assert adapter.population_sha(original) != adapter.population_sha(changed)
 
 
-def test_infeasible_adapter_error_keeps_available_counts(monkeypatch):
-    population = rows()[:1]
-    monkeypatch.setattr(adapter, "population", lambda *args: population)
+@pytest.mark.parametrize("count,protected", [(1, False), (40, True)])
+def test_infeasible_adapter_error_keeps_available_counts(monkeypatch, count, protected):
+    population = rows()[:count]
+    duplicate = deepcopy(population[0])
+    duplicate["source"]["id"] = str(uuid4())
+    population.append(duplicate)
+    reads = []
+
+    def read(*args):
+        reads.append(1)
+        return population
+
+    monkeypatch.setattr(adapter, "population", read)
     monkeypatch.setattr(
         adapter,
         "contexts",
         lambda repo, game, ids: {
             key: {
                 "componentIds": [],
-                "allowedRoles": ["TRAIN", "VALIDATION", "REGRESSION"],
+                "allowedRoles": ["TRAIN"] if protected else ["TRAIN", "VALIDATION", "REGRESSION"],
                 "priorRoles": [],
                 "proofSha256": "f" * 64,
             }
@@ -156,7 +166,17 @@ def test_infeasible_adapter_error_keeps_available_counts(monkeypatch):
             SimpleNamespace(check=lambda *args: None),
         )
     assert error.value.code.startswith("GRID_CORRECTION_SPLIT_")
-    assert "Available photos: 1; boards: 3" in str(error.value)
+    assert f"Available photos: {count}; boards: {count * 3}" in str(error.value)
+    assert error.value.data_availability == {
+        "photos": count,
+        "boards": count * 3,
+        "minimumPhotos": 20,
+        "minimumBoards": 60,
+        "photoDeficit": max(0, 20 - count),
+        "boardDeficit": max(0, 60 - count * 3),
+        "splitStatus": "infeasible" if protected else "minima",
+    }
+    assert len(reads) == 1
 
 
 def test_capture_rejects_labels_changed_since_split_before_publishing(monkeypatch):

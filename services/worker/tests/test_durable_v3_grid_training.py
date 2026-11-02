@@ -213,6 +213,21 @@ def test_early_stopping_waits_for_patience_and_min_evaluations() -> None:
         restored.update(float("nan"), 4)
 
 
+def test_correction_checkpoint_tie_and_restart_preserve_lexicographic_selection() -> None:
+    rule = "validation-board-correct-photo-macro-error-earliest-v1"
+    stopping = EarlyStopping("maximize", 2, 0.0, 2, selection_rule=rule)
+    assert stopping.update(0.5, 1, 0.3)
+    assert stopping.update(0.5, 2, 0.2)
+    assert not stopping.update(0.5, 3, 0.2)
+    restored = EarlyStopping("maximize", 2, 0.0, 2, selection_rule=rule)
+    restored.restore(stopping.state())
+    assert not restored.update(0.4, 4, 0.01)
+    assert restored.stop and restored.best_step == 2 and restored.best_error == 0.2
+    assert restored.update(0.6, 5, 0.9)
+    with pytest.raises(ValueError):
+        EarlyStopping("maximize", 2, 0.0, 2).restore(stopping.state())
+
+
 def test_early_stopping_ends_a_run_before_its_planned_steps(tmp_path: Path) -> None:
     result = train(
         network=Tiny(),

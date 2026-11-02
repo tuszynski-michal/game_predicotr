@@ -9,15 +9,33 @@ from uuid import UUID
 
 from sqlalchemy import text
 
+from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICY
 from game_predictor_api.domain.grid_correction_split import (
     CorrectionSplitError,
     CorrectionSplitSource,
+    correction_data_availability,
     solve_correction_split,
 )
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, digest
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 
-CORRECTIONS_POLICY = "application-grid-corrections-v1"
+CORRECTIONS_POLICY = CORRECTION_POLICY
+
+
+class GridCorrectionSplitPreparationError(GridCohortError):
+    """Keep measured solver counts through the existing cohort error boundary."""
+
+    def __init__(self, error: CorrectionSplitError) -> None:
+        super().__init__(
+            error.code, f"{error} Available photos: {error.photos}; boards: {error.boards}."
+        )
+        self.data_availability: dict[str, int | str] | None = None
+        if error.code in {"GRID_CORRECTION_SPLIT_MINIMA", "GRID_CORRECTION_SPLIT_INFEASIBLE"}:
+            self.data_availability = correction_data_availability(
+                error.photos,
+                error.boards,
+                "minima" if error.code == "GRID_CORRECTION_SPLIT_MINIMA" else "infeasible",
+            )
 
 
 def population(repo: Any, game: UUID, imports: list[str]) -> list[dict[str, Any]]:
@@ -219,9 +237,7 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
     try:
         solved = solve_correction_split(sources)
     except CorrectionSplitError as error:
-        raise GridCohortError(
-            error.code, f"{error} Available photos: {error.photos}; boards: {error.boards}."
-        ) from error
+        raise GridCorrectionSplitPreparationError(error) from error
     assignments = dict(solved.assignments)
     buffers = set(solved.buffers)
     representatives = set(solved.representative_sources)

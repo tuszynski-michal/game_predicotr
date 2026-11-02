@@ -192,6 +192,23 @@ def _grid_model_evaluation_handler(
     )
 
 
+def _grid_correction_learning_handler(
+    session_factory: Any, engine: Any, artifact_root: Path
+) -> Any:
+    from game_predictor_api.application.grid_correction_learning import (
+        GridCorrectionLearningService,
+    )
+
+    from game_predictor_worker.images.grid_correction_learning_handler import (
+        GridCorrectionLearningJobHandler,
+    )
+
+    return GridCorrectionLearningJobHandler(
+        GridCorrectionLearningService(engine, session_factory, artifact_root),
+        _grid_training_handler(session_factory, engine, artifact_root).probe,
+    )
+
+
 def _grid_training_handler(session_factory: Any, engine: Any, artifact_root: Path) -> Any:
     """GPU training supervisor; the trainer child uses the configured CUDA interpreter."""
     from game_predictor_worker.images.grid_training_handler import GridTrainingJobHandler
@@ -572,6 +589,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
             JobType.GRID_MODEL_EVALUATION: _grid_model_evaluation_handler(
                 session_factory, engine, artifact_root, thread_budget
+            ),
+            JobType.GRID_CORRECTION_LEARNING: _grid_correction_learning_handler(
+                session_factory, engine, artifact_root
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

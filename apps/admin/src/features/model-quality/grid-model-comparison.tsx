@@ -406,7 +406,13 @@ function EvaluationDetail({
       {report ? (
         <>
           <p>
-            Werdykt: <strong>{evaluationVerdictLabels[report.verdict]}</strong>{' '}
+            Werdykt:{' '}
+            <strong>
+              {report.schemaVersion === 'grid-model-assigned-comparison-v1' &&
+              report.verdict === 'PASS'
+                ? 'Brak regresji względem przypisanego modelu'
+                : evaluationVerdictLabels[report.verdict]}
+            </strong>{' '}
             · polityka {report.policyVersion} · parity{' '}
             {report.parity.passed ? 'zaliczone' : 'niezaliczone'}
           </p>
@@ -423,12 +429,96 @@ function EvaluationDetail({
               Sprawdź aktualność
             </button>
           ) : null}
-          {report.games.map((game) => (
-            <GameComparison key={game.gameId} game={game} games={games} />
-          ))}
+          {report.schemaVersion === 'grid-model-evaluation-read-v2' ? (
+            report.games.map((game) => (
+              <GameComparison key={game.gameId} game={game} games={games} />
+            ))
+          ) : (
+            <CorrectionComparison report={report} games={games} />
+          )}
         </>
       ) : null}
     </article>
+  );
+}
+
+type CorrectionReport = Exclude<
+  NonNullable<GridModelEvaluationView['report']>,
+  { schemaVersion: 'grid-model-evaluation-read-v2' }
+>;
+
+/** Existing report reader accepts the new versions without claiming complete photos. */
+function CorrectionComparison({
+  report,
+  games,
+}: {
+  readonly report: CorrectionReport;
+  readonly games: readonly GameResponse[];
+}) {
+  const entries =
+    report.schemaVersion === 'grid-model-assigned-comparison-v1'
+      ? [{ gameId: report.gameId, roles: report.roles, ...report.decision }]
+      : report.games;
+  const metrics = [
+    ['photos', 'Zdjęcia'],
+    ['partial_photos', 'Zdjęcia częściowe'],
+    ['boards_expected', 'Oznaczone plansze'],
+    ['boards_matched', 'Wykryte plansze'],
+    ['boards_correct', 'Poprawne plansze'],
+    ['normalized_error', 'Błąd węzłów'],
+    ['false_boards', 'Fałszywe plansze (pełne zdjęcia)'],
+    ['duplicate_predictions', 'Powtórne detekcje (pełne zdjęcia)'],
+    ['photo_complete_correct', 'Kompletne poprawne zdjęcia'],
+  ] as const;
+  return (
+    <>
+      <p>
+        Ocena zdjęć; niezależność sesji nie została potwierdzona. Częściowe
+        zdjęcia oceniają wyłącznie oznaczone plansze.
+      </p>
+      {report.schemaVersion === 'grid-model-assigned-comparison-v1' ? (
+        <p>
+          Porównanie z przypisanym modelem {report.baselineVersionId} (rewizja{' '}
+          {report.assignmentRevision}).
+        </p>
+      ) : null}
+      {entries.map((entry) => (
+        <section
+          key={entry.gameId}
+          aria-label={`Gra ${gameName(games, entry.gameId)}`}
+        >
+          <h4>{gameName(games, entry.gameId)}</h4>
+          <p>
+            Walidacja: {evaluationDecisionLabels[entry.validation]} · regresja:{' '}
+            {evaluationDecisionLabels[entry.regression]}
+          </p>
+          {entry.reasons.length ? (
+            <p>Powody: {reasonList(entry.reasons)}</p>
+          ) : null}
+          {(['VALIDATION', 'REGRESSION'] as const).map((role) => (
+            <table key={role}>
+              <caption>{role}</caption>
+              <thead>
+                <tr>
+                  <th>Miara</th>
+                  <th>Baza</th>
+                  <th>Kandydat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map(([key, label]) => (
+                  <tr key={key}>
+                    <th>{label}</th>
+                    <td>{formatMetric(entry.roles[role].base[key])}</td>
+                    <td>{formatMetric(entry.roles[role].candidate[key])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        </section>
+      ))}
+    </>
   );
 }
 

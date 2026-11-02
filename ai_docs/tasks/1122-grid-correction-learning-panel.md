@@ -1,6 +1,6 @@
 ---
 title: Uproszczony panel i zastosowanie modelu
-status: todo
+status: in_progress
 last_updated: 2026-11-02
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-11-02
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -21,6 +21,11 @@ Operator ma ponad 100 poprawionych plansz Mumie A2 i potrzebuje uczenia bez ręc
 ## Dependencies / entry conditions
 
 TASK-1121 ukończony z audytem; istniejące API i raporty pozostają zgodne.
+
+Wyjątek jawnie zlecony przez operatora po limicie Anthropic: „Kontynuuj a potem
+audyt”. Implementację T3 rozpocząć na odizolowanej kopii stabilnego T2; audyt
+i commit T2 nadal muszą poprzedzić integrację, audyt i commit T3. Nie pomijać
+żadnego audytu ani zastępować Opus innym modelem.
 
 ## Recommended execution
 

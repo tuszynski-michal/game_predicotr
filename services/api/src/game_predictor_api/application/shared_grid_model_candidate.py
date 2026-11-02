@@ -47,6 +47,11 @@ class SharedGridCandidateService:
                     group = recording.get("groupId")
                     if isinstance(group, str):
                         groups[str(member.source_id)] = group
+                if (
+                    member.frozen.get("used") is True
+                    and row.document.get("policyVersion") == "application-grid-corrections-v1"
+                ):
+                    groups.setdefault(str(member.source_id), str(member.source_id))
             return {**header, "manifestPath": row.manifest_path}, eligibility, groups
 
     def prepare(
@@ -69,14 +74,6 @@ class SharedGridCandidateService:
         pinned: list[tuple[Mapping[str, Any], Mapping[str, str]]] = []
         for game, cohort in [(primary_game, primary_cohort), *others]:
             header, eligibility, groups = self._cohort(game, cohort)
-            if (
-                header.get("policyVersion", "application-grid-cohort-v1")
-                != "application-grid-cohort-v1"
-            ):
-                raise GridCohortError(
-                    "GRID_RUN_POLICY_UNSUPPORTED",
-                    "This cohort policy has no training consumer yet.",
-                )
             if header["status"] != "frozen":
                 raise GridCohortError("GRID_RUN_COHORT_NOT_FROZEN", "Only frozen cohorts train.")
             if eligibility["qualification"] != "eligible":
@@ -87,7 +84,27 @@ class SharedGridCandidateService:
                 )
             pinned.append((header, groups))
         try:
-            plan = plan_for(self.artifact_root, str(primary_game), pinned)
+            correction = pinned[0][0].get("policyVersion") == "application-grid-corrections-v1"
+            if correction:
+                from game_predictor_api.storage.grid_model_registry import (
+                    SqlAlchemyGridModelRegistryRepository,
+                )
+
+                from .grid_correction_history import require_historical_cohort
+
+                # Catalogue reads never enter a game storage route.
+                with self.session_factory() as session:
+                    repository = SqlAlchemyGridModelRegistryRepository(session)
+                    for historical_header, _ in pinned[1:]:
+                        if str(historical_header["baseVersionId"]) != str(
+                            pinned[0][0]["baseVersionId"]
+                        ):
+                            require_historical_cohort(
+                                repository,
+                                UUID(str(pinned[0][0]["baseVersionId"])),
+                                dict(historical_header),
+                            )
+            plan = plan_for(self.artifact_root, str(primary_game), pinned, historical=correction)
         except SharedCandidateError as error:
             raise GridCohortError(error.code, error.message) from error
         return {

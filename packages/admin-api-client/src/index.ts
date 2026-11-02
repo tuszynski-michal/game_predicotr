@@ -1,4 +1,13 @@
 import {
+  getGridCorrectionLearningReady as getGeneratedGridCorrectionLearningReady,
+  previewGridCorrectionLearning as previewGeneratedGridCorrectionLearning,
+  startGridCorrectionLearning as startGeneratedGridCorrectionLearning,
+  listGridCorrectionLearning as listGeneratedGridCorrectionLearning,
+  getGridCorrectionLearning as getGeneratedGridCorrectionLearning,
+  cancelGridCorrectionLearning as cancelGeneratedGridCorrectionLearning,
+  resumeGridCorrectionLearning as resumeGeneratedGridCorrectionLearning,
+  getGridCorrectionLearningEvaluation as getGeneratedGridCorrectionLearningEvaluation,
+  createGridAssignedComparison as createGeneratedGridAssignedComparison,
   listGridTrainingCohorts as listGeneratedGridTrainingCohorts,
   getGridTrainingCohort as getGeneratedGridTrainingCohort,
   getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
@@ -52,6 +61,9 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  GridCorrectionLearningPreviewCommand,
+  GridCorrectionLearningStartCommand,
+  GridAssignedComparisonCreate,
   GridCohortPrepareCommand,
   GridTrainingRunCreate,
   GridModelEvaluationCreate,
@@ -77,6 +89,15 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridCorrectionLearningPreviewCommand,
+  GridCorrectionLearningStartCommand,
+  GridCorrectionLearningPreview,
+  GridCorrectionDataAvailability,
+  GridCorrectionLearningView,
+  GridCorrectionLearningList,
+  GridAssignedComparisonCreate,
+  GridAssignedComparisonReport,
+  GridCorrectionEvaluationReport,
   GridCohortPrepareCommand,
   GridCohortPageCommand,
   GridCohortFreezeCommand,
@@ -1516,6 +1537,56 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createGridModelEvaluation: (body: GridModelEvaluationCreate) =>
       createGeneratedGridModelEvaluation({ client, body }),
+    getGridCorrectionLearningReady: (gameId: string) =>
+      getGeneratedGridCorrectionLearningReady({
+        client,
+        path: { game_id: gameId },
+      }),
+    previewGridCorrectionLearning: (
+      gameId: string,
+      body: GridCorrectionLearningPreviewCommand,
+    ) =>
+      previewGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    startGridCorrectionLearning: (
+      gameId: string,
+      body: GridCorrectionLearningStartCommand,
+    ) =>
+      startGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    listGridCorrectionLearning: (gameId: string) =>
+      listGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+      }),
+    getGridCorrectionLearning: (gameId: string, learningId: string) =>
+      getGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    cancelGridCorrectionLearning: (gameId: string, learningId: string) =>
+      cancelGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    resumeGridCorrectionLearning: (gameId: string, learningId: string) =>
+      resumeGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    getGridCorrectionLearningEvaluation: (gameId: string, learningId: string) =>
+      getGeneratedGridCorrectionLearningEvaluation({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    createGridAssignedComparison: (body: GridAssignedComparisonCreate) =>
+      createGeneratedGridAssignedComparison({ client, body }),
     listGridModelEvaluations: (versionId: string) =>
       listGeneratedGridModelEvaluations({ client, query: { versionId } }),
     getGridModelEvaluation: (evaluationId: string) =>
@@ -1540,7 +1611,10 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     // Explicit opt-in; legacy callers retain their original request shape and replay keys.
     prepareGridCorrectionCohort: (
       gameId: string,
-      body: Omit<GridCohortPrepareCommand, 'mode' | 'recordings' | 'policyVersion'>,
+      body: Omit<
+        GridCohortPrepareCommand,
+        'mode' | 'recordings' | 'policyVersion'
+      >,
     ) =>
       prepareGeneratedGridTrainingCohort({
         client,

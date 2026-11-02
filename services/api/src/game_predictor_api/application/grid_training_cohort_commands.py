@@ -407,7 +407,9 @@ def _materialize(
             game,
             row.id,
             {
-                "schemaVersion": SNAPSHOT_FORMAT,
+                "schemaVersion": "application-grid-snapshot-v2"
+                if row.document["policyVersion"] == CORRECTIONS_POLICY
+                else SNAPSHOT_FORMAT,
                 "policyVersion": row.document["policyVersion"],
                 **(
                     {"photoSplit": row.document["photoSplit"]}

@@ -68,6 +68,7 @@ class GridModelPublicationService:
         game_id: UUID | None,
         *,
         publishing: bool = False,
+        setting_default: bool = False,
     ) -> dict[str, Any]:
         manifest = view["manifest"]
         if manifest["admission"] == "historical_baseline":
@@ -109,7 +110,7 @@ class GridModelPublicationService:
         )
         if evidence.cohorts:
             self._require_current(evidence.report_id, evidence.cohorts)
-            if publishing:
+            if publishing and not evidence.scoped:
                 missing = sorted(
                     self.repository.family_games(UUID(manifest["familyId"]))
                     - {str(game) for game in evidence.games}
@@ -121,6 +122,18 @@ class GridModelPublicationService:
                     )
                     error.details = {"gameIds": missing}
                     raise error
+        if setting_default and evidence.scoped:
+            # execute holds the registry lock. A scoped proof covers its pinned
+            # base, not a concurrently replaced default with possibly wider scope.
+            head = self.repository.default()
+            if head is None or (
+                str(head.version_id) != manifest["versionId"]
+                and str(head.version_id) != manifest["baseVersionId"]
+            ):
+                raise GridModelRegistryError(
+                    "GRID_MODEL_EVALUATION_SCOPE_STALE",
+                    "The scoped candidate no longer replaces its evaluated default base.",
+                )
         return {
             "kind": "evaluated_candidate",
             "evaluationId": str(evidence.report_id),
@@ -156,7 +169,11 @@ class GridModelPublicationService:
         return self._eligible_inspected(self._version(version_id), game_id=game_id)
 
     def _eligible_inspected(
-        self, view: dict[str, Any], *, game_id: UUID | None = None
+        self,
+        view: dict[str, Any],
+        *,
+        game_id: UUID | None = None,
+        setting_default: bool = False,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Registry view already inspected artifact bytes; avoid hashing them twice."""
         version_id = UUID(view["manifest"]["versionId"])
@@ -165,7 +182,9 @@ class GridModelPublicationService:
         publication = self.repository.publication(version_id)
         if publication is None:
             raise GridModelRegistryError("GRID_MODEL_NOT_PUBLISHED", "Version is not published.")
-        evidence = self._evidence(view, publication.evaluation_id, game_id)
+        evidence = self._evidence(
+            view, publication.evaluation_id, game_id, setting_default=setting_default
+        )
         if (
             canonical_json(evidence) != publication.evidence_json
             or descriptor_sha256(evidence) != publication.evidence_sha256
@@ -263,7 +282,9 @@ class GridModelPublicationService:
             view = self._version(version_id)
             evidence = self._evidence(view, evaluation_id, None, publishing=True)
         else:
-            view, evidence = self.eligible(version_id, game_id=game_id)
+            view, evidence = self._eligible_inspected(
+                self._version(version_id), game_id=game_id, setting_default=kind == "set_default"
+            )
         if game is not None:
             assert game_id is not None
             if game.code == "7" or not uses_neural_grid(game.shape_geometry_configuration):

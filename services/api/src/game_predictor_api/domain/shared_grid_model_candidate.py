@@ -61,7 +61,9 @@ def _identities(member: SharedMember) -> tuple[tuple[str, str], ...]:
     )
 
 
-def joint_plan(primary_game_id: str, cohorts: Sequence[SharedCohort]) -> dict[str, Any]:
+def joint_plan(
+    primary_game_id: str, cohorts: Sequence[SharedCohort], *, historical: bool = False
+) -> dict[str, Any]:
     """The pinned, deterministic plan of one shared run, or a typed refusal."""
     games = [cohort.game_id for cohort in cohorts]
     if not 2 <= len(cohorts) <= MAX_SHARED_GAMES or len(set(games)) != len(games):
@@ -73,12 +75,10 @@ def joint_plan(primary_game_id: str, cohorts: Sequence[SharedCohort]) -> dict[st
         raise SharedCandidateError(
             "GRID_SHARED_SCOPE_INVALID", "The primary game must be one of the shared games."
         )
-    first = cohorts[0]
+    first = next(cohort for cohort in cohorts if cohort.game_id == primary_game_id)
     for cohort in cohorts:
-        if (cohort.family_id, cohort.base_version_id, cohort.mode) != (
-            first.family_id,
-            first.base_version_id,
-            first.mode,
+        if (cohort.family_id, cohort.mode) != (first.family_id, first.mode) or (
+            not historical and cohort.base_version_id != first.base_version_id
         ):
             raise SharedCandidateError(
                 "GRID_SHARED_COHORT_MISMATCH",
@@ -142,7 +142,7 @@ def joint_plan(primary_game_id: str, cohorts: Sequence[SharedCohort]) -> dict[st
             }
         )
     plan = {
-        "policy": JOINT_POLICY,
+        "policy": "grid-shared-corrections-v1" if historical else JOINT_POLICY,
         "primaryGameId": primary_game_id,
         "familyId": first.family_id,
         "baseVersionId": first.base_version_id,
@@ -150,4 +150,14 @@ def joint_plan(primary_game_id: str, cohorts: Sequence[SharedCohort]) -> dict[st
         "weighting": {"games": "equal", "recordings": "equal-within-game"},
         "cohorts": summary,
     }
+    if historical:
+        for item in summary:
+            item["trainSamplingUnits"] = item.pop("trainRecordings")
+            item["samplingUnitsSha256"] = item.pop("recordingsSha256")
+        plan["weighting"] = {"games": "equal", "samplingUnits": "equal-within-game"}
+        plan["sourceBases"] = {
+            cohort.game_id: cohort.base_version_id
+            for cohort in sorted(cohorts, key=lambda item: item.game_id)
+        }
+        plan["evidenceLevel"] = "photo-only"
     return {**plan, "sha256": descriptor_sha256(plan)}

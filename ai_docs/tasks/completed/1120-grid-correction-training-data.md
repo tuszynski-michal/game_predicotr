@@ -51,7 +51,7 @@ Trening na danych operatora, zmiana defaultu lub przypisań, migracja bazy opera
 - [x] Korekty bez resave; tylko geometrie human-approved24; wiarygodne atesty i kopie; trwałe role/bufory po freeze; provisional preview bez trwałego użycia.
 - [x] Właściwe testy, lint/typecheck i dokumentacja.
 - [x] Audyt Opus 5.5/high bez otwartych P0/P1.
-- [ ] Outcome, task-close, osobny wersjonowany commit i record-hash.
+- [x] Outcome, task-close, osobny wersjonowany commit i record-hash.
 
 ## Technical notes
 
@@ -75,7 +75,7 @@ Preflight i rzeczywista kwalifikacja danych mogą zatrzymać implementację prze
 
 ## Outcome
 
-Commit: v1.7.517 (hash dopisuje kolejny commit).
+Commit: v1.7.517 / `e1fcae27dace97c5dea102a05c512b9bf77ec94c`.
 
 ### Wynik niezależnego audytu i pozostałe ryzyka
 

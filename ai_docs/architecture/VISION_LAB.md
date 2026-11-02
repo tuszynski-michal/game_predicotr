@@ -34,6 +34,55 @@ protections. Unknown historical providers remain visible as photo-only limitatio
 No new schema partition or image binary storage is introduced. Training and report
 adapters are delivered separately by TASK-1121; old snapshot consumers stay strict.
 
+## Correction learning pipeline (D-578, TASK-1121)
+
+`application/grid_correction_learning.py` composes the existing cohort, shared run
+and evaluation services. The public game-scoped `/grid-correction-learning` API
+offers ready, preview, start, list/status, cancel, resume and evaluation reads.
+Alembic0171 adds the parent job type and an internal scoped-report binding capability.
+The worker executes one durable parent step per claim, saves its checkpoint and
+releases the general slot while a child runs. Claim skips parents with a pending
+child; child creation remains possible while the parent holds that slot. A separate
+advisory step lock serializes cancel/resume/create without locking the heartbeat row.
+Deterministic child/cohort command keys adopt existing results after response loss.
+Step-lock contention maps to `GRID_LEARNING_BUSY` (409). Resume rejects an active
+child still acknowledging cancellation; after acknowledgement it reuses that child.
+HTTP exclusions are canonicalized before preview hashing and idempotency commands.
+
+The split adapter preserves measured solver counts in a typed cohort error;
+parent preview converts these to `dataAvailability` without parsing messages or
+reading sources twice. Successful previews count the existing deduplicated source
+representatives, including annotated buffer photos. The pure domain function derives
+aggregate minima/deficit lower bounds from the solver's own role minima. This adds
+no second evidence source and changes no persisted split document or its SHA.
+
+`application/grid_correction_history.py` composes earlier published cohorts from
+verified report IDs, descriptor hashes, ancestry and currentness proofs. Original
+cohort base descriptors and snapshot hashes remain unchanged. The new shared-plan
+version permits these verified historical bases; legacy plans still require one base.
+Each required earlier game contributes its frozen TRAIN and controls. Unknown
+sessions are photo sampling units, never newly invented recording rows or proof of
+independence. Existing protections and cross-game byte/pixel/group alias checks apply.
+
+Snapshot v2 is paired exactly with the corrections policy. The versioned preset
+selects checkpoint metrics in `training_core/grid_correction_metrics.py` and exports
+selection evidence in the checksummed training bundle. Report v3/gate v2 live in
+`domain/grid_correction_evaluation.py`; publication dispatches by strict version and
+retains all currentness gates, while scoped reports do not require unrelated family games.
+The existing publication service checks scoped `set_default` against the current
+default's version under its registry lock. Own receipt replay precedes this guard;
+the candidate's unchanged publication evidence remains reusable for other controls.
+The registry binds report SHA and cohort proof SHA atomically through the existing
+cohort-command wrapper. Its internal definer has only required catalogue-column reads;
+runtime roles receive no direct execution grant on the new binder.
+
+`POST /grid-model-evaluations/assigned-comparison` resolves the actual assignment
+server-side and starts the existing evaluation worker with separately pinned baseline
+fields. `grid-model-assigned-comparison-v1` is a distinct report type, never eligible
+as the main publication report. The shared evaluator performs real baseline inference
+on the same cohort; TASK-1122 owns apply receipts and final assignment/currentness CAS.
+Legacy snapshots, checkpoint rules, reports and publication gates remain available.
+
 ## Larger local symbol experiment (D-506)
 
 Three explicit local modules isolate the multi-reference adapter, RGB protocol

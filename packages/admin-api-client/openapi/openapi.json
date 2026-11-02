@@ -9455,6 +9455,142 @@
         "title": "GeometryQualificationPayload",
         "type": "object"
       },
+      "GridAssignedComparisonCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "versionId",
+          "gameId",
+          "cohortId"
+        ],
+        "title": "GridAssignedComparisonCreate",
+        "type": "object"
+      },
+      "GridAssignedComparisonReport": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentRevision": {
+            "minimum": 0.0,
+            "title": "Assignmentrevision",
+            "type": "integer"
+          },
+          "baselineManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Baselinemanifestsha256",
+            "type": "string"
+          },
+          "baselineVersionId": {
+            "format": "uuid",
+            "title": "Baselineversionid",
+            "type": "string"
+          },
+          "cohort": {
+            "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationDecision"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policyVersion": {
+            "const": "grid-model-assigned-nonregression-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRoles"
+          },
+          "schemaVersion": {
+            "const": "grid-model-assigned-comparison-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "producer",
+          "policyVersion",
+          "versionId",
+          "manifestSha256",
+          "baselineVersionId",
+          "baselineManifestSha256",
+          "gameId",
+          "assignmentRevision",
+          "cohort",
+          "parity",
+          "roles",
+          "decision",
+          "verdict",
+          "evidenceLevel",
+          "limitations"
+        ],
+        "title": "GridAssignedComparisonReport",
+        "type": "object"
+      },
       "GridAuditImportStatus": {
         "description": "Result of the read-only verification at import time.",
         "enum": [
@@ -10713,6 +10849,1317 @@
         "title": "GridCorrectionCellSymbolSuggestionResponse",
         "type": "object"
       },
+      "GridCorrectionCheckpointMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "boardCorrectRate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Boardcorrectrate",
+            "type": "number"
+          },
+          "normalizedError": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Normalizederror",
+            "type": "number"
+          }
+        },
+        "required": [
+          "boardCorrectRate",
+          "normalizedError"
+        ],
+        "title": "GridCorrectionCheckpointMetrics",
+        "type": "object"
+      },
+      "GridCorrectionCheckpointSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "earlyStopping": {
+            "$ref": "#/components/schemas/GridCorrectionEarlyStopping"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/GridCorrectionCheckpointMetrics"
+          },
+          "role": {
+            "const": "VALIDATION",
+            "title": "Role",
+            "type": "string"
+          },
+          "rule": {
+            "const": "validation-board-correct-photo-macro-error-earliest-v1",
+            "title": "Rule",
+            "type": "string"
+          },
+          "step": {
+            "minimum": 0.0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule",
+          "role",
+          "step",
+          "metrics",
+          "earlyStopping"
+        ],
+        "title": "GridCorrectionCheckpointSelection",
+        "type": "object"
+      },
+      "GridCorrectionDataAvailability": {
+        "additionalProperties": false,
+        "description": "Deduplicated annotated population before buffers; deficits are aggregate lower bounds.",
+        "properties": {
+          "boardDeficit": {
+            "minimum": 0.0,
+            "title": "Boarddeficit",
+            "type": "integer"
+          },
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "minimumBoards": {
+            "const": 60,
+            "title": "Minimumboards",
+            "type": "integer"
+          },
+          "minimumPhotos": {
+            "const": 20,
+            "title": "Minimumphotos",
+            "type": "integer"
+          },
+          "photoDeficit": {
+            "minimum": 0.0,
+            "title": "Photodeficit",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "splitStatus": {
+            "enum": [
+              "minima",
+              "infeasible",
+              "ready"
+            ],
+            "title": "Splitstatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photos",
+          "boards",
+          "minimumPhotos",
+          "minimumBoards",
+          "photoDeficit",
+          "boardDeficit",
+          "splitStatus"
+        ],
+        "title": "GridCorrectionDataAvailability",
+        "type": "object"
+      },
+      "GridCorrectionEarlyStopping": {
+        "additionalProperties": false,
+        "properties": {
+          "evaluationsWithoutImprovement": {
+            "minimum": 0.0,
+            "title": "Evaluationswithoutimprovement",
+            "type": "integer"
+          },
+          "patience": {
+            "minimum": 1.0,
+            "title": "Patience",
+            "type": "integer"
+          },
+          "stopped": {
+            "title": "Stopped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "patience",
+          "evaluationsWithoutImprovement",
+          "stopped"
+        ],
+        "title": "GridCorrectionEarlyStopping",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "regression": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Regression",
+            "type": "string"
+          },
+          "validation": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation",
+          "regression",
+          "coverage",
+          "reasons"
+        ],
+        "title": "GridCorrectionEvaluationDecision",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationGame": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "mode": {
+            "const": "grid-only",
+            "title": "Mode",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "regression": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Regression",
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRoles"
+          },
+          "targetMetric": {
+            "const": "boards_correct_or_normalized_error",
+            "title": "Targetmetric",
+            "type": "string"
+          },
+          "validation": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation",
+          "regression",
+          "coverage",
+          "reasons",
+          "gameId",
+          "cohortId",
+          "mode",
+          "targetMetric",
+          "roles"
+        ],
+        "title": "GridCorrectionEvaluationGame",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "board_correct_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Correct Rate"
+          },
+          "boards_correct": {
+            "minimum": 0.0,
+            "title": "Boards Correct",
+            "type": "integer"
+          },
+          "boards_expected": {
+            "minimum": 0.0,
+            "title": "Boards Expected",
+            "type": "integer"
+          },
+          "boards_matched": {
+            "minimum": 0.0,
+            "title": "Boards Matched",
+            "type": "integer"
+          },
+          "detection_recall": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Recall"
+          },
+          "duplicate_predictions": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Predictions"
+          },
+          "false_boards": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "False Boards"
+          },
+          "full_photos": {
+            "minimum": 0.0,
+            "title": "Full Photos",
+            "type": "integer"
+          },
+          "normalized_error": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Error"
+          },
+          "partial_photos": {
+            "minimum": 0.0,
+            "title": "Partial Photos",
+            "type": "integer"
+          },
+          "photo_complete_correct": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Complete Correct"
+          },
+          "photo_complete_correct_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Complete Correct Rate"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "photos",
+          "full_photos",
+          "partial_photos",
+          "boards_expected",
+          "boards_matched",
+          "boards_correct",
+          "board_correct_rate",
+          "detection_recall",
+          "normalized_error",
+          "photo_complete_correct",
+          "photo_complete_correct_rate",
+          "false_boards",
+          "duplicate_predictions"
+        ],
+        "title": "GridCorrectionEvaluationMetrics",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpointRule": {
+            "const": "validation-board-correct-photo-macro-error-earliest-v1",
+            "title": "Checkpointrule",
+            "type": "string"
+          },
+          "currentGameImprovementRole": {
+            "const": "REGRESSION",
+            "title": "Currentgameimprovementrole",
+            "type": "string"
+          },
+          "epsilon": {
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "fullPhotoNonRegression": {
+            "items": {
+              "enum": [
+                "false_boards",
+                "duplicate_predictions",
+                "photo_complete_correct"
+              ],
+              "type": "string"
+            },
+            "title": "Fullphotononregression",
+            "type": "array"
+          },
+          "metricsVersion": {
+            "const": "grid-correction-metrics-v1",
+            "title": "Metricsversion",
+            "type": "string"
+          },
+          "minimumAbsoluteErrorReduction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minimumabsoluteerrorreduction",
+            "type": "number"
+          },
+          "minimumControlBoards": {
+            "const": 15,
+            "title": "Minimumcontrolboards",
+            "type": "integer"
+          },
+          "minimumControlPhotos": {
+            "const": 5,
+            "title": "Minimumcontrolphotos",
+            "type": "integer"
+          },
+          "minimumCorrectBoardGain": {
+            "const": 1,
+            "title": "Minimumcorrectboardgain",
+            "type": "integer"
+          },
+          "minimumRelativeErrorReduction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minimumrelativeerrorreduction",
+            "type": "number"
+          },
+          "nonRegression": {
+            "items": {
+              "enum": [
+                "boards_matched",
+                "boards_correct",
+                "normalized_error"
+              ],
+              "type": "string"
+            },
+            "title": "Nonregression",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v2",
+            "title": "Policyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "metricsVersion",
+          "minimumControlPhotos",
+          "minimumControlBoards",
+          "nonRegression",
+          "fullPhotoNonRegression",
+          "currentGameImprovementRole",
+          "minimumCorrectBoardGain",
+          "minimumRelativeErrorReduction",
+          "minimumAbsoluteErrorReduction",
+          "epsilon",
+          "checkpointRule"
+        ],
+        "title": "GridCorrectionEvaluationPolicy",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationRecording": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationMetrics"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationMetrics"
+          },
+          "groupId": {
+            "format": "uuid",
+            "title": "Groupid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "groupId",
+          "base",
+          "candidate"
+        ],
+        "title": "GridCorrectionEvaluationRecording",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "checkpointSelection": {
+            "$ref": "#/components/schemas/GridCorrectionCheckpointSelection"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionEvaluationGame"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationPolicy"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v2",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v3",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationScope"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "producer",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict",
+          "scope",
+          "evidenceLevel",
+          "limitations",
+          "checkpointSelection"
+        ],
+        "title": "GridCorrectionEvaluationReport",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationRole": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationMetrics"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationMetrics"
+          },
+          "detail": {
+            "$ref": "#/components/schemas/GridModelEvaluationDetail"
+          },
+          "inputSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inputsha256",
+            "type": "string"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "recordings": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionEvaluationRecording"
+            },
+            "title": "Recordings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "photos",
+          "inputSha256",
+          "base",
+          "candidate",
+          "recordings",
+          "detail"
+        ],
+        "title": "GridCorrectionEvaluationRole",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationRoles": {
+        "additionalProperties": false,
+        "properties": {
+          "REGRESSION": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRole"
+          },
+          "VALIDATION": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRole"
+          }
+        },
+        "required": [
+          "VALIDATION",
+          "REGRESSION"
+        ],
+        "title": "GridCorrectionEvaluationRoles",
+        "type": "object"
+      },
+      "GridCorrectionEvaluationScope": {
+        "additionalProperties": false,
+        "properties": {
+          "currentGameId": {
+            "format": "uuid",
+            "title": "Currentgameid",
+            "type": "string"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "priorScopeDocumented": {
+            "title": "Priorscopedocumented",
+            "type": "boolean"
+          },
+          "priorVerifiedGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Priorverifiedgameids",
+            "type": "array"
+          },
+          "trainingGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Traininggameids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "currentGameId",
+          "trainingGameIds",
+          "priorVerifiedGameIds",
+          "priorScopeDocumented",
+          "exclusions"
+        ],
+        "title": "GridCorrectionEvaluationScope",
+        "type": "object"
+      },
+      "GridCorrectionLearningExclusion": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "reason",
+          "confirmed"
+        ],
+        "title": "GridCorrectionLearningExclusion",
+        "type": "object"
+      },
+      "GridCorrectionLearningJobPayload": {
+        "additionalProperties": false,
+        "description": "Server-owned parent pins; public commands use the closed learning schema.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "command": {
+            "additionalProperties": true,
+            "title": "Command",
+            "type": "object"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "learningKind": {
+            "const": "grid-correction-learning-v1",
+            "title": "Learningkind",
+            "type": "string"
+          },
+          "pins": {
+            "additionalProperties": true,
+            "title": "Pins",
+            "type": "object"
+          },
+          "preview": {
+            "additionalProperties": true,
+            "title": "Preview",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "learningKind",
+          "idempotencyKey",
+          "command",
+          "preview",
+          "pins",
+          "actor"
+        ],
+        "title": "GridCorrectionLearningJobPayload",
+        "type": "object"
+      },
+      "GridCorrectionLearningList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningView"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GridCorrectionLearningList",
+        "type": "object"
+      },
+      "GridCorrectionLearningPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "baseManifestSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basemanifestsha256"
+          },
+          "baseVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseversionid"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "bufferPhotos": {
+            "minimum": 0.0,
+            "title": "Bufferphotos",
+            "type": "integer"
+          },
+          "canStart": {
+            "title": "Canstart",
+            "type": "boolean"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridTrainingRunCost"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dataAvailability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionDataAvailability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaultRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultrevision"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "historicalCohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Historicalcohorts",
+            "type": "array"
+          },
+          "importJobIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Importjobids",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "pendingWorkerChecks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pendingworkerchecks",
+            "type": "array"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "presetId": {
+            "title": "Presetid",
+            "type": "string"
+          },
+          "previewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewsha256",
+            "type": "string"
+          },
+          "priorGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Priorgameids",
+            "type": "array"
+          },
+          "priorScopeDocumented": {
+            "title": "Priorscopedocumented",
+            "type": "boolean"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "roleCounts": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningRoleCount"
+            },
+            "title": "Rolecounts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "baseVersionId",
+          "baseManifestSha256",
+          "defaultRevision",
+          "importJobIds",
+          "roleCounts",
+          "dataAvailability",
+          "bufferPhotos",
+          "priorScopeDocumented",
+          "priorGameIds",
+          "historicalCohorts",
+          "exclusions",
+          "requiredGameIds",
+          "presetId",
+          "presetFingerprint",
+          "cost",
+          "blockers",
+          "pendingWorkerChecks",
+          "canStart",
+          "evidenceLevel",
+          "limitations",
+          "previewSha256"
+        ],
+        "title": "GridCorrectionLearningPreview",
+        "type": "object"
+      },
+      "GridCorrectionLearningPreviewCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
+            },
+            "maxItems": 100,
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "importJobIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Importjobids",
+            "type": "array"
+          }
+        },
+        "title": "GridCorrectionLearningPreviewCommand",
+        "type": "object"
+      },
+      "GridCorrectionLearningRoleCount": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "TRAIN",
+              "VALIDATION",
+              "REGRESSION"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "photos",
+          "boards"
+        ],
+        "title": "GridCorrectionLearningRoleCount",
+        "type": "object"
+      },
+      "GridCorrectionLearningStartCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
+            },
+            "maxItems": 100,
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "importJobIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Importjobids",
+            "type": "array"
+          },
+          "previewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "previewSha256"
+        ],
+        "title": "GridCorrectionLearningStartCommand",
+        "type": "object"
+      },
+      "GridCorrectionLearningView": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "cancelRequested": {
+            "title": "Cancelrequested",
+            "type": "boolean"
+          },
+          "candidateVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateversionid"
+          },
+          "cohortId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohortid"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "defaultRevision": {
+            "minimum": 0.0,
+            "title": "Defaultrevision",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "evaluationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluationid"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "learningId": {
+            "format": "uuid",
+            "title": "Learningid",
+            "type": "string"
+          },
+          "previewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewsha256",
+            "type": "string"
+          },
+          "reportId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportid"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "trainingRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingrunid"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PASS",
+                  "REVISE",
+                  "NOT_EVALUABLE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "learningId",
+          "gameId",
+          "status",
+          "stage",
+          "baseVersionId",
+          "defaultRevision",
+          "cohortId",
+          "trainingRunId",
+          "candidateVersionId",
+          "evaluationId",
+          "reportId",
+          "verdict",
+          "previewSha256",
+          "requiredGameIds",
+          "exclusions",
+          "cancelRequested",
+          "errorCode",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "GridCorrectionLearningView",
+        "type": "object"
+      },
       "GridCorrectionSymbolsResponse": {
         "additionalProperties": false,
         "description": "Symbols known for the cells of one board under grid correction (D-488).",
@@ -11717,6 +13164,14 @@
             "title": "Cohorts",
             "type": "array"
           },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationExclusion"
+            },
+            "maxItems": 100,
+            "title": "Exclusions",
+            "type": "array"
+          },
           "idempotencyKey": {
             "format": "uuid",
             "title": "Idempotencykey",
@@ -11848,6 +13303,33 @@
         "title": "GridModelEvaluationDetail",
         "type": "object"
       },
+      "GridModelEvaluationExclusion": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "reason",
+          "confirmed"
+        ],
+        "title": "GridModelEvaluationExclusion",
+        "type": "object"
+      },
       "GridModelEvaluationGame": {
         "additionalProperties": false,
         "properties": {
@@ -11928,6 +13410,18 @@
         "additionalProperties": false,
         "description": "Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route.",
         "properties": {
+          "assignmentRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignmentrevision"
+          },
           "baseManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Basemanifestsha256",
@@ -11938,6 +13432,42 @@
             "title": "Baseversionid",
             "type": "string"
           },
+          "baselineManifestSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselinemanifestsha256"
+          },
+          "baselineVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineversionid"
+          },
+          "checkpointSelection": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointselection"
+          },
           "cohorts": {
             "items": {
               "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
@@ -11947,8 +13477,24 @@
             "title": "Cohorts",
             "type": "array"
           },
+          "comparisonCommand": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparisoncommand"
+          },
           "evaluationKind": {
-            "const": "grid-model-evaluation-v1",
+            "enum": [
+              "grid-model-evaluation-v1",
+              "grid-correction-evaluation-v1",
+              "grid-assigned-comparison-v1"
+            ],
             "title": "Evaluationkind",
             "type": "string"
           },
@@ -11972,6 +13518,18 @@
             "default": 1,
             "title": "Schemaversion",
             "type": "integer"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
           },
           "trainingGameId": {
             "format": "uuid",
@@ -12360,6 +13918,30 @@
       "GridModelEvaluationView": {
         "additionalProperties": false,
         "properties": {
+          "assignedBaselineVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedbaselineversionid"
+          },
+          "assignmentRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignmentrevision"
+          },
           "baseVersionId": {
             "format": "uuid",
             "title": "Baseversionid",
@@ -12421,12 +14003,31 @@
           "report": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/GridModelEvaluationReport"
+                "discriminator": {
+                  "mapping": {
+                    "grid-model-assigned-comparison-v1": "#/components/schemas/GridAssignedComparisonReport",
+                    "grid-model-evaluation-read-v2": "#/components/schemas/GridModelEvaluationReport",
+                    "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport"
+                  },
+                  "propertyName": "schemaVersion"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/GridModelEvaluationReport"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridCorrectionEvaluationReport"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridAssignedComparisonReport"
+                  }
+                ]
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Report"
           },
           "reportId": {
             "format": "uuid",
@@ -22322,6 +23923,9 @@
                 "$ref": "#/components/schemas/GridModelEvaluationJobPayload"
               },
               {
+                "$ref": "#/components/schemas/GridCorrectionLearningJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -22453,6 +24057,7 @@
           "super_game_series_derive",
           "grid_training",
           "grid_model_evaluation",
+          "grid_correction_learning",
           "source_crop",
           "source_original_deletion"
         ],
@@ -45810,6 +47415,668 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning": {
+      "get": {
+        "operationId": "listGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      },
+      "post": {
+        "operationId": "startGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCorrectionLearningStartCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/preview": {
+      "post": {
+        "operationId": "previewGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCorrectionLearningPreviewCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Preview",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/ready": {
+      "get": {
+        "operationId": "getGridCorrectionLearningReady",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ready",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}": {
+      "get": {
+        "operationId": "getGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/cancel": {
+      "post": {
+        "operationId": "cancelGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/evaluation": {
+      "get": {
+        "operationId": "getGridCorrectionLearningEvaluation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluation",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/resume": {
+      "post": {
+        "operationId": "resumeGridCorrectionLearning",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionLearningView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resume",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-model-assignment": {
       "get": {
         "operationId": "getGameGridModelAssignment",
@@ -55641,6 +57908,83 @@
           }
         ],
         "summary": "Create",
+        "tags": [
+          "grid-model-evaluations"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-model-evaluations/assigned-comparison": {
+      "post": {
+        "operationId": "createGridAssignedComparison",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridAssignedComparisonCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridModelEvaluationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Assigned Comparison",
         "tags": [
           "grid-model-evaluations"
         ]

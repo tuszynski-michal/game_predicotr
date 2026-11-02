@@ -30,6 +30,7 @@ class JobType(StrEnum):
     SUPER_GAME_SERIES_DERIVE = "super_game_series_derive"
     GRID_TRAINING = "grid_training"
     GRID_MODEL_EVALUATION = "grid_model_evaluation"
+    GRID_CORRECTION_LEARNING = "grid_correction_learning"
     # D-562 (TASK-1047/1048): lossless crops of managed originals and the
     # separately confirmed deletion of originals whose crops were verified.
     SOURCE_CROP = "source_crop"
@@ -134,7 +135,11 @@ def create_job(
     supports_grid_model_evaluation_v1 = job_type is JobType.GRID_MODEL_EVALUATION and (
         schema_version,
         input_payload.get("evaluation_kind"),
-    ) == (1, "grid-model-evaluation-v1")
+    ) in {
+        (1, "grid-model-evaluation-v1"),
+        (1, "grid-correction-evaluation-v1"),
+        (1, "grid-assigned-comparison-v1"),
+    }
     supports_semi_automatic_selection_v2_v4 = (
         schema_version in {2, 3, 4} and job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
     )
@@ -464,6 +469,28 @@ def defer_job_for_storage(
             error_code=None,
             error_message=None,
         )
+    )
+
+
+def defer_job_for_dependency(
+    job: Job,
+    *,
+    lease_token: UUID,
+    checkpoint_payload: dict[str, object],
+    deferred_at: datetime | None = None,
+) -> Job:
+    """Release a parent slot; its persisted child identity controls the next claim."""
+    child = checkpoint_payload.get("waitingForJobId")
+    if child is not None:
+        UUID(str(child))
+    return replace(
+        defer_job_for_storage(
+            job,
+            lease_token=lease_token,
+            checkpoint_payload=checkpoint_payload,
+            deferred_at=deferred_at,
+        ),
+        stage="waiting_for_dependency",
     )
 
 

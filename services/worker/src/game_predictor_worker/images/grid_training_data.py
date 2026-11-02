@@ -31,7 +31,7 @@ from ..training_core.neural_grid_augmentation import (
     build_screen_item_with_indices,
 )
 from ..training_core.neural_grid_network import BoardExport, NeuralGridNetwork, ScreenExport
-from .grid_cohort_dataset import GridBoardDataset, GridCohortSnapshot
+from .grid_cohort_dataset import GridBoardDataset, GridCohortSnapshot, has_full_geometry
 
 PREFETCH_STEPS = 4
 PARITY_CROPS = 8
@@ -320,3 +320,53 @@ def planned_steps(train_seconds: float, steps_per_second: float, max_steps: int)
 
 def frozen_manifest(snapshot: GridCohortSnapshot) -> Mapping[str, Any]:
     return snapshot.manifest
+
+
+def correction_evaluator(parts: Sequence[CohortPhotos], recipe: Any, device: str) -> Any:
+    """Photo-macro VALIDATION from full frames, with equal weight for each game."""
+    from ..training_core.grid_correction_metrics import (
+        aggregate_checkpoint_metrics,
+        checkpoint_metrics,
+        evaluate_photo,
+    )
+    from ..training_core.grid_evaluation import predictions
+
+    if any(part.role != "VALIDATION" for part in parts):
+        raise GridTrainingDataError("GRID_TRAINING_VALIDATION_ONLY")
+
+    def evaluate(network: NeuralGridNetwork) -> dict[str, float]:
+        screen_graph, board_graph = (
+            ScreenExport(network.screen).eval(),
+            BoardExport(network.board).eval(),
+        )
+
+        def screen(pixels: np.ndarray) -> Any:
+            heat, offsets = screen_graph(torch.from_numpy(pixels).to(device))
+            return heat.float().cpu().numpy(), offsets.float().cpu().numpy()
+
+        def board(batch: np.ndarray) -> Any:
+            nodes, peak, visibility = board_graph(torch.from_numpy(batch).to(device))
+            return (
+                nodes.float().cpu().numpy(),
+                peak.float().cpu().numpy(),
+                visibility.float().cpu().numpy(),
+            )
+
+        engine = NeuralGridEngine(screen, board, DecodeSettings.of(recipe))
+        scores = []
+        for part in parts:
+            photos = []
+            for index, (source, _) in enumerate(part.rows):
+                photos.append(
+                    evaluate_photo(
+                        str(source["sourceId"]),
+                        str(source["sourceId"]),
+                        [label for label, _ in part.targets(index)],
+                        predictions(engine.analyse(part.rgb(index))),
+                        full_geometry=has_full_geometry(source),
+                    )
+                )
+            scores.append(checkpoint_metrics(photos))
+        return aggregate_checkpoint_metrics(scores)
+
+    return evaluate

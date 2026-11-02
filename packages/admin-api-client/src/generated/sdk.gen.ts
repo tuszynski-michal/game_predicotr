@@ -63,6 +63,9 @@ import type {
   CancelBrowserImageSelectionData,
   CancelBrowserImageSelectionErrors,
   CancelBrowserImageSelectionResponses,
+  CancelGridCorrectionLearningData,
+  CancelGridCorrectionLearningErrors,
+  CancelGridCorrectionLearningResponses,
   CancelGridReinferenceData,
   CancelGridReinferenceErrors,
   CancelGridReinferenceResponses,
@@ -132,6 +135,9 @@ import type {
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreateGridAssignedComparisonData,
+  CreateGridAssignedComparisonErrors,
+  CreateGridAssignedComparisonResponses,
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
@@ -399,6 +405,15 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridCorrectionLearningData,
+  GetGridCorrectionLearningErrors,
+  GetGridCorrectionLearningEvaluationData,
+  GetGridCorrectionLearningEvaluationErrors,
+  GetGridCorrectionLearningEvaluationResponses,
+  GetGridCorrectionLearningReadyData,
+  GetGridCorrectionLearningReadyErrors,
+  GetGridCorrectionLearningReadyResponses,
+  GetGridCorrectionLearningResponses,
   GetGridModelDefaultData,
   GetGridModelDefaultErrors,
   GetGridModelDefaultResponses,
@@ -740,6 +755,9 @@ import type {
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridCorrectionLearningData,
+  ListGridCorrectionLearningErrors,
+  ListGridCorrectionLearningResponses,
   ListGridEngineProfilesData,
   ListGridEngineProfilesResponses,
   ListGridModelEvaluationsData,
@@ -963,6 +981,9 @@ import type {
   PreviewGeometryCorrectionRevertData,
   PreviewGeometryCorrectionRevertErrors,
   PreviewGeometryCorrectionRevertResponses,
+  PreviewGridCorrectionLearningData,
+  PreviewGridCorrectionLearningErrors,
+  PreviewGridCorrectionLearningResponses,
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
@@ -1125,6 +1146,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeGridCorrectionLearningData,
+  ResumeGridCorrectionLearningErrors,
+  ResumeGridCorrectionLearningResponses,
   ResumeGridReinferenceData,
   ResumeGridReinferenceErrors,
   ResumeGridReinferenceResponses,
@@ -1233,6 +1257,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridCorrectionLearningData,
+  StartGridCorrectionLearningErrors,
+  StartGridCorrectionLearningResponses,
   StartGridReinferenceData,
   StartGridReinferenceErrors,
   StartGridReinferenceResponses,
@@ -2168,6 +2195,184 @@ export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List Runs
+ */
+export const listGridCorrectionLearning = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  ListGridCorrectionLearningResponses,
+  ListGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridCorrectionLearningResponses,
+    ListGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning',
+    ...options,
+  });
+
+/**
+ * Start
+ */
+export const startGridCorrectionLearning = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<StartGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  StartGridCorrectionLearningResponses,
+  StartGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartGridCorrectionLearningResponses,
+    StartGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview
+ */
+export const previewGridCorrectionLearning = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  PreviewGridCorrectionLearningResponses,
+  PreviewGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewGridCorrectionLearningResponses,
+    PreviewGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Ready
+ */
+export const getGridCorrectionLearningReady = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridCorrectionLearningReadyData, ThrowOnError>,
+): RequestResult<
+  GetGridCorrectionLearningReadyResponses,
+  GetGridCorrectionLearningReadyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCorrectionLearningReadyResponses,
+    GetGridCorrectionLearningReadyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/ready',
+    ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridCorrectionLearning = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  GetGridCorrectionLearningResponses,
+  GetGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCorrectionLearningResponses,
+    GetGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}',
+    ...options,
+  });
+
+/**
+ * Cancel
+ */
+export const cancelGridCorrectionLearning = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  CancelGridCorrectionLearningResponses,
+  CancelGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CancelGridCorrectionLearningResponses,
+    CancelGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/cancel',
+    ...options,
+  });
+
+/**
+ * Evaluation
+ */
+export const getGridCorrectionLearningEvaluation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridCorrectionLearningEvaluationData, ThrowOnError>,
+): RequestResult<
+  GetGridCorrectionLearningEvaluationResponses,
+  GetGridCorrectionLearningEvaluationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCorrectionLearningEvaluationResponses,
+    GetGridCorrectionLearningEvaluationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/evaluation',
+    ...options,
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridCorrectionLearning = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResumeGridCorrectionLearningData, ThrowOnError>,
+): RequestResult<
+  ResumeGridCorrectionLearningResponses,
+  ResumeGridCorrectionLearningErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridCorrectionLearningResponses,
+    ResumeGridCorrectionLearningErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/resume',
+    ...options,
   });
 
 /**
@@ -4463,6 +4668,32 @@ export const createGridModelEvaluation = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/grid-model-evaluations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Assigned Comparison
+ */
+export const createGridAssignedComparison = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateGridAssignedComparisonData, ThrowOnError>,
+): RequestResult<
+  CreateGridAssignedComparisonResponses,
+  CreateGridAssignedComparisonErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridAssignedComparisonResponses,
+    CreateGridAssignedComparisonErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/grid-model-evaluations/assigned-comparison',
     ...options,
     headers: {
       'Content-Type': 'application/json',

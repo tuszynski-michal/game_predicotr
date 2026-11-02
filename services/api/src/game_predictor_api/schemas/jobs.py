@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -813,7 +813,9 @@ class GridModelEvaluationJobPayload(ApiModel):
     """Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route."""
 
     schema_version: Literal[1] = 1
-    evaluation_kind: Literal["grid-model-evaluation-v1"]
+    evaluation_kind: Literal[
+        "grid-model-evaluation-v1", "grid-correction-evaluation-v1", "grid-assigned-comparison-v1"
+    ]
     idempotency_key: UUID
     version_id: UUID
     manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -822,6 +824,24 @@ class GridModelEvaluationJobPayload(ApiModel):
     family_id: UUID
     training_game_id: UUID
     cohorts: list[GridModelEvaluationCohortPin] = Field(min_length=1, max_length=100)
+    scope: dict[str, Any] | None = None
+    checkpoint_selection: dict[str, Any] | None = None
+    baseline_version_id: UUID | None = None
+    baseline_manifest_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
+    assignment_revision: int | None = Field(None, ge=0)
+    comparison_command: dict[str, Any] | None = None
+
+
+class GridCorrectionLearningJobPayload(ApiModel):
+    """Server-owned parent pins; public commands use the closed learning schema."""
+
+    schema_version: Literal[1] = 1
+    learning_kind: Literal["grid-correction-learning-v1"]
+    idempotency_key: UUID
+    command: dict[str, Any]
+    preview: dict[str, Any]
+    pins: dict[str, Any]
+    actor: str
 
 
 class ImportJobCreate(ApiModel):
@@ -899,6 +919,7 @@ JobPayloadResponse = (
     | SuperGameSeriesDeriveJobPayload
     | GridTrainingJobPayload
     | GridModelEvaluationJobPayload
+    | GridCorrectionLearningJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload
@@ -1468,6 +1489,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return GridTrainingJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.GRID_MODEL_EVALUATION:
         return GridModelEvaluationJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.GRID_CORRECTION_LEARNING:
+        return GridCorrectionLearningJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 
 

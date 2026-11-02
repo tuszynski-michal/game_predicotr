@@ -1,0 +1,183 @@
+"""Photo-macro correction metrics; legacy matching and correctness stay frozen."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+from ..geometry_core.metrics import PhotoEvaluation
+from ..geometry_core.metrics import evaluate_photo as match_photo
+from .grid_evaluation import ControlPhoto, Engine, input_sha256, predictions
+
+METRICS_VERSION = "grid-correction-metrics-v1"
+CHECKPOINT_RULE = "validation-board-correct-photo-macro-error-earliest-v1"
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionControlPhoto(ControlPhoto):
+    full_geometry: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionPhotoEvaluation:
+    matching: PhotoEvaluation
+    full_geometry: bool
+    normalized_error: float
+
+    def as_dict(self) -> dict[str, Any]:
+        result = self.matching.as_dict()
+        # Unlabelled predictions cannot support any whole-photo quality claim.
+        for key in ("false_boards", "duplicates", "complete_correct", "complete_correct_strict"):
+            if not self.full_geometry:
+                result[key] = None
+        result["full_geometry"] = self.full_geometry
+        result["normalized_error"] = self.normalized_error
+        return result
+
+
+def evaluate_photo(
+    image_id: str,
+    group_id: str,
+    labels: list[np.ndarray[Any, Any]],
+    predicted: list[tuple[np.ndarray[Any, Any], bool]],
+    *,
+    full_geometry: bool,
+) -> CorrectionPhotoEvaluation:
+    """Match once; average 24-node errors over targets, missing/invalid costs one."""
+    if not labels:
+        raise ValueError("Correction photos require at least one labelled board.")
+    if len(labels) > 9 or (full_geometry and len(labels) != 9):
+        raise ValueError("Full geometry requires exactly nine labelled boards.")
+    for label in labels:
+        if np.asarray(label).shape != (24, 2) or not np.isfinite(label).all():
+            raise ValueError("Each target requires 24 finite nodes.")
+        if float(np.linalg.norm(np.ptp(label, axis=0))) <= 0:
+            raise ValueError("Target bounding-box diagonal must be positive.")
+    matching = match_photo(image_id, group_id, labels, predicted)
+    errors = [1.0] * len(labels)
+    for match in matching.matches:
+        nodes = np.asarray(predicted[match.prediction][0], dtype=np.float64)
+        if not match.valid or not np.isfinite(nodes).all():
+            continue
+        label = np.asarray(labels[match.label], dtype=np.float64)
+        diagonal = float(np.linalg.norm(np.ptp(label, axis=0)))
+        errors[match.label] = min(
+            1.0, float(np.linalg.norm(nodes - label, axis=1).mean()) / diagonal
+        )
+    return CorrectionPhotoEvaluation(matching, full_geometry, float(np.mean(errors)))
+
+
+def measure(photos: Sequence[CorrectionPhotoEvaluation]) -> dict[str, Any]:
+    """Counts plus equal-photo means; full-only evidence is explicitly nullable."""
+    full = [photo.matching for photo in photos if photo.full_geometry]
+    expected = sum(photo.matching.expected for photo in photos)
+    matched = sum(photo.matching.matched for photo in photos)
+    return {
+        "photos": len(photos),
+        "full_photos": len(full),
+        "partial_photos": len(photos) - len(full),
+        "boards_expected": expected,
+        "boards_matched": matched,
+        "boards_correct": sum(photo.matching.correct for photo in photos),
+        "board_correct_rate": (
+            float(np.mean([photo.matching.correct / photo.matching.expected for photo in photos]))
+            if photos
+            else None
+        ),
+        "detection_recall": matched / expected if expected else None,
+        "normalized_error": float(np.mean([p.normalized_error for p in photos]))
+        if photos
+        else None,
+        "photo_complete_correct": sum(photo.complete_correct_strict for photo in full)
+        if full
+        else None,
+        "photo_complete_correct_rate": (
+            sum(photo.complete_correct_strict for photo in full) / len(full) if full else None
+        ),
+        "false_boards": sum(photo.false_boards for photo in full) if full else None,
+        "duplicate_predictions": sum(photo.duplicates for photo in full) if full else None,
+    }
+
+
+def checkpoint_metrics(photos: Sequence[CorrectionPhotoEvaluation]) -> dict[str, float]:
+    measured = measure(photos)
+    if not photos:
+        raise ValueError("Checkpoint selection requires VALIDATION photos.")
+    return {
+        "boardCorrectRate": float(measured["board_correct_rate"]),
+        "normalizedError": float(measured["normalized_error"]),
+    }
+
+
+def aggregate_checkpoint_metrics(per_game: Sequence[Mapping[str, float]]) -> dict[str, float]:
+    """Equal game weights after equal-photo aggregation within each game."""
+    if not per_game:
+        raise ValueError("Checkpoint selection requires at least one game.")
+    for metrics in per_game:
+        selection_key(metrics, 0)
+    return {
+        key: float(np.mean([game[key] for game in per_game]))
+        for key in ("boardCorrectRate", "normalizedError")
+    }
+
+
+def selection_key(metrics: Mapping[str, float], step: int) -> tuple[float, float, int]:
+    """Larger is better; REGRESSION must never be passed by the training caller."""
+    if set(metrics) != {"boardCorrectRate", "normalizedError"} or any(
+        isinstance(value, bool) or not np.isfinite(value) or not 0 <= value <= 1
+        for value in metrics.values()
+    ):
+        raise ValueError("Checkpoint metrics must be finite unit rates.")
+    if type(step) is not int or step < 0:
+        raise ValueError("Checkpoint step must be a non-negative integer.")
+    return metrics["boardCorrectRate"], -metrics["normalizedError"], -step
+
+
+def measure_role(
+    photos: Sequence[CorrectionControlPhoto],
+    base: Engine,
+    candidate: Engine,
+    *,
+    before_photo: Callable[[int], None] = lambda _index: None,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    evaluated: dict[str, list[CorrectionPhotoEvaluation]] = {"base": [], "candidate": []}
+    groups: dict[str, dict[str, list[CorrectionPhotoEvaluation]]] = defaultdict(
+        lambda: {"base": [], "candidate": []}
+    )
+    details = []
+    if len({photo.source_id for photo in photos}) != len(photos):
+        raise ValueError("A control photo can only be measured once per role.")
+    for index, photo in enumerate(photos):
+        before_photo(index)
+        rgb = photo.load()
+        row: dict[str, Any] = {"sourceId": photo.source_id, "groupId": photo.group_id}
+        for name, engine in (("base", base), ("candidate", candidate)):
+            result = evaluate_photo(
+                photo.source_id,
+                photo.group_id,
+                list(photo.labels),
+                predictions(engine.analyse(rgb)),
+                full_geometry=photo.full_geometry,
+            )
+            evaluated[name].append(result)
+            groups[photo.group_id][name].append(result)
+            row[name] = result.as_dict()
+        details.append(row)
+    return {
+        "photos": len(photos),
+        "inputSha256": input_sha256(photos),
+        "base": measure(evaluated["base"]),
+        "candidate": measure(evaluated["candidate"]),
+        "recordings": [
+            {
+                "groupId": group,
+                "base": measure(groups[group]["base"]),
+                "candidate": measure(groups[group]["candidate"]),
+            }
+            for group in sorted(groups)
+        ],
+    }, details

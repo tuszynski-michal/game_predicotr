@@ -67,6 +67,10 @@ class SqlGridTrainingStore:
             repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
             try:
                 repository.bind(game_id)
+                correction = (
+                    repository.cohort(game_id, cohort_id).document.get("policyVersion")
+                    == "application-grid-corrections-v1"
+                )
                 groups: dict[str, str] = {}
                 for member in repository.iter_members(game_id, cohort_id):
                     frozen = member.frozen
@@ -75,6 +79,8 @@ class SqlGridTrainingStore:
                         group = recording.get("groupId")
                         if isinstance(group, str):
                             groups[str(member.source_id)] = group
+                    if frozen.get("used") is True and correction:
+                        groups.setdefault(str(member.source_id), str(member.source_id))
                 return groups
             except GridCohortError as error:
                 raise JobHandlerError(error.code, error.message) from error
@@ -97,6 +103,14 @@ class SqlGridTrainingStore:
             if not view["available"]:
                 raise JobHandlerError("GRID_TRAINING_BASE_UNAVAILABLE", str(view["reasonCode"]))
             return dict(json.loads(record.manifest_json))
+
+    def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None:
+        from game_predictor_api.application.grid_correction_history import require_historical_cohort
+
+        with Session(self.engine) as session:
+            require_historical_cohort(
+                SqlAlchemyGridModelRegistryRepository(session), base_version_id, dict(header)
+            )
 
     def register(self, key: UUID, payload: dict[str, Any]) -> Mapping[str, Any]:
         with Session(self.engine) as session:

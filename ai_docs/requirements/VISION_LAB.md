@@ -34,6 +34,50 @@ Changed populations require a fresh preview; history is immutable. Snapshot meta
 records ordering methods, ranges, representatives, roles, buffers and limitations.
 This policy alone does not authorize training, evaluation or publication.
 
+## Correction learning and scoped evaluation (D-578, TASK-1121)
+
+The grid-only corrections preset accepts partial VALIDATION and REGRESSION photos
+through training and evaluation. It measures only their human-labelled boards;
+false detections and whole-photo completeness remain unavailable on partial photos.
+Full photos additionally retain false-board, duplicate and complete-photo guards.
+Node error is the mean of 24 distances divided by the ground-truth bounding-box
+diagonal, clamped to one; missing predictions score one. Matching remains one-to-one.
+Checkpoint selection uses VALIDATION photo-macro board correctness, then lower
+photo-macro node error, then the earliest step. Shared training weighs games equally.
+
+Report v3 and gate v2 require nonregression for every required game and both roles.
+The current game's REGRESSION must gain at least one correct board or reduce error
+by both five percent relatively and 0.001 absolutely. These product thresholds do
+not prove statistical significance or session independence. Required scope includes
+the current game, every TRAIN game and the verified previous default's explicit
+scope. Legacy report labels cannot invent game IDs. Confirmed exclusions retain
+their reasons and historical protections; current and TRAIN games cannot be excluded.
+
+The durable parent previews metadata and cost, pins the default and source split,
+creates/finalizes the cohort, trains and evaluates through existing child jobs.
+Readiness exposes pending worker runtime checks. Admission never shrinks data.
+Restart, lost responses, cancellation and resume preserve child identities and the
+original budget. Status GETs do not advance the workflow. Starting this workflow
+does not publish, activate or change game assignments.
+
+A scoped candidate may replace the default only while its declared base is still
+the current default, checked under the registry lock. Reaffirming the same head
+and replaying a successful receipt remain safe. Concurrent replacement requires
+fresh evidence instead of silently dropping the new default's evaluated scope.
+
+Readiness exposes nullable `dataAvailability`: deduplicated annotated photos and
+boards before role/buffer allocation, aggregate minima and server-computed deficits.
+Deficits are lower bounds, not a claim that adding exactly that amount makes a split
+possible. `minima`, `infeasible` and `ready` distinguish shortage from protected
+partition failure and a successful split. Unmeasured availability is null; an
+infeasible split does not invent per-role counts. Existing `roleCounts` describes
+only the actual allocation after buffers, never the whole available population.
+
+An additional assigned-model comparison is separate evidence: the server pins the
+game's actual assignment, revision and baseline descriptor. It never substitutes
+that model for the candidate's declared base or overwrites the publication report.
+Apply must still verify current evidence and compare-and-swap the assignment (TASK-1122).
+
 ## Larger isolated RGB experiment (D-506)
 
 An explicitly versioned local multi-reference experiment may add only independently

@@ -14,6 +14,46 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-578 — Uczenie korekt i ocena w jawnym zakresie
+
+Status: accepted
+Data: 2026-11-02
+
+TASK-1121 realizuje zaakceptowany T2. Polityka `application-grid-corrections-v1`
+używa snapshotu v2, częściowych obu kontroli tylko grid-only, reportu v3 i
+`grid-model-per-game-gate-v2`; stare formaty zachowują reguły. Dobór checkpointu
+wersjonowany: photo-macro board_correct, następnie mniejszy błąd i wcześniejszy
+krok, tylko VALIDATION; joint waży gry równo. Błąd nowych miar to średnia24
+odległości przez przekątną obwiedniGT, clamp1/missing1. Matching pozostaje v1.
+Partial nie orzeka FP ani kompletności zdjęcia; full dodatkowo chroni te miary.
+
+Zakres oceny to bieżąca gra, wszystkie gry TRAIN i jawnie potwierdzony scope
+poprzedniego defaultu. Kwalifikujące historyczne kohorty dołączane z zachowaniem
+ról/aliasów/aktualności, bez zmiany ich historii ani fikcyjnych nagrań. Brak
+jawnych game IDs w zweryfikowanym raporcie/publikacji oznacza nieudokumentowany
+scope. Potwierdzone wyłączenia są zapisane z powodem i nie usuwają ochrony.
+Bieżąca REGRESSION musi poprawić correct o1 albo błąd o5% i0.001; każda wymagana
+gra/rola musi zachować detected/correct/error (epsilon1e-9), full także FP/dup/
+complete. To progi produktu, bez deklaracji istotności statystycznej.
+
+Parent workflow używa istniejących jobs PostgreSQL i zapisuje przypięty default,
+scope, identyfikatory dzieci i etapy. Podczas oczekiwania zwalnia slot/dzierżawę;
+claim pomija go do terminalnego stanu dziecka. GET jest tylko odczytem. Retry
+używa tych samych dzieci i budżetu. Brak Redis, nowych usług i automatycznej
+aktywacji. Readiness ujawnia nierozstrzygnięte fakty; admission nie zmniejsza danych.
+
+Dodatkowa ocena względem faktycznie przypisanego modelu przypina po stronie serwera
+baseline descriptor i rewizję przypisania. Ma osobny job/report
+`grid-model-assigned-comparison-v1`; nie zmienia baseVersionId kandydata ani jego
+raportu publikacji. T3 wiąże taki dowód z receipt apply i końcowym CAS. Nieznane
+sesje pozostają jednostkami próbkowania zdjęć, bez dowodu niezależności.
+
+Doprecyzowanie po audycie T2: istniejący `set_default` dla raportu scoped pod
+registry lock wymaga, aby baza kandydata nadal była aktualnym defaultem; zmiana
+defaultu od czasu oceny zwraca `GRID_MODEL_EVALUATION_SCOPE_STALE` (409).
+Ponowne ustawienie aktualnego head i replay własnego receipt są bezpieczne.
+Legacy bez zmian; samo publish nie przełącza defaultu, activate wymaga gry w scope.
+
 ## D-577 — Podział korekt geometrii z atestów i trwała ochrona zdjęć
 
 Status: accepted

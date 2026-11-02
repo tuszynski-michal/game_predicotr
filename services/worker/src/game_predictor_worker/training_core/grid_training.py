@@ -28,6 +28,7 @@ from .neural_grid_network import NeuralGridNetwork
 from .runtime import TrainingInterrupted
 
 CHECKPOINT_POLICY = "grid-training-checkpoint-v1"
+CORRECTION_CHECKPOINT_RULE = "validation-board-correct-photo-macro-error-earliest-v1"
 NONFINITE_LIMIT = 20
 BOARD_CORRECT_MAX_NME = 0.02
 BOARD_CORRECT_MAX_NODE_ERROR = 0.05
@@ -235,15 +236,34 @@ class EarlyStopping:
     best_step: int | None = None
     stale: int = 0
     evaluations: int = 0
+    selection_rule: str | None = None
+    best_error: float | None = None
 
-    def update(self, metric: float, step: int) -> bool:
+    def update(self, metric: float, step: int, normalized_error: float | None = None) -> bool:
         """Record one evaluation; True when it is the new best."""
         if not math.isfinite(metric):
             raise ValueError("GRID_TRAINING_METRIC_NONFINITE")
         self.evaluations += 1
         sign = 1.0 if self.direction == "maximize" else -1.0
         improved = self.best is None or sign * (metric - self.best) > self.min_delta
+        if self.selection_rule is not None:
+            if (
+                self.selection_rule != CORRECTION_CHECKPOINT_RULE
+                or normalized_error is None
+                or not math.isfinite(normalized_error)
+                or not 0 <= normalized_error <= 1
+                or not 0 <= metric <= 1
+            ):
+                raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+            if self.best is not None and (self.best_error is None or self.best_step is None):
+                raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+            improved = self.best is None or (metric, -normalized_error, -step) > (
+                self.best,
+                -(self.best_error or 0.0),
+                -(self.best_step or 0),
+            )
         if improved:
+            self.best_error = normalized_error
             self.best, self.best_step, self.stale = metric, step, 0
         else:
             self.stale += 1
@@ -259,9 +279,17 @@ class EarlyStopping:
             "bestStep": self.best_step,
             "stale": self.stale,
             "evaluations": self.evaluations,
+            **(
+                {"selectionRule": self.selection_rule, "bestError": self.best_error}
+                if self.selection_rule
+                else {}
+            ),
         }
 
     def restore(self, value: Mapping[str, Any]) -> None:
+        if value.get("selectionRule") != self.selection_rule:
+            raise ValueError("GRID_TRAINING_SELECTION_POLICY_MISMATCH")
+        self.best_error = value.get("bestError")
         self.best, self.best_step = value["best"], value["bestStep"]
         self.stale, self.evaluations = int(value["stale"]), int(value["evaluations"])
 
@@ -304,7 +332,9 @@ class TrainingPlan:
             evaluation_steps=evaluation_steps,
             frozen_modules=tuple(preset.frozen_modules),
             binding={
-                "policy": CHECKPOINT_POLICY,
+                "policy": "grid-training-checkpoint-v2"
+                if preset.preset_id == "grid-corrections-v1"
+                else CHECKPOINT_POLICY,
                 "runId": run_id,
                 "seed": seed,
                 "presetFingerprint": preset.fingerprint,
@@ -322,6 +352,7 @@ class TrainingResult:
     checkpoint_path: Path
     checkpoint_sha256: str
     history: list[dict[str, Any]]
+    checkpoint_selection: dict[str, Any] | None = None
 
 
 class _ScalerSlot:
@@ -339,7 +370,7 @@ class _ScalerSlot:
 
 BatchSource = Callable[[int], Mapping[str, torch.Tensor]]
 LossFunction = Callable[[nn.Module, Mapping[str, torch.Tensor]], dict[str, torch.Tensor]]
-Evaluator = Callable[[nn.Module], float]
+Evaluator = Callable[[nn.Module], float | dict[str, float]]
 
 
 def train(
@@ -370,6 +401,9 @@ def train(
         preset.early_stopping.patience,
         preset.early_stopping.min_delta,
         preset.early_stopping.min_evaluations,
+        selection_rule=CORRECTION_CHECKPOINT_RULE
+        if preset.preset_id == "grid-corrections-v1"
+        else None,
     )
     history: list[dict[str, Any]] = []
     best_state: dict[str, Any] | None = None
@@ -443,9 +477,28 @@ def train(
             continue
         network.eval()
         with torch.no_grad():
-            metric = float(evaluate(network))
-        improved = stopping.update(metric, step)
-        history.append({"step": step, "metric": metric, "improved": improved})
+            measured = evaluate(network)
+        if stopping.selection_rule:
+            if not isinstance(measured, dict) or set(measured) != {
+                "boardCorrectRate",
+                "normalizedError",
+            }:
+                raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+            metric = float(measured["boardCorrectRate"])
+            error = float(measured["normalizedError"])
+        else:
+            if isinstance(measured, dict):
+                raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+            metric, error = float(measured), None
+        improved = stopping.update(metric, step, error)
+        history.append(
+            {
+                "step": step,
+                "metric": metric,
+                "improved": improved,
+                **({"selectionMetrics": measured} if stopping.selection_rule else {}),
+            }
+        )
         if improved or best_state is None:
             best_state = {
                 "model": {k: v.detach().cpu().clone() for k, v in network.state_dict().items()},
@@ -476,6 +529,19 @@ def _result(
         checkpoint_path=last[0],
         checkpoint_sha256=last[1],
         history=list(history),
+        checkpoint_selection={
+            "rule": stopping.selection_rule,
+            "role": "VALIDATION",
+            "step": stopping.best_step,
+            "metrics": {"boardCorrectRate": stopping.best, "normalizedError": stopping.best_error},
+            "earlyStopping": {
+                "patience": stopping.patience,
+                "evaluationsWithoutImprovement": stopping.stale,
+                "stopped": stopping.stop,
+            },
+        }
+        if stopping.selection_rule
+        else None,
     )
 
 

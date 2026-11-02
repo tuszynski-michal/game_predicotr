@@ -186,6 +186,35 @@ def test_grid_only_partial_photo_preserves_deformed_nodes_and_weights(tmp_path):
     assert not item["sourceRgb"].flags.writeable
 
 
+@pytest.mark.parametrize("role", ["VALIDATION", "REGRESSION"])
+def test_correction_snapshot_consumes_partial_control_without_dropping_targets(tmp_path, role):
+    fixture = SnapshotFixture(tmp_path)
+    source = fixture.source(role)
+    snapshot = fixture.publish(
+        change=lambda root: root.update(
+            schemaVersion="application-grid-snapshot-v2",
+            policyVersion="application-grid-corrections-v1",
+        )
+    )
+    dataset = GridBoardDataset(snapshot, role)
+    assert len(dataset) == 1
+    assert dataset[0]["sourceId"] == source["sourceId"]
+    assert len(list(dataset.indexed())) == 1
+
+
+def test_correction_snapshot_rejects_screen_training(tmp_path):
+    fixture = SnapshotFixture(tmp_path)
+    fixture.source(full=True)
+    with pytest.raises(GridCohortDatasetError):
+        fixture.publish(
+            mode="screen+grid",
+            change=lambda root: root.update(
+                schemaVersion="application-grid-snapshot-v2",
+                policyVersion="application-grid-corrections-v1",
+            ),
+        )
+
+
 def test_roles_and_excluded_members_are_checked_before_pixel_access(tmp_path, monkeypatch):
     fixture = SnapshotFixture(tmp_path)
     fixture.source()

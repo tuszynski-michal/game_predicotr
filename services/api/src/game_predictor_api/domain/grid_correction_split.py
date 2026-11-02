@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from itertools import permutations
 from pathlib import PurePosixPath
+from typing import Literal
 
 from game_predictor_api.domain.image_geometry_v2 import (
     ImageGeometryContractError,
@@ -31,6 +32,22 @@ _SHA = re.compile(r"[0-9a-f]{64}")
 _MANAGED_NAME = re.compile(r"[0-9a-f]{64}\.(?:jpg|jpeg)", re.IGNORECASE)
 _MIN_PHOTOS = (10, 5, 5)
 _MIN_BOARDS = (30, 15, 15)
+
+
+def correction_data_availability(
+    photos: int, boards: int, split_status: Literal["minima", "infeasible", "ready"]
+) -> dict[str, int | str]:
+    """Observed annotated population before role/buffer allocation; deficits are lower bounds."""
+    minimum_photos, minimum_boards = sum(_MIN_PHOTOS), sum(_MIN_BOARDS)
+    return {
+        "photos": photos,
+        "boards": boards,
+        "minimumPhotos": minimum_photos,
+        "minimumBoards": minimum_boards,
+        "photoDeficit": max(0, minimum_photos - photos),
+        "boardDeficit": max(0, minimum_boards - boards),
+        "splitStatus": split_status,
+    }
 
 
 class CorrectionSplitError(ValueError):

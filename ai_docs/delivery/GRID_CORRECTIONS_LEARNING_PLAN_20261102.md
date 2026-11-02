@@ -15,6 +15,13 @@ niezbędne fragmenty repozytorium do Anthropic. Nie obejmuje rzeczywistego
 treningu, zmiany defaultu/przypisań, migracji bazy operatora, restartu usług
 ani merge/push. Praca: `codex/grid-corrections-learning`.
 
+2026-11-02, po limicie sesji Anthropic, operator polecił „Kontynuuj a potem
+audyt”. T3 można implementować przed ukończeniem audytu T2, w oddzielnym
+worktree z dokładną kopią jego stabilnego, niezatwierdzonego kodu. Nie jest
+to rezygnacja z audytów: T2 i T3 zachowują osobne przeglądy Opus5.5/high oraz
+osobne commity, każdy dopiero po zamknięciu własnych P0/P1. Bazę T2 i różnicę
+T3 zachować osobno; ewentualne poprawki T2 integrować przed audytem T3.
+
 Operator poprawia siatki, klika „Ulepsz siatki z korekt”, ogląda wynik
 treningu i porównania, osobno zatwierdza „Zastosuj wersję”. Filmy i ręczna
 rejestracja nagrań nie są wymagane. Panel podstawowy: model, dostępne

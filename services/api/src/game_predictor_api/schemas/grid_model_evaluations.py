@@ -6,10 +6,10 @@ names keep the frozen ``neural-grid-metrics-v1`` snake_case spelling.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 _SHA = r"^[0-9a-f]{64}$"
 Decision = Literal["pass", "fail", "not_evaluable"]
@@ -25,10 +25,40 @@ class GridModelEvaluationCohortRef(EvaluationClosedModel):
     cohortId: UUID
 
 
+class GridModelEvaluationExclusion(EvaluationClosedModel):
+    gameId: UUID
+    reason: str = Field(min_length=1, max_length=500)
+    confirmed: StrictBool
+
+    @field_validator("reason")
+    @classmethod
+    def nonblank_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("An exclusion requires a nonblank reason.")
+        return value
+
+
 class GridModelEvaluationCreate(EvaluationClosedModel):
     idempotencyKey: UUID
     versionId: UUID
     cohorts: list[GridModelEvaluationCohortRef] = Field(min_length=1, max_length=100)
+    exclusions: list[GridModelEvaluationExclusion] = Field(default_factory=list, max_length=100)
+
+    @field_validator("exclusions")
+    @classmethod
+    def canonical_exclusions(
+        cls, value: list[GridModelEvaluationExclusion]
+    ) -> list[GridModelEvaluationExclusion]:
+        if len({item.gameId for item in value}) != len(value):
+            raise ValueError("Excluded games must be distinct.")
+        return sorted(value, key=lambda item: str(item.gameId))
+
+
+class GridAssignedComparisonCreate(EvaluationClosedModel):
+    idempotencyKey: UUID
+    versionId: UUID
+    gameId: UUID
+    cohortId: UUID
 
 
 class GridModelEvaluationMetrics(EvaluationClosedModel):
@@ -113,6 +143,142 @@ class GridModelEvaluationReport(EvaluationClosedModel):
     verdict: Verdict
 
 
+class GridCorrectionEvaluationMetrics(EvaluationClosedModel):
+    photos: int = Field(ge=0)
+    full_photos: int = Field(ge=0)
+    partial_photos: int = Field(ge=0)
+    boards_expected: int = Field(ge=0)
+    boards_matched: int = Field(ge=0)
+    boards_correct: int = Field(ge=0)
+    board_correct_rate: float | None = Field(ge=0, le=1, allow_inf_nan=False)
+    detection_recall: float | None = Field(ge=0, le=1, allow_inf_nan=False)
+    normalized_error: float | None = Field(ge=0, le=1, allow_inf_nan=False)
+    photo_complete_correct: int | None = Field(ge=0)
+    photo_complete_correct_rate: float | None = Field(ge=0, le=1, allow_inf_nan=False)
+    false_boards: int | None = Field(ge=0)
+    duplicate_predictions: int | None = Field(ge=0)
+
+
+class GridCorrectionEvaluationRecording(EvaluationClosedModel):
+    groupId: UUID
+    base: GridCorrectionEvaluationMetrics
+    candidate: GridCorrectionEvaluationMetrics
+
+
+class GridCorrectionEvaluationRole(EvaluationClosedModel):
+    photos: int = Field(ge=0)
+    inputSha256: str = Field(pattern=_SHA)
+    base: GridCorrectionEvaluationMetrics
+    candidate: GridCorrectionEvaluationMetrics
+    recordings: list[GridCorrectionEvaluationRecording]
+    detail: GridModelEvaluationDetail
+
+
+class GridCorrectionEvaluationRoles(EvaluationClosedModel):
+    VALIDATION: GridCorrectionEvaluationRole
+    REGRESSION: GridCorrectionEvaluationRole
+
+
+class GridCorrectionEvaluationDecision(EvaluationClosedModel):
+    validation: Decision
+    regression: Decision
+    coverage: Literal["complete", "incomplete"]
+    reasons: list[str]
+
+
+class GridCorrectionEvaluationGame(GridCorrectionEvaluationDecision):
+    gameId: UUID
+    cohortId: UUID
+    mode: Literal["grid-only"]
+    targetMetric: Literal["boards_correct_or_normalized_error"]
+    roles: GridCorrectionEvaluationRoles
+
+
+class GridCorrectionEvaluationPolicy(EvaluationClosedModel):
+    policyVersion: Literal["grid-model-per-game-gate-v2"]
+    metricsVersion: Literal["grid-correction-metrics-v1"]
+    minimumControlPhotos: Literal[5]
+    minimumControlBoards: Literal[15]
+    nonRegression: list[Literal["boards_matched", "boards_correct", "normalized_error"]]
+    fullPhotoNonRegression: list[
+        Literal["false_boards", "duplicate_predictions", "photo_complete_correct"]
+    ]
+    currentGameImprovementRole: Literal["REGRESSION"]
+    minimumCorrectBoardGain: Literal[1]
+    minimumRelativeErrorReduction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    minimumAbsoluteErrorReduction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    epsilon: float = Field(ge=0, allow_inf_nan=False)
+    checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
+
+
+class GridCorrectionEvaluationScope(EvaluationClosedModel):
+    currentGameId: UUID
+    trainingGameIds: list[UUID]
+    priorVerifiedGameIds: list[UUID]
+    priorScopeDocumented: bool
+    exclusions: list[GridModelEvaluationExclusion]
+
+
+class GridCorrectionCheckpointMetrics(EvaluationClosedModel):
+    boardCorrectRate: float = Field(ge=0, le=1, allow_inf_nan=False)
+    normalizedError: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+
+class GridCorrectionEarlyStopping(EvaluationClosedModel):
+    patience: int = Field(ge=1)
+    evaluationsWithoutImprovement: int = Field(ge=0)
+    stopped: bool
+
+
+class GridCorrectionCheckpointSelection(EvaluationClosedModel):
+    rule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
+    role: Literal["VALIDATION"]
+    step: int = Field(ge=0)
+    metrics: GridCorrectionCheckpointMetrics
+    earlyStopping: GridCorrectionEarlyStopping
+
+
+class GridCorrectionEvaluationReport(EvaluationClosedModel):
+    schemaVersion: Literal["grid-model-evaluation-read-v3"]
+    producer: Literal["server:grid-model-evaluator-v1"]
+    policyVersion: Literal["grid-model-per-game-gate-v2"]
+    policy: GridCorrectionEvaluationPolicy
+    versionId: UUID
+    manifestSha256: str = Field(pattern=_SHA)
+    baseVersionId: UUID
+    baseManifestSha256: str = Field(pattern=_SHA)
+    familyId: UUID
+    trainingGameId: UUID
+    parity: GridModelEvaluationParity
+    cohorts: list[GridModelEvaluationCohortPin]
+    requiredGameIds: list[UUID]
+    games: list[GridCorrectionEvaluationGame]
+    verdict: Verdict
+    scope: GridCorrectionEvaluationScope
+    evidenceLevel: Literal["photo-only"]
+    limitations: list[str]
+    checkpointSelection: GridCorrectionCheckpointSelection
+
+
+class GridAssignedComparisonReport(EvaluationClosedModel):
+    schemaVersion: Literal["grid-model-assigned-comparison-v1"]
+    producer: Literal["server:grid-model-evaluator-v1"]
+    policyVersion: Literal["grid-model-assigned-nonregression-v1"]
+    versionId: UUID
+    manifestSha256: str = Field(pattern=_SHA)
+    baselineVersionId: UUID
+    baselineManifestSha256: str = Field(pattern=_SHA)
+    gameId: UUID
+    assignmentRevision: int = Field(ge=0)
+    cohort: GridModelEvaluationCohortPin
+    parity: GridModelEvaluationParity
+    roles: GridCorrectionEvaluationRoles
+    decision: GridCorrectionEvaluationDecision
+    verdict: Verdict
+    evidenceLevel: Literal["photo-only"]
+    limitations: list[str]
+
+
 class GridModelEvaluationCurrentness(EvaluationClosedModel):
     gameId: UUID
     cohortId: UUID
@@ -140,8 +306,18 @@ class GridModelEvaluationView(EvaluationClosedModel):
     errorCode: str | None
     createdAt: str
     updatedAt: str
-    report: GridModelEvaluationReport | None
+    report: (
+        Annotated[
+            GridModelEvaluationReport
+            | GridCorrectionEvaluationReport
+            | GridAssignedComparisonReport,
+            Field(discriminator="schemaVersion"),
+        ]
+        | None
+    )
     currentness: list[GridModelEvaluationCurrentness]
+    assignedBaselineVersionId: UUID | None = None
+    assignmentRevision: int | None = Field(default=None, ge=0)
 
 
 class GridModelEvaluationList(EvaluationClosedModel):

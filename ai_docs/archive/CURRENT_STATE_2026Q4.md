@@ -6,10 +6,23 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1121 — Trening i ocena częściowych zdjęć (done)
+
+- Plik: tasks/completed/1121-grid-correction-training-evaluation.md.
+- Commit: **v1.7.518** (hash dopisuje kolejny commit).
+- Snapshot v2, częściowe obie kontrole, checkpoint VALIDATION, report v3/gate v2,
+  historyczne kohorty i trwały learning parent z kompletnym API/SDK.
+- Scoped publikacja/default/aktywacja chronią aktualny zakres i currentness;
+  jedna runda poprawek R1, focused Opus5.5/high R2 PASS, bez P0/P1.
+- Testy domeny/workera/PostgreSQL/API/klienta/Admina oraz scoped lint/typecheck PASS;
+  dodatkowo41 regresji nowych gier i snapshotów PASS. Pełny project mypy nie ma PASS.
+- P2 etykiety scope-stale przechodzi do T3; pozostały odbiór i ograniczenia do T4.
+- Bez migracji operatora, usług, rzeczywistego treningu, aktywacji modeli i merge/push.
+
 ### TASK-1120 — Dane z korekt i trwały podział (done)
 
 - Plik: `tasks/completed/1120-grid-correction-training-data.md`.
-- Commit: **v1.7.517** (hash dopisuje kolejny commit).
+- Commit: **v1.7.517 / `e1fcae27dace97c5dea102a05c512b9bf77ec94c`** (hash dopisuje kolejny commit).
 - Dodano opt-in politykę korekt, deterministyczny podział, trwałe role/bufory i migrację0170. Zachowano legacy i pełny pion API. Preflight potwierdził117 zatwierdzeń/89 zdjęć; operator dopuścił zweryfikowane atesty zamiast nazwseq_.
 - Testy: core48, HTTP18, solver/adapter/storage38, nowe regresjeAPI17 i PostgreSQL PASS; legacy storage2 i lifecycle5 PASS. Mypy16modułów, Ruff24, generatedclient, map/docs PASS. Ograniczenia pozostałych legacyE2E zapisane wOutcome.
 - Audyt ClaudeCode claude-opus-5-5/high: PASS, runda2 po jednej rundzie poprawek, bezP0/P1. PozostałeP2 jawnie doT2/T4.

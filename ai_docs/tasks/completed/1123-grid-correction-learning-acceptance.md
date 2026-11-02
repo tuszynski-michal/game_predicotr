@@ -132,3 +132,13 @@ ale nie może ukrywać wcześniejszej historii; adopcja GET wymaga zakończonych
 wcześniejszych porównań. Inne uszkodzenia własnych receipts nadal fail-closed.
 Kontrole legacy P2-8/P2-9 z audytu T1: tylko wymienione fixture paths/head, jeden
 ograniczony przebieg z limitem 110 s i jawnym wynikiem; bez rozszerzania benchmarków.
+
+### Wdrożenie po osobnej zgodzie operatora
+
+2026-11-02: implementacja scalona i wypchnięta jako
+74bfd2490286d386d9fe272567bb2b07d36be581; migracje operatora 0170/0171 oraz
+restart API/Admin/general wykonane, grid-training uruchomiony. API GET i panel
+przeglądarki PASS; chronione rekordy geometrii/default/przypisania identyczne.
+Szczegóły, ograniczenia i dowody w [raporcie odbioru](../../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
+Nie wykonywano treningu ani aktywacji kandydata. Powyższe Not completed opisuje
+stan zamknięcia implementacji przed otrzymaniem tej osobnej zgody.

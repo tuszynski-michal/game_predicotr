@@ -186,7 +186,7 @@ modułu produkcyjnego i sprawdzeniach scoped. Pełny baseline z dłuższym,
 uzgodnionym limitem pozostaje osobnym punktem w `CURRENT_STATE.md`.
 Nie jest warunkiem ukrytym pod wynikiem PASS tego audytu.
 
-## Niewykonane operacje i warunki uruchomienia
+## Stan przed wdrożeniem — odbiór implementacji
 
 Nie migrowano bazy operatora do 0170/0171, nie restartowano usług, nie uruchamiano
 GPU smoke/treningu, nie publikowano ani nie zmieniano defaultu/przypisań operatora.
@@ -198,3 +198,60 @@ Po instalacji operator wybiera właściwą grę, sprawdza gotowość i klika
 wynik pozwala jawnie potwierdzić „Zastosuj wersję”. Starsze importy i ręczne
 korekty pozostają zachowane; nowy default dotyczy nowych gier, a istniejące
 nieocenione gry nie są automatycznie przełączane.
+
+## Wdrożenie po akceptacji operatora — 2026-11-02
+
+Operator jawnie zaakceptował wynik i polecił scalenie do main, push, migracje
+0170/0171 oraz restart API, Admina i workerów. Nie ponawiano pytania o te zgody.
+Preflight: 5 commitów przed main, 0 za, bez kolizji tego zakresu; śledzone pliki
+main czyste, pozostałe katalogi innych prac zachowane. Fast-forward
+c65823fd7b37bb34e73a0269b18114b87b3e3ff2 → 74bfd2490286d386d9fe272567bb2b07d36be581.
+Kod wypchnięty do origin; oba refy potwierdzone na tym samym pełnym hashu.
+
+Przed zmianą kolejka była pusta. Zatrzymano zweryfikowane procesy API/Admina
+oraz workerów. Reviewer 3001 pozostał uruchomiony. Standardowe `npm run db:migrate`
+zakończyło się poprawnie: 0169 → 0170 → 0171, bez resetu danych. Role aplikacji
+sprawdzono osobno. Główny checkout zbudował klienta API (4.98 s) i pełnego Admina
+(20.67 s, z kontrolą TypeScript). API wróciło z reload, Admin w dotychczasowym
+trybie dev. General worker zachował limit 7 wątków; uruchomiono także grid-training
+z istniejącym interpreterem CUDA. Nie uruchamiano nieaktywnego image-selection.
+
+Wyniki na rzeczywistych usługach:
+
+- API health, katalog wersji, przypisanie, gotowość i historia uczenia: HTTP 200.
+- Gotowość Mumie a2 (`mumie-aktu2`): 117 plansz / 89 zdjęć przed buforami,
+  TRAIN 77 / 60, VALIDATION 17 / 13, REGRESSION 20 / 13, 40 zdjęć buforowych;
+  `blockers=[]`, `canStart=true`. Podgląd nadal prowizoryczny, bez utrwalenia ról.
+- Pierwszy odczyt gotowości trwał 25.985 s. Nie jest to pomiar obciążeniowy;
+  początkowe ładowanie panelu może potrwać kilkadziesiąt sekund.
+- Osobna karta przeglądarki: właściwa gra ze szkiców, Jakość rozpoznawania →
+  Geometria V3. Tabela liczb zgodna z API, aktywny przycisk „Ulepsz siatki
+  z korekt”, pusta historia, brak błędów konsoli. Nie klikano przycisku treningu.
+- Odczyt CUDA: torch 2.12.1+cu130, RTX 4050 Laptop, karta dostępna, 5 318 377 472 B
+  wolnej VRAM w chwili sprawdzenia. Nie jest to smoke trenera ani dowód jakości modelu.
+- Kontrola ról: compliant=true, bez błędów uprawnień. Odczyt po otwarciu panelu:
+  0 learning jobs, 0 photo-use rows, 0 aktywnych jobów — bez treningu i freeze.
+- Nowy interpreter po migracji i po starcie usług: identyczny default i wszystkie
+  5 przypisań, identyczne sumy pełnych rekordów 117 zatwierdzonych plansz,
+  905 rewizji źródłowych i 117 zdarzeń geometrii.
+
+Dwa kolektory wyniku startu czekały na odziedziczone uchwyty mimo zakończonych
+launcherów. Po sprawdzeniu drzewa zakończono wyłącznie te własne kolektory,
+bez kończenia usług i bez kolejnych kopii. Dalsze uruchomienie użyło logów
+plikowych oraz ograniczonego `Popen.wait`; osobne procesy i odczyty HTTP
+potwierdziły działanie usług. PID-y i ścieżki logów zapisano trwale w `.runtime`.
+
+Dowody lokalne zachowano poza usuwanym worktree:
+`D:/game_predicotr/artifacts/grid-corrections-deploy-20261102/` — preflight,
+migracje, buildy, snapshoty przed/po, wyniki HTTP, stan workerów, odczyt GPU
+oraz potwierdzenie push. Zamknięcie implementacji nie jest deklaracją poprawy
+jakości modelu: rzeczywisty trening/porównanie oraz „Zastosuj wersję” pozostają
+kolejnymi jawnymi działaniami operatora w aplikacji. Pełny baseline mypy nadal
+nie ma PASS; ograniczenie nie zmieniło się przy wdrożeniu.
+
+Przed sprzątaniem zachowano 130 tekstowych artefaktów (3 760 406 B), ze
+sprawdzeniem SHA-256 każdej kopii. Stara, niecommitowana kopia T2/T3 z pomocniczego
+worktree panelu nie została dołączona do main: pełne patche indeksu/worktree i
+16 nowych plików są w archiwum, dodatkowo zapisano odwracalny stash
+`e069f508e17266dc57e50d557e82f60d85dd4ced`. Pozostałe worktrees innych prac
+nie są objęte sprzątaniem.

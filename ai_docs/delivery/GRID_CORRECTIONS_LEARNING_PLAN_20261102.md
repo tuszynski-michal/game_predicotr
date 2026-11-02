@@ -177,6 +177,15 @@ osobnego, uzgodnionego limitu. Migracje operatora 0170/0171, integracja/push,
 restarty usług, trening i zmiany defaultu pozostają niewykonane i wymagają
 właściwych zgód. Historia pierwotnego planu i audytów została zachowana.
 
+## Wdrożenie zaakceptowane 2026-11-02
+
+Po osobnej zgodzie operatora kod scalono fast-forward do main i wypchnięto do
+origin (74bfd2490286d386d9fe272567bb2b07d36be581). Baza operatora jest na 0171;
+API, Admin oraz general/grid-training działają. Ręczne korekty i przypisania
+zachowane, HTTP i rzeczywisty panel sprawdzone, trening nie był uruchamiany.
+Szczegóły i ograniczenia w raporcie odbioru. Końcowy zapis operacyjny ma osobny
+commit dokumentacyjny; nie zmienia kodu ocenionego czterema audytami.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

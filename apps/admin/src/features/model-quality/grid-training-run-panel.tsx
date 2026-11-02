@@ -348,23 +348,27 @@ function RunPanel({
       {pending ? (
         <div>
           <p>Zapisane zlecenie runu czeka na potwierdzenie.</p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void send(pending)}
-          >
-            Ponów zapisane zlecenie
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              window.localStorage.removeItem(storageKey);
-              setPending(null);
-            }}
-          >
-            Porzuć zapisane zlecenie
-          </button>
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => void send(pending)}
+            >
+              Ponów zapisane zlecenie
+            </button>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                window.localStorage.removeItem(storageKey);
+                setPending(null);
+              }}
+            >
+              Porzuć zapisane zlecenie
+            </button>
+          </div>
         </div>
       ) : null}
       <label>
@@ -439,6 +443,7 @@ function RunPanel({
         </fieldset>
       ) : null}
       <button
+        className="primaryButton"
         type="button"
         disabled={busy || pending !== null || startBlocker !== null}
         onClick={start}
@@ -449,6 +454,7 @@ function RunPanel({
         <p>Start niedostępny: {startBlocker}</p>
       ) : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={busy}
         onClick={() =>
@@ -469,6 +475,7 @@ function RunPanel({
             {['created', 'processing'].includes(run.status) &&
             !run.cancelRequested ? (
               <button
+                className="secondaryButton"
                 type="button"
                 disabled={busy}
                 onClick={() => void control(run, 'cancel')}
@@ -478,6 +485,7 @@ function RunPanel({
             ) : null}
             {['failed', 'cancelled'].includes(run.status) ? (
               <button
+                className="primaryButton"
                 type="button"
                 disabled={busy}
                 onClick={() => void control(run, 'resume')}

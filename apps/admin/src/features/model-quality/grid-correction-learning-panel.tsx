@@ -374,6 +374,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             przeładowaniu.
           </p>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy}
             onClick={() => void send(pending)}
@@ -384,6 +385,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       ) : null}
       {pending || corrupt ? (
         <button
+          className="secondaryButton"
           type="button"
           disabled={busy}
           onClick={() => {
@@ -401,6 +403,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         </button>
       ) : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={busy}
         onClick={() =>
@@ -567,6 +570,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 </fieldset>
               ))}
             <button
+              className="secondaryButton"
               type="button"
               disabled={
                 disabled ||
@@ -586,6 +590,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             </p>
           ) : null}
           <button
+            className="primaryButton"
             type="button"
             disabled={
               disabled ||
@@ -620,6 +625,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         {runs.map((run) => (
           <li key={run.learningId}>
             <button
+              className="secondaryButton"
               type="button"
               disabled={busy}
               onClick={() =>
@@ -642,6 +648,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           </p>
           {learningActive(selected.status) ? (
             <button
+              className="secondaryButton"
               type="button"
               disabled={disabled}
               onClick={() =>
@@ -657,6 +664,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           ) : null}
           {['failed', 'cancelled'].includes(selected.status) ? (
             <button
+              className="primaryButton"
               type="button"
               disabled={disabled}
               onClick={() =>
@@ -728,6 +736,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           Potwierdzam przywrócenie wersji dla nowych importów tej gry
         </label>
         <button
+          className="secondaryButton"
           type="button"
           disabled={disabled || !rollbackTarget || !rollbackConfirmed}
           onClick={() => void rollback()}

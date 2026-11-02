@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1133 — Spójne przyciski jakości rozpoznawania (done)
+
+- Plik: tasks/completed/1133-model-quality-button-styles.md
+- Commit: **v1.7.523** (hash dopisuje kolejny commit).
+- 79 przycisków geometrii korzysta ze wspólnych primary/secondary; 8 grup akcji i lokalny gap/flex-wrap usuwają stykanie przycisków symboli i geometrii.
+- 87 interakcji PASS, ESLint 12 TSX i pełny frontend tsc PASS, Prettier/docs/map PASS. Przeglądarka desktop i 390 px: identyczny zielony primary, 12 px przerwy, brak błędów konsoli; 24 interakcje po P2 PASS, przyciski uczenia zachowują 44 px.
+- Audyt Opus 5.5/high: PASS, runda 1, bez P0/P1; obie uwagi P2 poprawione. Bez restartów i działań na modelach. Main/push wymagają osobnej akceptacji.
+
 ### TASK-1123 — Odbiór i dokumentacja uczenia z korekt (done)
 
 - Plik: tasks/completed/1123-grid-correction-learning-acceptance.md

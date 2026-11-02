@@ -423,6 +423,7 @@ function GridReinferenceWorkspace({
           </select>
         </label>
         <button
+          className="primaryButton"
           type="button"
           disabled={blocked || !selector.categories?.length}
           onClick={prepare}
@@ -431,7 +432,10 @@ function GridReinferenceWorkspace({
         </button>
       </fieldset>
       {hasRawPending ? (
-        <section aria-label="Zapisane polecenie">
+        <section
+          className="gridReinferencePendingCommand"
+          aria-label="Zapisane polecenie"
+        >
           <p>
             Zapisane polecenie:{' '}
             {pending ? commandLabels[pending.kind] : 'uszkodzony wpis'}. Wynik
@@ -442,6 +446,7 @@ function GridReinferenceWorkspace({
             {pending?.body.idempotencyKey}
           </details>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy || pending === null}
             onClick={() => pending && void run(pending, true)}
@@ -458,6 +463,7 @@ function GridReinferenceWorkspace({
             może istnieć.
           </label>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy || !discardConfirmed}
             onClick={() => {
@@ -505,13 +511,18 @@ function GridReinferenceWorkspace({
         utworzenia.
       </p>
       {historyCursor ? (
-        <button type="button" onClick={() => void more('history')}>
+        <button
+          className="secondaryButton"
+          type="button"
+          onClick={() => void more('history')}
+        >
           Dalsza historia
         </button>
       ) : null}
       {operation ? (
         <>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy}
             onClick={() => void selectOperation(operation.operationId)}
@@ -520,6 +531,7 @@ function GridReinferenceWorkspace({
           </button>
           {operation.state === 'prepared' ? (
             <button
+              className="primaryButton"
               type="button"
               disabled={blocked}
               onClick={() => command('freeze')}
@@ -545,7 +557,11 @@ function GridReinferenceWorkspace({
                 </select>
               </label>
               {pilotCursor ? (
-                <button type="button" onClick={() => void more('pilot')}>
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  onClick={() => void more('pilot')}
+                >
                   Dalsze zgodne piloty
                 </button>
               ) : null}
@@ -554,6 +570,7 @@ function GridReinferenceWorkspace({
                 modelu.
               </p>
               <button
+                className="primaryButton"
                 type="button"
                 disabled={blocked || !pilotId}
                 onClick={() => command('ack')}
@@ -572,6 +589,7 @@ function GridReinferenceWorkspace({
           ) : null}
           {operation.state === 'frozen' ? (
             <button
+              className="primaryButton"
               type="button"
               disabled={
                 blocked ||
@@ -587,6 +605,7 @@ function GridReinferenceWorkspace({
             operation.state,
           ) ? (
             <button
+              className="secondaryButton"
               type="button"
               disabled={blocked}
               onClick={() => command('cancel')}
@@ -597,6 +616,7 @@ function GridReinferenceWorkspace({
           {['failed', 'cancelled'].includes(operation.state) &&
           !operation.executionQuarantine ? (
             <button
+              className="primaryButton"
               type="button"
               disabled={blocked}
               onClick={() => command('resume')}

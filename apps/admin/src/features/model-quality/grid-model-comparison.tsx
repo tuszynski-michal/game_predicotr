@@ -344,13 +344,19 @@ function Comparison({
               </p>
             ) : null}
           </fieldset>
-          <button type="button" disabled={busy} onClick={() => void start()}>
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={busy}
+            onClick={() => void start()}
+          >
             Uruchom ocenę
           </button>
           <ul>
             {evaluations.map((item) => (
               <li key={item.evaluationId}>
                 <button
+                  className="secondaryButton"
                   type="button"
                   onClick={() => void open(item.evaluationId)}
                 >
@@ -399,7 +405,7 @@ function EvaluationDetail({
         {view.errorCode ? ` · błąd ${view.errorCode}` : ''}
       </p>
       {!evaluationFinished(view) ? (
-        <button type="button" onClick={onRefresh}>
+        <button className="secondaryButton" type="button" onClick={onRefresh}>
           Odśwież
         </button>
       ) : null}
@@ -425,7 +431,12 @@ function EvaluationDetail({
             ))}
           </ul>
           {needsCurrentnessCheck(view.currentness) ? (
-            <button type="button" disabled={busy} onClick={onVerify}>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={onVerify}
+            >
               Sprawdź aktualność
             </button>
           ) : null}

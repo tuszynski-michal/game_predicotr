@@ -93,6 +93,7 @@ export function RecordingImportPicker({
       {loading ? <p aria-busy="true">Odczytywanie importów tej gry…</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={disabled || loading}
         onClick={() => setRefresh((current) => current + 1)}
@@ -148,6 +149,7 @@ export function RecordingImportPicker({
           {pageCount > 1 ? (
             <div className="buttonRow">
               <button
+                className="secondaryButton"
                 type="button"
                 disabled={disabled || currentPage === 0}
                 onClick={() => setPage(currentPage - 1)}
@@ -155,6 +157,7 @@ export function RecordingImportPicker({
                 Poprzednia strona importów
               </button>
               <button
+                className="secondaryButton"
                 type="button"
                 disabled={disabled || currentPage + 1 >= pageCount}
                 onClick={() => setPage(currentPage + 1)}

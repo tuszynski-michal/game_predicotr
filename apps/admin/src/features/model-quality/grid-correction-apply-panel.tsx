@@ -289,6 +289,7 @@ function Apply({
             zastosowania.
           </p>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy}
             onClick={() => void send(pending)}
@@ -299,6 +300,7 @@ function Apply({
       ) : null}
       {pending || corrupt ? (
         <button
+          className="secondaryButton"
           type="button"
           disabled={busy}
           onClick={() => {
@@ -316,6 +318,7 @@ function Apply({
         </button>
       ) : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={busy}
         onClick={() =>
@@ -413,6 +416,7 @@ function Apply({
                 zastosowania
               </label>
               <button
+                className="primaryButton"
                 type="button"
                 disabled={disabled || active || !confirmed || !preview.canApply}
                 onClick={() => {
@@ -478,6 +482,7 @@ function Apply({
           ) : null}
           {['failed', 'cancelled'].includes(operation.status) ? (
             <button
+              className="primaryButton"
               type="button"
               disabled={disabled}
               onClick={() =>

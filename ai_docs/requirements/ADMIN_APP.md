@@ -13,6 +13,11 @@ kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 ## Forma aplikacji
 
+Akcje jakości rozpoznawania używają wspólnych klas `primaryButton` i
+`secondaryButton` z `packages/ui/src/buttons.css`. Start i zastosowanie są
+primary; odczyty, nawigacja i anulowanie secondary. Sąsiadujące akcje mają
+odstęp i zawijają się na wąskim ekranie, także w panelach zaawansowanych.
+
 ### Uczenie siatek z zapisanych korekt — TASK-1122
 
 Podstawowy panel Geometria V3 prowadzi przez dostępne korekty i braki, start,

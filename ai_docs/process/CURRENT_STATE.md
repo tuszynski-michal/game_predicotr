@@ -74,6 +74,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
 - **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
 - **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md
@@ -83,4 +84,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
 - **TASK-1113** — Odblokowanie zapisu super symbolu — v1.7.514 / `923dd029` — tasks/completed/1113-super-symbol-save-lock.md
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
-- **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 / `a8727323` — tasks/completed/1111-expand-mumie-training-set-2.md

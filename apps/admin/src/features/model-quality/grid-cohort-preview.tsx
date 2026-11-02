@@ -528,36 +528,41 @@ export function GridCohortPreview({
             Zapisane polecenie oczekuje na rozstrzygnięcie. Odświeżenie
             odczytuje stan bez ponawiania zapisu.
           </p>
-          <button
-            type="button"
-            disabled={busy || !pending || storageBlocked}
-            onClick={() => pending && void execute(pending, true)}
-          >
-            Ponów zapisane polecenie
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              try {
-                discardGridCohortCommand(
-                  window.localStorage,
-                  apiBaseUrl,
-                  gameId,
-                );
-                setPending(null);
-                setStorageBlocked(false);
-                setError('');
-              } catch (failure) {
-                setError(message(failure));
-              }
-            }}
-          >
-            Porzuć lokalne polecenie z zachowaniem kopii
-          </button>
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy || !pending || storageBlocked}
+              onClick={() => pending && void execute(pending, true)}
+            >
+              Ponów zapisane polecenie
+            </button>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                try {
+                  discardGridCohortCommand(
+                    window.localStorage,
+                    apiBaseUrl,
+                    gameId,
+                  );
+                  setPending(null);
+                  setStorageBlocked(false);
+                  setError('');
+                } catch (failure) {
+                  setError(message(failure));
+                }
+              }}
+            >
+              Porzuć lokalne polecenie z zachowaniem kopii
+            </button>
+          </div>
         </div>
       )}
       <button
+        className="secondaryButton"
         type="button"
         disabled={busy}
         onClick={() => void list().catch((f) => setError(message(f)))}
@@ -568,6 +573,7 @@ export function GridCohortPreview({
         {items.map((item) => (
           <li key={item.id}>
             <button
+              className="secondaryButton"
               type="button"
               disabled={busy}
               onClick={() =>
@@ -581,6 +587,7 @@ export function GridCohortPreview({
       </ul>
       {nextList && (
         <button
+          className="secondaryButton"
           type="button"
           disabled={busy}
           onClick={() => void list(nextList).catch((f) => setError(message(f)))}
@@ -728,7 +735,7 @@ export function GridCohortPreview({
             onChange={(e) => setSelection(e.target.value)}
           />
         </details>
-        <button type="button" onClick={prepare}>
+        <button className="primaryButton" type="button" onClick={prepare}>
           Przygotuj metadane kohorty
         </button>
       </fieldset>
@@ -822,77 +829,86 @@ export function GridCohortPreview({
             Podgląd SHA: {header.previewSha256 ?? 'Jeszcze niedostępny'}.
             Manifest SHA: {header.manifestSha256 ?? 'Jeszcze niedostępny'}.
           </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void load(header.id).catch((f) => setError(message(f)))
-            }
-          >
-            Odczytaj aktualny stan kohorty
-          </button>
-          <button
-            type="button"
-            disabled={
-              locked ||
-              header.status !== 'preparing' ||
-              header.nextCaptureCursor === null
-            }
-            onClick={() => page('prepare-page')}
-          >
-            Przygotuj następną stronę metadanych (do 200)
-          </button>
-          <button
-            type="button"
-            disabled={
-              locked ||
-              !['preview_ready', 'materializing'].includes(header.status) ||
-              header.nextMaterializationCursor === null
-            }
-            onClick={() => page('materialize-page')}
-          >
-            Skopiuj następną stronę źródeł (do 5)
-          </button>
-          <button
-            type="button"
-            disabled={
-              locked ||
-              header.status !== 'ready_to_freeze' ||
-              !header.previewSha256 ||
-              !header.manifestSha256
-            }
-            onClick={() => {
-              if (header.previewSha256 && header.manifestSha256)
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void load(header.id).catch((f) => setError(message(f)))
+              }
+            >
+              Odczytaj aktualny stan kohorty
+            </button>
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={
+                locked ||
+                header.status !== 'preparing' ||
+                header.nextCaptureCursor === null
+              }
+              onClick={() => page('prepare-page')}
+            >
+              Przygotuj następną stronę metadanych (do 200)
+            </button>
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={
+                locked ||
+                !['preview_ready', 'materializing'].includes(header.status) ||
+                header.nextMaterializationCursor === null
+              }
+              onClick={() => page('materialize-page')}
+            >
+              Skopiuj następną stronę źródeł (do 5)
+            </button>
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={
+                locked ||
+                header.status !== 'ready_to_freeze' ||
+                !header.previewSha256 ||
+                !header.manifestSha256
+              }
+              onClick={() => {
+                if (header.previewSha256 && header.manifestSha256)
+                  void execute({
+                    kind: 'freeze',
+                    cohortId: header.id,
+                    body: {
+                      idempotencyKey: crypto.randomUUID(),
+                      expectedRevision: header.revision,
+                      expectedPreviewSha256: header.previewSha256,
+                      expectedManifestSha256: header.manifestSha256,
+                    },
+                  });
+              }}
+            >
+              Zamroź sprawdzoną kohortę
+            </button>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={
+                locked || ['frozen', 'canceled'].includes(header.status)
+              }
+              onClick={() =>
                 void execute({
-                  kind: 'freeze',
+                  kind: 'cancel',
                   cohortId: header.id,
                   body: {
                     idempotencyKey: crypto.randomUUID(),
                     expectedRevision: header.revision,
-                    expectedPreviewSha256: header.previewSha256,
-                    expectedManifestSha256: header.manifestSha256,
                   },
-                });
-            }}
-          >
-            Zamroź sprawdzoną kohortę
-          </button>
-          <button
-            type="button"
-            disabled={locked || ['frozen', 'canceled'].includes(header.status)}
-            onClick={() =>
-              void execute({
-                kind: 'cancel',
-                cohortId: header.id,
-                body: {
-                  idempotencyKey: crypto.randomUUID(),
-                  expectedRevision: header.revision,
-                },
-              })
-            }
-          >
-            Anuluj przygotowanie kohorty
-          </button>
+                })
+              }
+            >
+              Anuluj przygotowanie kohorty
+            </button>
+          </div>
           <ul>
             {members.map((member) => (
               <li key={member.sourceId}>
@@ -911,6 +927,7 @@ export function GridCohortPreview({
           </ul>
           {nextMember !== null && (
             <button
+              className="secondaryButton"
               type="button"
               disabled={busy}
               onClick={() =>
@@ -940,7 +957,7 @@ export function GridCohortPreview({
               onChange={(e) => setCompletion(e.target.value)}
             />
           </label>
-          <button type="button" onClick={complete}>
+          <button className="primaryButton" type="button" onClick={complete}>
             Uzupełnij wybrane tożsamości
           </button>
         </fieldset>

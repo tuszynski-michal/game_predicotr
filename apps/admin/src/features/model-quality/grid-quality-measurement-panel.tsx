@@ -303,7 +303,7 @@ function MeasurementPanel({ apiBaseUrl, gameId, client }: PanelProps) {
             />
           </label>
         </details>
-        <button type="button" onClick={capture}>
+        <button className="primaryButton" type="button" onClick={capture}>
           Zamroź nową próbę
         </button>
       </fieldset>
@@ -314,41 +314,46 @@ function MeasurementPanel({ apiBaseUrl, gameId, client }: PanelProps) {
               ? 'Uszkodzony zapis polecenia. Automatyczne ponowienie jest zablokowane.'
               : `Zachowane polecenie: ${pending?.kind}. Odświeżenie strony wykonuje tylko odczyt.`}
           </p>
-          <button
-            type="button"
-            disabled={busy || corrupt || !pending}
-            onClick={() => {
-              if (pending) void send(pending, true);
-            }}
-          >
-            Ponów zapisane polecenie
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              try {
-                discardMeasurementCommand(
-                  localStorage,
-                  apiBaseUrl,
-                  gameId,
-                  window.confirm(
-                    'Zarchiwizować i porzucić zapisane polecenie? Mogło już zostać wykonane. Historia serwera pozostanie zachowana.',
-                  ),
-                );
-                readPending();
-              } catch {
-                setError(
-                  'Nie udało się zarchiwizować polecenia. Zachowano zapis.',
-                );
-              }
-            }}
-          >
-            Zarchiwizuj i porzuć polecenie
-          </button>
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy || corrupt || !pending}
+              onClick={() => {
+                if (pending) void send(pending, true);
+              }}
+            >
+              Ponów zapisane polecenie
+            </button>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                try {
+                  discardMeasurementCommand(
+                    localStorage,
+                    apiBaseUrl,
+                    gameId,
+                    window.confirm(
+                      'Zarchiwizować i porzucić zapisane polecenie? Mogło już zostać wykonane. Historia serwera pozostanie zachowana.',
+                    ),
+                  );
+                  readPending();
+                } catch {
+                  setError(
+                    'Nie udało się zarchiwizować polecenia. Zachowano zapis.',
+                  );
+                }
+              }}
+            >
+              Zarchiwizuj i porzuć polecenie
+            </button>
+          </div>
         </aside>
       ) : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={loading}
         onClick={() => {
@@ -385,6 +390,7 @@ function MeasurementPanel({ apiBaseUrl, gameId, client }: PanelProps) {
       </label>
       {cursor ? (
         <button
+          className="secondaryButton"
           type="button"
           disabled={loading}
           onClick={() => void loadList(cursor)}

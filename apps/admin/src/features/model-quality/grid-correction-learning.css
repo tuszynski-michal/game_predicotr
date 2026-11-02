@@ -8,12 +8,13 @@
 }
 
 .gridCorrectionLearning {
+  --button-height: 44px;
+
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 
-.gridCorrectionLearning button,
 .gridCorrectionLearning select,
 .gridCorrectionLearning input:not([type='checkbox']),
 .gridCorrectionLearning label:has(input[type='checkbox']),

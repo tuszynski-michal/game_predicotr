@@ -239,7 +239,12 @@ export function GridReinferenceReport({
         ))}
       </ol>
       {targets?.nextCursor ? (
-        <button type="button" disabled={busy} onClick={onNext}>
+        <button
+          className="secondaryButton"
+          type="button"
+          disabled={busy}
+          onClick={onNext}
+        >
           Następna strona celów
         </button>
       ) : null}

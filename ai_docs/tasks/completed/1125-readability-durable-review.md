@@ -79,7 +79,7 @@ Empiryczna skuteczność pozostaje niezmierzona bez operatorowych etykiet i jawn
 
 ## Outcome
 
-Commit: v1.7.519 (hash dopisuje kolejny commit).
+Commit: v1.7.519 / `8c09626389584154fadb89b6013c5e3f12142ba7`.
 
 ### Changed
 

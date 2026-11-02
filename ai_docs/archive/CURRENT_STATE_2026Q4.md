@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1125 — Trwały pilot i przegląd jakości (done)
 
 - Plik: `tasks/completed/1125-readability-durable-review.md`.
-- Commit: **v1.7.519** (hash dopisuje kolejny commit).
+- Commit: **v1.7.519 / `8c09626389584154fadb89b6013c5e3f12142ba7`** (hash dopisuje kolejny commit).
 - Pilot bez detektora, TEST-first i niezależna audit200, jawny fit/PASS/odbiór/scan; trwałe joby i checkpoint per źródło, current-owner identity, istniejąca mutacja unreadable, pełen pion API/OpenAPI/klient/Admin Podejrzane symbole.
 - Kontrole: 19 testów domeny/HTTP/selekcji/kalibracji/artefaktów, 4 isolated PostgreSQL, 29 jobów, 135 klienta i 48 UI PASS; mypy 8 modułów, Ruff/format 21 plików, mapa kodu i docs PASS. Szczegóły i ograniczenia w Outcome.
 - Audyt rzeczywistego claude-opus-5-5/high PASS w ograniczonym zakresie po timeoutcie pierwszej próby; pięć P2 rozliczonych jedną rundą poprawek. Raport: `quality/TASK-1125_AUDIT_claude-opus-5-5.md`.

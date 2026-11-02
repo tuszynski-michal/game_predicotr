@@ -14,6 +14,48 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-577 — Podział korekt geometrii z atestów i trwała ochrona zdjęć
+
+Status: accepted
+Data: 2026-11-02
+
+Operator zlecił cały plan uczenia siatek z korekt, a po preflight jawnie dopuścił
+zweryfikowane atesty zamiast niedostępnych nazw seq_. W grze mumie-aktu2 istnieje
+117 rzeczywistych korekt na 89 zdjęciach; logiczne pola importu przechowują nazwy
+SHA, a 788 źródeł ma poprawne atesty. Nie rekonstruujemy fikcyjnych nazw ani sesji.
+
+Rozszerzenie D-554/D-556: opt-in `application-grid-corrections-v1`, tylko grid-only,
+łączy dokładne ludzkie etykiety z rejestrem ochrony photo-only. Zgodne nazwy seq_
+pozostają dowodem; dla managed SHA obowiązuje `verified-attestation-order-v1`.
+Sprzeczna oryginalna nazwa blokuje, brak porządku czyni import nierozdzielnym.
+Znane sesje i kopie nie przechodzą między rolami. Nieznana niezależność sesji
+i nieznany ancestor use są jawnym ograniczeniem, nie kwalifikacją historyczną.
+
+Dokładne optimum 70/15/15 dotyczy 1–3 kolejnych bloków na import, każda rola raz,
+z buforem 10 wszystkich unikalnych zdjęć przy zmianie roli. To doprecyzowanie
+podziału 3-role/2-bufory zaakceptowanego po preflight. Minima: TRAIN 30 plansz/10
+zdjęć, każda kontrola 15/5; częściowe kontrole wyłącznie w nowej polityce.
+Limity solvera są jawne; przekroczenie nie dowodzi braku matematycznego rozwiązania.
+
+Migracja 0170 rozszerza prywatny rejestr o niezmienne użycia zdjęć i bufory,
+bez udawania nagrań. Preview niczego nie zużywa; freeze atomowo utrwala ochronę,
+także wobec dawnych konsumentów. Zmiana populacji lub dowodów wymaga nowego preview.
+Stare polityki zachowują semantykę. Wykonanie migracji operatora, trening,
+publikacja, aktywacja i merge pozostają poza zgodą implementacyjną.
+
+Doprecyzowanie po audycie: każde przydzielone zdjęcie i bufor otrzymuje trwałą
+rezerwację. `used_in_cohort` odróżnia przykłady użyte w kohorcie od rezerwacji
+metadanych zdjęć bez etykiet lub kopii; tylko użyte przykłady kopiują oryginały.
+Nakładka legacy sprawdza wyłącznie nowe rezerwacje zdjęć. Dotychczasowe reguły
+nagrań pozostają w istniejącej implementacji v3 uwzględniającej rodzinę modelu.
+
+Adapter T1 rozdziela korekty własnej gry. TASK-1121 ma dołączyć kwalifikujące
+niezmienne kohorty historyczne wspólnej bazy w `SharedGridCandidateService`
+i wersjonowanym readerze workera, zachowując role, aliasy, ancestry i aktualność
+każdej gry. To jawna zależność odbioru wymagania T1 o danych wspólnej bazy,
+a nie punkt uznany za wykonany przez sam split. Do czasu gotowego konsumenta
+API odrzuca trening pojedynczy i wspólny nowej polityki przed utworzeniem joba.
+
 ## D-576 — Uproszczenie wyszukiwarki i modal supergry w Adminie
 
 Status: accepted

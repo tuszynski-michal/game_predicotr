@@ -6,6 +6,34 @@ last_updated: 2026-10-16
 
 # Architektura laboratorium wizji
 
+## Photo-only correction split (D-577, TASK-1120)
+
+`domain/grid_correction_split.py` implements bounded exact one-to-three-block
+partitioning over complete imports, with alias/session components, verified
+attestations, explicit fallback and stable ties. It deduplicates photo counts and
+chooses the representative with most current labels. Limits are 5000 sources,
+three million work units and 100000 candidate/state records; exceeding any limit
+fails without shrinking the population or returning an unproven optimum.
+
+`storage/grid_correction_split.py` reads own-game metadata, obtains exact labels
+from `GridCohortEvidenceReader`, and asks the existing recording capability for
+known protections. The opt-in policy extends existing prepare/capture/materialize/
+freeze/currentness commands. Immutable cohort documents and snapshots pin the full
+population, methods, ranges and buffers. No separate training dataset is invented.
+Metadata preparation does not copy images or permanently consume roles.
+
+Alembic0170 adds private append-only `recording_photo_uses`, including BUFFER rows,
+owned by the existing nonlogin capability. Runtime receives only a bounded own-game
+context reader; final use dispatches through the existing v3 cohort command.
+Every assigned source is reserved; `used_in_cohort` distinguishes examples from
+metadata-only reservations, which copy no image bytes. All roles are checked before any insert; failure rolls back roles and buffers
+together. The v3 wrapper checks only new photo reservations; legacy recording semantics
+remain in the family-aware v3 implementation.
+Currentness checks the complete selected population and known byte/pixel/session
+protections. Unknown historical providers remain visible as photo-only limitations.
+No new schema partition or image binary storage is introduced. Training and report
+adapters are delivered separately by TASK-1121; old snapshot consumers stay strict.
+
 ## Larger local symbol experiment (D-506)
 
 Three explicit local modules isolate the multi-reference adapter, RGB protocol

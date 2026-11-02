@@ -105,4 +105,18 @@ test('cohort wrapper sends bounded exact bodies and scoped metadata routes', asy
   await client.prepareGridTrainingCohort(game, several);
   assert.deepEqual(calls[10].body, several);
   assert.ok(calls[10].url.endsWith('/grid-training-cohorts/prepare'));
+  const corrections = {
+    idempotencyKey: key,
+    familyId: cohort,
+    baseVersionId: cohort,
+    selector: { importJobId: cohort },
+  };
+  await client.prepareGridCorrectionCohort(game, corrections);
+  assert.deepEqual(calls[11].body, {
+    ...corrections,
+    mode: 'grid-only',
+    recordings: [],
+    policyVersion: 'application-grid-corrections-v1',
+  });
+  assert.ok(calls[11].url.endsWith('/grid-training-cohorts/prepare'));
 });

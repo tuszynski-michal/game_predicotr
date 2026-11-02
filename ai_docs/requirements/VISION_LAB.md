@@ -6,6 +6,34 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Photo-only correction cohorts (D-577, TASK-1120)
+
+The explicit `application-grid-corrections-v1` policy extends the existing cohort
+workflow for grid-only human corrections without declaring fictitious recordings.
+Legacy cohorts retain their full-control and recording requirements. Complete
+imports, including unlabelled photos, define ordering and buffers. Exact byte/pixel
+copies and known recording components are indivisible. Protected uses never become
+TRAIN; TRAIN ancestry never becomes an independent control. Unknown session and
+ancestor evidence is an explicit photo-only limitation, not independence.
+
+Logical `seq_*` names must agree with current geometry attestations. Where only
+managed SHA names survive, the operator-approved `verified-attestation-order-v1`
+uses checksums, slots, sequence bindings and nonoverlapping ranges. UUIDs, times
+and ordinals prove no chronology. Unordered imports remain indivisible; contradictory
+sequence names block. Each ordered import permits one to three consecutive blocks,
+each role once, with ten unique source photos between blocks. Exact bounded search
+minimizes total deviation from 70/15/15 after buffers in this class of partitions.
+Resource exhaustion reports a limit, never an incomplete optimum.
+
+TRAIN needs 30 boards and ten photos; each control needs 15 boards and five photos.
+Partial controls qualify only in the new grid-only policy. Exact human labels and
+weights retain D-556 proofs. Preview consumes no role. Freeze atomically records
+actual photo uses and every buffer in the private recording registry. Buffers,
+aliases and known sessions protect future iterations and legacy cohort commands.
+Changed populations require a fresh preview; history is immutable. Snapshot metadata
+records ordering methods, ranges, representatives, roles, buffers and limitations.
+This policy alone does not authorize training, evaluation or publication.
+
 ## Larger isolated RGB experiment (D-506)
 
 An explicitly versioned local multi-reference experiment may add only independently

@@ -10068,6 +10068,15 @@
             "title": "Createdat",
             "type": "string"
           },
+          "evidenceLevel": {
+            "default": "recording",
+            "enum": [
+              "recording",
+              "photo-only"
+            ],
+            "title": "Evidencelevel",
+            "type": "string"
+          },
           "familyId": {
             "format": "uuid",
             "title": "Familyid",
@@ -10123,6 +10132,11 @@
               }
             ],
             "title": "Nextmaterializationcursor"
+          },
+          "policyVersion": {
+            "default": "application-grid-cohort-v1",
+            "title": "Policyversion",
+            "type": "string"
           },
           "previewSha256": {
             "anyOf": [
@@ -10354,6 +10368,15 @@
               "screen+grid"
             ],
             "title": "Mode",
+            "type": "string"
+          },
+          "policyVersion": {
+            "default": "application-grid-cohort-v1",
+            "enum": [
+              "application-grid-cohort-v1",
+              "application-grid-corrections-v1"
+            ],
+            "title": "Policyversion",
             "type": "string"
           },
           "recordings": {

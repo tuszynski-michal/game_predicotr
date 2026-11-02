@@ -69,6 +69,8 @@ def create_grid_training_cohorts_router(dependency: Callable[..., object]) -> AP
         # Bodies without several imports keep their earlier shape, so replays still match.
         if body["selector"].get("importJobIds") is None:
             del body["selector"]["importJobIds"]
+        if body["policyVersion"] == "application-grid-cohort-v1":
+            del body["policyVersion"]
         return GridCohortCommandResponse.model_validate(
             service.prepare(game_id, body, actor(request))
         )

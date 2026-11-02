@@ -23,6 +23,12 @@ from game_predictor_api.domain.grid_training_cohorts import (
 )
 from game_predictor_api.domain.new_game_geometry import verified_json
 from game_predictor_api.storage.grid_cohort_asset_retention import acquire_cohort_asset_guard
+from game_predictor_api.storage.grid_correction_split import (
+    CORRECTIONS_POLICY,
+    prepare_split,
+    split_mapping,
+    validate_population,
+)
 from game_predictor_api.storage.grid_model_registry_models import GridModelVersionModel
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 from game_predictor_api.storage.grid_training_cohort_models import GridTrainingCohortModel as Cohort
@@ -89,9 +95,26 @@ def prepare(
             404,
         )
     identifier = uuid5(game, "grid-cohort:" + body["idempotencyKey"])
+    policy = body.get("policyVersion", POLICY)
+    photo_split = None
+    if policy == CORRECTIONS_POLICY:
+        if body["mode"] != "grid-only" or body["recordings"] or selection.get("sourceIds"):
+            raise GridCohortError(
+                "GRID_CORRECTION_SELECTION_INVALID",
+                "Correction splitting requires whole imports and automatic roles.",
+                422,
+            )
+        photo_split = prepare_split(
+            repo,
+            game,
+            sorted(str(value) for value in imports) if imports else [selection["importJobId"]],
+            deadline,
+        )
+    elif policy != POLICY:
+        raise GridCohortError("GRID_COHORT_POLICY_UNSUPPORTED", "Unknown cohort policy.", 422)
     document = {
-        "schemaVersion": POLICY,
-        "policyVersion": POLICY,
+        "schemaVersion": policy,
+        "policyVersion": policy,
         "weightPolicy": WEIGHT_POLICY,
         "mode": body["mode"],
         "familyId": body["familyId"],
@@ -110,6 +133,7 @@ def prepare(
         },
         "recordings": body["recordings"],
         "sourceCount": count,
+        **({"photoSplit": photo_split} if photo_split is not None else {}),
         "preprocessing": {
             key: manifest[key]
             for key in ("preprocessingVersion", "decodingPolicyVersion", "inferenceManifest")
@@ -218,9 +242,13 @@ def _capture(
                 Member.game_id == game, Member.cohort_id == row.id, Member.ordinal == cursor - 1
             )
         )
-    mapping = {
-        item["sourceId"]: item for item in repo.recording_page(game, row.id, previous)["items"]
-    }
+    if row.document.get("policyVersion") == CORRECTIONS_POLICY:
+        validate_population(repo, game, row.document["photoSplit"])
+        mapping = split_mapping(row.document["photoSplit"])
+    else:
+        mapping = {
+            item["sourceId"]: item for item in repo.recording_page(game, row.id, previous)["items"]
+        }
     reader = GridCohortEvidenceReader(repo.session, service.artifacts.root)
     captures = []
     for member in members:
@@ -230,9 +258,19 @@ def _capture(
             raise GridCohortError(
                 "RECORDING_PAGE_MISMATCH", "The stored member page did not resolve exactly."
             )
-        captures.append(
-            reader.capture(game, member.source_id, member.ordinal, proof, row.document["mode"])
+        captured = reader.capture(
+            game, member.source_id, member.ordinal, proof, row.document["mode"]
         )
+        if (
+            proof.get("qualification") == "eligible"
+            and "expectedBoardCount" in proof
+            and (captured["boardEligibleCount"] != proof["expectedBoardCount"])
+        ):
+            raise GridCohortError(
+                "GRID_CORRECTION_LABELS_CHANGED",
+                "Current human labels changed after the split preview.",
+            )
+        captures.append(captured)
     capture_window = {"startedAt": capture_start, "completedAt": datetime.now(UTC).isoformat()}
     published = service.artifacts.publish_json(
         game,
@@ -370,7 +408,12 @@ def _materialize(
             row.id,
             {
                 "schemaVersion": SNAPSHOT_FORMAT,
-                "policyVersion": POLICY,
+                "policyVersion": row.document["policyVersion"],
+                **(
+                    {"photoSplit": row.document["photoSplit"]}
+                    if "photoSplit" in row.document
+                    else {}
+                ),
                 "weightPolicy": WEIGHT_POLICY,
                 "gameId": str(game),
                 "cohortId": str(row.id),

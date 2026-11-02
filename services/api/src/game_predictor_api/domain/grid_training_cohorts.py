@@ -112,7 +112,9 @@ def target_fence(target: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def role_summary(mode: str, members: Iterable[dict[str, Any]]) -> dict[str, Any]:
+def role_summary(
+    mode: str, members: Iterable[dict[str, Any]], *, policy: str = POLICY
+) -> dict[str, Any]:
     counters: dict[str, Counter[str]] = {role: Counter() for role in ROLES}
     recordings: dict[str, set[str]] = {role: set() for role in ROLES}
     reasons: Counter[str] = Counter()
@@ -130,12 +132,22 @@ def role_summary(mode: str, members: Iterable[dict[str, Any]]) -> dict[str, Any]
         counters[role]["photos"] += bool(boards)
         counters[role]["full"] += full
         if boards:
-            recordings[role].add(recording["groupId"])
+            identity = recording.get("groupId")
+            if policy == "application-grid-corrections-v1":
+                identity = identity or recording.get("photoIdentity")
+            if isinstance(identity, str) and identity:
+                recordings[role].add(identity)
     output = []
     for role in ROLES:
         train = role == "TRAIN"
         boards, photos, required_full = (
-            (30, 10, 10 if mode == "screen+grid" else 0) if train else (15, 5, 5)
+            (30, 10, 10 if mode == "screen+grid" else 0)
+            if train
+            else (
+                15,
+                5,
+                0 if policy == "application-grid-corrections-v1" and mode == "grid-only" else 5,
+            )
         )
         count = counters[role]
         output.append(

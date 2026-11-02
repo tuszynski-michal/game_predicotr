@@ -443,7 +443,13 @@ class GridCohortEvidenceReader:
             reasons.add("PHOTO_NOT_FULLY_ANNOTATED")
         role = recording.get("role")
         ready = recording.get("qualification") == "eligible" and boards > 0 and role is not None
-        used = ready and (full or (role == "TRAIN" and mode == "grid-only"))
+        used = ready and (
+            full
+            or (
+                mode == "grid-only"
+                and (role == "TRAIN" or recording.get("evidenceLevel") == "photo-only")
+            )
+        )
         if not used and ready:
             reasons.add("FULL_PHOTO_REQUIRED_FOR_ROLE")
         return {

@@ -69,6 +69,14 @@ class SharedGridCandidateService:
         pinned: list[tuple[Mapping[str, Any], Mapping[str, str]]] = []
         for game, cohort in [(primary_game, primary_cohort), *others]:
             header, eligibility, groups = self._cohort(game, cohort)
+            if (
+                header.get("policyVersion", "application-grid-cohort-v1")
+                != "application-grid-cohort-v1"
+            ):
+                raise GridCohortError(
+                    "GRID_RUN_POLICY_UNSUPPORTED",
+                    "This cohort policy has no training consumer yet.",
+                )
             if header["status"] != "frozen":
                 raise GridCohortError("GRID_RUN_COHORT_NOT_FROZEN", "Only frozen cohorts train.")
             if eligibility["qualification"] != "eligible":

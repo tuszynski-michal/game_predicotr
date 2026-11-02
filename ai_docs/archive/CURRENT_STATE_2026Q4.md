@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1120 — Dane z korekt i trwały podział (done)
+
+- Plik: `tasks/completed/1120-grid-correction-training-data.md`.
+- Commit: **v1.7.517** (hash dopisuje kolejny commit).
+- Dodano opt-in politykę korekt, deterministyczny podział, trwałe role/bufory i migrację0170. Zachowano legacy i pełny pion API. Preflight potwierdził117 zatwierdzeń/89 zdjęć; operator dopuścił zweryfikowane atesty zamiast nazwseq_.
+- Testy: core48, HTTP18, solver/adapter/storage38, nowe regresjeAPI17 i PostgreSQL PASS; legacy storage2 i lifecycle5 PASS. Mypy16modułów, Ruff24, generatedclient, map/docs PASS. Ograniczenia pozostałych legacyE2E zapisane wOutcome.
+- Audyt ClaudeCode claude-opus-5-5/high: PASS, runda2 po jednej rundzie poprawek, bezP0/P1. PozostałeP2 jawnie doT2/T4.
+- Bez migracji operatora, treningu, aktywacji, usług, merge/push. Kontynuacja zaakceptowanego całego planu: TASK-1121.
+
 ### TASK-1116 — Przyciąganie kliknięcia wykresu (done)
 
 - Plik: `ai_docs/tasks/completed/1116-board-search-chart-peak-snap.md`.

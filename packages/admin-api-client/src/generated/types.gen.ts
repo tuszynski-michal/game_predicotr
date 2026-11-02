@@ -5553,6 +5553,10 @@ export type GridCohortHeader = {
    */
   createdAt: string;
   /**
+   * Evidencelevel
+   */
+  evidenceLevel?: 'recording' | 'photo-only';
+  /**
    * Familyid
    */
   familyId: string;
@@ -5580,6 +5584,10 @@ export type GridCohortHeader = {
    * Nextmaterializationcursor
    */
   nextMaterializationCursor: number | null;
+  /**
+   * Policyversion
+   */
+  policyVersion?: string;
   /**
    * Previewsha256
    */
@@ -5706,6 +5714,11 @@ export type GridCohortPrepareCommand = {
    * Mode
    */
   mode: 'grid-only' | 'screen+grid';
+  /**
+   * Policyversion
+   */
+  policyVersion?:
+    'application-grid-cohort-v1' | 'application-grid-corrections-v1';
   /**
    * Recordings
    */

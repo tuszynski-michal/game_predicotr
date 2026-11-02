@@ -45,9 +45,16 @@ class GridCohortPrepareCommand(CohortClosedModel):
     base_version_id: UUID = Field(alias="baseVersionId")
     selector: GridCohortSelector
     recordings: list[GridCohortRecording] = Field(max_length=200)
+    policy_version: Literal["application-grid-cohort-v1", "application-grid-corrections-v1"] = (
+        Field("application-grid-cohort-v1", alias="policyVersion")
+    )
 
     @model_validator(mode="after")
     def unique_recordings(self) -> "GridCohortPrepareCommand":
+        if self.policy_version == "application-grid-corrections-v1" and (
+            self.mode != "grid-only" or self.recordings or self.selector.source_ids
+        ):
+            raise ValueError("Corrections require whole imports, grid-only, and automatic roles.")
         if len({item.group_id for item in self.recordings}) != len(self.recordings):
             raise ValueError("Each recording group has exactly one role.")
         return self
@@ -121,6 +128,8 @@ class GridCohortHeader(CohortClosedModel):
         "canceled",
     ]
     mode: Literal["grid-only", "screen+grid"]
+    policyVersion: str = "application-grid-cohort-v1"
+    evidenceLevel: Literal["recording", "photo-only"] = "recording"
     familyId: UUID
     baseVersionId: UUID
     previewSha256: str | None

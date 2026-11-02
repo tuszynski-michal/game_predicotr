@@ -1537,6 +1537,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { game_id: gameId },
         body,
       }),
+    // Explicit opt-in; legacy callers retain their original request shape and replay keys.
+    prepareGridCorrectionCohort: (
+      gameId: string,
+      body: Omit<GridCohortPrepareCommand, 'mode' | 'recordings' | 'policyVersion'>,
+    ) =>
+      prepareGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        body: {
+          ...body,
+          mode: 'grid-only',
+          recordings: [],
+          policyVersion: 'application-grid-corrections-v1',
+        },
+      }),
     prepareGridTrainingCohortPage: (
       gameId: string,
       cohortId: string,

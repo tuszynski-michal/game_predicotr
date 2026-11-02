@@ -42,6 +42,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md` | accepted 2026-11-02; T1 audyt Opus5.5/high PASS po jednej rundzie poprawek;117 korekt/89 zdjęć, verified attestations zaakceptowane | TASK-1121–1123 | `codex/grid-corrections-learning` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -66,12 +67,25 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1121 — Trening i ocena częściowych zdjęć (todo)
+
+- Plik: `tasks/1121-grid-correction-training-evaluation.md`. Oczekuje na TASK-1120 i audyt.
+
+### TASK-1122 — Uproszczony panel i zastosowanie modelu (todo)
+
+- Plik: `tasks/1122-grid-correction-learning-panel.md`. Oczekuje na TASK-1121 i audyt.
+
+### TASK-1123 — Odbiór i dokumentacja uczenia z korekt (todo)
+
+- Plik: `tasks/1123-grid-correction-learning-acceptance.md`. Oczekuje na TASK-1120–1122 i audyty.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1120** — Dane z korekt i trwały podział — v1.7.517 — tasks/completed/1120-grid-correction-training-data.md
 - **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
 - **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
@@ -81,4 +95,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
 - **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md
 - **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 / `3d1f55f2` — tasks/completed/1108-mumie-default-geometry.md
-- **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md

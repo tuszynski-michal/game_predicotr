@@ -133,6 +133,11 @@ class GridTrainingCohortService:
             regression_photos=int(regression.get("eligiblePhotos", 0)),
         )
         blockers: list[str] = []
+        if (
+            header.get("policyVersion", "application-grid-cohort-v1")
+            != "application-grid-cohort-v1"
+        ):
+            blockers.append("GRID_RUN_POLICY_UNSUPPORTED")
         if header["status"] != "frozen":
             blockers.append("GRID_RUN_COHORT_NOT_FROZEN")
         if eligibility["qualification"] != "eligible":

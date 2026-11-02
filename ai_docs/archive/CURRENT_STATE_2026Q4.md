@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1134 — Gotowość GPU i lista przebiegów (done)
 
 - Plik: tasks/completed/1134-grid-learning-runtime-history.md
-- Commit: **v1.7.525** (hash dopisuje kolejny commit).
+- Commit: **v1.7.525 / `550378ab6d432ab102368fabb7d71c19d4fc3268`** (hash dopisuje kolejny commit).
 - Wspólna fabryka CLI odnajduje repo CUDA także dla parenta general, z pierwszeństwem jawnej konfiguracji i bez fallbacku do CPU. Lista przebiegów ma primary, 38 px i 12 px odstępu (dotyk 44 px).
 - 34 worker / 29 UI PASS, scoped lint/typecheck i docs/map PASS. Regresja przed poprawką 3 failed/3 passed; rzeczywisty nowy proces bez env: CUDA RTX 4050 i admission PASS, bez treningu, bazy i budżetu.
 - Audyt Opus 5.5/high PASS, runda 1, bez P0/P1; P2 konfiguracji niestandardowej i testów CSS rozliczone w Outcome. Main/push i restart general za osobną zgodą; nie wznawiano prób operatora.

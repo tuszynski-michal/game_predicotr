@@ -67,7 +67,7 @@ nowe API i instalowanie pakietów. Odczyt rzeczywistego probe CUDA jest dozwolon
 - [x] Parent general i właściwy trener korzystają z tej samej polityki rozwiązywania.
 - [x] Lista przebiegów jest niższa, zielona, ma odstępy i mieści się na mobile.
 - [x] Regresje workera, interakcje UI, scoped lint/typecheck, docs/map i Opus PASS.
-- [ ] Outcome, task-close, osobny commit i record-hash.
+- [x] Outcome, task-close, osobny commit i record-hash.
 
 ## Technical notes
 
@@ -97,7 +97,7 @@ po zatwierdzeniu wyniku; zgoda z wcześniejszego wdrożenia nie przechodzi.
 
 ## Outcome
 
-Commit: v1.7.525 (hash dopisuje kolejny commit).
+Commit: v1.7.525 / `550378ab6d432ab102368fabb7d71c19d4fc3268`.
 
 ### Assumptions recorded before coding
 

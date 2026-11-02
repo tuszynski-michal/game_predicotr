@@ -15,7 +15,8 @@ kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 Akcje jakości rozpoznawania używają wspólnych klas `primaryButton` i
 `secondaryButton` z `packages/ui/src/buttons.css`. Start i zastosowanie są
-primary; odczyty, nawigacja i anulowanie secondary. Sąsiadujące akcje mają
+primary; odczyty, nawigacja i anulowanie secondary, z wyjątkiem opisanej poniżej
+listy przebiegów uczenia. Sąsiadujące akcje mają
 odstęp i zawijają się na wąskim ekranie, także w panelach zaawansowanych.
 
 ### Uczenie siatek z zapisanych korekt — TASK-1122
@@ -25,6 +26,11 @@ postęp, wynik, osobne zastosowanie oraz historię modeli. Nagrania, rodziny,
 kohorty, parametry i ręczne sterowanie wersjami pozostają w zwiniętej sekcji
 Zaawansowane. Losowa kontrola jakości i ponowne rozpoznanie są osobnymi narzędziami.
 Wejście, zmiana gry, przeładowanie i odczyt postępu wykonują wyłącznie GET.
+
+Lista przebiegów uczenia używa oddzielonych odstępami przycisków primary,
+bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnika
+dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
+odczytuje jego stan i nie ponawia treningu.
 
 Uczenie nie publikuje modelu ani nie zmienia przypisań. Zastosowanie domyślnie
 obejmuje globalny default i bieżącą grę; pozostałe ocenione gry wymagają osobnego

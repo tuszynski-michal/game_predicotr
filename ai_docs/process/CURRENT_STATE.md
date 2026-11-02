@@ -51,6 +51,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
+
 - **Uczenie siatek z korekt / TASK-1120–1123 (2026-11-02):** w main i origin, cztery audyty Opus 5.5/high PASS. Migracje operatora do 0171 wykonane za zgodą, API/Admin i general/grid-training uruchomione; panel Mumie a2 gotowy (117 korekt), default i geometria zachowane. Bez treningu/aktywacji. Pełny mypy nadal wymaga osobnego baseline z uzgodnionym limitem; scoped checks PASS. Źródło: [raport odbioru](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
 
 - Przycinanie oryginałów: zgody na kolejne kroki pilotażu TASK-1050.
@@ -74,6 +76,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 — tasks/completed/1134-grid-learning-runtime-history.md
 - **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
 - **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
@@ -83,4 +86,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
 - **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
 - **TASK-1113** — Odblokowanie zapisu super symbolu — v1.7.514 / `923dd029` — tasks/completed/1113-super-symbol-save-lock.md
-- **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md

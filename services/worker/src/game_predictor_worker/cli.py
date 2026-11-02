@@ -221,12 +221,24 @@ def _grid_correction_learning_handler(
     )
 
 
+def _grid_training_python(repository_root: Path) -> Path | None:
+    """Resolve CUDA for every supervisor, including the general-lane parent."""
+    configured = os.environ.get(GRID_TRAINING_PYTHON_ENV, "").strip()
+    if configured:
+        # A broken explicit configuration must fail, never select another runtime.
+        return Path(configured)
+    for relative in ("Scripts/python.exe", "bin/python"):
+        candidate = repository_root / ".venv-vision-lab" / relative
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _grid_training_handler(session_factory: Any, engine: Any, artifact_root: Path) -> Any:
     """GPU training supervisor; the trainer child uses the configured CUDA interpreter."""
     from game_predictor_worker.images.grid_training_handler import GridTrainingJobHandler
     from game_predictor_worker.images.grid_training_store import SqlGridTrainingStore
 
-    configured = os.environ.get(GRID_TRAINING_PYTHON_ENV, "").strip()
     repository_root = Path(__file__).resolve().parents[4]
     sources = [
         repository_root / "services" / "worker" / "src",
@@ -235,7 +247,7 @@ def _grid_training_handler(session_factory: Any, engine: Any, artifact_root: Pat
     return GridTrainingJobHandler(
         SqlGridTrainingStore(session_factory, engine, artifact_root),
         artifact_root=artifact_root,
-        python=Path(configured) if configured else None,
+        python=_grid_training_python(repository_root),
         pythonpath=os.pathsep.join(str(path) for path in sources),
         repository_root=repository_root,
     )

@@ -48,3 +48,30 @@
 .gridCorrectionLearning li {
   overflow-wrap: anywhere;
 }
+
+.gridCorrectionLearning .gridCorrectionRunList {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gridCorrectionRunList > li {
+  display: flex;
+  min-width: 0;
+}
+
+.gridCorrectionRunList .gridCorrectionRunButton {
+  --button-height: 38px;
+
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse) {
+  .gridCorrectionRunList .gridCorrectionRunButton {
+    --button-height: 44px;
+  }
+}

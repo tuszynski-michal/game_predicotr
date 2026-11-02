@@ -621,11 +621,11 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       {!runs.length && !loading ? (
         <p>Brak wcześniejszych przebiegów uczenia.</p>
       ) : null}
-      <ul>
+      <ul className="gridCorrectionRunList" aria-label="Przebiegi uczenia">
         {runs.map((run) => (
           <li key={run.learningId}>
             <button
-              className="secondaryButton"
+              className="primaryButton gridCorrectionRunButton"
               type="button"
               disabled={busy}
               onClick={() =>

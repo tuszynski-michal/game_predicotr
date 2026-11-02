@@ -894,9 +894,18 @@ supervisor `images/grid_training_handler.py` runs in the main environment: it re
 job lease, re-checks the frozen cohort and its D-556 eligibility, the base version's
 `training-base`, the preset and the runtime facts from `grid_training_child --probe`, and
 calls `evaluate_admission`. It then starts `images/grid_training_child.py` with the CUDA
-interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. The child opens no database; it
+interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. When unset, the shared CLI
+factory locates the checkout's existing `.venv-vision-lab` interpreter (TASK-1134),
+so correction preflight in the general lane uses the same CUDA runtime as training.
+In this CLI factory an explicit path always wins, including when invalid; missing configuration never
+falls back to the supervisor's CPU Python. The child opens no database; it
 reads the pinned `spec.json`, holds the D-557 GPU lease and stops on a cancel intent, its
 time limit or 60 seconds without a supervisor heartbeat.
+
+The legacy PowerShell lane launcher still has its own candidate search: it passes
+its resolved override only to grid-training, not general. Custom `-GridTrainingPython`
+or User-only/invalid environment overrides are not unified by TASK-1134. The operator's
+default checkout environment is covered; unsupported custom combinations fail closed.
 
 The neutral core holds the shared logic: `training_core/neural_grid_network.py` (network,
 graphs, losses), `training_core/neural_grid_augmentation.py` (jitter, photometric

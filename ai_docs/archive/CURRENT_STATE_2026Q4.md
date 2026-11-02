@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1123 — Odbiór i dokumentacja uczenia z korekt (done)
 
 - Plik: tasks/completed/1123-grid-correction-learning-acceptance.md
-- Commit: **v1.7.520** (hash dopisuje kolejny commit).
+- Commit: **v1.7.520 / `4672c0896f767efd17234328a9cc219975acd067`** (hash dopisuje kolejny commit).
 - Ukończono odbiór całego planu oraz P2 konkurencyjnego resume i odczytu historii przy konflikcie publikacji; adopcja GET respektuje wcześniejsze porównania.
 - Weryfikacja: 33 unit/worker i 2 APPLY PostgreSQL PASS, 3 pełne legacy PostgreSQL PASS, scoped lint/typecheck, OpenAPI/SDK, docs/map PASS; aktualny frontend build T3 PASS. Pełny projektowy mypy przekroczył limit; nie ma jego PASS.
 - Audyt: Claude Code Opus 5.5/high, PASS, runda 1, bez otwartych P0/P1. Raport odbioru: quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md.

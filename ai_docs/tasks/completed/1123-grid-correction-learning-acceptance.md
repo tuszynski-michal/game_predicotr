@@ -60,7 +60,7 @@ Trening na danych operatora, zmiana defaultu lub przypisań, migracja bazy opera
 - [x] Pokrycie całego DoD planu, stare kontrakty i historia; jawne wyniki testów i niewykonanych operacji; audyt Opus 5.5/high.
 - [x] Właściwe testy, lint/typecheck i dokumentacja.
 - [x] Audyt Opus 5.5/high bez otwartych P0/P1.
-- [ ] Outcome, task-close, osobny wersjonowany commit i record-hash.
+- [x] Outcome, task-close, osobny wersjonowany commit i record-hash.
 
 ## Technical notes
 
@@ -88,7 +88,7 @@ Preflight i rzeczywista kwalifikacja danych mogą zatrzymać implementację prze
 
 ## Outcome
 
-Commit: v1.7.520 (hash dopisuje kolejny commit).
+Commit: v1.7.520 / `4672c0896f767efd17234328a9cc219975acd067`.
 
 ### Changed
 

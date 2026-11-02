@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, test } from 'node:test';
+import { registerHooks } from 'node:module';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 
@@ -31,6 +32,8 @@ dom.window.HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+// Admin's JSX-preserve configuration uses the classic runtime in the test loader.
+globalThis.React = React;
 
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
@@ -705,4 +708,92 @@ test('Esc in the lines window closes only that window; a cell correction there r
     'the results are read again after the correction',
   );
   await act(async () => root.unmount());
+});
+
+test('Admin opens the editable series modal in StrictMode, saves with its revision, refreshes search and stays on the same page', async () => {
+  const aliases = registerHooks({
+    resolve(specifier, context, next) {
+      if (specifier.startsWith('@/'))
+        return {
+          url: new URL(
+            `../../../apps/admin/src/${specifier.slice(2)}.ts`,
+            import.meta.url,
+          ).href,
+          shortCircuit: true,
+        };
+      return next(specifier, context);
+    },
+  });
+  const { BoardSearchWorkspace: AdminWorkspace } =
+    await import('../../../apps/admin/src/features/board-search/board-search-workspace.tsx');
+  const { calls, client } = makeClient();
+  const listCalls = [];
+  const adminClient = {
+    ...client,
+    applySymbolCellReviewDecision: async () => ({ data: {} }),
+    refreshBoardSearchBoardDocument: async () => ({ data: {} }),
+    listSuperGameSeries: async (id, options) => {
+      listCalls.push(options);
+      return client.listNextUndefinedSuperGameSeries(id, {
+        afterTrigger:
+          options.cursor === undefined ? null : Number(options.cursor),
+      });
+    },
+  };
+  const root = createRoot(document.getElementById('root'));
+  const href = window.location.href;
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(
+          React.StrictMode,
+          null,
+          React.createElement(AdminWorkspace, {
+            apiBaseUrl: 'http://127.0.0.1:8000',
+            client: adminClient,
+            gameId,
+          }),
+        ),
+      ),
+    );
+    await eventually(
+      () => document.querySelector('.boardSearchSymbolButton'),
+      'Admin palette',
+    );
+    await click(document.querySelector('.boardSearchSymbolButton'));
+    await click(button('Szukaj plansz'));
+    await eventually(
+      () => card()?.querySelector('button.boardSearchSuperGameLink'),
+      'Admin marker button',
+    );
+    assert.equal(card().querySelector('a.boardSearchSuperGameLink'), null);
+    await click(card().querySelector('button.boardSearchSuperGameLink'));
+    await eventually(
+      () => dialog()?.querySelector('select'),
+      'Admin modal loaded',
+    );
+    await press('1');
+    await press('Enter');
+    await eventually(() => calls.saves.length === 1, 'Admin symbol saved once');
+    assert.deepEqual(calls.saves[0], {
+      body: { expectedRevision: 2, symbolId: 'symbol-cherry' },
+      id: seriesId,
+    });
+    await eventually(
+      () => dialog().querySelector('h4')?.textContent === 'Wyzwalacz · #200',
+      'Admin moves to next undefined series',
+    );
+    assert.deepEqual(listCalls[0], { limit: 2, defined: false, cursor: '100' });
+    assert.ok(!button('Zamknij', dialog()).disabled, 'save released the modal');
+    const searches = calls.searches;
+    await click(button('Zamknij', dialog()));
+    await eventually(
+      () => calls.searches === searches + 1,
+      'Admin search refreshed after save',
+    );
+    assert.equal(window.location.href, href);
+  } finally {
+    await act(async () => root.unmount());
+    aliases.deregister();
+  }
 });

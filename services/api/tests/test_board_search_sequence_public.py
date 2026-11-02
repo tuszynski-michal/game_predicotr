@@ -1,15 +1,11 @@
-from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.domain.board_search_pattern_identity import (
     search_pattern_fingerprint,
     search_pattern_key,
 )
-from game_predictor_api.domain.board_search_share_queries import sequence_search_query_request
-from test_board_search_sequence_api import PATTERN, Repository
 from test_board_search_share_public_api import (
     BASE,
     DETAIL_GAME_ID,
     PROXY,
-    _forbidden_keys,
     _signed_in,
 )
 from test_board_search_share_public_api import client as _shared_client_fixture
@@ -17,47 +13,32 @@ from test_board_search_share_public_api import client as _shared_client_fixture
 shared_client = _shared_client_fixture
 
 
-def test_public_sequence_is_logged_and_recursively_private(shared_client, monkeypatch):
-    client, harness = shared_client
-    session_id = _signed_in(client, harness, DETAIL_GAME_ID)
-    service = BoardSearchService(Repository())
-    monkeypatch.setattr(
-        harness.search,
-        "search_sequence_with_super_game",
-        service.search_sequence_with_super_game,
-        raising=False,
-    )
-    response = client.post(BASE + "/search", json={"patterns": [PATTERN, PATTERN]}, headers=PROXY)
-    assert response.status_code == 200, response.text
-    payload = response.json()
-    assert not _forbidden_keys(payload)
-    assert "gameId" not in payload
-    assert len(payload["results"][0]["boards"]) == 2
-    entry = harness.log.entries[-1]
-    assert entry["sessionId"] == session_id
-    assert entry["request"]["version"] == 2
-    assert entry["resultSummary"] == {
-        "resultCount": 1,
-        "patternCount": 2,
-        "firstEndSequenceNumbers": [2],
+def sequence_search_query_request(*, patterns, scope, limit):
+    """A historical v2 fixture, not a supported search command."""
+    if len(patterns) == 1:
+        from game_predictor_api.domain.board_search_share_queries import search_query_request
+
+        return search_query_request(cells=patterns[0], scope=scope, limit=limit)
+    return {
+        "version": 2,
+        "patterns": [
+            {"cells": [f"{index}:{code or '?'}" for index, code in cells]} for cells in patterns
+        ],
+        "scope": scope,
+        "limit": limit,
     }
-    assert payload["searchContextId"] == str(entry["id"])
 
 
-def test_public_sequence_still_fails_closed_if_log_is_unavailable(shared_client, monkeypatch):
+def test_removed_public_post_never_runs_search(shared_client, monkeypatch):
     client, harness = shared_client
     _signed_in(client, harness, DETAIL_GAME_ID)
-    monkeypatch.setattr(
-        harness.search,
-        "search_sequence_with_super_game",
-        BoardSearchService(Repository()).search_sequence_with_super_game,
-        raising=False,
-    )
-    harness.log.fail = True
-    response = client.post(BASE + "/search", json={"patterns": [PATTERN, PATTERN]}, headers=PROXY)
-    assert response.status_code == 503
-    assert response.json()["code"] == "BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE"
-    assert "results" not in response.json()
+
+    def forbidden(**kwargs):
+        raise AssertionError("Removed public search must not execute")
+
+    monkeypatch.setattr(harness.search, "search", forbidden)
+    response = client.post(BASE + "/search", json={"patterns": []}, headers=PROXY)
+    assert response.status_code == 405
 
 
 def test_ordered_pattern_identity_and_legacy_hashes_remain_distinct():
@@ -78,23 +59,6 @@ def test_ordered_pattern_identity_and_legacy_hashes_remain_distinct():
     assert search_pattern_key(legacy) == '["0:A"]'
     assert search_pattern_fingerprint(legacy) == pattern_fingerprint(["0:A"])
     assert search_pattern_key({**ab, "limit": 99}) == search_pattern_key(ab)
-
-
-def test_sequence_timeout_is_logged_with_its_stable_code(shared_client, monkeypatch):
-    from game_predictor_api.domain.board_search_sequence import BoardSearchSequenceError
-
-    client, harness = shared_client
-    _signed_in(client, harness, DETAIL_GAME_ID)
-
-    def timeout(**kwargs):
-        raise BoardSearchSequenceError("BOARD_SEARCH_SEQUENCE_TIMEOUT", "Timed out.")
-
-    monkeypatch.setattr(harness.search, "search_sequence_with_super_game", timeout, raising=False)
-    response = client.post(BASE + "/search", json={"patterns": [PATTERN, PATTERN]}, headers=PROXY)
-    assert response.status_code == 503
-    assert response.json()["code"] == "BOARD_SEARCH_SEQUENCE_TIMEOUT"
-    assert harness.log.entries[-1]["outcomeCode"] == "BOARD_SEARCH_SEQUENCE_TIMEOUT"
-    assert "results" not in response.json()
 
 
 def test_group_delete_and_replay_use_the_entire_ordered_sequence():

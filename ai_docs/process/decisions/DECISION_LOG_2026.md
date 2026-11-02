@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-23
+last_updated: 2026-11-01
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,47 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-576 — Uproszczenie wyszukiwarki i modal supergry w Adminie
+
+Status: accepted
+Data: 2026-11-01
+
+Operator zlecił osiem zmian i zaakceptował koszt 45–90 minut. TASK-1115:
+tabela wygranych bezpośrednio pod wykresem, filtr pod tabelą; usunięcie trzech
+wskazanych opisów. Wyszukiwarka zawsze prezentuje PLN i najnowsze opublikowane
+reguły, bez obu selectów i bez odtwarzania dawnego wyboru jednostki.
+Domyślne odczyty API już rozwiązują najnowszą opublikowaną wersję; kontrakt
+API i wybór wersji w innych sekcjach pozostają bez zmian. Wyszukiwanie nie
+oferuje już podglądu draftu z D-535. Kontrola zgodności detalu z tabelą zostaje.
+
+W Adminie znacznik supergry otwiera wspólny edytowalny modal (rozszerzenie
+workflow D-564), z CAS, korektą planszy i odświeżeniem wyników po zapisie.
+Osobna sekcja „Supergry” pozostaje. Zapis działa także pod StrictMode:
+flaga montowania wraca do true przy ponownym uruchomieniu efektu.
+
+Przy co najmniej dziesięciu aktywnych symbolach `0` wybiera dziesiąty według
+tej samej kolejności katalogu co `1`–`9`. `?` pozostaje nieznanym symbolem;
+dla krótszego katalogu zachowane jest dotychczasowe `0` jako nieznany.
+
+Scalanie wyszukiwarki wstrzymane na polecenie operatora. Bez usług, danych,
+migracji, delegacji i audytu. Źródło: TASK-1115 oraz polecenie w czacie.
+
+## D-575 — Powrót do wyszukiwania jednej planszy
+
+Status: accepted
+Data: 2026-10-30
+
+Operator zaakceptował plan oraz koszt 1–2 godzin i zlecił TASK-1114. Usuwamy
+wykonanie wyszukiwania wielu wzorów: UI, POST, SQL, cache i automatyczny replay.
+Zastępuje wielowzorowy zakres D-573; zachowuje pojedynczy GET i nawigację ±15.
+Historia i dane pozostają. Wielowzorowy storage/replay daje jawny komunikat
+bez cichego obcinania wzorów. Migracja 0169 i manifest v19 pozostają.
+Brak zgody na restarty, migracje danych, benchmarki, merge i push.
+Nie ustalono, czy wszystkie timeouty pochodzą z usuwanej funkcji.
+
+Źródło: [plan](../../delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md).
+
 
 ## D-574 — Przypięty wybór i optymistyczna nawigacja Selektora
 

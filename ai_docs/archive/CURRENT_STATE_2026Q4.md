@@ -6,6 +6,39 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1116 — Przyciąganie kliknięcia wykresu (done)
+
+- Plik: `ai_docs/tasks/completed/1116-board-search-chart-peak-snap.md`.
+- Commit: **v1.7.513 / `781650dcfa28dc9af94ef3fb23700e1bd36c4b94`** (hash dopisuje kolejny commit).
+- Admin i online: kliknięcie/tapnięcie wybiera najwyższą kasę na czysto w ±50 spinów, przesuwa kursor i przełącza przypięcie. Remisy: bliższy, potem wcześniejszy spin. Strzałki zachowują precyzję.
+- Weryfikacja: 113/113 unit, 109/109 interakcje, lint wspólnego UI, typy UI/Admin/Reviewer, Prettier, docs:check i code-map:check PASS. Granice, remisy, darmowe spiny, wypłaty prowizoryczne, odpinanie i zapisany panel objęte testami.
+- Bez fizycznego Androida i żywych usług; buildy z TASK-1115 niepowtarzane dla samej logiki kliknięcia. Brak wymaganego audytu krzyżowego, zmian API, migracji i operacji danych. Merge/push/cleanup nadal wstrzymane do nowej zgody operatora.
+
+### TASK-1115 — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie (done)
+
+- Plik: `tasks/completed/1115-board-search-screen-simplification.md`.
+- Commit: **v1.7.511 / `3ad50668393c13c9b54d4ecee797b3de47f17b89`**.
+- Osiem zmian operatora: tabela pod wykresem i suwak pod tabelą, usunięte opisy, zawsze PLN i najnowsze opublikowane reguły bez selectów, edytowalny modal supergry także w Adminie, `0` dla dziesiątego aktywnego symbolu. Pełna sekcja „Supergry” pozostaje.
+- PASS: 107 interakcji UI, 108 testów jednostkowych, 2 testy nawigacji, lint i TypeScript, oba buildy Webpack, mapa kodu i dokumentacja. Modal Admina sprawdzony pod StrictMode z zapisem CAS i odświeżeniem wyników.
+- Pełna sekcja Admina 22 PASS / 10 wcześniejszych FAIL; identyczne porażki potwierdzono na niezmienionym kodzie sprzed taska (brak `counts` w fixture). Bez osłabiania testów. Szczegóły w Outcome.
+- Bez fizycznego Androida, usług, danych, migracji, benchmarków, audytu i delegacji. Operator wstrzymał merge, push i cleanup.
+
+### TASK-1114 — Usunięcie wyszukiwania wielu układów (done)
+
+- Plik: `tasks/completed/1114-remove-multi-board-search.md`.
+- Commit: **v1.7.508 / `969c341c053509190be442f2ad1bb02e4e62c93f`**.
+- Usunięte UI, POST, ranking SQL, cache i automatyczne odtwarzanie wielu wzorów. Jedna plansza, ±15, kalkulator i korekty zachowane; dane i historia bez usuwania, migracja 0169 bez zmian.
+- PASS: 105 interakcji UI, 61 testów klienta/hostów, 29 API/historii, 26 publicznego API (1 wcześniejszy test odłożony), 3 stanu oraz ponowne 3 historii. TypeScript, lint, Ruff, OpenAPI/klient, oba buildy Webpack PASS; szczegóły w Outcome.
+- Pełny mypy przekroczył 120 s; kontrola serwisu/repozytorium PASS. Test limitu historii nadal oczekuje 4 KiB zamiast istniejących 32 KiB — poza zakresem. Bez fizycznego Androida, usług operatora, benchmarków, migracji danych, merge i push. Audyt niewymagany według planu.
+
+### TASK-1112 — Plan usunięcia wyszukiwania wielu układów (done)
+
+- Plik: `tasks/completed/1112-single-board-removal-plan.md`.
+- Commit: **v1.7.506 / `6ec12eab34254c2b5613fa889b40c07fa916927d`**.
+- Ograniczona diagnoza i plan `delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md`, status proposed; TASK-1114 czeka na akceptację zakresu i szacunku 1–2 godzin.
+- Zakres: usunięcie UI, POST, rankingu i automatycznego odtwarzania wielu wzorów; jedna plansza, nawigacja ±15, historia i dane pozostają.
+- Cztery kontrole dokumentacji PASS (bezpośrednio systemowym Pythonem, brak lokalnej .venv). Bez implementacji, testów aplikacji, audytu, delegacji, benchmarków, migracji, usług, merge i push.
+
 ### TASK-1113 — Odblokowanie zapisu super symbolu (done)
 
 - Task: `tasks/completed/1113-super-symbol-save-lock.md`.

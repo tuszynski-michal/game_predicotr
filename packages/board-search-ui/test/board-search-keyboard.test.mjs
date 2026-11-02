@@ -41,13 +41,23 @@ test('digits place active symbols in catalog order', () => {
   );
 });
 
-test('0 and ? place the unknown marker', () => {
-  assert.equal(BOARD_SEARCH_UNKNOWN_SHORTCUT, '0');
-  for (const value of ['0', '?']) {
-    assert.deepEqual(resolveBoardSearchKeyboardCommand(key(value), symbols), {
-      kind: 'place_unknown',
-    });
-  }
+test('0 selects symbol ten; ? remains unknown and fewer than ten retain the old fallback', () => {
+  assert.equal(BOARD_SEARCH_UNKNOWN_SHORTCUT, '?');
+  assert.deepEqual(resolveBoardSearchKeyboardCommand(key('0'), symbols), {
+    kind: 'place_symbol',
+    symbolCode: 'S10',
+  });
+  assert.deepEqual(resolveBoardSearchKeyboardCommand(key('?'), symbols), {
+    kind: 'place_unknown',
+  });
+  assert.deepEqual(
+    resolveBoardSearchKeyboardCommand(key('0'), symbols.slice(0, 9)),
+    { kind: 'place_unknown' },
+  );
+  assert.equal(
+    resolveBoardSearchKeyboardCommand(key('0', { ctrlKey: true }), symbols),
+    null,
+  );
 });
 
 test('Backspace undoes, Enter searches, other keys are ignored', () => {

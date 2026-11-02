@@ -349,6 +349,7 @@ export function approximateWinAxisTicks(
 }
 
 export const APPROXIMATE_WIN_PIN_LIMIT = 6;
+export const APPROXIMATE_WIN_CLICK_SNAP_RADIUS = 50;
 
 /** Resolve an end-of-spin position without inventing payout rows. */
 export function approximateWinPointAtSpin(
@@ -375,6 +376,44 @@ export function approximateWinPointAtSpin(
       payoutAtSpin(result.rows, spinNumber) -
       approximateWinCostAtSpin(approximateWinCostSchedule(result), spinNumber),
   };
+}
+
+/** Highest end-of-spin balance near a click; ties prefer proximity, then earlier spins. */
+export function approximateWinBestPointNearSpin(
+  result: ApproximateWinResponse,
+  spinNumber: number,
+): ApproximateWinChartPoint | null {
+  if (approximateWinPointAtSpin(result, spinNumber) === null) return null;
+  const first = Math.max(0, spinNumber - APPROXIMATE_WIN_CLICK_SNAP_RADIUS);
+  const last = Math.min(
+    result.evaluatedSpinCount,
+    spinNumber + APPROXIMATE_WIN_CLICK_SNAP_RADIUS,
+  );
+  const costs = approximateWinCostSchedule(result);
+  let bestSpin = first;
+  let bestBalance = Number.NEGATIVE_INFINITY;
+  let rowIndex = 0;
+  let payout = 0;
+  // Scan sorted payout rows once, including those preceding the click window.
+  for (let spin = first; spin <= last; spin += 1) {
+    while (
+      rowIndex < result.rows.length &&
+      result.rows[rowIndex]!.spinNumber <= spin
+    ) {
+      payout = result.rows[rowIndex]!.cumulativePayoutCredits;
+      rowIndex += 1;
+    }
+    const balance = payout - approximateWinCostAtSpin(costs, spin);
+    if (
+      balance > bestBalance ||
+      (balance === bestBalance &&
+        Math.abs(spin - spinNumber) < Math.abs(bestSpin - spinNumber))
+    ) {
+      bestBalance = balance;
+      bestSpin = spin;
+    }
+  }
+  return approximateWinPointAtSpin(result, bestSpin);
 }
 
 /** Chart geometry in SVG units, shared with the label layout tests. */

@@ -27,6 +27,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
   await import('../src/board-search-workspace.tsx');
+const { ApproximateWinBalanceChart } =
+  await import('../src/board-search-approximate-win.tsx');
 
 after(() => dom.window.close());
 
@@ -91,6 +93,122 @@ function approximateWinResponse(startSequenceNumber, overrides = {}) {
     wrappedAtSequenceEnd: false,
     ...overrides,
   };
+}
+
+for (const controlled of [false, true]) {
+  test(`click snaps the cursor and pin to a nearby peak (${controlled ? 'saved panel' : 'local chart'})`, async () => {
+    const result = approximateWinResponse(10, {
+      rows: [
+        {
+          spinNumber: 200,
+          payoutCredits: 10000,
+          cumulativePayoutCredits: 10000,
+          cumulativeBalanceCredits: 6000,
+        },
+        {
+          spinNumber: 240,
+          payoutCredits: 500,
+          cumulativePayoutCredits: 10500,
+          cumulativeBalanceCredits: 5700,
+        },
+        {
+          spinNumber: 280,
+          payoutCredits: 50000,
+          cumulativePayoutCredits: 60500,
+          cumulativeBalanceCredits: 54900,
+        },
+      ].map((row) => ({
+        ...row,
+        payoutKind: 'exact',
+        sequenceNumber: row.spinNumber + 10,
+      })),
+      summary: {
+        balanceCredits: 10500,
+        recognizedPayoutCredits: 60500,
+        spinCostCredits: 50000,
+      },
+    });
+    let savedPins = [];
+    function Chart() {
+      const [pins, setPins] = React.useState([]);
+      return React.createElement(ApproximateWinBalanceChart, {
+        display: { stakeGrosze: null, unit: 'pln' },
+        result,
+        ...(controlled
+          ? {
+              pinnedSpinPositions: pins,
+              onPinsChange: (next) => {
+                savedPins = next;
+                setPins(next);
+              },
+            }
+          : {}),
+      });
+    }
+    const root = createRoot(document.getElementById('root'));
+    await act(async () => root.render(React.createElement(Chart)));
+    try {
+      const chart = document.querySelector(
+        '.boardSearchApproximateWinChart svg',
+      );
+      Object.defineProperty(chart, 'getBoundingClientRect', {
+        value: () => ({ left: 0, width: 800 }),
+      });
+      const clickNearPeak = () =>
+        act(async () =>
+          chart.dispatchEvent(
+            new dom.window.MouseEvent('click', {
+              bubbles: true,
+              // Spin 225, rather than the nearest payout spin 240. Peak 280 is outside ±50.
+              clientX: 72 + (225 / 2500) * 710,
+            }),
+          ),
+        );
+      await clickNearPeak();
+      assert.match(
+        document.querySelector('.boardSearchApproximateWinChartPins')
+          .textContent,
+        /200 spinów/,
+      );
+      assert.equal(
+        document.querySelector(
+          '.boardSearchApproximateWinChartLabelPinned text',
+        ).textContent,
+        '200 spinów',
+      );
+      if (controlled) assert.deepEqual(savedPins, [200]);
+
+      await clickNearPeak();
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartPins'),
+        null,
+      );
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartLabel text')
+          .textContent,
+        '200 spinów',
+      );
+      if (controlled) assert.deepEqual(savedPins, []);
+
+      // Keyboard starts at the snapped cursor and retains its existing precision.
+      await act(async () =>
+        chart.dispatchEvent(
+          new dom.window.KeyboardEvent('keydown', {
+            bubbles: true,
+            key: 'ArrowRight',
+            cancelable: true,
+          }),
+        ),
+      );
+      assert.equal(
+        document.querySelector('.boardSearchApproximateWinChartLabel text')
+          .textContent,
+        `${controlled ? 201 : 240} spinów`,
+      );
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
 }
 
 function deferred() {
@@ -211,13 +329,6 @@ async function toggleDetails(_section, open) {
     await act(async () => {
       stake.value = base.value;
       stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    });
-  }
-  const unit = document.querySelector('select[aria-label="Jednostka"]');
-  if (unit !== null && unit.value !== 'credits') {
-    await act(async () => {
-      unit.value = 'credits';
-      unit.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
     });
   }
 }
@@ -402,7 +513,7 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
   );
   const stake = selectByLabel('Stawka');
   assert.equal(stake.value, '');
-  assert.equal(selectByLabel('Jednostka').value, 'pln');
+  assert.equal(document.querySelector('select[aria-label="Jednostka"]'), null);
   await act(async () => {
     stake.value = '200';
     stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
@@ -424,7 +535,7 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
   const controls = document.querySelector('.boardSearchApproximateWinControls');
   assert.ok(controls.querySelector('input[aria-label^="Zakres wygranej"]'));
   assert.ok(controls.querySelector('select[aria-label="Stawka"]'));
-  assert.ok(controls.querySelector('select[aria-label="Jednostka"]'));
+  assert.equal(controls.querySelector('select[aria-label="Jednostka"]'), null);
 
   // A new pattern clears the stake again; the same pattern keeps it.
   await click(symbolButton());
@@ -707,6 +818,21 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     ['Spin', 'Plansza', 'Wygrana', 'Kasa na czysto', 'Akcje'],
   );
 
+  const table = document.querySelector('.boardSearchApproximateWin table');
+  const layoutChart = document.querySelector('.boardSearchApproximateWinChart');
+  const slider = minimumPayoutInput();
+  assert.ok(
+    layoutChart.compareDocumentPosition(table) &
+      dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  assert.ok(
+    table.compareDocumentPosition(slider) &
+      dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  assert.doesNotMatch(
+    document.querySelector('.boardSearchApproximateWin').textContent,
+    /Kasa na czysto: rozpoznane wygrane|Liczba kolejnych spinów po wybranej planszy|Wynik opiera się wyłącznie/,
+  );
   const chartBefore = document
     .querySelector('.boardSearchApproximateWinChartSeries')
     .getAttribute('points');
@@ -761,15 +887,15 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     ].map((node) => node.textContent);
   const [spinsLine, stakeLine, cashLine, creditsLine] = labelLines();
   assert.equal(spinsLine, '2500 spinów');
-  assert.match(stakeLine, /^wkład: [\d\s,]+ kredytów$/);
-  assert.match(cashLine, /^Kasa na czysto: -17[\d\s]* kredytów$/);
+  assert.match(stakeLine, /^wkład: [\d\s,]+ zł$/);
+  assert.equal(cashLine, 'Kasa na czysto: -1750 zł');
   assert.equal(creditsLine, 'Kredyty maszyna: 0');
   assert.ok(
     document.querySelector('.boardSearchApproximateWinChartLeader'),
     'the label is connected to its point by a dotted leader line',
   );
 
-  // Clicking pins the nearest point; the pinned label stays without hover.
+  // A click at the end selects the best balance in its preceding 50 spins.
   await act(async () =>
     chart.dispatchEvent(
       new dom.window.MouseEvent('click', { bubbles: true, clientX: 800 }),
@@ -793,7 +919,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · wkład: [\d\s,]+ kredytów · kasa na czysto -17[\d\s]* kredytów · kredyty maszyna 0/,
+    /2450 spinów · wkład: 1650,00 zł · kasa na czysto -1650 zł · kredyty maszyna 0/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
@@ -895,7 +1021,7 @@ test('shows an explicit empty chart state when the range has no payouts', async 
   await act(async () => root.unmount());
 });
 
-test('stake and unit re-scale every amount locally without a new request', async (context) => {
+test('stake scales amounts in PLN and an old credits preference never restores the unit selector', async (context) => {
   context.after(() => dom.window.localStorage.clear());
   const rows = [
     {
@@ -938,6 +1064,10 @@ test('stake and unit re-scale every amount locally without a new request', async
     },
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
+  dom.window.localStorage.setItem(
+    'game-predictor-approximate-win-display-v1',
+    JSON.stringify({ unit: 'credits', stakeGrosze: null }),
+  );
   const root = await renderWorkspaceWithResults(client);
   await toggleDetails(approximateWinDetails(), true);
   await eventually(
@@ -951,7 +1081,7 @@ test('stake and unit re-scale every amount locally without a new request', async
       '.boardSearchApproximateWin tbody tr td:nth-child(3)',
     ).textContent;
   // Base stake (spin cost 20 credits = 2 zł) in credits: unchanged view.
-  assert.equal(firstPayout(), '100');
+  assert.equal(firstPayout(), '10 zł');
 
   await act(async () => setInputValue(minimumPayoutInput(), '500'));
   await eventually(
@@ -962,8 +1092,8 @@ test('stake and unit re-scale every amount locally without a new request', async
   );
 
   const stakeSelect = selectByLabel('Stawka');
-  const unitSelect = selectByLabel('Jednostka');
-  assert.ok(stakeSelect && unitSelect);
+  assert.ok(stakeSelect);
+  assert.equal(document.querySelector('select[aria-label="Jednostka"]'), null);
   const choose = async (select, value) => {
     await act(async () => {
       select.value = value;
@@ -976,7 +1106,7 @@ test('stake and unit re-scale every amount locally without a new request', async
     document.querySelectorAll('.boardSearchApproximateWin tbody tr').length,
     1,
   );
-  assert.equal(firstPayout(), '3000');
+  assert.equal(firstPayout(), '300 zł');
   assert.match(
     document.querySelector('.boardSearchApproximateWinControls').textContent,
     /mnożnik 3/,
@@ -1000,17 +1130,16 @@ test('stake and unit re-scale every amount locally without a new request', async
     [...document.querySelectorAll('.boardSearchApproximateWinChartLabel text')][
       index
     ].textContent;
-  assert.equal(labelLine(2), 'Kasa na czysto: 2700 kredytów');
+  assert.equal(labelLine(2), 'Kasa na czysto: 270 zł');
   // The stake needed to get there follows the stake and unit too.
-  assert.equal(labelLine(1), 'wkład: 60 kredytów');
+  assert.equal(labelLine(1), 'wkład: 6,00 zł');
   // Credits are the machine cash in whole credits whatever the unit.
   assert.equal(labelLine(3), 'Kredyty maszyna: 2760');
-  await choose(unitSelect, 'pln');
   assert.equal(firstPayout(), '300 zł');
   assert.equal(
     document.querySelectorAll('.boardSearchApproximateWin tbody tr').length,
     1,
-    'the threshold survives a unit change',
+    'the threshold survives a stake change',
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartGrid')?.parentElement
@@ -1027,7 +1156,7 @@ test('stake and unit re-scale every amount locally without a new request', async
         'game-predictor-approximate-win-display-v1',
       ),
     ).unit,
-    'pln',
+    'credits',
   );
   // The stake itself is never stored: it is chosen per search (D-476).
   await choose(stakeSelect, '200');
@@ -1040,6 +1169,11 @@ test('stake and unit re-scale every amount locally without a new request', async
     null,
   );
   await act(async () => root.unmount());
+  const reopened = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  assert.equal(document.querySelector('select[aria-label="Jednostka"]'), null);
+  assert.equal(firstPayout(), '10 zł');
+  await act(async () => reopened.unmount());
 });
 
 test('a zero spin cost disables the stake and keeps złote at credits / 10', async (context) => {
@@ -1086,11 +1220,6 @@ test('a zero spin cost disables the stake and keeps złote at credits / 10', asy
     document.querySelector('.boardSearchApproximateWinControls').textContent,
     /Koszt spinu opublikowanych reguł wynosi 0/,
   );
-  const unit = selectByLabel('Jednostka');
-  await act(async () => {
-    unit.value = 'pln';
-    unit.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-  });
   assert.equal(
     document.querySelector(
       '.boardSearchApproximateWin tbody tr td:nth-child(3)',
@@ -1948,7 +2077,7 @@ test('a stale board shows its lines on the schema and can be refreshed in place'
   );
   assert.match(
     document.querySelector('.boardSearchBoardLinesDialog').textContent,
-    /Po odświeżeniu: wygrana 60/,
+    /Po odświeżeniu: wygrana 6,00 zł/,
   );
   const before = rangeCalls;
   await click(dialogButton('Zamknij'));
@@ -2064,39 +2193,36 @@ test('without a rules version list (share, management) there is no rules version
   await act(async () => root.unmount());
 });
 
-test('the Admin draft preview evaluates a chosen rules version and shows count payouts', async (context) => {
+test('Admin always reads latest published rules, keeps count payouts and has no version selector in either window', async (context) => {
   withDialogSupport();
   context.after(() => dom.window.localStorage.clear());
   const mumia = {
     ...symbol,
     code: 'mumia',
-    displayOrder: 1,
     id: 'symbol-mumia',
-    mobileCode: 9,
     name: 'Mumia',
+    displayOrder: 1,
   };
   const counted = [
     { cells: [1, 7, 10], count: 3, payoutCredits: 20, symbolCode: 'mumia' },
   ];
-  const draftRules = {
+  const rules = {
     algorithmVersion: 'payout-v4-wild-count',
-    rulesVersion: 2,
-    rulesVersionId: 'rules-draft',
+    rulesVersion: 3,
+    rulesVersionId: 'published-latest',
     spinCost: 20,
   };
-  const rangeCalls = [];
-  const detailCalls = [];
+  const rangeCalls = [],
+    detailCalls = [];
+  let listCalls = 0;
   const client = {
     ...makeClient({
-      approximateWinImpl: async (_gameId, options) => {
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+      approximateWinImpl: async (_id, options) => {
         rangeCalls.push(options);
-        if (options.rulesVersionId !== 'rules-draft') {
-          return { data: approximateWinResponse(options.startSequenceNumber) };
-        }
         return {
           data: approximateWinResponse(options.startSequenceNumber, {
-            evaluatedSpinCount: 10,
-            requestedSpinCount: 10,
+            rules,
             rows: [
               {
                 boardStatus: 'accepted',
@@ -2110,109 +2236,66 @@ test('the Admin draft preview evaluates a chosen rules version and shows count p
                 spinNumber: 1,
               },
             ],
-            rules: draftRules,
           }),
         };
       },
-      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
     }),
     listSymbols: async () => ({ data: [symbol, mumia] }),
-    listRulesVersions: async () => ({
-      data: [
-        { id: 'rules-0', status: 'archived', version: 0 },
-        { id: 'rules-1', status: 'published', version: 1 },
-        { id: 'rules-draft', status: 'draft', version: 2 },
-      ],
-    }),
-    getBoardSearchBoardDetail: async (_gameId, sequenceNumber, options) => {
-      detailCalls.push([sequenceNumber, options]);
+    listRulesVersions: async () => {
+      listCalls++;
+      return { data: [{ id: 'draft-newer', status: 'draft', version: 4 }] };
+    },
+    getBoardSearchBoardDetail: async (_id, number, options) => {
+      detailCalls.push([number, options]);
       return {
-        data:
-          options?.rulesVersionId === 'rules-draft'
-            ? linesDetail(sequenceNumber, {
-                countMatches: counted,
-                payoutCredits: 120,
-                payoutKind: 'exact',
-                rules: draftRules,
-              })
-            : linesDetail(sequenceNumber),
+        data: linesDetail(number, {
+          countMatches: counted,
+          payoutCredits: 120,
+          payoutKind: 'exact',
+          rules,
+        }),
       };
     },
   };
   const root = await renderWorkspaceWithResults(client);
   await toggleDetails(approximateWinDetails(), true);
   await eventually(
-    () =>
-      [
-        ...(document.querySelector('select[aria-label="Wersja reguł"]')
-          ?.options ?? []),
-      ].length === 3,
-    'the select offers latest published plus draft and published versions',
+    () => document.querySelector('.boardSearchApproximateWin tbody tr'),
+    'latest published calculation',
   );
-  const rules = selectByLabel('Wersja reguł');
-  assert.deepEqual(
-    [...rules.options].map((option) => option.textContent),
-    ['Najnowsza opublikowana', 'v2 · draft', 'v1 · opublikowana'],
+  assert.equal(listCalls, 0);
+  assert.equal(
+    document.querySelector('select[aria-label="Wersja reguł"]'),
+    null,
   );
-  await act(async () => {
-    rules.value = 'rules-draft';
-    rules.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-  });
-  await eventually(
-    () =>
-      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
-    'the draft calculation renders its row',
-  );
-  assert.equal(rangeCalls.at(-1).rulesVersionId, 'rules-draft');
+  assert.ok(rangeCalls.every((options) => !('rulesVersionId' in options)));
   assert.match(
     document.querySelector(
       '.boardSearchApproximateWin tbody tr td:nth-child(3)',
     ).textContent,
-    /w tym sztuki: Mumia ×3 → 20/,
+    /w tym sztuki: Mumia ×3 → 2 zł/,
   );
-
   await click(
     document.querySelector(
       'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
     ),
   );
   await eventually(
-    () => document.querySelector('.boardSearchBoardLinesCounts') !== null,
-    'the modal lists the count payouts',
+    () => document.querySelector('.boardSearchBoardLinesCounts'),
+    'count payouts in modal',
   );
-  assert.deepEqual(detailCalls.at(-1), [11, { rulesVersionId: 'rules-draft' }]);
-  assert.match(
-    document.querySelector('.boardSearchBoardLinesCounts').textContent,
-    /Sztuki na planszy.*Mumia ×3 → 20/,
+  assert.deepEqual(detailCalls.at(-1), [11, undefined]);
+  assert.equal(
+    document.querySelector('select[aria-label="Wersja reguł"]'),
+    null,
   );
   assert.equal(
     document.querySelectorAll('.boardSearchBoardLinesCount').length,
     3,
   );
-  // Lines and counts explain the table row, so the lines are drawn.
-  assert.equal(
-    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
-    2,
-  );
-
-  // Switching the modal back to the latest published version reads the
-  // board again with the default rules and no count section.
-  const modalRules = document.querySelector(
-    '.boardSearchBoardLinesDialog select[aria-label="Wersja reguł"]',
-  );
-  assert.equal(modalRules.value, 'rules-draft');
-  await act(async () => {
-    modalRules.value = '';
-    modalRules.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-  });
-  await eventually(
-    () => document.querySelector('.boardSearchBoardLinesCounts') === null,
-    'the published reading has no count payouts',
-  );
-  assert.deepEqual(detailCalls.at(-1), [11, undefined]);
   assert.match(
-    document.querySelector('#board-lines-title').parentElement.textContent,
-    /Dla wybranej wersji reguł: wygrana .* \(w tabeli .* dla innej wersji reguł\)/,
+    document.querySelector('.boardSearchBoardLinesCounts').textContent,
+    /Mumia ×3 → 2,00 zł/,
   );
   await act(async () => root.unmount());
 });

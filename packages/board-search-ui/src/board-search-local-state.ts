@@ -1,13 +1,17 @@
-import type {
-  BoardSearchPattern,
-  BoardSearchScope,
-} from '@game-predictor/admin-api-client';
+import type { BoardSearchScope } from '@game-predictor/admin-api-client';
 import {
   createBoardSearchEditorState,
   patternBoardSearchCells,
   type BoardSearchEditorState,
   type BoardSearchEntryOrder,
 } from './board-search-editor-state.ts';
+
+export type BoardSearchPattern = {
+  readonly cells: {
+    readonly cellIndex: number;
+    readonly symbolCode: string | null;
+  }[];
+};
 
 export type BoardSearchSubmittedSequence = {
   readonly patterns: BoardSearchPattern[];
@@ -50,6 +54,7 @@ export function boardSearchSequenceInput(
   editors: readonly BoardSearchEditorState[],
   activeCodes: ReadonlySet<string>,
 ): { readonly patterns: BoardSearchPattern[]; readonly error: string | null } {
+  if (editors.length !== 1) return { patterns: [], error: REMOVED_SEARCH };
   let last = editors.length - 1;
   while (last >= 0 && editors[last].cells.every((cell) => cell === null))
     last--;
@@ -143,9 +148,15 @@ export function readBoardSearchSequenceLocalState(
   )
     return fail();
   if (
+    (Array.isArray(value.patterns) && value.patterns.length > 1) ||
+    (Array.isArray(value.lastSubmitted?.patterns) &&
+      value.lastSubmitted.patterns.length > 1)
+  )
+    throw new Error(REMOVED_SEARCH);
+  if (
     !Array.isArray(value.patterns) ||
     value.patterns.length < 1 ||
-    value.patterns.length > 4 ||
+    value.patterns.length > 1 ||
     !value.patterns.every(
       (cells: unknown) =>
         Array.isArray(cells) &&
@@ -171,7 +182,7 @@ export function readBoardSearchSequenceLocalState(
     (typeof submitted !== 'object' ||
       !Array.isArray(submitted.patterns) ||
       submitted.patterns.length < 1 ||
-      submitted.patterns.length > 4 ||
+      submitted.patterns.length > 1 ||
       !submitted.patterns.every(validPattern) ||
       !['all_searchable', 'approved_only'].includes(submitted.scope) ||
       !Number.isInteger(submitted.limit) ||
@@ -203,4 +214,52 @@ export function readBoardSearchSequenceLocalState(
           },
     selectedStartSequenceNumber: selected,
   };
+}
+
+export const REMOVED_SEARCH =
+  'Wyszukiwanie wielu układów zostało usunięte. Wpisz jedną planszę.';
+export const boardSearchStorageKey = (scope: string) =>
+  `board-search-single:v2:${scope}`;
+export function writeBoardSearchLocalState(
+  value: BoardSearchSequenceLocalState,
+): string {
+  return JSON.stringify({
+    ...value,
+    version: 2,
+    cells: value.patterns[0],
+    patterns: undefined,
+    activeIndex: undefined,
+    lastSubmitted:
+      value.lastSubmitted === null
+        ? null
+        : {
+            ...value.lastSubmitted,
+            cells: value.lastSubmitted.patterns[0].cells,
+            patterns: undefined,
+          },
+  });
+}
+export function readBoardSearchLocalState(
+  raw: string,
+  scope: string,
+): BoardSearchSequenceLocalState {
+  const value = JSON.parse(raw);
+  if (value?.version !== 2)
+    throw new Error('Nieprawidłowy zapis wyszukiwania.');
+  return readBoardSearchSequenceLocalState(
+    JSON.stringify({
+      ...value,
+      version: 1,
+      patterns: [value.cells],
+      activeIndex: 0,
+      lastSubmitted:
+        value.lastSubmitted === null
+          ? null
+          : {
+              ...value.lastSubmitted,
+              patterns: [{ cells: value.lastSubmitted?.cells }],
+            },
+    }),
+    scope,
+  );
 }

@@ -64,6 +64,12 @@ export function boardSearchReplayPlan(
   }
   const sequence = search.request.version === 2;
   const rawPatterns = search.request.patterns;
+  if (sequence && Array.isArray(rawPatterns) && rawPatterns.length > 1)
+    return {
+      kind: 'no_search',
+      message:
+        'Wyszukiwanie wielu układów zostało usunięte. Wpisz jedną planszę.',
+    };
   const patterns =
     sequence &&
     Array.isArray(rawPatterns) &&

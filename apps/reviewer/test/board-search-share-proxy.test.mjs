@@ -66,7 +66,6 @@ async function proxy(req, respond = () => json({ ok: true })) {
 
 test('only the read-only share routes and the unlock are public', () => {
   const allowed = [
-    ['POST', '/api/v1/board-search-shares/search'],
     ['POST', `/api/v1/board-search-shares/sessions/${sessionId}/unlock`],
     ['GET', '/api/v1/board-search-shares/super-game-series/state'],
     ['GET', '/api/v1/board-search-shares/super-game-series/next-undefined'],

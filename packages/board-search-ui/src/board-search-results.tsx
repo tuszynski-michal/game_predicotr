@@ -5,7 +5,6 @@
 
 import type {
   BoardSearchResponse,
-  BoardSearchSequenceResultResponse,
   SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
@@ -55,7 +54,6 @@ type BoardSearchResult = BoardSearchResponse['results'][number];
 interface BoardSearchResultsProps {
   readonly photoNavigation?: boolean;
   readonly photoRevision?: number;
-  readonly sequenceResult?: BoardSearchSequenceResultResponse | null;
   readonly compact?: boolean;
   readonly client: BoardSearchResultsClient;
   readonly gameId: string;
@@ -80,7 +78,6 @@ interface BoardSearchResultsProps {
 export function BoardSearchResults({
   photoNavigation = false,
   photoRevision = 0,
-  sequenceResult = null,
   compact = false,
   client: api,
   gameId,
@@ -95,7 +92,7 @@ export function BoardSearchResults({
   superGameState = null,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
-  const evidenceScore = sequenceResult?.score ?? current?.score;
+  const evidenceScore = current?.score;
   const [boardOpen, setBoardOpen] = useState(false);
   const [detailSequence, setDetailSequence] = useState<number | null>(null);
   const boardTriggerRef = useRef<HTMLButtonElement>(null);
@@ -163,63 +160,14 @@ export function BoardSearchResults({
         <dl className="boardSearchResultMetrics">
           <div>
             <dt>Dopasowanie</dt>
-            <dd>
-              {(sequenceResult?.score.score ?? current.score.score).toFixed(1)}%
-            </dd>
+            <dd>{current.score.score.toFixed(1)}%</dd>
           </div>
           <div>
-            <dt>{sequenceResult === null ? 'Plansza' : 'Ciąg'}</dt>
-            <dd>
-              {sequenceResult === null
-                ? `#${current.sequenceNumber}`
-                : `#${sequenceResult.startSequenceNumber} → #${sequenceResult.endSequenceNumber}`}
-            </dd>
+            <dt>Plansza</dt>
+            <dd>{`#${current.sequenceNumber}`}</dd>
           </div>
         </dl>
       </header>
-
-      {sequenceResult !== null ? (
-        <div
-          className="boardSearchSequenceResults"
-          aria-label="Plansze dopasowanego ciągu"
-        >
-          {sequenceResult.boards.map((board, index) => (
-            <span
-              className="boardSearchSequenceBoard"
-              key={board.sequenceNumber}
-            >
-              <button
-                className="secondaryButton"
-                type="button"
-                key={board.sequenceNumber}
-                onClick={() => {
-                  setDetailSequence(board.sequenceNumber);
-                  setBoardOpen(true);
-                }}
-              >
-                Układ {index + 1}: #{board.sequenceNumber} ·{' '}
-                {board.score.score.toFixed(1)}%
-              </button>
-              {index < sequenceResult.boards.length - 1 && board.superGame ? (
-                <SuperGameMarkerBadge
-                  gameId={gameId}
-                  marker={board.superGame}
-                  seriesHref={api.superGameSeriesHref}
-                  onOpenSeries={
-                    onOpenSuperGameSeries === undefined
-                      ? undefined
-                      : (seriesId) =>
-                          onOpenSuperGameSeries(seriesId, board.sequenceNumber)
-                  }
-                />
-              ) : null}
-            </span>
-          ))}
-          <small>
-            Wygrane od ostatniej planszy: #{sequenceResult.endSequenceNumber}.
-          </small>
-        </div>
-      ) : null}
 
       {evidenceScore?.unknownMatchesAll && evidenceScore.unknownCount > 0 ? (
         <p className="boardSearchUnknownWarning" role="status">
@@ -262,10 +210,10 @@ export function BoardSearchResults({
       ) : null}
       {photoNavigation ? (
         <BoardSearchPhotoNavigation
-          key={`${gameId}:${sequenceResult?.startSequenceNumber ?? current.sequenceNumber}:${boardSearchResultIdentity(current)}:${photoRevision}`}
+          key={`${gameId}:${current.sequenceNumber}:${boardSearchResultIdentity(current)}:${photoRevision}`}
           api={api}
           gameId={gameId}
-          boards={sequenceResult?.boards ?? [current]}
+          boards={[current]}
           openButtonRef={boardTriggerRef}
           onOpenBoard={(sequenceNumber) => {
             setDetailSequence(sequenceNumber);
@@ -359,7 +307,10 @@ export function BoardSearchResults({
         <BoardSearchBoardLinesModal
           api={api}
           formatAmount={(credits) => {
-            const display = loadApproximateWinDisplay();
+            const display = {
+              ...loadApproximateWinDisplay(),
+              unit: 'pln' as const,
+            };
             // Base stake: credits x 10 grosze, whatever the spin cost is.
             return `${formatApproximateWinAmount(
               scaleApproximateWinAmount(credits, display, 0),
@@ -385,7 +336,7 @@ export function BoardSearchResults({
           symbols={symbols}
           fixedStakeGrosze={fixedStakeGrosze}
           correctionContext={
-            !photoNavigation && sequenceResult === null
+            !photoNavigation
               ? correctionContext
               : {
                   startSequenceNumber: detailSequence ?? current.sequenceNumber,

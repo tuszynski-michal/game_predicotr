@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, test } from 'node:test';
+import { after, beforeEach, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 
@@ -29,6 +29,7 @@ const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
   await import('../src/board-search-workspace.tsx');
 
+beforeEach(() => window.localStorage.clear());
 after(() => dom.window.close());
 
 const gameId = '11111111-1111-4111-8111-111111111111';
@@ -84,7 +85,7 @@ function cellLabels() {
   );
 }
 
-async function renderWorkspace(searchImpl) {
+async function renderWorkspace(searchImpl, providedSymbols = symbols) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
@@ -94,7 +95,7 @@ async function renderWorkspace(searchImpl) {
           getOperationalImageReviewItem: async () => ({
             data: { geometry: {} },
           }),
-          listSymbols: async () => ({ data: symbols }),
+          listSymbols: async () => ({ data: providedSymbols }),
           operationalImageReviewBoardAssetUrl: () =>
             'http://127.0.0.1:8000/board.jpg',
           searchGameBoards: searchImpl,
@@ -154,5 +155,41 @@ test('Enter searches, but typing in the limit field keeps native keys', async ()
   assert.equal(await press('Enter'), false);
   await eventually(() => calls.length === 1, 'Enter should run the search');
   assert.deepEqual(calls[0].cells, [{ cellIndex: 0, symbolCode: 'cherry' }]);
+  await act(async () => root.unmount());
+});
+
+test('Mumia is the tenth active symbol: zero places it, question mark remains unknown', async () => {
+  const ten = Array.from({ length: 10 }, (_, index) =>
+    makeSymbol(
+      index === 9 ? 'mumia' : `S${index + 1}`,
+      index === 9 ? 'Mumia' : `Symbol ${index + 1}`,
+      index,
+    ),
+  );
+  const root = await renderWorkspace(
+    async () => ({ data: { results: [] } }),
+    [...ten].reverse(),
+  );
+  const mumia = document.querySelector('button[title="Mumia"]');
+  assert.equal(mumia.getAttribute('aria-keyshortcuts'), '0');
+  assert.equal(mumia.querySelector('kbd').textContent, '0');
+  assert.equal(
+    document
+      .querySelector('.boardSearchUnknownButton')
+      .getAttribute('aria-keyshortcuts'),
+    '?',
+  );
+  const limit = document.querySelector(
+    'input[aria-label="Liczba wyników wyszukiwania"]',
+  );
+  assert.equal(await press('0', limit), true);
+  assert.ok(cellLabels()[0].endsWith(', puste'));
+  assert.equal(await press('0'), false);
+  assert.equal(cellLabels()[0], 'Wiersz 1, kolumna 1: Mumia');
+  assert.equal(await press('?'), false);
+  assert.equal(
+    cellLabels()[5],
+    'Wiersz 2, kolumna 1: nieznany symbol, bez dowodu',
+  );
   await act(async () => root.unmount());
 });

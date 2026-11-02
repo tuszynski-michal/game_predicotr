@@ -77,3 +77,11 @@ Commit: v1.7.514 / `923dd029f22a26569efb46d2aef55b49e5f1ad1a`.
 ### Recommended next task
 
 - Odbiór zapisu po Ctrl+F5 w działającej aplikacji operatora.
+
+### Kontrole integracyjne — 2026-11-02
+
+- Operator zatwierdził połączenie całej pozostałej gałęzi z wyszukiwarką TASK-1114–1116, push i sprzątanie.
+- Zachowano obie historie tasków i ich hashe. Konflikt kodu dotyczył wyłącznie komentarza przy tej samej poprawce StrictMode; zachowano komentarz i poprawkę.
+- Po połączeniu: 113/113 testów interakcji wspólnego UI PASS, lint i typecheck pakietu PASS, docs:check i code-map:check PASS. Bez migracji i restartów usług.
+- Kolizje numerów wersji v1.7.506–514 zachowane zgodnie z merge-to-main, bez przepisywania historii. Brak kolizji numerów TASK, decyzji i migracji.
+- Dwa wcześniejsze niezacommitowane usunięcia artefaktów zachowano jako zweryfikowaną kopię Git stash bbca6f8dfcba950b9e6d36ae7b6014e835b74f22. Nie należą do funkcjonalnej integracji i nie są usuwane wraz z worktree.

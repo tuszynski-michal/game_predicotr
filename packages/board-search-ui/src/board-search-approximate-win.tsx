@@ -34,6 +34,7 @@ import {
   approximateWinExtremes,
   approximateWinPointKey,
   approximateWinPointAtSpin,
+  approximateWinBestPointNearSpin,
   approximateWinMachineCashAtPoint,
   approximateWinStakeToPoint,
   approximateWinRequestKey,
@@ -61,20 +62,14 @@ import {
   formatApproximateWinWholeAmount,
   formatApproximateWinAxisValue,
   formatZloty,
-  loadApproximateWinDisplay,
-  saveApproximateWinDisplay,
   scaleApproximateWinAmountAtStake,
 } from './board-search-stake';
 
-import { BoardSearchRulesVersionSelect } from './board-search-rules-version-select';
 import {
   SuperGameMarkerBadge,
   SuperGameStateBanner,
 } from './board-search-super-game-marker';
-import {
-  type BoardSearchRulesVersionOption,
-  boardCountMatchLabel,
-} from './board-search-rules-versions';
+import { boardCountMatchLabel } from './board-search-rules-versions';
 
 type ApproximateWinClient = Pick<
   BoardSearchDataSource,
@@ -115,12 +110,6 @@ interface BoardSearchApproximateWinProps {
   readonly onCalculationChange?: (value: ApproximateWinResponse) => void;
   /** Game symbols for the fallback board schema in the payline modal. */
   readonly symbols?: readonly SymbolResponse[];
-  /**
-   * Admin-only draft preview (D-535): rules versions for the „Wersja reguł”
-   * select. `null` or omitted (share, management): no select, latest
-   * published rules only.
-   */
-  readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
   /** Opens the series of a marked row in place (online share, D-564). */
   readonly onOpenSuperGameSeries?: (
     seriesId: string,
@@ -156,12 +145,9 @@ export function BoardSearchApproximateWin({
   onPinsChange,
   onCalculationChange,
   symbols = [],
-  rulesVersions = null,
   onOpenSuperGameSeries,
 }: BoardSearchApproximateWinProps) {
   const appliedReplayId = useRef<string | null>(null);
-  // `null` is the latest published rules version (the default).
-  const [rulesVersionId, setRulesVersionId] = useState<string | null>(null);
   const [boardRequest, setBoardRequest] = useState<{
     readonly id: string;
     readonly sequenceNumber: number;
@@ -187,9 +173,6 @@ export function BoardSearchApproximateWin({
     busyCallback.current = onBusyChange;
     suspendedRef.current = suspended;
   }, [onBusyChange, suspended]);
-  const [unit, setUnit] = useState<ApproximateWinAmountUnit>(
-    () => loadApproximateWinDisplay().unit,
-  );
   const [stakeChoice, setStakeChoice] = useState<StakeChoice | null>(null);
   // The spin cost of the last result keeps the stake list usable while a
   // new calculation is loading.
@@ -205,13 +188,8 @@ export function BoardSearchApproximateWin({
       (stakeChoice !== null && stakeChoice.searchKey === searchKey
         ? stakeChoice.stakeGrosze
         : null),
-    unit,
+    unit: 'pln',
   };
-
-  function changeUnit(next: ApproximateWinAmountUnit) {
-    setUnit(next);
-    saveApproximateWinDisplay({ stakeGrosze: null, unit: next });
-  }
 
   const resultIdentity =
     selectedSequenceNumber !== undefined
@@ -229,7 +207,6 @@ export function BoardSearchApproximateWin({
             calculationKey === undefined
               ? resultIdentity
               : `${resultIdentity}:${calculationKey}`,
-          rulesVersionId,
           spinCount: range,
         })
       : null;
@@ -244,7 +221,6 @@ export function BoardSearchApproximateWin({
       .getBoardSearchApproximateWin(gameId, {
         spinCount: range,
         startSequenceNumber: sequenceNumber,
-        ...(rulesVersionId === null ? {} : { rulesVersionId }),
       })
       .then((result) => {
         if (requestId !== requestIdRef.current) {
@@ -424,26 +400,10 @@ export function BoardSearchApproximateWin({
             onStakeChange={(stakeGrosze) =>
               setStakeChoice({ searchKey, stakeGrosze })
             }
-            onUnitChange={changeUnit}
             spinCost={spinCost}
             stakeChosen={stakeChosen}
             fixedStakeGrosze={fixedStakeGrosze}
           />
-          {rulesVersions !== null ? (
-            <BoardSearchRulesVersionSelect
-              disabled={state.kind === 'loading'}
-              onChange={setRulesVersionId}
-              options={rulesVersions}
-              value={rulesVersionId}
-            />
-          ) : null}
-          <small className="boardSearchApproximateWinControlsHint">
-            Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna od
-            „Liczby wyników”.{' '}
-            {fixedStakeGrosze === undefined
-              ? 'Stawka jest wybierana osobno dla każdego wyszukanego wzoru.'
-              : 'Stawka jest ustalona przez wybrany zapis.'}
-          </small>
         </div>
         {rangeError ? (
           <p className="feedbackBanner feedbackBannerError" role="alert">
@@ -517,8 +477,6 @@ export function BoardSearchApproximateWin({
             pinnedSpinPositions={pinnedSpinPositions}
             onPinsChange={onPinsChange}
             fixedStakeGrosze={fixedStakeGrosze}
-            rulesVersions={rulesVersions}
-            requestedRulesVersionId={rulesVersionId}
           />
         ) : null}
       </div>
@@ -574,8 +532,6 @@ function ApproximateWinResultView({
   pinnedSpinPositions,
   onPinsChange,
   fixedStakeGrosze,
-  rulesVersions,
-  requestedRulesVersionId,
 }: {
   readonly compact?: boolean;
   readonly tableOnly?: boolean;
@@ -603,8 +559,6 @@ function ApproximateWinResultView({
   readonly pinnedSpinPositions?: readonly number[];
   readonly onPinsChange?: (value: readonly number[]) => void;
   readonly fixedStakeGrosze?: number;
-  readonly rulesVersions: readonly BoardSearchRulesVersionOption[] | null;
-  readonly requestedRulesVersionId: string | null;
 }) {
   const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
   const [linesRow, setLinesRow] = useState<ApproximateWinRowResponse | null>(
@@ -686,16 +640,6 @@ function ApproximateWinResultView({
             }
             result={result}
           />
-
-          {hasIncompleteData ? (
-            <p className="feedbackBanner" role="status">
-              Wynik opiera się wyłącznie na dostępnych i rozpoznanych symbolach.
-              Brakujące lub niepotwierdzone wygrane nie są doliczane, ale koszt
-              każdego spinu pozostaje uwzględniony. To ostrożne oszacowanie
-              według zapisanych danych, a nie statystyczna prognoza ani
-              gwarancja rzeczywistej wygranej.
-            </p>
-          ) : null}
         </>
       ) : null}
       {compact ? (
@@ -737,8 +681,6 @@ function ApproximateWinResultView({
                 pinnedSpinPositions={pinnedSpinPositions}
                 onPinsChange={onPinsChange}
                 fixedStakeGrosze={fixedStakeGrosze}
-                rulesVersions={rulesVersions}
-                requestedRulesVersionId={requestedRulesVersionId}
                 tableOnly
               />
             ) : null}
@@ -773,18 +715,6 @@ function ApproximateWinResultView({
               result={result}
             />
           ) : null}
-          <ApproximateWinTableFilter
-            formatAmount={(credits) =>
-              `${amount(credits)}${unitNoun(display.unit)}`
-            }
-            maximumPayoutCredits={
-              approximateWinExtremes(
-                result.rows.map((row) => row.payoutCredits),
-              ).maximum
-            }
-            minimumPayoutCredits={minimumPayoutCredits}
-            onMinimumPayoutCreditsChange={setMinimumPayoutCredits}
-          />
           <div className="importRowsTableWrap">
             <table className="importRowsTable">
               <thead>
@@ -872,6 +802,18 @@ function ApproximateWinResultView({
               </tbody>
             </table>
           </div>
+          <ApproximateWinTableFilter
+            formatAmount={(credits) =>
+              `${amount(credits)}${unitNoun(display.unit)}`
+            }
+            maximumPayoutCredits={
+              approximateWinExtremes(
+                result.rows.map((row) => row.payoutCredits),
+              ).maximum
+            }
+            minimumPayoutCredits={minimumPayoutCredits}
+            onMinimumPayoutCreditsChange={setMinimumPayoutCredits}
+          />
           {visibleRows.length === 0 ? (
             <p className="importEmptyState">
               Brak wygranych spełniających wybrany próg.
@@ -891,8 +833,6 @@ function ApproximateWinResultView({
               onRecalculate={onRecalculate}
               row={linesRow}
               rulesVersionId={result.rules.rulesVersionId}
-              rulesVersions={rulesVersions}
-              requestedRulesVersionId={requestedRulesVersionId}
               sequenceNumber={linesRow.sequenceNumber}
               symbols={symbols}
               correctionContext={{
@@ -944,7 +884,6 @@ function ApproximateWinDisplayControls({
   display,
   gameId,
   onStakeChange,
-  onUnitChange,
   spinCost,
   stakeChosen,
   fixedStakeGrosze,
@@ -952,7 +891,6 @@ function ApproximateWinDisplayControls({
   readonly display: ApproximateWinDisplay;
   readonly gameId: string;
   readonly onStakeChange: (stakeGrosze: number | null) => void;
-  readonly onUnitChange: (unit: ApproximateWinAmountUnit) => void;
   /** Unknown until the first result of this game arrived. */
   readonly spinCost: number | null;
   readonly stakeChosen: boolean;
@@ -997,21 +935,6 @@ function ApproximateWinDisplayControls({
             ))}
           </select>
         )}
-      </label>
-      <label>
-        <span>Jednostka</span>
-        <select
-          aria-label="Jednostka"
-          onChange={(event) =>
-            onUnitChange(
-              event.currentTarget.value === 'pln' ? 'pln' : 'credits',
-            )
-          }
-          value={display.unit}
-        >
-          <option value="pln">złote</option>
-          <option value="credits">kredyty</option>
-        </select>
       </label>
       {spinCost !== null && spinCost <= 0 ? (
         <p className="feedbackBanner" role="status">
@@ -1357,18 +1280,17 @@ export function ApproximateWinBalanceChart({
     ].map((point) => [approximateWinPointKey(point), point]),
   );
 
+  const spinAtPointer = (pointerX: number) =>
+    Math.max(
+      0,
+      Math.min(
+        result.evaluatedSpinCount,
+        Math.round(((pointerX - chartLeft) / chartWidth) * xHigh),
+      ),
+    );
   const closestPoint = (pointerX: number) =>
     controlled
-      ? approximateWinPointAtSpin(
-          result,
-          Math.max(
-            0,
-            Math.min(
-              result.evaluatedSpinCount,
-              Math.round(((pointerX - chartLeft) / chartWidth) * xHigh),
-            ),
-          ),
-        )!
+      ? approximateWinPointAtSpin(result, spinAtPointer(pointerX))!
       : labelPoints.reduce((best, point) =>
           Math.abs(toX(point.spinNumber) - pointerX) <
           Math.abs(toX(best.spinNumber) - pointerX)
@@ -1419,7 +1341,18 @@ export function ApproximateWinBalanceChart({
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
     const pointerX = pointerToViewBoxX(event);
     if (pointerX === null) return;
-    togglePin(closestPoint(pointerX));
+    const best = approximateWinBestPointNearSpin(
+      result,
+      spinAtPointer(pointerX),
+    );
+    if (best === null) return;
+    // Keep existing label identities, including a payout on the final spin.
+    const point = controlled
+      ? best
+      : (labelPoints.find((item) => item.spinNumber === best.spinNumber) ??
+        best);
+    setHoveredPoint(point);
+    togglePin(point);
   };
   const handleKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -1581,14 +1514,6 @@ export function ApproximateWinBalanceChart({
     <section {...labelling} className="boardSearchApproximateWinChart">
       <div hidden={compact}>
         <h3 id={headingId}>Kasa na czysto według liczby spinów</h3>
-        <p>
-          Kasa na czysto: rozpoznane wygrane minus koszt wszystkich spinów.
-          Między wygranymi spada o koszt każdego spinu; wykres kończy się na
-          ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter, aby
-          go przypiąć. „Wkład” to kwota potrzebna od zera, by opłacić spiny do
-          tego punktu; „Kredyty maszyna” to wkład plus kasa na czysto, w pełnych
-          kredytach.
-        </p>
       </div>
       <div className="boardSearchApproximateWinChartCanvas">
         <svg

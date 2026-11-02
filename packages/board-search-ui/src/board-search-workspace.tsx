@@ -5,7 +5,6 @@
 
 import type {
   BoardSearchResponse,
-  BoardSearchPattern,
   BoardSearchScope,
   SymbolResponse,
   SearchGameBoardsOptions,
@@ -13,11 +12,14 @@ import type {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
-import { useBoardSearchSequence } from './use-board-search-sequence';
-import { boardSearchSequenceEditorsFromPatterns } from './board-search-sequence-state';
+import { useBoardSearch } from './use-board-search';
+import {
+  type BoardSearchPattern,
+  boardSearchSequenceEditorsFromPatterns,
+} from './board-search-local-state';
 import type { BoardSearchDataSource } from './board-search-data-source';
 import {
-  digitShortcutLabel,
+  extendedDigitShortcutLabel,
   isTextEntryKeyboardTarget,
 } from './keyboard-shortcuts';
 
@@ -40,7 +42,6 @@ import {
 } from './board-search-editor-state';
 import { BoardSearchApproximateWin } from './board-search-approximate-win';
 import { BoardSearchBoardLinesModal } from './board-search-board-lines-modal';
-import { useBoardSearchRulesVersions } from './board-search-rules-version-select';
 import { APPROXIMATE_WIN_RANGE_DEFAULT } from './board-search-approximate-win-state';
 import {
   boardSearchDraftKey,
@@ -208,8 +209,6 @@ function BoardSearchWorkspaceContent({
     savedSelection === null ? null : boardSearchDraftKey(savedSelection),
   );
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
-  // Admin-only draft preview (D-535); `null` for share and management sources.
-  const rulesVersions = useBoardSearchRulesVersions(api, gameId);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
   const [legacyEditor, setLegacyEditor] = useState(() =>
@@ -252,7 +251,7 @@ function BoardSearchWorkspaceContent({
   const [approximateReplay, setApproximateReplay] =
     useState<BoardSearchApproximateWinReplay | null>(null);
 
-  const sequenceEnabled = !managed && api.searchGameBoardSequence !== undefined;
+  const sequenceEnabled = !managed;
   const activeCodes = useMemo(
     () =>
       new Set(
@@ -262,7 +261,7 @@ function BoardSearchWorkspaceContent({
       ),
     [symbols],
   );
-  const sequence = useBoardSearchSequence({
+  const sequence = useBoardSearch({
     enabled: sequenceEnabled,
     api,
     gameId,
@@ -707,6 +706,12 @@ function BoardSearchWorkspaceContent({
   });
 
   function applyReplay(request: BoardSearchReplayRequest) {
+    if (request.patterns !== undefined && request.patterns.length !== 1) {
+      setReplayNotices([
+        'Wyszukiwanie wielu układów zostało usunięte. Wpisz jedną planszę.',
+      ]);
+      return;
+    }
     const patterns = request.patterns ?? [{ cells: [...request.cells] }];
     const { state: nextEditor, inactiveCodes } = sequenceEnabled
       ? {
@@ -891,9 +896,21 @@ function BoardSearchWorkspaceContent({
               <h2>Symbole</h2>
               <p>Kliknij symbol, aby wstawić go do zaznaczonego pola.</p>
               <p className="boardSearchShortcutHint">
-                Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> symbol · <kbd>0</kbd>{' '}
-                nieznany (?) · <kbd>Backspace</kbd> cofnij · <kbd>Enter</kbd>{' '}
-                szukaj
+                Klawiatura: <kbd>1</kbd>–<kbd>9</kbd>
+                {activeSymbols.length >= 10 ? (
+                  <>
+                    {' '}
+                    i <kbd>0</kbd>
+                  </>
+                ) : null}{' '}
+                symbol ·{' '}
+                {activeSymbols.length < 10 ? (
+                  <>
+                    <kbd>0</kbd> lub{' '}
+                  </>
+                ) : null}
+                <kbd>?</kbd> nieznany · <kbd>Backspace</kbd> cofnij ·{' '}
+                <kbd>Enter</kbd> szukaj
               </p>
             </header>
             {activeSymbols.length === 0 ? (
@@ -903,7 +920,7 @@ function BoardSearchWorkspaceContent({
             ) : (
               <div className="boardSearchPaletteGrid">
                 {activeSymbols.map((symbol, index) => {
-                  const shortcut = digitShortcutLabel(index);
+                  const shortcut = extendedDigitShortcutLabel(index);
                   return (
                     <button
                       aria-keyshortcuts={shortcut ?? undefined}
@@ -929,14 +946,16 @@ function BoardSearchWorkspaceContent({
                   );
                 })}
                 <button
-                  aria-keyshortcuts={BOARD_SEARCH_UNKNOWN_SHORTCUT}
+                  aria-keyshortcuts={activeSymbols.length >= 10 ? '?' : '0 ?'}
                   className="boardSearchSymbolButton boardSearchUnknownButton"
                   onClick={placeUnknown}
                   title="Nieznany symbol — brak dowodu"
                   type="button"
                 >
                   <kbd className="boardSearchSymbolShortcut">
-                    {BOARD_SEARCH_UNKNOWN_SHORTCUT}
+                    {activeSymbols.length >= 10
+                      ? BOARD_SEARCH_UNKNOWN_SHORTCUT
+                      : '0'}
                   </kbd>
                   <strong>?</strong>
                   <span>Nieznany</span>
@@ -946,24 +965,6 @@ function BoardSearchWorkspaceContent({
           </aside>
 
           <div className="boardSearchPattern">
-            {sequenceEnabled ? (
-              <div
-                className="boardSearchSequenceBadges"
-                aria-label="Wpisane układy"
-              >
-                {sequence.editors.map((_, index) => (
-                  <button
-                    className="secondaryButton"
-                    type="button"
-                    key={index}
-                    aria-pressed={sequence.activeIndex === index}
-                    onClick={() => sequence.setActiveIndex(index)}
-                  >
-                    Układ {index + 1}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <header>
               <h2>Twój wzór</h2>
               <p>
@@ -1087,14 +1088,6 @@ function BoardSearchWorkspaceContent({
                   <button
                     className="secondaryButton"
                     type="button"
-                    disabled={!sequence.canNext}
-                    onClick={sequence.next}
-                  >
-                    Dodaj układ
-                  </button>
-                  <button
-                    className="secondaryButton"
-                    type="button"
                     onClick={() => {
                       sequence.clear();
                       setApproximateReplay(null);
@@ -1108,7 +1101,7 @@ function BoardSearchWorkspaceContent({
             </footer>
             {sequenceEnabled &&
             sequence.inputError !== null &&
-            (patternCellCount > 0 || sequence.editors.length > 1) ? (
+            patternCellCount > 0 ? (
               <p className="boardSearchFeedback" role="status">
                 {sequence.inputError}
               </p>
@@ -1159,9 +1152,7 @@ function BoardSearchWorkspaceContent({
             compact={compact}
             client={resultClient}
             gameId={gameId}
-            rulesVersions={rulesVersions}
             superGameState={visibleResponse.superGameState ?? null}
-            sequenceResult={sequenceEnabled ? sequence.activeSequence : null}
             onBoardEdited={() =>
               sequenceEnabled
                 ? sequence.repeat()
@@ -1189,7 +1180,6 @@ function BoardSearchWorkspaceContent({
             <BoardSearchApproximateWin
               client={api}
               gameId={gameId}
-              rulesVersions={rulesVersions}
               searchKey={searchKey}
               onOpenSuperGameSeries={openSuperGameSeries}
               onReplayNotice={(notice) =>
@@ -1208,7 +1198,6 @@ function BoardSearchWorkspaceContent({
             client={resultClient}
             calculationKey={`${sequence.searchKey}:${sequence.resultRevision}`}
             gameId={gameId}
-            rulesVersions={rulesVersions}
             searchKey={searchKey}
             onOpenSuperGameSeries={openSuperGameSeries}
             onReplayNotice={(notice) =>

@@ -1,17 +1,7 @@
 'use client';
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type SetStateAction,
-} from 'react';
-import type {
-  BoardSearchPattern,
-  BoardSearchResponse,
-  BoardSearchSequenceResponse,
-} from '@game-predictor/admin-api-client';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { BoardSearchResponse } from '@game-predictor/admin-api-client';
 import type { BoardSearchDataSource } from './board-search-data-source';
 import { apiErrorMessage } from './api-error';
 import {
@@ -25,6 +15,10 @@ import {
   type BoardSearchResultsState,
 } from './board-search-results-state';
 import {
+  type BoardSearchPattern,
+  boardSearchStorageKey,
+  readBoardSearchLocalState,
+  writeBoardSearchLocalState,
   boardSearchSequenceEditor,
   boardSearchSequenceEditorsFromPatterns,
   boardSearchSequenceInput,
@@ -33,7 +27,7 @@ import {
   readBoardSearchSequenceLocalState,
   type BoardSearchSequenceLocalState,
   type BoardSearchSubmittedSequence,
-} from './board-search-sequence-state';
+} from './board-search-local-state';
 
 const STORAGE_FAILURE =
   'Nie udało się zachować wyszukiwania w przeglądarce. Możesz pracować dalej; poprzedni zestaw może wrócić po odświeżeniu.';
@@ -41,7 +35,7 @@ type Status =
   | { readonly kind: 'idle' | 'loading' }
   | { readonly kind: 'error'; readonly message: string }
   | { readonly kind: 'ready'; readonly result: BoardSearchResponse };
-export type SequenceSearchOptions = {
+export type SingleSearchOptions = {
   readonly patterns?: BoardSearchPattern[];
   readonly limit?: number;
   readonly scope?: BoardSearchSubmittedSequence['scope'];
@@ -51,7 +45,7 @@ export type SequenceSearchOptions = {
 };
 
 /** Independent editor, submitted snapshot and visible response; nothing secret is persisted. */
-export function useBoardSearchSequence({
+export function useBoardSearch({
   enabled,
   api,
   gameId,
@@ -68,10 +62,9 @@ export function useBoardSearchSequence({
   readonly activeCodes: ReadonlySet<string>;
   readonly hasReplay: boolean;
 }) {
-  const [editors, setEditors] = useState<BoardSearchEditorState[]>([
-    createBoardSearchEditorState(),
-  ]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [editor, setEditor] = useState<BoardSearchEditorState>(
+    createBoardSearchEditorState,
+  );
   const [entryOrder, setEntryOrder] =
     useState<BoardSearchEntryOrder>('columns');
   const [limit, setLimit] = useState(BOARD_SEARCH_LIMIT_DEFAULT);
@@ -82,8 +75,6 @@ export function useBoardSearchSequence({
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [response, setResponse] = useState<BoardSearchResponse | null>(null);
-  const [sequenceResponse, setSequenceResponse] =
-    useState<BoardSearchSequenceResponse | null>(null);
   const [results, setResults] = useState<BoardSearchResultsState | null>(null);
   const resultStarts = useRef<readonly number[]>([]);
   const [contextId, setContextId] = useState<string | null>(null);
@@ -103,13 +94,13 @@ export function useBoardSearchSequence({
   const [resultRevision, setResultRevision] = useState(0);
   const [repeatPending, setRepeatPending] = useState<{
     reason: 'limit' | 'correction';
-    options: SequenceSearchOptions;
+    options: SingleSearchOptions;
   } | null>(null);
   const calculationBusyRef = useRef(false);
-  const storageKey = boardSearchSequenceStorageKey(scope);
+  const storageKey = boardSearchStorageKey(scope);
   const input = useMemo(
-    () => boardSearchSequenceInput(editors, activeCodes),
-    [editors, activeCodes],
+    () => boardSearchSequenceInput([editor], activeCodes),
+    [editor, activeCodes],
   );
   const inputKey = boardSearchSequenceKey(input.patterns);
   const visibleKey =
@@ -117,9 +108,6 @@ export function useBoardSearchSequence({
       ? ''
       : boardSearchSequenceKey(visibleSubmitted.patterns);
   const draftChanged = input.error !== null || inputKey !== visibleKey;
-  const activeSequence =
-    sequenceResponse?.results[results?.activeIndex ?? 0] ?? null;
-
   useEffect(() => {
     mounted.current = true;
     const invalidate = () => {
@@ -136,18 +124,6 @@ export function useBoardSearchSequence({
     calculationBusyRef.current = busy;
     if (mounted.current) setCalculationBusy(busy);
   };
-
-  function setEditor(action: SetStateAction<BoardSearchEditorState>) {
-    setEditors((previous) =>
-      previous.map((editor, index) =>
-        index !== activeIndex
-          ? editor
-          : typeof action === 'function'
-            ? action(editor)
-            : action,
-      ),
-    );
-  }
 
   function selectResults(state: BoardSearchResultsState | null) {
     setResults(state);
@@ -171,7 +147,6 @@ export function useBoardSearchSequence({
     ) {
       setResponse(null);
       setResults(null);
-      setSequenceResponse(null);
       setContextId(null);
       setSelectedStart(null);
       resultStarts.current = [];
@@ -187,9 +162,13 @@ export function useBoardSearchSequence({
     });
   }
 
-  function search(options: SequenceSearchOptions = {}) {
+  function search(options: SingleSearchOptions = {}) {
     if (!enabled || loading.current || calculationBusyRef.current) return;
-    const patterns = options.patterns ?? input.patterns;
+    const patterns = (options.patterns ?? input.patterns).map((pattern) => ({
+      cells: [...pattern.cells].sort(
+        (left, right) => left.cellIndex - right.cellIndex,
+      ),
+    }));
     const validation = boardSearchSequenceInput(
       boardSearchSequenceEditorsFromPatterns(patterns),
       activeCodes,
@@ -224,14 +203,11 @@ export function useBoardSearchSequence({
     setStatus({ kind: 'loading' });
     setNotice(null);
     setLastSubmitted(submitted);
-    const request =
-      patterns.length === 1
-        ? api.searchGameBoards(gameId, {
-            cells: patterns[0].cells,
-            scope: submitted.scope,
-            limit: submitted.limit,
-          })
-        : api.searchGameBoardSequence!(gameId, submitted);
+    const request = api.searchGameBoards(gameId, {
+      cells: patterns[0].cells,
+      scope: submitted.scope,
+      limit: submitted.limit,
+    });
     void request
       .then((answer) => {
         if (!mounted.current || id !== requestId.current) return;
@@ -239,29 +215,12 @@ export function useBoardSearchSequence({
           fail(answer.error);
           return;
         }
-        const multi = 'patternCount' in answer.data ? answer.data : null;
-        const data: BoardSearchResponse =
-          multi === null
-            ? (answer.data as BoardSearchResponse)
-            : {
-                gameId: multi.gameId,
-                scope: multi.scope,
-                queryCellCount: multi.queryCellCount,
-                superGameState: multi.superGameState,
-                results: multi.results.map(
-                  (result) => result.boards[result.boards.length - 1],
-                ),
-              };
+        const data = answer.data;
         let fresh = createBoardSearchResultsState(data.results);
         if (keepStart !== null) {
-          const index =
-            multi === null
-              ? data.results.findIndex(
-                  (board) => board.sequenceNumber === keepStart,
-                )
-              : multi.results.findIndex(
-                  (result) => result.startSequenceNumber === keepStart,
-                );
+          const index = data.results.findIndex(
+            (board) => board.sequenceNumber === keepStart,
+          );
           if (index >= 0) fresh = { ...fresh, activeIndex: index };
           else if (data.results.length > 0)
             setNotice(
@@ -269,15 +228,12 @@ export function useBoardSearchSequence({
             );
         }
         setResponse(data);
-        setSequenceResponse(multi);
-        resultStarts.current =
-          multi?.results.map((result) => result.startSequenceNumber) ??
-          data.results.map((board) => board.sequenceNumber);
+        resultStarts.current = data.results.map(
+          (board) => board.sequenceNumber,
+        );
         setResults(fresh);
         setSelectedStart(
-          multi?.results[fresh.activeIndex]?.startSequenceNumber ??
-            fresh.results[fresh.activeIndex]?.sequenceNumber ??
-            null,
+          fresh.results[fresh.activeIndex]?.sequenceNumber ?? null,
         );
         setContextId(answer.searchContextId ?? null);
         setResultRevision((revision) => revision + 1);
@@ -306,11 +262,16 @@ export function useBoardSearchSequence({
       hydratedRef.current = true;
       if (!hasReplay) {
         try {
-          const raw = window.localStorage.getItem(storageKey);
+          const current = window.localStorage.getItem(storageKey);
+          const raw =
+            current ??
+            window.localStorage.getItem(boardSearchSequenceStorageKey(scope));
           if (raw !== null) {
-            const saved = readBoardSearchSequenceLocalState(raw, scope);
-            setEditors(saved.patterns.map(boardSearchSequenceEditor));
-            setActiveIndex(saved.activeIndex);
+            const saved =
+              current === null
+                ? readBoardSearchSequenceLocalState(raw, scope)
+                : readBoardSearchLocalState(raw, scope);
+            setEditor(boardSearchSequenceEditor(saved.patterns[0]));
             setEntryOrder(saved.entryOrder);
             setLastSubmitted(saved.lastSubmitted);
             setSelectedStart(saved.selectedStartSequenceNumber);
@@ -328,7 +289,10 @@ export function useBoardSearchSequence({
               (error instanceof Error &&
                 error.message === 'Nieprawidłowy zapis wyszukiwania.')
               ? 'Zapis wyszukiwania jest nieprawidłowy lub ma inną wersję. Rozpoczęto pusty zestaw.'
-              : STORAGE_FAILURE,
+              : error instanceof Error &&
+                  error.message.includes('zostało usunięte')
+                ? error.message
+                : STORAGE_FAILURE,
           );
         }
       }
@@ -362,8 +326,8 @@ export function useBoardSearchSequence({
     const saved: BoardSearchSequenceLocalState = {
       version: 1,
       scope,
-      patterns: editors.map((editor) => editor.cells),
-      activeIndex,
+      patterns: [editor.cells],
+      activeIndex: 0,
       entryOrder,
       lastSubmitted,
       selectedStartSequenceNumber:
@@ -376,7 +340,10 @@ export function useBoardSearchSequence({
           : selectedStart,
     };
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify(saved));
+      window.localStorage.setItem(
+        storageKey,
+        writeBoardSearchLocalState(saved),
+      );
     } catch {
       queueMicrotask(() => {
         if (mounted.current) setStorageNotice(STORAGE_FAILURE);
@@ -387,8 +354,7 @@ export function useBoardSearchSequence({
     hydrated,
     scope,
     storageKey,
-    editors,
-    activeIndex,
+    editor,
     entryOrder,
     lastSubmitted,
     visibleSubmitted,
@@ -400,8 +366,13 @@ export function useBoardSearchSequence({
     pendingRestore.current = null;
     epoch.current++;
     const next = boardSearchSequenceEditorsFromPatterns(patterns);
-    setEditors(next);
-    setActiveIndex(next.length - 1);
+    if (next.length !== 1) {
+      setNotice(
+        'Wyszukiwanie wielu układów zostało usunięte. Wpisz jedną planszę.',
+      );
+      return;
+    }
+    setEditor(next[0]);
     setLimit(nextLimit);
     // A replay supersedes an in-flight search, retaining the server slot guard.
     requestId.current++;
@@ -416,12 +387,10 @@ export function useBoardSearchSequence({
     loading.current = false;
     pendingRestore.current = null;
     const empty = createBoardSearchEditorState();
-    setEditors([empty]);
-    setActiveIndex(0);
+    setEditor(empty);
     setLastSubmitted(null);
     setVisibleSubmitted(null);
     setResponse(null);
-    setSequenceResponse(null);
     setResults(null);
     setContextId(null);
     setSelectedStart(null);
@@ -431,7 +400,7 @@ export function useBoardSearchSequence({
     try {
       window.localStorage.setItem(
         storageKey,
-        JSON.stringify({
+        writeBoardSearchLocalState({
           version: 1,
           scope,
           patterns: [empty.cells],
@@ -446,15 +415,6 @@ export function useBoardSearchSequence({
     }
   }
 
-  const canNext =
-    activeIndex === editors.length - 1 &&
-    editors.length < 4 &&
-    input.error === null &&
-    input.patterns.length === editors.length &&
-    hydrated &&
-    ready &&
-    !calculationBusy &&
-    status.kind !== 'loading';
   useEffect(() => {
     if (repeatPending === null) return;
     let cancelled = false;
@@ -491,11 +451,8 @@ export function useBoardSearchSequence({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repeatPending, calculationBusy, status.kind, draftChanged]);
   return {
-    editor: editors[activeIndex],
-    editors,
+    editor,
     setEditor,
-    activeIndex,
-    setActiveIndex,
     entryOrder,
     setEntryOrder,
     limit,
@@ -504,7 +461,6 @@ export function useBoardSearchSequence({
     response,
     results,
     setResults: selectResults,
-    activeSequence,
     contextId,
     notice,
     storageNotice,
@@ -522,13 +478,6 @@ export function useBoardSearchSequence({
         status.kind === 'error'),
     searchKey: `${visibleKey}:${visibleSubmitted?.scope ?? ''}`,
     lastSubmitted,
-    canNext,
-    next: () => {
-      if (canNext) {
-        setEditors((previous) => [...previous, createBoardSearchEditorState()]);
-        setActiveIndex(editors.length);
-      }
-    },
     search,
     repeat: () => {
       if (visibleSubmitted !== null)

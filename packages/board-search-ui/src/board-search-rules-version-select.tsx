@@ -1,50 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
-import type { BoardSearchDataSource } from './board-search-data-source';
 import {
   type BoardSearchRulesVersionOption,
   LATEST_PUBLISHED_RULES_VALUE,
   boardSearchRulesVersionLabel,
   rulesVersionFromSelectValue,
-  selectableBoardSearchRulesVersions,
 } from './board-search-rules-versions';
-
-/**
- * The game's draft and published rules versions when the data source can
- * list them (the Admin), otherwise `null`: the online share and the
- * management panel have no rules version choice (D-535).
- */
-export function useBoardSearchRulesVersions(
-  api: Pick<BoardSearchDataSource, 'listRulesVersions'>,
-  gameId: string,
-): readonly BoardSearchRulesVersionOption[] | null {
-  const list = api.listRulesVersions;
-  const [loaded, setLoaded] = useState<{
-    readonly gameId: string;
-    readonly options: readonly BoardSearchRulesVersionOption[];
-  } | null>(null);
-  useEffect(() => {
-    if (list === undefined) return;
-    let cancelled = false;
-    void Promise.resolve(list(gameId))
-      .then((result) => {
-        if (cancelled || result.data === undefined) return;
-        setLoaded({
-          gameId,
-          options: selectableBoardSearchRulesVersions(result.data),
-        });
-      })
-      // Without the list the select only offers the latest published rules.
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [list, gameId]);
-  if (list === undefined) return null;
-  return loaded !== null && loaded.gameId === gameId ? loaded.options : [];
-}
 
 /** „Wersja reguł”: latest published (default) or a chosen draft/published version. */
 export function BoardSearchRulesVersionSelect({

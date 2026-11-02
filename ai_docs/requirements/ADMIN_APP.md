@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-23
+last_updated: 2026-11-01
 ---
 
 # Wymagania modułu administracyjnego
@@ -446,18 +446,9 @@ a zmieniony stan tworzy nową wersję.
 
 ### Wyszukiwanie plansz z niepełnym wzorem
 
-**D-573 — kolejne układy (TASK-1091–1092, zaakceptowane 2026-10-24).**
-Admin, link pojedynczej gry i panel udostępniania pozwalają dopasować 1–4
-kolejne spiny. Badże nad edytorem przełączają wpisane wzory; wspólne wyniki
-poniżej i wybrany ciąg pozostają niezależne od aktywnego badża. „Dodaj
-układ” dodaje pusty wzór po poprawnym wypełnieniu bieżącego zestawu, także
-przed pierwszym wyszukiwaniem (zmiana operatora 2026-10-27, TASK-1098).
-Przycisk działa na ostatnim badżu, do czterech wzorów, poza trwającym
-wyszukiwaniem lub obliczaniem wygranej. „Resetuj”
-czyści tylko aktywny wzór; „Nowe szukanie” rozpoczyna pusty zestaw. Pusty
-koniec nie uczestniczy w szukaniu, luka w środku i wzór z samymi `?` wymagają
-uzupełnienia. Edycja nie ukrywa poprzednich wyników, lecz oznacza je jako
-nieaktualne do ponownego wyszukania.
+**TASK-1114 / decyzja operatora 2026-10-30:** Admin, link jednej gry i panel
+udostępniania wyszukują wyłącznie jedną planszę. Dodawanie kolejnych wzorów
+i wspólny ranking wielu układów zostały usunięte. Domyślnie 40 wyników.
 
 Po edycji wzoru zmiana liczby wyników tylko zapamiętuje nowy limit.
 Pierwsze kliknięcie „Szukaj plansz” wysyła aktualny wzór z tym limitem.
@@ -479,42 +470,19 @@ Zapis korekty nadal używa aktualnego kontekstu, a trwające wyszukiwanie
 blokuje edycję. Celowe odświeżenie po zapisie i zmiana planszy lub reguł
 nadal pobierają nowy odczyt.
 
-Ranking uwzględnia cały ciąg, bez przecinania osobnych list top-N. Kolejność
-jest cykliczna według długości sekwencji gry; brak dokumentu nie skraca
-odległości. Łączna ocena waży wszystkie znane pola zapytania, zachowując
-reguły dowodów i wyjątek 777a2. Wygrane liczone są po ostatniej planszy
-wybranego ciągu. Detale wcześniejszych plansz i ich korekty nie przesuwają
-kotwicy wygranych.
+Podgląd zaczyna się na znalezionej planszy. „Poprzedni układ” i „Następny
+układ” przeglądają do 15 numerów w każdą stronę; dwa kliknięcia przechodzą
+o dwie plansze. Dolna granica wynosi 1, bez zawijania i pomijania luk.
+Brak lub nieaktualny odczyt zachowuje zdjęcie i pozwala ponowić ten numer.
+Podgląd nie zmienia rankingu ani kotwicy wygranych. „Pokaż planszę” oraz
+korekta dotyczą aktualnego zdjęcia. Panel zarządzania zachowuje swój workflow.
 
-TASK-1099 (2026-10-27): wyszukiwanie wielu układów ma do 60 sekund na ranking,
-z zachowaniem krótszego jawnego limitu bazy. Przekroczenie nadal kończy się
-błędem bez częściowych wyników i bez automatycznego ponawiania.
-
-TASK-1098: podgląd wyniku zaczyna się od pierwszej planszy dopasowanego ciągu.
-„Następny układ” i „Poprzedni układ” przeglądają zdjęcia tego dopasowania,
-do piętnastu wcześniejszych zdjęć przed jego początkiem (TASK-1101,
-polecenie operatora 2026-10-27) oraz piętnaście kolejnych zdjęć po jego końcu
-(dalsze doprecyzowanie tego samego dnia, także dla pojedynczego wzoru).
-Dla czterech układów 240–243 zakres podglądu wynosi 225–258, początkowy
-podgląd nadal wskazuje 240. Cofanie kończy się najpóźniej na numerze 1,
-bez zawijania. Dla jednego układu obowiązują te same granice. Kolejność plansz
-dopasowania pochodzi z odpowiedzi API (także dla ciągu cyklicznego).
-Dodatkowe zdjęcia pobierane są pojedynczo według numeru przed początkiem albo po końcu ciągu,
-bez zawijania. Brak lub nieaktualny odczyt zachowuje poprzedni podgląd,
-pokazuje błąd i pozwala ponowić ten sam numer, bez przeskakiwania luk.
-Zdjęcia spoza dopasowania nie otrzymują procentu dopasowania.
-Podgląd nie zmienia rankingu ani kotwicy wygranych; „Pokaż planszę” otwiera
-aktualnie oglądane zdjęcie z jego własnym kontekstem korekty. Nawigacja
-„Poprzednia”/„Następna” i strzałki klawiatury nadal zmieniają dopasowanie.
-Nowy wynik lub odświeżenie wyszukiwania rozpoczyna podgląd od jego pierwszej
-planszy. Zachowanie obowiązuje w lokalnym Adminie, linku gry i panelu
-udostępniania; panel zarządzania zachowuje dotychczasowy workflow.
-
-Zestaw i wybór są pamiętane w przeglądarce per gra/link/panel, także po
-ponownym otwarciu; nie zapisuje się odpowiedzi API ani sekretów. Odtworzenie
-historii ma pierwszeństwo przed lokalnym zapisem. Wygasły link nadal blokuje
-dostęp. Historia i korekty oznaczają liczbę układów; pojedyncze wyszukiwania
-i panel zarządzania zachowują dotychczasowy workflow.
+Nowy zapis przeglądarki zawiera jeden wzór. Dawny zapis jednowzorowy jest
+odtwarzany; wielowzorowy daje komunikat o usuniętej funkcji, bez zapytania
+i bez usuwania starego zapisu. Historia v2 i snapshoty korekt pozostają
+czytelne. Replay 2–4 wzorów i powiązanych zdarzeń jest odmawiany komunikatem;
+pojedynczy wzór (także v2/1) nadal jest odtwarzany. Replay ma pierwszeństwo
+przed lokalnym zapisem; wygasły link blokuje dostęp.
 
 Edytor wzoru pozwala wskazać aktywny symbol, pozostawić pole puste albo jawnie
 oznaczyć je jako `?`. Puste pole i `?` są dla rankingu równoważnym brakiem
@@ -530,7 +498,10 @@ pozostają row-major niezależnie od sposobu wprowadzania.
 
 Paletę obsługuje też klawiatura (TASK-0657): `1`–`9` wstawia aktywny symbol o
 tym numerze (kolejność `displayOrder` z katalogu gry, numer widoczny na
-przycisku), `0` albo `?` wstawia nieznany `?`, `Backspace` wykonuje `Cofnij`, a
+przycisku). Przy co najmniej dziesięciu aktywnych symbolach `0` wybiera
+dziesiąty symbol tej kolejności (np. Mumię); paleta pokazuje przy nim `0`.
+`?` zawsze wstawia nieznany symbol; przy mniej niż dziesięciu symbolach także
+`0` zachowuje tę dotychczasową funkcję. `Backspace` wykonuje `Cofnij`, a
 `Enter` uruchamia wyszukiwanie. Skróty nie działają podczas pisania w polu
 tekstowym (np. „Liczba wyników”) ani z Ctrl/Alt/Meta; `Enter` na kontrolce
 poza edytorem wzoru (np. w wynikach) zachowuje natywne działanie.
@@ -636,18 +607,27 @@ samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`;
 dla gry z symbolem uruchamiającym supergrę `payout-v4-wild-count`)
 i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
 
-**Wersja reguł (D-535, TASK-0932).** W lokalnym Adminie obok kontrolek
-zakresu stoi select „Wersja reguł”: „Najnowsza opublikowana” (domyślnie)
-oraz wersje `draft` i opublikowane gry, np. „v2 · draft”, „v1 ·
-opublikowana” (wersje zarchiwizowane są pominięte). Wybór wersji `draft`
-pokazuje notę „Podgląd wersji roboczej” i liczy zakres z tej wersji bez jej
-publikowania; wybór nie jest zapamiętywany. Okno „Pokaż planszę” otwarte z
-wiersza liczy tą samą wersją i ma ten sam select; zmiana wersji w oknie
-pokazuje odczyt planszy dla wybranej wersji z dopiskiem „Dla wybranej wersji
-reguł” zamiast porównania z tabelą. Udostępniony panel online i panel
-zarządzania nie mają tego selectu. W wierszu tabeli wypłata za sztuki symbolu
-uruchamiającego jest pokazana jako dopisek „w tym sztuki: Mumia ×3 → 20”
-(już wliczona do wypłaty wiersza).
+**TASK-1115 / D-576 (2026-11-01).** Wyszukiwanie w Adminie i online używa
+najnowszej opublikowanej wersji reguł. Nie ma selectu „Wersja reguł” ani listy
+wersji pobieranej dla tego ekranu. Okna „Pokaż planszę” także czytają najnowszą
+wersję; zachowują kontrolę zgodności z wierszem tabeli, aby nie ukryć zmiany
+opublikowanych reguł między obliczeniem i odczytem planszy. Wypłaty za sztuki
+pozostają dopiskiem wliczonym do wypłaty wiersza. Wybór reguł w innych
+sekcjach, w tym na pełnym ekranie supergier, zachowuje istniejące zachowanie.
+
+Pod wykresem stoi bezpośrednio tabela wygranych z „Pokaż planszę”. Suwak
+„Pokaż wygrane od” stoi pod tabelą i filtruje ją bez ponownego obliczania
+wykresu ani żądania API. Usunięte są wskazane przez operatora: długi opis
+„Kasa na czysto: rozpoznane wygrane minus koszt…”, objaśnienie zakresu spinów
+i stawki oraz komunikat „Wynik opiera się wyłącznie…”. Liczniki kompletności,
+rzeczywiste błędy i ostrzeżenia o stanie prowizorycznym pozostają.
+
+Znacznik supergry w wyszukiwarce Admina otwiera edytowalny modal jak online,
+zamiast przejścia do pełnej sekcji. W nim można ustawić super symbol z
+kontrolą rewizji, poprawić planszę i przejść do następnej serii. Po zamknięciu
+zapisanej zmiany wyniki są odczytywane ponownie. Sekcja „Supergry” pozostaje
+dostępna osobno do szybkiej kontroli listy. Dotychczasowe linki do tej sekcji
+nadal działają. Modal blokuje zamknięcie w trakcie zapisu, również w StrictMode.
 
 **Supergra w prognozie (D-537, TASK-0936).** Spin serii supergry jest
 darmowy: wiersz ma dopisek „darmowy spin”, a koszt spinów sumuje koszt
@@ -683,9 +663,11 @@ cyfr nie wysyła żądania. Spóźniona odpowiedź dla wcześniej wybranej plans
 nigdy nie nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku
 wyszukiwania kalkulacja się nie uruchamia.
 
-Kontrolki „Zakres wygranej”, „Stawka” i „Jednostka” stoją w jednym wierszu
-nad wynikiem. Jednostka jest domyślnie w złotych i jest pamiętana w
-przeglądarce. Stawka nie jest pamiętana: po każdym wyszukaniu nowego wzoru
+Kontrolki „Zakres wygranej” i „Stawka” stoją w jednym wierszu nad wynikiem.
+Jednostką wyszukiwarki są zawsze złote (PLN), bez selectu „Jednostka”.
+Dawny zapis jednostki „kredyty” w przeglądarce jest na tym ekranie ignorowany,
+również po ponownym otwarciu. Kwoty maszyny opisane jako kredyty pozostają
+kredytami; zmiana prezentacji nie zmienia wyliczanych wypłat. Stawka nie jest pamiętana: po każdym wyszukaniu nowego wzoru
 lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
 ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
 się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
@@ -722,7 +704,7 @@ narastający pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako
 minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
 przewijalnym obszarze o wysokości około 20 wierszy (D-476); nagłówki kolumn
 pozostają widoczne podczas przewijania, a interfejs nie ma paginacji ani
-stopki zmiany strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
+stopki zmiany strony. Suwak „Pokaż wygrane od” pod tabelą (od zera do najwyższej wypłaty
 bieżącej odpowiedzi, z widoczną wartością) filtruje lokalnie wyłącznie
 widoczne wiersze tabeli: nie wysyła żądania i nie zmienia podsumowania ani
 wykresu. Nad suwakiem i tabelą jest wykres SVG narastającego bilansu
@@ -736,13 +718,20 @@ opisanymi na osiach; oś Y sięga do skrajnych podziałek obejmujących minimum
 i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
 maksimum (TASK-0761). Najechanie
 na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
-liczbą spinów i bilansem z jednostką („kredytów” albo „zł”, TASK-0774;
+liczbą spinów i bilansem w złotych (TASK-1115;
 tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
 (TASK-0778): kwotą potrzebną od zera, by opłacić spiny do tego punktu, czyli
 najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
 „Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
 się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
-Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
+**TASK-1116 (2026-11-01).** Kliknięcie lub tapnięcie przyciąga kursor do
+spinu o najwyższej „kasie na czysto” w domkniętym oknie 50 spinów w lewo
+i 50 w prawo od klikniętego spinu (według osi X, zaokrąglonego do całości).
+Okno jest ograniczone do 0…ostatni oceniony spin. Liczy się bilans po wypłacie,
+również dla spinów bez wygranej i darmowych; remisy rozstrzyga odległość od
+kliknięcia, następnie wcześniejszy spin. Filtr tabeli nie zmienia wyboru.
+Dotyczy Admina, online i zapisanych paneli. Najechanie i strzałki zachowują
+dotychczasowy precyzyjny wybór. Kliknięcie przypina wybrany punkt: jego etykieta zostaje widoczna na
 stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
 odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
 punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego

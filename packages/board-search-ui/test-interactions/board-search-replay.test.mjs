@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, test } from 'node:test';
+import { after, beforeEach, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 
@@ -38,6 +38,7 @@ const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
   await import('../src/board-search-workspace.tsx');
 
+beforeEach(() => window.localStorage.clear());
 after(() => dom.window.close());
 
 const gameId = '11111111-1111-4111-8111-111111111111';
@@ -201,8 +202,8 @@ test('a search replay sets the same pattern, scope and limit and searches once',
       { cellIndex: 6, symbolCode: 'lemon' },
     ],
     limit: 7,
-    // A recorded `approved_only` scope is ignored (TASK-0784).
-    scope: 'all_searchable',
+    // A recorded scope is preserved by the single-search replay.
+    scope: 'approved_only',
   });
   assert.equal(
     document.querySelector('input[aria-label="Liczba wyników wyszukiwania"]')
@@ -257,7 +258,7 @@ test('a range replay selects the start board and opens the range; a detail opens
   await act(async () => root.unmount());
 });
 
-test('a missing start board or an inactive symbol is reported instead of guessed', async () => {
+test('an inactive symbol blocks single replay until the operator fixes it', async () => {
   const { calls, value } = client();
   const root = await render(value, {
     approximateWin: { spinCount: 250, startSequenceNumber: 99 },
@@ -266,22 +267,16 @@ test('a missing start board or an inactive symbol is reported instead of guessed
       { cellIndex: 0, symbolCode: 'cherry' },
       { cellIndex: 1, symbolCode: 'retired' },
     ],
-    id: 'event-3:a',
+    id: 'retired',
     limit: 5,
     scope: 'all_searchable',
   });
   await eventually(
-    () => /Planszy startowej #99/.test(document.body.textContent),
-    'missing start board notice',
+    () => /retired/.test(document.body.textContent),
+    'inactive symbol notice',
   );
-  assert.match(
-    document.body.textContent,
-    /Symbol „retired” nie jest już aktywny/,
-  );
-  assert.deepEqual(calls.search[0].cells, [
-    { cellIndex: 0, symbolCode: 'cherry' },
-    { cellIndex: 1, symbolCode: null },
-  ]);
+  assert.match(document.body.textContent, /nie jest już aktywny/);
+  assert.equal(calls.search.length, 0);
   assert.equal(calls.range.length, 0);
   await act(async () => root.unmount());
 });

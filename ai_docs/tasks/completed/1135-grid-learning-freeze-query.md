@@ -59,7 +59,7 @@ Zwiększanie timeoutów, migracje, zmiana danych operatora, restart usług, merg
 - [x] PostgreSQL potwierdza blokady wybranych wierszy oraz brak blokady niepowiązanych wierszy; blokady znikają po zakończeniu transakcji.
 - [x] Limity czasu i kolejność blokad pozostają bez zmian; stare polityki kohort przechodzą regresję.
 - [x] Testy zmienionego pionu, scoped lint/typecheck, docs/map i audyt Opus rozliczone.
-- [ ] Outcome, task-close, osobny wersjonowany commit i record-hash.
+- [x] Outcome, task-close, osobny wersjonowany commit i record-hash.
 
 ## Technical notes
 
@@ -88,7 +88,7 @@ Odczyt porównawczy nie dowodzi ukończenia GPU treningu. Aktualne nieudane zada
 
 ## Outcome
 
-Commit: v1.7.527 (hash dopisuje kolejny commit).
+Commit: v1.7.527 / `c0a16b6abc42704572ac0dc17329e548f8c77061`.
 
 ### Changed
 

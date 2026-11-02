@@ -734,6 +734,9 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - symbols/candidate_gate.py: class SymbolCandidateGateError, class SymbolCandidateGateConfiguration, class SymbolModelBaseline, class SymbolCandidateGateResult, build_symbol_candidate
 - symbols/lab_candidate_import.py: class LabSymbolCandidateImportHandler
 - symbols/protected_sources.py: class ProtectedSourceError, managed_path, source_pixel_identity, class ProtectedSources, load_protected_sources, require_frozen_reference
+- symbols/readability_cohort.py: class QualitySample, class CohortSplit, assign_families, pilot_issues
+- symbols/readability_detector.py: class LinearHead, fit_linear, select_threshold, select_head, class QualityArtifact, train_detector, load_artifact, rank_candidates, rate_metric, evaluate_pilot
+- symbols/readability_features.py: class ReadabilityError, fingerprint, checked_bytes, managed_path, class FrozenBase, preflight_base, require_rgb, native_features, extract_features
 - symbols/reference_library.py: class ReferenceLibraryError, class Vote, class Proposal, normalize_rows, gray_world, shape_descriptor, hue_descriptor, combined_descriptor, vote, vote_batch, hint_candidates, decide, descriptor_matrix
 - symbols/reference_library_writer.py: class ReferenceLibraryWriteError, class RgbTarget, class TargetCell, class WritePolicy, rgb_v2_policy, class BoardPlan, rewrite_predictions, revert_checksum, apply_board, revert_board
 - symbols/review_backfill.py: class SymbolCellReviewBackfillHandler

@@ -344,3 +344,7 @@ Po dwóch lub więcej iteracjach system potrafi wykazać, że każdy model powst
 konkretnej, niezmiennej kohorty, nowy import użył przypiętej aktywnej wersji, a
 żadna automatyczna operacja nie zmieniła choćby jednej decyzji zapisanej przez
 użytkownika.
+
+## Niezależna jakość 777 A2 — TASK-1124 / D-578
+
+Detektor jakości ma dwa niezależne liniowe heady na frozen cechach kandydata nr 5. Nie jest nową aktywacją klasyfikatora symboli. Historyczne unreadable służą doborowi próby; osobne etykiety overlap i unreadable zapisuje człowiek. Niepewne etykiety wykluczają tylko odpowiedni head. Pełny skan wymaga niezależnej bramki pilota i odbioru operatora. A1 dostarcza wyłącznie narzędzia, bez wyników empirycznych. Kontrakt i minima: [zaakceptowany plan](../delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md).

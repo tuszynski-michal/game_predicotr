@@ -12,6 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+
 - **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
@@ -42,6 +43,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1125–1132; A1 done v1.7.517 | `codex/777a2-readability-replacement` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -72,6 +74,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1124** — Rdzeń detektora jakości 777 A2 — v1.7.517 — tasks/completed/1124-readability-detector-core.md
 - **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
 - **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
@@ -81,4 +84,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
 - **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md
 - **TASK-1108** — Wersja Mumii jako domyślna geometria — v1.7.506 / `3d1f55f2` — tasks/completed/1108-mumie-default-geometry.md
-- **TASK-1107** — Dowody płynności i paczka Windows 1.0.4 — v1.7.504 / `ce67e623` — tasks/completed/1107-selector-fluency-release.md

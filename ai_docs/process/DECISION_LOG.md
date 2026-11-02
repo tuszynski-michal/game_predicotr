@@ -32,6 +32,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-578](decisions/DECISION_LOG_2026.md#d-578--niezależny-detektor-jakości-777-a2-na-zamrożonym-kandydacie-nr-5) | Niezależny detektor jakości 777 A2 | accepted | 2026-11-02 | Frozen kandydat nr 5 bez aktywacji, dwa heady i niezależna bramka przed skanem. |
 | [D-576](decisions/DECISION_LOG_2026.md#d-576--uproszczenie-wyszukiwarki-i-modal-supergry-w-adminie) | Uproszczenie wyszukiwarki i modal supergry w Adminie | accepted | 2026-11-01 | TASK-1115: tabela pod wykresem, PLN i najnowsze reguły; modal w miejscu, 0 dla dziesiątego symbolu. |
 | [D-575](decisions/DECISION_LOG_2026.md#d-575--powrót-do-wyszukiwania-jednej-planszy) | Powrót do wyszukiwania jednej planszy | accepted | 2026-10-30 | TASK-1114 usuwa wiele wzorów; jedna plansza, ±15 i historia pozostają. |
 | [D-574](decisions/DECISION_LOG_2026.md#d-574--przypięty-wybór-i-optymistyczna-nawigacja-selektora) | Przypięty wybór i optymistyczna nawigacja Selektora | accepted | 2026-10-29 | Jeden writer, przypięte F, timeout i handshake przed close; bez zmian trwałego formatu. |
@@ -61,4 +62,3 @@ Reguły:
 | [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | accepted | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię i katalog; od TASK-1012 nowe preflighty V3 wybierają przypiętą wersję z assignment, a nie formatu. Serwerowy dowód oceny i invalidation nie przełączają assignment; stale blokuje nowe komendy. Nowa gra ma atomową rezerwację/transfer, fork-lineage i własny cold-start symboli. |
 | [D-548](decisions/DECISION_LOG_2026.md#d-548--doszkalanie-geometrii-z-ręcznych-korekt-v3) | Doszkalanie geometrii z ręcznych korekt V3 | accepted | 2026-10-14 | Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. |
 | [D-548](decisions/DECISION_LOG_2026.md#d-548--panel-wyszukiwarki-wielu-gier-przez-link-bez-kodu) | Panel wyszukiwarki wielu gier przez link bez kodu | accepted | 2026-10-13 | Immutable chosen games, full search/corrections, capability link max 72h, shared tunnel; audit omitted and migration/main integration/cleanup explicitly approved 2026-10-16. |
-| [D-547](decisions/DECISION_LOG_2026.md#d-547--selektor-windows-bez-limitu-zdjęć-i-wydanie-100) | Selektor Windows bez limitu zdjęć i wydanie 1.0.0 | accepted | 2026-10-13 | Brak limitu liczby zdjęć, stabilny układ i fullscreen, odbiór decyzją operatora, main oraz zachowanie artefaktów przed usunięciem worktree. |

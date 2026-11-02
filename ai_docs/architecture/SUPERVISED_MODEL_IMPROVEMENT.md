@@ -445,3 +445,11 @@ Frontend korzysta z generowanego klienta; nie utrzymuje ręcznych kopii typów.
 Każda iteracja i inferencja zapisuje czas etapów, liczności, wersje, checksumy,
 aktora oraz stabilne kody błędów. Diagnostyka nie zawiera obrazów ani ścieżek
 absolutnych. Aktywna wersja i wersja przypięta do importu są widoczne w Adminie.
+
+## Niezależna jakość 777 A2 — TASK-1124 / D-578
+
+Detektor jakości ma dwa niezależne liniowe heady na frozen cechach kandydata nr 5. Nie jest nową aktywacją klasyfikatora symboli. Historyczne unreadable służą doborowi próby; osobne etykiety overlap i unreadable zapisuje człowiek. Niepewne etykiety wykluczają tylko odpowiedni head. Pełny skan wymaga niezależnej bramki pilota i odbioru operatora. A1 dostarcza wyłącznie narzędzia, bez wyników empirycznych. Kontrakt i minima: [zaakceptowany plan](../delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md).
+
+Moduły workera `symbols/readability_features.py`, `readability_cohort.py` i `readability_detector.py` realizują read-only preflight całego bazowego splitu, natywne statystyki plus 1024 frozen spatial features, rodziny reimport/sourceSHA/nagranie/exactRGB, scaler wyłącznie TRAIN oraz niezależne L2 heady wybierane wyłącznie na VAL. TEST i audit200 nie stroją modelu. JSON artefaktu przypina bazę, cały cohort, feature/preprocessing/solver/scaler/progi. Wynik sigmoid jest score bez deklaracji kalibracji. Brak minimów kończy się STOP. `fullScanAllowed` wymaga dodatkowo jawnego odbioru operatora; samo fit lub zapis pliku nie uruchamia skanu.
+
+Uściślenie audytu A1: base preflight wymaga wszystkich assetów RGB64x64. Zgodność pary checkpoint–dataset autoryzuje wybór kandydata nr 5 i oba SHA w planie. Naturalny audit200 pochodzi z dotąd nieoznaczonych pól z rodzin poza pilotem i bazowym TRAIN/VAL; receipt powstaje przed etykietami/fitem. Raport dotyczy tej ograniczonej puli, nie całej gry. Łączny limit cohortu to 800; brak niezależnych danych kończy się STOP.

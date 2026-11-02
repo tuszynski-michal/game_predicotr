@@ -14,6 +14,39 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-578 — Niezależny detektor jakości 777 A2 na zamrożonym kandydacie nr 5
+
+Status: accepted
+Data: 2026-11-02
+
+Operator zatwierdził cały plan 777A2_READABILITY_REPLACEMENT_PLAN_20261102,
+koszt i audyt Opus 5.5 po każdym zadaniu. Wybrał jawnie kandydata nr 5
+777a2, 9afa868a-70f8-42df-9f15-f2833cd98c10, jako bazę ekstrakcji cech,
+bez aktywacji modelu symboli. Osobne heady nałożenia i nieczytelności nie
+zmieniają wag, BN, historycznych decyzji ani przypisania aktywnego modelu.
+Historyczne unreadable nie są automatyczną etykietą nałożenia.
+
+Ekstrakcja świadomie stosuje produkcyjny preprocess_rgb_batch bez model_version:
+INTER_AREA i [-1,1], input64. Trening bazowego modelu ma niezależną proweniencję
+(torchvision bilinear antialias); nie deklarujemy zgodności resize dla dowolnych
+rozmiarów. Sprawdzony read-only pierwszy asset frozen datasetu ma RGB64x64,
+gdzie resize jest no-op; test kontraktowy sprawdza zgodność skali z tolerancją.
+Statystyki jakości zawsze pochodzą z natywnych pikseli przed resize.
+
+A1 dostarcza narzędzia i testy, nie wykonuje treningu ani skanu operatora.
+Etykiety człowieka z A2, niezależne rodziny/splity, minima pilota i bramka TEST
+oraz dodatkowy naturalny audit200 i odbiór operatora są warunkiem pełnego skanu.
+Brak danych/proweniencji lub grup pewnych nałożeń oznacza STOP, nie PASS.
+Źródło: zaakceptowany plan i TASK-1124.
+
+Uściślenie po audycie A1: preflight sprawdza RGB64x64 wszystkich assetów bazy.
+Powiązanie checkpoint–dataset wynika z zatwierdzonego kandydata nr 5 i obu SHA
+w planie; inputFingerprint checkpointu nie zastępuje tego upoważnienia.
+Audit200 jest jednostajnym losowaniem dotąd nieoznaczonych pól z rodzin poza
+pilotem i bazowym TRAIN/VAL. Receipt jest zamrożony przed etykietami i fitem.
+Raport dotyczy tej puli, nie całej gry; maksymalnie 800 pól (600+200).
+Brak niezależnej puli oznacza STOP, bez poszerzania ani osłabiania izolacji.
+
 ## D-576 — Uproszczenie wyszukiwarki i modal supergry w Adminie
 
 Status: accepted

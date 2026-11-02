@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Nieczytelne i nałożone symbole 777 A2](delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md) — accepted, TASK-1124–1132; narzędzia przed pilotem i wymianą danych.
+
 - [Usunięcie wyszukiwania wielu układów](delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md)
   — accepted, 2026-10-30; TASK-1114 wykonany, bez integracji i wdrożenia. Jeden wzór, zachowana nawigacja ±15 i dane.
 

@@ -99,7 +99,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 ### Katalogi
 
 - `services/worker/src/game_predictor_worker/images/` (140 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
-- `services/worker/src/game_predictor_worker/symbols/` (13 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
+- `services/worker/src/game_predictor_worker/symbols/` (16 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
 - `services/worker/src/game_predictor_worker/super_game_series.py` - wyprowadzanie serii supergry
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (271 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (272 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

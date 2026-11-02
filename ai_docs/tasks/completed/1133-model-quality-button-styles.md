@@ -59,7 +59,7 @@ innych obszarów. Merge/push wymagają akceptacji wyniku.
 - [x] Akcje symboli i geometrii mają odstęp i zawijają się na wąskim ekranie.
 - [x] Istniejące interakcje, scoped lint/typecheck i docs:check PASS.
 - [x] Oględziny działającego panelu bez uruchomienia treningu; audyt bez P0/P1.
-- [ ] Outcome, task-close, osobny commit i record-hash.
+- [x] Outcome, task-close, osobny commit i record-hash.
 
 ## Technical notes
 
@@ -88,7 +88,7 @@ treningu/aktywacji podczas sprawdzania wyglądu.
 
 ## Outcome
 
-Commit: v1.7.523 (hash dopisuje kolejny commit).
+Commit: v1.7.523 / `009217d2fb25aa63b194fed5c4978de8c151e283`.
 
 ### Assumptions recorded before coding
 

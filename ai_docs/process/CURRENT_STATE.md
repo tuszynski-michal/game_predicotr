@@ -74,7 +74,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 — tasks/completed/1133-model-quality-button-styles.md
+- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
 - **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
 - **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md

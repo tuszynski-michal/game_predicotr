@@ -22421,6 +22421,7 @@
           "symbol_training",
           "image_symbol_reinference",
           "image_grid_reinference",
+          "symbol_readability",
           "image_symbol_review_bulk",
           "image_symbol_review_backfill",
           "image_geometry_rollout_backfill",
@@ -29592,6 +29593,614 @@
           "verdict"
         ],
         "title": "QualityUnexpectedJudgment",
+        "type": "object"
+      },
+      "ReadabilityCommandRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision"
+        ],
+        "title": "ReadabilityCommandRequest",
+        "type": "object"
+      },
+      "ReadabilityItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "title": "Candidate",
+            "type": "boolean"
+          },
+          "cellId": {
+            "format": "uuid",
+            "title": "Cellid",
+            "type": "string"
+          },
+          "cellIndex": {
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "cropChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropchecksumsha256"
+          },
+          "geometryRevision": {
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "historicalUnreadable": {
+            "title": "Historicalunreadable",
+            "type": "boolean"
+          },
+          "identity": {
+            "title": "Identity",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "overlap": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlap"
+          },
+          "overlapScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlapscore"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "renderSpecChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderspecchecksumsha256"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "rowIndex": {
+            "title": "Rowindex",
+            "type": "integer"
+          },
+          "sampleKind": {
+            "enum": [
+              "pilot",
+              "audit",
+              "scan"
+            ],
+            "title": "Samplekind",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sharp": {
+            "title": "Sharp",
+            "type": "boolean"
+          },
+          "similarReadable": {
+            "title": "Similarreadable",
+            "type": "boolean"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "readable",
+              "unreadable",
+              "skipped",
+              "stale",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "unreadableScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unreadablescore"
+          }
+        },
+        "required": [
+          "cellId",
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sourceId",
+          "sequenceNumber",
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "geometryRevision",
+          "cropChecksumSha256",
+          "renderSpecChecksumSha256",
+          "identity",
+          "revision",
+          "state",
+          "overlap",
+          "sharp",
+          "similarReadable",
+          "historicalUnreadable",
+          "sampleKind",
+          "overlapScore",
+          "unreadableScore",
+          "candidate",
+          "reasons"
+        ],
+        "title": "ReadabilityItemResponse",
+        "type": "object"
+      },
+      "ReadabilityLabelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "overlap": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlap"
+          },
+          "sharp": {
+            "default": false,
+            "title": "Sharp",
+            "type": "boolean"
+          },
+          "similarReadable": {
+            "default": false,
+            "title": "Similarreadable",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "readable",
+              "unreadable",
+              "skipped"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ReadabilityLabelTarget"
+            },
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "targets",
+          "state",
+          "overlap"
+        ],
+        "title": "ReadabilityLabelRequest",
+        "type": "object"
+      },
+      "ReadabilityLabelTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "cellId": {
+            "format": "uuid",
+            "title": "Cellid",
+            "type": "string"
+          },
+          "expectedIdentity": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedidentity",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellId",
+          "expectedIdentity",
+          "expectedRevision"
+        ],
+        "title": "ReadabilityLabelTarget",
+        "type": "object"
+      },
+      "ReadabilityModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "pilotRunId": {
+            "format": "uuid",
+            "title": "Pilotrunid",
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": true,
+            "title": "Report",
+            "type": "object"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pilotRunId",
+          "status",
+          "revision",
+          "jobId",
+          "fingerprint",
+          "report",
+          "accepted",
+          "errorCode",
+          "errorMessage"
+        ],
+        "title": "ReadabilityModelResponse",
+        "type": "object"
+      },
+      "ReadabilityPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "title": "Boards",
+            "type": "integer"
+          },
+          "confirmedBoards": {
+            "title": "Confirmedboards",
+            "type": "integer"
+          },
+          "confirmedFields": {
+            "title": "Confirmedfields",
+            "type": "integer"
+          },
+          "confirmedSources": {
+            "title": "Confirmedsources",
+            "type": "integer"
+          },
+          "fields": {
+            "title": "Fields",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReadabilityItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "nextOffset",
+          "fields",
+          "boards",
+          "sources",
+          "confirmedFields",
+          "confirmedBoards",
+          "confirmedSources"
+        ],
+        "title": "ReadabilityPageResponse",
+        "type": "object"
+      },
+      "ReadabilityRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inventoryFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inventoryfingerprint"
+          },
+          "itemCount": {
+            "title": "Itemcount",
+            "type": "integer"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "kind": {
+            "enum": [
+              "pilot",
+              "scan"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modelId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelid"
+          },
+          "processedCount": {
+            "title": "Processedcount",
+            "type": "integer"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "revision",
+          "jobId",
+          "modelId",
+          "inventoryFingerprint",
+          "itemCount",
+          "processedCount",
+          "errorCode",
+          "errorMessage"
+        ],
+        "title": "ReadabilityRunResponse",
+        "type": "object"
+      },
+      "ReadabilityStartRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "pilot",
+              "scan"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modelId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelid"
+          },
+          "seed": {
+            "default": "quality-pilot-v1",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Seed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "kind"
+        ],
+        "title": "ReadabilityStartRequest",
+        "type": "object"
+      },
+      "ReadabilityWorkspaceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ReadabilityModelResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ReadabilityRunResponse"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs",
+          "models"
+        ],
+        "title": "ReadabilityWorkspaceResponse",
         "type": "object"
       },
       "RecordingSelection": {
@@ -52523,6 +53132,589 @@
           }
         },
         "summary": "List current symbol-cell reviews with keyset pagination",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/models/{model_id}/accept": {
+      "post": {
+        "operationId": "acceptReadabilityModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadabilityCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityModelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Accept",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs": {
+      "get": {
+        "operationId": "getReadabilityWorkspace",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityWorkspaceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      },
+      "post": {
+        "operationId": "startReadabilityRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadabilityStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/export": {
+      "get": {
+        "operationId": "exportReadabilityCsv",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/fit": {
+      "post": {
+        "operationId": "fitReadabilityPilot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadabilityCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityModelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Fit",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/items": {
+      "get": {
+        "operationId": "listReadabilityItems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "readable",
+                    "unreadable",
+                    "skipped",
+                    "stale",
+                    "error"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "historical",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Historical"
+            }
+          },
+          {
+            "in": "query",
+            "name": "problem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "overlap",
+                    "unreadable"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Problem"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Items",
+        "tags": [
+          "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/labels": {
+      "post": {
+        "operationId": "labelReadabilityItems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadabilityLabelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadabilityRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Quality workflow conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Labels",
         "tags": [
           "symbol-cell-reviews"
         ]

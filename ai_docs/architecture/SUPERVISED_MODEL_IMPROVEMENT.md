@@ -453,3 +453,62 @@ Detektor jakości ma dwa niezależne liniowe heady na frozen cechach kandydata n
 Moduły workera `symbols/readability_features.py`, `readability_cohort.py` i `readability_detector.py` realizują read-only preflight całego bazowego splitu, natywne statystyki plus 1024 frozen spatial features, rodziny reimport/sourceSHA/nagranie/exactRGB, scaler wyłącznie TRAIN oraz niezależne L2 heady wybierane wyłącznie na VAL. TEST i audit200 nie stroją modelu. JSON artefaktu przypina bazę, cały cohort, feature/preprocessing/solver/scaler/progi. Wynik sigmoid jest score bez deklaracji kalibracji. Brak minimów kończy się STOP. `fullScanAllowed` wymaga dodatkowo jawnego odbioru operatora; samo fit lub zapis pliku nie uruchamia skanu.
 
 Uściślenie audytu A1: base preflight wymaga wszystkich assetów RGB64x64. Zgodność pary checkpoint–dataset autoryzuje wybór kandydata nr 5 i oba SHA w planie. Naturalny audit200 pochodzi z dotąd nieoznaczonych pól z rodzin poza pilotem i bazowym TRAIN/VAL; receipt powstaje przed etykietami/fitem. Raport dotyczy tej ograniczonej puli, nie całej gry. Łączny limit cohortu to 800; brak niezależnych danych kończy się STOP.
+
+
+## Trwałe workflow jakości — TASK-1125
+
+`symbol_readability` działa w istniejącym general lane. `ReadabilityHandler`
+obsługuje prepare, fit i scan. Pilot zamraża najwyżej 800 pozycji bez gotowego
+detektora. Rozpoznane nagrania odczytuje przez `resolve_own_groups`, bez dostępu
+do prywatnych tabel rejestru; niejednoznaczne członkostwo kończy się STOP.
+Audit200 ma receipt sprzed etykiet i pochodzi wyłącznie z niezależnej,
+nieoznaczonej puli, bez ekstrapolacji na całą grę.
+
+Inwentarz pełnego skanu ma trwały kursor źródła i rolowany fingerprint.
+Jedna transakcja obejmuje jedno źródło (twardy limit metadanych 10000 pól),
+a ekstrakcja cech pojedynczej partii najwyżej 128 cropów. Dekodowanie źródła
+następuje raz; wyniki i licznik są zatwierdzane przed checkpointem joba.
+Powrót po utracie odpowiedzi wybiera wyłącznie nieprzetworzone źródła. Zapis
+sprawdza dzierżawę joba, a worker store synchronizuje failure/cancel/recovery.
+Zapis geometrii nie może minąć blokady sprawdzanej bieżącej komórki/planszy.
+
+Render jest wspólny: `load_cell_render_specs`, managed original po SHA,
+`CanonicalSourceLoader(allow_crop=True)` i `render_persisted_virtual_cell_rgb`.
+Fit ponownie weryfikuje assety przed użyciem przygotowanych cech. Artefakt JSON
+jest atomowo publikowany w `data/readability/<game>/<model>/<fingerprint>.json`; fingerprint,
+raport i odbiór są zapisane w routowanym magazynie gry. Odbiór ustawia
+`operatorAccepted/fullScanAllowed` wyłącznie dla aktualnego PASS. Ranking używa
+maksymalnego marginesu ponad próg, drugiego marginesu, seq i cellId.
+
+Cztery tabele manifestu v20 oraz kontrakt API opisują DATA_MODEL i API_CONTRACT.
+Migracja 0172 dziedziczy 0169; migracje 0170/0171 weszły w międzyczasie do main i
+wymagają ponownego preflight przed przyszłym scaleniem. Wdrożenie wymaga migracji
+i restartu usług przez operatora; implementacja nie uruchamia żadnej operacji
+na jego danych.
+
+Top1 grupy confident-overlay jest obliczane ponownie przez frozen klasyfikator
+kandydata 5, wyłącznie dla oceny, z przypiętą temperaturą 0.5. Manifest kandydata
+SHA `962769e1cd1b239049e755701ebc7ec8858ecb71b032adf9847bc0e1ed7c87fb` wiąże
+checkpoint/dataset/klasy oraz kalibrację SHA
+`cc823212e15e597c8e871acb6034e6ecfb78516445bb453c02e3b514ed5bef5f`.
+Snapshot zapisuje tę proweniencję i obliczoną pewność. Historyczna
+prediction_confidence importu nie dowodzi pokrycia tej grupy. Brak dowodu
+kalibracji daje null i uniemożliwia zaliczenie wymaganej grupy, bez wpływu na
+cechy lub filtr pełnego skanu.
+
+Przygotowanie pilota najpierw zamraża TEST (docelowo 120 pól), potem niezależne
+VAL (120) i TRAIN (360), w każdej części z połową historycznych unreadable.
+`readability_selection.freeze_pilot_selection` uwzględnia bazowe source/SHA/RGB,
+rodziny bazowego datasetu i ekspozycję znanych nagrań w obu kierunkach. Snapshot
+zapisuje `head_split/family_keys` przed etykietami. Brak liczności kończy się
+STOP; fit używa zapisanych assignments i nie wybiera nowego podziału. Audit200
+wyklucza również te zarezerwowane klucze rodzin.
+
+Uwagi P2 audytu A2 rozliczono jedną rundą: content-addressed artifact i unikalny
+temp chronią wynik przed starym lease; błąd dekodowania jest pamiętany na całe
+źródło. Przed nowym scanem ponownie sprawdzamy stale pilota, również po odbiorze.
+Komendy, przetwarzanie źródła, inventory i lazy-stale biorą wspólną EXCLUSIVE
+sequence ownership lock przed rowlocks; końcowy fit bierze ją przed job/model/run.
+GET strony i CSV mają WRITE intent wyłącznie dla lazy-stale metadanych. Pierwotne
+oceny i ich identity pozostają w immutable command receiptach (response.command),
+a istniejące decyzje symboli w ich standardowych eventach.

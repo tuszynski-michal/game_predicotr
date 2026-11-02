@@ -3223,3 +3223,29 @@ użycie przez SOURCE_REMOVED_NEW_USE_BLOCKED w currentness i prywatnym v3 guardz
 Nowe detach notices zapisują ten powód; starsze zdarzenia i receipts pozostają
 niezmienne. Samo odłączenie nie dowodzi cofnięcia ludzkiej etykiety i nie usuwa
 permanentnej ochrony nagrań ani zachowanych kopii.
+
+
+## Niezależna jakość symboli — TASK-1125 / migracja 0172
+
+Manifest `game-data-v2-manifest-v20` dodaje cztery partycjonowane po game_id
+relacje w `game_data_v2`, z wymuszonym RLS rodziców i partycji oraz FK RESTRICT:
+
+- `symbol_readability_runs`: pilot/scan, job, rewizja etykiet, seed, receipt,
+  trwały kursor źródła, fingerprint inwentarza i liczniki przetwarzania.
+- `symbol_readability_items`: klucz `(game_id,run_id,cell_id)`, snapshot current
+  owner/crop/source/geometry, identity i rewizja oceny; stany pending/readable/
+  unreadable/skipped/stale/error, niezależne nullable overlap, ostrość i trudne
+  podobieństwo, historyczny unreadable, pilot/audit/scan, score i marginesy.
+  Pilot przechowuje numeryczne cechy; żadna tabela nie przechowuje bitmap.
+- `symbol_readability_models`: przypięty pilot i jego rewizja, job jawnego fitu,
+  ścieżka i fingerprint artefaktu, raport TEST/audit200 i osobny odbiór.
+- `symbol_readability_commands`: `(game_id,idempotency_key)`, checksum całej
+  komendy oraz jej body i odpowiedź; powtórzenie nie ponawia mutacji, inny body
+  z tym samym kluczem daje konflikt. Zapisy służą też historii etykiet.
+
+Identity nie obejmuje rewizji przypisania nazwy symbolu. Obejmuje natomiast
+source SHA, oba identyfikatory geometrii oraz crop/render checksummy; dodatkowy
+guard sprawdza aktualną rewizję planszy i source_geometry_revision_id. Własny
+mark_unreadable może zwiększyć rewizję review bez unieważnienia oceny jakości.
+Readable nie zmienia zatwierdzeń ani quality_issue. Downgrade odmawia przy
+historii runów/jobów; nie usuwa etykiet operatora.

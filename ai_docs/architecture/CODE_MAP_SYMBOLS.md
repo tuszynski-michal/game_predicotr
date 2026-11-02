@@ -62,6 +62,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/source_recording_groups.py: create_source_recording_groups_router
 - api/super_game_series.py: create_super_game_series_router
 - api/symbol_model_iterations.py: create_symbol_model_iteration_router
+- api/symbol_readability.py: create_symbol_readability_router
 - api/symbol_references.py: create_symbol_references_router, resolve_symbol_reference_asset
 - api/v7_label_geometry_calibration.py: create_v7_label_geometry_calibration_router
 - api/verified_training_cohorts.py: create_verified_training_cohort_router
@@ -250,6 +251,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/symbol_model_iterations.py: class SymbolModelIterationStatus, class SymbolTrainingConfiguration, class SymbolModelIteration
 - domain/symbol_model_registry.py: class SymbolModelActivationAction, class SymbolModelActivation, class SymbolModelActivationPreview, activation_command_sha256
 - domain/symbol_model_snapshots.py: class SymbolModelStorageRoot, class SymbolModelJobSnapshot, bootstrap_symbol_model_snapshot, cold_start_unclassified_symbol_snapshot
+- domain/symbol_readability.py: class ReadabilityWorkflowError, digest, crop_identity, identity_is_current, confirmed_for_replacement
 - domain/symbol_references.py: class ApprovedSymbolReferenceCandidate, class ApprovedSymbolReferenceCandidatePage, class SymbolReferenceImage, encode_approved_symbol_reference_cursor, decode_approved_symbol_reference_cursor, validate_reference_checksum
 - domain/symbol_verification_outcomes.py: class SymbolVerificationOutcome, class SymbolVerificationOutcomeError, class SymbolCellVerification, project_legacy_verification
 - domain/v3_engine_acceptance.py: pin_v3_engine_acceptance_policy, class V3EnginePosition, qualify_v3_engine_acceptance
@@ -310,6 +312,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/super_game_markers.py: class SuperGamePublicMarkerResponse, class SuperGameMarkerResponse, to_super_game_marker_response, marker_response_at
 - schemas/super_game_series.py: class SuperGameStateResponse, class SuperGameSeriesResponse, class SuperGameSeriesCountsResponse, class SuperGameSeriesListResponse, class SuperGameSeriesBoardResponse, class SuperGameSeriesBoardsResponse, class SuperSymbolUpdate, class SuperGameSeriesDeriveResponse
 - schemas/symbol_model_iterations.py: class SymbolTrainingConfigurationCommand, class CreateSymbolTrainingCommand, class SymbolModelIterationResponse, class CreateSymbolTrainingResponse, class SymbolModelActivationCommand, class LabSymbolCandidateSummaryResponse, class LabSymbolCandidateResponse, class ImportLabSymbolCandidateCommand, class SymbolModelDeactivationCommand, to_lab_candidate_response, class SymbolModelActivationPreviewResponse, class SymbolModelActivationResponse, class SymbolModelActivationCommandResponse, to_iteration_response, to_activation_preview_response, to_activation_response
+- schemas/symbol_readability.py: class ReadabilityStartRequest, class ReadabilityCommandRequest, class ReadabilityLabelTarget, class ReadabilityLabelRequest, class ReadabilityRunResponse, class ReadabilityModelResponse, class ReadabilityWorkspaceResponse, class ReadabilityItemResponse, class ReadabilityPageResponse
 - schemas/symbol_references.py: class ApprovedSymbolReferenceCandidateResponse, class ApprovedSymbolReferenceCandidatePageResponse, class ApprovedSymbolReferenceSelectionCommand, to_approved_symbol_reference_candidate_page_response
 - schemas/v7_label_geometry_calibration.py: class V7LabelGeometrySessionCreate, class V7LabelGeometrySessionSourceResponse, class V7LabelGeometrySlotResponse, class V7LabelGeometryReceiptResponse, class V7LabelGeometrySessionResponse, class V7LabelGeometrySessionMutation, class V7LabelGeometrySessionMutationResponse, class V7LabelGeometrySessionExportRequest, class V7LabelGeometrySessionExportResponse, class V7LabelGeometryProfileResponse, class V7LabelGeometryProfileListResponse, class V7LabelGeometryAdoptionResponse, class V7LabelGeometryAdoptionListResponse, class V7ValidationSourceReferenceRequest, class V7ValidationSourceObservationRequest, class V7ValidationTruthRequest, class V7ValidationPredictionSnapshotRequest, class V7ValidationReportCreate, class V7ValidationReportResponse, class V7LabelGeometryAdoptionCreate, class V7LabelGeometryAdoptionMutationResponse
 - schemas/v7_selection_delivery.py: class V7PilotSnapshotResponse, class V7ConfirmedRange, class V7LabelSlotResponse, class V7SourceProofResponse, class V7SourceDiagnosticsResponse, class V7ProvenSourceResponse, class V7ReviewCandidateResponse, class V7DraftResponse, class V7ReviewResponse, class V7OutputOperationResponse, class V7OutputReceiptResponse, class V7OutputDecisionRequest
@@ -349,6 +352,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v18.py: ownership
 - storage/game_data_v2_manifest_v19.py: ownership
 - storage/game_data_v2_manifest_v2.py: ownership
+- storage/game_data_v2_manifest_v20.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
 - storage/game_data_v2_manifest_v5.py: ownership
@@ -471,6 +475,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/symbol_model_iteration_repository.py: class SqlAlchemySymbolModelIterationRepository
 - storage/symbol_model_registry_repository.py: class SqlAlchemySymbolModelRegistryRepository
 - storage/symbol_model_snapshot_resolver.py: class SqlAlchemySymbolModelSnapshotResolver
+- storage/symbol_readability.py: class SqlAlchemyReadabilityRepository
+- storage/symbol_readability_jobs.py: synchronize_readability_job
 - storage/symbol_references_repository.py: class SqlAlchemyApprovedSymbolReferenceRepository
 - storage/symbol_review_statistics.py: class SymbolReviewStatisticsRefreshError, refresh_symbol_review_query_statistics
 - storage/training_dataset_catalog_repository.py: class SqlAlchemyTrainingDatasetCatalogRepository
@@ -735,8 +741,11 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - symbols/lab_candidate_import.py: class LabSymbolCandidateImportHandler
 - symbols/protected_sources.py: class ProtectedSourceError, managed_path, source_pixel_identity, class ProtectedSources, load_protected_sources, require_frozen_reference
 - symbols/readability_cohort.py: class QualitySample, class CohortSplit, assign_families, pilot_issues
+- symbols/readability_confidence.py: class PinnedCalibration, load_pinned_calibration, pinned_top1
 - symbols/readability_detector.py: class LinearHead, fit_linear, select_threshold, select_head, class QualityArtifact, train_detector, load_artifact, rank_candidates, rate_metric, evaluate_pilot
 - symbols/readability_features.py: class ReadabilityError, fingerprint, checked_bytes, managed_path, class FrozenBase, preflight_base, require_rgb, native_features, extract_features
+- symbols/readability_selection.py: source_keys, base_aliases, freeze_pilot_selection
+- symbols/readability_workflow.py: sample_from_item, extract_source_features, managed_source_path, publish_quality_artifact, class ReadabilityHandler
 - symbols/reference_library.py: class ReferenceLibraryError, class Vote, class Proposal, normalize_rows, gray_world, shape_descriptor, hue_descriptor, combined_descriptor, vote, vote_batch, hint_candidates, decide, descriptor_matrix
 - symbols/reference_library_writer.py: class ReferenceLibraryWriteError, class RgbTarget, class TargetCell, class WritePolicy, rgb_v2_policy, class BoardPlan, rewrite_predictions, revert_checksum, apply_board, revert_board
 - symbols/review_backfill.py: class SymbolCellReviewBackfillHandler
@@ -937,6 +946,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/recording-groups-state.ts: recordingSourceIds, recordingImportLabel, recordingGroupLabel, recordingReasonLabel
 - features/model-quality/recording-import-picker.tsx: RecordingImportPicker
 - features/model-quality/recording-registration.ts: RecordingRegistration, recordingRegistrationKey, readRecordingRegistration, saveRecordingRegistration, clearRecordingRegistration, discardRecordingRegistration, nextRecordingMembershipCommand
+- features/readability/readability-state.ts: READABILITY_SELECTION_LIMIT, canAcceptReadabilityModel, readabilityTargets, PendingReadabilityCommand, pendingReadabilityCommand, readabilityCommandKey, completeReadabilityCommand
+- features/readability/readability-workspace.tsx: ReadabilityClient, ReadabilityWorkspace
 - features/releases/release-actions.ts: ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult, createAndStartRelease, RefreshReleaseResult, refreshRelease, RetryReleaseBuildResult, retryReleaseBuild, DownloadReleaseApkResult, downloadReleaseApk
 - features/releases/release-panel.tsx: ReleasePanel
 - features/releases/release-state.ts: ReleaseGameSource, ReleaseGameSelection, ReleaseDraft, ReleaseDraftValidation, releaseStatusLabel, createInitialSelections, selectControlledReleaseGame, publishedDatasets, publishedRules, compatibleRules, compatibleDatasets, hasCompatibleReleasePair, validateReleaseDraft, upsertRelease, formatReleaseTimestamp
@@ -1001,7 +1012,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/symbol-reviews/symbol-review-mutation-actions.ts: SymbolReviewMutationClient, SymbolImageFromReviewResult, setSymbolImageFromReviewCell, SymbolReviewMutationResult, applySingleSymbolReviewDecision
 - features/symbol-reviews/symbol-review-request-coordinator.ts: SymbolReviewRequestChannel, SymbolReviewRequestCoordinator
 - features/symbol-reviews/symbol-review-selection-state.ts: MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION, SymbolReviewExplicitTarget, SymbolReviewFilterSelectionSnapshot, SymbolReviewExplicitSelection, SymbolReviewAllMatchingFilterSelection, SymbolReviewSelection, SymbolReviewSelectionChange, createEmptySymbolReviewSelection, createAllMatchingFilterSymbolReviewSelection, selectedSymbolReviewCount, isSymbolReviewItemSelected, toggleSymbolReviewItem, selectVisibleSymbolReviewItems, symbolReviewSelectionCurrentItemIds
-- features/symbol-reviews/symbol-review-source-context.ts: SymbolReviewSourceClient, symbolReviewSourceCells, loadSymbolReviewSourceContext
+- features/symbol-reviews/symbol-review-source-context.ts: SymbolReviewSourceClient, SymbolReviewSourceItem, symbolReviewSourceCells, loadSymbolReviewSourceContext
 - features/symbol-reviews/symbol-review-source-modal.tsx: SymbolReviewSourceModal
 - features/symbol-reviews/symbol-review-state.ts: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE, MIN_SYMBOL_REVIEW_PAGE_SIZE, MAX_SYMBOL_REVIEW_PAGE_SIZE, SYMBOL_REVIEW_PAGE_SIZES, MAX_SYMBOL_REVIEW_CACHED_PAGES, SymbolReviewPageSize, SymbolReviewConfidenceFilter, SymbolReviewPredictionSourceFilter, SymbolReviewPageRange, SymbolReviewFilters, SymbolReviewPagePosition, SymbolReviewCurrentPage, SymbolReviewWorkspaceState, SymbolReviewWorkspaceAction, createSymbolReviewWorkspaceState, symbolReviewFiltersReady, isSymbolReviewPageSize, symbolReviewConfidenceRange, parseSymbolReviewConfidenceRange, symbolReviewExtendedFilters, symbolReviewLocalDateTimeToIso, symbolReviewIsoToLocalDateTime, symbolReviewStartOfDayLocal, SymbolReviewChangeRangeResult, parseSymbolReviewChangeRange, findCachedSymbolReviewPage, symbolReviewPageRange, parseSymbolReviewPageNumber, symbolReviewWorkspaceReducer
 - features/symbol-reviews/symbol-review-virtual-grid.tsx: SymbolReviewVirtualGrid

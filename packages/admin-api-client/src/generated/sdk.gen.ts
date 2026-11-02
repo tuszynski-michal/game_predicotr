@@ -12,6 +12,9 @@ import type {
   AcceptOperationalGridGeometryProposalData,
   AcceptOperationalGridGeometryProposalErrors,
   AcceptOperationalGridGeometryProposalResponses,
+  AcceptReadabilityModelData,
+  AcceptReadabilityModelErrors,
+  AcceptReadabilityModelResponses,
   AcknowledgeGridReinferencePilotData,
   AcknowledgeGridReinferencePilotErrors,
   AcknowledgeGridReinferencePilotResponses,
@@ -303,6 +306,9 @@ import type {
   ExcludeBrowserPageGeometrySourceData,
   ExcludeBrowserPageGeometrySourceErrors,
   ExcludeBrowserPageGeometrySourceResponses,
+  ExportReadabilityCsvData,
+  ExportReadabilityCsvErrors,
+  ExportReadabilityCsvResponses,
   ExportV7LabelGeometryCalibrationSessionData,
   ExportV7LabelGeometryCalibrationSessionErrors,
   ExportV7LabelGeometryCalibrationSessionResponses,
@@ -312,6 +318,9 @@ import type {
   FinalizeRemoteManualSelectionBatchData,
   FinalizeRemoteManualSelectionBatchErrors,
   FinalizeRemoteManualSelectionBatchResponses,
+  FitReadabilityPilotData,
+  FitReadabilityPilotErrors,
+  FitReadabilityPilotResponses,
   FreezeGridReinferenceData,
   FreezeGridReinferenceErrors,
   FreezeGridReinferenceResponses,
@@ -575,6 +584,9 @@ import type {
   GetPublicManagementSymbolImageData,
   GetPublicManagementSymbolImageErrors,
   GetPublicManagementSymbolImageResponses,
+  GetReadabilityWorkspaceData,
+  GetReadabilityWorkspaceErrors,
+  GetReadabilityWorkspaceResponses,
   GetRemoteManualSelectionContextData,
   GetRemoteManualSelectionContextErrors,
   GetRemoteManualSelectionContextResponses,
@@ -690,6 +702,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  LabelReadabilityItemsData,
+  LabelReadabilityItemsErrors,
+  LabelReadabilityItemsResponses,
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
@@ -835,6 +850,9 @@ import type {
   ListPublicManagementSymbolsData,
   ListPublicManagementSymbolsErrors,
   ListPublicManagementSymbolsResponses,
+  ListReadabilityItemsData,
+  ListReadabilityItemsErrors,
+  ListReadabilityItemsResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
@@ -1254,6 +1272,9 @@ import type {
   StartPendingSymbolReinferenceData,
   StartPendingSymbolReinferenceErrors,
   StartPendingSymbolReinferenceResponses,
+  StartReadabilityRunData,
+  StartReadabilityRunErrors,
+  StartReadabilityRunResponses,
   StartReadyBrowserImageImportData,
   StartReadyBrowserImageImportErrors,
   StartReadyBrowserImageImportResponses,
@@ -3694,6 +3715,159 @@ export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
     ListSymbolCellReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews', ...options });
+
+/**
+ * Accept
+ */
+export const acceptReadabilityModel = <ThrowOnError extends boolean = false>(
+  options: Options<AcceptReadabilityModelData, ThrowOnError>,
+): RequestResult<
+  AcceptReadabilityModelResponses,
+  AcceptReadabilityModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcceptReadabilityModelResponses,
+    AcceptReadabilityModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/models/{model_id}/accept',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Workspace
+ */
+export const getReadabilityWorkspace = <ThrowOnError extends boolean = false>(
+  options: Options<GetReadabilityWorkspaceData, ThrowOnError>,
+): RequestResult<
+  GetReadabilityWorkspaceResponses,
+  GetReadabilityWorkspaceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReadabilityWorkspaceResponses,
+    GetReadabilityWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs',
+    ...options,
+  });
+
+/**
+ * Start
+ */
+export const startReadabilityRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartReadabilityRunData, ThrowOnError>,
+): RequestResult<
+  StartReadabilityRunResponses,
+  StartReadabilityRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartReadabilityRunResponses,
+    StartReadabilityRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Export
+ */
+export const exportReadabilityCsv = <ThrowOnError extends boolean = false>(
+  options: Options<ExportReadabilityCsvData, ThrowOnError>,
+): RequestResult<
+  ExportReadabilityCsvResponses,
+  ExportReadabilityCsvErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ExportReadabilityCsvResponses,
+    ExportReadabilityCsvErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/export',
+    ...options,
+  });
+
+/**
+ * Fit
+ */
+export const fitReadabilityPilot = <ThrowOnError extends boolean = false>(
+  options: Options<FitReadabilityPilotData, ThrowOnError>,
+): RequestResult<
+  FitReadabilityPilotResponses,
+  FitReadabilityPilotErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FitReadabilityPilotResponses,
+    FitReadabilityPilotErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/fit',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Items
+ */
+export const listReadabilityItems = <ThrowOnError extends boolean = false>(
+  options: Options<ListReadabilityItemsData, ThrowOnError>,
+): RequestResult<
+  ListReadabilityItemsResponses,
+  ListReadabilityItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReadabilityItemsResponses,
+    ListReadabilityItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/items',
+    ...options,
+  });
+
+/**
+ * Labels
+ */
+export const labelReadabilityItems = <ThrowOnError extends boolean = false>(
+  options: Options<LabelReadabilityItemsData, ThrowOnError>,
+): RequestResult<
+  LabelReadabilityItemsResponses,
+  LabelReadabilityItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    LabelReadabilityItemsResponses,
+    LabelReadabilityItemsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/labels',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Read one current checksum-bound symbol-cell crop

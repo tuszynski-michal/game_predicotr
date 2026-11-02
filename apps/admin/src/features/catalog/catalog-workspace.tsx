@@ -40,6 +40,7 @@ import { SemiAutomaticSelectionWorkspace } from '@/features/semi-automatic-image
 import { V7LabelGeometryCalibrationWorkspace } from '@/features/v7-label-geometry/v7-label-geometry-calibration-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
+import { ReadabilityWorkspace } from '@/features/readability/readability-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
@@ -144,6 +145,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'model-quality',
     title: 'Jakość rozpoznawania',
     description: 'Gotowość danych i zamrażanie kohort do kolejnych iteracji.',
+  },
+  {
+    id: 'suspicious-symbols',
+    title: 'Podejrzane symbole',
+    description: 'Pilot jakości, nałożenia i czytelność aktualnych wycinków.',
   },
   {
     id: 'super-games',
@@ -580,6 +586,13 @@ export function CatalogWorkspace({
                             shapeGeometryConfiguration={
                               activeGame.shapeGeometryConfiguration
                             }
+                            key={activeGame.id}
+                          />
+                        ) : null}
+                        {expanded && section.id === 'suspicious-symbols' ? (
+                          <ReadabilityWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
                             key={activeGame.id}
                           />
                         ) : null}

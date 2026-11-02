@@ -2469,6 +2469,31 @@ def create_app(
         create_grid_model_evaluations_router(default_grid_model_evaluation_dependency)
     )
 
+    from game_predictor_api.api.symbol_readability import create_symbol_readability_router
+    from game_predictor_api.domain.symbol_readability import ReadabilityWorkflowError
+    from game_predictor_api.storage.symbol_readability import SqlAlchemyReadabilityRepository
+
+    def default_readability_dependency() -> Iterator[SqlAlchemyReadabilityRepository]:
+        with session_factory() as session:
+            try:
+                yield SqlAlchemyReadabilityRepository(session)
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_symbol_readability_router(default_readability_dependency), prefix="/api/v1"
+    )
+
+    @application.exception_handler(ReadabilityWorkflowError)
+    async def readability_error_handler(
+        request: Request, error: ReadabilityWorkflowError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409, content={"code": error.code, "message": error.message, "details": {}}
+        )
+
     def default_source_crop_dependency() -> SourceCropRunService:
         # D-562 (TASK-1047): runs and their jobs are shared rows in ``public``.
         return SourceCropRunService(SqlAlchemySourceCropRunRepository(session_factory))

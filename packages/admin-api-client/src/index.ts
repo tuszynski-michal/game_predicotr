@@ -1,4 +1,30 @@
 import {
+  getReadabilityWorkspace as generatedReadabilityWorkspace,
+  startReadabilityRun as generatedReadabilityStart,
+  listReadabilityItems as generatedReadabilityItems,
+  labelReadabilityItems as generatedReadabilityLabels,
+  fitReadabilityPilot as generatedReadabilityFit,
+  acceptReadabilityModel as generatedReadabilityAccept,
+} from './generated/sdk.gen';
+import type {
+  ReadabilityStartRequest,
+  ReadabilityCommandRequest,
+  ReadabilityLabelRequest,
+  ListReadabilityItemsData,
+} from './generated/types.gen';
+export type {
+  ReadabilityStartRequest,
+  ReadabilityCommandRequest,
+  ReadabilityLabelRequest,
+  ReadabilityLabelTarget,
+  ReadabilityRunResponse,
+  ReadabilityModelResponse,
+  ReadabilityWorkspaceResponse,
+  ReadabilityItemResponse,
+  ReadabilityPageResponse,
+} from './generated/types.gen';
+
+import {
   listGridTrainingCohorts as listGeneratedGridTrainingCohorts,
   getGridTrainingCohort as getGeneratedGridTrainingCohort,
   getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
@@ -3942,6 +3968,52 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
     virtualCellPreviewAtlasUrl: (gameId: string, batchKey: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/virtual-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
+    getReadabilityWorkspace: (gameId: string) =>
+      generatedReadabilityWorkspace({ client, path: { game_id: gameId } }),
+    startReadabilityRun: (gameId: string, body: ReadabilityStartRequest) =>
+      generatedReadabilityStart({ client, path: { game_id: gameId }, body }),
+    listReadabilityItems: (
+      gameId: string,
+      runId: string,
+      query: NonNullable<ListReadabilityItemsData['query']> = {},
+    ) =>
+      generatedReadabilityItems({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        query,
+      }),
+    labelReadabilityItems: (
+      gameId: string,
+      runId: string,
+      body: ReadabilityLabelRequest,
+    ) =>
+      generatedReadabilityLabels({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        body,
+      }),
+    fitReadabilityPilot: (
+      gameId: string,
+      runId: string,
+      body: ReadabilityCommandRequest,
+    ) =>
+      generatedReadabilityFit({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        body,
+      }),
+    acceptReadabilityModel: (
+      gameId: string,
+      modelId: string,
+      body: ReadabilityCommandRequest,
+    ) =>
+      generatedReadabilityAccept({
+        client,
+        path: { game_id: gameId, model_id: modelId },
+        body,
+      }),
+    exportReadabilityCsvUrl: (gameId: string, runId: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/readability/runs/${encodeURIComponent(runId)}/export`,
     symbolCellReviewAssetUrl: (
       gameId: string,
       cellReviewId: string,

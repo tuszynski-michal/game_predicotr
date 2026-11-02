@@ -348,3 +348,27 @@ użytkownika.
 ## Niezależna jakość 777 A2 — TASK-1124 / D-578
 
 Detektor jakości ma dwa niezależne liniowe heady na frozen cechach kandydata nr 5. Nie jest nową aktywacją klasyfikatora symboli. Historyczne unreadable służą doborowi próby; osobne etykiety overlap i unreadable zapisuje człowiek. Niepewne etykiety wykluczają tylko odpowiedni head. Pełny skan wymaga niezależnej bramki pilota i odbioru operatora. A1 dostarcza wyłącznie narzędzia, bez wyników empirycznych. Kontrakt i minima: [zaakceptowany plan](../delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md).
+
+
+## Trwały przegląd niezależnej jakości — TASK-1125
+
+Admin gry 777a2 ma sekcję „Podejrzane symbole”. Przygotowanie pilota działa przed
+powstaniem detektora: zamraża 300 historycznych unreadable i 300 pozostałych pól
+oraz osobny losowy audit200. Brak niezależnej puli zatrzymuje przygotowanie.
+Operator osobno określa czytelność i obecność nałożenia, dopuszczając niepewność
+każdej oceny. Ostre nałożenia i trudne podobne pola mają osobne oznaczenia.
+Historyczne unreadable nie są automatyczną etykietą pilota.
+
+Fit, odbiór modelu i pełny skan są osobnymi, jawnymi poleceniami. Fit wiąże
+rewizję etykiet, frozen bazę i receipt audytu. Wyłącznie PASS oraz odbiór tej
+wersji modelu dopuszczają skan wszystkich aktualnych pól, także approved i
+pewnych predykcji. Nie aktywuje to modelu symboli. Edycja etykiet po dopasowaniu
+unieważnia możliwość nowego skanu z dawnym odbiorem.
+
+Ocena readable nie zatwierdza nazwy symbolu i nie usuwa historycznego problemu
+jakości. Unreadable wywołuje istniejącą mutację rewizyjną. Nałożenie przy ocenie
+readable nie kwalifikuje zdjęcia do wymiany. Raport rozróżnia historyczne i nowe
+potwierdzenia, liczy pola/plansze/źródła oraz udostępnia CSV numerów. Crop,
+przybliżenie i całe źródło korzystają z istniejącego checksum-bound podglądu.
+Zmiana źródła, pikseli lub geometrii daje stale; ponowienie komendy zachowuje
+pierwotny klucz, targety i rewizje także po odświeżeniu przeglądarki.

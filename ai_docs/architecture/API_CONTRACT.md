@@ -5534,3 +5534,35 @@ Opcjonalny sourceId wybiera wyłącznie własne członkostwo MAIN przed keyset/l
 przez exact sześcioparametrowy resolver. Stary pięcioparametrowy resolver działa
 nadal. Brak wymaganego overloadu0162 jest blockerem wdrożenia; runtime nie ma
 bezpośredniego dostępu do prywatnych tabel rejestru nagrań.
+
+
+## Niezależna jakość symboli 777a2 — TASK-1125
+
+Addytywny obszar `/api/v1/admin/games/{gameId}/symbol-cell-reviews/readability`:
+
+| Metoda i ścieżka | Kontrakt |
+|---|---|
+| GET `/runs` | Runy i modele jakości, bez uruchamiania pracy. |
+| POST `/runs` | `idempotencyKey`, `kind: pilot|scan`, seed; modelId tylko dla skanu. |
+| GET `/runs/{runId}/items` | Strona 250 pól, offset, state, historical i problem; liczniki pól/plansz/źródeł. |
+| POST `/runs/{runId}/labels` | Klucz, 1–250 targetów cellId/expectedIdentity/expectedRevision; state i nullable overlap, sharp/similarReadable. |
+| POST `/runs/{runId}/fit` | Klucz i expectedRevision pilota; tworzy job i wersję modelu. |
+| POST `/models/{modelId}/accept` | Klucz i expectedRevision modelu; wymaga aktualnego PASS oraz artefaktu. |
+| GET `/runs/{runId}/export` | CSV potwierdzonych unreadable z seq, pozycją, sourceId i historycznym oznaczeniem. |
+
+Start pilota nie wymaga modelId. Skan wymaga aktualnego, odebranego modelu z
+`fullScanAllowed=true`; żadna komenda jakości nie aktywuje modelu symboli.
+Ocena readable nie wywołuje approve. Niepewna czytelność to state pending,
+a niepewne nałożenie to overlap null. Własny zapis unreadable używa istniejącej
+mutacji komórki, dokładnie raz dla powtórzonego klucza. Zmiana identity daje
+409 `READABILITY_CROP_STALE`, zmiana rewizji `READABILITY_REVISION_CONFLICT`,
+a inne body tego samego klucza `READABILITY_IDEMPOTENCY_CONFLICT`. Brak odbioru,
+niepełny pilot i brak wymaganych dowodów mają stabilne kody READABILITY_*.
+Typy TypeScript pochodzą wyłącznie z OpenAPI i wygenerowanego klienta.
+
+Odczyty items/export odświeżają metadane stale z jawnym WRITE intent i wspólną
+blokadą własności sekwencji. Nie zmieniają rozstrzygnięć symboli ani historii
+receiptów. Nowy skan odmawia również wtedy, gdy piksele pilota zmieniły się po
+odbiorze modelu (`READABILITY_CROP_STALE`). Filtr overlap używa własnego headu
+lub human overlap; filtr unreadable własnego headu lub human state, nie wspólnej
+flagi candidate będącej OR obu headów.

@@ -12541,6 +12541,7 @@ export type JobType =
   | 'symbol_training'
   | 'image_symbol_reinference'
   | 'image_grid_reinference'
+  | 'symbol_readability'
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
   | 'image_geometry_rollout_backfill'
@@ -16672,6 +16673,342 @@ export type QualityUnexpectedJudgment = {
    * Verdict
    */
   verdict: 'correct' | 'incorrect' | 'unknown' | 'unreviewed';
+};
+
+/**
+ * ReadabilityCommandRequest
+ */
+export type ReadabilityCommandRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * ReadabilityItemResponse
+ */
+export type ReadabilityItemResponse = {
+  /**
+   * Candidate
+   */
+  candidate: boolean;
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string | null;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Historicalunreadable
+   */
+  historicalUnreadable: boolean;
+  /**
+   * Identity
+   */
+  identity: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Overlap
+   */
+  overlap: boolean | null;
+  /**
+   * Overlapscore
+   */
+  overlapScore: number | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'pilot' | 'audit' | 'scan';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sharp
+   */
+  sharp: boolean;
+  /**
+   * Similarreadable
+   */
+  similarReadable: boolean;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * State
+   */
+  state: 'pending' | 'readable' | 'unreadable' | 'skipped' | 'stale' | 'error';
+  /**
+   * Unreadablescore
+   */
+  unreadableScore: number | null;
+};
+
+/**
+ * ReadabilityLabelRequest
+ */
+export type ReadabilityLabelRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Overlap
+   */
+  overlap: boolean | null;
+  /**
+   * Sharp
+   */
+  sharp?: boolean;
+  /**
+   * Similarreadable
+   */
+  similarReadable?: boolean;
+  /**
+   * State
+   */
+  state: 'pending' | 'readable' | 'unreadable' | 'skipped';
+  /**
+   * Targets
+   */
+  targets: Array<ReadabilityLabelTarget>;
+};
+
+/**
+ * ReadabilityLabelTarget
+ */
+export type ReadabilityLabelTarget = {
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Expectedidentity
+   */
+  expectedIdentity: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * ReadabilityModelResponse
+ */
+export type ReadabilityModelResponse = {
+  /**
+   * Accepted
+   */
+  accepted: boolean;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Pilotrunid
+   */
+  pilotRunId: string;
+  /**
+   * Report
+   */
+  report: {
+    [key: string]: unknown;
+  };
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ReadabilityPageResponse
+ */
+export type ReadabilityPageResponse = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Confirmedboards
+   */
+  confirmedBoards: number;
+  /**
+   * Confirmedfields
+   */
+  confirmedFields: number;
+  /**
+   * Confirmedsources
+   */
+  confirmedSources: number;
+  /**
+   * Fields
+   */
+  fields: number;
+  /**
+   * Items
+   */
+  items: Array<ReadabilityItemResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+  /**
+   * Sources
+   */
+  sources: number;
+};
+
+/**
+ * ReadabilityRunResponse
+ */
+export type ReadabilityRunResponse = {
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Inventoryfingerprint
+   */
+  inventoryFingerprint: string | null;
+  /**
+   * Itemcount
+   */
+  itemCount: number;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'pilot' | 'scan';
+  /**
+   * Modelid
+   */
+  modelId: string | null;
+  /**
+   * Processedcount
+   */
+  processedCount: number;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ReadabilityStartRequest
+ */
+export type ReadabilityStartRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'pilot' | 'scan';
+  /**
+   * Modelid
+   */
+  modelId?: string | null;
+  /**
+   * Seed
+   */
+  seed?: string;
+};
+
+/**
+ * ReadabilityWorkspaceResponse
+ */
+export type ReadabilityWorkspaceResponse = {
+  /**
+   * Models
+   */
+  models: Array<ReadabilityModelResponse>;
+  /**
+   * Runs
+   */
+  runs: Array<ReadabilityRunResponse>;
 };
 
 /**
@@ -28941,6 +29278,315 @@ export type ListSymbolCellReviewsResponses = {
 
 export type ListSymbolCellReviewsResponse =
   ListSymbolCellReviewsResponses[keyof ListSymbolCellReviewsResponses];
+
+export type AcceptReadabilityModelData = {
+  body: ReadabilityCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Model Id
+     */
+    model_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/models/{model_id}/accept';
+};
+
+export type AcceptReadabilityModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AcceptReadabilityModelError =
+  AcceptReadabilityModelErrors[keyof AcceptReadabilityModelErrors];
+
+export type AcceptReadabilityModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityModelResponse;
+};
+
+export type AcceptReadabilityModelResponse =
+  AcceptReadabilityModelResponses[keyof AcceptReadabilityModelResponses];
+
+export type GetReadabilityWorkspaceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs';
+};
+
+export type GetReadabilityWorkspaceErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetReadabilityWorkspaceError =
+  GetReadabilityWorkspaceErrors[keyof GetReadabilityWorkspaceErrors];
+
+export type GetReadabilityWorkspaceResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityWorkspaceResponse;
+};
+
+export type GetReadabilityWorkspaceResponse =
+  GetReadabilityWorkspaceResponses[keyof GetReadabilityWorkspaceResponses];
+
+export type StartReadabilityRunData = {
+  body: ReadabilityStartRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs';
+};
+
+export type StartReadabilityRunErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartReadabilityRunError =
+  StartReadabilityRunErrors[keyof StartReadabilityRunErrors];
+
+export type StartReadabilityRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityRunResponse;
+};
+
+export type StartReadabilityRunResponse =
+  StartReadabilityRunResponses[keyof StartReadabilityRunResponses];
+
+export type ExportReadabilityCsvData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/export';
+};
+
+export type ExportReadabilityCsvErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportReadabilityCsvError =
+  ExportReadabilityCsvErrors[keyof ExportReadabilityCsvErrors];
+
+export type ExportReadabilityCsvResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type FitReadabilityPilotData = {
+  body: ReadabilityCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/fit';
+};
+
+export type FitReadabilityPilotErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FitReadabilityPilotError =
+  FitReadabilityPilotErrors[keyof FitReadabilityPilotErrors];
+
+export type FitReadabilityPilotResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityModelResponse;
+};
+
+export type FitReadabilityPilotResponse =
+  FitReadabilityPilotResponses[keyof FitReadabilityPilotResponses];
+
+export type ListReadabilityItemsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * State
+     */
+    state?:
+      | 'pending'
+      | 'readable'
+      | 'unreadable'
+      | 'skipped'
+      | 'stale'
+      | 'error'
+      | null;
+    /**
+     * Historical
+     */
+    historical?: boolean | null;
+    /**
+     * Problem
+     */
+    problem?: 'overlap' | 'unreadable' | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/items';
+};
+
+export type ListReadabilityItemsErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListReadabilityItemsError =
+  ListReadabilityItemsErrors[keyof ListReadabilityItemsErrors];
+
+export type ListReadabilityItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityPageResponse;
+};
+
+export type ListReadabilityItemsResponse =
+  ListReadabilityItemsResponses[keyof ListReadabilityItemsResponses];
+
+export type LabelReadabilityItemsData = {
+  body: ReadabilityLabelRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/labels';
+};
+
+export type LabelReadabilityItemsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type LabelReadabilityItemsError =
+  LabelReadabilityItemsErrors[keyof LabelReadabilityItemsErrors];
+
+export type LabelReadabilityItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityRunResponse;
+};
+
+export type LabelReadabilityItemsResponse =
+  LabelReadabilityItemsResponses[keyof LabelReadabilityItemsResponses];
 
 export type GetSymbolCellReviewAssetData = {
   body?: never;

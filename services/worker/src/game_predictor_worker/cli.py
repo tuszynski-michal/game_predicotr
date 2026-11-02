@@ -143,6 +143,7 @@ from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
 from game_predictor_worker.super_game_series import SuperGameSeriesDeriveHandler
 from game_predictor_worker.symbols.lab_candidate_import import LabSymbolCandidateImportHandler
+from game_predictor_worker.symbols.readability_workflow import ReadabilityHandler
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
@@ -533,6 +534,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory,
                 artifact_root,
             ),
+            JobType.SYMBOL_READABILITY: ReadabilityHandler(session_factory, artifact_root),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
             JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(
                 session_factory,

@@ -244,11 +244,23 @@ test('entering the whole V3 section only reads, whatever the backend answers', a
     assert.deepEqual(writes, []);
     for (const step of [
       'Trening',
-      'Porównanie z bazą',
+      'Porównanie kandydata z bazą',
       'Wersje',
       'Ponowne rozpoznanie',
     ])
       assert.match(document.body.textContent, new RegExp(step));
+    // TASK-1122 keeps the legacy workflow available inside an explicit disclosure.
+    const advanced = [...document.querySelectorAll('details')].find(
+      (item) =>
+        item.querySelector('summary')?.textContent ===
+        'Zaawansowane: nagrania, kohorty i parametry',
+    );
+    assert.ok(advanced);
+    assert.equal(advanced.open, false);
+    assert.match(
+      document.querySelector('ol.gridModelSteps').textContent,
+      /Dostępne korekty i braki/,
+    );
   } finally {
     await view.close();
   }

@@ -6,10 +6,23 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1122 — Uproszczony panel i zastosowanie modelu (done)
+
+- Plik: tasks/completed/1122-grid-correction-learning-panel.md.
+- Commit: **v1.7.519** (hash dopisuje kolejny commit).
+- Uproszczony panel: gotowość, korekty/braki, trening/porównanie, jawne apply,
+  historia; zaawansowany workflow i osobne narzędzia jakości zachowane.
+- Trwały apply z CAS, actual-assigned comparison, idempotencją i receipts;
+  adopcja identycznej publikacji bez mutacji, odmowa dla innego dowodu.
+- Opus5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS bez P0/P1.
+- PASS testy API/worker/UI/klienta, trzy scenariusze APPLY PostgreSQL i świeży
+  proces, scoped lint/typecheck, OpenAPI/map/docs, Next build17.52s.
+- P2-3/P2-5/P2-6 R2 jawnie w T4; pełny mypy nie ma PASS. Bez operacji operatora.
+
 ### TASK-1121 — Trening i ocena częściowych zdjęć (done)
 
 - Plik: tasks/completed/1121-grid-correction-training-evaluation.md.
-- Commit: **v1.7.518** (hash dopisuje kolejny commit).
+- Commit: **v1.7.518 / `7801ea4711f92f04eeeb58bfed124f9f850e01e0`** (hash dopisuje kolejny commit).
 - Snapshot v2, częściowe obie kontrole, checkpoint VALIDATION, report v3/gate v2,
   historyczne kohorty i trwały learning parent z kompletnym API/SDK.
 - Scoped publikacja/default/aktywacja chronią aktualny zakres i currentness;

@@ -69,6 +69,13 @@ export function jobTypeLabel(jobType: JobType): string {
 }
 
 export function jobWorkflowLabel(job: JobResponse): string {
+  if (
+    job.jobType === 'grid_correction_learning' &&
+    'learningKind' in job.inputPayload &&
+    job.inputPayload.learningKind === 'grid-correction-apply-v1'
+  ) {
+    return 'Zastosowanie modelu siatek';
+  }
   if (job.workflowMode === 'filename_verification') {
     return 'Weryfikacja zakresów plików';
   }

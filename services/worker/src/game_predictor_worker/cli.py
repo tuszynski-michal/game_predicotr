@@ -195,17 +195,29 @@ def _grid_model_evaluation_handler(
 def _grid_correction_learning_handler(
     session_factory: Any, engine: Any, artifact_root: Path
 ) -> Any:
+    from game_predictor_api.application.grid_correction_apply import GridCorrectionApplyService
     from game_predictor_api.application.grid_correction_learning import (
         GridCorrectionLearningService,
     )
 
+    from game_predictor_worker.images.grid_correction_apply_handler import (
+        GridCorrectionApplyJobHandler,
+    )
     from game_predictor_worker.images.grid_correction_learning_handler import (
         GridCorrectionLearningJobHandler,
     )
+    from game_predictor_worker.images.grid_correction_workflow_handler import (
+        GridCorrectionWorkflowJobHandler,
+    )
 
-    return GridCorrectionLearningJobHandler(
-        GridCorrectionLearningService(engine, session_factory, artifact_root),
-        _grid_training_handler(session_factory, engine, artifact_root).probe,
+    return GridCorrectionWorkflowJobHandler(
+        GridCorrectionLearningJobHandler(
+            GridCorrectionLearningService(engine, session_factory, artifact_root),
+            _grid_training_handler(session_factory, engine, artifact_root).probe,
+        ),
+        GridCorrectionApplyJobHandler(
+            GridCorrectionApplyService(engine, session_factory, artifact_root)
+        ),
     )
 
 

@@ -42,7 +42,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md` | T1/T2 Opus PASS; T2 v1.7.518; panel T3 gotowy w osobnym worktree do integracji i audytu | TASK-1122–1123 | `codex/grid-corrections-learning` |
+| `delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md` | T1–T3 Opus PASS; T3 v1.7.519; końcowy odbiór i drobne P2 w T4 | TASK-1123 | `codex/grid-corrections-learning` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -67,10 +67,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1122 — Uproszczony panel i zastosowanie modelu (in_progress)
-
-- Plik: `tasks/1122-grid-correction-learning-panel.md`. Operator polecił kontynuację przed audytem T2; T3 w odizolowanym worktree grid-corrections-panel na kopii stabilnego T2. Audyty i commity nadal osobno, bez pomijania Opus.
-
 ### TASK-1123 — Odbiór i dokumentacja uczenia z korekt (todo)
 
 - Plik: `tasks/1123-grid-correction-learning-acceptance.md`. Oczekuje na TASK-1120–1122 i audyty.
@@ -81,7 +77,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 — tasks/completed/1121-grid-correction-training-evaluation.md
+- **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 — tasks/completed/1122-grid-correction-learning-panel.md
+- **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md
 - **TASK-1120** — Dane z korekt i trwały podział — v1.7.517 / `e1fcae27` — tasks/completed/1120-grid-correction-training-data.md
 - **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
@@ -90,4 +87,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
 - **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 / `a8727323` — tasks/completed/1111-expand-mumie-training-set-2.md
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
-- **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md

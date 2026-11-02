@@ -51,7 +51,7 @@ Trening na danych operatora, zmiana defaultu lub przypisań, migracja bazy opera
 - [x] Same częściowe VALIDATION i REGRESSION przechodzą cały pion bez filtrowania; checkpoint deterministic; scoped report v3 i publish gate v2; legacy bez zmian.
 - [x] Właściwe testy, lint/typecheck i dokumentacja (zakres i ograniczenie mypy poniżej).
 - [x] Audyt Opus 5.5/high bez otwartych P0/P1.
-- [ ] Outcome, task-close, osobny wersjonowany commit i record-hash.
+- [x] Outcome, task-close, osobny wersjonowany commit i record-hash.
 
 ## Technical notes
 
@@ -87,7 +87,7 @@ Preflight i rzeczywista kwalifikacja danych mogą zatrzymać implementację prze
 
 ## Outcome
 
-Commit: v1.7.518 (hash dopisuje kolejny commit).
+Commit: v1.7.518 / `7801ea4711f92f04eeeb58bfed124f9f850e01e0`.
 
 Uzupełnienie przed audytem (dyspozycja root): preview/ready zwracają nullable
 `dataAvailability` z photos/boards po deduplikacji przed buforami, minima20/60,

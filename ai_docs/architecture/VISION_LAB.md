@@ -6,6 +6,43 @@ last_updated: 2026-10-16
 
 # Architektura laboratorium wizji
 
+## Explicit correction apply (TASK-1122)
+
+The game/learning-scoped `/grid-correction-learning/{learning_id}/apply` API exposes
+GET preview/list/status and explicit POST start/resume. Closed request models,
+OpenAPI, the generated TypeScript client and request tests share one contract.
+`application/grid_correction_apply.py` reuses the registry publication/assignment
+services and the existing jobs table with `learning_kind=grid-correction-apply-v1`.
+Payload validation and the worker dispatcher separate apply from the unchanged
+learning parent. Learning lists and identity lookups filter the discriminator.
+
+The immutable preview pins the candidate descriptor, main report and scope, default
+revision/version and every selected assignment. Start requires its digest and the
+human photo-only acknowledgement. Independent actual-assigned comparisons run
+before publication when a selected game's assignment differs from the learning
+base. Their trusted report, descriptor, assignment revision and cohort currentness
+are verified separately; they never replace the main publication report.
+
+Each comparison/publication/default/assignment step has a deterministic command
+identity and an independent transaction. Durable checkpoints and registry receipts
+recover the commit/checkpoint gap after restart or response loss. Waiting releases
+the general lane. A failed later step preserves earlier receipts and can be resumed;
+there is no compensating automatic rollback. Registry locks protect default and
+assignment CAS. A changed default revision of the same base permits a fresh preview;
+a different base blocks the old candidate until new applicable evidence exists.
+Read endpoints never advance jobs. Existing history/rollback routes remain the
+authority, and neither apply nor rollback recrops existing imports.
+
+R1: publication adoption checks the exact canonical evidence and its checksum,
+report identity and descriptor pins under the registry lock. An identical
+already-published candidate completes the step with a deterministic receipt in
+the parent checkpoint; it creates no publication event. GET can recover that
+receipt from the immutable publication row after a checkpoint gap. Different
+evidence fails both preview and advance. An active apply of the same learning
+blocks a second start under the registry lock; failed operations retain their
+history without blocking a fresh CAS-pinned preview. Resume of created,
+processing or completed operations returns the existing view without requeue.
+
 ## Photo-only correction split (D-577, TASK-1120)
 
 `domain/grid_correction_split.py` implements bounded exact one-to-three-block

@@ -1,4 +1,9 @@
 import {
+  previewGridCorrectionApply as previewGeneratedGridCorrectionApply,
+  startGridCorrectionApply as startGeneratedGridCorrectionApply,
+  listGridCorrectionApply as listGeneratedGridCorrectionApply,
+  getGridCorrectionApply as getGeneratedGridCorrectionApply,
+  resumeGridCorrectionApply as resumeGeneratedGridCorrectionApply,
   getGridCorrectionLearningReady as getGeneratedGridCorrectionLearningReady,
   previewGridCorrectionLearning as previewGeneratedGridCorrectionLearning,
   startGridCorrectionLearning as startGeneratedGridCorrectionLearning,
@@ -61,6 +66,7 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  GridCorrectionApplyStartCommand,
   GridCorrectionLearningPreviewCommand,
   GridCorrectionLearningStartCommand,
   GridAssignedComparisonCreate,
@@ -89,6 +95,10 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridCorrectionApplyPreview,
+  GridCorrectionApplyStartCommand,
+  GridCorrectionApplyView,
+  GridCorrectionApplyList,
   GridCorrectionLearningPreviewCommand,
   GridCorrectionLearningStartCommand,
   GridCorrectionLearningPreview,
@@ -1537,6 +1547,49 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createGridModelEvaluation: (body: GridModelEvaluationCreate) =>
       createGeneratedGridModelEvaluation({ client, body }),
+    previewGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      additionalGameIds: string[] = [],
+    ) =>
+      previewGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+        query: { additionalGameIds },
+      }),
+    startGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      body: GridCorrectionApplyStartCommand,
+    ) =>
+      startGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+        body,
+      }),
+    listGridCorrectionApply: (gameId: string, learningId: string) =>
+      listGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    getGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      applyId: string,
+    ) =>
+      getGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId, apply_id: applyId },
+      }),
+    resumeGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      applyId: string,
+    ) =>
+      resumeGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId, apply_id: applyId },
+      }),
     getGridCorrectionLearningReady: (gameId: string) =>
       getGeneratedGridCorrectionLearningReady({
         client,

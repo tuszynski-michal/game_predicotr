@@ -280,6 +280,7 @@ class GridCorrectionLearningService:
         row = session.scalar(
             select(JobModel).where(
                 JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
+                JobModel.input_payload["learning_kind"].as_string() == LEARNING_KIND,
                 JobModel.game_id == game,
                 JobModel.input_payload["idempotency_key"].as_string() == str(key),
             )
@@ -290,7 +291,12 @@ class GridCorrectionLearningService:
     def _job(session: Session, game: UUID, identifier: UUID, *, lock: bool = False) -> Job:
         repository = SqlAlchemyJobRepository(session)
         job = repository.get_job_for_update(identifier) if lock else repository.get_job(identifier)
-        if job is None or job.game_id != game or job.job_type != JobType.GRID_CORRECTION_LEARNING:
+        if (
+            job is None
+            or job.game_id != game
+            or job.job_type != JobType.GRID_CORRECTION_LEARNING
+            or job.input_payload.get("learning_kind") != LEARNING_KIND
+        ):
             raise GridCohortError("GRID_LEARNING_NOT_FOUND", "Learning workflow not found.", 404)
         return job
 
@@ -347,10 +353,17 @@ class GridCorrectionLearningService:
 
     def list(self, game: UUID) -> dict[str, Any]:
         with Session(self.engine) as session:
-            jobs = SqlAlchemyJobRepository(session).list_jobs(
-                status=None, job_type=JobType.GRID_CORRECTION_LEARNING, game_id=game, limit=200
+            rows = session.scalars(
+                select(JobModel)
+                .where(
+                    JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
+                    JobModel.game_id == game,
+                    JobModel.input_payload["learning_kind"].as_string() == LEARNING_KIND,
+                )
+                .order_by(JobModel.created_at.desc())
+                .limit(200)
             )
-            return {"items": [self.view(job) for job in jobs]}
+            return {"items": [self.view(job_from_record(row)) for row in rows]}
 
     def get(self, game: UUID, identifier: UUID) -> dict[str, Any]:
         with Session(self.engine) as session:

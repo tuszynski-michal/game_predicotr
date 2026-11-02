@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Self, cast
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.application.semi_automatic_image_selections import (
@@ -844,6 +844,20 @@ class GridCorrectionLearningJobPayload(ApiModel):
     actor: str
 
 
+class GridCorrectionApplyJobPayload(ApiModel):
+    """Separate server-owned closed payload for applying a completed learning."""
+
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal[1] = 1
+    learning_kind: Literal["grid-correction-apply-v1"]
+    idempotency_key: UUID
+    learning_id: UUID
+    command: dict[str, Any]
+    preview: dict[str, Any]
+    pins: dict[str, Any]
+    actor: str
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -920,6 +934,7 @@ JobPayloadResponse = (
     | GridTrainingJobPayload
     | GridModelEvaluationJobPayload
     | GridCorrectionLearningJobPayload
+    | GridCorrectionApplyJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload
@@ -1490,6 +1505,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.GRID_MODEL_EVALUATION:
         return GridModelEvaluationJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.GRID_CORRECTION_LEARNING:
+        if job.input_payload.get("learning_kind") == "grid-correction-apply-v1":
+            return GridCorrectionApplyJobPayload.model_validate(job.input_payload)
         return GridCorrectionLearningJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)
 

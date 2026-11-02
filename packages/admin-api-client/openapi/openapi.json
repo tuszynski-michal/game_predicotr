@@ -10783,6 +10783,432 @@
         "title": "GridCohortSummary",
         "type": "object"
       },
+      "GridCorrectionApplyJobPayload": {
+        "additionalProperties": false,
+        "description": "Separate server-owned closed payload for applying a completed learning.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "command": {
+            "additionalProperties": true,
+            "title": "Command",
+            "type": "object"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "learningId": {
+            "format": "uuid",
+            "title": "Learningid",
+            "type": "string"
+          },
+          "learningKind": {
+            "const": "grid-correction-apply-v1",
+            "title": "Learningkind",
+            "type": "string"
+          },
+          "pins": {
+            "additionalProperties": true,
+            "title": "Pins",
+            "type": "object"
+          },
+          "preview": {
+            "additionalProperties": true,
+            "title": "Preview",
+            "type": "object"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "learningKind",
+          "idempotencyKey",
+          "learningId",
+          "command",
+          "preview",
+          "pins",
+          "actor"
+        ],
+        "title": "GridCorrectionApplyJobPayload",
+        "type": "object"
+      },
+      "GridCorrectionApplyList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionApplyView"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "GridCorrectionApplyList",
+        "type": "object"
+      },
+      "GridCorrectionApplyPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "additionalGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Additionalgameids",
+            "type": "array"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "canApply": {
+            "title": "Canapply",
+            "type": "boolean"
+          },
+          "defaultRevision": {
+            "minimum": 0.0,
+            "title": "Defaultrevision",
+            "type": "integer"
+          },
+          "defaultVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultversionid"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "excludedGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Excludedgameids",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "learningId": {
+            "format": "uuid",
+            "title": "Learningid",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "previewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewsha256",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionApplyTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "versionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionid"
+          },
+          "versionLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionlabel"
+          }
+        },
+        "required": [
+          "gameId",
+          "learningId",
+          "versionId",
+          "versionLabel",
+          "defaultRevision",
+          "defaultVersionId",
+          "baseVersionId",
+          "additionalGameIds",
+          "requiredGameIds",
+          "targets",
+          "excludedGameIds",
+          "limitations",
+          "evidenceLevel",
+          "blockers",
+          "canApply",
+          "previewSha256"
+        ],
+        "title": "GridCorrectionApplyPreview",
+        "type": "object"
+      },
+      "GridCorrectionApplyStartCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "additionalGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 7,
+            "title": "Additionalgameids",
+            "type": "array"
+          },
+          "confirmLimitedEvidence": {
+            "title": "Confirmlimitedevidence",
+            "type": "boolean"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "previewSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "previewSha256",
+          "confirmLimitedEvidence"
+        ],
+        "title": "GridCorrectionApplyStartCommand",
+        "type": "object"
+      },
+      "GridCorrectionApplyStep": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "kind": {
+            "enum": [
+              "publish",
+              "set_default",
+              "comparison",
+              "activate"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "waiting",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "gameId",
+          "status"
+        ],
+        "title": "GridCorrectionApplyStep",
+        "type": "object"
+      },
+      "GridCorrectionApplyTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedversionid"
+          },
+          "assignmentRevision": {
+            "minimum": 0.0,
+            "title": "Assignmentrevision",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gameLabel": {
+            "title": "Gamelabel",
+            "type": "string"
+          },
+          "requiresComparison": {
+            "title": "Requirescomparison",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "gameId",
+          "gameLabel",
+          "assignmentRevision",
+          "assignedVersionId",
+          "requiresComparison"
+        ],
+        "title": "GridCorrectionApplyTarget",
+        "type": "object"
+      },
+      "GridCorrectionApplyView": {
+        "additionalProperties": false,
+        "properties": {
+          "applyId": {
+            "format": "uuid",
+            "title": "Applyid",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "learningId": {
+            "format": "uuid",
+            "title": "Learningid",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionApplyStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "applyId",
+          "gameId",
+          "learningId",
+          "versionId",
+          "status",
+          "stage",
+          "errorCode",
+          "steps",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "GridCorrectionApplyView",
+        "type": "object"
+      },
       "GridCorrectionCellSymbolPayload": {
         "additionalProperties": false,
         "description": "One symbol the operator assigns to a cell while saving its grid (D-488).\n\nA ``null`` ``symbolId`` means the operator cannot tell the symbol: the cell\nis marked unreadable and left for a later review, never guessed.",
@@ -23924,6 +24350,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionLearningJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionApplyJobPayload"
               },
               {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
@@ -47813,6 +48242,480 @@
           }
         },
         "summary": "Get",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply": {
+      "get": {
+        "operationId": "listGridCorrectionApply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionApplyList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Operations",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      },
+      "post": {
+        "operationId": "startGridCorrectionApply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridCorrectionApplyStartCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionApplyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/preview": {
+      "get": {
+        "operationId": "previewGridCorrectionApply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "additionalGameIds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "maxItems": 7,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Additionalgameids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionApplyPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}": {
+      "get": {
+        "operationId": "getGridCorrectionApply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "apply_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Apply Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionApplyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get",
+        "tags": [
+          "grid-correction-learning"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}/resume": {
+      "post": {
+        "operationId": "resumeGridCorrectionApply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "learning_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Learning Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "apply_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Apply Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionApplyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resume",
         "tags": [
           "grid-correction-learning"
         ]

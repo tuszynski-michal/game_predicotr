@@ -2485,6 +2485,18 @@ def create_app(
         create_grid_correction_learning_router(default_grid_correction_learning_dependency)
     )
 
+    from game_predictor_api.api.grid_correction_apply import create_grid_correction_apply_router
+    from game_predictor_api.application.grid_correction_apply import GridCorrectionApplyService
+
+    def default_grid_correction_apply_dependency() -> GridCorrectionApplyService:
+        return GridCorrectionApplyService(
+            database_engine, session_factory, resolved_settings.artifact_root
+        )
+
+    application.include_router(
+        create_grid_correction_apply_router(default_grid_correction_apply_dependency)
+    )
+
     def default_source_crop_dependency() -> SourceCropRunService:
         # D-562 (TASK-1047): runs and their jobs are shared rows in ``public``.
         return SourceCropRunService(SqlAlchemySourceCropRunRepository(session_factory))

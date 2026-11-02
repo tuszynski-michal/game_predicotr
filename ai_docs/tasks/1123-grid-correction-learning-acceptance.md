@@ -34,11 +34,19 @@ gpt-6.1-sol/high, według tabeli planu. Obowiązkowy niezależny audyt Claude Co
 - `ai_docs/process/PLAN_STANDARD.md`, `ai_docs/process/TASK_TEMPLATE.md`, `ai_docs/process/DEFINITION_OF_DONE.md`
 - `ai_docs/requirements/VISION_LAB.md`, `ai_docs/requirements/ADMIN_APP.md`
 - `ai_docs/architecture/VISION_LAB.md`, `ai_docs/architecture/CODE_MAP.md`
+- `ai_docs/quality/TASK-1120_AUDIT_claude-opus-5-5.md`
+- `ai_docs/quality/TASK-1121_VERIFICATION.md`
+- `ai_docs/quality/TASK-1122_AUDIT_claude-opus-5-5.md`
+- `ai_docs/quality/TASK-1122_VERIFICATION.md`
 - [D-554](../process/decisions/DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3)
 - [D-556](../process/decisions/DECISION_LOG_2026.md#d-556--niezmienne-kohorty-geometrii-v3-i-aktualność-dowodów)
 - [D-559](../process/decisions/DECISION_LOG_2026.md#d-559--ocena-kandydata-geometrii-v3-per-gra-i-most-aktualności-dowodów)
 
 ## Scope
+
+Odbiór obejmuje także P2-3/P2-5/P2-6 R2 TASK-1122: konkurencyjne resume oraz
+odczyt historii przy konflikcie publikacji i nieukończonych porównaniach.
+Poprawki z regresjami w T4, bez kolejnej rundy zmian T3.
 
 Pełna sekcja T4 planu; zasady i minima z planu są obowiązujące.
 

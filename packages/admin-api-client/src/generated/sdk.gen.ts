@@ -405,6 +405,9 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridCorrectionApplyData,
+  GetGridCorrectionApplyErrors,
+  GetGridCorrectionApplyResponses,
   GetGridCorrectionLearningData,
   GetGridCorrectionLearningErrors,
   GetGridCorrectionLearningEvaluationData,
@@ -755,6 +758,9 @@ import type {
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridCorrectionApplyData,
+  ListGridCorrectionApplyErrors,
+  ListGridCorrectionApplyResponses,
   ListGridCorrectionLearningData,
   ListGridCorrectionLearningErrors,
   ListGridCorrectionLearningResponses,
@@ -981,6 +987,9 @@ import type {
   PreviewGeometryCorrectionRevertData,
   PreviewGeometryCorrectionRevertErrors,
   PreviewGeometryCorrectionRevertResponses,
+  PreviewGridCorrectionApplyData,
+  PreviewGridCorrectionApplyErrors,
+  PreviewGridCorrectionApplyResponses,
   PreviewGridCorrectionLearningData,
   PreviewGridCorrectionLearningErrors,
   PreviewGridCorrectionLearningResponses,
@@ -1146,6 +1155,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  ResumeGridCorrectionApplyData,
+  ResumeGridCorrectionApplyErrors,
+  ResumeGridCorrectionApplyResponses,
   ResumeGridCorrectionLearningData,
   ResumeGridCorrectionLearningErrors,
   ResumeGridCorrectionLearningResponses,
@@ -1257,6 +1269,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridCorrectionApplyData,
+  StartGridCorrectionApplyErrors,
+  StartGridCorrectionApplyResponses,
   StartGridCorrectionLearningData,
   StartGridCorrectionLearningErrors,
   StartGridCorrectionLearningResponses,
@@ -2307,6 +2322,109 @@ export const getGridCorrectionLearning = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}',
+    ...options,
+  });
+
+/**
+ * List Operations
+ */
+export const listGridCorrectionApply = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridCorrectionApplyData, ThrowOnError>,
+): RequestResult<
+  ListGridCorrectionApplyResponses,
+  ListGridCorrectionApplyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridCorrectionApplyResponses,
+    ListGridCorrectionApplyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply',
+    ...options,
+  });
+
+/**
+ * Start
+ */
+export const startGridCorrectionApply = <ThrowOnError extends boolean = false>(
+  options: Options<StartGridCorrectionApplyData, ThrowOnError>,
+): RequestResult<
+  StartGridCorrectionApplyResponses,
+  StartGridCorrectionApplyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartGridCorrectionApplyResponses,
+    StartGridCorrectionApplyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview
+ */
+export const previewGridCorrectionApply = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGridCorrectionApplyData, ThrowOnError>,
+): RequestResult<
+  PreviewGridCorrectionApplyResponses,
+  PreviewGridCorrectionApplyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGridCorrectionApplyResponses,
+    PreviewGridCorrectionApplyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/preview',
+    ...options,
+  });
+
+/**
+ * Get
+ */
+export const getGridCorrectionApply = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridCorrectionApplyData, ThrowOnError>,
+): RequestResult<
+  GetGridCorrectionApplyResponses,
+  GetGridCorrectionApplyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCorrectionApplyResponses,
+    GetGridCorrectionApplyErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}',
+    ...options,
+  });
+
+/**
+ * Resume
+ */
+export const resumeGridCorrectionApply = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeGridCorrectionApplyData, ThrowOnError>,
+): RequestResult<
+  ResumeGridCorrectionApplyResponses,
+  ResumeGridCorrectionApplyErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResumeGridCorrectionApplyResponses,
+    ResumeGridCorrectionApplyErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}/resume',
     ...options,
   });
 

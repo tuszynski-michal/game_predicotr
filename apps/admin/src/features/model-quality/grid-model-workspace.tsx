@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
 import { GridCohortPreview } from './grid-cohort-preview';
+import { GridCorrectionLearningPanel } from './grid-correction-learning-panel';
 import { GridModelComparison } from './grid-model-comparison';
 import { GridModelVersionsPanel } from './grid-model-versions-panel';
 import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
@@ -39,39 +40,51 @@ export function GridModelWorkspace({
       <h2>Geometria V3</h2>
       <ol className="gridModelSteps">
         <li>Przypisana wersja</li>
-        <li>Nagrania i role</li>
-        <li>Kontrola jakości (próbka)</li>
-        <li>Dane do doszkalania</li>
-        <li>Trening</li>
-        <li>Porównanie z bazą</li>
-        <li>Wersje</li>
-        <li>Ponowne rozpoznanie</li>
+        <li>Dostępne korekty i braki</li>
+        <li>Uczenie i postęp</li>
+        <li>Wynik i zastosowanie</li>
+        <li>Historia</li>
       </ol>
       <GridModelAssignmentSummary
         key={`assignment:${scope}:${refreshKey}`}
         apiBaseUrl={apiBaseUrl}
         gameId={gameId}
       />
-      <RecordingGroupsPanel
-        key={`recordings:${scope}`}
+      <GridCorrectionLearningPanel
+        key={`learning:${scope}`}
         apiBaseUrl={apiBaseUrl}
         gameId={gameId}
         onChanged={onChanged}
       />
-      <GridQualityMeasurementPanel
-        key={`quality:${scope}`}
-        apiBaseUrl={apiBaseUrl}
-        gameId={gameId}
-      />
-      <GridCohortPreview key={`cohorts:${scope}`} {...shared} />
-      <GridTrainingRunPanel key={`runs:${scope}`} {...shared} />
-      <GridModelComparison key={`comparison:${scope}`} {...shared} />
-      <GridModelVersionsPanel key={`versions:${scope}`} {...shared} />
-      <GridReinferencePreview
-        api={api}
-        apiBaseUrl={apiBaseUrl}
-        gameId={gameId}
-      />
+      <details>
+        <summary>Zaawansowane: nagrania, kohorty i parametry</summary>
+        <RecordingGroupsPanel
+          key={`recordings:${scope}`}
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          onChanged={onChanged}
+        />
+        <GridCohortPreview key={`cohorts:${scope}`} {...shared} />
+        <GridTrainingRunPanel key={`runs:${scope}`} {...shared} />
+        <GridModelComparison key={`comparison:${scope}`} {...shared} />
+        <GridModelVersionsPanel key={`versions:${scope}`} {...shared} />
+      </details>
+      <details>
+        <summary>Osobne narzędzie: kontrola jakości (próbka)</summary>
+        <GridQualityMeasurementPanel
+          key={`quality:${scope}`}
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+        />
+      </details>
+      <details>
+        <summary>Osobne narzędzie: Ponowne rozpoznanie</summary>
+        <GridReinferencePreview
+          api={api}
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+        />
+      </details>
     </section>
   );
 }

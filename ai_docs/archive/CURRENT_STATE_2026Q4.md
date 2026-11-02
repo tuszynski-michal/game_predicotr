@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1124 — Rdzeń detektora jakości 777 A2 (done)
 
 - Plik: `tasks/completed/1124-readability-detector-core.md`.
-- Commit: **v1.7.517**.
+- Commit: **v1.7.517 / `9e466d70e9ec84911dd8612072ded6e9d273c2d4`**.
 - Wynik: frozen SpatialSymbolCnn features, natywne statystyki, dwa niezależne L2 heady, read-only preflight, rodziny i brak leakage, minima pilota, artefakt/ranking/Wilson95 oraz niezależny audit200 z limitem 800.
 - Weryfikacja: 37/37 testów PASS (17,24 s), ruff PASS; mapa i cztery kontrole docs PASS. Mypy po korektach partial: błąd narzędzia przy zapisie cache i timeout bez cache; wcześniejszy mypy PASS. Szczegóły w Outcome.
 - Audyt: `quality/TASK-1124_AUDIT_claude-opus-5-5.md`, Opus5.5/high, oryginalny REVISE; jedna runda poprawek i reconciliation leada zamykają P1-1 oraz P2-1/4/5. P2-2 to jawne ograniczenie przypiętej pary SHA, P2-3 operacyjna niezależna pula audit200; bez otwartych P0/P1 po rozliczeniu.

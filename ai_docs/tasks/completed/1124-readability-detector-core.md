@@ -97,7 +97,7 @@ Z katalogu worktree, Python `D:/game_predicotr/.venv/Scripts/python.exe`, każda
 
 ## Outcome
 
-Commit: v1.7.517 (hash dopisuje kolejny commit).
+Commit: v1.7.517 / `9e466d70e9ec84911dd8612072ded6e9d273c2d4`.
 
 ### Changed
 

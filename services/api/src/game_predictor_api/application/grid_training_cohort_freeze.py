@@ -66,10 +66,14 @@ def _lock_inputs(
         ("image_symbol_review_cells", "cell_ids"),
     ):
         rows = session.execute(
-            text(f"""SELECT r.id FROM {table} r WHERE r.game_id=:game
-          AND EXISTS(SELECT 1 FROM grid_training_cohort_members m WHERE m.game_id=:game
+            # Expand the small cohort identity set before joining the game table.
+            # Correlated array containment scans every cell against every member.
+            # DISTINCT preserves the previous EXISTS semantics for overlapping IDs.
+            text(f"""SELECT r.id FROM {table} r JOIN (
+          SELECT DISTINCT unnest(m.{identifier_column}) AS id
+          FROM grid_training_cohort_members m WHERE m.game_id=:game
           AND m.cohort_id=:cohort AND m.frozen->'used'='true'::jsonb
-          AND m.{identifier_column} @> ARRAY[r.id])
+          ) chosen ON chosen.id=r.id WHERE r.game_id=:game
           ORDER BY r.id FOR UPDATE OF r""").execution_options(yield_per=200),
             {"game": game, "cohort": identifier},
         )

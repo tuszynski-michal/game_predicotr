@@ -88,6 +88,10 @@ releases the general slot while a child runs. Claim skips parents with a pending
 child; child creation remains possible while the parent holds that slot. A separate
 advisory step lock serializes cancel/resume/create without locking the heartbeat row.
 Deterministic child/cohort command keys adopt existing results after response loss.
+Freeze expands and deduplicates the used members' board/review/cell identifiers
+before joining their game-scoped tables (TASK-1135). It locks the same targets
+in ascending identifier order with `FOR UPDATE OF r`; it does not compare every
+game cell with every member array. Existing deadlines and other input locks remain.
 Step-lock contention maps to `GRID_LEARNING_BUSY` (409). Resume rejects an active
 child still acknowledging cancellation; after acknowledgement it reuses that child.
 HTTP exclusions are canonicalized before preview hashing and idempotency commands.

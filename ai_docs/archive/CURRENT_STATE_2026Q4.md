@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1135 — Timeout zamrażania korekt (done)
+
+- Plik: tasks/completed/1135-grid-learning-freeze-query.md
+- Commit: **v1.7.527** (hash dopisuje kolejny commit).
+- Zamiast korelowanego skanu całej tabeli freeze rozwija i deduplikuje identyfikatory kohorty. Filtry, kolejność blokad i limity pozostają zachowane.
+- READ ONLY na danych operatora: stary wybór timeout 3 s, nowy 11610 komórek / 0,343 s. PostgreSQL lock test PASS; pełny prepare/materialize/freeze/restart/currentness na 120 etykietach PASS 102,25 s. Bez treningu GPU.
+- 77 testów PASS, jeden stary błąd fixture kontraktu poza zakresem; Ruff, scoped mypy i docs/map PASS. Audyt Opus 5.5/high PASS; P2-1 jawnie zaakceptowane, P2-2 uzupełnione dowodami SQL/EXPLAIN.
+- Merge/push, restart i wznowienie zadania operatora pozostają za osobną zgodą.
+
 ### TASK-1134 — Gotowość GPU i lista przebiegów (done)
 
 - Plik: tasks/completed/1134-grid-learning-runtime-history.md

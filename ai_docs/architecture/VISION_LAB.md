@@ -16,6 +16,8 @@ services and the existing jobs table with `learning_kind=grid-correction-apply-v
 Payload validation and the worker dispatcher separate apply from the unchanged
 learning parent. Learning lists and identity lookups filter the discriminator.
 
+TASK-1152: each newly claimed apply lease checkpoints the persisted progress counters instead of zeroing successes from earlier steps. Waiting and failure/resume retain those counters; the final success count still derives from completed durable steps. Domain monotonicity checks and registry receipts remain unchanged.
+
 The immutable preview pins the candidate descriptor, main report and scope, default
 revision/version and every selected assignment. Start requires its digest and the
 human photo-only acknowledgement. Independent actual-assigned comparisons run

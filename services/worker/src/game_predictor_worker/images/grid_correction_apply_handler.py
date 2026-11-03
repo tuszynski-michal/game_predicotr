@@ -30,9 +30,9 @@ class GridCorrectionApplyJobHandler:
             stage="applying",
             current=job.progress_current,
             total=None,
-            success_count=0,
-            failure_count=0,
-            review_count=0,
+            success_count=job.success_count,
+            failure_count=job.failure_count,
+            review_count=job.review_count,
         )
         try:
             state, finished = self.service.advance(context.job)
@@ -44,8 +44,8 @@ class GridCorrectionApplyJobHandler:
             current=job.progress_current + 1,
             total=None,
             success_count=sum(step["status"] == "completed" for step in state.get("steps", [])),
-            failure_count=0,
-            review_count=0,
+            failure_count=job.failure_count,
+            review_count=job.review_count,
         )
         if not finished:
             context.wait_for_dependency(checkpoint_payload=state)

@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Naprawa postępu zastosowania modelu](delivery/GRID_APPLY_PROGRESS_FIX_20261103.md) — TASK-1152; zachowanie liczników między etapami apply.
+
 - [Przyrostowe uczenie siatek i aktualność oceny](delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md)
   — TASK-1139–1140/1145/1147: przyrost TRAIN, liczniki, aktualność i integracja migracji 0178; odbiór operacyjny zablokowany.
 

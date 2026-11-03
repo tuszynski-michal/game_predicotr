@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1152 — Trwałe liczniki zastosowania (done)
+
+- Plik: `tasks/completed/1152-grid-apply-progress.md`; commit **v1.7.553** (hash dopisuje kolejny commit).
+- Handler przepisuje zapisane success/failure/review counters na wejściu lease; success po advance nadal liczony z ukończonych steps. Domenowe guardy, CAS, receipts i API bez zmian.
+- Regresja3FAIL/3PASS na starym kodzie; po poprawce10workerPASS/4domenaPASS, Ruff/scopedmypy PASS. Testy ćwiczą checkpoint, defer, claim, fail/requeue, odtworzenieJSON i comparison waiting.
+- Opus5.5/high R1PASS bezP0/P1. TrzyP2 rozliczone jedną rundą zmian testów/dokumentacji; produkcja bez zmian po audycie.
+- Wdrożenie i restart general worker wymagają osobnej zgody, applya2eeba17 nadal failed po publish. RaportHTML151plansz/102zdjęcia gotowy niezależnie, bez mutacji geometrii.
+
 ### TASK-1147 — Integracja i odbiór przyrostu korekt (done)
 
 - Plik: `tasks/completed/1147-grid-growth-integration.md`; commit **v1.7.551 / `95ce934e43f5c61680fdee8afdbe98e1e8110a30`** (hash dopisuje kolejny commit).

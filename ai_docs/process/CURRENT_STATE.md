@@ -54,6 +54,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **Mumie A2 / TASK-1152:** zastosowanie a2eeba17 failed po publish; poprawka licznika Opus PASS, czeka na zgodę na merge/push i restart general worker. Bez zmiany defaultu/przypisania.
+
 
 - **TASK-1147 / P2:** 2 zastane FAIL retencji także na `60f50c64`; produkt fail-closed, naprawa osobno. Źródło: `quality/TASK-1147_VERIFICATION.md`.
 
@@ -88,6 +90,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1152** — Trwałe liczniki zastosowania — v1.7.553 — tasks/completed/1152-grid-apply-progress.md
 - **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 / `95ce934e` — tasks/completed/1147-grid-growth-integration.md
 - **TASK-1151** — Wyszukiwanie bez historii wymiany — v1.7.550 / `eec2f304` — tasks/completed/1151-empty-replacement-search-fast-path.md
 - **TASK-1150** — Atomowy postęp Windows — v1.7.547 / `5efb3ea0` — tasks/completed/1150-grid-training-windows-atomic-progress.md
@@ -97,4 +100,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 / `3df55bca` — tasks/completed/1145-grid-growth-migration-number.md
 - **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 / `a4993720` — tasks/completed/1144-selector-smooth-navigation.md
 - **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md
-- **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 / `9efbaa3a` — tasks/completed/1142-selector-smooth-navigation.md

@@ -78,7 +78,7 @@ Zmiana parametrów nauki/presetów, UI, schema, migracje, automatyczna aktywacja
 
 ## Outcome
 
-Commit: v1.7.531 (hash dopisuje kolejny commit).
+Commit: v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`.
 
 ### Changed
 

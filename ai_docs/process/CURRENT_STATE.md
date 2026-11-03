@@ -80,7 +80,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 — tasks/completed/1137-grid-training-shared-budget.md
+- **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
 - **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
 - **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md

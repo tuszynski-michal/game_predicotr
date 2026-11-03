@@ -85,7 +85,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 — tasks/completed/1148-workspace-react-build-alignment.md
+- **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 / `879db371` — tasks/completed/1148-workspace-react-build-alignment.md
 - **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md

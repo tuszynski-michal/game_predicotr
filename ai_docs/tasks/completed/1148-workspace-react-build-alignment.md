@@ -58,7 +58,7 @@ Bez zmian mobilnego kontraktu ani aplikacji. Wspólne node_modules może być u�
 
 ## Outcome
 
-Commit: v1.7.543 (hash dopisuje kolejny commit).
+Commit: v1.7.543 / `879db37190b6c16cf8bc21f45c7054ff09335789`.
 
 ### Changed
 

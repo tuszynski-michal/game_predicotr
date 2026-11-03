@@ -14,6 +14,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
+
 - **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
@@ -52,6 +53,8 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
 ## Otwarte decyzje i pytania
+
+- **Wdrożenie777A2 / 2026-11-03:** DB0171, aplikacja przywrócona (HTTP200); migrację blokuje delete pustej „777 a2 del”(777v2) od20.10. Lokalny main60f50c64, push wstrzymany. Osobna decyzja wymagana; [dowody i zakres](../quality/777A2_DEPLOYMENT_BLOCKER_20261103.md).
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 

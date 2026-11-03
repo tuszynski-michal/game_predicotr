@@ -22,6 +22,10 @@ from game_predictor_api.schemas.cleanup import (
     CleanupResultResponse,
 )
 from game_predictor_api.schemas.source_replacement import (
+    SourcePurgeCommand,
+    SourcePurgePreviewRequest,
+    SourcePurgePreviewResponse,
+    SourcePurgeResult,
     SourceReplacementBatchResponse,
     SourceReplacementCandidatePage,
     SourceReplacementCreateRequest,
@@ -127,7 +131,8 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
         "/games/{game_id}/board-source-cleanup-preview",
         response_model=CleanupPreviewResponse
         | SourceReplacementManifestResponse
-        | SourceRetirementPreviewResponse,
+        | SourceRetirementPreviewResponse
+        | SourcePurgePreviewResponse,
         operation_id="previewBoardSourceCleanup",
         summary="Preview deletion of complete image-source ranges selected by board number",
         responses=ERROR_RESPONSES,
@@ -136,18 +141,28 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
         game_id: UUID,
         payload: BoardSourceCleanupPreviewRequest
         | SourceReplacementPreviewRequest
-        | SourceRetirementPreviewRequest,
+        | SourceRetirementPreviewRequest
+        | SourcePurgePreviewRequest,
         service: Annotated[CleanupService, service_parameter],
     ) -> (
-        CleanupPreviewResponse | SourceReplacementManifestResponse | SourceRetirementPreviewResponse
+        CleanupPreviewResponse
+        | SourceReplacementManifestResponse
+        | SourceRetirementPreviewResponse
+        | SourcePurgePreviewResponse
     ):
+        if isinstance(payload, SourcePurgePreviewRequest):
+            return SourcePurgePreviewResponse.model_validate(
+                service.physical_sources.preview(game_id, payload)
+            )
         if isinstance(payload, SourceRetirementPreviewRequest):
             return SourceRetirementPreviewResponse.model_validate(
                 service.replacement_plans.retirement_preview(game_id, payload)
             )
         if isinstance(payload, SourceReplacementPreviewRequest):
             return SourceReplacementManifestResponse.model_validate(
-                service.replacement_plans.preview(game_id, payload.source_ids)
+                service.replacement_plans.preview(game_id, payload.source_ids, mode=payload.mode)
+                if payload.mode == "replace_delete_source"
+                else service.replacement_plans.preview(game_id, payload.source_ids)
             )
         return CleanupPreviewResponse.from_domain(
             service.preview_board_sources(
@@ -158,7 +173,7 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
 
     @router.delete(
         "/games/{game_id}/board-sources",
-        response_model=CleanupResultResponse | SourceRetirementResult,
+        response_model=CleanupResultResponse | SourceRetirementResult | SourcePurgeResult,
         operation_id="deleteBoardSourceRanges",
         summary="Delete complete image-source ranges and their dependent board data",
         responses=ERROR_RESPONSES,
@@ -167,9 +182,14 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
         game_id: UUID,
         payload: BoardSourceCleanupCommandRequest
         | SourceReplacementCreateRequest
-        | SourceRetirementCommand,
+        | SourceRetirementCommand
+        | SourcePurgeCommand,
         service: Annotated[CleanupService, service_parameter],
-    ) -> CleanupResultResponse | SourceRetirementResult:
+    ) -> CleanupResultResponse | SourceRetirementResult | SourcePurgeResult:
+        if isinstance(payload, SourcePurgeCommand):
+            return SourcePurgeResult.model_validate(
+                service.physical_sources.execute(game_id, payload)
+            )
         if isinstance(payload, SourceRetirementCommand):
             return SourceRetirementResult.model_validate(
                 service.replacement_plans.retirement_command(game_id, payload)
@@ -245,7 +265,7 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
         game_id: UUID, batch_id: UUID, service: Annotated[CleanupService, service_parameter]
     ) -> SourceReplacementManifestResponse:
         return SourceReplacementManifestResponse.model_validate(
-            service.replacement_plans.get(game_id, batch_id)
+            service.physical_sources.manifest(game_id, batch_id)
         )
 
     @router.get(
@@ -259,7 +279,7 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
         service: Annotated[CleanupService, service_parameter],
         format: str = Query(default="json", pattern="^(json|csv)$"),
     ) -> Response:
-        document = service.replacement_plans.get(game_id, batch_id)
+        document = service.physical_sources.manifest(game_id, batch_id)
         if format == "csv":
             return Response(
                 manifest_csv(document),

@@ -64,11 +64,26 @@ OFFSET :offset
         )
         return {"items": sources[:50], "next_offset": offset + 50 if len(sources) > 50 else None}
 
-    def preview(self, game: UUID, sources: list[UUID]) -> dict[str, Any]:
+    def preview(
+        self, game: UUID, sources: list[UUID], *, mode: str = "replace_preserve_history"
+    ) -> dict[str, Any]:
         self.bind(game)
         # Quality labels, geometry and ownership share this snapshot lock.
         acquire_sequence_ownership_lock(self.session, game_id=game)
-        return self._preview(game, sources)
+        result = self._preview(game, sources)
+        return self._compact_preview(result) if mode == "replace_delete_source" else result
+
+    @staticmethod
+    def _compact_preview(preview: dict[str, Any]) -> dict[str, Any]:
+        from game_predictor_api.domain.source_purge import compact_entry
+
+        result = {
+            **preview,
+            "mode": "replace_delete_source",
+            "entries": [compact_entry(e) for e in preview["entries"]],
+        }
+        result["preview_token"] = digest(result)
+        return result
 
     def _preview(self, game: UUID, sources: list[UUID]) -> dict[str, Any]:
         selected = sorted(set(str(value) for value in sources))
@@ -411,6 +426,8 @@ idempotency_key=:key
                 "SOURCE_REPLACEMENT_REVISION_CONFLICT", "Nowy plan wymaga rewizji zero."
             )
         preview = self._preview(game, request.source_ids)
+        if request.mode == "replace_delete_source":
+            preview = self._compact_preview(preview)
         if preview["preview_token"] != request.preview_token:
             raise SourceReplacementError(
                 "SOURCE_REPLACEMENT_PREVIEW_STALE", "Stan zmienił się. Odśwież podgląd."
@@ -522,6 +539,7 @@ id=:id
                 "scope_digest": scope_digest(planned_entries[str(row["id"])]),
                 "failure_code": row["failure_code"],
                 "retired": [event for event in retirement_events if event["entry_id"] == row["id"]],
+                "purge": row["document"].get("purge"),
             }
             for row in self.rows(
                 "SELECT * FROM source_replacement_entries WHERE game_id=:game AND "

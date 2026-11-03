@@ -14,6 +14,17 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-583 — Fizyczne usunięcie zastępowanego zdjęcia i mały manifest luk
+
+- Status: accepted; jawne dodatkowe zlecenie operatora 2026-11-03, zakres i koszt zatwierdzone.
+- Kontekst: poprzedni D-579/D-580 zachowywał pełny operacyjny graf i zdjęcie. Operator wymaga odzyskania miejsca przed przygotowaniem nowego zamiennika, zachowując manifest luk i modele.
+- Decyzja: nowy jawny compact tryb `replace_delete_source` i potwierdzona akcja `purge` usuwają zarządzane piksele oraz source-scoped operational boards/reviews/cells/geometrię. Exact actual seq, nie zaokrąglenie9. Pozostaje mały source tombstone z purged_at, compact IDs/SHA/seq/digest/receipts i rezerwacje. Dotychczasowy preserve_history pozostaje kompatybilny; nowa decyzja zastępuje obowiązek retencji operacyjnego original wyłącznie dla jawnego purge.
+- Frozen history: nie usuwa się modeli, aktywacji, kohort ani ich niezależnych artefaktów. Grid live links są odpinane istniejącą procedurą. Symbolowe frozen sample metadata zachowują immutable UUID/checksum/labels bez FK do usuwanego operacyjnego grafu; nowy zapis wymaga current parents. Brak pikseli blokuje nowe użycie źródła, nie inference gotowego modelu. Zachowane metadane mają jawny powód i counts.
+- Pliki: wyłącznie verified managed paths; prawdziwe wspólne użycie zachowuje plik, samo historyczne trenowanie modelu nie zachowuje starego original. Quarantine/DB commit/finalize/recovery reuse. Exact receipt przed świeżą walidacją; pending physical finalize jawny, bez udawanego odzyskania bajtów lub shrink PostgreSQL. API nie obiecuje assetu purged.
+- Konsekwencje: migracja0177, source-only adapter bez generic model/cohort deletion; pełny backend/OpenAPI/client/UI/test pion. Żadnych operacji na danych operatora ani usług. Alternatywa DELETE parent source_images odrzucona jako zbędna przebudowa provenance; blanket retention odrzucona jako sprzeczna z celem.
+- Korekta projektu PLAN R1: jeden exact-path retention predicate dla preview/finalize; realny unfinished-import/active consumer blokuje przed side effects. Symbol reference images zachowane przez odpięcie provenance FK. Ambiguous commit wymaga sprawdzenia DB receiptu i realnej nieobecności plików; recovery z bounded file proof, bez fałszywego finalized. Szczegóły klasyfikacji FK i testów są w planie.
+- Źródło: `ai_docs/delivery/777A2_PHYSICAL_SOURCE_PURGE_PLAN_20261103.md`, TASK-1141. Rezerwacja D583/0177 sprawdzona względem bieżących worktree i zapisana w shared artifacts.
+
 ## D-580 — Wycofanie całego źródła i autoryzacja otwartej luki
 
 - Status: accepted

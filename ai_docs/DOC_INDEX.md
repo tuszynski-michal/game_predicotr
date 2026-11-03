@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Fizyczne usuwanie zastępowanych zdjęć](delivery/777A2_PHYSICAL_SOURCE_PURGE_PLAN_20261103.md) — completed, TASK-1141; source-only purge i samodzielny manifest luk.
+
 - [Nieczytelne i nałożone symbole 777 A2](delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md) — accepted, TASK-1124–1132; narzędzia przed pilotem i wymianą danych.
 - [Ulepszanie wspólnego modelu siatek z korekt](delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md) — accepted, 2026-11-02; TASK-1120–1123, preflight przed implementacją, obowiązkowe audyty Opus 5.5/high.
 
@@ -266,6 +268,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 ## Historia
 
 - [Archiwum dokumentacji](archive/README.md)
+- [TASK-1141 — Fizyczne usuwanie zastępowanego zdjęcia](tasks/completed/1141-source-replacement-physical-purge.md) — done; purge, compact gaps i audyty PASS.
 - [Ukończone zadania](tasks/completed/README.md)
 
 Historia wyjaśnia pochodzenie decyzji, ale nie zastępuje aktualnych wymagań,

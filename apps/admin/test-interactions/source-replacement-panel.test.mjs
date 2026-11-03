@@ -43,7 +43,7 @@ test('whole source preview saves only planned, lost response retries original ke
   localStorage.clear();
   const commands = [];
   const manifest = {
-    mode: 'replace_preserve_history',
+    mode: 'replace_delete_source',
     selectedSourceIds: ['11111111-1111-4111-8111-111111111111'],
     previewToken: 'a'.repeat(64),
     status: 'preview',
@@ -78,6 +78,7 @@ test('whole source preview saves only planned, lost response retries original ke
     }),
     listSourceReplacementBatches: async () => ({ data: [] }),
     previewSourceReplacement: async (game, body) => {
+      assert.equal(body.mode, 'replace_delete_source');
       assert.deepEqual(body.sourceIds, [
         '11111111-1111-4111-8111-111111111111',
       ]);
@@ -119,7 +120,7 @@ test('whole source preview saves only planned, lost response retries original ke
   assert.deepEqual(commands[1], commands[0]);
   assert.equal(commands[0].expectedRevision, 0);
   assert.equal(localStorage.getItem('source-replacement-plan:game'), null);
-  assert.match(document.body.textContent, /aktywne, zaplanowane do wymiany/);
+  assert.match(document.body.textContent, /Zdjęcie nadal aktywne/);
   assert.equal(document.querySelectorAll('a').length, 2);
   await act(async () => root.unmount());
 });

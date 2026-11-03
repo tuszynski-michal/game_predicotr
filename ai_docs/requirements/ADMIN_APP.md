@@ -2386,3 +2386,12 @@ W istniejącym obszarze porządkowania źródeł operator zaznacza całe zdjęci
 Przed wysłaniem zapisu panel utrwala dokładną komendę wraz z kluczem i tokenem podglądu. Brak odpowiedzi/5xx zachowuje ją do jawnego ponowienia także po przeładowaniu. Odmowa 4xx wymaga nowego podglądu. Uszkodzony lub niedostępny lokalny zapis blokuje nową komendę. B1 nie udostępnia przycisku wycofania ani eksportu uprawnień do zapełniania luk.
 
 TASK-1129 dodaje świeży podgląd jednego zaplanowanego zdjęcia, osobne potwierdzenie wycofania i stan każdego wpisu. Polecenie jest zapisywane przed requestem; reload/lost response odtwarza ten sam klucz i body. UI wyjaśnia zachowanie historii i trwałość luki, odróżnia anulowane planned od gap_open oraz eksportuje wyłącznie zaznaczone otwarte luki przez obecny uwierzytelniony klient. Uszkodzony lokalny zapis blokuje nową operację.
+
+
+### Fizyczne usunięcie zdjęcia — TASK-1141 / D-583
+
+Nowy plan w panelu używa `replace_delete_source`: zapisuje mały manifest, a następnie wymaga świeżego podglądu i osobnego potwierdzenia usunięcia całego zdjęcia. Podgląd pokazuje dokładne numery plansz, pliki i bajty przeznaczone do usunięcia, współdzielone pliki oraz liczby zachowanych metadanych. Nie usuwa modeli ani aktywacji. Poprzednie zapisane plany `replace_preserve_history` zachowują swoje działanie.
+
+Po usunięciu operacyjnych plansz i zdjęcia pozostają rezerwacje luk. „Uzupełnij luki” używa dotychczasowego requestu i importu zamiennika; nowe zdjęcie otrzymuje własne oceny. Niedokończony stary import wymaga najpierw zakończenia jego pracy/weryfikacji. Aktywny trening, grid job lub przydzielona sesja review blokuje operację przed ruszeniem plików.
+
+Panel rozróżnia planowane bajty od faktycznie usuniętych. `pending`/`recovery_pending` nie oznacza ukończenia; ponowienie używa dokładnej zapisanej komendy z manifestu, również po utracie lokalnego zapisu. `recovery_required` oznacza zmieniony lub kolidujący plik i wymaga wyjaśnienia, bez nadpisania go. Dla znanego usuniętego źródła podgląd zwraca `SOURCE_PURGED`; usunięte plansze/pola mogą zwrócić404. Historyczny URL nie jest obietnicą zachowanych pikseli.

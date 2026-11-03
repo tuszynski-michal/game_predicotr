@@ -44,6 +44,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/777A2_PHYSICAL_SOURCE_PURGE_PLAN_20261103.md` | completed; TASK-1141 physical purge, compact gaps, PG/FS/UI/build i Opus5.5/high PASS; bez danych operatora |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -78,6 +79,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1132** — Odbiór detektora i wymiany źródeł — v1.7.533 / `675f0135` — tasks/completed/1132-readability-replacement-acceptance.md
 - **TASK-1131** — Import zamienników i zamknięcie rezerwacji — v1.7.531 / `ad92ac35` — tasks/completed/1131-source-replacement-import.md
 - **TASK-1130** — Przygotowanie nowych zdjęć dla otwartych luk — v1.7.529 / `bd5c8270` — tasks/completed/1130-source-replacement-repair.md
@@ -87,4 +89,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
 - **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
 - **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
-- **TASK-1126** — Shift i trwały zapis grup jakości — v1.7.521 / `2720e7aa` — tasks/completed/1126-shift-range-selection.md

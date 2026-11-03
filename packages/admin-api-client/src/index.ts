@@ -16,8 +16,17 @@ import type {
   SourceRetirementPreviewResponse,
   SourceRetirementCommand,
   SourceRetirementResult,
+  SourcePurgePreviewRequest,
+  SourcePurgePreviewResponse,
+  SourcePurgeCommand,
+  SourcePurgeResult,
 } from './generated/types.gen';
 export type {
+  SourcePurgePreviewRequest,
+  SourcePurgePreviewResponse,
+  SourcePurgeCommand,
+  SourcePurgeResult,
+  SourcePurgeInfo,
   SourceReplacementStagingSelection,
   SourceReplacementStagingFile,
   SourceReplacementWorkingResponse,
@@ -4692,6 +4701,33 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         ...result,
         data: result.data as SourceRetirementPreviewResponse | undefined,
       };
+    },
+    previewSourcePurge: async (
+      gameId: string,
+      body: SourcePurgePreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+      if (result.data && !('bytesToDelete' in result.data))
+        throw new Error('Unexpected source purge preview response');
+      return {
+        ...result,
+        data: result.data as SourcePurgePreviewResponse | undefined,
+      };
+    },
+    executeSourcePurge: async (gameId: string, body: SourcePurgeCommand) => {
+      const result = await deleteGeneratedBoardSourceRanges({
+        client,
+        path: { game_id: gameId },
+        body,
+        headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
+      });
+      if (result.data && !('purge' in result.data))
+        throw new Error('Unexpected source purge response');
+      return { ...result, data: result.data as SourcePurgeResult | undefined };
     },
     executeSourceRetirement: async (
       gameId: string,

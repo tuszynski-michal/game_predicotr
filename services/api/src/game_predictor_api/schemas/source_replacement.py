@@ -10,7 +10,7 @@ from game_predictor_api.schemas.catalog import ApiModel
 
 
 class SourceReplacementPreviewRequest(ApiModel):
-    mode: Literal["replace_preserve_history"]
+    mode: Literal["replace_preserve_history", "replace_delete_source"]
     source_ids: list[UUID] = Field(min_length=1, max_length=50)
 
 
@@ -21,6 +21,10 @@ class SourceReplacementCreateRequest(SourceReplacementPreviewRequest):
 
 
 class SourceReplacementEntryResponse(ApiModel):
+    compact_schema: str | None = None
+    frozen_scope_digest: str | None = None
+    retained_metadata: dict[str, int] = Field(default_factory=dict)
+    purge: "SourcePurgeInfo | None" = None
     id: UUID | None = None
     phase: str = "planned"
     revision: int = 0
@@ -47,7 +51,7 @@ class SourceReplacementEntryResponse(ApiModel):
 
 class SourceReplacementManifestResponse(ApiModel):
     schema_version: Literal["source-replacement-manifest-v1"]
-    mode: Literal["replace_preserve_history"]
+    mode: Literal["replace_preserve_history", "replace_delete_source"]
     game_id: UUID
     id: UUID | None = None
     selected_source_ids: list[UUID]
@@ -210,3 +214,51 @@ class SourceReplacementRestoreResponse(ApiModel):
     revision: int
     phase: Literal["restored"]
     source_id: UUID
+
+
+class SourcePurgePreviewRequest(ApiModel):
+    mode: Literal["replace_delete_source"]
+    action: Literal["purge"]
+    batch_id: UUID
+    entry_id: UUID
+    expected_revision: int = Field(ge=1)
+
+
+class SourcePurgeCommand(SourcePurgePreviewRequest):
+    idempotency_key: UUID
+    confirmed: Literal[True]
+    preview_token: str = Field(pattern="^[0-9a-f]{64}$")
+
+
+class SourcePurgeInfo(ApiModel):
+    operation_type: Literal["source_replacement_purge"]
+    source_ids: list[UUID]
+    file_count: int
+    bytes_to_delete: int
+    shared_file_count: int
+    missing_file_count: int
+    retained_metadata: dict[str, int]
+    deleted_records: dict[str, int] = Field(default_factory=dict)
+    command: SourcePurgeCommand
+    file_status: Literal["pending", "finalized", "recovery_pending", "recovery_required"]
+    deleted_bytes: int = 0
+
+
+class SourcePurgePreviewResponse(ApiModel):
+    game_id: UUID
+    batch_id: UUID
+    entry_id: UUID
+    revision: int
+    preview_token: str
+    source_ids: list[UUID]
+    sequence_numbers: list[int]
+    file_count: int
+    missing_file_count: int
+    shared_file_count: int
+    bytes_to_delete: int
+    retained_metadata: dict[str, int]
+    record_counts: dict[str, int]
+
+
+class SourcePurgeResult(SourceRetirementResult):
+    purge: SourcePurgeInfo

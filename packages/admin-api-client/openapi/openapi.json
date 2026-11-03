@@ -38522,6 +38522,329 @@
         "title": "SourceLatticePoint",
         "type": "object"
       },
+      "SourcePurgeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "purge",
+            "title": "Action",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "mode": {
+            "const": "replace_delete_source",
+            "title": "Mode",
+            "type": "string"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "action",
+          "batchId",
+          "entryId",
+          "expectedRevision",
+          "idempotencyKey",
+          "confirmed",
+          "previewToken"
+        ],
+        "title": "SourcePurgeCommand",
+        "type": "object"
+      },
+      "SourcePurgeInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "bytesToDelete": {
+            "title": "Bytestodelete",
+            "type": "integer"
+          },
+          "command": {
+            "$ref": "#/components/schemas/SourcePurgeCommand"
+          },
+          "deletedBytes": {
+            "default": 0,
+            "title": "Deletedbytes",
+            "type": "integer"
+          },
+          "deletedRecords": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deletedrecords",
+            "type": "object"
+          },
+          "fileCount": {
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "fileStatus": {
+            "enum": [
+              "pending",
+              "finalized",
+              "recovery_pending",
+              "recovery_required"
+            ],
+            "title": "Filestatus",
+            "type": "string"
+          },
+          "missingFileCount": {
+            "title": "Missingfilecount",
+            "type": "integer"
+          },
+          "operationType": {
+            "const": "source_replacement_purge",
+            "title": "Operationtype",
+            "type": "string"
+          },
+          "retainedMetadata": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Retainedmetadata",
+            "type": "object"
+          },
+          "sharedFileCount": {
+            "title": "Sharedfilecount",
+            "type": "integer"
+          },
+          "sourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Sourceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operationType",
+          "sourceIds",
+          "fileCount",
+          "bytesToDelete",
+          "sharedFileCount",
+          "missingFileCount",
+          "retainedMetadata",
+          "command",
+          "fileStatus"
+        ],
+        "title": "SourcePurgeInfo",
+        "type": "object"
+      },
+      "SourcePurgePreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "purge",
+            "title": "Action",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "replace_delete_source",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "action",
+          "batchId",
+          "entryId",
+          "expectedRevision"
+        ],
+        "title": "SourcePurgePreviewRequest",
+        "type": "object"
+      },
+      "SourcePurgePreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "bytesToDelete": {
+            "title": "Bytestodelete",
+            "type": "integer"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "fileCount": {
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "missingFileCount": {
+            "title": "Missingfilecount",
+            "type": "integer"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "recordCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Recordcounts",
+            "type": "object"
+          },
+          "retainedMetadata": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Retainedmetadata",
+            "type": "object"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "sharedFileCount": {
+            "title": "Sharedfilecount",
+            "type": "integer"
+          },
+          "sourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Sourceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "previewToken",
+          "sourceIds",
+          "sequenceNumbers",
+          "fileCount",
+          "missingFileCount",
+          "sharedFileCount",
+          "bytesToDelete",
+          "retainedMetadata",
+          "recordCounts"
+        ],
+        "title": "SourcePurgePreviewResponse",
+        "type": "object"
+      },
+      "SourcePurgeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "createdDerivations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Createdderivations",
+            "type": "array"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "gap_open",
+              "cancelled"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "purge": {
+            "$ref": "#/components/schemas/SourcePurgeInfo"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scopeDigest": {
+            "title": "Scopedigest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "phase",
+          "scopeDigest",
+          "purge"
+        ],
+        "title": "SourcePurgeResult",
+        "type": "object"
+      },
       "SourceRecordingCommandRequest": {
         "additionalProperties": false,
         "properties": {
@@ -39014,7 +39337,10 @@
             "type": "string"
           },
           "mode": {
-            "const": "replace_preserve_history",
+            "enum": [
+              "replace_preserve_history",
+              "replace_delete_source"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -39070,6 +39396,17 @@
             "title": "Canonical",
             "type": "array"
           },
+          "compactSchema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compactschema"
+          },
           "dependencies": {
             "additionalProperties": {
               "items": {
@@ -39099,6 +39436,17 @@
               }
             ],
             "title": "Failurecode"
+          },
+          "frozenScopeDigest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozenscopedigest"
           },
           "geometryRevisions": {
             "items": {
@@ -39141,6 +39489,16 @@
             "title": "Phase",
             "type": "string"
           },
+          "purge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourcePurgeInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "rangeEnd": {
             "anyOf": [
               {
@@ -39178,6 +39536,13 @@
             },
             "title": "Reservations",
             "type": "array"
+          },
+          "retainedMetadata": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Retainedmetadata",
+            "type": "object"
           },
           "retired": {
             "items": {
@@ -39281,7 +39646,10 @@
             "title": "Id"
           },
           "mode": {
-            "const": "replace_preserve_history",
+            "enum": [
+              "replace_preserve_history",
+              "replace_delete_source"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -39333,7 +39701,10 @@
         "additionalProperties": false,
         "properties": {
           "mode": {
-            "const": "replace_preserve_history",
+            "enum": [
+              "replace_preserve_history",
+              "replace_delete_source"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -48722,6 +49093,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/SourceRetirementPreviewRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SourcePurgePreviewRequest"
                   }
                 ],
                 "title": "Payload"
@@ -48744,6 +49118,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/SourceRetirementPreviewResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SourcePurgePreviewResponse"
                     }
                   ],
                   "title": "Response Previewboardsourcecleanup"
@@ -48832,6 +49209,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/SourceRetirementCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SourcePurgeCommand"
                   }
                 ],
                 "title": "Payload"
@@ -48851,6 +49231,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/SourceRetirementResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SourcePurgeResult"
                     }
                   ],
                   "title": "Response Deleteboardsourceranges"

@@ -50,6 +50,10 @@ class SourceRetirement:
 
     def _fresh(self, game: UUID, request: Any, row: dict[str, Any]) -> dict[str, Any]:
         self._planned(row, request.expected_revision)
+        if row["document"].get("compact_schema"):
+            raise SourceReplacementError(
+                "SOURCE_REPLACEMENT_PURGE_REQUIRED", "Plan wymaga jawnego fizycznego usunięcia."
+            )
         preview = self.repo._preview(game, [UUID(str(row["source_id"]))])
         fresh = preview["entries"][0]
         self._exclude_proven_derivations(game, request.batch_id, fresh)

@@ -16,6 +16,8 @@ def planned_scope(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def scope_digest(document: dict[str, Any]) -> str:
+    if document.get("compact_schema") == "source-replacement-compact-v1":
+        return str(document["frozen_scope_digest"])
     return digest(planned_scope(document))
 
 

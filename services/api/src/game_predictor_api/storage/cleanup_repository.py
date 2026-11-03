@@ -248,13 +248,21 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return None if record is None else _result_from_payload(record.result_payload)
 
     def completed_board_source_quarantine_keys(self) -> set[str]:
-        return set(
+        keys = set(
             self._session.scalars(
                 select(CleanupOperationModel.preview_token).where(
                     CleanupOperationModel.operation_type == "board_source_ranges"
                 )
             )
         )
+        with self._cross_game_reader() as session:
+            keys.update(
+                session.scalars(
+                    text("""SELECT response->'purge'->>'quarantineKey'
+              FROM game_data_v2.source_replacement_commands WHERE response ? 'purge'""")
+                )
+            )
+        return keys
 
     def delete_release(
         self,

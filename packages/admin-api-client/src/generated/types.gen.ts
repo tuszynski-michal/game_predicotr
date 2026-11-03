@@ -21600,6 +21600,221 @@ export type SourceLatticePoint = {
 };
 
 /**
+ * SourcePurgeCommand
+ */
+export type SourcePurgeCommand = {
+  /**
+   * Action
+   */
+  action: 'purge';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_delete_source';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * SourcePurgeInfo
+ */
+export type SourcePurgeInfo = {
+  /**
+   * Bytestodelete
+   */
+  bytesToDelete: number;
+  command: SourcePurgeCommand;
+  /**
+   * Deletedbytes
+   */
+  deletedBytes?: number;
+  /**
+   * Deletedrecords
+   */
+  deletedRecords?: {
+    [key: string]: number;
+  };
+  /**
+   * Filecount
+   */
+  fileCount: number;
+  /**
+   * Filestatus
+   */
+  fileStatus:
+    'pending' | 'finalized' | 'recovery_pending' | 'recovery_required';
+  /**
+   * Missingfilecount
+   */
+  missingFileCount: number;
+  /**
+   * Operationtype
+   */
+  operationType: 'source_replacement_purge';
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata: {
+    [key: string]: number;
+  };
+  /**
+   * Sharedfilecount
+   */
+  sharedFileCount: number;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourcePurgePreviewRequest
+ */
+export type SourcePurgePreviewRequest = {
+  /**
+   * Action
+   */
+  action: 'purge';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Mode
+   */
+  mode: 'replace_delete_source';
+};
+
+/**
+ * SourcePurgePreviewResponse
+ */
+export type SourcePurgePreviewResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Bytestodelete
+   */
+  bytesToDelete: number;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Filecount
+   */
+  fileCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Missingfilecount
+   */
+  missingFileCount: number;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Recordcounts
+   */
+  recordCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata: {
+    [key: string]: number;
+  };
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sharedfilecount
+   */
+  sharedFileCount: number;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourcePurgeResult
+ */
+export type SourcePurgeResult = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Createdderivations
+   */
+  createdDerivations?: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Phase
+   */
+  phase: 'gap_open' | 'cancelled';
+  purge: SourcePurgeInfo;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Scopedigest
+   */
+  scopeDigest: string;
+};
+
+/**
  * SourceRecordingCommandRequest
  */
 export type SourceRecordingCommandRequest = {
@@ -21858,7 +22073,7 @@ export type SourceReplacementCreateRequest = {
   /**
    * Mode
    */
-  mode: 'replace_preserve_history';
+  mode: 'replace_preserve_history' | 'replace_delete_source';
   /**
    * Previewtoken
    */
@@ -21890,6 +22105,10 @@ export type SourceReplacementEntryResponse = {
     [key: string]: unknown;
   }>;
   /**
+   * Compactschema
+   */
+  compactSchema?: string | null;
+  /**
    * Dependencies
    */
   dependencies: {
@@ -21907,6 +22126,10 @@ export type SourceReplacementEntryResponse = {
    * Failurecode
    */
   failureCode?: string | null;
+  /**
+   * Frozenscopedigest
+   */
+  frozenScopeDigest?: string | null;
   /**
    * Geometryrevisions
    */
@@ -21933,6 +22156,7 @@ export type SourceReplacementEntryResponse = {
    * Phase
    */
   phase?: string;
+  purge?: SourcePurgeInfo | null;
   /**
    * Rangeend
    */
@@ -21953,6 +22177,12 @@ export type SourceReplacementEntryResponse = {
   reservations: Array<{
     [key: string]: unknown;
   }>;
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata?: {
+    [key: string]: number;
+  };
   /**
    * Retired
    */
@@ -22006,7 +22236,7 @@ export type SourceReplacementManifestResponse = {
   /**
    * Mode
    */
-  mode: 'replace_preserve_history';
+  mode: 'replace_preserve_history' | 'replace_delete_source';
   /**
    * Previewtoken
    */
@@ -22040,7 +22270,7 @@ export type SourceReplacementPreviewRequest = {
   /**
    * Mode
    */
-  mode: 'replace_preserve_history';
+  mode: 'replace_preserve_history' | 'replace_delete_source';
   /**
    * Sourceids
    */
@@ -27135,7 +27365,8 @@ export type PreviewBoardSourceCleanupData = {
   body:
     | BoardSourceCleanupPreviewRequest
     | SourceReplacementPreviewRequest
-    | SourceRetirementPreviewRequest;
+    | SourceRetirementPreviewRequest
+    | SourcePurgePreviewRequest;
   path: {
     /**
      * Game Id
@@ -27177,7 +27408,8 @@ export type PreviewBoardSourceCleanupResponses = {
   200:
     | CleanupPreviewResponse
     | SourceReplacementManifestResponse
-    | SourceRetirementPreviewResponse;
+    | SourceRetirementPreviewResponse
+    | SourcePurgePreviewResponse;
 };
 
 export type PreviewBoardSourceCleanupResponse =
@@ -27190,7 +27422,8 @@ export type DeleteBoardSourceRangesData = {
   body:
     | BoardSourceCleanupCommandRequest
     | SourceReplacementCreateRequest
-    | SourceRetirementCommand;
+    | SourceRetirementCommand
+    | SourcePurgeCommand;
   path: {
     /**
      * Game Id
@@ -27229,7 +27462,7 @@ export type DeleteBoardSourceRangesResponses = {
    *
    * Successful Response
    */
-  200: CleanupResultResponse | SourceRetirementResult;
+  200: CleanupResultResponse | SourceRetirementResult | SourcePurgeResult;
 };
 
 export type DeleteBoardSourceRangesResponse =

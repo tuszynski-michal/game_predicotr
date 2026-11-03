@@ -109,11 +109,16 @@ class ManagedCleanupArtifactStore:
     """Manage explicit artifact cleanup with a durable rollback quarantine."""
 
     def __init__(
-        self, artifact_root: Path, *, retention_guard: CleanupRetentionGuard | None = None
+        self,
+        artifact_root: Path,
+        *,
+        retention_guard: CleanupRetentionGuard | None = None,
+        operation_retention_guard: Any = None,
     ) -> None:
         self._root = artifact_root.resolve()
         self._quarantine_root = self._root / "cleanup-quarantine"
         self._retention_guard = retention_guard
+        self._operation_retention_guard = operation_retention_guard
         self._retained_operation_keys: set[str] = set()
 
     @property
@@ -229,9 +234,7 @@ class ManagedCleanupArtifactStore:
                 "CLEANUP_ARTIFACT_FINALIZE_FAILED",
                 "The committed cleanup quarantine has no valid artifact receipt.",
             ) from error
-        guard = (
-            nullcontext(False) if self._retention_guard is None else self._retention_guard(paths)
-        )
+        guard = self._operation_guard(operation_key, paths)
         with guard as protected:
             if not isinstance(protected, bool):
                 raise CleanupConflictError(
@@ -255,6 +258,88 @@ class ManagedCleanupArtifactStore:
                 ) from error
         self._retained_operation_keys.discard(operation_key)
         return True
+
+    def _operation_guard(self, key: str, paths: tuple[str, ...]) -> Any:
+        if self._operation_retention_guard is not None:
+            return self._operation_retention_guard(key, paths)
+        return nullcontext(False) if self._retention_guard is None else self._retention_guard(paths)
+
+    def file_proof(self, paths: tuple[str, ...]) -> list[dict[str, Any]]:
+        """Bounded byte reads; the same proof also detects an ambiguous-commit restore."""
+        import hashlib
+
+        result = []
+        for relative in paths:
+            target = self._safe_target(relative)
+            if not target.is_file():
+                raise CleanupConflictError(
+                    "SOURCE_REPLACEMENT_PURGE_PATH_NOT_FILE", "Purge requires exact files."
+                )
+            with target.open("rb") as stream:
+                checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+            result.append({"path": relative, "size": target.stat().st_size, "sha256": checksum})
+        return result
+
+    def source_preview_paths(self, game: UUID, cells: list[UUID]) -> tuple[tuple[str, ...], int]:
+        """Only complete, source-owned atlas pairs; mixed atlases remain shared."""
+        root = self._safe_target("data/working/virtual-cell-preview-cache-v1")
+        if not root.exists():
+            return (), 0
+        selected = {str(cell) for cell in cells}
+        paths: list[str] = []
+        shared = 0
+        for descriptor in root.glob("*.json"):
+            relative = "data/working/virtual-cell-preview-cache-v1/" + descriptor.name
+            safe = self._safe_target(relative)
+            if not re.fullmatch(r"[0-9a-f]{64}\.json", descriptor.name):
+                continue
+            if safe.stat().st_size > 1024 * 1024:
+                continue
+            try:
+                value = json.loads(safe.read_text("utf-8"))
+                if value.get("gameId") != str(game):
+                    continue
+                owners = {tile["cellReviewId"] for tile in value["tiles"]}
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                continue  # Invalid cache entries are handled by the existing cache pruner.
+            if not owners.intersection(selected):
+                continue
+            if not owners.issubset(selected):
+                shared += 1
+                continue
+            paths.extend((relative, relative.removesuffix(".json") + ".webp"))
+        return tuple(sorted(paths)), shared
+
+    def purge_status(self, purge: dict[str, Any]) -> str:
+        present = tuple(
+            p["path"] for p in purge["fileProof"] if self._safe_target(p["path"]).exists()
+        )
+        expected = {p["path"]: p for p in purge["fileProof"]}
+        if any(p != expected[p["path"]] for p in self.file_proof(present)):
+            return "recovery_required"
+        if present:
+            return "recovery_pending"
+        return (
+            "pending" if self._quarantine_target(purge["quarantineKey"]).exists() else "finalized"
+        )
+
+    def recover_purge(self, purge: dict[str, Any]) -> str:
+        key = purge["quarantineKey"]
+        paths = tuple(p["path"] for p in purge["fileProof"])
+        with self._operation_guard(key, paths) as protected:
+            if protected is not False:
+                return "pending"
+            status = self.purge_status(purge)
+            if status == "recovery_required":
+                return status
+            if status == "recovery_pending":
+                # Existing quarantine cannot be combined with restored files blindly.
+                if self._quarantine_target(key).exists():
+                    return "recovery_required"
+                present = tuple(p for p in paths if self._safe_target(p).exists())
+                self.quarantine(key, present)
+            self.finalize(key)
+            return self.purge_status(purge)
 
     def recover(self, completed_operation_keys: set[str]) -> tuple[str, ...]:
         if not self._quarantine_root.exists():
@@ -429,7 +514,9 @@ class ReplacementPlans(Protocol):
     def replacement_request(
         self, game: UUID, batch: UUID, entries: list[UUID]
     ) -> dict[str, Any]: ...
-    def preview(self, game: UUID, sources: list[UUID]) -> dict[str, Any]: ...
+    def preview(
+        self, game: UUID, sources: list[UUID], *, mode: str = "replace_preserve_history"
+    ) -> dict[str, Any]: ...
     def create(self, game: UUID, request: Any) -> dict[str, Any]: ...
     def get(self, game: UUID, batch: UUID) -> dict[str, Any]: ...
     def list(self, game: UUID) -> list[dict[str, Any]]: ...
@@ -447,6 +534,12 @@ class CleanupService:
         self._repository = repository
         self._artifact_store = artifact_store
         self._pending_quarantines: set[str] = set()
+
+    @property
+    def physical_sources(self) -> Any:
+        from game_predictor_api.application.source_purge import SourcePurgeService
+
+        return SourcePurgeService(self)
 
     @property
     def replacement_plans(self) -> ReplacementPlans:

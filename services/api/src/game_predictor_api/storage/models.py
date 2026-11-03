@@ -321,12 +321,8 @@ class SymbolReferenceImageModel(Base):
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    source_review_item_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
-    )
-    source_recognized_board_id: Mapped[UUID] = mapped_column(
-        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
-    )
+    source_review_item_id: Mapped[UUID] = mapped_column(nullable=False)
+    source_recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -2028,6 +2024,7 @@ class SourceImageModel(Base):
         ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
         nullable=False,
     )
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     width: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -4183,11 +4180,9 @@ class VerifiedTrainingCohortItemModel(Base):
     )
     item_order: Mapped[int] = mapped_column(Integer, nullable=False)
     review_item_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
         nullable=False,
     )
     recognized_board_id: Mapped[UUID] = mapped_column(
-        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
         nullable=False,
     )
     source_image_id: Mapped[UUID] = mapped_column(
@@ -4262,15 +4257,9 @@ class VerifiedTrainingCohortCellModel(Base):
         ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
     )
     sample_order: Mapped[int] = mapped_column(Integer, nullable=False)
-    cell_review_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_symbol_review_cells.id", ondelete="RESTRICT"), nullable=False
-    )
-    review_item_id: Mapped[UUID] = mapped_column(
-        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
-    )
-    recognized_board_id: Mapped[UUID] = mapped_column(
-        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
-    )
+    cell_review_id: Mapped[UUID] = mapped_column(nullable=False)
+    review_item_id: Mapped[UUID] = mapped_column(nullable=False)
+    recognized_board_id: Mapped[UUID] = mapped_column(nullable=False)
     source_image_id: Mapped[UUID] = mapped_column(
         ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
     )
@@ -4280,9 +4269,7 @@ class VerifiedTrainingCohortCellModel(Base):
     asset_mode: Mapped[str] = mapped_column(
         String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
     )
-    source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
-    )
+    source_geometry_revision_id: Mapped[UUID | None] = mapped_column(nullable=True)
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)

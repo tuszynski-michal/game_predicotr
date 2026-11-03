@@ -161,6 +161,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/semi_automatic_image_selections.py: workflow_mode_for_recognizer_fingerprint, class SemiAutomaticSelectionRepository, class SemiAutomaticImageSelectionService
 - application/shared_grid_model_candidate.py: class SharedGridCandidateService
 - application/source_crop_runs.py: class SourceCropScope, class SourceCropRun, class SourceCropRunRepository, class SourceCropRunService
+- application/source_purge.py: class SourcePurgeService
 - application/source_recording_groups.py: class RecordingRepository, class RecordingProviders, class UnresolvedRecordingProviders, class RecordingManifestStore, class SourceRecordingGroupsService
 - application/storage_capacity.py: class StorageCapacityGuard
 - application/storage_gc.py: class BrowserStagingGcSource, class StorageGcPreview, class StorageGcRun, class StorageGcRepository, class StorageGcScan, class StorageGcArtifactStore, class StorageGcService
@@ -250,6 +251,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/source_canonical_metadata.py: class SourceCanonicalMetadata, compare_source_metadata
 - domain/source_crop.py: class SourceCropError, class PixelBox, class ProtectedBox, class SourceCropPlan, protected_points_from_geometry, protected_box_from_points, clamp_protected_box, margin_box, raw_dimensions, oriented_to_raw_box, raw_to_oriented_box, imcu_size, imcu_from_sampling_factors, align_raw_box, plan_source_crop, is_crop_beneficial, class CropPixelVerdict, verify_crop_pixels, compose_canvas, class SourceCropAttestation, crop_covers_points, encode_attestation, attestation_sha256, decode_attestation, cropped_original_relative_paths, cropped_sibling_paths
 - domain/source_crop_eligibility.py: class CropExclusion, class CropSourceFacts, class CropBoardGeometry, class CropBlobEligibility, managed_original_relative_path, classify_blob
+- domain/source_purge.py: compact_entry
 - domain/source_recording_groups.py: class RecordingError, canonical_recording_json, recording_sha256, protected_recording_mapping, class AncestorResolution, resolve_ancestor_references
 - domain/source_replacement.py: class SourceReplacementError, qualification, manifest_csv, preview_document
 - domain/source_replacement_admission.py: admission_error, selected_replacement_files
@@ -322,7 +324,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/source_crop_runs.py: class SourceCropScopeModel, class SourceCropPreviewCreate, class SourceCropRunStart, class SourceCropFailureResponse, class SourceCropRunResponse, class SourceCropRunListResponse
 - schemas/source_lattice_geometry.py: class SourceLatticePoint, to_source_lattice_nodes, lattice_nodes_payload
 - schemas/source_recording_groups.py: class RecordingSelection, class SourceRecordingCommandRequest, class SourceRecordingGroupResponse, class SourceRecordingGroupListResponse, class SourceRecordingCommandResponse
-- schemas/source_replacement.py: class SourceReplacementPreviewRequest, class SourceReplacementCreateRequest, class SourceReplacementEntryResponse, class SourceReplacementManifestResponse, class SourceReplacementCandidateResponse, class SourceReplacementCandidatePage, class SourceReplacementBatchResponse, class SourceRetirementPreviewRequest, class SourceRetirementCommand, class SourceRetirementPreviewResponse, class SourceRetirementResult, class ReplacementRequestEntry, class ReplacementAllowedRange, class SourceReplacementRequestExport, class SourceReplacementStagingFile, class SourceReplacementStagingSelection, class SourceReplacementWorkingSlot, class SourceReplacementReadabilityCell, class SourceReplacementWorkingResponse, class SourceReplacementReadabilityConfirmation, class SourceReplacementRestoreCommand, class SourceReplacementRestoreResponse
+- schemas/source_replacement.py: class SourceReplacementPreviewRequest, class SourceReplacementCreateRequest, class SourceReplacementEntryResponse, class SourceReplacementManifestResponse, class SourceReplacementCandidateResponse, class SourceReplacementCandidatePage, class SourceReplacementBatchResponse, class SourceRetirementPreviewRequest, class SourceRetirementCommand, class SourceRetirementPreviewResponse, class SourceRetirementResult, class ReplacementRequestEntry, class ReplacementAllowedRange, class SourceReplacementRequestExport, class SourceReplacementStagingFile, class SourceReplacementStagingSelection, class SourceReplacementWorkingSlot, class SourceReplacementReadabilityCell, class SourceReplacementWorkingResponse, class SourceReplacementReadabilityConfirmation, class SourceReplacementRestoreCommand, class SourceReplacementRestoreResponse, class SourcePurgePreviewRequest, class SourcePurgeCommand, class SourcePurgeInfo, class SourcePurgePreviewResponse, class SourcePurgeResult
 - schemas/super_game_markers.py: class SuperGamePublicMarkerResponse, class SuperGameMarkerResponse, to_super_game_marker_response, marker_response_at
 - schemas/super_game_series.py: class SuperGameStateResponse, class SuperGameSeriesResponse, class SuperGameSeriesCountsResponse, class SuperGameSeriesListResponse, class SuperGameSeriesBoardResponse, class SuperGameSeriesBoardsResponse, class SuperSymbolUpdate, class SuperGameSeriesDeriveResponse
 - schemas/symbol_model_iterations.py: class SymbolTrainingConfigurationCommand, class CreateSymbolTrainingCommand, class SymbolModelIterationResponse, class CreateSymbolTrainingResponse, class SymbolModelActivationCommand, class LabSymbolCandidateSummaryResponse, class LabSymbolCandidateResponse, class ImportLabSymbolCandidateCommand, class SymbolModelDeactivationCommand, to_lab_candidate_response, class SymbolModelActivationPreviewResponse, class SymbolModelActivationResponse, class SymbolModelActivationCommandResponse, to_iteration_response, to_activation_preview_response, to_activation_response
@@ -474,6 +476,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_image_crop_models.py: class SourceImageCropModel, class SourceCropRunModel
 - storage/source_image_crop_repository.py: class SourceImageCropRepository
 - storage/source_original_availability.py: deleted_original_checksums
+- storage/source_purge_retention.py: lock_purge_games, class SourcePurgeRetention
 - storage/source_recording_group_models.py: class RecordingGroupModel, class RecordingOccurrenceModel, class RecordingEvidenceModel, class RecordingRoleHeadModel, class RecordingCommandModel
 - storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof
@@ -488,6 +491,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_replacement_binding.py: class ReplacementAdmission, admitted_source, authorize_working_source, replacement_claim, bind_complete_source
 - storage/source_replacement_decisions.py: append_quality_decision
 - storage/source_replacement_guards.py: source_current_clause, current_clause, current_review_clause, require_active_source, require_active_sha, require_current_review, require_sequence_binding, require_cohort_sources, referenced_sources, require_unreferenced_sources, reservation, referenced_artifact
+- storage/source_replacement_purge.py: fail, class SourcePurge
 - storage/source_replacement_restore.py: class SourceReplacementRestore
 - storage/source_replacement_retirement.py: class SourceRetirement
 - storage/source_replacement_selection.py: annotate_review_sources, sequence_source_selection

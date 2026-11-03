@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1144 — Odbiór i wydanie Selektora (done)
 
 - Plik: `tasks/completed/1144-selector-smooth-navigation.md`.
-- Commit: **v1.7.539**.
+- Commit: **v1.7.539 / `a49937202094653f461161e5bc4fdb7666c97afa`**.
 - Selektor 1.0.5, finalny ZIP i odbiór na 42420 JPEG. Zero pustych klatek, warm p95 <=50 ms, finalne smoke i przejście 1.0.4 do 1.0.5 PASS. Raport: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`. Bez audytu według planu, merge/push i zmian danych operatora. Fizyczny reboot/komputer odbiorcy poza odbiorem lokalnym.
 
 ### TASK-1143 — Lekka nawigacja Selektora (done)

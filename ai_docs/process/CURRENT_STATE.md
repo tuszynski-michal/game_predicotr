@@ -80,7 +80,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 — tasks/completed/1144-selector-smooth-navigation.md
+- **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 / `a4993720` — tasks/completed/1144-selector-smooth-navigation.md
 - **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md
 - **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 / `9efbaa3a` — tasks/completed/1142-selector-smooth-navigation.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md

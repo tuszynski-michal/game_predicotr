@@ -213,6 +213,9 @@ class GridTrainingJobHandler:
         run_dir.mkdir(parents=True, exist_ok=True)
         if state.registered is not None:
             return self._finish(context, state)
+        # Recovery can charge an orphan's last interval beyond the old ceiling.
+        # Adopt the approved ceiling first so that this consumption is not clipped.
+        self._set_budget(state, state.budget.with_current_limits(preset))
         self._recover_previous_attempt(context, job, state, run_dir)
         if state.export is None:
             self._train(context, job, state, run_dir)
@@ -223,6 +226,20 @@ class GridTrainingJobHandler:
 
     def _now_iso(self) -> str:
         return self.wall_clock().isoformat()
+
+    def _set_budget(self, state: RunState, budget: RunBudget) -> None:
+        if state.budget.limit_policy != budget.limit_policy:
+            state.history.append(
+                {
+                    "status": "budget_limits_updated",
+                    "at": self._now_iso(),
+                    "previousBudget": state.budget.to_payload(),
+                    "limitPolicy": budget.limit_policy,
+                    "maxSteps": budget.max_steps,
+                    "maxSeconds": budget.max_seconds,
+                }
+            )
+        state.budget = budget
 
     def _recover_previous_attempt(
         self, context: JobExecutionContext, job: Job, state: RunState, run_dir: Path
@@ -454,7 +471,7 @@ class GridTrainingJobHandler:
         )
         if not decision.admitted or decision.budget is None:
             raise JobHandlerError(decision.reasons[0], "Run admission refused.")
-        state.budget = decision.budget
+        self._set_budget(state, decision.budget)
         state.attempt += 1
         return cohort, base, joint
 

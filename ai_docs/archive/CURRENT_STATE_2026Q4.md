@@ -90,6 +90,23 @@ last_updated: 2026-10-16
 - Weryfikacja: 37/37 testów PASS (17,24 s), ruff PASS; mapa i cztery kontrole docs PASS. Mypy po korektach partial: błąd narzędzia przy zapisie cache i timeout bez cache; wcześniejszy mypy PASS. Szczegóły w Outcome.
 - Audyt: `quality/TASK-1124_AUDIT_claude-opus-5-5.md`, Opus5.5/high, oryginalny REVISE; jedna runda poprawek i reconciliation leada zamykają P1-1 oraz P2-1/4/5. P2-2 to jawne ograniczenie przypiętej pary SHA, P2-3 operacyjna niezależna pula audit200; bez otwartych P0/P1 po rozliczeniu.
 - Bez empirycznego pilota, skanu, treningu lub aktywacji kandydata nr 5; bez usług, migracji, merge/push. Kolejny task: TASK-1125, etykiety przed gotowością detektora.
+### TASK-1137 — Wspólne limity uczenia siatek (done)
+
+- Plik: `tasks/completed/1137-grid-training-shared-budget.md`.
+- Commit: **v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`** (hash dopisuje kolejny commit).
+- D-581: wspólne pułapy 8000 kroków/7200 s, bez zmiany parametrów optymalizacji i planned_steps. Znane legacy budżety przyjmują politykę raz podczas jawnego wznowienia, z zachowaniem zużycia/checkpointu i receiptem sprzed odzysku; kolejne wznowienia nie odnawiają pułapu.
+- 95 finalnych testów worker PASS, nowy test podglądu API PASS; lint/format/scoped mypy/docs/map PASS. 40 pozostałych testów API PASS, dwa zastane FAIL potwierdzone izolowanym modułem z main i opisane w oknie. Nowy interpreter sprawdza trwałość budżetu.
+- Opus 5.5/high R1 PASS. P2-1 naprawione (3650 s nie obcięte do 3600), P2-2 zaakceptowane i opisane (rollback starego readera nieobsługiwany), P2-3 wskaźnik zastanych regresji w CURRENT_STATE.
+- Operator polecił rozwiązanie ogólne; jednostkowy skrypt +200 wyłączono bez wykonania. Rzeczywisty trening pozostaje zatrzymany przy checkpoint 3400/3600, bez kandydata/porównania/defaultu. Merge/push i wymagany restart GPU czekają na akceptację wyniku.
+
+### TASK-1136 — Trwała diagnostyka błędów trenera (done)
+
+- Plik: `tasks/completed/1136-grid-training-runtime-failure.md`.
+- Commit: **v1.7.529 / `910bb70ec599acf1180b5d4bb919cb50f2403d9d`** (hash dopisuje kolejny commit).
+- Niespodziewany wyjątek zostawia failed result z krokiem przed release i osobny log Python stderr/traceback/faulthandler. 46 testów całego pionu i 4 finalne testy diagnostyki PASS, scoped lint/typecheck/docs/map PASS. Nowy proces z os._exit potwierdza trwałość pełnej linii.
+- Opus 5.5/high R1 PASS. P2-1 poprawione (buffering=1); P2-2 jawnie zaakceptowane (natywny fd 2 nie jest przechwytywany).
+- Pierwsza przyczyna awarii nadal nieodtworzona. Kontrolowane wznowienie tego samego runu skończyło się limitem 4000 kroków, checkpoint 3400/3600 zapisany. Kandydat i porównanie nadal zablokowane; zgoda na +200 kroków oczekiwana. Default i ręczna geometria zachowane. TASK-1135 wcześniej wdrożony main/origin v1.7.528.
+
 ### TASK-1135 — Timeout zamrażania korekt (done)
 
 - Plik: tasks/completed/1135-grid-learning-freeze-query.md

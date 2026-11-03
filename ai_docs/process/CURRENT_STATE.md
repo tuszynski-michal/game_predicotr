@@ -53,6 +53,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
+
+- **Mumie A2 / TASK-1136–1137:** wdrożony kod v1.7.533, GPU zrestartowany; uczenie i ocena PASS (14/20 → 15/20, błąd -17,77%). HTML: 230 siatek. Default v1 zachowany; zastosowanie osobno. [Odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).
+
 - **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
 
 - **Uczenie siatek z korekt / TASK-1120–1123 (2026-11-02):** w main i origin, cztery audyty Opus 5.5/high PASS. Migracje operatora do 0171 wykonane za zgodą, API/Admin i general/grid-training uruchomione; panel Mumie a2 gotowy (117 korekt), default i geometria zachowane. Bez treningu/aktywacji. Pełny mypy nadal wymaga osobnego baseline z uzgodnionym limitem; scoped checks PASS. Źródło: [raport odbioru](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
@@ -84,7 +88,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1130** — Przygotowanie nowych zdjęć dla otwartych luk — v1.7.529 / `bd5c8270` — tasks/completed/1130-source-replacement-repair.md
 - **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 / `6ba198b9` — tasks/completed/1129-source-replacement-retirement.md
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
+- **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
 - **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md
+- **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
-- **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
-- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md

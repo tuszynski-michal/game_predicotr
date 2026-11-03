@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-11-02
+last_updated: 2026-11-03
 ---
 
 # Architektura laboratorium wizji
@@ -933,8 +933,32 @@ self-stop (at most 100 s); a whole-process watchdog in the child enforces that b
 the child publishes a step checkpoint when it is cancelled, out of budget or loses its
 supervisor. A re-claim first waits for the previous trainer to end, then charges its time and
 reported steps, adopts a newer intact checkpoint and recovers a finished export without new
-budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
+budget. D-581 separates the immutable optimisation plan/fingerprint from the cumulative execution
+allowance: known training presets receive 8000 steps and 7200 charged seconds (minimum),
+across all games, while smoke keeps 50 steps/600 seconds. New budgets carry
+`limit_policy=grid-training-limits-v2`; absent metadata means historical `preset-v1`.
+Explicit admission of a resumed, recognised legacy budget with exact historical ceilings
+adopts the shared ceiling once, retaining all consumption, attempts and checkpoints.
+The supervisor adopts the ceiling before charging an orphan's final interval, avoiding
+clipping consumption to the old ceiling; it records the pre-recovery budget and new
+ceilings in history before launch.
+Further resumes do not replenish the allowance. Unknown legacy ceilings remain unchanged;
+unknown policy tags fail closed. Preview maxSteps/maxRunSeconds use the same execution
+ceilings; planned training steps and historical recipe fingerprints remain unchanged.
+
+Steps are reserved in blocks of 200 in the job payload before the trainer may run them
 (`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.
+
+The child keeps Python stderr, unexpected tracebacks and faults supported by Python's
+`faulthandler` in `diagnostic-<attempt>.log` beside the sealed specification. Probe mode
+remains JSON-only and creates no diagnostic file. Unexpected Python exceptions inside
+training become a failed `GRID_TRAINING_UNEXPECTED_ERROR` result with the last reached
+step, written before the lease is released; they never count as a successful export.
+Abrupt external termination can still leave no result or useful traceback. In that case
+the supervisor keeps the conservative reservation and reports `GRID_TRAINING_CHILD_EXITED`.
+Python stderr is line-buffered to retain complete lines before abrupt exit. Native
+libraries writing directly to OS descriptor 2 still reach the supervisor's `DEVNULL`;
+this log is not a complete capture of CUDA/C++ stderr. Partial Python lines may be lost.
 
 ## Per-game candidate evaluation and proof currentness (D-559, TASK-0997)
 

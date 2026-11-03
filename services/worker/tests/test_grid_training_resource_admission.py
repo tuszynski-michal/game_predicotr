@@ -101,8 +101,8 @@ def test_admitted_train_run_starts_its_first_attempt_with_a_fresh_budget() -> No
     assert decision.admitted and decision.reasons == ()
     assert decision.budget is not None
     assert decision.budget.attempts == 1
-    assert decision.budget.max_steps == GRID_ONLY_V1.max_steps
-    assert decision.budget.max_seconds == GRID_ONLY_V1.max_run_seconds
+    assert decision.budget.max_steps == 8000
+    assert decision.budget.max_seconds == 7200.0
     assert decision.cost is not None and decision.cost.train_items == 30
 
 
@@ -205,12 +205,12 @@ def test_resume_keeps_used_steps_and_seconds_across_a_durable_round_trip() -> No
     assert resumed.budget.reserved_steps == 7
     assert resumed.budget.used_seconds == 321.5
     assert resumed.budget.attempts == 2
-    assert resumed.budget.remaining_seconds == GRID_ONLY_V1.max_run_seconds - 321.5
+    assert resumed.budget.remaining_seconds == 7200.0 - 321.5
 
 
 def test_resume_of_an_exhausted_or_foreign_budget_is_blocked() -> None:
     fresh = RunBudget.for_preset(GRID_ONLY_V1, "train")
-    exhausted = fresh.charge(GRID_ONLY_V1.max_run_seconds)
+    exhausted = fresh.charge(fresh.max_seconds)
     assert admit(stored_budget=exhausted).reasons == ("GRID_RUN_BUDGET_EXHAUSTED",)
     steps = replace(fresh, reserved_steps=fresh.max_steps)
     assert admit(stored_budget=steps).reasons == ("GRID_RUN_BUDGET_EXHAUSTED",)
@@ -237,6 +237,99 @@ def test_corrupt_budget_payload_is_rejected() -> None:
         RunBudget.from_payload(tampered)
     with pytest.raises(GridRunBudgetError, match="GRID_RUN_BUDGET_CORRUPT"):
         RunBudget.from_payload({"payload": "x", "sha256": "y"})
+
+
+@pytest.mark.parametrize("preset", list(PRESETS.values()), ids=list(PRESETS))
+def test_global_limits_adopt_legacy_consumption_once_without_changing_the_recipe(preset) -> None:
+    legacy = RunBudget(
+        preset.preset_id,
+        preset.fingerprint,
+        "train",
+        4000,
+        3600.0,
+        reserved_steps=4000,
+        used_seconds=1149.282,
+        attempts=2,
+    ).to_payload()
+    del legacy["payload"]["limit_policy"]
+    legacy["sha256"] = admission.digest(legacy["payload"])
+    stored = RunBudget.from_payload(json.loads(json.dumps(legacy)))
+    assert stored.max_steps == 4000  # loading/reading is not an upgrade
+    decision = evaluate_admission(
+        preset_id=preset.preset_id,
+        preset_fingerprint=preset.fingerprint,
+        purpose="train",
+        runtime=GPU,
+        lease_state="free",
+        counts=replace(MINIMUM, mode=preset.mode, train_full_photos=10),
+        stored_budget=stored,
+    )
+    assert decision.admitted and decision.budget is not None
+    current = decision.budget
+    assert (current.max_steps, current.max_seconds) == (8000, 7200.0)
+    assert (current.reserved_steps, current.used_seconds, current.attempts) == (4000, 1149.282, 3)
+    assert current.preset_fingerprint == stored.preset_fingerprint
+    assert current.limit_policy == "grid-training-limits-v2"
+    replay = RunBudget.from_payload(json.loads(json.dumps(current.to_payload())))
+    assert replay.with_current_limits(preset) == current
+    exhausted = replace(replay, reserved_steps=8000)
+    assert exhausted.with_current_limits(preset).exhausted
+    assert replace(replay, used_seconds=7200.0).with_current_limits(preset).exhausted
+    view = admission.preset_view(preset)
+    assert (view["maxSteps"], view["maxRunSeconds"]) == (8000, 7200.0)
+    assert (
+        estimate_cohort_cost(
+            preset, replace(MINIMUM, mode=preset.mode, train_full_photos=10)
+        ).planned_steps
+        == 1200
+    )
+
+
+def test_global_limits_leave_unknown_legacy_ceilings_and_smoke_unchanged() -> None:
+    custom = RunBudget(
+        GRID_ONLY_V1.preset_id,
+        GRID_ONLY_V1.fingerprint,
+        "train",
+        500,
+        900.0,
+        reserved_steps=500,
+    )
+    assert custom.with_current_limits(GRID_ONLY_V1) == custom
+    assert admit(stored_budget=custom).reasons == ("GRID_RUN_BUDGET_EXHAUSTED",)
+    smoke = RunBudget.for_preset(GRID_ONLY_V1, "smoke")
+    assert smoke.with_current_limits(GRID_ONLY_V1) == smoke
+    assert (smoke.max_steps, smoke.max_seconds) == (50, 600.0)
+    corrupt = replace(custom, limit_policy="unknown-policy").to_payload()
+    with pytest.raises(GridRunBudgetError, match="GRID_RUN_BUDGET_CORRUPT"):
+        RunBudget.from_payload(corrupt)
+    assert PRESETS["grid-corrections-v1"].fingerprint == (
+        "3643375b45ed95405a24d76e28b11fe6ce35225b803ad7c711f2480e82caf115"
+    )
+
+
+def test_global_limits_survive_reading_the_budget_in_a_new_interpreter(tmp_path) -> None:
+    budget = RunBudget.for_preset(GRID_ONLY_V1, "train")
+    budget = replace(budget, reserved_steps=8000, used_seconds=5000.0, attempts=4)
+    path = tmp_path / "budget.json"
+    path.write_text(json.dumps(budget.to_payload()), encoding="utf-8")
+    code = """
+import json, sys
+from pathlib import Path
+from game_predictor_worker.training_core.grid_training_admission import RunBudget, GRID_ONLY_V1
+value=RunBudget.from_payload(json.loads(Path(sys.argv[1]).read_text()))
+assert value.with_current_limits(GRID_ONLY_V1) == value
+assert value.exhausted and value.used_seconds == 5000 and value.attempts == 4
+print('durable-budget-ok')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(path)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "durable-budget-ok"
 
 
 class Clock:

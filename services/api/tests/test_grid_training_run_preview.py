@@ -105,6 +105,20 @@ def test_frozen_qualified_grid_only_cohort_has_cost_and_only_pending_worker_chec
     assert not lease_path(tmp_path).exists()  # a GET never creates the lease
 
 
+def test_preview_exposes_global_execution_limits_without_extending_training_plan(tmp_path):
+    game, cohort = uuid4(), uuid4()
+    value, calls = service(tmp_path, header(game, cohort, train=(77, 60, 0)))
+    preview = GridTrainingRunPreview.model_validate(value.run_preview(game, cohort))
+    assert preview.apiBlockers == []
+    assert all((p.maxSteps, p.maxRunSeconds) == (8000, 7200.0) for p in preview.presets)
+    selected = next(p for p in preview.presets if p.presetId == preview.selectedPresetId)
+    assert selected.fingerprint == GRID_ONLY_V1.fingerprint
+    assert preview.cost is not None and preview.cost.plannedSteps == 3600
+    assert preview.smoke.maxSteps == 50 and preview.smoke.maxSeconds == 600
+    assert [name for name, *_ in calls] == ["get", "eligibility"]
+    assert not lease_path(tmp_path).exists()
+
+
 def test_unfrozen_unqualified_empty_cohort_lists_every_api_blocker(tmp_path):
     game, cohort = uuid4(), uuid4()
     head = header(game, cohort, status="preview_ready", train=(0, 0, 0))

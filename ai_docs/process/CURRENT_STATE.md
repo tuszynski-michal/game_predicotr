@@ -14,10 +14,11 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
+
 - **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
-- **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
+- **Selektor 1.0.5 / TASK-1142–1144 (2026-11-03):** ZIP i smoke PASS. 42420 JPEG: warm p95 25,4 ms, zero pustych klatek. Wynik zaakceptowany; zgoda na merge/push 2026-11-03. Reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 
@@ -54,9 +55,11 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1147:** Opus PASS; kod 0178 po 0177. Operator osobno zatwierdził delete pustej 777v2; koordynator realizuje go i migracje do 0177. Odbiór 0178 po przekazaniu okna. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+- **TASK-1147:** Opus PASS; kod 0178 po 0177. Odbiór 0178 po przekazaniu okna. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
 
 - **TASK-1147 / P2:** 2 zastane FAIL retencji także na `60f50c64`; produkt fail-closed, naprawa osobno. Źródło: `quality/TASK-1147_VERIFICATION.md`.
+
+- **Wdrożenie 777A2 / 2026-11-03:** zatwierdzony delete pustej 777v2 i migracja 0177 zakończone; usługi zdrowe. Pozostałe gry i aktywacje zachowane, bez pilota 777A2. TASK-1148 buildy i Opus PASS. [Odbiór](../quality/777A2_DEPLOYMENT_BLOCKER_20261103.md).
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 
@@ -91,13 +94,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 / `879db371` — tasks/completed/1148-workspace-react-build-alignment.md
 - **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 / `3df55bca` — tasks/completed/1145-grid-growth-migration-number.md
+- **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 / `a4993720` — tasks/completed/1144-selector-smooth-navigation.md
+- **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md
+- **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 / `9efbaa3a` — tasks/completed/1142-selector-smooth-navigation.md
 - **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 / `febbf91e` — tasks/completed/1140-grid-correction-growth-panel.md
 - **TASK-1139** — Przyrostowy podział korekt i liczniki — v1.7.537 / `e33b71ab` — tasks/completed/1139-grid-correction-growth-data.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
-- **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
-- **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md
-- **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
-- **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md

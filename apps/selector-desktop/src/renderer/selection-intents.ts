@@ -1,4 +1,4 @@
-import { sourceLookup } from '../source-index.ts';
+import { sourceLookup, acceptedLookup } from '../source-index.ts';
 import { applyWorkspaceUpdate } from './workspace-updates.ts';
 import type {
   DesktopCommand,
@@ -150,7 +150,7 @@ export class SelectionIntents {
       this.blocked ||
       ['error', 'accepting', 'recovering'].includes(this.phase) ||
       workspace.selectionComplete ||
-      workspace.acceptedImageIds.includes(imageId)
+      acceptedLookup(workspace.acceptedImageIds).has(imageId)
     ) {
       this.message =
         'Nie zapisano — zdjęcie lub projekt nie jest gotowy do wyboru.';

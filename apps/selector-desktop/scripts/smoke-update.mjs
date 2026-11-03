@@ -159,7 +159,9 @@ try {
       );
       if (index === 0)
         assert.ok(
-          ['0.1.0', '0.1.2', '1.0.3'].includes(metadata.applicationVersion),
+          ['0.1.0', '0.1.2', '1.0.3', '1.0.4'].includes(
+            metadata.applicationVersion,
+          ),
         );
       else assert.equal(metadata.applicationVersion, currentVersion);
       versions.push(metadata.applicationVersion);
@@ -288,10 +290,9 @@ try {
     assert.equal(old.nextRangeStart, 19);
     await close();
     const project = `${source} selekcja`;
-    const output =
-      versions[0] === '1.0.3'
-        ? path.join(fixture, 'Smoke update a1 1-30')
-        : `${source} wybrane`;
+    const output = ['1.0.3', '1.0.4'].includes(versions[0])
+      ? path.join(fixture, 'Smoke update a1 1-30')
+      : `${source} wybrane`;
     const oldCursor = cursor(old);
     assert.deepEqual(oldCursor, { ordinal: 2, relativePath: 'photo3.jpg' });
     assert.equal(await persistedCursor(project), oldCursor.relativePath);
@@ -386,7 +387,7 @@ try {
       tree(copiedProject),
       tree(copiedOutput),
     ]);
-    if (versions[0] !== '1.0.3') {
+    if (['0.1.0', '0.1.2'].includes(versions[0])) {
       await launch(programs[0], versions[0], oldReaderUserData);
       await select(copiedProject);
       // Both verified historical preload contracts expose open() without args.
@@ -401,6 +402,44 @@ try {
       );
       console.log(
         `PASS: historical EXE ${versions[0]} refuses migrated head2 with UNSUPPORTED_PROJECT_SCHEMA; project/output bytes and mtimes unchanged.`,
+      );
+    }
+    if (versions[0] === '1.0.4') {
+      await launch(programs[0], versions[0], oldReaderUserData);
+      await select(copiedProject);
+      const reopened = await page.evaluate(() => window.selector.open());
+      assert.equal(reopened.ok, true);
+      assert.equal(reopened.value.acceptedCount, 2);
+      assert.equal(reopened.value.skippedCount, 1);
+      assert.deepEqual(cursor(reopened.value), cursor(continued));
+      assert.equal(
+        (await page.evaluate(() => window.selector.close())).ok,
+        true,
+      );
+      await smoke.close(application);
+      application = null;
+      const reopenedFiles = await Promise.all([
+        tree(copiedProject),
+        tree(copiedOutput),
+      ]);
+      // A compatible reader can republish byte-identical head mirrors on open.
+      // Only those two mtimes may differ; every byte and other mtime is checked.
+      const allowHeadPublication = (entries) =>
+        entries.map(([name, size, mtime, hash]) =>
+          [
+            'selector-project-v1.json',
+            'selector-project-v1.backup.json',
+          ].includes(name)
+            ? [name, size, hash]
+            : [name, size, mtime, hash],
+        );
+      assert.deepEqual(
+        allowHeadPublication(reopenedFiles[0]),
+        allowHeadPublication(migratedFiles[0]),
+      );
+      assert.deepEqual(reopenedFiles[1], migratedFiles[1]);
+      console.log(
+        'PASS: 1.0.4 reopens the unchanged durable format without changing project/output bytes; only head publication mtimes may change.',
       );
     }
     assert.deepEqual(

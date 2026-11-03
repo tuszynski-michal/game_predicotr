@@ -1,3 +1,4 @@
+import { inventoryOrdinal } from './inventory-index.ts';
 import { randomUUID, createHash } from 'node:crypto';
 import { open, rename, lstat } from 'node:fs/promises';
 import path from 'node:path';
@@ -127,6 +128,49 @@ function scratch(journal: ProjectJournal, kind: 'jpeg' | 'manifest'): string {
 }
 export class ProjectStore {
   private state: ProjectState;
+  private summaryDecisions: ProjectState['decisions'] | null = null;
+  private summary = {
+    acceptedCount: 0,
+    skippedCount: 0,
+    decisionCount: 0,
+    acceptedPaths: [] as readonly string[],
+  };
+  private manifestStrings = new WeakMap<ProjectState, string>();
+  scalarSnapshot() {
+    const {
+      inventory: _i,
+      receipts: _r,
+      decisions: _d,
+      ...scalars
+    } = this.state;
+    void _i;
+    void _r;
+    void _d;
+    return scalars;
+  }
+  decisionSummary() {
+    if (this.summaryDecisions !== this.state.decisions) {
+      const paths = this.state.decisions
+        .filter((d) => d.action === 'accepted')
+        .map((d) => d.imagePath!);
+      this.summary = Object.freeze({
+        acceptedCount: paths.length,
+        skippedCount: this.state.decisions.length - paths.length,
+        decisionCount: this.state.decisions.length,
+        acceptedPaths: Object.freeze(paths),
+      });
+      this.summaryDecisions = this.state.decisions;
+    }
+    return this.summary;
+  }
+  private manifestString(state: ProjectState) {
+    let value = this.manifestStrings.get(state);
+    if (value === undefined) {
+      value = stableStringify(projectManifest(state));
+      this.manifestStrings.set(state, value);
+    }
+    return value;
+  }
   private readonly files: SecureFiles;
   private readonly lock: ProjectLock;
   private readonly checkpoint: WriteCheckpoint;
@@ -596,10 +640,8 @@ export class ProjectStore {
     verifiedFiles?: SecureFiles,
   ): Promise<SecureFiles> {
     const files = verifiedFiles ?? (await this.outputFiles(after));
-    const beforeManifest = before
-      ? stableStringify(projectManifest(before))
-      : null;
-    const afterManifest = stableStringify(projectManifest(after));
+    const beforeManifest = before ? this.manifestString(before) : null;
+    const afterManifest = this.manifestString(after);
     const manifest = await files.read(OUTPUT_MANIFEST_NAME);
     if (manifest) {
       let serialized: string;
@@ -693,9 +735,9 @@ export class ProjectStore {
     imagePath: string,
   ): Promise<string> {
     try {
-      const image = state.inventory.find(
-        (item) => item.relativePath === imagePath,
-      );
+      const position = inventoryOrdinal(state.inventory).get(imagePath);
+      const image =
+        position === undefined ? undefined : state.inventory[position];
       if (!image)
         throw new SelectorError(
           'UNKNOWN_IMAGE',
@@ -878,7 +920,7 @@ export class ProjectStore {
       await output.clearScratch(scratch(journal, 'manifest'));
       await output.replace(
         OUTPUT_MANIFEST_NAME,
-        stableStringify(projectManifest(journal.after)),
+        this.manifestString(journal.after),
         this.checkpoint,
         scratch(journal, 'manifest'),
       );
@@ -1121,6 +1163,7 @@ export class ProjectStore {
         await this.lock.assertOwned();
         await this.validateProjectContents();
         if (!this.storage && command.kind !== 'relink') await this.upgrade();
+        this.manifestStrings = new WeakMap();
         const before = this.state;
         const after = { ...this.state };
         const journal: ProjectJournal = {
@@ -1133,9 +1176,10 @@ export class ProjectStore {
           copy: null,
           removals: [],
         };
-        const currentIndex = before.inventory.findIndex(
-          (item) => item.relativePath === before.currentRelativePath,
-        );
+        const currentIndex =
+          inventoryOrdinal(before.inventory).get(
+            before.currentRelativePath ?? '',
+          ) ?? -1;
         const moveForward = () => {
           after.currentRelativePath =
             after.inventory[

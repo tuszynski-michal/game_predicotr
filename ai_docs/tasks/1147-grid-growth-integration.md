@@ -89,7 +89,7 @@ PG guarded migration wraz z current/retired/reserved/retention na 0178 → 0177 
 
 ### Not completed
 
-Focused Opus 5.5/high R1: PASS, bez P0/P1. Raport: `quality/TASK-1147_AUDIT_claude-opus-5-5.md`. Nie wykonano commita, push, zmiany main, migracji operatora, usług ani uczenia operatora. Odbiór operacyjny oczekuje na zakończenie zatwierdzonego osobno lifecycle i migracji koordynatora do 0177; zadania nie zamknięto i nie zgłoszono wdrożenia jako wykonanego.
+Focused Opus 5.5/high R1: PASS, bez P0/P1. Raport: `quality/TASK-1147_AUDIT_claude-opus-5-5.md`. Kod integracji zapisano w checkpoincie `08a9ffcf`; kolejna synchronizacja pozostaje bez commita. Ten wykonawca nie zmieniał main, bazy ani usług operatora. Koordynator zakończył osobno zatwierdzony lifecycle i wdrożenie do 0177; odbiór 0178 nadal oczekuje na przekazanie okna operacyjnego. Zadania nie zamknięto i nie zgłoszono wdrożenia 0178 jako wykonanego.
 
 ### Documentation updates
 
@@ -97,7 +97,7 @@ Plan, aktualna architektura i kontrakt, CURRENT_STATE, DOC_INDEX oraz rozwiązan
 
 ### Recommended next task
 
-Dokończenie końcowych kontroli P2-1/P2-3, rozstrzygnięcie blokady lifecycle przez koordynatora i dalszy odbiór tego samego planu.
+Przegląd i zapis synchronizacji ze stabilnym main, następnie skoordynowany odbiór 0178 w ramach tego samego planu.
 
 ### Audit dispositions
 
@@ -110,6 +110,15 @@ Dokończenie końcowych kontroli P2-1/P2-3, rozstrzygnięcie blokady lifecycle p
 
 ### Integration checkpoint
 
-Przygotowany osobny commit integracji kodu v1.7.543. Nie zamyka TASK-1147;
-odbiór operatora, task-close i zapis końcowego hasha nastąpią po wykonaniu
-zatwierdzonego wdrożenia. Hashe należy odczytać z historii, nie z tej zapowiedzi.
+Integrację kodu zapisano jako v1.7.543 / `08a9ffcf`. Checkpoint nie zamyka
+TASK-1147; odbiór operatora i task-close nastąpią po zatwierdzonym wdrożeniu.
+
+Po zgodzie koordynatora przygotowano merge bez commita stabilnego
+`be10f90e8d6d8121f70577be7243946ab5ee8979` do tego checkpointu. Dwa konflikty
+dotyczyły wyłącznie okna i archiwum CURRENT_STATE. Zachowano pełne sekcje obu
+historii, ograniczono okno do 10 zakończonych tasków i zachowano aktualne
+informacje o wdrożonym 0177. Poprawka zależności React z TASK-1148, lockfile
+oraz Selector 1.0.5 są zgodne z przychodzącym refem. Bez nowych zmian produktu
+i bez ponawiania testów PG/UI. Kontrole synchronizacji i zachowania historii
+są zapisane w `quality/TASK-1147_VERIFICATION.md`. Migracja i odbiór 0178
+pozostają przed nami; root/main/usługi/baza nadal pod kontrolą koordynatora.

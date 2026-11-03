@@ -109,6 +109,35 @@ Drugie okno zachowuje kontrolę root/main, usług i bazy; ten wykonawca nie
 zmieniał ich. Nie wykonano commita, push, migracji operatora, restartu ani uczenia.
 Gotowość kodu do focused audytu nie oznacza zakończenia TASK-1147 ani wdrożenia.
 
+## Synchronizacja po wdrożeniu koordynatora do 0177
+
+Powyższa blokada opisuje wcześniejszy etap. Koordynator następnie, za odrębną
+zgodą operatora, dokończył lifecycle pustej gry i wdrożył 0177. Źródłem odbioru
+jest `quality/777A2_DEPLOYMENT_BLOCKER_20261103.md`; ten wykonawca nie wykonywał
+tych operacji. Migracja i odbiór 0178 nadal pozostają przed nami.
+
+Kod pierwszej integracji zapisano w checkpoincie v1.7.543 / `08a9ffcf`.
+Po przekazaniu stabilnego refu koordynatora przygotowano w tym samym worktree
+merge bez commita `be10f90e8d6d8121f70577be7243946ab5ee8979`. Wystąpiły tylko
+dwa konflikty dokumentacji: CURRENT_STATE i jego archiwum Q4. Zachowano obie
+historie i 10 wpisów zakończonych tasków. Pełne sekcje archiwów stanu i decyzji
+obu rodziców pozostają identyczne; dowód `artifacts/task1147-sync-preservation.json`.
+Poprawka React z TASK-1148, wszystkie trzy manifesty/lock oraz cały Selector
+1.0.5 są zgodne z przychodzącym refem (porównanie normalizuje końce linii).
+
+Preflight prowadzącego wykazał wyłącznie historyczne kolizje numerów wersji
+v1.7.537–543, bez kolizji własnych TASK, decyzji lub migracji. Historii commitów
+ani wersji nie przepisano. Źródło: `artifacts/task1147-preflight-before-handover.json`.
+
+Mapa zregenerowana. Docs:check PASS: 2 aktywne taski, 10 zakończonych wpisów,
+startup 44970/45000 B. Po pierwszym przekroczeniu budżetu skrócono wyłącznie
+aktualne wskaźniki wdrożenia, pozostawiając pełny raport i archiwa. Logi:
+`artifacts/task1147-sync-map.log`, `artifacts/task1147-sync-docs.log`.
+Code-map:check i diff --check (również indeksu) PASS; oba konflikty oznaczono
+jako rozwiązane. Log kontroli: `artifacts/task1147-sync-check.log`.
+Brak nowej logiki produktu; nie ponawiano PG, UI ani buildów. Koordynator nadal
+zachowuje kontrolę root/main/usług/bazy. Synchronizacja nie zamyka TASK-1147.
+
 Audyt: `TASK-1147_AUDIT_claude-opus-5-5.md`, R1 PASS bez P0/P1.
 P2-1/P2-3 zamknięte kontrolami powyżej; P2-2 pozostaje bramką odbioru
 bez aliasów w głównym checkout. P2-4 (dwie zastane porażki retencji)

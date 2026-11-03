@@ -61,7 +61,7 @@ Brak pytań blokujących. Zachowanie spinnera obejmuje wszystkie odczyty metadan
 
 ## Outcome
 
-Commit: v1.7.535 (hash dopisuje kolejny commit).
+Commit: v1.7.535 / `961b6b47bff01fee8dab84284225d886faefb148`.
 
 ### Changed
 

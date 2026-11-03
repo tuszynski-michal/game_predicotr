@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1138 — Widoczne odświeżanie uczenia (done)
 
 - Plik: `tasks/completed/1138-grid-learning-refresh.md`.
-- Commit: **v1.7.535** (hash dopisuje kolejny commit).
+- Commit: **v1.7.535 / `961b6b47bff01fee8dab84284225d886faefb148`** (hash dopisuje kolejny commit).
 - Przycisk ma własne loading/aria-busy i blokadę kliknięć, a pełny udany odczyt potwierdza czas. Historia/status nie czekają na wolniejszą gotowość; częściowy błąd nie usuwa danych. Zachowana ochrona spóźnionych odpowiedzi i tożsamości raportu.
 - Finalne 48 testów interakcji PASS, pełny typecheck i build Admina PASS, lint/format/docs/map PASS. Rzeczywisty panel potwierdził loading, status oraz zmianę czasu odczytu; GET-only, bez zmian modeli lub restartów.
 - Opus 5.5/high R1 PASS. P2-1..5 naprawione w jednej rundzie wraz z regresjami. Pierwszy build EPERM Windows niezaliczony; kontrolowane powtórzenie z właściwymi uprawnieniami PASS.

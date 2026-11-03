@@ -97,7 +97,7 @@ Root Python `D:/game_predicotr/.venv/Scripts/python.exe`, cwd worktree. Każdy p
 
 ## Outcome
 
-Commit: v1.7.531 (hash dopisuje kolejny commit).
+Commit: v1.7.531 / `ad92ac35699b364e11a81b4cc0622f8ec281142a`.
 
 Implementacja C2 obejmuje jeden admission/source na wpis: actual selected JPEG bez recropu, fresh DB validation i durable upload/job/source pin, verified working geometry/undo, normalne approvals i osobne restored z aktualną czytelnością cropów. Migracja0176 utrzymuje terminalny orphan fence po usunięciu slots. Mobile capture zapisuje istniejący source_board_id i waliduje current cells także po restored. Historia, tombstones i normalized retention pozostają. Immutable scopeDigest pochodzi z planned batch snapshot, nie mutable operational document.
 

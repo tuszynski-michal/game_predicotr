@@ -82,7 +82,7 @@ Brak pytania blokującego. Poprzednie kolizje wersji pozostają; następny commi
 
 ## Outcome
 
-Commit: v1.7.527 (hash dopisuje kolejny commit).
+Commit: v1.7.527 / `6ba198b968fe4cf0cc5289d3b841feebb4818c18`.
 
 Zaimplementowano transakcję całego zdjęcia z niezmiennym planned snapshotem, świeżym preview, replay przed CAS, rezerwacją wszystkich seq i markerem każdego aliasu. Własne review/deferred pending zachowują pełny prior; obce pending blokują. Błąd cofa całą transakcję. Usuwane są tylko current canonical/staging/search refs; historyczne rekordy i pliki pozostają. GET pokazuje rzeczywiste markery jako przyczynę wycofania w UI.
 
@@ -117,6 +117,8 @@ Audyt Opus5.5/high R1: **PASS**, brak P0/P1. Raport: `ai_docs/quality/TASK-1129_
 
 
 ### Rozstrzygnięcie uwag audytu i DoD
+
+Koordynator po przeczytaniu pełnego raportu R1 przyjął PASS i pozostałe P2 w granicach AGENTS/Outcome. To akceptacja koordynatora, nie nowa osobna zgoda operatora. Wzmianka audytora o expiry nie rozszerza planu: v1 pozostaje bez autoexpiry i restore_retired. B2a zapewnia guarded fallback dla count_projection_status=unavailable; D1 sprawdzi odczyty i liczniki po retirement. C2 usuwa aktywne slots dopiero po complete/readability/orphan closure i sprawdza stare dataset_version przed przyszłą publikacją po restored: samo zniknięcie slots nie przywraca starym dowodom prawa do current.
 
 - P2-1 zamknięte przez odczyt istniejącej migracji0175: funkcja `source_replacement_excluded_reviews_v1` kończy INNER JOIN do `image_review_items` i zwraca jego `i.id` (PK NOT NULL, linie55–70). Nullable new_source_id w pośrednim CTE nie może stać się NULL w wyniku. Nie zmieniono audytowanego schematu.
 - P2-2: kolejność review/board pozostaje pod EXCLUSIVE game zgodnie zatwierdzonym kontraktem B2b. Potencjalny uczestnik łamiący protokół może spowodować deadlock/rollback; to jawne ryzyko dostępności, nie zgoda na zapis bez ownership locka.

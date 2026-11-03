@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1129 — Wycofanie źródła z zachowaniem historii (done)
 
 - Plik: `tasks/completed/1129-source-replacement-retirement.md`.
-- Commit: **v1.7.527** (hash dopisuje kolejny commit).
+- Commit: **v1.7.527 / `6ba198b968fe4cf0cc5289d3b841feebb4818c18`** (hash dopisuje kolejny commit).
 - B2b: niezmienny plan, świeży preview i atomowy retirement całego zdjęcia/aliasów, reservations, pełne prior pending i trwały receipt; cancel tylko planned.
 - Typed request-v1 tylko gap_open, API/generated/wrapper/fixture i UI confirm/reload/retry; current projections oraz mobile publication chronione. Bez zmian danych operatora, migracji, usług lub push.
 - Testy: PostgreSQL 2 PASS; jednostkowe 93 PASS, 1 deselected; UI/wrapper 6 PASS; lint/type/client/docs/map/OpenAPI PASS. Oddzielny APK collision PASS na HEAD i aktualnym kodzie; porażka wcześniejszej grupy pozostaje jawną niewyjaśnioną zależnością kolejności/środowiska do D1.

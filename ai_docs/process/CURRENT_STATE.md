@@ -78,7 +78,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 — tasks/completed/1129-source-replacement-retirement.md
+- **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 / `6ba198b9` — tasks/completed/1129-source-replacement-retirement.md
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
 - **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md

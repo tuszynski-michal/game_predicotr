@@ -73,6 +73,8 @@ Istniejący ekran przyjmuje source-replacement-request-v1. Tylko potwierdzone ga
 
 ### TASK-1131 / C2 — Import zamienników
 
+Handoff audytu B2b R1: aktywne slots usuwa się dopiero po whole-photo complete, potwierdzeniu readability i atomowym zamknięciu wszystkich orphan provisional. Przyszła publikacja mobile po restored musi także odmówić staremu dataset_version z dowodem wycofanego źródła; samo usunięcie slots nie czyni historycznego snapshotu current. Stare już wydane snapshoty pozostają bez zmian. v1 nadal nie ma autoexpiry ani restore_retired. D1 sprawdza guarded fallback odczytów/liczników po retirement oraz powtarza nierozstrzygniętą grupę APK wskazaną dokładnie w Outcome TASK-1129.
+
 Obowiązkowe domknięcia po audycie B2a R1 (P2-1/P2-2), przed udostępnieniem admission/restored: korekta niepełnej roboczej geometrii tego samego slotu ma zachować jeden skuteczny review i doprowadzić do whole-photo bindingu bez konfliktu duplikatów/unikalności. Restore lub porzucenie admission zamyka/wycofuje provisional atomowo PRZED zwolnieniem slotów; test po restarcie potwierdza brak current/queue/count/search/canonical orphan review. B2b ma jedynie cancel planned, bez restore. Nie rozszerza to B2a o operacyjne komendy.
 
 Admission C2 przed przypięciem `slots.new_sha256` wykonuje pod wspólnym lockiem fresh preflight nowego SHA. Istniejące niewybrane current źródło tej gry z tym SHA w innym lub nieznanym zakresie blokuje całą operację `SOURCE_REPLACEMENT_SHA_SCOPE_CONFLICT`; bez ukrycia cudzych plansz ani rozszerzenia scope. Dopuszczony wyłącznie jednoznaczny exact entry/range alias oraz własny exact replay. Regresja z obcym zakresem 1200 sprawdza brak mutacji i niezmienioną widoczność current po odmowie.

@@ -201,6 +201,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Task template](process/TASK_TEMPLATE.md)
 - [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
   planowaniem, aktualizacją lub wykonaniem planu.
+- [Odbiór jakości i wymiany źródeł 777 A2](quality/777A2_READABILITY_REPLACEMENT_ACCEPTANCE_20261103.md) — dowody A1–D1, buildy i ręczny odbiór operatora.
 - [Test strategy](quality/TEST_STRATEGY.md)
 - [Protokół pomiaru narzędzi tokenowych](quality/TOKEN_TOOLING_PILOT_PROTOCOL.md)
   — zadania pomiarowe, warianty, rubryka jakości i reguła decyzyjna pilota

@@ -85,7 +85,9 @@ C2 — wykonanie 2026-11-03: jeden admission/source, trwały browser/job proof, 
 
 ### TASK-1132 / D1 — Odbiór
 
-Testy pionów i całego przepływu: ostre overlay z pewnym top1; czytelne podobne; brak leakage base/head/scaler; neutralność wag/BN/model activation; stale pixel identity; Shift poza DOM i locked; source dedup9 i boundary<9; obcy pending/races; late commands po restored; późny seq; incremental/rebuild parity; retained model/cohort/shared crops obu gier; snapshots blocked while gap; journal i API lost response/restarts każdego etapu; niepełny batch/import/review nie udaje sukcesu. Najpierw testy pionu/lint/typecheck, potem szersze/build. API contract i request tests, map generator i docs:check. Mały operacyjny pilot i większy scan wymagają odbioru/zgód operatora. Testy opisane tutaj są planowane, nie wykonane.
+Testy pionów i całego przepływu: ostre overlay z pewnym top1; czytelne podobne; brak leakage base/head/scaler; neutralność wag/BN/model activation; stale pixel identity; Shift poza DOM i locked; source dedup9 i boundary<9; obcy pending/races; late commands po restored; późny seq; incremental/rebuild parity; retained model/cohort/shared crops obu gier; snapshots blocked while gap; journal i API lost response/restarts każdego etapu; niepełny batch/import/review nie udaje sukcesu. Najpierw testy pionu/lint/typecheck, potem szersze/build. API contract i request tests, map generator i docs:check. Mały operacyjny pilot i większy scan wymagają odbioru/zgód operatora. Lista powyżej określa planowane kryteria; wykonane kontrole i istniejące dowody rozlicza poniższy wpis D1 oraz raport odbioru. Empiryczny pilot i fizyczne urządzenia pozostają niewykonane.
+
+D1 — odbiór 2026-11-03: [raport implementacji](../quality/777A2_READABILITY_REPLACEMENT_ACCEPTANCE_20261103.md) rozlicza dowody wszystkich pionów. Rzeczywiste buildy klienta/core/Admina/Selektora oraz aktualne kontrakt/docs/map PASS; dokładna grupa APK bez deselection47PASS. Fizyczny Chrome/FSA/Android i empiryczny pilot pozostają odbiorem operatora. Nie wykonano operacji danych, wdrożenia, aktywacji ani merge/push. Końcowy audyt i commit opisuje Outcome TASK-1132.
 
 ## Dostarczanie
 

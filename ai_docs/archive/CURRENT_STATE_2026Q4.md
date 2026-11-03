@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1132 — Odbiór detektora i wymiany źródeł (done)
+
+- Plik: `tasks/completed/1132-readability-replacement-acceptance.md`.
+- Commit: **v1.7.533** (hash dopisuje kolejny commit).
+- Raport odbioru mapuje wszystkie punkty D1 i DoD na dowody A1–C2. Rzeczywiste buildy klienta/core/Admina/Selektora, board-search-ui typy i świeże OpenAPI/generated/map/docs PASS. Dokładna grupa APK bez deselection47PASS23,81s; historycznej przyczyny nie odtworzono. Tymczasowe własne junctions usunięte bez rekurencji, resolver wrócił do main.
+- Opus5.5/medium R1 PASS, rzeczywisty modelUsage claude-opus-5-5. Bez nowych harnessów/testów/eksperymentów. Bez usług, danych operatora, produkcyjnych migracji, aktywacji i merge/push.
+- Implementacja9/9; skuteczność niezmierzona do etykiet/pilota/TEST i odbioru operatora. Fizyczny Chrome/FSA/Android pending; A1 mypy partial pozostaje jawny. Testowana baza40581449; nowszy main wymaga preflight integracji.
+
 ### TASK-1131 — Import zamienników i zamknięcie rezerwacji (done)
 
 - Plik: `tasks/completed/1131-source-replacement-import.md`. Commit: **v1.7.531 / `ad92ac35699b364e11a81b4cc0622f8ec281142a`**.

@@ -87,7 +87,7 @@ islands with the existing attestation/component preparation. New learning select
 policy v2 explicitly; v1 preparation and immutable snapshot interpretation remain
 available. Snapshot v2 accepts both exact policy identifiers.
 
-Alembic0172 adds append-only release evidence to the same private recording registry
+Alembic 0178 adds append-only release evidence to the same private recording registry
 and labels new reservations `incremental-v2`. The v2 context closes known aliases
 and sessions before deciding whether every legacy reservation is releasable.
 Its bounded preview is read-only. Existing cohort commands validate the pinned proof
@@ -96,6 +96,10 @@ cannot read or write release rows or call the internal context function directly
 Historical v1 validation retains every original binding, checking active role
 conflicts for actual used examples and buffers instead of released unused metadata.
 New v2 controls and buffers remain hard protections.
+
+TASK-1145 renumbered the undeployed growth migration from 0172 to 0178 after
+deployment coordination. Historical audit reports retain 0172. This branch still
+uses parent 0171; integration with the separate symbol chain is a later operation.
 
 Reserve candidates require current source-available `grid_issue` evidence bound
 to the live board geometry revision. Pending correction is fenced only before

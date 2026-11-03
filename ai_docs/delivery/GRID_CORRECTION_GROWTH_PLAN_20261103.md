@@ -119,15 +119,35 @@ panel ma 40 własnych i 74 szersze testy interakcji, kontrolę typów i build PA
 Końcowa symulacja READ ONLY: TRAIN146 (77 zapisanych +69 nowych), VALIDATION17,
 REGRESSION21, 12 zatwierdzonych plansz wykluczonych przez bufory. Nie ma obecnie
 bezpiecznej dodatkowej rezerwy pending. Dane nie zostały utrwalone nową polityką.
-Migracja operatora 0172, wdrożenie i rzeczywiste uczenie pozostają osobnymi
+Migracja operatora (obecnie 0178, pierwotnie 0172), wdrożenie i rzeczywiste uczenie pozostają osobnymi
 operacjami; sam kod nie zmienia modelu domyślnego ani historycznych korekt.
 
 Preflight integracji wykrył równoległy numer 0172 w niescalonej gałęzi
 `codex/777a2-readability-replacement`: `0172_symbol_readability` od 0169.
 Nasza `0172_grid_correction_growth` jest liniową następczynią aktualnej 0171.
-Wymagane jest potwierdzenie kolejności wdrożenia przez operatora; numerów nie
-zmieniono automatycznie. Wdrożenie tej gałęzi jako pierwszej pozostawia późniejszą
-koordynację numeru i grafu Alembic po stronie integracji gałęzi symboli.
+Operator zatwierdził następnie wdrożenie gałęzi symboli jako pierwszej i uzgodnienie
+naszego numeru. TASK-1145 poniżej realizuje uzgodnione 0178; nie wykonuje osobnego
+wdrożenia ani przedwczesnego łączenia grafu Alembic.
+
+## TASK-1145 — Uzgodniona numeracja niewdrożonej migracji
+
+Operator w czacie `01a19d0a-ab63-7200-a96b-9ac0237d662e` zatwierdził koordynację
+numeru migracji i wspólnego wdrożenia. Odczyt tego czatu potwierdził zgodę.
+Koordynator rezerwuje 0172–0177 dla wcześniejszego łańcucha symboli i polecił
+zmienić naszą niewdrożoną rewizję na wolną 0178. Ograniczony przegląd wszystkich
+lokalnych gałęzi i worktree potwierdził brak migracji 0178.
+
+Zmienić nazwę pliku i identyfikator na `0178_grid_correction_growth`, readiness
+oraz bieżące testy i dokumentację wdrożenia. Nie zmieniać treści upgrade/downgrade,
+SQL capability, polityki, API, panelu ani zapisanych raportów wcześniejszych audytów.
+Rodzic pozostaje 0171 w tej gałęzi; graf połączenia z nowym main 0177 uzgodni
+osobny krok integracji po zakończeniu wdrożenia koordynatora. Nie tworzyć tu
+nieistniejącej zależności do obcej migracji ani merge-head przed aktualizacją main.
+
+Weryfikacja: jedyny lokalny head 0178, odmowa readiness dla poprzedniego numeru,
+testy readiness i guarded migration w disposable DB, scoped lint/typecheck,
+docs/map oraz wąski audyt Opus 5.5/high przed osobnym commitem. Bez migracji
+operatora, merge/push i kontroli usług w tym czacie. Task-close i hash jak poprzednio.
 
 ## Przypisanie modeli do zadań
 
@@ -135,3 +155,4 @@ koordynację numeru i grafu Alembic po stronie integracji gałęzi symboli.
 |---|---|---|---|---|
 | TASK-1139 — Podział i liczniki | gpt-6-astra | high | Zmiana trwałych dowodów, polityki danych i zgodności historycznych ocen | Obowiązkowy Claude Code claude-opus-5-5/high |
 | TASK-1140 — Panel i aktualność | gpt-6.1-sol | high | Istniejący kontrakt, prowadzony interfejs i ochrona odpowiedzi asynchronicznych | Obowiązkowy Claude Code claude-opus-5-5/high |
+| TASK-1145 — Uzgodnienie numeracji migracji | gpt-6-astra | high | Migracja i zgodność readiness wymagają zachowania historii i grafu rewizji | Obowiązkowy Claude Code claude-opus-5-5/high |

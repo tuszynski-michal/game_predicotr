@@ -17,7 +17,7 @@ from game_predictor_api.storage.source_recording_sql_v6 import (
 )
 from sqlalchemy import text
 
-revision = "0172_grid_correction_growth"
+revision = "0178_grid_correction_growth"
 down_revision = "0171_grid_correction_learning"
 branch_labels = depends_on = None
 

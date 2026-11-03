@@ -15,7 +15,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0172_grid_correction_growth"
+EXPECTED_ALEMBIC_HEAD: Final = "0178_grid_correction_growth"
 
 
 class AlembicHeadMismatchError(RuntimeError):

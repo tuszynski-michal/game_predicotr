@@ -1,4 +1,4 @@
-"""0172 is reversible only before any incremental history exists."""
+"""0178 is reversible only before any incremental history exists."""
 
 import os
 from uuid import uuid4
@@ -43,7 +43,7 @@ def test_empty_downgrade_reupgrade_and_each_incremental_history_guard():
             assert "recording_photo_uses" in definition
         command.upgrade(config, "head")
         migration = (
-            ScriptDirectory.from_config(config).get_revision("0172_grid_correction_growth").module
+            ScriptDirectory.from_config(config).get_revision("0178_grid_correction_growth").module
         )
         with db.owner_engine.begin() as c:
             assert recording_permission_errors(c, db.role) == ()
@@ -91,5 +91,5 @@ def test_empty_downgrade_reupgrade_and_each_incremental_history_guard():
                 )
                 assert (
                     c.scalar(text("SELECT version_num FROM public.alembic_version"))
-                    == "0172_grid_correction_growth"
+                    == "0178_grid_correction_growth"
                 )

@@ -51,7 +51,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1139–1140 (2026-11-03):** oba Opus R2 PASS, kod gotowy. Wdrożenie czeka na zgodę i kolejność migracji: numer 0172 także na niescalonej gałęzi 777 A2. Operator nadal 0171. READ ONLY: TRAIN146 (+69), VAL17/REG21; bez treningu. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+- **TASK-1139–1140/1145 (2026-11-03):** trzy audyty Opus PASS. Nasza rewizja 0178 uzgodniona z koordynatorem wdrażającym symbole 0172–0177; aktualizacja grafu po nowym main osobno. READ ONLY: TRAIN146 (+69), VAL17/REG21; bez treningu. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 
@@ -82,6 +82,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 — tasks/completed/1145-grid-growth-migration-number.md
 - **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 / `febbf91e` — tasks/completed/1140-grid-correction-growth-panel.md
 - **TASK-1139** — Przyrostowy podział korekt i liczniki — v1.7.537 / `e33b71ab` — tasks/completed/1139-grid-correction-growth-data.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
@@ -91,4 +92,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
 - **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
-- **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md

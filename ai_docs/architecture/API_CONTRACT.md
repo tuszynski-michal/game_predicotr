@@ -28,15 +28,20 @@ Bufory z etykietami należą także do wykluczeń. Brak poprawnego podziału zac
 
 Nowy workflow jawnie przygotowuje `application-grid-corrections-v2`; kohorta
 akceptuje nadal v1, a snapshot-v2 identyfikuje konkretną politykę. Minima bez
-zmian. Odczyty nie utrwalają rezerwacji. Nowe capability wymaga migracji 0172,
+zmian. Odczyty nie utrwalają rezerwacji. Nowe capability wymaga migracji 0178,
 która pozostaje niewykonana na bazie operatora. Downgrade jest dozwolony wyłącznie
 bez historii zwolnień i bez rezerwacji v2; w innym przypadku odmawia usunięcia historii.
-Niezamrożone drafty v1 sprzed 0172 wymagają nowego preview: zmieniony proof rejestru
+Niezamrożone drafty v1 sprzed tej migracji wymagają nowego preview: zmieniony proof rejestru
 powoduje `GRID_CORRECTION_REGISTRY_CHANGED`. Zamrożone kohorty pozostają weryfikowalne;
 wyjątkiem fail-closed jest ujawniona ochrona holdout/ancestor/use bez określonej roli:
 niepełny dowód ochrony blokuje także nowe potwierdzenie historycznej kohorty v1.
 Nie przepisuje to historii ani nie pozwala zwolnić chronionego komponentu.
 Kontrola roli nieużytej rezerwacji v1 jest pomijana tylko po zapisanym legalnym zwolnieniu.
+
+TASK-1145: niewdrożoną migrację przyrostu korekt przenumerowano z 0172 na 0178
+po uzgodnieniu z koordynatorem wdrożenia symboli. Historyczne raporty TASK-1139
+i TASK-1140 zachowują pierwotny numer 0172. W tej gałęzi rodzicem pozostaje 0171;
+połączenie z łańcuchem symboli 0172–0177 wymaga osobnego kroku integracji.
 
 ## Tworzenie i pierwszy transfer geometrii V3 — TASK-1004
 

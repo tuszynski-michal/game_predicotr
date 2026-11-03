@@ -192,7 +192,14 @@ class GridModelEvaluationService:
 
     # -- per-game reads (one session and transaction per game) -------------------------
 
-    def _cohort(self, game_id: UUID, cohort_id: UUID, manifest: Mapping[str, Any]) -> str:
+    def _cohort(
+        self,
+        game_id: UUID,
+        cohort_id: UUID,
+        manifest: Mapping[str, Any],
+        *,
+        correction: bool = False,
+    ) -> str:
         with game_storage_scope(game_id), self.session_factory() as session, session.begin():
             service = GridTrainingCohortService(
                 SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root),
@@ -201,14 +208,22 @@ class GridModelEvaluationService:
             header = service.get(game_id, cohort_id)
             if header["status"] != "frozen":
                 raise GridCohortError("COHORT_NOT_FROZEN", "Only a frozen cohort is evaluated.")
-            if (
-                str(header["familyId"]) != manifest["familyId"]
-                or str(header["baseVersionId"]) != manifest["baseVersionId"]
+            if str(header["familyId"]) != manifest["familyId"] or (
+                not correction and str(header["baseVersionId"]) != manifest["baseVersionId"]
             ):
                 raise GridCohortError(
                     "GRID_EVALUATION_COHORT_BASE_MISMATCH",
                     "Every cohort must share the candidate's family and base.",
                 )
+            if correction and str(header["baseVersionId"]) != manifest["baseVersionId"]:
+                from .grid_correction_history import require_historical_cohort
+
+                with Session(self.engine) as catalogue:
+                    require_historical_cohort(
+                        SqlAlchemyGridModelRegistryRepository(catalogue),
+                        UUID(manifest["baseVersionId"]),
+                        header,
+                    )
             eligibility = service.eligibility(game_id, cohort_id)
             if eligibility["qualification"] != "eligible":
                 reasons = eligibility["reasons"]
@@ -235,10 +250,26 @@ class GridModelEvaluationService:
             # A replay returns the original job before any current-state check.
             existing = self._by_key(session, key)
             if existing is not None:
-                return self._replay(existing, version_id, requested)
+                return self._replay(
+                    existing, version_id, requested, command.get("exclusions") or []
+                )
             manifest, base_sha256 = self._candidate(session, version_id)
             family = evidence.family_games(session, UUID(manifest["familyId"]))
             trained = self._trained_cohorts(session, manifest)
+            try:
+                run = session.get(JobModel, UUID(str(manifest["provenance"]["runId"])))
+            except (ValueError, KeyError, TypeError):
+                run = None
+            correction = (
+                run is not None and run.input_payload.get("preset_id") == "grid-corrections-v1"
+            )
+            history = None
+            if correction:
+                from .grid_correction_history import verified_history
+
+                history = verified_history(
+                    SqlAlchemyGridModelRegistryRepository(session), UUID(manifest["baseVersionId"])
+                )
         absent = sorted(trained - {(str(game), str(cohort)) for game, cohort in requested})
         if absent:
             error = _error(
@@ -251,6 +282,30 @@ class GridModelEvaluationService:
         if len(training) != 1:
             raise _error(
                 "GRID_EVALUATION_GAME_COHORT_REQUIRED", "The training cohort must be evaluated."
+            )
+        scope = None
+        if correction:
+            from game_predictor_api.domain.grid_correction_evaluation import require_scope
+
+            assert history is not None
+            scope, required = require_scope(
+                {
+                    "currentGameId": str(training[0]),
+                    "trainingGameIds": sorted({str(training[0]), *(game for game, _ in trained)}),
+                    "priorVerifiedGameIds": history["gameIds"],
+                    "priorScopeDocumented": history["documented"],
+                    "exclusions": list(command.get("exclusions") or []),
+                }
+            )
+            family = set(required)
+            if {str(game) for game, _ in requested} - family:
+                raise _error(
+                    "GRID_EVALUATION_SCOPE_INVALID",
+                    "Cohorts must exactly match the declared required scope.",
+                )
+        elif command.get("exclusions"):
+            raise _error(
+                "GRID_EVALUATION_SCOPE_INVALID", "Legacy evaluations cannot narrow their scope."
             )
         missing = sorted(family - {str(game) for game, _ in requested})
         if missing:
@@ -265,7 +320,7 @@ class GridModelEvaluationService:
             raise _error("GRID_EVALUATION_CANDIDATE_UNAVAILABLE", "Candidate parity did not pass.")
         cohorts = []
         for game, cohort in sorted(requested, key=lambda item: str(item[0])):
-            sha = self._cohort(game, cohort, manifest)
+            sha = self._cohort(game, cohort, manifest, correction=correction)
             cohorts.append({"game_id": str(game), "cohort_id": str(cohort), "manifest_sha256": sha})
         payload: dict[str, object] = {
             "schema_version": 1,
@@ -279,6 +334,21 @@ class GridModelEvaluationService:
             "training_game_id": str(training[0]),
             "cohorts": cohorts,
         }
+        if correction:
+            from game_predictor_api.domain.grid_correction_evaluation import (
+                require_checkpoint_selection,
+            )
+            from game_predictor_api.domain.grid_correction_policy import CORRECTION_EVALUATION
+
+            bundle = json.loads(
+                (self.artifact_root / manifest["managedDirectory"] / "bundle.json").read_bytes()
+            )
+            selection = require_checkpoint_selection(
+                bundle.get("provenance", {}).get("checkpointSelection")
+            )
+            payload.update(
+                evaluation_kind=CORRECTION_EVALUATION, scope=scope, checkpoint_selection=selection
+            )
         game = training[0]
         with game_storage_scope(game), self.session_factory() as session, session.begin():
             jobs = SqlAlchemyJobRepository(session)
@@ -290,22 +360,115 @@ class GridModelEvaluationService:
                 )
             existing = self._by_key(session, key)
             if existing is not None:
-                return self._replay(existing, version_id, requested)
+                return self._replay(
+                    existing, version_id, requested, command.get("exclusions") or []
+                )
             job = create_job(JobType.GRID_MODEL_EVALUATION, game_id=game, input_payload=payload)
             same = jobs.get_job_by_input_key(job.input_key)
             return self.view(same if same is not None else jobs.add_job(job))
 
     def _replay(
-        self, job: Job, version_id: UUID, requested: Sequence[tuple[UUID, UUID]]
+        self,
+        job: Job,
+        version_id: UUID,
+        requested: Sequence[tuple[UUID, UUID]],
+        exclusions: Sequence[Mapping[str, Any]] = (),
     ) -> dict[str, Any]:
         payload: dict[str, Any] = dict(job.input_payload)
-        if payload["version_id"] != str(version_id) or {
-            (entry["game_id"], entry["cohort_id"]) for entry in payload["cohorts"]
-        } != {(str(game), str(cohort)) for game, cohort in requested}:
+        if (
+            payload["version_id"] != str(version_id)
+            or {(entry["game_id"], entry["cohort_id"]) for entry in payload["cohorts"]}
+            != {(str(game), str(cohort)) for game, cohort in requested}
+            or payload.get("scope", {}).get("exclusions", []) != list(exclusions)
+        ):
             raise _error(
                 "GRID_EVALUATION_IDEMPOTENCY_CONFLICT", "The key was used for another scope."
             )
         return self.view(job)
+
+    def create_assigned_comparison(self, command: Mapping[str, Any]) -> dict[str, Any]:
+        """Separate apply evidence pins the actual assignment without rewriting ancestry."""
+        key, version, game, cohort = (
+            UUID(str(command[name]))
+            for name in ("idempotencyKey", "versionId", "gameId", "cohortId")
+        )
+        with Session(self.engine) as session:
+            existing = self._by_key(session, key)
+            if existing is not None:
+                if existing.input_payload.get("comparison_command") != dict(command):
+                    raise _error(
+                        "GRID_EVALUATION_IDEMPOTENCY_CONFLICT",
+                        "The key was used for another comparison.",
+                    )
+                return self.view(existing)
+            registry = SqlAlchemyGridModelRegistryRepository(session)
+            manifest, training_base_sha = self._candidate(session, version)
+            assignment, revision = registry.assignment(game)
+            if assignment is None:
+                raise _error(
+                    "GRID_ASSIGNED_BASELINE_REQUIRED", "The game has no actual assigned model."
+                )
+            baseline = registry.version(assignment.version_id)
+            if (
+                baseline is None
+                or not self._registry(session).view(baseline, include_eligibility=False)[
+                    "available"
+                ]
+            ):
+                raise _error(
+                    "GRID_ASSIGNED_BASELINE_UNAVAILABLE",
+                    "The actual assigned model is unavailable.",
+                )
+            baseline_id, baseline_sha = str(baseline.id), baseline.manifest_sha256
+        sha = self._cohort(game, cohort, manifest, correction=True)
+        if not candidate_parity(self.artifact_root, manifest)["passed"]:
+            raise _error("GRID_EVALUATION_CANDIDATE_UNAVAILABLE", "Candidate parity did not pass.")
+        payload: dict[str, Any] = {
+            "schema_version": 1,
+            "evaluation_kind": "grid-assigned-comparison-v1",
+            "idempotency_key": str(key),
+            "version_id": str(version),
+            "manifest_sha256": descriptor_sha256(manifest),
+            "base_version_id": manifest["baseVersionId"],
+            "base_manifest_sha256": training_base_sha,
+            "baseline_version_id": baseline_id,
+            "baseline_manifest_sha256": baseline_sha,
+            "assignment_revision": revision,
+            "comparison_command": dict(command),
+            "family_id": manifest["familyId"],
+            "training_game_id": str(game),
+            "cohorts": [{"game_id": str(game), "cohort_id": str(cohort), "manifest_sha256": sha}],
+        }
+        with game_storage_scope(game), self.session_factory() as session, session.begin():
+            session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:name,0))"),
+                {"name": f"grid-model-evaluation:{key}"},
+            )
+            existing = self._by_key(session, key)
+            if existing is not None:
+                if existing.input_payload.get("comparison_command") != dict(command):
+                    raise _error(
+                        "GRID_EVALUATION_IDEMPOTENCY_CONFLICT",
+                        "The key was used for another comparison.",
+                    )
+                return self.view(existing)
+            registry = SqlAlchemyGridModelRegistryRepository(session)
+            registry.lock()
+            assignment, actual_revision = registry.assignment(game)
+            if (
+                assignment is None
+                or actual_revision != revision
+                or str(assignment.version_id) != baseline_id
+            ):
+                raise _error(
+                    "GRID_ASSIGNED_BASELINE_CHANGED",
+                    "The assignment changed before comparison was queued.",
+                )
+            return self.view(
+                SqlAlchemyJobRepository(session).add_job(
+                    create_job(JobType.GRID_MODEL_EVALUATION, game_id=game, input_payload=payload)
+                )
+            )
 
     @staticmethod
     def _trained_cohorts(session: Session, manifest: Mapping[str, Any]) -> set[tuple[str, str]]:
@@ -365,12 +528,14 @@ class GridModelEvaluationService:
             row = evidence.report(session, report_id_for(job.id))
             if row is None:
                 return view
-            report = self._report(session, row)
+            report = self._report(session, row, job=job)
             view["report"] = report
-            view["currentness"] = evidence.cohort_currentness(session, row.id, report["cohorts"])
+            view["currentness"] = evidence.cohort_currentness(
+                session, row.id, report_cohorts(report)
+            )
             return view
 
-    def _report(self, session: Session, row: Any) -> dict[str, Any]:
+    def _report(self, session: Session, row: Any, *, job: Job | None = None) -> dict[str, Any]:
         registry = SqlAlchemyGridModelRegistryRepository(session)
         record = registry.version(row.version_id)
         if record is None:
@@ -380,9 +545,49 @@ class GridModelEvaluationService:
         if base is None or row.producer != PRODUCER:
             raise _error("GRID_MODEL_REGISTRY_CORRUPT", "Evaluated base or producer differs.")
         try:
-            return require_report(
-                row.report_json, manifest=manifest, base_sha256=base.manifest_sha256
-            )
+            if (
+                json.loads(row.report_json).get("schemaVersion")
+                == "grid-model-assigned-comparison-v1"
+            ):
+                from game_predictor_api.domain.grid_assigned_comparison import (
+                    require_report as assigned_report,
+                )
+
+                if job is None:
+                    job = next(
+                        (
+                            item
+                            for item in self._jobs(session, row.version_id)
+                            if report_id_for(item.id) == row.id
+                        ),
+                        None,
+                    )
+                if (
+                    job is None
+                    or job.input_payload.get("evaluation_kind") != "grid-assigned-comparison-v1"
+                ):
+                    raise GridEvaluationReportError("The comparison job is unavailable.")
+                pin: Any = job.input_payload
+                baseline = registry.version(UUID(pin["baseline_version_id"]))
+                if baseline is None or baseline.manifest_sha256 != pin["baseline_manifest_sha256"]:
+                    raise GridEvaluationReportError("The pinned assigned baseline differs.")
+                return assigned_report(
+                    row.report_json,
+                    manifest=manifest,
+                    baseline_sha256=baseline.manifest_sha256,
+                    expected_baseline_version_id=pin["baseline_version_id"],
+                    expected_game_id=pin["training_game_id"],
+                    expected_assignment_revision=pin["assignment_revision"],
+                    expected_cohort=cohort_pins(pin)[0],
+                )
+            reader = require_report
+            if json.loads(row.report_json).get("schemaVersion") == "grid-model-evaluation-read-v3":
+                from game_predictor_api.domain.grid_correction_evaluation import (
+                    require_report as correction_report,
+                )
+
+                reader = correction_report
+            return reader(row.report_json, manifest=manifest, base_sha256=base.manifest_sha256)
         except GridEvaluationReportError as error:
             raise _error("GRID_MODEL_REGISTRY_CORRUPT", str(error)) from error
 
@@ -396,7 +601,7 @@ class GridModelEvaluationService:
                 raise _error("GRID_EVALUATION_NOT_FOUND", "Report does not exist.", 404)
             report = self._report(session, row)
         failures: list[dict[str, str]] = []
-        for entry in report["cohorts"]:
+        for entry in report_cohorts(report):
             try:
                 self.prove(
                     self.session_factory,
@@ -412,7 +617,7 @@ class GridModelEvaluationService:
                     raise
                 failures.append({"gameId": entry["gameId"], "code": error.code})
         with Session(self.engine) as session:
-            states = evidence.cohort_currentness(session, report_id, report["cohorts"])
+            states = evidence.cohort_currentness(session, report_id, report_cohorts(report))
         return {"reportId": str(report_id), "currentness": states, "failures": failures}
 
     @staticmethod
@@ -440,6 +645,8 @@ class GridModelEvaluationService:
             "updatedAt": job.updated_at.isoformat(),
             "report": None,
             "currentness": [],
+            "assignedBaselineVersionId": payload.get("baseline_version_id"),
+            "assignmentRevision": payload.get("assignment_revision"),
         }
 
 
@@ -452,3 +659,11 @@ def cohort_pins(payload: Mapping[str, Any]) -> Sequence[Mapping[str, str]]:
         }
         for entry in payload["cohorts"]
     ]
+
+
+def report_cohorts(report: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return (
+        [dict(report["cohort"])]
+        if report.get("schemaVersion") == "grid-model-assigned-comparison-v1"
+        else list(report["cohorts"])
+    )

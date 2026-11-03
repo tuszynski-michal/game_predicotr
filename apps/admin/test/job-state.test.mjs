@@ -26,6 +26,27 @@ import {
   replaceJob,
 } from '../src/features/jobs/job-state.ts';
 
+test('apply and learning parents remain distinct in the shared job list', () => {
+  assert.equal(
+    jobWorkflowLabel(
+      job({
+        jobType: 'grid_correction_learning',
+        inputPayload: { learningKind: 'grid-correction-apply-v1' },
+      }),
+    ),
+    'Zastosowanie modelu siatek',
+  );
+  assert.equal(
+    jobWorkflowLabel(
+      job({
+        jobType: 'grid_correction_learning',
+        inputPayload: { learningKind: 'grid-correction-learning-v1' },
+      }),
+    ),
+    'Uczenie modelu siatek z korekt',
+  );
+});
+
 function job(overrides = {}) {
   return {
     attemptCount: 1,

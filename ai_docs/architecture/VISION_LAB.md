@@ -1,10 +1,134 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-11-02
 ---
 
 # Architektura laboratorium wizji
+
+## Explicit correction apply (TASK-1122)
+
+The game/learning-scoped `/grid-correction-learning/{learning_id}/apply` API exposes
+GET preview/list/status and explicit POST start/resume. Closed request models,
+OpenAPI, the generated TypeScript client and request tests share one contract.
+`application/grid_correction_apply.py` reuses the registry publication/assignment
+services and the existing jobs table with `learning_kind=grid-correction-apply-v1`.
+Payload validation and the worker dispatcher separate apply from the unchanged
+learning parent. Learning lists and identity lookups filter the discriminator.
+
+The immutable preview pins the candidate descriptor, main report and scope, default
+revision/version and every selected assignment. Start requires its digest and the
+human photo-only acknowledgement. Independent actual-assigned comparisons run
+before publication when a selected game's assignment differs from the learning
+base. Their trusted report, descriptor, assignment revision and cohort currentness
+are verified separately; they never replace the main publication report.
+
+Each comparison/publication/default/assignment step has a deterministic command
+identity and an independent transaction. Durable checkpoints and registry receipts
+recover the commit/checkpoint gap after restart or response loss. Waiting releases
+the general lane. A failed later step preserves earlier receipts and can be resumed;
+there is no compensating automatic rollback. Registry locks protect default and
+assignment CAS. A changed default revision of the same base permits a fresh preview;
+a different base blocks the old candidate until new applicable evidence exists.
+Read endpoints never advance jobs. Existing history/rollback routes remain the
+authority, and neither apply nor rollback recrops existing imports.
+
+R1: publication adoption checks the exact canonical evidence and its checksum,
+report identity and descriptor pins under the registry lock. An identical
+already-published candidate completes the step with a deterministic receipt in
+the parent checkpoint; it creates no publication event. GET can recover that
+receipt from the immutable publication row after a checkpoint gap. Different
+evidence fails both preview and advance. An active apply of the same learning
+blocks a second start under the registry lock; failed operations retain their
+history without blocking a fresh CAS-pinned preview. Resume of created,
+processing or completed operations returns the existing view without requeue.
+
+TASK-1123 also checks the active-operation guard when resuming a failed/cancelled
+apply, under the same registry lock. GET adoption requires all preceding comparison
+steps to be completed. A conflicting external publication remains a command blocker,
+but leaves the historical publish step pending instead of failing the whole read.
+Corrupt own receipts and other unexpected failures still fail closed.
+
+## Photo-only correction split (D-577, TASK-1120)
+
+`domain/grid_correction_split.py` implements bounded exact one-to-three-block
+partitioning over complete imports, with alias/session components, verified
+attestations, explicit fallback and stable ties. It deduplicates photo counts and
+chooses the representative with most current labels. Limits are 5000 sources,
+three million work units and 100000 candidate/state records; exceeding any limit
+fails without shrinking the population or returning an unproven optimum.
+
+`storage/grid_correction_split.py` reads own-game metadata, obtains exact labels
+from `GridCohortEvidenceReader`, and asks the existing recording capability for
+known protections. The opt-in policy extends existing prepare/capture/materialize/
+freeze/currentness commands. Immutable cohort documents and snapshots pin the full
+population, methods, ranges and buffers. No separate training dataset is invented.
+Metadata preparation does not copy images or permanently consume roles.
+
+Alembic0170 adds private append-only `recording_photo_uses`, including BUFFER rows,
+owned by the existing nonlogin capability. Runtime receives only a bounded own-game
+context reader; final use dispatches through the existing v3 cohort command.
+Every assigned source is reserved; `used_in_cohort` distinguishes examples from
+metadata-only reservations, which copy no image bytes. All roles are checked before any insert; failure rolls back roles and buffers
+together. The v3 wrapper checks only new photo reservations; legacy recording semantics
+remain in the family-aware v3 implementation.
+Currentness checks the complete selected population and known byte/pixel/session
+protections. Unknown historical providers remain visible as photo-only limitations.
+No new schema partition or image binary storage is introduced. Training and report
+adapters are delivered separately by TASK-1121; old snapshot consumers stay strict.
+
+## Correction learning pipeline (D-578, TASK-1121)
+
+`application/grid_correction_learning.py` composes the existing cohort, shared run
+and evaluation services. The public game-scoped `/grid-correction-learning` API
+offers ready, preview, start, list/status, cancel, resume and evaluation reads.
+Alembic0171 adds the parent job type and an internal scoped-report binding capability.
+The worker executes one durable parent step per claim, saves its checkpoint and
+releases the general slot while a child runs. Claim skips parents with a pending
+child; child creation remains possible while the parent holds that slot. A separate
+advisory step lock serializes cancel/resume/create without locking the heartbeat row.
+Deterministic child/cohort command keys adopt existing results after response loss.
+Freeze expands and deduplicates the used members' board/review/cell identifiers
+before joining their game-scoped tables (TASK-1135). It locks the same targets
+in ascending identifier order with `FOR UPDATE OF r`; it does not compare every
+game cell with every member array. Existing deadlines and other input locks remain.
+Step-lock contention maps to `GRID_LEARNING_BUSY` (409). Resume rejects an active
+child still acknowledging cancellation; after acknowledgement it reuses that child.
+HTTP exclusions are canonicalized before preview hashing and idempotency commands.
+
+The split adapter preserves measured solver counts in a typed cohort error;
+parent preview converts these to `dataAvailability` without parsing messages or
+reading sources twice. Successful previews count the existing deduplicated source
+representatives, including annotated buffer photos. The pure domain function derives
+aggregate minima/deficit lower bounds from the solver's own role minima. This adds
+no second evidence source and changes no persisted split document or its SHA.
+
+`application/grid_correction_history.py` composes earlier published cohorts from
+verified report IDs, descriptor hashes, ancestry and currentness proofs. Original
+cohort base descriptors and snapshot hashes remain unchanged. The new shared-plan
+version permits these verified historical bases; legacy plans still require one base.
+Each required earlier game contributes its frozen TRAIN and controls. Unknown
+sessions are photo sampling units, never newly invented recording rows or proof of
+independence. Existing protections and cross-game byte/pixel/group alias checks apply.
+
+Snapshot v2 is paired exactly with the corrections policy. The versioned preset
+selects checkpoint metrics in `training_core/grid_correction_metrics.py` and exports
+selection evidence in the checksummed training bundle. Report v3/gate v2 live in
+`domain/grid_correction_evaluation.py`; publication dispatches by strict version and
+retains all currentness gates, while scoped reports do not require unrelated family games.
+The existing publication service checks scoped `set_default` against the current
+default's version under its registry lock. Own receipt replay precedes this guard;
+the candidate's unchanged publication evidence remains reusable for other controls.
+The registry binds report SHA and cohort proof SHA atomically through the existing
+cohort-command wrapper. Its internal definer has only required catalogue-column reads;
+runtime roles receive no direct execution grant on the new binder.
+
+`POST /grid-model-evaluations/assigned-comparison` resolves the actual assignment
+server-side and starts the existing evaluation worker with separately pinned baseline
+fields. `grid-model-assigned-comparison-v1` is a distinct report type, never eligible
+as the main publication report. The shared evaluator performs real baseline inference
+on the same cohort; TASK-1122 owns apply receipts and final assignment/currentness CAS.
+Legacy snapshots, checkpoint rules, reports and publication gates remain available.
 
 ## Larger local symbol experiment (D-506)
 
@@ -774,9 +898,18 @@ supervisor `images/grid_training_handler.py` runs in the main environment: it re
 job lease, re-checks the frozen cohort and its D-556 eligibility, the base version's
 `training-base`, the preset and the runtime facts from `grid_training_child --probe`, and
 calls `evaluate_admission`. It then starts `images/grid_training_child.py` with the CUDA
-interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. The child opens no database; it
+interpreter from `GAME_PREDICTOR_GRID_TRAINING_PYTHON`. When unset, the shared CLI
+factory locates the checkout's existing `.venv-vision-lab` interpreter (TASK-1134),
+so correction preflight in the general lane uses the same CUDA runtime as training.
+In this CLI factory an explicit path always wins, including when invalid; missing configuration never
+falls back to the supervisor's CPU Python. The child opens no database; it
 reads the pinned `spec.json`, holds the D-557 GPU lease and stops on a cancel intent, its
 time limit or 60 seconds without a supervisor heartbeat.
+
+The legacy PowerShell lane launcher still has its own candidate search: it passes
+its resolved override only to grid-training, not general. Custom `-GridTrainingPython`
+or User-only/invalid environment overrides are not unified by TASK-1134. The operator's
+default checkout environment is covered; unsupported custom combinations fail closed.
 
 The neutral core holds the shared logic: `training_core/neural_grid_network.py` (network,
 graphs, losses), `training_core/neural_grid_augmentation.py` (jitter, photometric

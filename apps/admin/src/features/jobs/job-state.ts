@@ -34,6 +34,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   super_game_series_derive: 'Wyprowadzanie serii supergry',
   grid_training: 'Trening geometrii V3',
   grid_model_evaluation: 'Ocena modelu geometrii V3',
+  grid_correction_learning: 'Uczenie modelu siatek z korekt',
   source_crop: 'Przycinanie oryginalnych zdjęć',
   source_original_deletion: 'Usuwanie oryginałów przyciętych zdjęć',
 };
@@ -69,6 +70,13 @@ export function jobTypeLabel(jobType: JobType): string {
 }
 
 export function jobWorkflowLabel(job: JobResponse): string {
+  if (
+    job.jobType === 'grid_correction_learning' &&
+    'learningKind' in job.inputPayload &&
+    job.inputPayload.learningKind === 'grid-correction-apply-v1'
+  ) {
+    return 'Zastosowanie modelu siatek';
+  }
   if (job.workflowMode === 'filename_verification') {
     return 'Weryfikacja zakresów plików';
   }

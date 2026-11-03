@@ -9,6 +9,57 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  GRID_APPLY_ALREADY_DEFAULT:
+    'Kandydat jest już wersją domyślną. Sprawdź historię i wznów zapisany przebieg, jeśli wymaga dokończenia.',
+  GRID_APPLY_PUBLICATION_EVIDENCE_CONFLICT:
+    'Kandydat ma publikację z innym dowodem. Zastosowanie z tego raportu jest zablokowane.',
+  GRID_APPLY_BUSY:
+    'Trwa już zastosowanie tego kandydata. Sprawdź postęp w historii.',
+  GRID_MODEL_EVALUATION_SCOPE_STALE:
+    'Wersja domyślna zmieniła się. Zakres starej oceny nie potwierdza nowej bazy — przygotuj nowy przebieg.',
+  GRID_LEARNING_BUSY:
+    'Trwa zapis kroku uczenia. Odczekaj chwilę i ponów polecenie.',
+  GRID_LEARNING_CANCELLATION_PENDING:
+    'Anulowanie trwa. Poczekaj na zatrzymanie treningu lub oceny, zanim wznowisz uczenie.',
+  GPU_AVAILABLE: 'dostępność karty graficznej',
+  RUNTIME_COMPATIBLE: 'zgodność środowiska treningu',
+  VRAM_SUFFICIENT: 'dostępną pamięć karty graficznej',
+  GPU_LEASE_FREE: 'dostępny slot karty graficznej',
+  BUDGET_AVAILABLE: 'dostępny budżet przebiegu',
+  'Session independence is not proven by photo-only evidence.':
+    'Podział po zdjęciach nie potwierdza niezależności sesji.',
+  'Unknown ancestor training use cannot be excluded.':
+    'Nie można wykluczyć nieznanego użycia tych danych w uczeniu wcześniejszych modeli.',
+  'Partial photos measure labelled targets only; unlabelled detections are not assessed.':
+    'Częściowe zdjęcia oceniają tylko oznaczone plansze, bez oceny nieoznaczonych detekcji.',
+  'Improvement thresholds are product gates, not statistical significance.':
+    'Progi poprawy są warunkiem produktu; nie dowodzą istotności statystycznej.',
+  GRID_APPLY_DEFAULT_CHANGED:
+    'Wersja domyślna zmieniła się. Odśwież podgląd. Inna baza wymaga nowego przebiegu uczenia.',
+  GRID_APPLY_PREVIEW_CHANGED:
+    'Dane lub przypisania zmieniły się. Odśwież podgląd i ponownie potwierdź zakres.',
+  GRID_APPLY_LIMITED_EVIDENCE_REQUIRED:
+    'Potwierdź ograniczenie dowodu opartego na zdjęciach.',
+  GRID_APPLY_LIMITATIONS_CONFIRMATION_REQUIRED:
+    'Potwierdź ograniczenie dowodu opartego na zdjęciach.',
+  GRID_APPLY_LEARNING_INCOMPLETE: 'Najpierw ukończ uczenie i ocenę kandydata.',
+  GRID_APPLY_EVIDENCE_REQUIRED: 'Brak aktualnej zaliczonej oceny kandydata.',
+  GRID_APPLY_SCOPE_INVALID: 'Zakres zastosowania jest nieprawidłowy.',
+  GRID_APPLY_SCOPE_NOT_EVALUATED:
+    'Wybrana gra nie ma zaliczonej oceny tego kandydata.',
+  GRID_APPLY_IDEMPOTENCY_CONFLICT:
+    'Klucz polecenia wskazuje inne zastosowanie.',
+  GRID_APPLY_NOT_FOUND: 'Nie znaleziono przebiegu zastosowania.',
+  GRID_APPLY_NOT_RESUMABLE: 'Ten przebieg nie może być teraz wznowiony.',
+  GRID_APPLY_ASSIGNMENT_CHANGED:
+    'Przypisana wersja gry zmieniła się. Odśwież podgląd.',
+  GRID_APPLY_ASSIGNED_EVIDENCE_REQUIRED:
+    'Brak aktualnego porównania z przypisaną wersją gry.',
+  GRID_APPLY_ASSIGNED_NONREGRESSION_REQUIRED:
+    'Kandydat nie zaliczył kontroli względem przypisanej wersji gry.',
+  GRID_APPLY_COMPARISON_BLOCKED: 'Porównanie z przypisaną wersją wymaga uwagi.',
+  GRID_APPLY_EVIDENCE_CHANGED:
+    'Dowody oceny zmieniły się. Odśwież podgląd zastosowania.',
   GRID_MODEL_ELIGIBLE: 'Wersja może być użyta',
   GRID_MODEL_ARTIFACT_AVAILABLE: 'Pliki modelu są dostępne',
   GRID_MODEL_NOT_PUBLISHED: 'Wersja nie jest opublikowana',

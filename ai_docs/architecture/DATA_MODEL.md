@@ -3249,3 +3249,19 @@ guard sprawdza aktualną rewizję planszy i source_geometry_revision_id. Własny
 mark_unreadable może zwiększyć rewizję review bez unieważnienia oceny jakości.
 Readable nie zmienia zatwierdzeń ani quality_issue. Downgrade odmawia przy
 historii runów/jobów; nie usuwa etykiet operatora.
+
+## Manifest wymiany źródeł i ledger ocen — TASK-1127
+
+Migracja 0173 łączy głowy 0171/0172 bez przepisywania audytowanej historii. 0174 dodaje manifest magazynu v21 po v20 oraz siedem partycjonowanych tabel z FORCE RLS i polityką game scope:
+
+- `source_replacement_batches`: trwały dokument, token, status i rewizja.
+- `source_replacement_entries`: dokładny zakres jednego zdjęcia z reprezentantem, snapshotem i fazą; błąd ma osobne pole, nie zastępuje fazy.
+- `source_replacement_sources`: znormalizowane wszystkie aliasy entry, FK RESTRICT do źródła i entry.
+- `source_replacement_slots`: przyszła aktywna rezerwacja game/seq, spójny FK batch/entry oraz nullable FK nowego źródła i review.
+- `source_replacement_retired`: przyszły trwały marker każdego aliasu, FK RESTRICT, bez UPDATE/DELETE.
+- `source_replacement_commands`: append-only checksum komendy i trwała odpowiedź do replay.
+- `symbol_readability_decisions`: append-only ordinal per game/cell pod wspólną EXCLUSIVE ownership lock; unique game/command/cell. Zapis jest atomowy z oceną A2 i receiptem. Snapshot trzyma historyczną tożsamość; celowo nie ma FK do efemerycznej projekcji cell.
+
+B1 zapisuje wyłącznie planned i referencje aliasów; slots/retired pozostają puste. FK zabezpieczają referencje w bazie. Nie zastępują strażników B2a przed usuwaniem plików lub innymi skutkami ubocznymi. Downgrade odmawia przy danych dowodowych. Historyczne kohorty, modele i geometrie pozostają.
+
+Poprawka P1 audytu TASK-1127: każdy wpis ledgeru przed nadpisaniem A2 zachowuje w immutable snapshot poprzednią rozstrzygającą ocenę legacy (run/cell/identity/revision/state). Ten dowód nie otrzymuje nowego ordinalu ludzkiej decyzji. Gdy brak nowej jawnej decisive oceny dla pikseli, kwalifikacja liczy zgodność wszystkich zachowanych i nadal bieżących dowodów legacy; pending/skipped nie usuwają konfliktu. Nowa jawna readable/unreadable rozstrzyga; zmieniona tożsamość wyklucza stare dowody.

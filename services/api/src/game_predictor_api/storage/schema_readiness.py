@@ -1,7 +1,8 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
-The ownership manifest remains ``game-data-v2-manifest-v19`` since 0168;
-0169 widens only the bounded search request log. API, worker and maintenance
+The ownership manifest is ``game-data-v2-manifest-v21``.
+0173 merges corrections/readability heads; 0174 adds replacement planning and chronology.
+API, worker and maintenance
 scripts still require the exact supported Alembic head before starting.
 One ``SELECT``.
 """
@@ -14,7 +15,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0169_board_search_sequence_logs"
+EXPECTED_ALEMBIC_HEAD: Final = "0174_source_replacement"
 
 
 class AlembicHeadMismatchError(RuntimeError):

@@ -60,15 +60,15 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Katalogi
 
-- `services/api/src/game_predictor_api/api/` (56 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (106 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (88 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
-- `services/api/src/game_predictor_api/schemas/` (59 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (173 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/api/` (58 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
+- `services/api/src/game_predictor_api/application/` (109 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/domain/` (93 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/schemas/` (62 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
+- `services/api/src/game_predictor_api/storage/` (181 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (176 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (180 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (422 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (117 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (438 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (122 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (140 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (143 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (19 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -109,7 +109,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 - `services/worker/src/game_predictor_worker/domain/` (10 py) - kontrakty, sygnatury, wypłaty (czysta domena); Framework-independent Game Predictor domain contracts.
 - `services/worker/src/game_predictor_worker/semi_automatic_selection/` (46 py) - półautomatyczna selekcja obrazów; Pure contracts for the independent semi-automatic image selection workflow.
 - `services/worker/src/game_predictor_worker/geometry_core/` (9 py) - wspólny rdzeń geometrii; Neutral V3 geometry inference: no storage, training or laboratory dependencies.
-- `services/worker/src/game_predictor_worker/training_core/` (10 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
+- `services/worker/src/game_predictor_worker/training_core/` (11 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
 - `services/worker/src/game_predictor_worker/vision_lab/` (76 py) - laboratorium wizji (izolowane); Standalone, file-backed vision laboratory; no production entry-point imports.
 - `services/worker/src/game_predictor_worker/releases/` (6 py) - wydania modeli/aplikacji; Resumable mobile release workflow and controlled Android publication.
 - `services/worker/src/game_predictor_worker/benchmarks/` (4 py) - benchmarki (nie uruchamiać bez polecenia); Deterministic datasets and verification helpers for performance benchmarks.
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (273 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (278 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -142,10 +142,10 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (204 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (208 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
-  - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
+  - `cleanup/` (5 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel (+2)
   - `datasets/` (6 plików): DatasetsClient, GenerateMockDatasetResult, generateMockDataset, GetDatasetValidationReportResult, getDatasetValidationReport, ListDatasetLayoutsResult, listDatasetLayouts, DatasetTransitionResult (+13)
   - `games/` (7 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+37)
   - `grid-shadow/` (2 plików): GridShadowPanelClient, GridShadowPanel, gridShadowErrorMessage, gridShadowSourceChoices, gridShadowUnknownVisibilityCount, gridShadowMeshLines, gridShadowReviewerUrl, gridShadowRequestId (+2)
@@ -154,7 +154,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
-  - `model-quality/` (28 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+123)
+  - `model-quality/` (31 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+135)
   - `readability/` (3 plików): READABILITY_MAX_SELECTION, READABILITY_LABEL_BATCH_SIZE, ReadabilityLabelQueue, loadReadabilityLabelQueue, createReadabilityLabelQueue, readabilityQueueProgress, drainReadabilityLabelQueue, discardReadabilityLabelQueue (+9)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)
@@ -181,8 +181,8 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (125 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (38 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (126 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (40 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -245,7 +245,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (12 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (32 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (35 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (20 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

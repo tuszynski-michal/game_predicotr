@@ -170,3 +170,10 @@ def test_http_route_is_a_get_that_validates_the_closed_response(tmp_path):
     ]
     assert set(operation) == {"get"}
     assert operation["get"]["operationId"] == "previewGridTrainingRun"
+
+
+def test_new_correction_policy_is_blocked_until_its_training_consumer_exists(tmp_path):
+    game, cohort = uuid4(), uuid4()
+    head = {**header(game, cohort), "policyVersion": "application-grid-corrections-v1"}
+    value, _ = service(tmp_path, head)
+    assert value.run_preview(game, cohort)["apiBlockers"] == ["GRID_RUN_POLICY_UNSUPPORTED"]

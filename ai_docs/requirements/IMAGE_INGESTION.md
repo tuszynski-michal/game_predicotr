@@ -2147,3 +2147,9 @@ najpierw waliduje i renderuje wszystkie siatki 3×5, a następnie w jednej
 transakcji zapisuje wspólną rewizję źródła, aktualizuje istniejące plansze i
 materializuje brakujące plansze oraz ich wirtualne komórki. Awaria dowolnego
 renderu lub zapisu pozostawia deferred bez częściowych cropów.
+
+## Planowanie wymiany całych zdjęć — TASK-1127 / D-579
+
+Operator wybiera konkretne źródła. Podgląd obejmuje wszystkie historyczne plansze i rzeczywiste numery poświadczonego zakresu, również zakres graniczny krótszy niż dziewięć. Reimporty tej samej fotografii są grupowane wyłącznie przy zgodnej grze, SHA i poświadczonym zakresie. Sprzeczne zakresy, brak poświadczenia, obcy canonical albo obcy live pending (także odroczona geometria) blokują całe zdjęcie. Nie następuje automatyczne przejęcie canonical.
+
+Manifest `planned` powstaje przed przyszłym wycofaniem. Przypina źródła i aliasy, SHA, wszystkie plansze/numery, rewizje, aktualne piksele i dowody ocen, canonical, pending oraz zależności. Zapis wymaga aktualnego tokenu podglądu i jest idempotentny. JSON/CSV można pobrać ponownie po restarcie. Zapis planu nie wycofuje danych, nie usuwa plików, nie tworzy aktywnych rezerwacji i nie blokuje zwykłego importu. Eksport planned nie uprawnia do uzupełniania luk. Retirement wymaga gotowych strażników B2a, wykonania B2b i nowego podglądu.

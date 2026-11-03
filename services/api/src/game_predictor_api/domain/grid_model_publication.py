@@ -31,6 +31,7 @@ class GridEvaluationEvidence:
     games: frozenset[UUID]
     # v2 only: the (gameId, cohortId, manifestSha256) entries whose proofs must be current.
     cohorts: tuple[dict[str, str], ...] = ()
+    scoped: bool = False
 
 
 def require_evaluation_evidence(
@@ -53,7 +54,10 @@ def require_evaluation_evidence(
         if len(report_json) > 1024 * 1024:
             raise ValueError("Evaluation read model is too large.")
         report = json.loads(report_json)
-        if isinstance(report, dict) and report.get("schemaVersion") == EVALUATION_SCHEMA_V2:
+        if isinstance(report, dict) and report.get("schemaVersion") in {
+            EVALUATION_SCHEMA_V2,
+            "grid-model-evaluation-read-v3",
+        }:
             return _require_v2(
                 report_id=report_id,
                 report_json=report_json,
@@ -148,7 +152,13 @@ def _require_v2(
     ):
         raise ValueError("Evidence identity or currentness differs.")
     try:
-        report = require_report(report_json, manifest=manifest, base_sha256=base_sha256)
+        reader = require_report
+        scoped = json.loads(report_json).get("schemaVersion") == "grid-model-evaluation-read-v3"
+        if scoped:
+            from .grid_correction_evaluation import require_report as correction_report
+
+            reader = correction_report
+        report = reader(report_json, manifest=manifest, base_sha256=base_sha256)
     except GridEvaluationReportError as error:
         raise ValueError(str(error)) from error
     if report["verdict"] != "PASS":
@@ -161,4 +171,5 @@ def _require_v2(
         report_sha256,
         identifiers,
         tuple(dict(entry) for entry in report["cohorts"]),
+        scoped,
     )

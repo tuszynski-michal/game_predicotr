@@ -67,6 +67,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 ### Dostarczanie
 
 - [Nieczytelne i nałożone symbole 777 A2](delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md) — accepted, TASK-1124–1132; narzędzia przed pilotem i wymianą danych.
+- [Ulepszanie wspólnego modelu siatek z korekt](delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md) — accepted, 2026-11-02; TASK-1120–1123, preflight przed implementacją, obowiązkowe audyty Opus 5.5/high.
 
 - [Usunięcie wyszukiwania wielu układów](delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md)
   — accepted, 2026-10-30; TASK-1114 wykonany, bez integracji i wdrożenia. Jeden wzór, zachowana nawigacja ±15 i dane.

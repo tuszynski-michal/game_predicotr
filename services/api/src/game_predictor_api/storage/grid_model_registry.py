@@ -561,7 +561,7 @@ class SqlAlchemyGridModelRegistryRepository:
                 evaluation = {
                     "evaluationId": str(report.id),
                     "evaluationSha256": report.report_sha256,
-                    "cohortSha256": body["cohortSha256"],
+                    "cohortSha256": body.get("cohortSha256") or descriptor_sha256(body["cohorts"]),
                 }
             ancestors.append(
                 {

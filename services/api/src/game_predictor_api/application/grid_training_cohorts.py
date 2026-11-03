@@ -137,7 +137,9 @@ class GridTrainingCohortService:
             blockers.append("GRID_RUN_COHORT_NOT_FROZEN")
         if eligibility["qualification"] != "eligible":
             blockers.append("GRID_RUN_COHORT_NOT_QUALIFIED")
-        preset = preset_for_mode(header["mode"])
+        preset = preset_for_mode(
+            header["mode"], policy=header.get("policyVersion", "application-grid-cohort-v1")
+        )
         cost = None
         if preset is None:
             blockers.append("GRID_RUN_PRESET_NOT_APPROVED")

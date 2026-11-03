@@ -27,6 +27,7 @@ import {
   readBoardSearchReplayParameter,
 } from '@/features/board-search/board-search-replay-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
+import { SourceReplacementPanel } from '@/features/cleanup/source-replacement-panel';
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { ManagementWorkspace } from '@/features/management/management-workspace';
@@ -520,13 +521,20 @@ export function CatalogWorkspace({
                           />
                         ) : null}
                         {expanded && section.id === 'board-source-cleanup' ? (
-                          <BoardSourceCleanupControl
-                            apiBaseUrl={apiBaseUrl}
-                            gameId={activeGame.id}
-                            onCompleted={() => {
-                              setGamesRevision((revision) => revision + 1);
-                            }}
-                          />
+                          <>
+                            <SourceReplacementPanel
+                              key={activeGame.id}
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={activeGame.id}
+                            />
+                            <BoardSourceCleanupControl
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={activeGame.id}
+                              onCompleted={() => {
+                                setGamesRevision((revision) => revision + 1);
+                              }}
+                            />
+                          </>
                         ) : null}
                         {expanded && section.id === 'symbols' ? (
                           <SymbolCatalog

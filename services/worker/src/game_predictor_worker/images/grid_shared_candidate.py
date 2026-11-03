@@ -74,8 +74,11 @@ def plan_for(
     artifact_root: Path,
     primary_game_id: str,
     cohorts: Sequence[tuple[Mapping[str, Any], Mapping[str, str]]],
+    *,
+    historical: bool = False,
 ) -> dict[str, Any]:
     return joint_plan(
         primary_game_id,
         [shared_cohort(artifact_root, header, groups) for header, groups in cohorts],
+        historical=historical,
     )

@@ -6,6 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1127 — Manifest wymiany całych źródeł (done)
+
+- Plik: `tasks/completed/1127-source-replacement-manifest.md`.
+- Commit: **v1.7.523** (hash dopisuje kolejny commit).
+- Wynik: trwały planned manifest dokładnych źródeł i aliasów, preview/JSON/CSV oraz Admin; append-only chronologia ocen A2 i FK aliasów. Bez retirement, rezerwacji, zmian operatora lub usług.
+- Integracja: main40581449 do gałęzi roboczej, 0173 merge heads bez przepisywania 0172, 0174/manifestv21. D-579; kolizje wersji i obie D-578 zachowane jawnie.
+- Weryfikacja: unit/HTTP13, PostgreSQL4, readiness17, UI2 i request2 PASS; scoped lint/typecheck, client build, OpenAPI/generated i cztery docs checks PASS. Testy obejmują runtime RLS, crop drift, rollback, aliasy oraz retry po restarcie.
+- Audyt: raport `quality/TASK-1127_AUDIT_claude-opus-5-5.md`; R1 REVISE → R2 PASS, P1 zamknięte. P2-2 do B2a; P2-3/409 zaakceptowane.
+- Dalej: TASK-1128/B2a — wspólni strażnicy, w tym grid corrections i retention. Export planned nie udziela uprawnień do wypełnienia luki.
+
 ### TASK-1126 — Shift i trwały zapis grup jakości (done)
 
 - Plik: `tasks/completed/1126-shift-range-selection.md`.
@@ -30,6 +40,74 @@ last_updated: 2026-10-16
 - Weryfikacja: 37/37 testów PASS (17,24 s), ruff PASS; mapa i cztery kontrole docs PASS. Mypy po korektach partial: błąd narzędzia przy zapisie cache i timeout bez cache; wcześniejszy mypy PASS. Szczegóły w Outcome.
 - Audyt: `quality/TASK-1124_AUDIT_claude-opus-5-5.md`, Opus5.5/high, oryginalny REVISE; jedna runda poprawek i reconciliation leada zamykają P1-1 oraz P2-1/4/5. P2-2 to jawne ograniczenie przypiętej pary SHA, P2-3 operacyjna niezależna pula audit200; bez otwartych P0/P1 po rozliczeniu.
 - Bez empirycznego pilota, skanu, treningu lub aktywacji kandydata nr 5; bez usług, migracji, merge/push. Kolejny task: TASK-1125, etykiety przed gotowością detektora.
+### TASK-1135 — Timeout zamrażania korekt (done)
+
+- Plik: tasks/completed/1135-grid-learning-freeze-query.md
+- Commit: **v1.7.527 / `c0a16b6abc42704572ac0dc17329e548f8c77061`** (hash dopisuje kolejny commit).
+- Zamiast korelowanego skanu całej tabeli freeze rozwija i deduplikuje identyfikatory kohorty. Filtry, kolejność blokad i limity pozostają zachowane.
+- READ ONLY na danych operatora: stary wybór timeout 3 s, nowy 11610 komórek / 0,343 s. PostgreSQL lock test PASS; pełny prepare/materialize/freeze/restart/currentness na 120 etykietach PASS 102,25 s. Bez treningu GPU.
+- 77 testów PASS, jeden stary błąd fixture kontraktu poza zakresem; Ruff, scoped mypy i docs/map PASS. Audyt Opus 5.5/high PASS; P2-1 jawnie zaakceptowane, P2-2 uzupełnione dowodami SQL/EXPLAIN.
+- Merge/push, restart i wznowienie zadania operatora pozostają za osobną zgodą.
+
+### TASK-1134 — Gotowość GPU i lista przebiegów (done)
+
+- Plik: tasks/completed/1134-grid-learning-runtime-history.md
+- Commit: **v1.7.525 / `550378ab6d432ab102368fabb7d71c19d4fc3268`** (hash dopisuje kolejny commit).
+- Wspólna fabryka CLI odnajduje repo CUDA także dla parenta general, z pierwszeństwem jawnej konfiguracji i bez fallbacku do CPU. Lista przebiegów ma primary, 38 px i 12 px odstępu (dotyk 44 px).
+- 34 worker / 29 UI PASS, scoped lint/typecheck i docs/map PASS. Regresja przed poprawką 3 failed/3 passed; rzeczywisty nowy proces bez env: CUDA RTX 4050 i admission PASS, bez treningu, bazy i budżetu.
+- Audyt Opus 5.5/high PASS, runda 1, bez P0/P1; P2 konfiguracji niestandardowej i testów CSS rozliczone w Outcome. Main/push i restart general za osobną zgodą; nie wznawiano prób operatora.
+
+### TASK-1133 — Spójne przyciski jakości rozpoznawania (done)
+
+- Plik: tasks/completed/1133-model-quality-button-styles.md
+- Commit: **v1.7.523 / `009217d2fb25aa63b194fed5c4978de8c151e283`** (hash dopisuje kolejny commit).
+- 79 przycisków geometrii korzysta ze wspólnych primary/secondary; 8 grup akcji i lokalny gap/flex-wrap usuwają stykanie przycisków symboli i geometrii.
+- 87 interakcji PASS, ESLint 12 TSX i pełny frontend tsc PASS, Prettier/docs/map PASS. Przeglądarka desktop i 390 px: identyczny zielony primary, 12 px przerwy, brak błędów konsoli; 24 interakcje po P2 PASS, przyciski uczenia zachowują 44 px.
+- Audyt Opus 5.5/high: PASS, runda 1, bez P0/P1; obie uwagi P2 poprawione. Bez restartów i działań na modelach. Main/push wymagają osobnej akceptacji.
+
+### TASK-1123 — Odbiór i dokumentacja uczenia z korekt (done)
+
+- Plik: tasks/completed/1123-grid-correction-learning-acceptance.md
+- Commit: **v1.7.520 / `4672c0896f767efd17234328a9cc219975acd067`** (hash dopisuje kolejny commit).
+- Ukończono odbiór całego planu oraz P2 konkurencyjnego resume i odczytu historii przy konflikcie publikacji; adopcja GET respektuje wcześniejsze porównania.
+- Weryfikacja: 33 unit/worker i 2 APPLY PostgreSQL PASS, 3 pełne legacy PostgreSQL PASS, scoped lint/typecheck, OpenAPI/SDK, docs/map PASS; aktualny frontend build T3 PASS. Pełny projektowy mypy przekroczył limit; nie ma jego PASS.
+- Audyt: Claude Code Opus 5.5/high, PASS, runda 1, bez otwartych P0/P1. Raport odbioru: quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md.
+- Bez migracji operatora, usług, rzeczywistego treningu i zmiany defaultu oraz merge/push. Oczekuje akceptacja i osobne zgody operacyjne.
+
+### TASK-1122 — Uproszczony panel i zastosowanie modelu (done)
+
+- Plik: tasks/completed/1122-grid-correction-learning-panel.md.
+- Commit: **v1.7.519 / `470faf466dc1b0184169e3800ea82c8f6b1ca1d9`** (hash dopisuje kolejny commit).
+- Uproszczony panel: gotowość, korekty/braki, trening/porównanie, jawne apply,
+  historia; zaawansowany workflow i osobne narzędzia jakości zachowane.
+- Trwały apply z CAS, actual-assigned comparison, idempotencją i receipts;
+  adopcja identycznej publikacji bez mutacji, odmowa dla innego dowodu.
+- Opus5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS bez P0/P1.
+- PASS testy API/worker/UI/klienta, trzy scenariusze APPLY PostgreSQL i świeży
+  proces, scoped lint/typecheck, OpenAPI/map/docs, Next build17.52s.
+- P2-3/P2-5/P2-6 R2 jawnie w T4; pełny mypy nie ma PASS. Bez operacji operatora.
+
+### TASK-1121 — Trening i ocena częściowych zdjęć (done)
+
+- Plik: tasks/completed/1121-grid-correction-training-evaluation.md.
+- Commit: **v1.7.518 / `7801ea4711f92f04eeeb58bfed124f9f850e01e0`** (hash dopisuje kolejny commit).
+- Snapshot v2, częściowe obie kontrole, checkpoint VALIDATION, report v3/gate v2,
+  historyczne kohorty i trwały learning parent z kompletnym API/SDK.
+- Scoped publikacja/default/aktywacja chronią aktualny zakres i currentness;
+  jedna runda poprawek R1, focused Opus5.5/high R2 PASS, bez P0/P1.
+- Testy domeny/workera/PostgreSQL/API/klienta/Admina oraz scoped lint/typecheck PASS;
+  dodatkowo41 regresji nowych gier i snapshotów PASS. Pełny project mypy nie ma PASS.
+- P2 etykiety scope-stale przechodzi do T3; pozostały odbiór i ograniczenia do T4.
+- Bez migracji operatora, usług, rzeczywistego treningu, aktywacji modeli i merge/push.
+
+### TASK-1120 — Dane z korekt i trwały podział (done)
+
+- Plik: `tasks/completed/1120-grid-correction-training-data.md`.
+- Commit: **v1.7.517 / `e1fcae27dace97c5dea102a05c512b9bf77ec94c`** (hash dopisuje kolejny commit).
+- Dodano opt-in politykę korekt, deterministyczny podział, trwałe role/bufory i migrację0170. Zachowano legacy i pełny pion API. Preflight potwierdził117 zatwierdzeń/89 zdjęć; operator dopuścił zweryfikowane atesty zamiast nazwseq_.
+- Testy: core48, HTTP18, solver/adapter/storage38, nowe regresjeAPI17 i PostgreSQL PASS; legacy storage2 i lifecycle5 PASS. Mypy16modułów, Ruff24, generatedclient, map/docs PASS. Ograniczenia pozostałych legacyE2E zapisane wOutcome.
+- Audyt ClaudeCode claude-opus-5-5/high: PASS, runda2 po jednej rundzie poprawek, bezP0/P1. PozostałeP2 jawnie doT2/T4.
+- Bez migracji operatora, treningu, aktywacji, usług, merge/push. Kontynuacja zaakceptowanego całego planu: TASK-1121.
 
 ### TASK-1116 — Przyciąganie kliknięcia wykresu (done)
 

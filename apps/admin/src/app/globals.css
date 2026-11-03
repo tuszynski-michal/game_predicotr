@@ -1,6 +1,7 @@
 @import '../../../../packages/ui/src/theme.css';
 @import '../../../../packages/ui/src/buttons.css';
 @import '../features/board-search/board-search-share-corrections.css';
+@import '../features/model-quality/grid-correction-learning.css';
 
 .modelQualityWorkspace {
   display: grid;
@@ -10,6 +11,35 @@
 .modelQualityWorkflowGroup {
   display: grid;
   gap: 20px;
+}
+
+.modelQualityWorkspace .buttonRow,
+.modelQualityWorkflowGroup .buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modelQualityWorkflowGroup > details > section,
+.modelQualityWorkflowGroup .gridReinferencePendingCommand,
+.modelQualityWorkflowGroup fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.modelQualityWorkflowGroup .primaryButton,
+.modelQualityWorkflowGroup .secondaryButton {
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.modelQualityWorkflowGroup ul:has(> li > button) {
+  display: grid;
+  gap: 0.5rem;
 }
 
 .recordingGroupsPanel,

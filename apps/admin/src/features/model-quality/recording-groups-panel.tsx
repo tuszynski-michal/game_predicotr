@@ -486,6 +486,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
         </p>
       ) : null}
       <button
+        className="secondaryButton"
         type="button"
         disabled={busy || loading}
         onClick={() => void load(manifest?.familyId)}
@@ -494,6 +495,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
       </button>
       {nextCursor ? (
         <button
+          className="secondaryButton"
           type="button"
           disabled={busy || loading}
           onClick={() => void load(manifest?.familyId, nextCursor)}
@@ -510,6 +512,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
           </p>
           {registrationBusy ? (
             <button
+              className="secondaryButton"
               type="button"
               onClick={() => {
                 stopRegistration.current = true;
@@ -519,6 +522,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
             </button>
           ) : (
             <button
+              className="primaryButton"
               type="button"
               disabled={busy || loading}
               onClick={() => void register(registration, true)}
@@ -536,6 +540,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
           </p>
           {pending && !registration ? (
             <button
+              className="secondaryButton"
               type="button"
               disabled={busy || registrationBusy}
               onClick={() => void execute(pending, true)}
@@ -554,6 +559,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
             Zapis na serwerze może już istnieć.
           </label>
           <button
+            className="secondaryButton"
             type="button"
             disabled={busy || registrationBusy || !discardConfirmed}
             onClick={discard}
@@ -602,6 +608,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
           osobno.
         </p>
         <button
+          className="primaryButton"
           type="button"
           disabled={!recordingConfirmed || (!importJobId && !sourceIds.trim())}
           onClick={prepare}
@@ -692,31 +699,36 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
                         }
                       />
                     </label>
-                    <button
-                      type="button"
-                      disabled={
-                        !Number.isInteger(page) ||
-                        page < 1 ||
-                        page > selected.pageCount
-                      }
-                      onClick={() =>
-                        mutate('attach', {
-                          manifestId: selected.manifestId,
-                          pageIndex: page - 1,
-                        })
-                      }
-                    >
-                      Zarejestruj stronę manifestu
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        selected.registeredSources !== selected.expectedSources
-                      }
-                      onClick={() => mutate('complete')}
-                    >
-                      Potwierdź kompletne członkostwo
-                    </button>
+                    <div className="buttonRow">
+                      <button
+                        className="primaryButton"
+                        type="button"
+                        disabled={
+                          !Number.isInteger(page) ||
+                          page < 1 ||
+                          page > selected.pageCount
+                        }
+                        onClick={() =>
+                          mutate('attach', {
+                            manifestId: selected.manifestId,
+                            pageIndex: page - 1,
+                          })
+                        }
+                      >
+                        Zarejestruj stronę manifestu
+                      </button>
+                      <button
+                        className="primaryButton"
+                        type="button"
+                        disabled={
+                          selected.registeredSources !==
+                          selected.expectedSources
+                        }
+                        onClick={() => mutate('complete')}
+                      >
+                        Potwierdź kompletne członkostwo
+                      </button>
+                    </div>
                   </>
                 ) : null}
               </details>
@@ -730,6 +742,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 niezależny od nagrań kontrolnych.
               </label>
               <button
+                className="primaryButton"
                 type="button"
                 disabled={!selected.membershipComplete || !independent}
                 onClick={() =>
@@ -751,36 +764,43 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
                   <option value="REGRESSION">REGRESSION — regresja</option>
                 </select>
               </label>
-              <button
-                type="button"
-                disabled={
-                  !manifest ||
-                  !selected.membershipComplete ||
-                  !selected.declared
-                }
-                onClick={() =>
-                  mutate('assign_role', { familyId: manifest!.familyId, role })
-                }
-              >
-                Przypisz rolę nagrania
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !manifest ||
-                  !selected.membershipComplete ||
-                  !selected.declared ||
-                  !selected.role
-                }
-                onClick={() =>
-                  mutate('freeze', {
-                    familyId: manifest!.familyId,
-                    baseVersionId: manifest!.versionId,
-                  })
-                }
-              >
-                Zapisz prowizoryczne rozstrzygnięcie
-              </button>
+              <div className="buttonRow">
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={
+                    !manifest ||
+                    !selected.membershipComplete ||
+                    !selected.declared
+                  }
+                  onClick={() =>
+                    mutate('assign_role', {
+                      familyId: manifest!.familyId,
+                      role,
+                    })
+                  }
+                >
+                  Przypisz rolę nagrania
+                </button>
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={
+                    !manifest ||
+                    !selected.membershipComplete ||
+                    !selected.declared ||
+                    !selected.role
+                  }
+                  onClick={() =>
+                    mutate('freeze', {
+                      familyId: manifest!.familyId,
+                      baseVersionId: manifest!.versionId,
+                    })
+                  }
+                >
+                  Zapisz prowizoryczne rozstrzygnięcie
+                </button>
+              </div>
               {selected.resolutionId ? (
                 <p>
                   Zapisane rozstrzygnięcie jest prowizoryczne. Trening i trwała
@@ -788,6 +808,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 </p>
               ) : null}
               <button
+                className="secondaryButton"
                 type="button"
                 disabled={!selected.declared && !selected.role}
                 onClick={() => mutate('retract')}
@@ -811,6 +832,7 @@ function RecordingWorkspace({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 </select>
               </label>
               <button
+                className="primaryButton"
                 type="button"
                 disabled={!otherGroupId}
                 onClick={() => mutate('alias', { otherGroupId })}

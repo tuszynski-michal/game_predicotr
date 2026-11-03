@@ -761,10 +761,10 @@ print('0995 dataset exact_nodes_render_parity_120',flush=True)
 """
 
 
-def _check_cleanup(db, evidence):
+def _check_cleanup(db, evidence, resource_root=None):
     journals = [
         json.loads(path.read_text(encoding="utf-8"))
-        for path in (evidence / "resources").glob("*.json")
+        for path in (resource_root or evidence / "resources").glob("*.json")
     ]
     if not journals:
         (evidence / "cleanup.json").write_text("[]", encoding="utf-8")
@@ -817,17 +817,27 @@ def _check_cleanup(db, evidence):
         engine.dispose()
 
 
-def test_exact_owned_genuine_geometry_cohort_restart_dataset(monkeypatch):
+def test_exact_owned_genuine_geometry_cohort_restart_dataset(monkeypatch, tmp_path):
     repository = Path(__file__).resolve().parents[4]
-    evidence = repository / "artifacts/audits" / ("TASK-0995_E2E_" + uuid4().hex)
+    evidence = tmp_path / "e"
     evidence.mkdir(parents=True)
-    monkeypatch.setenv("GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT", str(evidence / "resources"))
+    resource_parent = Path(
+        os.environ.get(
+            "GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT",
+            str(repository / "artifacts/t4r"),
+        )
+    )
+    resources = resource_parent / uuid4().hex
+    monkeypatch.setenv("GAME_PREDICTOR_RECORDING_TEST_RESOURCE_ROOT", str(resources))
     started, progress, retained = time.monotonic(), [], None
     compile(_DATASET_CHECK, "cohort-dataset-check", "exec")
 
     def checkpoint(label):
         elapsed = round(time.monotonic() - started, 3)
-        progress.append({"phase": label, "elapsedSeconds": elapsed})
+        previous = progress[-1]["elapsedSeconds"] if progress else 0
+        progress.append(
+            {"phase": label, "elapsedSeconds": elapsed, "stepSeconds": round(elapsed - previous, 3)}
+        )
         (evidence / "progress.json").write_text(json.dumps(progress, indent=2), encoding="utf-8")
         print(f"0995 E2E {label} {elapsed}s", flush=True)
         # Collection/imports took about eleven seconds in the measured CPU
@@ -923,6 +933,7 @@ def test_exact_owned_genuine_geometry_cohort_restart_dataset(monkeypatch):
             child_input.write_text(json.dumps(payload), encoding="utf-8")
             script = evidence / "dataset-check.py"
             script.write_text(_DATASET_CHECK, encoding="utf-8")
+            checkpoint("new_process_dataset_started")
             child = subprocess.run(
                 [sys.executable, str(script), str(child_input)],
                 capture_output=True,
@@ -944,4 +955,4 @@ def test_exact_owned_genuine_geometry_cohort_restart_dataset(monkeypatch):
             )
             checkpoint("stale_ready_zero_use_receipts_header_unchanged")
     finally:
-        _check_cleanup(retained, evidence)
+        _check_cleanup(retained, evidence, resources)

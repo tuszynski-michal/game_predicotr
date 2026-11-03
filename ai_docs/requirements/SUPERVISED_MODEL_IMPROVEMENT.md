@@ -381,3 +381,9 @@ Zwykły klik przełącza pole i ustanawia kotwicę. Shift dodaje zakres obejmuj�
 W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomiędzy stronami; filtry, run i refetch czyszczą zaznaczenie. Strona nadal zawiera do 250 pól. Zapis do 250 pól zachowuje poprzednią pojedynczą komendę. Większa grupa używa trwałej kolejki porcji do 250, zapisanej w całości przed pierwszym żądaniem. Postęp pokazuje wykonane i pozostałe pola. Błąd albo konflikt zatrzymuje ogon; ręczne ponowienie, także po restarcie, zachowuje dokładne pola, tożsamości, rewizje i klucze. Nie zastępuje ich bieżącymi danymi.
 
 Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
+
+## Chronologia ocen dla wymiany — TASK-1127 / D-579
+
+Kwalifikacja pola używa ostatniej rozstrzygającej oceny człowieka `readable`/`unreadable` dla bieżącej tożsamości pikseli. Wiek skanu nie wyznacza kolejności ocen. `pending`, `skipped` i nieoceniony nowy skan nie usuwają wcześniejszego rozstrzygnięcia. Readable wyklucza tylko powód danego pola mimo zachowanej historycznej flagi jakości; inne nieczytelne pola nadal mogą kwalifikować całe zdjęcie.
+
+Starsze jawne oceny bez ledgeru są dopuszczalne, gdy wszystkie aktualne rozstrzygające oceny są zgodne; zachowuje się pełne identyfikatory i rewizje dowodów. Sprzeczność bez udokumentowanej chronologii wymaga świeżej oceny człowieka. Brak jawnej oceny pozwala użyć wcześniejszej manualnej flagi unreadable. Ocena nie przechodzi na inne piksele.

@@ -182,6 +182,10 @@ def eligibility(repo: Any, row: Any, assets: Any) -> dict[str, Any]:
             reasons.add("COHORT_NO_USED_TARGETS")
         try:
             require_minima(row.summary)
+            if "photoSplit" in getattr(row, "document", {}):
+                from game_predictor_api.storage.grid_correction_split import validate_population
+
+                validate_population(repo, row.game_id, row.document["photoSplit"])
             if row.status == "frozen":
                 repo.recording_command(
                     row.game_id,

@@ -154,9 +154,16 @@ class GridCohortSnapshot:
 
     def _validate_manifest(self) -> None:
         value = self._manifest
+        policies = {
+            ("application-grid-snapshot-v1", "application-grid-cohort-v1"),
+            ("application-grid-snapshot-v2", "application-grid-corrections-v1"),
+        }
         if (
-            value.get("schemaVersion") != "application-grid-snapshot-v1"
-            or value.get("policyVersion") != "application-grid-cohort-v1"
+            (value.get("schemaVersion"), value.get("policyVersion")) not in policies
+            or (
+                value.get("policyVersion") == "application-grid-corrections-v1"
+                and value.get("mode") != "grid-only"
+            )
             or value.get("weightPolicy") != "correction-weight-4-to-1-v1"
             or value.get("mode") not in ("grid-only", "screen+grid")
             or any(not _uuid(value.get(key)) for key in ("gameId", "cohortId", "familyId"))
@@ -404,6 +411,18 @@ def _target(target: dict[str, Any]) -> tuple[np.ndarray, int, dict[str, Any]]:
     return nodes, weight, render["configuration"]
 
 
+def has_full_geometry(source: dict[str, Any]) -> bool:
+    """A full control needs both the qualification and all nine physical targets."""
+    targets = source.get("targets")
+    return (
+        source.get("screenEligible") is True
+        and isinstance(targets, list)
+        and len(targets) == 9
+        and all(isinstance(target, dict) for target in targets)
+        and {target.get("positionIndex") for target in targets} == set(range(9))
+    )
+
+
 class GridBoardDataset:
     def __init__(self, snapshot: GridCohortSnapshot, role: str = "TRAIN") -> None:
         if role not in _ROLES:
@@ -423,9 +442,14 @@ class GridBoardDataset:
                     or len(set(positions)) != len(positions)
                 ):
                     _fail("TARGETS_INVALID", "Targets require distinct physical positions.")
-                full = source.get("screenEligible") is True and set(positions) == set(range(9))
+                full = has_full_geometry(source)
                 if (
-                    self.role != "TRAIN" or self.snapshot._manifest["mode"] == "screen+grid"
+                    self.snapshot._manifest["mode"] == "screen+grid"
+                    or (
+                        self.role != "TRAIN"
+                        and self.snapshot._manifest["policyVersion"]
+                        != "application-grid-corrections-v1"
+                    )
                 ) and not full:
                     _fail(
                         "FULL_PHOTO_REQUIRED",

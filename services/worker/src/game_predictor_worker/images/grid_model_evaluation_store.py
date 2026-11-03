@@ -76,6 +76,9 @@ class SqlGridModelEvaluationStore:
     def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]:
         return self._cohorts.recordings(game_id, cohort_id)
 
+    def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None:
+        self._cohorts.historical_cohort(base_version_id, header)
+
     def store_report(
         self, report_id: UUID, version_id: UUID, report_json: str, report_sha256: str
     ) -> None:

@@ -52,7 +52,9 @@ def _lock_inputs(
     sources = session.execute(
         text("""SELECT s.id FROM source_images s
       JOIN grid_training_cohort_members m ON m.game_id=s.game_id AND m.source_id=s.id
-      WHERE m.game_id=:game AND m.cohort_id=:cohort AND m.frozen->'used'='true'::jsonb
+      WHERE m.game_id=:game AND m.cohort_id=:cohort AND (m.frozen->'used'='true'::jsonb
+       OR EXISTS(SELECT 1 FROM grid_training_cohorts c WHERE c.game_id=m.game_id
+        AND c.id=m.cohort_id AND c.document->>'policyVersion'='application-grid-corrections-v1'))
       ORDER BY s.id FOR UPDATE OF s""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     )
@@ -64,10 +66,14 @@ def _lock_inputs(
         ("image_symbol_review_cells", "cell_ids"),
     ):
         rows = session.execute(
-            text(f"""SELECT r.id FROM {table} r WHERE r.game_id=:game
-          AND EXISTS(SELECT 1 FROM grid_training_cohort_members m WHERE m.game_id=:game
+            # Expand the small cohort identity set before joining the game table.
+            # Correlated array containment scans every cell against every member.
+            # DISTINCT preserves the previous EXISTS semantics for overlapping IDs.
+            text(f"""SELECT r.id FROM {table} r JOIN (
+          SELECT DISTINCT unnest(m.{identifier_column}) AS id
+          FROM grid_training_cohort_members m WHERE m.game_id=:game
           AND m.cohort_id=:cohort AND m.frozen->'used'='true'::jsonb
-          AND m.{identifier_column} @> ARRAY[r.id])
+          ) chosen ON chosen.id=r.id WHERE r.game_id=:game
           ORDER BY r.id FOR UPDATE OF r""").execution_options(yield_per=200),
             {"game": game, "cohort": identifier},
         )
@@ -160,6 +166,10 @@ def freeze(
                     "The immutable root changed before closure.",
                 )
             require_minima(row.summary)
+            if "photoSplit" in row.document:
+                from game_predictor_api.storage.grid_correction_split import validate_population
+
+                validate_population(repo, game, row.document["photoSplit"])
             for member in repo.iter_members(game, identifier):
                 deadline.check(session)
                 check_member(repo, member)

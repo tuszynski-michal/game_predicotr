@@ -493,6 +493,22 @@ i.snapshot->>'render_identity_v2_sha256')"""),
                         "similar": request.similar_readable,
                     },
                 )
+                from game_predictor_api.storage.source_replacement_decisions import (
+                    append_quality_decision,
+                )
+
+                append_quality_decision(
+                    self.session,
+                    game=game,
+                    key=request.idempotency_key,
+                    run=run_id,
+                    cell=target.cell_id,
+                    revision=target.expected_revision + 1,
+                    state=request.state,
+                    overlap=request.overlap,
+                    snapshot=snapshot,
+                    prior_item=dict(item),
+                )
             self.session.execute(
                 text(
                     "UPDATE symbol_readability_runs SET revision=revision+1 WHERE "

@@ -5194,6 +5194,86 @@ export type GeometryQualificationPayload = {
 };
 
 /**
+ * GridAssignedComparisonCreate
+ */
+export type GridAssignedComparisonCreate = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridAssignedComparisonReport
+ */
+export type GridAssignedComparisonReport = {
+  /**
+   * Assignmentrevision
+   */
+  assignmentRevision: number;
+  /**
+   * Baselinemanifestsha256
+   */
+  baselineManifestSha256: string;
+  /**
+   * Baselineversionid
+   */
+  baselineVersionId: string;
+  cohort: GridModelEvaluationCohortPin;
+  decision: GridCorrectionEvaluationDecision;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-assigned-nonregression-v1';
+  /**
+   * Producer
+   */
+  producer: 'server:grid-model-evaluator-v1';
+  roles: GridCorrectionEvaluationRoles;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-assigned-comparison-v1';
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
  * GridAuditImportStatus
  *
  * Result of the read-only verification at import time.
@@ -5553,6 +5633,10 @@ export type GridCohortHeader = {
    */
   createdAt: string;
   /**
+   * Evidencelevel
+   */
+  evidenceLevel?: 'recording' | 'photo-only';
+  /**
    * Familyid
    */
   familyId: string;
@@ -5580,6 +5664,10 @@ export type GridCohortHeader = {
    * Nextmaterializationcursor
    */
   nextMaterializationCursor: number | null;
+  /**
+   * Policyversion
+   */
+  policyVersion?: string;
   /**
    * Previewsha256
    */
@@ -5706,6 +5794,11 @@ export type GridCohortPrepareCommand = {
    * Mode
    */
   mode: 'grid-only' | 'screen+grid';
+  /**
+   * Policyversion
+   */
+  policyVersion?:
+    'application-grid-cohort-v1' | 'application-grid-corrections-v1';
   /**
    * Recordings
    */
@@ -5860,6 +5953,247 @@ export type GridCohortSummary = {
 };
 
 /**
+ * GridCorrectionApplyJobPayload
+ *
+ * Separate server-owned closed payload for applying a completed learning.
+ */
+export type GridCorrectionApplyJobPayload = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Command
+   */
+  command: {
+    [key: string]: unknown;
+  };
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Learningid
+   */
+  learningId: string;
+  /**
+   * Learningkind
+   */
+  learningKind: 'grid-correction-apply-v1';
+  /**
+   * Pins
+   */
+  pins: {
+    [key: string]: unknown;
+  };
+  /**
+   * Preview
+   */
+  preview: {
+    [key: string]: unknown;
+  };
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * GridCorrectionApplyList
+ */
+export type GridCorrectionApplyList = {
+  /**
+   * Items
+   */
+  items: Array<GridCorrectionApplyView>;
+};
+
+/**
+ * GridCorrectionApplyPreview
+ */
+export type GridCorrectionApplyPreview = {
+  /**
+   * Additionalgameids
+   */
+  additionalGameIds: Array<string>;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Canapply
+   */
+  canApply: boolean;
+  /**
+   * Defaultrevision
+   */
+  defaultRevision: number;
+  /**
+   * Defaultversionid
+   */
+  defaultVersionId: string | null;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Excludedgameids
+   */
+  excludedGameIds: Array<string>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Learningid
+   */
+  learningId: string;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Targets
+   */
+  targets: Array<GridCorrectionApplyTarget>;
+  /**
+   * Versionid
+   */
+  versionId: string | null;
+  /**
+   * Versionlabel
+   */
+  versionLabel: string | null;
+};
+
+/**
+ * GridCorrectionApplyStartCommand
+ */
+export type GridCorrectionApplyStartCommand = {
+  /**
+   * Additionalgameids
+   */
+  additionalGameIds?: Array<string>;
+  /**
+   * Confirmlimitedevidence
+   */
+  confirmLimitedEvidence: boolean;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string;
+};
+
+/**
+ * GridCorrectionApplyStep
+ */
+export type GridCorrectionApplyStep = {
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'publish' | 'set_default' | 'comparison' | 'activate';
+  /**
+   * Receipt
+   */
+  receipt?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Status
+   */
+  status: 'pending' | 'waiting' | 'completed';
+};
+
+/**
+ * GridCorrectionApplyTarget
+ */
+export type GridCorrectionApplyTarget = {
+  /**
+   * Assignedversionid
+   */
+  assignedVersionId: string | null;
+  /**
+   * Assignmentrevision
+   */
+  assignmentRevision: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gamelabel
+   */
+  gameLabel: string;
+  /**
+   * Requirescomparison
+   */
+  requiresComparison: boolean;
+};
+
+/**
+ * GridCorrectionApplyView
+ */
+export type GridCorrectionApplyView = {
+  /**
+   * Applyid
+   */
+  applyId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Learningid
+   */
+  learningId: string;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  status: JobStatus;
+  /**
+   * Steps
+   */
+  steps: Array<GridCorrectionApplyStep>;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
  * GridCorrectionCellSymbolPayload
  *
  * One symbol the operator assigns to a cell while saving its grid (D-488).
@@ -5894,6 +6228,699 @@ export type GridCorrectionCellSymbolSuggestionResponse = {
    * Symbolid
    */
   symbolId: string | null;
+};
+
+/**
+ * GridCorrectionCheckpointMetrics
+ */
+export type GridCorrectionCheckpointMetrics = {
+  /**
+   * Boardcorrectrate
+   */
+  boardCorrectRate: number;
+  /**
+   * Normalizederror
+   */
+  normalizedError: number;
+};
+
+/**
+ * GridCorrectionCheckpointSelection
+ */
+export type GridCorrectionCheckpointSelection = {
+  earlyStopping: GridCorrectionEarlyStopping;
+  metrics: GridCorrectionCheckpointMetrics;
+  /**
+   * Role
+   */
+  role: 'VALIDATION';
+  /**
+   * Rule
+   */
+  rule: 'validation-board-correct-photo-macro-error-earliest-v1';
+  /**
+   * Step
+   */
+  step: number;
+};
+
+/**
+ * GridCorrectionDataAvailability
+ *
+ * Deduplicated annotated population before buffers; deficits are aggregate lower bounds.
+ */
+export type GridCorrectionDataAvailability = {
+  /**
+   * Boarddeficit
+   */
+  boardDeficit: number;
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Minimumboards
+   */
+  minimumBoards: 60;
+  /**
+   * Minimumphotos
+   */
+  minimumPhotos: 20;
+  /**
+   * Photodeficit
+   */
+  photoDeficit: number;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Splitstatus
+   */
+  splitStatus: 'minima' | 'infeasible' | 'ready';
+};
+
+/**
+ * GridCorrectionEarlyStopping
+ */
+export type GridCorrectionEarlyStopping = {
+  /**
+   * Evaluationswithoutimprovement
+   */
+  evaluationsWithoutImprovement: number;
+  /**
+   * Patience
+   */
+  patience: number;
+  /**
+   * Stopped
+   */
+  stopped: boolean;
+};
+
+/**
+ * GridCorrectionEvaluationDecision
+ */
+export type GridCorrectionEvaluationDecision = {
+  /**
+   * Coverage
+   */
+  coverage: 'complete' | 'incomplete';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Regression
+   */
+  regression: 'pass' | 'fail' | 'not_evaluable';
+  /**
+   * Validation
+   */
+  validation: 'pass' | 'fail' | 'not_evaluable';
+};
+
+/**
+ * GridCorrectionEvaluationGame
+ */
+export type GridCorrectionEvaluationGame = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Coverage
+   */
+  coverage: 'complete' | 'incomplete';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Regression
+   */
+  regression: 'pass' | 'fail' | 'not_evaluable';
+  roles: GridCorrectionEvaluationRoles;
+  /**
+   * Targetmetric
+   */
+  targetMetric: 'boards_correct_or_normalized_error';
+  /**
+   * Validation
+   */
+  validation: 'pass' | 'fail' | 'not_evaluable';
+};
+
+/**
+ * GridCorrectionEvaluationMetrics
+ */
+export type GridCorrectionEvaluationMetrics = {
+  /**
+   * Board Correct Rate
+   */
+  board_correct_rate: number | null;
+  /**
+   * Boards Correct
+   */
+  boards_correct: number;
+  /**
+   * Boards Expected
+   */
+  boards_expected: number;
+  /**
+   * Boards Matched
+   */
+  boards_matched: number;
+  /**
+   * Detection Recall
+   */
+  detection_recall: number | null;
+  /**
+   * Duplicate Predictions
+   */
+  duplicate_predictions: number | null;
+  /**
+   * False Boards
+   */
+  false_boards: number | null;
+  /**
+   * Full Photos
+   */
+  full_photos: number;
+  /**
+   * Normalized Error
+   */
+  normalized_error: number | null;
+  /**
+   * Partial Photos
+   */
+  partial_photos: number;
+  /**
+   * Photo Complete Correct
+   */
+  photo_complete_correct: number | null;
+  /**
+   * Photo Complete Correct Rate
+   */
+  photo_complete_correct_rate: number | null;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
+ * GridCorrectionEvaluationPolicy
+ */
+export type GridCorrectionEvaluationPolicy = {
+  /**
+   * Checkpointrule
+   */
+  checkpointRule: 'validation-board-correct-photo-macro-error-earliest-v1';
+  /**
+   * Currentgameimprovementrole
+   */
+  currentGameImprovementRole: 'REGRESSION';
+  /**
+   * Epsilon
+   */
+  epsilon: number;
+  /**
+   * Fullphotononregression
+   */
+  fullPhotoNonRegression: Array<
+    'false_boards' | 'duplicate_predictions' | 'photo_complete_correct'
+  >;
+  /**
+   * Metricsversion
+   */
+  metricsVersion: 'grid-correction-metrics-v1';
+  /**
+   * Minimumabsoluteerrorreduction
+   */
+  minimumAbsoluteErrorReduction: number;
+  /**
+   * Minimumcontrolboards
+   */
+  minimumControlBoards: 15;
+  /**
+   * Minimumcontrolphotos
+   */
+  minimumControlPhotos: 5;
+  /**
+   * Minimumcorrectboardgain
+   */
+  minimumCorrectBoardGain: 1;
+  /**
+   * Minimumrelativeerrorreduction
+   */
+  minimumRelativeErrorReduction: number;
+  /**
+   * Nonregression
+   */
+  nonRegression: Array<
+    'boards_matched' | 'boards_correct' | 'normalized_error'
+  >;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v2';
+};
+
+/**
+ * GridCorrectionEvaluationRecording
+ */
+export type GridCorrectionEvaluationRecording = {
+  base: GridCorrectionEvaluationMetrics;
+  candidate: GridCorrectionEvaluationMetrics;
+  /**
+   * Groupid
+   */
+  groupId: string;
+};
+
+/**
+ * GridCorrectionEvaluationReport
+ */
+export type GridCorrectionEvaluationReport = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  checkpointSelection: GridCorrectionCheckpointSelection;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<GridCorrectionEvaluationGame>;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  policy: GridCorrectionEvaluationPolicy;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v2';
+  /**
+   * Producer
+   */
+  producer: 'server:grid-model-evaluator-v1';
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v3';
+  scope: GridCorrectionEvaluationScope;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridCorrectionEvaluationRole
+ */
+export type GridCorrectionEvaluationRole = {
+  base: GridCorrectionEvaluationMetrics;
+  candidate: GridCorrectionEvaluationMetrics;
+  detail: GridModelEvaluationDetail;
+  /**
+   * Inputsha256
+   */
+  inputSha256: string;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Recordings
+   */
+  recordings: Array<GridCorrectionEvaluationRecording>;
+};
+
+/**
+ * GridCorrectionEvaluationRoles
+ */
+export type GridCorrectionEvaluationRoles = {
+  REGRESSION: GridCorrectionEvaluationRole;
+  VALIDATION: GridCorrectionEvaluationRole;
+};
+
+/**
+ * GridCorrectionEvaluationScope
+ */
+export type GridCorrectionEvaluationScope = {
+  /**
+   * Currentgameid
+   */
+  currentGameId: string;
+  /**
+   * Exclusions
+   */
+  exclusions: Array<GridModelEvaluationExclusion>;
+  /**
+   * Priorscopedocumented
+   */
+  priorScopeDocumented: boolean;
+  /**
+   * Priorverifiedgameids
+   */
+  priorVerifiedGameIds: Array<string>;
+  /**
+   * Traininggameids
+   */
+  trainingGameIds: Array<string>;
+};
+
+/**
+ * GridCorrectionLearningExclusion
+ */
+export type GridCorrectionLearningExclusion = {
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Reason
+   */
+  reason: string;
+};
+
+/**
+ * GridCorrectionLearningJobPayload
+ *
+ * Server-owned parent pins; public commands use the closed learning schema.
+ */
+export type GridCorrectionLearningJobPayload = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Command
+   */
+  command: {
+    [key: string]: unknown;
+  };
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Learningkind
+   */
+  learningKind: 'grid-correction-learning-v1';
+  /**
+   * Pins
+   */
+  pins: {
+    [key: string]: unknown;
+  };
+  /**
+   * Preview
+   */
+  preview: {
+    [key: string]: unknown;
+  };
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * GridCorrectionLearningList
+ */
+export type GridCorrectionLearningList = {
+  /**
+   * Items
+   */
+  items: Array<GridCorrectionLearningView>;
+};
+
+/**
+ * GridCorrectionLearningPreview
+ */
+export type GridCorrectionLearningPreview = {
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string | null;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string | null;
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Bufferphotos
+   */
+  bufferPhotos: number;
+  /**
+   * Canstart
+   */
+  canStart: boolean;
+  cost: GridTrainingRunCost | null;
+  dataAvailability: GridCorrectionDataAvailability | null;
+  /**
+   * Defaultrevision
+   */
+  defaultRevision: number | null;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Exclusions
+   */
+  exclusions: Array<GridCorrectionLearningExclusion>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Historicalcohorts
+   */
+  historicalCohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Importjobids
+   */
+  importJobIds: Array<string>;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Pendingworkerchecks
+   */
+  pendingWorkerChecks: Array<string>;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Presetid
+   */
+  presetId: string;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string;
+  /**
+   * Priorgameids
+   */
+  priorGameIds: Array<string>;
+  /**
+   * Priorscopedocumented
+   */
+  priorScopeDocumented: boolean;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Rolecounts
+   */
+  roleCounts: Array<GridCorrectionLearningRoleCount>;
+};
+
+/**
+ * GridCorrectionLearningPreviewCommand
+ */
+export type GridCorrectionLearningPreviewCommand = {
+  /**
+   * Exclusions
+   */
+  exclusions?: Array<GridCorrectionLearningExclusion>;
+  /**
+   * Importjobids
+   */
+  importJobIds?: Array<string>;
+};
+
+/**
+ * GridCorrectionLearningRoleCount
+ */
+export type GridCorrectionLearningRoleCount = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'VALIDATION' | 'REGRESSION';
+};
+
+/**
+ * GridCorrectionLearningStartCommand
+ */
+export type GridCorrectionLearningStartCommand = {
+  /**
+   * Exclusions
+   */
+  exclusions?: Array<GridCorrectionLearningExclusion>;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Importjobids
+   */
+  importJobIds?: Array<string>;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string;
+};
+
+/**
+ * GridCorrectionLearningView
+ */
+export type GridCorrectionLearningView = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Cancelrequested
+   */
+  cancelRequested: boolean;
+  /**
+   * Candidateversionid
+   */
+  candidateVersionId: string | null;
+  /**
+   * Cohortid
+   */
+  cohortId: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Defaultrevision
+   */
+  defaultRevision: number;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string | null;
+  /**
+   * Exclusions
+   */
+  exclusions: Array<GridCorrectionLearningExclusion>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Learningid
+   */
+  learningId: string;
+  /**
+   * Previewsha256
+   */
+  previewSha256: string;
+  /**
+   * Reportid
+   */
+  reportId: string | null;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  status: JobStatus;
+  /**
+   * Trainingrunid
+   */
+  trainingRunId: string | null;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE' | null;
 };
 
 /**
@@ -6527,6 +7554,10 @@ export type GridModelEvaluationCreate = {
    */
   cohorts: Array<GridModelEvaluationCohortRef>;
   /**
+   * Exclusions
+   */
+  exclusions?: Array<GridModelEvaluationExclusion>;
+  /**
    * Idempotencykey
    */
   idempotencyKey: string;
@@ -6599,6 +7630,24 @@ export type GridModelEvaluationDetail = {
 };
 
 /**
+ * GridModelEvaluationExclusion
+ */
+export type GridModelEvaluationExclusion = {
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Reason
+   */
+  reason: string;
+};
+
+/**
  * GridModelEvaluationGame
  */
 export type GridModelEvaluationGame = {
@@ -6644,6 +7693,10 @@ export type GridModelEvaluationGame = {
  */
 export type GridModelEvaluationJobPayload = {
   /**
+   * Assignmentrevision
+   */
+  assignmentRevision?: number | null;
+  /**
    * Basemanifestsha256
    */
   baseManifestSha256: string;
@@ -6652,13 +7705,36 @@ export type GridModelEvaluationJobPayload = {
    */
   baseVersionId: string;
   /**
+   * Baselinemanifestsha256
+   */
+  baselineManifestSha256?: string | null;
+  /**
+   * Baselineversionid
+   */
+  baselineVersionId?: string | null;
+  /**
+   * Checkpointselection
+   */
+  checkpointSelection?: {
+    [key: string]: unknown;
+  } | null;
+  /**
    * Cohorts
    */
   cohorts: Array<GridModelEvaluationCohortPin>;
   /**
+   * Comparisoncommand
+   */
+  comparisonCommand?: {
+    [key: string]: unknown;
+  } | null;
+  /**
    * Evaluationkind
    */
-  evaluationKind: 'grid-model-evaluation-v1';
+  evaluationKind:
+    | 'grid-model-evaluation-v1'
+    | 'grid-correction-evaluation-v1'
+    | 'grid-assigned-comparison-v1';
   /**
    * Familyid
    */
@@ -6675,6 +7751,12 @@ export type GridModelEvaluationJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+  /**
+   * Scope
+   */
+  scope?: {
+    [key: string]: unknown;
+  } | null;
   /**
    * Traininggameid
    */
@@ -6892,6 +7974,14 @@ export type GridModelEvaluationRoles = {
  */
 export type GridModelEvaluationView = {
   /**
+   * Assignedbaselineversionid
+   */
+  assignedBaselineVersionId?: string | null;
+  /**
+   * Assignmentrevision
+   */
+  assignmentRevision?: number | null;
+  /**
    * Baseversionid
    */
   baseVersionId: string;
@@ -6927,7 +8017,20 @@ export type GridModelEvaluationView = {
    * Progresstotal
    */
   progressTotal: number | null;
-  report: GridModelEvaluationReport | null;
+  /**
+   * Report
+   */
+  report:
+    | ({
+        schemaVersion: 'grid-model-evaluation-read-v2';
+      } & GridModelEvaluationReport)
+    | ({
+        schemaVersion: 'grid-model-evaluation-read-v3';
+      } & GridCorrectionEvaluationReport)
+    | ({
+        schemaVersion: 'grid-model-assigned-comparison-v1';
+      } & GridAssignedComparisonReport)
+    | null;
   /**
    * Reportid
    */
@@ -12488,6 +13591,8 @@ export type JobResponse = {
     | SuperGameSeriesDeriveJobPayload
     | GridTrainingJobPayload
     | GridModelEvaluationJobPayload
+    | GridCorrectionLearningJobPayload
+    | GridCorrectionApplyJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
     | GridReinferenceJobPayload;
@@ -12551,6 +13656,7 @@ export type JobType =
   | 'super_game_series_derive'
   | 'grid_training'
   | 'grid_model_evaluation'
+  | 'grid_correction_learning'
   | 'source_crop'
   | 'source_original_deletion';
 
@@ -20586,6 +21692,268 @@ export type SourceRecordingGroupResponse = {
 };
 
 /**
+ * SourceReplacementBatchResponse
+ */
+export type SourceReplacementBatchResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * SourceReplacementCandidatePage
+ */
+export type SourceReplacementCandidatePage = {
+  /**
+   * Items
+   */
+  items: Array<SourceReplacementCandidateResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+};
+
+/**
+ * SourceReplacementCandidateResponse
+ */
+export type SourceReplacementCandidateResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Firstsequence
+   */
+  firstSequence: number | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Lastsequence
+   */
+  lastSequence: number | null;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+};
+
+/**
+ * SourceReplacementCreateRequest
+ */
+export type SourceReplacementCreateRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourceReplacementEntryResponse
+ */
+export type SourceReplacementEntryResponse = {
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Boards
+   */
+  boards: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Canonical
+   */
+  canonical: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Dependencies
+   */
+  dependencies: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
+  /**
+   * Evidence
+   */
+  evidence: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Geometryrevisions
+   */
+  geometryRevisions: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Id
+   */
+  id?: string | null;
+  /**
+   * Pending
+   */
+  pending: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Pendingslots
+   */
+  pendingSlots: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Phase
+   */
+  phase?: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart: number | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Reservations
+   */
+  reservations: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Retired
+   */
+  retired: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Revision
+   */
+  revision?: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+  /**
+   * Sourcesha256
+   */
+  sourceSha256: string;
+  /**
+   * Sources
+   */
+  sources: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+/**
+ * SourceReplacementManifestResponse
+ */
+export type SourceReplacementManifestResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<SourceReplacementEntryResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id?: string | null;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retirementavailable
+   */
+  retirementAvailable?: false;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'source-replacement-manifest-v1';
+  /**
+   * Selectedsourceids
+   */
+  selectedSourceIds: Array<string>;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * SourceReplacementPreviewRequest
+ */
+export type SourceReplacementPreviewRequest = {
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
  * StorageGcJobPayload
  */
 export type StorageGcJobPayload = {
@@ -25273,7 +26641,10 @@ export type GetBoardSearchBoardViewResponses = {
 };
 
 export type PreviewBoardSourceCleanupData = {
-  body: BoardSourceCleanupPreviewRequest;
+  /**
+   * Payload
+   */
+  body: BoardSourceCleanupPreviewRequest | SourceReplacementPreviewRequest;
   path: {
     /**
      * Game Id
@@ -25308,16 +26679,21 @@ export type PreviewBoardSourceCleanupError =
 
 export type PreviewBoardSourceCleanupResponses = {
   /**
+   * Response Previewboardsourcecleanup
+   *
    * Successful Response
    */
-  200: CleanupPreviewResponse;
+  200: CleanupPreviewResponse | SourceReplacementManifestResponse;
 };
 
 export type PreviewBoardSourceCleanupResponse =
   PreviewBoardSourceCleanupResponses[keyof PreviewBoardSourceCleanupResponses];
 
 export type DeleteBoardSourceRangesData = {
-  body: BoardSourceCleanupCommandRequest;
+  /**
+   * Payload
+   */
+  body: BoardSourceCleanupCommandRequest | SourceReplacementCreateRequest;
   path: {
     /**
      * Game Id
@@ -25359,6 +26735,227 @@ export type DeleteBoardSourceRangesResponses = {
 
 export type DeleteBoardSourceRangesResponse =
   DeleteBoardSourceRangesResponses[keyof DeleteBoardSourceRangesResponses];
+
+export type ListSourceReplacementBatchesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type ListSourceReplacementBatchesErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSourceReplacementBatchesError =
+  ListSourceReplacementBatchesErrors[keyof ListSourceReplacementBatchesErrors];
+
+export type ListSourceReplacementBatchesResponses = {
+  /**
+   * Response Listsourcereplacementbatches
+   *
+   * Successful Response
+   */
+  200: Array<SourceReplacementBatchResponse>;
+};
+
+export type ListSourceReplacementBatchesResponse =
+  ListSourceReplacementBatchesResponses[keyof ListSourceReplacementBatchesResponses];
+
+export type PlanSourceReplacementData = {
+  body: SourceReplacementCreateRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type PlanSourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PlanSourceReplacementError =
+  PlanSourceReplacementErrors[keyof PlanSourceReplacementErrors];
+
+export type PlanSourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementManifestResponse;
+};
+
+export type PlanSourceReplacementResponse =
+  PlanSourceReplacementResponses[keyof PlanSourceReplacementResponses];
+
+export type ListSourceReplacementCandidatesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Offset
+     */
+    offset?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/candidates';
+};
+
+export type ListSourceReplacementCandidatesErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSourceReplacementCandidatesError =
+  ListSourceReplacementCandidatesErrors[keyof ListSourceReplacementCandidatesErrors];
+
+export type ListSourceReplacementCandidatesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementCandidatePage;
+};
+
+export type ListSourceReplacementCandidatesResponse =
+  ListSourceReplacementCandidatesResponses[keyof ListSourceReplacementCandidatesResponses];
+
+export type GetSourceReplacementBatchData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}';
+};
+
+export type GetSourceReplacementBatchErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSourceReplacementBatchError =
+  GetSourceReplacementBatchErrors[keyof GetSourceReplacementBatchErrors];
+
+export type GetSourceReplacementBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementManifestResponse;
+};
+
+export type GetSourceReplacementBatchResponse =
+  GetSourceReplacementBatchResponses[keyof GetSourceReplacementBatchResponses];
+
+export type ExportSourceReplacementBatchData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: {
+    /**
+     * Format
+     */
+    format?: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/export';
+};
+
+export type ExportSourceReplacementBatchErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExportSourceReplacementBatchError =
+  ExportSourceReplacementBatchErrors[keyof ExportSourceReplacementBatchErrors];
+
+export type ExportSourceReplacementBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListDatasetVersionsData = {
   body?: never;
@@ -25861,6 +27458,627 @@ export type RollbackGridProfileResponses = {
 
 export type RollbackGridProfileResponse =
   RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
+
+export type ListGridCorrectionLearningData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning';
+};
+
+export type ListGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridCorrectionLearningError =
+  ListGridCorrectionLearningErrors[keyof ListGridCorrectionLearningErrors];
+
+export type ListGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningList;
+};
+
+export type ListGridCorrectionLearningResponse =
+  ListGridCorrectionLearningResponses[keyof ListGridCorrectionLearningResponses];
+
+export type StartGridCorrectionLearningData = {
+  body: GridCorrectionLearningStartCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning';
+};
+
+export type StartGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartGridCorrectionLearningError =
+  StartGridCorrectionLearningErrors[keyof StartGridCorrectionLearningErrors];
+
+export type StartGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningView;
+};
+
+export type StartGridCorrectionLearningResponse =
+  StartGridCorrectionLearningResponses[keyof StartGridCorrectionLearningResponses];
+
+export type PreviewGridCorrectionLearningData = {
+  body: GridCorrectionLearningPreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/preview';
+};
+
+export type PreviewGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewGridCorrectionLearningError =
+  PreviewGridCorrectionLearningErrors[keyof PreviewGridCorrectionLearningErrors];
+
+export type PreviewGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningPreview;
+};
+
+export type PreviewGridCorrectionLearningResponse =
+  PreviewGridCorrectionLearningResponses[keyof PreviewGridCorrectionLearningResponses];
+
+export type GetGridCorrectionLearningReadyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/ready';
+};
+
+export type GetGridCorrectionLearningReadyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridCorrectionLearningReadyError =
+  GetGridCorrectionLearningReadyErrors[keyof GetGridCorrectionLearningReadyErrors];
+
+export type GetGridCorrectionLearningReadyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningPreview;
+};
+
+export type GetGridCorrectionLearningReadyResponse =
+  GetGridCorrectionLearningReadyResponses[keyof GetGridCorrectionLearningReadyResponses];
+
+export type GetGridCorrectionLearningData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}';
+};
+
+export type GetGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridCorrectionLearningError =
+  GetGridCorrectionLearningErrors[keyof GetGridCorrectionLearningErrors];
+
+export type GetGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningView;
+};
+
+export type GetGridCorrectionLearningResponse =
+  GetGridCorrectionLearningResponses[keyof GetGridCorrectionLearningResponses];
+
+export type ListGridCorrectionApplyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply';
+};
+
+export type ListGridCorrectionApplyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridCorrectionApplyError =
+  ListGridCorrectionApplyErrors[keyof ListGridCorrectionApplyErrors];
+
+export type ListGridCorrectionApplyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionApplyList;
+};
+
+export type ListGridCorrectionApplyResponse =
+  ListGridCorrectionApplyResponses[keyof ListGridCorrectionApplyResponses];
+
+export type StartGridCorrectionApplyData = {
+  body: GridCorrectionApplyStartCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply';
+};
+
+export type StartGridCorrectionApplyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartGridCorrectionApplyError =
+  StartGridCorrectionApplyErrors[keyof StartGridCorrectionApplyErrors];
+
+export type StartGridCorrectionApplyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionApplyView;
+};
+
+export type StartGridCorrectionApplyResponse =
+  StartGridCorrectionApplyResponses[keyof StartGridCorrectionApplyResponses];
+
+export type PreviewGridCorrectionApplyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: {
+    /**
+     * Additionalgameids
+     */
+    additionalGameIds?: Array<string> | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/preview';
+};
+
+export type PreviewGridCorrectionApplyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type PreviewGridCorrectionApplyError =
+  PreviewGridCorrectionApplyErrors[keyof PreviewGridCorrectionApplyErrors];
+
+export type PreviewGridCorrectionApplyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionApplyPreview;
+};
+
+export type PreviewGridCorrectionApplyResponse =
+  PreviewGridCorrectionApplyResponses[keyof PreviewGridCorrectionApplyResponses];
+
+export type GetGridCorrectionApplyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+    /**
+     * Apply Id
+     */
+    apply_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}';
+};
+
+export type GetGridCorrectionApplyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridCorrectionApplyError =
+  GetGridCorrectionApplyErrors[keyof GetGridCorrectionApplyErrors];
+
+export type GetGridCorrectionApplyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionApplyView;
+};
+
+export type GetGridCorrectionApplyResponse =
+  GetGridCorrectionApplyResponses[keyof GetGridCorrectionApplyResponses];
+
+export type ResumeGridCorrectionApplyData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+    /**
+     * Apply Id
+     */
+    apply_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/apply/{apply_id}/resume';
+};
+
+export type ResumeGridCorrectionApplyErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridCorrectionApplyError =
+  ResumeGridCorrectionApplyErrors[keyof ResumeGridCorrectionApplyErrors];
+
+export type ResumeGridCorrectionApplyResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionApplyView;
+};
+
+export type ResumeGridCorrectionApplyResponse =
+  ResumeGridCorrectionApplyResponses[keyof ResumeGridCorrectionApplyResponses];
+
+export type CancelGridCorrectionLearningData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/cancel';
+};
+
+export type CancelGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CancelGridCorrectionLearningError =
+  CancelGridCorrectionLearningErrors[keyof CancelGridCorrectionLearningErrors];
+
+export type CancelGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningView;
+};
+
+export type CancelGridCorrectionLearningResponse =
+  CancelGridCorrectionLearningResponses[keyof CancelGridCorrectionLearningResponses];
+
+export type GetGridCorrectionLearningEvaluationData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/evaluation';
+};
+
+export type GetGridCorrectionLearningEvaluationErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridCorrectionLearningEvaluationError =
+  GetGridCorrectionLearningEvaluationErrors[keyof GetGridCorrectionLearningEvaluationErrors];
+
+export type GetGridCorrectionLearningEvaluationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type GetGridCorrectionLearningEvaluationResponse =
+  GetGridCorrectionLearningEvaluationResponses[keyof GetGridCorrectionLearningEvaluationResponses];
+
+export type ResumeGridCorrectionLearningData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Learning Id
+     */
+    learning_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-correction-learning/{learning_id}/resume';
+};
+
+export type ResumeGridCorrectionLearningErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ResumeGridCorrectionLearningError =
+  ResumeGridCorrectionLearningErrors[keyof ResumeGridCorrectionLearningErrors];
+
+export type ResumeGridCorrectionLearningResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionLearningView;
+};
+
+export type ResumeGridCorrectionLearningResponse =
+  ResumeGridCorrectionLearningResponses[keyof ResumeGridCorrectionLearningResponses];
 
 export type GetGameGridModelAssignmentData = {
   body?: never;
@@ -31245,6 +33463,45 @@ export type CreateGridModelEvaluationResponses = {
 
 export type CreateGridModelEvaluationResponse =
   CreateGridModelEvaluationResponses[keyof CreateGridModelEvaluationResponses];
+
+export type CreateGridAssignedComparisonData = {
+  body: GridAssignedComparisonCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-model-evaluations/assigned-comparison';
+};
+
+export type CreateGridAssignedComparisonErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateGridAssignedComparisonError =
+  CreateGridAssignedComparisonErrors[keyof CreateGridAssignedComparisonErrors];
+
+export type CreateGridAssignedComparisonResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridModelEvaluationView;
+};
+
+export type CreateGridAssignedComparisonResponse =
+  CreateGridAssignedComparisonResponses[keyof CreateGridAssignedComparisonResponses];
 
 export type VerifyGridModelEvaluationCurrentnessData = {
   body?: never;

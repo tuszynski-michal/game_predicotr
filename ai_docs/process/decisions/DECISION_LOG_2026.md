@@ -14,6 +14,17 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-579 — Manifest wymiany źródła z zachowaniem historii
+
+- **Date:** 2026-11-03.
+- **Status:** accepted; plan i doprecyzowanie operatora przed B1.
+- **Decision:** kontrolowana wymiana całego zdjęcia jest odrębnym, jawnym wyjątkiem od D-543. Zwykły reject canonical nadal odmawia, import nadal nie przejmuje kanonu. B1 zapisuje tylko planned i dokładny manifest przed jakąkolwiek zmianą własności; B2a dostarcza strażników, B2b wymaga nowego preview i osobnego potwierdzenia retirement. Historia, modele, kohorty, źródła i potrzebne pliki pozostają.
+- **Identity:** wybór exact sourceIds rozwija aliasy tej samej gry, SHA i atestowanego zakresu. Inne zakresy/gry nie są scalane. Niejednoznaczność i obcy właściciel blokują całe zdjęcie. Preview przypina rzeczywiste plansze/seq, wszystkie rewizje, oceny oraz zależności; counts ani sam SHA pliku nie upoważniają do mutacji. Planned nie tworzy aktywnych rezerwacji i nie blokuje zwykłego importu.
+- **Human evidence:** append-only ledger per game/cell pod istniejącą EXCLUSIVE ownership lock zapisuje ordinal, command key, origin run/item revision i crop identity atomowo z A2 label/receiptem. Brak FK do efemerycznej projekcji cell. Ostatnia rozstrzygająca readable/unreadable dla bieżącej tożsamości pikseli ma pierwszeństwo, także gdy pochodzi ze starszego runu; pending/skipped jej nie kasują. Aktualne readable wyłącza powód tego pola mimo zachowanej historycznej quality_issue. Bez ledger zgodne aktualne legacy oceny mają pełny proof IDs/revisions; sprzeczne wymagają świeżej oceny, bez zgadywania po czasie runu/UUID. Brak jawnej oceny zachowuje wcześniejsze manual unreadable. Zmienione piksele nie dziedziczą ocen.
+- **Storage:** migracja 0173 łączy audytowane heads0171/0172 bez przepisywania historii; 0174/v21 dodaje manifest i ledger. Integracja main40581449 do gałęzi B1 obejmuje nowe granice photo-only training w przyszłych strażnikach B2a. Obie historyczne D-578 i kolizje numerów wersji pozostają identyfikowane kotwicami/hashami.
+- **Source:** `ai_docs/delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md`, TASK-1127.
+
+
 ## D-578 — Niezależny detektor jakości 777 A2 na zamrożonym kandydacie nr 5
 
 Status: accepted
@@ -46,6 +57,88 @@ Audit200 jest jednostajnym losowaniem dotąd nieoznaczonych pól z rodzin poza
 pilotem i bazowym TRAIN/VAL. Receipt jest zamrożony przed etykietami i fitem.
 Raport dotyczy tej puli, nie całej gry; maksymalnie 800 pól (600+200).
 Brak niezależnej puli oznacza STOP, bez poszerzania ani osłabiania izolacji.
+
+## D-578 — Uczenie korekt i ocena w jawnym zakresie
+
+Status: accepted
+Data: 2026-11-02
+
+TASK-1121 realizuje zaakceptowany T2. Polityka `application-grid-corrections-v1`
+używa snapshotu v2, częściowych obu kontroli tylko grid-only, reportu v3 i
+`grid-model-per-game-gate-v2`; stare formaty zachowują reguły. Dobór checkpointu
+wersjonowany: photo-macro board_correct, następnie mniejszy błąd i wcześniejszy
+krok, tylko VALIDATION; joint waży gry równo. Błąd nowych miar to średnia24
+odległości przez przekątną obwiedniGT, clamp1/missing1. Matching pozostaje v1.
+Partial nie orzeka FP ani kompletności zdjęcia; full dodatkowo chroni te miary.
+
+Zakres oceny to bieżąca gra, wszystkie gry TRAIN i jawnie potwierdzony scope
+poprzedniego defaultu. Kwalifikujące historyczne kohorty dołączane z zachowaniem
+ról/aliasów/aktualności, bez zmiany ich historii ani fikcyjnych nagrań. Brak
+jawnych game IDs w zweryfikowanym raporcie/publikacji oznacza nieudokumentowany
+scope. Potwierdzone wyłączenia są zapisane z powodem i nie usuwają ochrony.
+Bieżąca REGRESSION musi poprawić correct o1 albo błąd o5% i0.001; każda wymagana
+gra/rola musi zachować detected/correct/error (epsilon1e-9), full także FP/dup/
+complete. To progi produktu, bez deklaracji istotności statystycznej.
+
+Parent workflow używa istniejących jobs PostgreSQL i zapisuje przypięty default,
+scope, identyfikatory dzieci i etapy. Podczas oczekiwania zwalnia slot/dzierżawę;
+claim pomija go do terminalnego stanu dziecka. GET jest tylko odczytem. Retry
+używa tych samych dzieci i budżetu. Brak Redis, nowych usług i automatycznej
+aktywacji. Readiness ujawnia nierozstrzygnięte fakty; admission nie zmniejsza danych.
+
+Dodatkowa ocena względem faktycznie przypisanego modelu przypina po stronie serwera
+baseline descriptor i rewizję przypisania. Ma osobny job/report
+`grid-model-assigned-comparison-v1`; nie zmienia baseVersionId kandydata ani jego
+raportu publikacji. T3 wiąże taki dowód z receipt apply i końcowym CAS. Nieznane
+sesje pozostają jednostkami próbkowania zdjęć, bez dowodu niezależności.
+
+Doprecyzowanie po audycie T2: istniejący `set_default` dla raportu scoped pod
+registry lock wymaga, aby baza kandydata nadal była aktualnym defaultem; zmiana
+defaultu od czasu oceny zwraca `GRID_MODEL_EVALUATION_SCOPE_STALE` (409).
+Ponowne ustawienie aktualnego head i replay własnego receipt są bezpieczne.
+Legacy bez zmian; samo publish nie przełącza defaultu, activate wymaga gry w scope.
+
+## D-577 — Podział korekt geometrii z atestów i trwała ochrona zdjęć
+
+Status: accepted
+Data: 2026-11-02
+
+Operator zlecił cały plan uczenia siatek z korekt, a po preflight jawnie dopuścił
+zweryfikowane atesty zamiast niedostępnych nazw seq_. W grze mumie-aktu2 istnieje
+117 rzeczywistych korekt na 89 zdjęciach; logiczne pola importu przechowują nazwy
+SHA, a 788 źródeł ma poprawne atesty. Nie rekonstruujemy fikcyjnych nazw ani sesji.
+
+Rozszerzenie D-554/D-556: opt-in `application-grid-corrections-v1`, tylko grid-only,
+łączy dokładne ludzkie etykiety z rejestrem ochrony photo-only. Zgodne nazwy seq_
+pozostają dowodem; dla managed SHA obowiązuje `verified-attestation-order-v1`.
+Sprzeczna oryginalna nazwa blokuje, brak porządku czyni import nierozdzielnym.
+Znane sesje i kopie nie przechodzą między rolami. Nieznana niezależność sesji
+i nieznany ancestor use są jawnym ograniczeniem, nie kwalifikacją historyczną.
+
+Dokładne optimum 70/15/15 dotyczy 1–3 kolejnych bloków na import, każda rola raz,
+z buforem 10 wszystkich unikalnych zdjęć przy zmianie roli. To doprecyzowanie
+podziału 3-role/2-bufory zaakceptowanego po preflight. Minima: TRAIN 30 plansz/10
+zdjęć, każda kontrola 15/5; częściowe kontrole wyłącznie w nowej polityce.
+Limity solvera są jawne; przekroczenie nie dowodzi braku matematycznego rozwiązania.
+
+Migracja 0170 rozszerza prywatny rejestr o niezmienne użycia zdjęć i bufory,
+bez udawania nagrań. Preview niczego nie zużywa; freeze atomowo utrwala ochronę,
+także wobec dawnych konsumentów. Zmiana populacji lub dowodów wymaga nowego preview.
+Stare polityki zachowują semantykę. Wykonanie migracji operatora, trening,
+publikacja, aktywacja i merge pozostają poza zgodą implementacyjną.
+
+Doprecyzowanie po audycie: każde przydzielone zdjęcie i bufor otrzymuje trwałą
+rezerwację. `used_in_cohort` odróżnia przykłady użyte w kohorcie od rezerwacji
+metadanych zdjęć bez etykiet lub kopii; tylko użyte przykłady kopiują oryginały.
+Nakładka legacy sprawdza wyłącznie nowe rezerwacje zdjęć. Dotychczasowe reguły
+nagrań pozostają w istniejącej implementacji v3 uwzględniającej rodzinę modelu.
+
+Adapter T1 rozdziela korekty własnej gry. TASK-1121 ma dołączyć kwalifikujące
+niezmienne kohorty historyczne wspólnej bazy w `SharedGridCandidateService`
+i wersjonowanym readerze workera, zachowując role, aliasy, ancestry i aktualność
+każdej gry. To jawna zależność odbioru wymagania T1 o danych wspólnej bazy,
+a nie punkt uznany za wykonany przez sam split. Do czasu gotowego konsumenta
+API odrzuca trening pojedynczy i wspólny nowej polityki przed utworzeniem joba.
 
 ## D-576 — Uproszczenie wyszukiwarki i modal supergry w Adminie
 

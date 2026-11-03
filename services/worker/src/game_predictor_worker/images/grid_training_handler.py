@@ -80,6 +80,7 @@ class GridTrainingStore(Protocol):
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
 
     def base_version(self, version_id: UUID) -> Mapping[str, Any]: ...
+    def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None: ...
 
     def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]: ...
 
@@ -361,7 +362,10 @@ class GridTrainingJobHandler:
                 header["status"] != "frozen"
                 or header["manifestSha256"] != pin["manifest_sha256"]
                 or header["mode"] != payload["mode"]
-                or str(header["baseVersionId"]) != str(payload["base_version_id"])
+                or (
+                    payload["preset_id"] != "grid-corrections-v1"
+                    and str(header["baseVersionId"]) != str(payload["base_version_id"])
+                )
                 or str(header["familyId"]) != str(payload["family_id"])
             ):
                 raise JobHandlerError(
@@ -375,6 +379,8 @@ class GridTrainingJobHandler:
                     "A shared cohort no longer qualifies for new training use.",
                 )
             entries.append((game, header))
+            if str(header["baseVersionId"]) != str(payload["base_version_id"]):
+                self.store.historical_cohort(UUID(str(payload["base_version_id"])), header)
         if str(primary["familyId"]) != str(payload["family_id"]):
             raise JobHandlerError("GRID_TRAINING_COHORT_DRIFT", "Primary family differs.")
         pinned = [
@@ -382,7 +388,12 @@ class GridTrainingJobHandler:
             for game, header in entries
         ]
         try:
-            plan = plan_for(self.artifact_root, str(job.game_id), pinned)
+            plan = plan_for(
+                self.artifact_root,
+                str(job.game_id),
+                pinned,
+                historical=payload["preset_id"] == "grid-corrections-v1",
+            )
         except SharedCandidateError as error:
             raise JobHandlerError(error.code, error.message) from error
         if plan["sha256"] != payload["joint_sha256"]:

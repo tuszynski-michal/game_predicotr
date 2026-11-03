@@ -269,6 +269,40 @@ def test_exact_owned_v3_migration_privileges_use_and_read_only_validation(monkey
                             ),
                             {"id": uuid4(), "group": gid, "g": game, "s": source, "sha": checksum},
                         )
+                    # TASK-1120: these legacy declarations are legal controls. The
+                    # photo wrapper must not reinterpret them using all-family roles.
+                    if role == "VALIDATION":
+                        other_family = uuid4()
+                        s.execute(
+                            text(
+                                "INSERT INTO public.grid_model_families"
+                                "(id,code,descriptor_json) VALUES(:f,:c,'{}')"
+                            ),
+                            {"f": other_family, "c": "unused_" + other_family.hex},
+                        )
+                        s.execute(
+                            text(
+                                "INSERT INTO public.recording_role_heads"
+                                "(family_id,group_id,revision,role,event_id) "
+                                "VALUES(:f,:g,1,'TRAIN',:e)"
+                            ),
+                            {"f": other_family, "g": gid, "e": event},
+                        )
+                    elif role == "REGRESSION":
+                        s.execute(
+                            text(
+                                "INSERT INTO public.recording_evidence"
+                                "(id,kind,group_ids,payload,payload_sha256,actor) "
+                                "VALUES(:i,'holdout',ARRAY[:g]::uuid[],"
+                                "CAST(:p AS jsonb),:sha,'fixture:1120')"
+                            ),
+                            {
+                                "i": uuid4(),
+                                "g": gid,
+                                "p": json.dumps({"role": "final_test"}),
+                                "sha": "f" * 64,
+                            },
+                        )
                     proof = s.scalar(
                         text("SELECT public.recording_proof_v1(ARRAY[:id]::uuid[])"), {"id": gid}
                     )

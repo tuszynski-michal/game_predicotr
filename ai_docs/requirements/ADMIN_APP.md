@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-11-01
+last_updated: 2026-11-02
 ---
 
 # Wymagania modułu administracyjnego
@@ -12,6 +12,53 @@ Planowana reorganizacja nawigacji i workflow dla `0.2` znajduje się w
 kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 ## Forma aplikacji
+
+Akcje jakości rozpoznawania używają wspólnych klas `primaryButton` i
+`secondaryButton` z `packages/ui/src/buttons.css`. Start i zastosowanie są
+primary; odczyty, nawigacja i anulowanie secondary, z wyjątkiem opisanej poniżej
+listy przebiegów uczenia. Sąsiadujące akcje mają
+odstęp i zawijają się na wąskim ekranie, także w panelach zaawansowanych.
+
+### Uczenie siatek z zapisanych korekt — TASK-1122
+
+Podstawowy panel Geometria V3 prowadzi przez dostępne korekty i braki, start,
+postęp, wynik, osobne zastosowanie oraz historię modeli. Nagrania, rodziny,
+kohorty, parametry i ręczne sterowanie wersjami pozostają w zwiniętej sekcji
+Zaawansowane. Losowa kontrola jakości i ponowne rozpoznanie są osobnymi narzędziami.
+Wejście, zmiana gry, przeładowanie i odczyt postępu wykonują wyłącznie GET.
+
+Lista przebiegów uczenia używa oddzielonych odstępami przycisków primary,
+bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnika
+dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
+odczytuje jego stan i nie ponawia treningu.
+
+Uczenie nie publikuje modelu ani nie zmienia przypisań. Zastosowanie domyślnie
+obejmuje globalny default i bieżącą grę; pozostałe ocenione gry wymagają osobnego
+wyboru. Operator potwierdza zakres oraz ograniczony dowód oparty na zdjęciach.
+Wynik względem wspólnej bazy nie zastępuje dodatkowej kontroli względem faktycznie
+przypisanej wersji każdej przełączanej gry. Wyłączona lub nieoceniona gra nie jest
+przełączana. Liczniki i blokady pochodzą z backendu.
+
+Utrata odpowiedzi zachowuje dokładne polecenie do jawnego ponowienia, także po
+reloadzie. Backend utrwala stan każdego kroku zastosowania; częściowy sukces
+pozostaje widoczny, a wznowienie kontynuuje ten sam przebieg. Zmiana defaultu lub
+przypisania wymaga świeżego podglądu. Jeżeli zmieniła się wersja wspólnej bazy,
+stary PASS nie wystarcza i panel wskazuje potrzebę nowego przebiegu bez jego
+automatycznego uruchamiania. Historia i jawne przywrócenie wersji gry dotyczą
+nowych importów. Zastosowanie nie przelicza wcześniejszych importów ani korekt.
+
+Jeżeli kandydat został już opublikowany z dokładnie tym samym dowodem, nowe
+zastosowanie potwierdza istniejącą publikację bez powtórnej mutacji. Inny dowód
+publikacji blokuje operację. Już ustawiony kandydat domyślny ma osobny komunikat;
+panel nie proponuje nowego treningu ani niemożliwego opt-in, ale zachowuje historię
+i resume częściowego przebiegu. Drugi aktywny apply jest blokowany po stronie
+serwera. Ponowienie resume już wznowionego lub ukończonego przebiegu zwraca jego
+bieżący wynik, bez nowych kroków.
+
+Dotyczy to także próby wznowienia przerwanego apply: inny aktywny przebieg tego
+samego uczenia blokuje wznowienie. Konflikt dowodu ręcznej publikacji nadal blokuje
+nowe komendy, lecz nie ukrywa wcześniejszej historii. Odczyt potwierdza cudzą zgodną
+publikację dopiero po zakończeniu wcześniejszych porównań danego przebiegu.
 
 ### Porównanie siatek V3 — TASK-0805
 
@@ -2329,3 +2376,9 @@ wykrywa samym odczytem (co 15 s, tylko gdy run czeka lub trwa, oraz przyciskiem
 ponownego wyboru. Zmiana wyboru, także na pusty,
 unieważnia spóźnione odpowiedzi. Panel działa z wieloma rodzinami i bazami oraz z
 odrzuconym wspólnym kandydatem.
+
+## Plan wymiany zdjęć — TASK-1127
+
+W istniejącym obszarze porządkowania źródeł operator zaznacza całe zdjęcia, ogląda dokładne numery, powody nieczytelności, aliasy, zależności i blokery, a następnie jawnie zapisuje plan. Lista kandydatów jest wstępna; aktualny podgląd rozstrzyga kwalifikację. Panel pokazuje, że zapisane zdjęcia pozostają aktywne. Umożliwia ponowne otwarcie planu oraz eksport JSON/CSV.
+
+Przed wysłaniem zapisu panel utrwala dokładną komendę wraz z kluczem i tokenem podglądu. Brak odpowiedzi/5xx zachowuje ją do jawnego ponowienia także po przeładowaniu. Odmowa 4xx wymaga nowego podglądu. Uszkodzony lub niedostępny lokalny zapis blokuje nową komendę. B1 nie udostępnia przycisku wycofania ani eksportu uprawnień do zapełniania luk.

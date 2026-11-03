@@ -197,17 +197,36 @@ def _preset(
 
 GRID_ONLY_V1 = _preset("grid-only-v1", "grid-only", 48, 1, ("detector", "batchnorm"))
 SCREEN_GRID_V1 = _preset("screen-grid-v1", "screen+grid", 12, 4, ())
+GRID_CORRECTIONS_V1 = replace(
+    GRID_ONLY_V1,
+    preset_id="grid-corrections-v1",
+    version=2,
+    early_stopping=replace(
+        GRID_ONLY_V1.early_stopping, metric="validation-board-correct-photo-macro-error-earliest-v1"
+    ),
+    approval_basis="TASK-1121/D-578: grid-only budget retained; versioned correction selection",
+)
 PRESETS: Mapping[str, GridTrainingPreset] = {
     GRID_ONLY_V1.preset_id: GRID_ONLY_V1,
     SCREEN_GRID_V1.preset_id: SCREEN_GRID_V1,
+    GRID_CORRECTIONS_V1.preset_id: GRID_CORRECTIONS_V1,
 }
 
 
 def preset_for_mode(
-    mode: str, presets: Mapping[str, GridTrainingPreset] = PRESETS
+    mode: str,
+    presets: Mapping[str, GridTrainingPreset] = PRESETS,
+    *,
+    policy: str = "application-grid-cohort-v1",
 ) -> GridTrainingPreset | None:
     """The approved preset of a cohort mode, or None."""
-    matching = [p for p in presets.values() if p.mode == mode and p.approved]
+    matching = [
+        p
+        for p in presets.values()
+        if p.mode == mode
+        and p.approved
+        and (p.preset_id == "grid-corrections-v1") == (policy == "application-grid-corrections-v1")
+    ]
     return max(matching, key=lambda p: p.version) if matching else None
 
 

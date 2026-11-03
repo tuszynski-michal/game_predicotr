@@ -29,6 +29,8 @@ const { GridTrainingRunPanel } =
   await import('../src/features/model-quality/grid-training-run-panel.tsx');
 const { GridModelVersionsPanel } =
   await import('../src/features/model-quality/grid-model-versions-panel.tsx');
+const { GridModelComparison } =
+  await import('../src/features/model-quality/grid-model-comparison.tsx');
 const { cohortLabel, modelCommandKey } =
   await import('../src/features/model-quality/grid-model-state.ts');
 
@@ -116,6 +118,108 @@ const optionValue = (select, label) =>
 const settle = () =>
   act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
 
+for (const schemaVersion of [
+  'grid-model-evaluation-read-v3',
+  'grid-model-assigned-comparison-v1',
+]) {
+  test(`existing reader displays ${schemaVersion} without inventing full-photo evidence`, async () => {
+    const metrics = {
+      photos: 5,
+      partial_photos: 5,
+      boards_expected: 15,
+      boards_matched: 15,
+      boards_correct: 15,
+      normalized_error: 0.001,
+      false_boards: null,
+      duplicate_predictions: null,
+      photo_complete_correct: null,
+    };
+    const roles = Object.fromEntries(
+      ['VALIDATION', 'REGRESSION'].map((role) => [
+        role,
+        { base: metrics, candidate: metrics },
+      ]),
+    );
+    const decision = { validation: 'pass', regression: 'pass', reasons: [] };
+    const report = {
+      schemaVersion,
+      policyVersion: 'fixture',
+      verdict: 'PASS',
+      parity: { passed: true },
+      games: [{ gameId: GAME, roles, ...decision }],
+      gameId: GAME,
+      roles,
+      decision,
+      baselineVersionId: 'actual-assigned',
+      assignmentRevision: 4,
+    };
+    const evaluation = {
+      evaluationId: 'evaluation',
+      status: 'completed',
+      createdAt: '2026-11-02',
+      progressCurrent: 2,
+      progressTotal: 2,
+      currentness: [],
+      report,
+    };
+    const api = {
+      listGames: async () => ({ data: games }),
+      listGridModelVersions: async () => ({ data: [] }),
+      listGridTrainingRuns: async () => ({
+        data: {
+          items: [
+            {
+              runId: 'run',
+              candidateVersionId: 'v',
+              cohortId: COHORT,
+              createdAt: '2026-11-02',
+              status: 'completed',
+            },
+          ],
+        },
+      }),
+      listGridModelEvaluations: async () => ({ data: { items: [evaluation] } }),
+      getGridModelEvaluation: async () => ({ data: evaluation }),
+    };
+    const view = await mount(
+      React.createElement(GridModelComparison, {
+        apiBaseUrl,
+        gameId: GAME,
+        client: api,
+      }),
+    );
+    try {
+      await settle();
+      await choose(document.querySelector('select'), 'run');
+      await settle();
+      const history = document.querySelector('li button');
+      assert.ok(history);
+      await act(async () => history.click());
+      assert.match(
+        document.body.textContent,
+        /Częściowe zdjęcia oceniają wyłącznie oznaczone plansze/,
+      );
+      assert.match(document.body.textContent, /Błąd węzłów/);
+      const row = [...document.querySelectorAll('tr')].find((item) =>
+        item.textContent.includes('Fałszywe plansze'),
+      );
+      assert.deepEqual(
+        [...row.querySelectorAll('td')].map((item) => item.textContent),
+        ['—', '—'],
+      );
+      if (schemaVersion === 'grid-model-assigned-comparison-v1') {
+        assert.match(document.body.textContent, /actual-assigned/);
+        assert.match(
+          document.body.textContent,
+          /Brak regresji względem przypisanego modelu/,
+        );
+      }
+    } finally {
+      await view.close();
+    }
+  });
+}
+
 test('entering the whole V3 section only reads, whatever the backend answers', async () => {
   const calls = [];
   globalThis.workspaceFixture = new Proxy(
@@ -140,11 +244,23 @@ test('entering the whole V3 section only reads, whatever the backend answers', a
     assert.deepEqual(writes, []);
     for (const step of [
       'Trening',
-      'Porównanie z bazą',
+      'Porównanie kandydata z bazą',
       'Wersje',
       'Ponowne rozpoznanie',
     ])
       assert.match(document.body.textContent, new RegExp(step));
+    // TASK-1122 keeps the legacy workflow available inside an explicit disclosure.
+    const advanced = [...document.querySelectorAll('details')].find(
+      (item) =>
+        item.querySelector('summary')?.textContent ===
+        'Zaawansowane: nagrania, kohorty i parametry',
+    );
+    assert.ok(advanced);
+    assert.equal(advanced.open, false);
+    assert.match(
+      document.querySelector('ol.gridModelSteps').textContent,
+      /Dostępne korekty i braki/,
+    );
   } finally {
     await view.close();
   }

@@ -37,6 +37,27 @@ test('codes are readable, evaluation reasons are explained and unknown codes sta
   );
 });
 
+test('scope changes and pending learning transitions explain the next safe action', () => {
+  assert.match(
+    reasonLabel('GRID_MODEL_EVALUATION_SCOPE_STALE'),
+    /Wersja domyślna zmieniła się.*nowej bazy.*nowy przebieg/,
+  );
+  assert.match(
+    reasonLabel('GRID_LEARNING_BUSY'),
+    /Trwa zapis.*Odczekaj chwilę i ponów/,
+  );
+  assert.match(
+    reasonLabel('GRID_LEARNING_CANCELLATION_PENDING'),
+    /Anulowanie trwa.*Poczekaj.*zanim wznowisz/,
+  );
+  for (const code of [
+    'GRID_MODEL_EVALUATION_SCOPE_STALE',
+    'GRID_LEARNING_BUSY',
+    'GRID_LEARNING_CANCELLATION_PENDING',
+  ])
+    assert.doesNotMatch(reasonLabel(code), /Inny powód/);
+});
+
 const manifest = (id, family, version) => ({
   versionId: id,
   familyLabel: family,

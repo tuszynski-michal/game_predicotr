@@ -8,7 +8,7 @@ import re
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.cleanup import (
@@ -324,15 +324,33 @@ class ManagedCleanupArtifactStore:
         )
 
 
+class ReplacementPlans(Protocol):
+    def preview(self, game: UUID, sources: list[UUID]) -> dict[str, Any]: ...
+    def create(self, game: UUID, request: Any) -> dict[str, Any]: ...
+    def get(self, game: UUID, batch: UUID) -> dict[str, Any]: ...
+    def list(self, game: UUID) -> list[dict[str, Any]]: ...
+    def candidates(self, game: UUID, offset: int) -> dict[str, Any]: ...
+
+
 class CleanupService:
     def __init__(
         self,
         repository: CleanupRepository,
         artifact_store: CleanupArtifactStore,
+        replacement_plans: ReplacementPlans | None = None,
     ) -> None:
+        self._replacement_plans = replacement_plans
         self._repository = repository
         self._artifact_store = artifact_store
         self._pending_quarantines: set[str] = set()
+
+    @property
+    def replacement_plans(self) -> ReplacementPlans:
+        if self._replacement_plans is None:
+            raise CleanupConflictError(
+                "SOURCE_REPLACEMENT_UNAVAILABLE", "Replacement planning is unavailable."
+            )
+        return self._replacement_plans
 
     def preview_release(self, mobile_release_id: UUID) -> CleanupPreview:
         return cleanup_preview(self._repository.release_snapshot(mobile_release_id))

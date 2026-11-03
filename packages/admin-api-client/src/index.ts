@@ -1,4 +1,24 @@
 import {
+  planSourceReplacement as generatedReplacementPlan,
+  listSourceReplacementCandidates as generatedReplacementCandidates,
+  listSourceReplacementBatches as generatedReplacementBatches,
+  getSourceReplacementBatch as generatedReplacementBatch,
+} from './generated/sdk.gen';
+import type {
+  SourceReplacementPreviewRequest,
+  SourceReplacementCreateRequest,
+  SourceReplacementManifestResponse,
+} from './generated/types.gen';
+export type {
+  SourceReplacementPreviewRequest,
+  SourceReplacementCreateRequest,
+  SourceReplacementManifestResponse,
+  SourceReplacementEntryResponse,
+  SourceReplacementCandidateResponse,
+  SourceReplacementCandidatePage,
+  SourceReplacementBatchResponse,
+} from './generated/types.gen';
+import {
   getReadabilityWorkspace as generatedReadabilityWorkspace,
   startReadabilityRun as generatedReadabilityStart,
   listReadabilityItems as generatedReadabilityItems,
@@ -25,6 +45,20 @@ export type {
 } from './generated/types.gen';
 
 import {
+  previewGridCorrectionApply as previewGeneratedGridCorrectionApply,
+  startGridCorrectionApply as startGeneratedGridCorrectionApply,
+  listGridCorrectionApply as listGeneratedGridCorrectionApply,
+  getGridCorrectionApply as getGeneratedGridCorrectionApply,
+  resumeGridCorrectionApply as resumeGeneratedGridCorrectionApply,
+  getGridCorrectionLearningReady as getGeneratedGridCorrectionLearningReady,
+  previewGridCorrectionLearning as previewGeneratedGridCorrectionLearning,
+  startGridCorrectionLearning as startGeneratedGridCorrectionLearning,
+  listGridCorrectionLearning as listGeneratedGridCorrectionLearning,
+  getGridCorrectionLearning as getGeneratedGridCorrectionLearning,
+  cancelGridCorrectionLearning as cancelGeneratedGridCorrectionLearning,
+  resumeGridCorrectionLearning as resumeGeneratedGridCorrectionLearning,
+  getGridCorrectionLearningEvaluation as getGeneratedGridCorrectionLearningEvaluation,
+  createGridAssignedComparison as createGeneratedGridAssignedComparison,
   listGridTrainingCohorts as listGeneratedGridTrainingCohorts,
   getGridTrainingCohort as getGeneratedGridTrainingCohort,
   getGridTrainingCohortMembers as getGeneratedGridTrainingCohortMembers,
@@ -78,6 +112,10 @@ import {
   getGameGridModelHistory as getGeneratedGameGridModelHistory,
 } from './generated/sdk.gen';
 import type {
+  GridCorrectionApplyStartCommand,
+  GridCorrectionLearningPreviewCommand,
+  GridCorrectionLearningStartCommand,
+  GridAssignedComparisonCreate,
   GridCohortPrepareCommand,
   GridTrainingRunCreate,
   GridModelEvaluationCreate,
@@ -103,6 +141,19 @@ import type {
   GridModelAssignmentCommand,
 } from './generated/types.gen';
 export type {
+  GridCorrectionApplyPreview,
+  GridCorrectionApplyStartCommand,
+  GridCorrectionApplyView,
+  GridCorrectionApplyList,
+  GridCorrectionLearningPreviewCommand,
+  GridCorrectionLearningStartCommand,
+  GridCorrectionLearningPreview,
+  GridCorrectionDataAvailability,
+  GridCorrectionLearningView,
+  GridCorrectionLearningList,
+  GridAssignedComparisonCreate,
+  GridAssignedComparisonReport,
+  GridCorrectionEvaluationReport,
   GridCohortPrepareCommand,
   GridCohortPageCommand,
   GridCohortFreezeCommand,
@@ -1542,6 +1593,99 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createGridModelEvaluation: (body: GridModelEvaluationCreate) =>
       createGeneratedGridModelEvaluation({ client, body }),
+    previewGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      additionalGameIds: string[] = [],
+    ) =>
+      previewGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+        query: { additionalGameIds },
+      }),
+    startGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      body: GridCorrectionApplyStartCommand,
+    ) =>
+      startGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+        body,
+      }),
+    listGridCorrectionApply: (gameId: string, learningId: string) =>
+      listGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    getGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      applyId: string,
+    ) =>
+      getGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId, apply_id: applyId },
+      }),
+    resumeGridCorrectionApply: (
+      gameId: string,
+      learningId: string,
+      applyId: string,
+    ) =>
+      resumeGeneratedGridCorrectionApply({
+        client,
+        path: { game_id: gameId, learning_id: learningId, apply_id: applyId },
+      }),
+    getGridCorrectionLearningReady: (gameId: string) =>
+      getGeneratedGridCorrectionLearningReady({
+        client,
+        path: { game_id: gameId },
+      }),
+    previewGridCorrectionLearning: (
+      gameId: string,
+      body: GridCorrectionLearningPreviewCommand,
+    ) =>
+      previewGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    startGridCorrectionLearning: (
+      gameId: string,
+      body: GridCorrectionLearningStartCommand,
+    ) =>
+      startGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    listGridCorrectionLearning: (gameId: string) =>
+      listGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId },
+      }),
+    getGridCorrectionLearning: (gameId: string, learningId: string) =>
+      getGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    cancelGridCorrectionLearning: (gameId: string, learningId: string) =>
+      cancelGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    resumeGridCorrectionLearning: (gameId: string, learningId: string) =>
+      resumeGeneratedGridCorrectionLearning({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    getGridCorrectionLearningEvaluation: (gameId: string, learningId: string) =>
+      getGeneratedGridCorrectionLearningEvaluation({
+        client,
+        path: { game_id: gameId, learning_id: learningId },
+      }),
+    createGridAssignedComparison: (body: GridAssignedComparisonCreate) =>
+      createGeneratedGridAssignedComparison({ client, body }),
     listGridModelEvaluations: (versionId: string) =>
       listGeneratedGridModelEvaluations({ client, query: { versionId } }),
     getGridModelEvaluation: (evaluationId: string) =>
@@ -1562,6 +1706,24 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId },
         body,
+      }),
+    // Explicit opt-in; legacy callers retain their original request shape and replay keys.
+    prepareGridCorrectionCohort: (
+      gameId: string,
+      body: Omit<
+        GridCohortPrepareCommand,
+        'mode' | 'recordings' | 'policyVersion'
+      >,
+    ) =>
+      prepareGeneratedGridTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        body: {
+          ...body,
+          mode: 'grid-only',
+          recordings: [],
+          policyVersion: 'application-grid-corrections-v1',
+        },
       }),
     prepareGridTrainingCohortPage: (
       gameId: string,
@@ -4427,15 +4589,60 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         headers: confirmedTargetHeaders(`game-layout-data:${gameId}`),
         path: { game_id: gameId },
       }),
-    previewBoardSourceCleanup: (
+    listSourceReplacementCandidates: (gameId: string, offset = 0) =>
+      generatedReplacementCandidates({
+        client,
+        path: { game_id: gameId },
+        query: { offset },
+      }),
+    listSourceReplacementBatches: (gameId: string) =>
+      generatedReplacementBatches({ client, path: { game_id: gameId } }),
+    getSourceReplacementBatch: (gameId: string, batchId: string) =>
+      generatedReplacementBatch({
+        client,
+        path: { game_id: gameId, batch_id: batchId },
+      }),
+    planSourceReplacement: (
       gameId: string,
-      body: BoardSourceCleanupPreviewRequest,
-    ) =>
-      previewGeneratedBoardSourceCleanup({
+      body: SourceReplacementCreateRequest,
+    ) => generatedReplacementPlan({ client, path: { game_id: gameId }, body }),
+    previewSourceReplacement: async (
+      gameId: string,
+      body: SourceReplacementPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
         body,
         client,
         path: { game_id: gameId },
-      }),
+      });
+      const data = result.data;
+      if (data && !('mode' in data))
+        throw new Error('Unexpected replacement response');
+      return {
+        ...result,
+        data: data as SourceReplacementManifestResponse | undefined,
+      };
+    },
+    exportSourceReplacementUrl: (
+      gameId: string,
+      batchId: string,
+      format: 'json' | 'csv',
+    ) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-sources/${encodeURIComponent(batchId)}/export?format=${format}`,
+    previewBoardSourceCleanup: async (
+      gameId: string,
+      body: BoardSourceCleanupPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        body,
+        client,
+        path: { game_id: gameId },
+      });
+      const data = result.data;
+      if (data && !('kind' in data))
+        throw new Error('Unexpected cleanup response');
+      return { ...result, data };
+    },
     deleteBoardSourceRanges: (
       gameId: string,
       body: BoardSourceCleanupCommandRequest,

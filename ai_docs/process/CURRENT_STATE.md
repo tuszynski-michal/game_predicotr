@@ -43,7 +43,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1127–1132; A3 done v1.7.521; nowy scan blokowany po stale pilota | `codex/777a2-readability-replacement` |
+| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1128–1132; B1 done v1.7.523, planned bez retirement; nowy scan blokowany po stale pilota | `codex/777a2-readability-replacement` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -52,6 +52,10 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich taski uznano za nieaktualne; dawne wiersze tabeli są na początku archiwum Q4.
 
 ## Otwarte decyzje i pytania
+
+- **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
+
+- **Uczenie siatek z korekt / TASK-1120–1123 (2026-11-02):** w main i origin, cztery audyty Opus 5.5/high PASS. Migracje operatora do 0171 wykonane za zgodą, API/Admin i general/grid-training uruchomione; panel Mumie a2 gotowy (117 korekt), default i geometria zachowane. Bez treningu/aktywacji. Pełny mypy nadal wymaga osobnego baseline z uzgodnionym limitem; scoped checks PASS. Źródło: [raport odbioru](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
 
 - Przycinanie oryginałów: zgody na kolejne kroki pilotażu TASK-1050.
 - Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
@@ -74,13 +78,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 — tasks/completed/1127-source-replacement-manifest.md
+- **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
+- **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
+- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1126** — Shift i trwały zapis grup jakości — v1.7.521 / `2720e7aa` — tasks/completed/1126-shift-range-selection.md
 - **TASK-1125** — Trwały pilot i przegląd jakości — v1.7.519 / `8c096263` — tasks/completed/1125-readability-durable-review.md
 - **TASK-1124** — Rdzeń detektora jakości 777 A2 — v1.7.517 / `9e466d70` — tasks/completed/1124-readability-detector-core.md
-- **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
-- **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
-- **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md
-- **TASK-1113** — Odblokowanie zapisu super symbolu — v1.7.514 / `923dd029` — tasks/completed/1113-super-symbol-save-lock.md
-- **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
-- **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 / `a8727323` — tasks/completed/1111-expand-mumie-training-set-2.md
-- **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
+- **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
+- **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
+- **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md

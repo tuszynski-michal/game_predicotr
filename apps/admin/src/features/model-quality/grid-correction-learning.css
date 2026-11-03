@@ -1,0 +1,77 @@
+.gridCorrectionLearning,
+.gridCorrectionLearning section,
+.gridCorrectionLearning article,
+.gridCorrectionLearning fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.gridCorrectionLearning {
+  --button-height: 44px;
+
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.gridCorrectionLearning select,
+.gridCorrectionLearning input:not([type='checkbox']),
+.gridCorrectionLearning label:has(input[type='checkbox']),
+.modelQualityWorkflowGroup > details > summary {
+  min-height: 44px;
+  padding: 0.5rem;
+}
+
+.gridCorrectionLearning label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.gridCorrectionLearning table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.gridCorrectionLearning th,
+.gridCorrectionLearning td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.gridCorrectionLearning p,
+.gridCorrectionLearning li {
+  overflow-wrap: anywhere;
+}
+
+.gridCorrectionLearning .gridCorrectionRunList {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gridCorrectionRunList > li {
+  display: flex;
+  min-width: 0;
+}
+
+.gridCorrectionRunList .gridCorrectionRunButton {
+  --button-height: 38px;
+
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse) {
+  .gridCorrectionRunList .gridCorrectionRunButton {
+    --button-height: 44px;
+  }
+}

@@ -25,6 +25,8 @@ from game_predictor_api.application.grid_model_evaluation import (
     cohort_pins,
     report_id_for,
 )
+from game_predictor_api.domain import grid_correction_evaluation as corrections
+from game_predictor_api.domain.grid_correction_policy import CORRECTION_EVALUATION
 from game_predictor_api.domain.grid_model_evaluation import (
     EVALUATION_KIND,
     MODES,
@@ -40,8 +42,15 @@ from game_predictor_api.domain.jobs import Job, JobType
 
 from ..geometry_core.inference import onnx_engine
 from ..jobs.runtime import JobExecutionContext, JobHandlerError
+from ..training_core.grid_correction_metrics import CorrectionControlPhoto
+from ..training_core.grid_correction_metrics import measure_role as measure_corrections
 from ..training_core.grid_evaluation import ControlPhoto, Engine, measure_role
-from .grid_cohort_dataset import GridBoardDataset, GridCohortDatasetError, GridCohortSnapshot
+from .grid_cohort_dataset import (
+    GridBoardDataset,
+    GridCohortDatasetError,
+    GridCohortSnapshot,
+    has_full_geometry,
+)
 
 STAGE = "grid_model_evaluation"
 DETAIL_SCHEMA = "grid-model-evaluation-detail-v1"
@@ -68,6 +77,7 @@ class GridModelEvaluationStore(Protocol):
     def cohort(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
     def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]: ...
+    def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None: ...
     def store_report(
         self, report_id: UUID, version_id: UUID, report_json: str, report_sha256: str
     ) -> None: ...
@@ -96,12 +106,23 @@ def _write_atomic(path: Path, content: bytes) -> None:
 def _payload(job: Job) -> dict[str, Any]:
     payload = job.input_payload
     cohorts = payload.get("cohorts")
+    expected = _PAYLOAD_KEYS
+    if payload.get("evaluation_kind") == CORRECTION_EVALUATION:
+        expected = expected | {"scope", "checkpoint_selection"}
+    elif payload.get("evaluation_kind") == "grid-assigned-comparison-v1":
+        expected = expected | {
+            "baseline_version_id",
+            "baseline_manifest_sha256",
+            "assignment_revision",
+            "comparison_command",
+        }
     if (
         job.job_type is not JobType.GRID_MODEL_EVALUATION
         or job.game_id is None
-        or payload.keys() != _PAYLOAD_KEYS
+        or payload.keys() != expected
         or payload.get("schema_version") != 1
-        or payload.get("evaluation_kind") != EVALUATION_KIND
+        or payload.get("evaluation_kind")
+        not in {EVALUATION_KIND, CORRECTION_EVALUATION, "grid-assigned-comparison-v1"}
         or not isinstance(cohorts, list)
         or not 1 <= len(cohorts) <= 100
         or payload.get("training_game_id") != str(job.game_id)
@@ -190,7 +211,13 @@ class GridModelEvaluationJobHandler:
         )
 
     def _snapshot(
-        self, game: UUID, cohort: UUID, pinned_sha: str, manifest: Mapping[str, Any]
+        self,
+        game: UUID,
+        cohort: UUID,
+        pinned_sha: str,
+        manifest: Mapping[str, Any],
+        *,
+        correction: bool = False,
     ) -> tuple[GridCohortSnapshot, str]:
         header = self.store.cohort(game, cohort)
         eligibility = self.store.eligibility(game, cohort)
@@ -198,9 +225,11 @@ class GridModelEvaluationJobHandler:
             header["status"] != "frozen"
             or header["manifestSha256"] != pinned_sha
             or str(header["familyId"]) != manifest["familyId"]
-            or str(header["baseVersionId"]) != manifest["baseVersionId"]
+            or (not correction and str(header["baseVersionId"]) != manifest["baseVersionId"])
         ):
             raise JobHandlerError("GRID_EVALUATION_COHORT_CHANGED", "Pinned cohort differs.")
+        if correction and str(header["baseVersionId"]) != manifest["baseVersionId"]:
+            self.store.historical_cohort(UUID(manifest["baseVersionId"]), header)
         if eligibility["qualification"] != "eligible":
             reasons = list(eligibility["reasons"])
             raise JobHandlerError(
@@ -219,7 +248,11 @@ class GridModelEvaluationJobHandler:
 
     @staticmethod
     def _photos(
-        snapshot: GridCohortSnapshot, role: str, groups: Mapping[str, str]
+        snapshot: GridCohortSnapshot,
+        role: str,
+        groups: Mapping[str, str],
+        *,
+        correction: bool = False,
     ) -> list[ControlPhoto]:
         photos = []
         for source, targets in GridBoardDataset(snapshot, role).indexed():
@@ -233,14 +266,17 @@ class GridModelEvaluationJobHandler:
             def load(source: dict[str, Any] = source) -> Any:
                 return snapshot.frame(source, role).rgb
 
+            arguments = (
+                source_id,
+                group,
+                str(source["original"]["sha256"]),
+                tuple(nodes for nodes, _ in targets),
+                load,
+            )
             photos.append(
-                ControlPhoto(
-                    source_id,
-                    group,
-                    str(source["original"]["sha256"]),
-                    tuple(nodes for nodes, _ in targets),
-                    load,
-                )
+                CorrectionControlPhoto(*arguments, full_geometry=has_full_geometry(source))
+                if correction
+                else ControlPhoto(*arguments)
             )
         return photos
 
@@ -262,8 +298,16 @@ class GridModelEvaluationJobHandler:
                 # The checkpoint transition finalizes the cancellation and stops the run.
                 self._persist(context, state, games)
 
-        photos = self._photos(snapshot, role, groups)
-        summary, rows = measure_role(photos, *engines, before_photo=before_photo)
+        correction = job.input_payload.get("evaluation_kind") != EVALUATION_KIND
+        photos = self._photos(snapshot, role, groups, correction=correction)
+        if correction:
+            summary, rows = measure_corrections(
+                [photo for photo in photos if isinstance(photo, CorrectionControlPhoto)],
+                *engines,
+                before_photo=before_photo,
+            )
+        else:
+            summary, rows = measure_role(photos, *engines, before_photo=before_photo)
         relative = detail_path(job.id, entry["game_id"], role)
         content = (
             canonical_json(
@@ -309,19 +353,38 @@ class GridModelEvaluationJobHandler:
 
     def _run(self, context: JobExecutionContext, job: Job) -> None:
         payload = _payload(job)
+        assigned = payload["evaluation_kind"] == "grid-assigned-comparison-v1"
         state = self._state(job)
         cohorts = payload["cohorts"]
         manifest, base, base_sha = self.store.catalogue(
-            UUID(payload["version_id"]), UUID(payload["base_version_id"])
+            UUID(payload["version_id"]),
+            UUID(payload["baseline_version_id"] if assigned else payload["base_version_id"]),
         )
         if (
             descriptor_sha256(manifest) != payload["manifest_sha256"]
-            or base_sha != payload["base_manifest_sha256"]
+            or base_sha
+            != (
+                payload["baseline_manifest_sha256"] if assigned else payload["base_manifest_sha256"]
+            )
             or manifest["familyId"] != payload["family_id"]
             or manifest["baseVersionId"] != payload["base_version_id"]
         ):
             raise JobHandlerError("GRID_EVALUATION_MODEL_CHANGED", "Pinned models differ.")
         parity = candidate_parity(self.artifact_root, manifest)
+        correction = payload["evaluation_kind"] == CORRECTION_EVALUATION
+        if correction:
+            import json
+
+            bundle = json.loads(
+                (self.artifact_root / manifest["managedDirectory"] / "bundle.json").read_bytes()
+            )
+            if (
+                bundle.get("provenance", {}).get("checkpointSelection")
+                != payload["checkpoint_selection"]
+            ):
+                raise JobHandlerError(
+                    "GRID_EVALUATION_SELECTION_CHANGED", "Pinned checkpoint policy differs."
+                )
         engines: tuple[Engine, Engine] | None = None
         modes: dict[str, str] = dict(state.get("modes", {}))
         for entry in cohorts:
@@ -329,7 +392,9 @@ class GridModelEvaluationJobHandler:
             if not pending:
                 continue
             game, cohort = UUID(entry["game_id"]), UUID(entry["cohort_id"])
-            snapshot, mode = self._snapshot(game, cohort, entry["manifest_sha256"], manifest)
+            snapshot, mode = self._snapshot(
+                game, cohort, entry["manifest_sha256"], manifest, correction=correction or assigned
+            )
             groups = self.store.recordings(game, cohort)
             modes[entry["game_id"]] = mode
             state["modes"] = modes
@@ -340,7 +405,7 @@ class GridModelEvaluationJobHandler:
                 )
                 self._persist(context, state, len(cohorts))
         self._verify_details(job, state, cohorts)
-        report = build_report(
+        arguments = dict(
             manifest=manifest,
             base_manifest_sha256=base_sha,
             training_game_id=payload["training_game_id"],
@@ -354,6 +419,30 @@ class GridModelEvaluationJobHandler:
                 for entry in cohorts
             },
         )
+        if assigned:
+            from game_predictor_api.domain.grid_assigned_comparison import (
+                build_report as assigned_report,
+            )
+
+            game_id = payload["training_game_id"]
+            report = assigned_report(
+                manifest=manifest,
+                baseline_manifest_sha256=base_sha,
+                baseline_version_id=payload["baseline_version_id"],
+                game_id=game_id,
+                assignment_revision=payload["assignment_revision"],
+                cohort=cohort_pins(payload)[0],
+                measured=arguments["measured"][game_id],
+                parity=parity,
+            )
+        elif correction:
+            report = corrections.build_report(
+                **arguments,
+                scope=payload["scope"],
+                checkpoint_selection=payload["checkpoint_selection"],
+            )
+        else:
+            report = build_report(**arguments)
         report_json = canonical_json(report)
         sha = descriptor_sha256(report)
         if state["reportSha256"] not in (None, sha):

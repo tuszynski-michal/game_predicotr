@@ -314,6 +314,7 @@ export function GridQualityMeasurementMember({
                 potwierdzeń. Skuteczność klasyfikatora: niezmierzona.
               </p>
               <button
+                className="primaryButton"
                 type="button"
                 disabled={
                   disabled ||
@@ -412,6 +413,7 @@ export function GridQualityMeasurementMember({
         osobnego przycisku.
       </p>
       <button
+        className="primaryButton"
         type="button"
         disabled={
           disabled ||

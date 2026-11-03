@@ -324,23 +324,27 @@ function Versions({
       {pending ? (
         <div>
           <p>Zapisane polecenie wersji czeka na potwierdzenie.</p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void send(pending)}
-          >
-            Ponów zapisane polecenie
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              window.localStorage.removeItem(storageKey);
-              setPending(null);
-            }}
-          >
-            Porzuć zapisane polecenie
-          </button>
+          <div className="buttonRow">
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => void send(pending)}
+            >
+              Ponów zapisane polecenie
+            </button>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                window.localStorage.removeItem(storageKey);
+                setPending(null);
+              }}
+            >
+              Porzuć zapisane polecenie
+            </button>
+          </div>
         </div>
       ) : null}
       <p>
@@ -393,6 +397,7 @@ function Versions({
           </label>
         ) : null}
         <button
+          className="primaryButton"
           type="button"
           disabled={blocker !== null}
           onClick={() =>
@@ -419,28 +424,32 @@ function Versions({
               {versionLabel(item.manifest)}
               {item.available ? '' : ` · ${reasonLabel(item.reasonCode)}`}
               {reason ? ` · ${reason}` : ''}
-              <button
-                type="button"
-                disabled={locked || !item.eligible || id === currentId}
-                onClick={() =>
-                  command('activate', id, assignment?.revision ?? 0)
-                }
-              >
-                Aktywuj w tej grze
-              </button>
-              <button
-                type="button"
-                disabled={
-                  locked ||
-                  !item.eligible ||
-                  id === defaultModel?.version?.manifest.versionId
-                }
-                onClick={() =>
-                  command('set_default', id, defaultModel?.revision ?? 0)
-                }
-              >
-                Ustaw jako domyślną
-              </button>
+              <div className="buttonRow">
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={locked || !item.eligible || id === currentId}
+                  onClick={() =>
+                    command('activate', id, assignment?.revision ?? 0)
+                  }
+                >
+                  Aktywuj w tej grze
+                </button>
+                <button
+                  className="primaryButton"
+                  type="button"
+                  disabled={
+                    locked ||
+                    !item.eligible ||
+                    id === defaultModel?.version?.manifest.versionId
+                  }
+                  onClick={() =>
+                    command('set_default', id, defaultModel?.revision ?? 0)
+                  }
+                >
+                  Ustaw jako domyślną
+                </button>
+              </div>
             </li>
           );
         })}
@@ -451,6 +460,7 @@ function Versions({
             <li key={id}>
               {versionName(versions, id)}
               <button
+                className="secondaryButton"
                 type="button"
                 disabled={locked}
                 onClick={() =>

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from game_predictor_api.application.grid_model_evaluation import GridModelEvaluationService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_model_evaluations import (
+    GridAssignedComparisonCreate,
     GridModelEvaluationCreate,
     GridModelEvaluationCurrentnessResult,
     GridModelEvaluationList,
@@ -53,6 +54,21 @@ def create_grid_model_evaluations_router(dependency: Callable[..., object]) -> A
         version_id: Annotated[UUID, Query(alias="versionId")],
     ) -> GridModelEvaluationList:
         return GridModelEvaluationList.model_validate(service.list(version_id))
+
+    @router.post(
+        "/assigned-comparison",
+        operation_id="createGridAssignedComparison",
+        response_model=GridModelEvaluationView,
+    )
+    def assigned_comparison(
+        request: Request,
+        command: GridAssignedComparisonCreate,
+        service: Annotated[GridModelEvaluationService, parameter],
+    ) -> GridModelEvaluationView:
+        actor(request)
+        return GridModelEvaluationView.model_validate(
+            service.create_assigned_comparison(command.model_dump(mode="json"))
+        )
 
     @router.get(
         "/{evaluation_id}",

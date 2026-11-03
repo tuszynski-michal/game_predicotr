@@ -15,6 +15,7 @@ from game_predictor_api.domain.jobs import (
     acknowledge_job_cancellation,
     checkpoint_job,
     complete_job,
+    defer_job_for_dependency,
     defer_job_for_storage,
     fail_job,
     quarantine_unstarted_grid_job,
@@ -39,9 +40,9 @@ from game_predictor_api.storage.models import (
     JobModel,
 )
 from game_predictor_api.storage.source_crop_run_repository import synchronize_source_crop_job
-from sqlalchemy import case, select
+from sqlalchemy import String, case, cast, exists, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, aliased, sessionmaker
 
 _LOGGER = logging.getLogger(__name__)
 CANDIDATE_SCAN_LIMIT = 100
@@ -79,12 +80,25 @@ class SqlAlchemyWorkerJobStore:
         with self._session_factory() as session:
             if _slot_occupied(session, execution_slot):
                 return None
+            child = aliased(JobModel)
+            dependency_running = exists(
+                select(child.id).where(
+                    cast(child.id, String)
+                    == JobModel.checkpoint_payload["waitingForJobId"].as_string(),
+                    child.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
+                )
+            )
             candidates = list(
                 session.scalars(
                     select(JobModel.id)
                     .where(
                         JobModel.status == JobStatus.CREATED,
                         JobModel.job_type.in_(tuple(allowed_job_types)),
+                        or_(
+                            JobModel.job_type != JobType.GRID_CORRECTION_LEARNING,
+                            JobModel.cancel_requested_at.is_not(None),
+                            ~dependency_running,
+                        ),
                     )
                     .order_by(
                         case((JobModel.job_type == JobType.STORAGE_GC, 0), else_=1),
@@ -343,6 +357,26 @@ class SqlAlchemyWorkerJobStore:
             apply_job_to_record(record, updated)
             synchronize_grid_job(session, updated)
             synchronize_source_crop_job(session, updated)
+            session.flush()
+            return updated
+
+    def defer_for_dependency(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        checkpoint_payload: dict[str, object],
+        deferred_at: datetime,
+    ) -> Job:
+        with self._session_factory() as session, session.begin():
+            record = _locked_job(session, job_id)
+            updated = defer_job_for_dependency(
+                job_from_record(record),
+                lease_token=lease_token,
+                checkpoint_payload=checkpoint_payload,
+                deferred_at=deferred_at,
+            )
+            apply_job_to_record(record, updated)
             session.flush()
             return updated
 

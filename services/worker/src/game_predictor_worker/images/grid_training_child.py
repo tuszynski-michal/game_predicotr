@@ -391,7 +391,10 @@ def _train(
     workers = int(spec.get("dataWorkers", preset.data_workers))
     screen_mode = preset.mode == "screen+grid"
     train_photos: Any = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
-    validation = CohortPhotos(snapshot, "VALIDATION", full_only=True)
+    corrections = preset.preset_id == "grid-corrections-v1"
+    if corrections != (snapshot.manifest["policyVersion"] == "application-grid-corrections-v1"):
+        raise ChildError("GRID_RUN_COHORT_POLICY_MISMATCH")
+    validation = CohortPhotos(snapshot, "VALIDATION", full_only=not corrections)
     crops, labels = validation_crops(validation, recipe)
     joint = spec.get("joint")
     strata = None
@@ -417,7 +420,7 @@ def _train(
         )
         strata = train_photos.strata
         validations = [validation] + [
-            CohortPhotos(item, "VALIDATION", full_only=True) for item in snapshots[1:]
+            CohortPhotos(item, "VALIDATION", full_only=not corrections) for item in snapshots[1:]
         ]
     if screen_mode:
         batches: Any = ScreenGridBatches(
@@ -434,6 +437,10 @@ def _train(
             + [board_evaluator(crops, labels, device)]
         )
         losses = board_only_losses
+    if corrections:
+        from .grid_training_data import correction_evaluator
+
+        evaluate = correction_evaluator(validations, recipe, device)
     plan = TrainingPlan.of(
         spec["jobId"],
         int(spec["seed"]),
@@ -485,6 +492,11 @@ def _train(
         "steps": result.steps,
         "bestStep": result.best_step,
         "bestMetric": result.best_metric,
+        **(
+            {"checkpointSelection": result.checkpoint_selection}
+            if result.checkpoint_selection
+            else {}
+        ),
         "metric": preset.early_stopping.metric,
         "checkpoint": {"path": result.checkpoint_path.name, "sha256": result.checkpoint_sha256},
         "history": result.history,
@@ -552,6 +564,11 @@ def _export(
             else spec["cohort"]["manifestSha256"],
             "baseVersionId": spec["base"]["versionId"],
             "bestStep": result.best_step,
+            **(
+                {"checkpointSelection": result.checkpoint_selection}
+                if result.checkpoint_selection
+                else {}
+            ),
         }
         bundle = bundle_document(
             preset_payload=preset_payload,

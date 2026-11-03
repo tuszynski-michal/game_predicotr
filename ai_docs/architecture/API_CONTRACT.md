@@ -5566,3 +5566,11 @@ receiptów. Nowy skan odmawia również wtedy, gdy piksele pilota zmieniły się
 odbiorze modelu (`READABILITY_CROP_STALE`). Filtr overlap używa własnego headu
 lub human overlap; filtr unreadable własnego headu lub human state, nie wspólnej
 flagi candidate będącej OR obu headów.
+
+## Plan wymiany źródeł — TASK-1127 / D-579
+
+Istniejący `POST /api/v1/admin/games/{gameId}/board-source-cleanup-preview` przyjmuje alternatywnie `{mode:"replace_preserve_history", sourceIds:[UUID]}` (1–50 dokładnych źródeł). Stary kontrakt `sequenceNumbers` zachowuje zachowanie. Nowy tryb zwraca `source-replacement-manifest-v1`: gameId, selectedSourceIds, entries, revision=0, status=preview, retirementAvailable=false i previewToken. Entry zawiera aliasy/SHA, dokładne numery, pełne snapshoty plansz/geometrii/ocen/current ownership oraz zależności i blokery. Snapshoty zagnieżdżone zachowują nazwy pól magazynu.
+
+`POST /api/v1/admin/games/{gameId}/board-sources` zapisuje planned. Body rozszerza podgląd o idempotencyKey, expectedRevision=0 i previewToken. Backend pod wspólną EXCLUSIVE lock przelicza snapshot; zmiana dowodów daje `SOURCE_REPLACEMENT_PREVIEW_STALE`, bloker daje `SOURCE_REPLACEMENT_BLOCKED`, inna treść przy tym samym kluczu daje `SOURCE_REPLACEMENT_IDEMPOTENCY_CONFLICT`. Replay zwraca pierwotny dokument przed sprawdzaniem aktualności. Sukces zwraca id/revision=1/status=planned. B1 nie udostępnia edycji lub retirement.
+
+Odczyty w tym samym obszarze: `GET /board-sources/candidates?offset=0` (50 źródeł), `GET /board-sources` (ostatnie 100 planów), `GET /board-sources/{batchId}` i `GET /board-sources/{batchId}/export?format=json|csv`. JSON jest pełnym dokumentem, CSV zawiera identyfikatory źródeł/plansz, numery i dowody; nie jest uprawnieniem do importu. `DELETE /board-sources` z nowym mode zawsze odmawia `SOURCE_REPLACEMENT_RETIREMENT_NOT_READY`. Zapis planned nie uruchamia artifact recovery ani delete graph. Oddzielny `source-replacement-request-v1` z server identity i allowedRanges powstanie dopiero w B2b dla wybranych gap_open; C1 nie może traktować planned jako otwartej luki.

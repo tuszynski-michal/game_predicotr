@@ -226,6 +226,7 @@ class SqlAlchemyGridTrainingCohortRepository:
         row.summary = role_summary(
             row.document["mode"],
             (member.frozen for member in self.iter_members(row.game_id, row.id) if member.frozen),
+            policy=row.document.get("policyVersion", POLICY),
         )
 
     def summary_view(self, row: Cohort) -> dict[str, Any]:
@@ -261,6 +262,10 @@ class SqlAlchemyGridTrainingCohortRepository:
             "revision": row.revision,
             "status": row.status,
             "mode": row.document["mode"],
+            "policyVersion": row.document.get("policyVersion", POLICY),
+            "evidenceLevel": (row.document.get("photoSplit") or {}).get(
+                "evidenceLevel", "recording"
+            ),
             "familyId": row.document["familyId"],
             "baseVersionId": row.document["baseVersionId"],
             "previewSha256": row.summary.get("previewSha256"),
@@ -297,7 +302,9 @@ class SqlAlchemyGridTrainingCohortRepository:
                 )
         except DBAPIError as error:
             code = str(error.orig).splitlines()[0]
-            if code.startswith(("RECORDING_", "SOURCE_REMOVED_", "GRID_COHORT_")):
+            if code.startswith(
+                ("RECORDING_", "SOURCE_REMOVED_", "GRID_COHORT_", "GRID_CORRECTION_")
+            ):
                 raise GridCohortError(
                     code, "The recording dependency is unresolved or changed."
                 ) from error

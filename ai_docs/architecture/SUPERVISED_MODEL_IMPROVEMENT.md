@@ -512,3 +512,12 @@ sequence ownership lock przed rowlocks; końcowy fit bierze ją przed job/model/
 GET strony i CSV mają WRITE intent wyłącznie dla lazy-stale metadanych. Pierwotne
 oceny i ich identity pozostają w immutable command receiptach (response.command),
 a istniejące decyzje symboli w ich standardowych eventach.
+
+
+## Zakres zaznaczenia i kolejka etykiet — TASK-1126
+
+`selection-range.ts` rozstrzyga końce na pełnych danych strony przed pominięciem locked. Stan zaznaczenia zwykłego review atomowo dodaje zakres lub usuwa jego wyłączenia all_matching. Kotwica jest stanem sesji resetowanym przez zmiany kontekstu i pobranie strony; nie zależy od okna wirtualizacji.
+
+Readability przechowuje wybrane rekordy w mapie cellId, także pomiędzy stronami250. `readability-label-queue.ts` zapisuje wersjonowaną kolejkę w game-scoped localStorage: runId, wszystkie porcje z targetami/expectedIdentity/expectedRevision oraz niezależne klucze idempotencji i indeks potwierdzonych porcji. Cały snapshot powstaje przed pierwszym requestem. Po odpowiedzi zapisuje checkpoint; utrata odpowiedzi lub zapisu checkpointu ponawia dokładny request. Backendowa idempotencja poprzedza sprawdzanie rewizji. Każdy błąd zatrzymuje dalsze porcje, bez rebase. UI wznawia wyłącznie na polecenie operatora i nie wykonuje dalszych porcji po odmontowaniu widoku. Niepotwierdzona kolejka blokuje inne komendy jakości; pojedyncze komendy do250 zachowują dotychczasowy mechanizm recovery. Limit zaznaczenia10000 jest walidowany przed trwałym zapisem.
+
+Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.

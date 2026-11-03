@@ -372,3 +372,12 @@ potwierdzenia, liczy pola/plansze/źródła oraz udostępnia CSV numerów. Crop,
 przybliżenie i całe źródło korzystają z istniejącego checksum-bound podglądu.
 Zmiana źródła, pikseli lub geometrii daje stale; ponowienie komendy zachowuje
 pierwotny klucz, targety i rewizje także po odświeżeniu przeglądarki.
+
+
+## Zaznaczanie zakresu w przeglądach — TASK-1126
+
+Zwykły klik przełącza pole i ustanawia kotwicę. Shift dodaje zakres obejmujący oba końce w obu kierunkach po pełnej kolejności bieżącej strony, także poza wirtualnym DOM. Pola zablokowane są pomijane, zaznaczone pozostają zaznaczone. Zmiana gry, filtra, sortowania, strony albo ponowne pobranie strony zeruje kotwicę; Shift bez kotwicy działa jak zwykły klik. Przekroczenie 10 000 zaznaczeń odrzuca cały nowy zakres. W trybie all_matching przywracane są tylko wyłączenia pól zakresu.
+
+W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomiędzy stronami; filtry, run i refetch czyszczą zaznaczenie. Strona nadal zawiera do 250 pól. Zapis do 250 pól zachowuje poprzednią pojedynczą komendę. Większa grupa używa trwałej kolejki porcji do 250, zapisanej w całości przed pierwszym żądaniem. Postęp pokazuje wykonane i pozostałe pola. Błąd albo konflikt zatrzymuje ogon; ręczne ponowienie, także po restarcie, zachowuje dokładne pola, tożsamości, rewizje i klucze. Nie zastępuje ich bieżącymi danymi.
+
+Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.

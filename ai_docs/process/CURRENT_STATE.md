@@ -43,7 +43,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1126–1132; A2 done v1.7.519; nowy scan blokowany po stale pilota | `codex/777a2-readability-replacement` |
+| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1127–1132; A3 done v1.7.521; nowy scan blokowany po stale pilota | `codex/777a2-readability-replacement` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -74,6 +74,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1126** — Shift i trwały zapis grup jakości — v1.7.521 — tasks/completed/1126-shift-range-selection.md
 - **TASK-1125** — Trwały pilot i przegląd jakości — v1.7.519 / `8c096263` — tasks/completed/1125-readability-durable-review.md
 - **TASK-1124** — Rdzeń detektora jakości 777 A2 — v1.7.517 / `9e466d70` — tasks/completed/1124-readability-detector-core.md
 - **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
@@ -83,4 +84,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1112** — Plan usunięcia wyszukiwania wielu układów — v1.7.506 / `6ec12eab` — tasks/completed/1112-single-board-removal-plan.md
 - **TASK-1111** — Rozszerzenie setu 2 do 1000 zdjęć — v1.7.512 / `a8727323` — tasks/completed/1111-expand-mumie-training-set-2.md
 - **TASK-1110** — Drugi losowy set 60 zdjęć — v1.7.510 / `c4afc20a` — tasks/completed/1110-mumie-random-training-set-2.md
-- **TASK-1109** — Kopia reguł i wypłat Mumii — v1.7.508 / `0754a77a` — tasks/completed/1109-copy-mumie-rules-payout.md

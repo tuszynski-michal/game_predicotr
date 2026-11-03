@@ -144,6 +144,80 @@ async function mount(customFixture) {
   return { ...fixture, root };
 }
 
+test('Shift reaches beyond the virtual DOM in both directions; refetch and filter reset its anchor', async () => {
+  const fixture = await createPartialReviewClient();
+  const rows = Array.from({ length: 2500 }, (_, index) =>
+    partialReviewItem({ id: `range-${index}`, sequenceNumber: index + 1 }),
+  );
+  fixture.api.listSymbolCellReviews = async () => ({
+    data: {
+      catalogRevision: 1,
+      items: rows.map((row) => ({ ...row })),
+      nextCursor: null,
+      previousCursor: null,
+    },
+  });
+  fixture.api.getSymbolCellReviewCounts = async () => ({
+    data: {
+      catalogRevision: 1,
+      counts: { allCount: 2500, approvedCount: 0, pendingCount: 2500 },
+    },
+  });
+  const { root } = await mount(fixture);
+  const card = (seq) =>
+    buttons().find((node) =>
+      node
+        .getAttribute('aria-label')
+        ?.includes(`crop z planszy ${seq}, pozycja`),
+    );
+  const shift = async (node) => {
+    await act(async () =>
+      node.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, shiftKey: true }),
+      ),
+    );
+    await settle();
+  };
+  const scroll = async (top) => {
+    const scroller = document.querySelector(
+      '[aria-label="Wirtualizowana lista cropów symboli"]',
+    );
+    await act(async () => {
+      scroller.scrollTop = top;
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    await settle();
+  };
+  try {
+    await choose(1, 'outside');
+    await eventually(() => card(1));
+    assert.equal(card(1001), undefined);
+    await click(card(1));
+    await scroll(13500);
+    await eventually(() => card(1001));
+    assert.equal(card(1), undefined);
+    await shift(card(1001));
+    assert.match(document.body.textContent, /Wybrane: 1001/);
+    await click(button('Wyczyść zaznaczenie'));
+    await click(card(1001));
+    await scroll(0);
+    await eventually(() => card(1));
+    await shift(card(1));
+    assert.match(document.body.textContent, /Wybrane: 1001/);
+    await click(button('Odśwież cropy'));
+    await eventually(() => card(1));
+    await shift(card(3));
+    assert.match(document.body.textContent, /Wybrane: 1/);
+    await choose(1, 'unknown');
+    await click(button('Zmień filtr'));
+    await eventually(() => card(1));
+    await shift(card(5));
+    assert.match(document.body.textContent, /Wybrane: 1/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('orphan preparation starts a durable job once and is recoverable on a cold mount', async () => {
   const fixture = await createPartialReviewClient();
   let starts = 0;
@@ -917,6 +991,16 @@ for (const firstStatus of ['processing', 'completed']) {
       assert.equal(card('1/4').disabled, true);
       assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
       assert.equal(button('Zaznacz stronę').disabled, false);
+      await act(async () =>
+        card('2/1').dispatchEvent(
+          new MouseEvent('click', { bubbles: true, shiftKey: true }),
+        ),
+      );
+      assert.match(
+        document.body.textContent,
+        /Wybrane: 2/,
+        'Shift skips the locked anchor and submitted crops',
+      );
       await click(button('Zaznacz stronę'));
       assert.ok(
         [...document.querySelectorAll('strong')].some(

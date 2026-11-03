@@ -47,6 +47,8 @@ dom.window.HTMLDialogElement.prototype.close = function () {
 const { createRoot } = await import('react-dom/client');
 const { ReadabilityWorkspace } =
   await import('../src/features/readability/readability-workspace.tsx');
+const { createReadabilityLabelQueue } =
+  await import('../src/features/readability/readability-label-queue.ts');
 after(() => dom.window.close());
 
 const item = (extra = {}) => ({
@@ -194,6 +196,221 @@ async function mount(api, gameId = 'game-1', clear = true) {
 async function unmount(root) {
   await act(async () => root.unmount());
 }
+
+async function shiftClick(node) {
+  await act(async () =>
+    node.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, shiftKey: true }),
+    ),
+  );
+  await flush();
+}
+
+test('Shift adds inclusive ranges in both directions, skips stale/error, and refresh/filter/page reset the anchor', async () => {
+  const rows = Array.from({ length: 7 }, (_, i) =>
+    item({
+      cellId: `c-${i}`,
+      state: i === 2 ? 'stale' : i === 4 ? 'error' : 'pending',
+    }),
+  );
+  const { api } = fixture({
+    listReadabilityItems: async () => ({
+      data: { items: rows, nextOffset: null },
+    }),
+  });
+  const root = await mount(api);
+  const inputs = () => [
+    ...document.querySelectorAll('article input[type=checkbox]'),
+  ];
+  try {
+    await click(inputs()[5]);
+    await shiftClick(inputs()[0]);
+    assert.deepEqual(
+      inputs().map((node) => node.checked),
+      [true, true, false, true, false, true, false],
+    );
+    await shiftClick(inputs()[6]);
+    assert.equal(inputs()[6].checked, true);
+    await click(button('Odśwież przegląd'));
+    await shiftClick(inputs()[3]);
+    assert.equal(inputs().filter((node) => node.checked).length, 1);
+    await choose('Historia', 'old');
+    await shiftClick(inputs()[6]);
+    assert.equal(inputs().filter((node) => node.checked).length, 1);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('selections cross pages; queue pauses after lost response and cold mount replays exact failed chunk without rebasing', async () => {
+  const received = [];
+  let failed = false;
+  let newer = false;
+  const { api } = fixture({
+    listReadabilityItems: async (_game, _run, query) => ({
+      data: {
+        items: Array.from({ length: 250 }, (_, i) =>
+          item({ cellId: `c-${query.offset + i}`, revision: newer ? 99 : 3 }),
+        ),
+        nextOffset: query.offset === 0 ? 250 : null,
+      },
+    }),
+    labelReadabilityItems: async (_game, _run, body) => {
+      const queue = JSON.parse(
+        window.localStorage.getItem('readability-label-queue:game-1'),
+      );
+      assert.equal(queue.chunks.length, 2);
+      received.push(structuredClone(body));
+      if (received.length === 2 && !failed) {
+        failed = true;
+        throw new Error('Lost response');
+      }
+      return { data: {} };
+    },
+  });
+  let root = await mount(api);
+  const inputs = () => [
+    ...document.querySelectorAll('article input[type=checkbox]'),
+  ];
+  try {
+    await click(inputs()[0]);
+    await shiftClick(inputs()[249]);
+    await click(button('Następna strona'));
+    await shiftClick(inputs()[10]);
+    assert.equal(
+      inputs().filter((node) => node.checked).length,
+      1,
+      'page resets anchor, not prior selections',
+    );
+    await click(button('Zapisz oceny'));
+    assert.equal(received.length, 2);
+    assert.equal(received[0].targets.length, 250);
+    assert.equal(received[1].targets.length, 1);
+    assert.match(document.body.textContent, /wykonane 250, pozostałe 1/);
+    await unmount(root);
+    newer = true;
+    root = await mount(api, 'game-1', false);
+    await click(button('Ponów zapisane oceny'));
+    assert.deepEqual(received[2], received[1]);
+    assert.equal(
+      window.localStorage.getItem('readability-label-queue:game-1'),
+      null,
+    );
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('permanent 409 pauses the tail; explicit confirmed discard preserves completed changes and unblocks commands', async () => {
+  window.localStorage.clear();
+  const queue = createReadabilityLabelQueue('game-1', 'run-1', {
+    targets: Array.from({ length: 501 }, (_, index) => ({
+      cellId: `c-${index}`,
+      expectedIdentity: 'a'.repeat(64),
+      expectedRevision: 3,
+    })),
+    state: 'readable',
+    overlap: false,
+  });
+  window.localStorage.setItem(
+    'readability-label-queue:game-1',
+    JSON.stringify({ ...queue, completed: 1 }),
+  );
+  const received = [];
+  const { api, calls } = fixture({
+    labelReadabilityItems: async (...args) => {
+      received.push(args);
+      return {
+        error: { message: 'Revision conflict' },
+        response: { status: 409 },
+      };
+    },
+  });
+  const root = await mount(api, 'game-1', false);
+  try {
+    await click(button('Ponów zapisane oceny'));
+    await click(button('Ponów zapisane oceny'));
+    assert.equal(received.length, 2);
+    assert.deepEqual(received[0], received[1]);
+    assert.match(document.body.textContent, /wykonane 250, pozostałe 251/);
+    await click(button('Porzuć pozostałe porcje'));
+    assert.ok(document.querySelector('[role=alertdialog]'));
+    await click(button('Zachowaj kolejkę'));
+    assert.ok(window.localStorage.getItem('readability-label-queue:game-1'));
+    await click(button('Porzuć pozostałe porcje'));
+    assert.match(
+      document.querySelector('[role=alertdialog]').textContent,
+      /Niepotwierdzona porcja mogła już zostać zapisana/,
+    );
+    await click(button('Potwierdź porzucenie'));
+    assert.equal(
+      window.localStorage.getItem('readability-label-queue:game-1'),
+      null,
+    );
+    assert.equal(
+      received.length,
+      2,
+      'discard never sends or rolls back a mutation',
+    );
+    await click(button('Przygotuj pilot'));
+    assert.equal(calls.filter(([kind]) => kind === 'start').length, 1);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('corrupt queue has a confirmed discard path and unblocks commands', async () => {
+  window.localStorage.clear();
+  window.localStorage.setItem('readability-label-queue:game-1', '{broken');
+  const { api, calls } = fixture();
+  const root = await mount(api, 'game-1', false);
+  try {
+    await click(button('Przygotuj pilot'));
+    assert.equal(calls.filter(([kind]) => kind === 'start').length, 0);
+    await click(button('Porzuć pozostałe porcje'));
+    assert.match(
+      document.querySelector('[role=alertdialog]').textContent,
+      /Nie można odczytać postępu/,
+    );
+    await click(button('Potwierdź porzucenie'));
+    await click(button('Przygotuj pilot'));
+    assert.equal(calls.filter(([kind]) => kind === 'start').length, 1);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('discard is disabled while a queue request is in flight', async () => {
+  window.localStorage.clear();
+  createReadabilityLabelQueue('game-1', 'run-1', {
+    targets: [
+      { cellId: 'c', expectedIdentity: 'a'.repeat(64), expectedRevision: 3 },
+    ],
+    state: 'readable',
+    overlap: false,
+  });
+  let finish;
+  const { api } = fixture({
+    labelReadabilityItems: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  const root = await mount(api, 'game-1', false);
+  try {
+    await click(button('Ponów zapisane oceny'));
+    assert.equal(button('Porzuć pozostałe porcje').disabled, true);
+    await click(button('Porzuć pozostałe porcje'));
+    assert.equal(document.querySelector('[role=alertdialog]'), null);
+    await act(async () =>
+      finish({ error: { message: 'Conflict' }, response: { status: 409 } }),
+    );
+    await flush();
+    assert.equal(button('Porzuć pozostałe porcje').disabled, false);
+  } finally {
+    await unmount(root);
+  }
+});
 
 test('pilot works without a model; uncertain labels and stale fields remain distinct; readable never calls symbol approval', async () => {
   const { api, calls } = fixture();

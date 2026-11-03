@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (202 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (204 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (4 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel
@@ -155,7 +155,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (14 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+72)
   - `model-quality/` (28 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+123)
-  - `readability/` (2 plików): READABILITY_SELECTION_LIMIT, canAcceptReadabilityModel, readabilityTargets, PendingReadabilityCommand, pendingReadabilityCommand, readabilityCommandKey, completeReadabilityCommand, ReadabilityClient (+1)
+  - `readability/` (3 plików): READABILITY_MAX_SELECTION, READABILITY_LABEL_BATCH_SIZE, ReadabilityLabelQueue, loadReadabilityLabelQueue, createReadabilityLabelQueue, readabilityQueueProgress, drainReadabilityLabelQueue, discardReadabilityLabelQueue (+9)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)
   - `reviews/` (4 plików): ReviewsClient, LoadReviewBatchesResult, loadReviewBatches, LoadReviewItemsResult, loadReviewItems, LoadReviewItemResult, loadReviewItem, loadReviewSymbols (+15)
@@ -164,7 +164,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `sharing/` (3 plików): PanelKey, PanelKeys, loadPanelKeys, storePanelKeys, panelShareUrl, panelErrorMessage, BoardSearchSharingClient, BoardSearchSharingWorkspace
   - `storage/` (4 plików): SourceCropClient, SourceCropRunResult, planSourceCrop, refreshSourceCropRun, startSourceCrop, LoadRunsResult, loadSourceCropRuns, SourceCropPanel (+30)
   - `super-games/` (4 plików): AdminSuperGameSeriesClientSource, supportsAdminSuperGameSeriesModal, createAdminSuperGameSeriesClient, SERIES_PAGE_LIMIT, SeriesBoardRangeInput, parseSeriesBoardRange, COMPLETENESS_FILTER_OPTIONS, RUN_VERIFICATION_FILTER_OPTIONS (+28)
-  - `symbol-reviews/` (14 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+98)
+  - `symbol-reviews/` (15 plików): inclusiveSelectionRange, SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions (+100)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
   - `unreadable-board-reviews/` (2 plików): UnreadableBoardReviewClient, loadUnreadableBoardPage, loadUnreadableBoardDetail, loadUnreadableBoardSymbols, saveUnreadableBoard, UnreadableBoardReviewWorkspace
   - `v7-label-geometry/` (4 plików): PendingV7LabelGeometryOperation, V7LabelGeometryQueueState, V7LabelGeometryOperationInput, enqueueV7LabelGeometryOperation, nextV7LabelGeometryOperation, acknowledgeV7LabelGeometryOperation, stopV7LabelGeometryQueue, resumeV7LabelGeometryQueue (+22)
@@ -181,7 +181,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Testy
 
-- `apps/admin/test/` (124 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test/` (125 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-interactions/` (38 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 

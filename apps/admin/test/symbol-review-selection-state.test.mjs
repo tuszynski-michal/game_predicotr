@@ -9,7 +9,50 @@ import {
   selectVisibleSymbolReviewItems,
   selectedSymbolReviewCount,
   toggleSymbolReviewItem,
+  selectSymbolReviewRange,
 } from '../src/features/symbol-reviews/symbol-review-selection-state.ts';
+import { inclusiveSelectionRange } from '../src/features/symbol-reviews/selection-range.ts';
+
+test('range uses full 2500-row page, both directions, skips locked, absent anchor falls back', () => {
+  const items = Array.from({ length: 2500 }, (_, i) => item(String(i)));
+  const range = (from, to) =>
+    inclusiveSelectionRange(
+      items,
+      from,
+      to,
+      (entry) => entry.id,
+      (entry) => entry.id === '1200',
+    );
+  assert.deepEqual(range('0', '2499'), range('2499', '0'));
+  assert.equal(range('0', '2499').length, 2499);
+  assert.equal(range(null, '1'), null);
+  assert.equal(range('missing', '1'), null);
+  const selected = toggleSymbolReviewItem(
+    createEmptySymbolReviewSelection(),
+    items[0],
+  ).selection;
+  const added = selectSymbolReviewRange(selected, range('0', '2499'));
+  assert.equal(selectedSymbolReviewCount(added.selection), 2499);
+  assert.equal(isSymbolReviewItemSelected(added.selection, items[0]), true);
+});
+
+test('range cap is atomic and all_matching only removes range exclusions', () => {
+  const full = selectVisibleSymbolReviewItems(
+    createEmptySymbolReviewSelection(),
+    Array.from({ length: 9999 }, (_, i) => item(String(i))),
+  ).selection;
+  const result = selectSymbolReviewRange(full, [item('new-1'), item('new-2')]);
+  assert.equal(result.selection, full);
+  assert.equal(result.rejectedCount, 2);
+  const all = {
+    kind: 'all_matching_filter',
+    snapshot: { matchedCount: 20000 },
+    excludedIds: new Set(['a', 'b', 'c']),
+  };
+  const restored = selectSymbolReviewRange(all, [item('b')]).selection;
+  assert.deepEqual([...restored.excludedIds], ['a', 'c']);
+  assert.deepEqual([...all.excludedIds], ['a', 'b', 'c']);
+});
 
 function item(id, sequenceNumber = 1) {
   return {

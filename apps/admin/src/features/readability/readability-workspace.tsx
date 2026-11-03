@@ -22,6 +22,16 @@ import {
   type PendingReadabilityCommand,
   READABILITY_SELECTION_LIMIT,
 } from './readability-state';
+import { inclusiveSelectionRange } from '../symbol-reviews/selection-range';
+import {
+  createReadabilityLabelQueue,
+  drainReadabilityLabelQueue,
+  discardReadabilityLabelQueue,
+  loadReadabilityLabelQueue,
+  readabilityQueueProgress,
+  READABILITY_MAX_SELECTION,
+  type ReadabilityLabelQueue,
+} from './readability-label-queue';
 import styles from './readability-workspace.module.css';
 
 export type ReadabilityClient = Pick<
@@ -72,7 +82,9 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
   const [state, setState] = useState('');
   const [historical, setHistorical] = useState('');
   const [problem, setProblem] = useState('');
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [selected, setSelected] = useState<
+    ReadonlyMap<string, ReadabilityItemResponse>
+  >(new Map());
   const [label, setLabel] =
     useState<ReadabilityLabelRequest['state']>('pending');
   const [overlap, setOverlap] = useState('unknown');
@@ -88,6 +100,13 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
   const [pending, setPending] = useState<PendingReadabilityCommand | null>(
     null,
   );
+  const [labelQueue, setLabelQueue] = useState<ReadabilityLabelQueue | null>(
+    null,
+  );
+  const [queueUnreadable, setQueueUnreadable] = useState(false);
+  const [discardRequested, setDiscardRequested] = useState(false);
+  const selectionAnchor = useRef<string | null>(null);
+  const selectionContext = useRef('');
   const alive = useRef(true);
   const commandBusy = useRef(false);
   useEffect(() => {
@@ -97,6 +116,12 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
       try {
         setPending(pendingReadabilityCommand(gameId));
       } catch (cause) {
+        setError(message(cause));
+      }
+      try {
+        setLabelQueue(loadReadabilityLabelQueue(gameId));
+      } catch (cause) {
+        setQueueUnreadable(true);
         setError(message(cause));
       }
     });
@@ -149,8 +174,20 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
     let cancelled = false;
     queueMicrotask(async () => {
       if (cancelled) return;
+      selectionAnchor.current = null;
       setPage(null);
-      setSelected(new Set());
+      const context = JSON.stringify([
+        gameId,
+        runId,
+        state,
+        historical,
+        problem,
+        refresh,
+      ]);
+      if (selectionContext.current !== context) {
+        selectionContext.current = context;
+        setSelected(new Map());
+      }
       setSource(null);
       setZoom(null);
       if (!runId) {
@@ -186,9 +223,8 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
 
   const run = workspace?.runs.find((item) => item.id === runId);
   const model = workspace?.models.find((item) => item.id === modelId);
-  const blocked = busy || loading || pageLoading;
-  const selectedItems =
-    page?.items.filter((item) => selected.has(item.cellId)) ?? [];
+  const blocked = busy || loading || pageLoading || discardRequested;
+  const selectedItems = [...selected.values()];
 
   async function command(
     name: string,
@@ -202,6 +238,8 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
     setBusy(true);
     setError('');
     try {
+      if (loadReadabilityLabelQueue(gameId) !== null)
+        throw new Error('Najpierw ponów zapisaną kolejkę ocen.');
       const key = readabilityCommandKey(gameId, name, payload);
       setPending(pendingReadabilityCommand(gameId));
       const result = await send(key);
@@ -290,35 +328,127 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
     );
   }
 
-  function saveLabels() {
-    if (!run || selectedItems.length === 0) return;
-    const body = {
-      targets: readabilityTargets(selectedItems),
-      state: label,
-      overlap: overlap === 'unknown' ? null : overlap === 'yes',
-      sharp: run.kind === 'pilot' && sharp,
-      similarReadable: run.kind === 'pilot' && similarReadable,
-    };
-    void command(`labels:${run.id}`, body, (idempotencyKey) =>
-      api.labelReadabilityItems(gameId, run.id, { ...body, idempotencyKey }),
-    );
+  async function saveQueue() {
+    if (commandBusy.current) return;
+    commandBusy.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      await drainReadabilityLabelQueue(
+        gameId,
+        (id, body) => api.labelReadabilityItems(gameId, id, body),
+        (queue) => {
+          if (alive.current) setLabelQueue(queue);
+        },
+        () => alive.current,
+      );
+      if (alive.current && loadReadabilityLabelQueue(gameId) === null)
+        setRefresh((value) => value + 1);
+    } catch (cause) {
+      if (alive.current) setError(message(cause));
+    } finally {
+      commandBusy.current = false;
+      if (alive.current) setBusy(false);
+    }
   }
 
-  function toggle(item: ReadabilityItemResponse) {
+  function discardQueue() {
+    if (commandBusy.current) return;
+    try {
+      discardReadabilityLabelQueue(gameId);
+      setLabelQueue(null);
+      setQueueUnreadable(false);
+      setDiscardRequested(false);
+      setSelected(new Map());
+      selectionAnchor.current = null;
+      setError('');
+      setRefresh((value) => value + 1);
+    } catch (cause) {
+      setError(message(cause));
+    }
+  }
+
+  function saveLabels() {
+    if (!run || selectedItems.length === 0 || commandBusy.current) return;
+    try {
+      if (loadReadabilityLabelQueue(gameId) !== null)
+        throw new Error('Najpierw ponów zapisaną kolejkę ocen.');
+      if (selectedItems.length > READABILITY_MAX_SELECTION)
+        throw new Error('Można wybrać najwyżej 10 000 pól.');
+      const targets = [];
+      for (
+        let index = 0;
+        index < selectedItems.length;
+        index += READABILITY_SELECTION_LIMIT
+      )
+        targets.push(
+          ...readabilityTargets(
+            selectedItems.slice(index, index + READABILITY_SELECTION_LIMIT),
+          ),
+        );
+      const body = {
+        targets,
+        state: label,
+        overlap: overlap === 'unknown' ? null : overlap === 'yes',
+        sharp: run.kind === 'pilot' && sharp,
+        similarReadable: run.kind === 'pilot' && similarReadable,
+      };
+      if (targets.length > READABILITY_SELECTION_LIMIT) {
+        setLabelQueue(createReadabilityLabelQueue(gameId, run.id, body));
+        void saveQueue();
+      } else {
+        void command(`labels:${run.id}`, body, (idempotencyKey) =>
+          api.labelReadabilityItems(gameId, run.id, {
+            ...body,
+            idempotencyKey,
+          }),
+        );
+      }
+    } catch (cause) {
+      setError(message(cause));
+    }
+  }
+
+  function toggle(item: ReadabilityItemResponse, shiftKey = false) {
+    if (blocked || item.state === 'stale' || item.state === 'error') return;
     setError('');
+    const range = shiftKey
+      ? inclusiveSelectionRange(
+          page?.items ?? [],
+          selectionAnchor.current,
+          item.cellId,
+          (entry) => entry.cellId,
+          (entry) => entry.state === 'stale' || entry.state === 'error',
+        )
+      : null;
+    if (range !== null) {
+      const next = new Map(selected);
+      for (const entry of range)
+        if (!next.has(entry.cellId)) next.set(entry.cellId, entry);
+      if (next.size > READABILITY_MAX_SELECTION) {
+        setError('Można wybrać najwyżej 10 000 pól. Cały zakres odrzucono.');
+        return;
+      }
+      setSelected(next);
+      return;
+    }
+    selectionAnchor.current = item.cellId;
     if (selected.has(item.cellId)) {
-      setSelected(new Set([...selected].filter((id) => id !== item.cellId)));
-    } else if (selected.size >= READABILITY_SELECTION_LIMIT) {
-      setError('Można wybrać najwyżej 250 pól w jednej komendzie.');
+      const next = new Map(selected);
+      next.delete(item.cellId);
+      setSelected(next);
+    } else if (selected.size >= READABILITY_MAX_SELECTION) {
+      setError('Można wybrać najwyżej 10 000 pól.');
     } else {
-      setSelected(new Set([...selected, item.cellId]));
+      setSelected(new Map([...selected, [item.cellId, item]]));
     }
   }
 
   function changeFilter(set: (value: string) => void, value: string) {
+    selectionAnchor.current = null;
     set(value);
     setOffset(0);
-    setSelected(new Set());
+    setSelected(new Map());
   }
 
   function cropUrl(item: ReadabilityItemResponse) {
@@ -365,6 +495,59 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
         <p role="alert" className={styles.error}>
           {error}
         </p>
+      ) : null}
+      {labelQueue ? (
+        <div role="status">
+          <p>
+            Kolejka ocen: wykonane {readabilityQueueProgress(labelQueue).done},
+            pozostałe {readabilityQueueProgress(labelQueue).remaining}. Błąd
+            wstrzymuje dalszy zapis; ponowienie zachowuje pola, rewizje i
+            klucze.
+          </p>
+          <button
+            type="button"
+            className="secondaryButton"
+            disabled={blocked}
+            onClick={() => void saveQueue()}
+          >
+            Ponów zapisane oceny
+          </button>
+        </div>
+      ) : null}
+      {labelQueue !== null || queueUnreadable ? (
+        <button
+          type="button"
+          className="secondaryButton"
+          disabled={blocked}
+          onClick={() => setDiscardRequested(true)}
+        >
+          Porzuć pozostałe porcje
+        </button>
+      ) : null}
+      {discardRequested ? (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Potwierdź porzucenie kolejki"
+        >
+          <p>
+            {labelQueue
+              ? `Wykonane ${readabilityQueueProgress(labelQueue).done} pól pozostają zapisane. Pozostałe ${readabilityQueueProgress(labelQueue).remaining} pól nie zostaną ponowione.`
+              : 'Nie można odczytać postępu kolejki. Dotychczasowe zapisy pozostają.'}{' '}
+            Niepotwierdzona porcja mogła już zostać zapisana. Porzucenie usuwa
+            wyłącznie lokalny plan dalszych żądań, bez cofania zapisów.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setDiscardRequested(false)}
+          >
+            Zachowaj kolejkę
+          </button>
+          <button type="button" disabled={busy} onClick={discardQueue}>
+            Potwierdź porzucenie
+          </button>
+        </div>
       ) : null}
       {pending ? (
         <div role="status">
@@ -583,7 +766,9 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
                 zdjęcia do wymiany.
               </p>
               <fieldset disabled={blocked}>
-                <legend>Ocena zaznaczonych pól ({selected.size} / 250)</legend>
+                <legend>
+                  Ocena zaznaczonych pól ({selected.size} / 10 000)
+                </legend>
                 <p>
                   Zapis zastępuje obie etykiety i cechy zaznaczonych pól zgodnie
                   z poniższym wyborem.
@@ -654,7 +839,7 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
                   <button
                     type="button"
                     className="secondaryButton"
-                    onClick={() => setSelected(new Set())}
+                    onClick={() => setSelected(new Map())}
                   >
                     Wyczyść zaznaczenie
                   </button>
@@ -675,7 +860,8 @@ function ReadabilityGameWorkspace({ apiBaseUrl, gameId, client }: Props) {
                           item.state === 'stale' ||
                           item.state === 'error'
                         }
-                        onChange={() => toggle(item)}
+                        onChange={() => {}}
+                        onClick={(event) => toggle(item, event.shiftKey)}
                       />
                       Plansza {item.sequenceNumber} · pole {item.cellIndex + 1}
                     </label>

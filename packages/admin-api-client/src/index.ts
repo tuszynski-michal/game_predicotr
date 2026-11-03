@@ -1,4 +1,81 @@
 import {
+  planSourceReplacement as generatedReplacementPlan,
+  listSourceReplacementCandidates as generatedReplacementCandidates,
+  listSourceReplacementBatches as generatedReplacementBatches,
+  getSourceReplacementBatch as generatedReplacementBatch,
+  exportSourceReplacementRequest as generatedReplacementRequest,
+  getSourceReplacementWorking as generatedReplacementWorking,
+  restoreSourceReplacementEntry as generatedReplacementRestore,
+} from './generated/sdk.gen';
+import type {
+  SourceReplacementPreviewRequest,
+  SourceReplacementRestoreCommand,
+  SourceReplacementCreateRequest,
+  SourceReplacementManifestResponse,
+  SourceRetirementPreviewRequest,
+  SourceRetirementPreviewResponse,
+  SourceRetirementCommand,
+  SourceRetirementResult,
+  SourcePurgePreviewRequest,
+  SourcePurgePreviewResponse,
+  SourcePurgeCommand,
+  SourcePurgeResult,
+} from './generated/types.gen';
+export type {
+  SourcePurgePreviewRequest,
+  SourcePurgePreviewResponse,
+  SourcePurgeCommand,
+  SourcePurgeResult,
+  SourcePurgeInfo,
+  SourceReplacementStagingSelection,
+  SourceReplacementStagingFile,
+  SourceReplacementWorkingResponse,
+  SourceReplacementWorkingSlot,
+  SourceReplacementReadabilityCell,
+  SourceReplacementRestoreCommand,
+  SourceReplacementRestoreResponse,
+  SourceRetirementPreviewRequest,
+  SourceRetirementPreviewResponse,
+  SourceRetirementCommand,
+  SourceRetirementResult,
+  SourceReplacementRequestExport,
+  ReplacementRequestEntry,
+  ReplacementAllowedRange,
+  SourceReplacementPreviewRequest,
+  SourceReplacementCreateRequest,
+  SourceReplacementManifestResponse,
+  SourceReplacementEntryResponse,
+  SourceReplacementCandidateResponse,
+  SourceReplacementCandidatePage,
+  SourceReplacementBatchResponse,
+} from './generated/types.gen';
+import {
+  getReadabilityWorkspace as generatedReadabilityWorkspace,
+  startReadabilityRun as generatedReadabilityStart,
+  listReadabilityItems as generatedReadabilityItems,
+  labelReadabilityItems as generatedReadabilityLabels,
+  fitReadabilityPilot as generatedReadabilityFit,
+  acceptReadabilityModel as generatedReadabilityAccept,
+} from './generated/sdk.gen';
+import type {
+  ReadabilityStartRequest,
+  ReadabilityCommandRequest,
+  ReadabilityLabelRequest,
+  ListReadabilityItemsData,
+} from './generated/types.gen';
+export type {
+  ReadabilityStartRequest,
+  ReadabilityCommandRequest,
+  ReadabilityLabelRequest,
+  ReadabilityLabelTarget,
+  ReadabilityRunResponse,
+  ReadabilityModelResponse,
+  ReadabilityWorkspaceResponse,
+  ReadabilityItemResponse,
+  ReadabilityPageResponse,
+} from './generated/types.gen';
+
+import {
   previewGridCorrectionApply as previewGeneratedGridCorrectionApply,
   startGridCorrectionApply as startGeneratedGridCorrectionApply,
   listGridCorrectionApply as listGeneratedGridCorrectionApply,
@@ -3756,6 +3833,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { review_item_id: reviewItemId },
         query: context,
       }),
+    operationalImageReviewSourceAssetUrl: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) => {
+      const query = new URLSearchParams({
+        gameId: context.gameId,
+        importJobId: context.importJobId,
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/${encodeURIComponent(reviewItemId)}/assets/source?${query.toString()}`;
+    },
     getOperationalImageReviewSourceAsset: (
       reviewItemId: string,
       context: OperationalImageReviewContext,
@@ -4084,6 +4171,52 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
     virtualCellPreviewAtlasUrl: (gameId: string, batchKey: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/virtual-cell-preview-batches/${encodeURIComponent(batchKey)}/atlas`,
+    getReadabilityWorkspace: (gameId: string) =>
+      generatedReadabilityWorkspace({ client, path: { game_id: gameId } }),
+    startReadabilityRun: (gameId: string, body: ReadabilityStartRequest) =>
+      generatedReadabilityStart({ client, path: { game_id: gameId }, body }),
+    listReadabilityItems: (
+      gameId: string,
+      runId: string,
+      query: NonNullable<ListReadabilityItemsData['query']> = {},
+    ) =>
+      generatedReadabilityItems({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        query,
+      }),
+    labelReadabilityItems: (
+      gameId: string,
+      runId: string,
+      body: ReadabilityLabelRequest,
+    ) =>
+      generatedReadabilityLabels({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        body,
+      }),
+    fitReadabilityPilot: (
+      gameId: string,
+      runId: string,
+      body: ReadabilityCommandRequest,
+    ) =>
+      generatedReadabilityFit({
+        client,
+        path: { game_id: gameId, run_id: runId },
+        body,
+      }),
+    acceptReadabilityModel: (
+      gameId: string,
+      modelId: string,
+      body: ReadabilityCommandRequest,
+    ) =>
+      generatedReadabilityAccept({
+        client,
+        path: { game_id: gameId, model_id: modelId },
+        body,
+      }),
+    exportReadabilityCsvUrl: (gameId: string, runId: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbol-cell-reviews/readability/runs/${encodeURIComponent(runId)}/export`,
     symbolCellReviewAssetUrl: (
       gameId: string,
       cellReviewId: string,
@@ -4497,25 +4630,167 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         headers: confirmedTargetHeaders(`game-layout-data:${gameId}`),
         path: { game_id: gameId },
       }),
-    previewBoardSourceCleanup: (
+    listSourceReplacementCandidates: (gameId: string, offset = 0) =>
+      generatedReplacementCandidates({
+        client,
+        path: { game_id: gameId },
+        query: { offset },
+      }),
+    listSourceReplacementBatches: (gameId: string) =>
+      generatedReplacementBatches({ client, path: { game_id: gameId } }),
+    getSourceReplacementBatch: (gameId: string, batchId: string) =>
+      generatedReplacementBatch({
+        client,
+        path: { game_id: gameId, batch_id: batchId },
+      }),
+    getSourceReplacementWorking: (
       gameId: string,
-      body: BoardSourceCleanupPreviewRequest,
+      batchId: string,
+      entryId: string,
     ) =>
-      previewGeneratedBoardSourceCleanup({
+      generatedReplacementWorking({
+        client,
+        path: { game_id: gameId, batch_id: batchId, entry_id: entryId },
+      }),
+    restoreSourceReplacementEntry: (
+      gameId: string,
+      body: SourceReplacementRestoreCommand,
+    ) =>
+      generatedReplacementRestore({
+        client,
+        path: {
+          game_id: gameId,
+          batch_id: body.batchId,
+          entry_id: body.entryId,
+        },
+        body,
+      }),
+    planSourceReplacement: (
+      gameId: string,
+      body: SourceReplacementCreateRequest,
+    ) => generatedReplacementPlan({ client, path: { game_id: gameId }, body }),
+    previewSourceReplacement: async (
+      gameId: string,
+      body: SourceReplacementPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
         body,
         client,
         path: { game_id: gameId },
+      });
+      const data = result.data;
+      if (data && !('mode' in data))
+        throw new Error('Unexpected replacement response');
+      return {
+        ...result,
+        data: data as SourceReplacementManifestResponse | undefined,
+      };
+    },
+    previewSourceRetirement: async (
+      gameId: string,
+      body: SourceRetirementPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+      if (result.data && !('action' in result.data))
+        throw new Error('Unexpected retirement preview response');
+      return {
+        ...result,
+        data: result.data as SourceRetirementPreviewResponse | undefined,
+      };
+    },
+    previewSourcePurge: async (
+      gameId: string,
+      body: SourcePurgePreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+      if (result.data && !('bytesToDelete' in result.data))
+        throw new Error('Unexpected source purge preview response');
+      return {
+        ...result,
+        data: result.data as SourcePurgePreviewResponse | undefined,
+      };
+    },
+    executeSourcePurge: async (gameId: string, body: SourcePurgeCommand) => {
+      const result = await deleteGeneratedBoardSourceRanges({
+        client,
+        path: { game_id: gameId },
+        body,
+        headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
+      });
+      if (result.data && !('purge' in result.data))
+        throw new Error('Unexpected source purge response');
+      return { ...result, data: result.data as SourcePurgeResult | undefined };
+    },
+    executeSourceRetirement: async (
+      gameId: string,
+      body: SourceRetirementCommand,
+    ) => {
+      const result = await deleteGeneratedBoardSourceRanges({
+        client,
+        path: { game_id: gameId },
+        body,
+        headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
+      });
+      if (result.data && !('phase' in result.data))
+        throw new Error('Unexpected retirement response');
+      return {
+        ...result,
+        data: result.data as SourceRetirementResult | undefined,
+      };
+    },
+    exportSourceReplacementRequest: (
+      gameId: string,
+      batchId: string,
+      entryIds: string[],
+    ) =>
+      generatedReplacementRequest({
+        client,
+        path: { game_id: gameId, batch_id: batchId },
+        query: { entryIds },
       }),
-    deleteBoardSourceRanges: (
+    exportSourceReplacementUrl: (
+      gameId: string,
+      batchId: string,
+      format: 'json' | 'csv',
+    ) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-sources/${encodeURIComponent(batchId)}/export?format=${format}`,
+    previewBoardSourceCleanup: async (
+      gameId: string,
+      body: BoardSourceCleanupPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        body,
+        client,
+        path: { game_id: gameId },
+      });
+      const data = result.data;
+      if (data && !('kind' in data))
+        throw new Error('Unexpected cleanup response');
+      return { ...result, data };
+    },
+    deleteBoardSourceRanges: async (
       gameId: string,
       body: BoardSourceCleanupCommandRequest,
-    ) =>
-      deleteGeneratedBoardSourceRanges({
+    ) => {
+      const result = await deleteGeneratedBoardSourceRanges({
         body,
         client,
         headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
         path: { game_id: gameId },
-      }),
+      });
+      const data = result.data;
+      if (data && !('kind' in data))
+        throw new Error('Unexpected cleanup result');
+      return { ...result, data };
+    },
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>
       getGeneratedGame({ client, path: { game_id: gameId } }),

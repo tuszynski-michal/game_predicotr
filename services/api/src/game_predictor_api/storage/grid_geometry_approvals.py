@@ -36,6 +36,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
 )
 from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+from game_predictor_api.storage.source_replacement_guards import require_current_review
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
 )
@@ -63,6 +64,8 @@ class SqlAlchemyGridGeometryApprovalRepository:
             ):
                 conflict("IDEMPOTENCY_CONFLICT", "The approval key has different content.")
             return {"receipt": old.document["receipt"]}
+        acquire_sequence_ownership_lock(self.session, game_id=game)
+        require_current_review(self.session, game, review)
         measurement = self.measurements.header(game, UUID(command["measurementId"]))
         self.measurements.store.verify(measurement.manifest_path, measurement.manifest_sha256)
         member = self.measurements.member(

@@ -20,6 +20,10 @@ import {
 } from '@game-predictor/manual-image-selection-core/repair';
 import type { ManualSelectionOutputManifest } from '@game-predictor/manual-image-selection-core';
 import {
+  readReplacementFilledGaps,
+  REPLACEMENT_REPAIR_NAME,
+} from './replacement-repair-storage.ts';
+import {
   readManualOutputManifest,
   sha256Hex,
 } from './manual-image-selection-fsa-adapter.ts';
@@ -140,6 +144,13 @@ export async function readRepairManifest(
   directory: FileSystemDirectoryHandle,
 ): Promise<ManualSelectionRepairManifest | null> {
   try {
+    await directory.getFileHandle(REPLACEMENT_REPAIR_NAME);
+    throw new Error('REPLACEMENT_V3_REQUIRES_SOURCE_REPLACEMENT_MODE');
+  } catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'NotFoundError'))
+      throw cause;
+  }
+  try {
     const file = await (
       await directory.getFileHandle(REPAIR_MANIFEST_NAME)
     ).getFile();
@@ -198,6 +209,13 @@ export async function writeRepairManifest(
 export async function readActiveFilledGapsManifest(
   directory: FileSystemDirectoryHandle,
 ): Promise<ManualSelectionFilledGapsManifest | null> {
+  try {
+    await directory.getFileHandle(REPLACEMENT_REPAIR_NAME);
+    return await readReplacementFilledGaps(directory);
+  } catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'NotFoundError'))
+      throw cause;
+  }
   const repair = await readRepairManifest(directory);
   if (repair === null) return null;
   const derived = deriveFilledGapsManifest(repair);

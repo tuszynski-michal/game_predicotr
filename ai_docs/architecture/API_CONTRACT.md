@@ -5534,3 +5534,74 @@ Opcjonalny sourceId wybiera wyłącznie własne członkostwo MAIN przed keyset/l
 przez exact sześcioparametrowy resolver. Stary pięcioparametrowy resolver działa
 nadal. Brak wymaganego overloadu0162 jest blockerem wdrożenia; runtime nie ma
 bezpośredniego dostępu do prywatnych tabel rejestru nagrań.
+
+
+## Niezależna jakość symboli 777a2 — TASK-1125
+
+Addytywny obszar `/api/v1/admin/games/{gameId}/symbol-cell-reviews/readability`:
+
+| Metoda i ścieżka | Kontrakt |
+|---|---|
+| GET `/runs` | Runy i modele jakości, bez uruchamiania pracy. |
+| POST `/runs` | `idempotencyKey`, `kind: pilot|scan`, seed; modelId tylko dla skanu. |
+| GET `/runs/{runId}/items` | Strona 250 pól, offset, state, historical i problem; liczniki pól/plansz/źródeł. |
+| POST `/runs/{runId}/labels` | Klucz, 1–250 targetów cellId/expectedIdentity/expectedRevision; state i nullable overlap, sharp/similarReadable. |
+| POST `/runs/{runId}/fit` | Klucz i expectedRevision pilota; tworzy job i wersję modelu. |
+| POST `/models/{modelId}/accept` | Klucz i expectedRevision modelu; wymaga aktualnego PASS oraz artefaktu. |
+| GET `/runs/{runId}/export` | CSV potwierdzonych unreadable z seq, pozycją, sourceId i historycznym oznaczeniem. |
+
+Start pilota nie wymaga modelId. Skan wymaga aktualnego, odebranego modelu z
+`fullScanAllowed=true`; żadna komenda jakości nie aktywuje modelu symboli.
+Ocena readable nie wywołuje approve. Niepewna czytelność to state pending,
+a niepewne nałożenie to overlap null. Własny zapis unreadable używa istniejącej
+mutacji komórki, dokładnie raz dla powtórzonego klucza. Zmiana identity daje
+409 `READABILITY_CROP_STALE`, zmiana rewizji `READABILITY_REVISION_CONFLICT`,
+a inne body tego samego klucza `READABILITY_IDEMPOTENCY_CONFLICT`. Brak odbioru,
+niepełny pilot i brak wymaganych dowodów mają stabilne kody READABILITY_*.
+Typy TypeScript pochodzą wyłącznie z OpenAPI i wygenerowanego klienta.
+
+Odczyty items/export odświeżają metadane stale z jawnym WRITE intent i wspólną
+blokadą własności sekwencji. Nie zmieniają rozstrzygnięć symboli ani historii
+receiptów. Nowy skan odmawia również wtedy, gdy piksele pilota zmieniły się po
+odbiorze modelu (`READABILITY_CROP_STALE`). Filtr overlap używa własnego headu
+lub human overlap; filtr unreadable własnego headu lub human state, nie wspólnej
+flagi candidate będącej OR obu headów.
+
+## Plan wymiany źródeł — TASK-1127 / D-579
+
+TASK-1128: dotychczasowy sequence-source-selection zwraca także `state` (`available`, `reserved_gap`, `pending_bound`, `history_only`) oraz nullable `replacementBatchId`, `replacementEntryId`, `replacementManifestUrl`. Kandydat i `OperationalImageReviewItem` mają `sourceState` (`active`, `retired`, `replaced`) oraz `selectable`. Historyczne GET i asset URL pozostają dostępne; `replaced` opisuje historię po restored i nie przywraca wyboru starego źródła. Standardowe listy pending ukrywają provisional. Admin pokazuje historię i link do istniejącego GET batcha z identyfikatorem entry, bez operatorowego admission/import z C2. Backend/OpenAPI/generated/wrapper są jednym kontraktem.
+
+Preview wymiany zwraca `SOURCE_REPLACEMENT_SHA_SCOPE_CONFLICT`, jeśli w tej grze istnieje ten sam SHA poza wybranym, jednoznacznie atestowanym alias group (również źródło bez geometrii). Plan nie rozszerza zakresu po cichu; create/fresh execute odmawia. Kod chroni zgodność exact range z trwałym tombstone starego SHA. Cleanup preview/execute używa `SOURCE_REPLACEMENT_REFERENCED` przed operacjami na plikach, także dla wspólnej kohorty/modelu osiągalnej przez inne źródło.
+
+Istniejący `POST /api/v1/admin/games/{gameId}/board-source-cleanup-preview` przyjmuje alternatywnie `{mode:"replace_preserve_history", sourceIds:[UUID]}` (1–50 dokładnych źródeł). Stary kontrakt `sequenceNumbers` zachowuje zachowanie. Nowy tryb zwraca `source-replacement-manifest-v1`: gameId, selectedSourceIds, entries, revision=0, status=preview, retirementAvailable=false i previewToken. Entry zawiera aliasy/SHA, dokładne numery, pełne snapshoty plansz/geometrii/ocen/current ownership oraz zależności i blokery. Snapshoty zagnieżdżone zachowują nazwy pól magazynu.
+
+`POST /api/v1/admin/games/{gameId}/board-sources` zapisuje planned. Body rozszerza podgląd o idempotencyKey, expectedRevision=0 i previewToken. Backend pod wspólną EXCLUSIVE lock przelicza snapshot; zmiana dowodów daje `SOURCE_REPLACEMENT_PREVIEW_STALE`, bloker daje `SOURCE_REPLACEMENT_BLOCKED`, inna treść przy tym samym kluczu daje `SOURCE_REPLACEMENT_IDEMPOTENCY_CONFLICT`. Replay zwraca pierwotny dokument przed sprawdzaniem aktualności. Sukces zwraca id/revision=1/status=planned. B1 nie udostępnia edycji lub retirement.
+
+Odczyty w tym samym obszarze: `GET /board-sources/candidates?offset=0` (50 źródeł), `GET /board-sources` (ostatnie 100 planów), `GET /board-sources/{batchId}` i `GET /board-sources/{batchId}/export?format=json|csv`. JSON jest pełnym dokumentem, CSV zawiera identyfikatory źródeł/plansz, numery i dowody; nie jest uprawnieniem do importu. `DELETE /board-sources` z nowym mode zawsze odmawia `SOURCE_REPLACEMENT_RETIREMENT_NOT_READY`. Zapis planned nie uruchamia artifact recovery ani delete graph. Oddzielny `source-replacement-request-v1` z server identity i allowedRanges powstanie dopiero w B2b dla wybranych gap_open; C1 nie może traktować planned jako otwartej luki.
+
+## Wycofanie i request-v1 — TASK-1129 / D-580
+
+B2b rozszerza poprzedni kontrakt B1: odmowa `SOURCE_REPLACEMENT_RETIREMENT_NOT_READY` dotyczy starego payloadu utworzenia planu przesłanego do DELETE. Polecenia z jawnym `action` są obsługiwane. `POST /games/{gameId}/board-source-cleanup-preview` przyjmuje mode/action=retire/batchId/entryId/expectedRevision i zwraca świeży previewToken. `DELETE /board-sources` przyjmuje te identyfikatory, action=retire|cancel, idempotencyKey, confirmed=true i dla retire previewToken. Wynik zawiera gameId/batchId/entryId/revision/phase/scopeDigest oraz createdDerivations (niezmienne dowody wewnętrznych jobów). Replay zwraca ten sam receipt przed walidacją aktualnego stanu. Cancel działa wyłącznie dla planned.
+
+`GET /board-sources/{batchId}` nakłada bieżące phase/revision/scopeDigest/failureCode i metadane rzeczywistych markerów retired na zachowany snapshot; nie modyfikuje zapisanego dokumentu planu. `GET /board-sources/{batchId}/replacement-request?entryIds={id}&entryIds={id}` eksportuje wyłącznie wybrane gap_open. Typ publiczny to `SourceReplacementRequestExport`; rzeczywisty fixture odpowiedzi znajduje się w `packages/admin-api-client/test/fixtures/source-replacement-request-v1.json`. Nowa migracja nie jest potrzebna: B2b wykorzystuje schema0175.
+
+Uściślenie B2b / D-580 (2026-11-03): planned snapshot pozostaje niezmienny. Fresh preview przypina action/game/batch/entry/revision i pełne fakty; drift wymaga nowego planu. Jedyny wyjątek to wewnętrzny super_game_series_derive UTWORZONY przez wcześniejszy retirement tego samego batcha, dowiedziony immutable receipt z job/game/type/input_key/payload digest; nie obejmuje obcych ani niewykazywalnych coalesced jobów. Własny deferred pending przechodzi do superseded z superseded_at i pełnym prior w immutable source_replacement_retired.document, bez fałszywego successor/rejection eventu. Każdy alias ma marker.
+
+Request-v1 ma jawny camelCase JSON: schemaVersion, gameId, batchId, entries(entryId/revision/digest/sourceSha256/sequenceNumbers), allowedRanges(entryId/sequenceStart/sequenceEnd), digest. Wyłącznie selected gap_open; scope digest i revision entry nie zależą od postępu innego entry ani rewizji batcha. Autorytetem jest aktualnie skonfigurowane uwierzytelnione API i ponowny GET/porównanie bieżącej fazy. Plik/digest nie autoryzuje; origin najwyżej informacyjny, nigdy automatyczne połączenie lub credentials do adresu z pliku. Bez UUID instalacji. C2 ponawia backend preflight. Mobile publication i markready trzymają SHARED game fences, retirement EXCLUSIVE.
+
+### TASK-1131: replacement browser import i restored
+
+Istniejący browser-selections create przyjmuje optional `replacementSelection` i `idempotencyKey`. Selection zawiera oryginalny `SourceReplacementRequestExport`, `selectedEntryIds` oraz pliki `{entryId,fileName,checksumSha256,rangeStart,rangeEnd,operationId}`. Backend weryfikuje aktualne entry bezpośrednio przez repozytorium w tej samej transakcji, nigdy przez self-HTTP ani origin z pliku. Descriptor jest trwały w upload state i browser manifest; checksum wiąże go z przesłanymi plikami. Geometry preflight nie tworzy admission. Tylko zweryfikowany exact replacement omija zwykły canonical skip i regułę krótkiego terminalnego zakresu.
+
+Import job ma wewnętrzny startReceipt z digestem żądania i snapshotem preflight; exact retry odtwarza odpowiedź także po restored i usunięciu stagingu, konflikt body odmawia. Server-only `source_replacement` nie jest publicznym JobResponse payload.
+
+`GET /api/v1/admin/games/{gameId}/board-sources/{batchId}/entries/{entryId}/working` zwraca scoped source/job, slots, rewizję i aktualne cele readability. `POST` pod tą samą ścieżką z końcówką `/restore` przyjmuje expectedRevision, idempotencyKey, confirmed, actor i readability `{cellId,identity,revision,readable}`. Wszystkie cele muszą być jawnie potwierdzone i aktualne; review nadal przechodzi zwykłe accepted/corrected. UI pokazuje rzeczywisty crop, aktywuje checkbox po jego załadowaniu i zachowuje exact command do retry. Partial/rejected nie oznacza zakończenia. Backend/OpenAPI/generated/wrapper/request-test stanowią jeden pion.
+
+
+## Fizyczne usunięcie źródła — TASK-1141
+
+Dotychczasowe endpointy board-sources otrzymują opcjonalny wariant `mode=replace_delete_source`. POST board-source-cleanup-preview z sourceIds oraz POST board-sources zapisują compact plan; legacy `replace_preserve_history` jest bez zmian. Po zapisie POST preview przyjmuje `SourcePurgePreviewRequest`: mode, action=purge, batchId, entryId, expectedRevision. Odpowiedź zawiera previewToken, sourceIds, sequenceNumbers, fileCount, missingFileCount, sharedFileCount, bytesToDelete, retainedMetadata i recordCounts.
+
+DELETE board-sources przyjmuje `SourcePurgeCommand` z tymi identyfikatorami oraz previewToken, idempotencyKey i confirmed=true. Atomowo tworzy rezerwacje/tombstones i usuwa source-only operational graph; po COMMIT finalizuje kwarantannę. Odpowiedź phase=gap_open ma pole purge. `SourcePurgeInfo` zawiera operationType, liczniki, deletedRecords, dokładną command, fileStatus (`pending`, `finalized`, `recovery_pending`, `recovery_required`) i deletedBytes; ostatnie jest dodatnie dopiero przy finalized. GET batch i JSON export obliczają aktualny fileStatus, nie zwracają fileProof ani quarantineKey. Exact replay sprawdza body/key przed nową walidacją i podejmuje brakujące file effects.
+
+Blockery `SOURCE_REPLACEMENT_PURGE_IMPORT_UNFINISHED`, MODEL_BUSY, GRID_BUSY, REVIEW_BUSY, DEPENDENCY_UNKNOWN, PLAN_DRIFT/PREVIEW_STALE odmawiają przed kwarantanną. `SOURCE_PURGED` dotyczy podglądu znanego source ID. Publiczne typy pochodzą z OpenAPI; wrappery `previewSourcePurge`/`executeSourcePurge` używają istniejących generated endpointów. Request-v1 eksportu luk i obecny import C1/C2 nie zmieniają shape.

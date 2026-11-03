@@ -1,5 +1,8 @@
 'use client';
+import { ReplacementImportPicker } from './replacement-import-picker';
+import { ReplacementStartRecovery } from './replacement-start-recovery';
 
+import { SequenceSourceCandidates } from './sequence-source-candidates';
 import type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceResponse,
@@ -1015,6 +1018,7 @@ export function ImageFolderImportPanel({
         geometryEngineVariant,
         preflight.symbolModelSnapshotFingerprint ?? undefined,
         neuralUnboundSourceCount > 0 ? neuralUnboundSourceCount : undefined,
+        preflight.replacementSelection,
       );
       if (!result.ok) {
         if (
@@ -1489,6 +1493,31 @@ export function ImageFolderImportPanel({
         </div>
       </div>
 
+      <ReplacementImportPicker
+        key={gameId}
+        api={api}
+        gameId={gameId}
+        gameLabel={gameCode ?? 'bieżąca gra'}
+        disabled={busy || enginePolicy === null}
+        onReady={async (uploadId) => {
+          await refreshReadySelections();
+          await prepareReadyImport(uploadId);
+        }}
+      />
+      <ReplacementStartRecovery
+        key={`recovery:${gameId}`}
+        api={api}
+        gameId={gameId}
+        disabled={busy}
+        refreshKey={activeAction}
+        onRecovered={async (result) => {
+          await refreshJobs();
+          await refreshReadySelections();
+          setFeedback(
+            `Odtworzono potwierdzenie importu ${result.job.id}. Dalszy postęp jest widoczny na liście zadań.`,
+          );
+        }}
+      />
       <fieldset className="importActionToolbar importEngineChoice">
         <legend>Silnik siatki dla tego wykonania</legend>
         {usesNeuralGrid ? (
@@ -2416,46 +2445,15 @@ export function ImageFolderImportPanel({
               ? 'Pobieranie…'
               : 'Pokaż źródła'}
           </button>
-          {sourceSelection?.manualOverrideReviewItemId ? (
-            <button
-              aria-busy={activeAction === 'choose-source'}
-              className="secondaryButton"
-              disabled={busy}
-              onClick={() => void chooseSource(null)}
-              type="button"
-            >
-              Przywróć wybór automatyczny
-            </button>
-          ) : null}
         </div>
         {sourceSelection ? (
-          <ul className="importCompactList">
-            {sourceSelection.candidates.map((candidate) => (
-              <li key={candidate.reviewItemId}>
-                <strong>
-                  #{candidate.automaticRank} · jakość{' '}
-                  {(candidate.qualityScore * 100).toFixed(1)}%
-                  {candidate.selected ? ' · wybrane' : ''}
-                </strong>
-                <span>
-                  {candidate.width} × {candidate.height} · OCR{' '}
-                  {(candidate.sequenceConfidence * 100).toFixed(1)}% · plansza{' '}
-                  {(candidate.boardConfidence * 100).toFixed(1)}%
-                </span>
-                <small>{candidate.sourceRelativePath}</small>
-                {!candidate.selected ? (
-                  <button
-                    className="secondaryButton"
-                    disabled={busy}
-                    onClick={() => void chooseSource(candidate.reviewItemId)}
-                    type="button"
-                  >
-                    Wybierz to źródło
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <SequenceSourceCandidates
+            selection={sourceSelection}
+            busy={busy}
+            apiBaseUrl={resolveAdminApiBaseUrl(apiBaseUrl)}
+            sourceAssetUrl={api.operationalImageReviewSourceAssetUrl}
+            onChoose={(reviewItemId) => void chooseSource(reviewItemId)}
+          />
         ) : null}
       </section>
 

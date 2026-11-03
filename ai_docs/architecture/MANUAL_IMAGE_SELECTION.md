@@ -557,6 +557,49 @@ resume. W takim przypadku nie modyfikuje katalogu ani starej sesji, tylko
 kieruje operatora do nowej sekcji. Zapobiega to dwóm writerom utrzymującym
 różne listy aktywnych `seq_*`.
 
+### Niezależny tryb source_replacement / repair-v3
+
+`replacement-repair.ts` w istniejącym core zawiera czyste reguły requestu,
+exact-range, bieżącego entry i journalu. Typ wire pochodzi z wygenerowanego
+`@game-predictor/admin-api-client/types` (eksport wyłącznie typów); rdzeń nie
+importuje wrappera HTTP ani nie ma zależności od React/FSA. Kanoniczny digest
+requestu używa sortowanych kluczy i kompaktowego JSON, bez własnego `digest`.
+Wire zawiera wyłącznie ASCII i bezpieczne liczby całkowite. Entry scopeDigest
+pozostaje opaque i jest porównywany z API, nie obliczany z nowych pikseli.
+
+`replacement-repair-storage.ts` jest osobnym adapterem v3. Nie korzysta z
+v2 `inspectRepairDirectory` (min–max i auto-adoption). Listing nowych źródeł
+czyta tylko nazwy bezpośrednich plików; bajty są pobierane dopiero dla wybranego
+JPEG-a. Jedna operacja obsługuje jedno całe zdjęcie, request ma maksymalnie 50
+entries. Odczyt wyniku hashuje pliki sekwencyjnie. Source/output muszą być
+rozłączne według FSA `isSameEntry`/`resolve`.
+
+Własny output dopuszcza tylko v3, pochodny handoff i pliki wskazane przez jego
+journal. Operacja ma trwałe `id`, entry, nazwę/range, SHA/rozmiar, sourcePath i
+stan intent/committed. Kolejność to intent → JPEG → odczyt/hash → commit →
+handoff. Recovery bez JPEG-a nie dopisuje fill. Zgodny istniejący JPEG może
+finalizować wyłącznie własną intencję; drift i obcy plik blokują całość.
+Nowy zapis i recovery korzystają z jednej blokady Web Locks per nazwa katalogu
+w obrębie origin; fallback kolejki w procesie służy także testom. Zewnętrzne
+edycje plików są wykrywane kontrolą własności/rozmiaru/SHA, nie nadpisywane.
+
+`ReplacementRepairWorkspace` jest opcjonalnym trybem istniejącego ekranu.
+Używa skonfigurowanego klienta do GET gry i per-entry GET batcha przed nowym
+zapisem. Błędne API lub stale entry odmawia, bez połączenia z origin zapisanym
+w pliku. Nie porównuje globalnej batch revision. Lokalny immutable receipt może
+odpowiedzieć na replay już ukończonego zapisu bez nowej autoryzacji, po zgodności
+wybranego źródła i ponownej weryfikacji wyniku.
+
+`deriveReplacementFilledGaps` wymaga jawnego dowodu zweryfikowanych plików i
+zwraca niezmieniony filled-gaps-v1 z journalu committed. Wspólny handoff reader
+rozpoznaje v3 osobno, weryfikuje pliki i wyprowadza wynik bez zapisu ani finalizacji
+intent (źródło cropu ma tylko read permission); v1/v2 reader odmawia v3. C2 otrzymuje osobny lokalny
+`deriveReplacementStagingSelection`: oryginalny typed request, jawne
+selectedEntryIds oraz po jednym zweryfikowanym committed descriptorze
+{entryId,fileName,checksumSha256,rangeStart,rangeEnd,operationId}. Nie jest to
+kontrakt API ani dowód serwerowej autoryzacji. Brakujący entry nie może wejść
+do tej listy; import ponownie weryfikuje DB i rzeczywisty uploaded SHA w C2.
+
 ## Architektura lokalnego przycinania wybranych zdjęć
 
 TASK-0492: `crop-session.ts:selectedImageCropReviewReason` ocenia zapisany

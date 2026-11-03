@@ -181,9 +181,10 @@ def test_currentness_never_uses_repoint_exception_for_real_withdrawal(monkeypatc
         },
     )
     session = SimpleNamespace(
+        scalar=lambda *args: False,  # This fixture has no source-replacement retirement.
         execute=lambda *args: SimpleNamespace(
             scalar_one_or_none=lambda: "reverted" if change == "reverted" else "active"
-        )
+        ),
     )
     with pytest.raises(GridCohortError) as error:
         check_member(SimpleNamespace(session=session), selected)

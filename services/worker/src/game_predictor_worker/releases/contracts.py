@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -40,6 +41,8 @@ class ReleaseWorkflowStore(Protocol):
     def load_release(self, mobile_release_id: UUID) -> MobileRelease | None: ...
 
     def require_current_sources(self, release: MobileRelease) -> None: ...
+
+    def publication_fence(self, release: MobileRelease) -> AbstractContextManager[None]: ...
 
     def mark_building(
         self,

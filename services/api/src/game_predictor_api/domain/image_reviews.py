@@ -9,11 +9,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes
+
+SourceReplacementState = Literal["active", "retired", "replaced"]
+SourceSelectionState = Literal["available", "reserved_gap", "pending_bound", "history_only"]
 
 IMAGE_REVIEW_CELL_COUNT = 15
 MAX_IMAGE_REVIEW_ALTERNATIVES = 4
@@ -129,6 +132,8 @@ class ImageReviewItem:
     geometry_qualification: Mapping[str, object] | None = None
     source_width: int | None = None
     source_height: int | None = None
+    source_state: SourceReplacementState = "active"
+    selectable: bool = True
 
     @property
     def cursor_key(self) -> tuple[int, int, int, str]:
@@ -218,6 +223,8 @@ class ImageSequenceSourceCandidate:
     quality_score: float
     selected: bool
     selected_manually: bool
+    source_state: SourceReplacementState = "active"
+    selectable: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,6 +234,10 @@ class ImageSequenceSourceSelection:
     candidates: tuple[ImageSequenceSourceCandidate, ...]
     manual_override_review_item_id: UUID | None
     override_revision: int
+    state: SourceSelectionState = "available"
+    replacement_batch_id: UUID | None = None
+    replacement_entry_id: UUID | None = None
+    replacement_manifest_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

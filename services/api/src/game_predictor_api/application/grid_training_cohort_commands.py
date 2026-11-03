@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
 
 from PIL import __version__ as pillow_version
-from sqlalchemy import Uuid, column, func, select, table
+from sqlalchemy import Uuid, column, func, select, table, text
 
 from game_predictor_api.domain.canonical_source import CANONICAL_SOURCE_LOADER_VERSION
 from game_predictor_api.domain.grid_training_cohorts import (
@@ -60,10 +60,23 @@ def prepare(
         raise GridCohortError("GRID_MODEL_BASE_UNAVAILABLE", "The immutable base is unavailable.")
     manifest = verified_json(base.manifest_json, base.manifest_sha256)
     selection = body["selector"]
+    from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+    from game_predictor_api.storage.source_replacement_guards import source_current_clause
+
+    repo.session.execute(text("SELECT pg_advisory_xact_lock(9910994)"))
+    repo.session.execute(text("SELECT pg_advisory_xact_lock(9921002)"))
+    acquire_sequence_ownership_lock(repo.session, game_id=game)
     sources_table = table(
-        "source_images", column("id", Uuid), column("game_id", Uuid), column("import_job_id", Uuid)
+        "source_images",
+        column("id", Uuid),
+        column("game_id", Uuid),
+        column("import_job_id", Uuid),
+        column("checksum_sha256"),
     )
-    selector = select(sources_table.c.id).where(sources_table.c.game_id == game)
+    source_current = source_current_clause(
+        game, sources_table.c.id, sources_table.c.checksum_sha256
+    )
+    selector = select(sources_table.c.id).where(sources_table.c.game_id == game, source_current)
     imports = [UUID(value) for value in selection.get("importJobIds") or []]
     if selection.get("sourceIds"):
         selector = selector.where(
@@ -78,7 +91,9 @@ def prepare(
     covered = (
         repo.session.scalar(
             select(func.count(func.distinct(sources_table.c.import_job_id))).where(
-                sources_table.c.game_id == game, sources_table.c.import_job_id.in_(imports)
+                sources_table.c.game_id == game,
+                sources_table.c.import_job_id.in_(imports),
+                source_current,
             )
         )
         if imports

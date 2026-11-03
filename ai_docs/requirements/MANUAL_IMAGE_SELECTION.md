@@ -755,6 +755,53 @@ Jeżeli zwykła ręczna selekcja wykryje repair manifest, nie próbuje przejąć
 katalogu. Kieruje operatora do `Popraw selekcję`. Aktywny output manifest jest
 jedynym źródłem wybranych pozytywów; usunięte wpisy nie mogą trafić do importu
 ani kohorty treningowej.
+### Przygotowanie zamienników wycofanych źródeł (C1)
+
+W karcie `Popraw selekcję` opcja `Uzupełnij luki z manifestu wymiany zdjęć`
+przyjmuje wyłącznie `source-replacement-request-v1` wyeksportowany dla wybranych
+otwartych luk. Ekran pobiera nazwę gry z aktualnie skonfigurowanego API i pokazuje
+dokładne zakresy całych zdjęć. Plik nie wybiera serwera ani poświadczeń. Przed
+nowym zapisem narzędzie ponownie sprawdza bieżące entry, rewizję, digest, SHA
+wycofanego źródła, `gap_open` i dokładne numery w tym API. Postęp innego entry
+lub globalnej rewizji batcha nie unieważnia pozostałych zdjęć.
+
+Operator wskazuje nowy folder `seq_<start>-<end>.jpg|jpeg` tylko do odczytu oraz
+osobny pusty katalog wyniku albo własny wynik v3 do wznowienia. Nie wolno wybrać
+tego samego folderu ani katalogów nadrzędnych/podrzędnych. Zakresy wynikają
+wyłącznie z `allowedRanges`, również dla zdjęć mających mniej niż 9 plansz;
+narzędzie nie wyznacza luk z min–max. Niepasujące JPEG-i w źródle są pomijane;
+nie trafiają do listy kandydatów ani do wyniku.
+Kilka plików tego samego zakresu wymaga jawnego wyboru jednego z nich.
+Podgląd musi zostać zdekodowany i widoczny przez 300 ms przed przygotowaniem.
+Źródło nie jest zmieniane; zapisywane są jego oryginalne bajty i SHA-256.
+
+Wynik `manual-image-selection-repair-v3.json` trwale zapisuje intencję przed
+JPEG-em, potem weryfikuje rozmiar i SHA oraz zapisuje commit operacji. Po
+przerwaniu operator wczytuje to samo żądanie i ponownie wskazuje katalog wyniku.
+Zgodny JPEG z intencją jest finalizowany idempotentnie. Brakujący JPEG wymaga
+ponownego wskazania dokładnie tego samego źródła. Obcy, zmieniony albo częściowy
+cel blokuje zapis; narzędzie nie adoptuje i nie nadpisuje takich plików.
+Znana pozostałość przerwanego zapisu `.crswap` otrzymuje osobny komunikat;
+narzędzie jej nie usuwa ani nie adoptuje. Operator zachowuje ten katalog do
+sprawdzenia i może wybrać nowy pusty wynik. Fizyczny odbiór Chromium należy do D1.
+Współdzielona blokada browser Web Locks serializuje zapis i recovery między
+kartami tej samej aplikacji. Katalogi o tej samej nazwie są celowo serializowane.
+
+`manual-image-selection-filled-gaps-v1.json` zachowuje dotychczasowy format i
+zawiera wyłącznie committed, ponownie zweryfikowane JPEG-i. Proweniencja
+`sourcePath` i `fillOperationId` pochodzi z journalu. Żaden identyfikator batcha
+ani entry nie jest dodawany do tego handoffu. Oryginalne request-v1 i lokalny
+descriptor wybranych, rzeczywiście przygotowanych plików pozostają oddzielne.
+Gdy request dopuszcza A+B, a gotowe jest tylko A, descriptor C2 zawiera wyłącznie
+wybrane A, zachowując oryginalny request i jego niezmienione digests.
+Konsument przycinania może odczytać i zweryfikować ten handoff z uprawnieniem
+tylko do odczytu; taki odczyt nie finalizuje intencji i nie zapisuje manifestów.
+
+Komunikat `Przygotowano lokalnie` nie oznacza zamknięcia backendowej luki.
+Admission, import i przegląd zamiennika należą do C2. Stare tryby v1/v2 nadal
+działają lokalnie i odrzucają katalog v3; nie migrują go ani nie tworzą fikcyjnych
+potwierdzeń usunięcia.
+
 ## Przycinanie wybranych zdjęć przed importem
 
 TASK-0492: ocena przeglądu nie ufa samej etykiecie high_confidence.

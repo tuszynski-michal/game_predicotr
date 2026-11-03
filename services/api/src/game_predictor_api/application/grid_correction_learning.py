@@ -403,6 +403,16 @@ class GridCorrectionLearningService:
                     "GRID_LEARNING_NOT_RESUMABLE", "Only a failed or cancelled workflow resumes."
                 )
             repository = SqlAlchemyJobRepository(session)
+            from game_predictor_api.storage.sequence_ownership_lock import (
+                acquire_sequence_ownership_lock,
+            )
+            from game_predictor_api.storage.source_replacement_guards import require_cohort_sources
+
+            acquire_sequence_ownership_lock(session, game_id=game)
+            cohort = (job.checkpoint_payload or {}).get("cohortId")
+            if cohort is not None:
+                self._cohorts(session).repository.bind(game)
+                require_cohort_sources(session, game, UUID(str(cohort)))
             children = self._children(session, job)
             if any(
                 child.status in ACTIVE and child.cancel_requested_at is not None

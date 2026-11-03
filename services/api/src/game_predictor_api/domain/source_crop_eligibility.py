@@ -28,6 +28,7 @@ SETTLED_IMPORT_STATUSES = frozenset({"completed", "waiting_for_review"})
 class CropExclusion(StrEnum):
     """Stable reasons why a blob is not cropped; any reason excludes it."""
 
+    SOURCE_REPLACEMENT_REFERENCED = "SOURCE_REPLACEMENT_REFERENCED"
     UNMANAGED_PATH = "UNMANAGED_PATH"
     NO_COORDINATE_METADATA = "NO_COORDINATE_METADATA"
     ORIENTATION_UNSUPPORTED = "ORIENTATION_UNSUPPORTED"
@@ -78,6 +79,7 @@ class CropSourceFacts:
     active_image_job_count: int
     # Page-registration anchors match ORB features on the whole frame (plan rev. 2).
     registration_anchor_count: int
+    replacement_referenced: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +132,8 @@ def classify_blob(
     expected_path = managed_original_relative_path(checksum_sha256)
     for source in sources:
         reasons.update(_source_reasons(source, expected_path))
+        if source.replacement_referenced:
+            reasons.add(CropExclusion.SOURCE_REPLACEMENT_REFERENCED)
     identities = {
         (
             source.oriented_width,

@@ -64,6 +64,8 @@ LIMIT :page_size
 # excludes the shared original for all of them.
 _SOURCE_FACTS_SQL = """
 SELECT s.game_id, s.id AS source_image_id, s.import_job_id, s.checksum_sha256,
+  EXISTS(SELECT 1 FROM game_data_v2.source_replacement_sources r WHERE r.game_id=s.game_id AND
+  r.source_id=s.id) AS replacement_referenced,
   s.relative_path, s.coordinate_space, s.oriented_width, s.oriented_height,
   s.exif_orientation, s.normalized_pixel_checksum_sha256, s.geometry_completeness_status,
   loc.status AS game_storage_status, j.status AS import_status,
@@ -223,6 +225,7 @@ class SourceImageCropRepository:
                     page_exclusion_count=int(row["page_exclusion_count"]),
                     active_image_job_count=int(row["active_image_job_count"]),
                     registration_anchor_count=int(row["registration_anchor_count"]),
+                    replacement_referenced=bool(row["replacement_referenced"]),
                 )
             )
         boards: dict[str, list[CropBoardGeometry]] = defaultdict(list)

@@ -2699,6 +2699,7 @@ export type BrowserImageImportPreflightCreate = {
    */
   gameId: string;
   geometryEngineVariant?: GeometryEngineVariant;
+  replacementSelection?: SourceReplacementStagingSelection | null;
 };
 
 /**
@@ -2807,6 +2808,7 @@ export type BrowserImageImportPreflightResponse = {
    * Preflightchecksumsha256
    */
   preflightChecksumSha256: string;
+  replacementSelection?: SourceReplacementStagingSelection | null;
   /**
    * Reusedsequencecount
    */
@@ -2916,6 +2918,7 @@ export type BrowserImageImportStart = {
    * Preflightchecksumsha256
    */
   preflightChecksumSha256: string;
+  replacementSelection?: SourceReplacementStagingSelection | null;
   /**
    * Startmode
    */
@@ -2962,7 +2965,12 @@ export type BrowserImageSelectionCreate = {
    * Gameid
    */
   gameId?: string | null;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey?: string | null;
   purpose?: ImageSelectionPurpose;
+  replacementSelection?: SourceReplacementStagingSelection | null;
   /**
    * Skippedcanonicalranges
    */
@@ -3284,6 +3292,7 @@ export type BrowserPageGeometryPreflightCreate = {
    * Pageregistrationvariant
    */
   pageRegistrationVariant?: 'standard_v0_10' | 'board_area_test';
+  replacementSelection?: SourceReplacementStagingSelection | null;
 };
 
 /**
@@ -3536,6 +3545,7 @@ export type BrowserReadySelectionResponse = {
    */
   manifestChecksumSha256: string;
   purpose: ImageSelectionPurpose;
+  replacementSelection?: SourceReplacementStagingSelection | null;
   /**
    * Supersededbyuploadid
    */
@@ -13093,6 +13103,10 @@ export type ImageSequenceSourceCandidateResponse = {
    */
   reviewItemId: string;
   /**
+   * Selectable
+   */
+  selectable?: boolean;
+  /**
    * Selected
    */
   selected: boolean;
@@ -13116,6 +13130,10 @@ export type ImageSequenceSourceCandidateResponse = {
    * Sourcerelativepath
    */
   sourceRelativePath: string;
+  /**
+   * Sourcestate
+   */
+  sourceState?: 'active' | 'retired' | 'replaced';
   /**
    * Width
    */
@@ -13157,9 +13175,25 @@ export type ImageSequenceSourceSelectionResponse = {
    */
   overrideRevision: number;
   /**
+   * Replacementbatchid
+   */
+  replacementBatchId?: string | null;
+  /**
+   * Replacemententryid
+   */
+  replacementEntryId?: string | null;
+  /**
+   * Replacementmanifesturl
+   */
+  replacementManifestUrl?: string | null;
+  /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * State
+   */
+  state?: 'available' | 'reserved_gap' | 'pending_bound' | 'history_only';
 };
 
 /**
@@ -13646,6 +13680,7 @@ export type JobType =
   | 'symbol_training'
   | 'image_symbol_reinference'
   | 'image_grid_reinference'
+  | 'symbol_readability'
   | 'image_symbol_review_bulk'
   | 'image_symbol_review_backfill'
   | 'image_geometry_rollout_backfill'
@@ -16380,6 +16415,10 @@ export type OperationalImageReviewItemResponse = {
     [key: string]: unknown;
   } | null;
   /**
+   * Selectable
+   */
+  selectable?: boolean;
+  /**
    * Sequencenumber
    */
   sequenceNumber?: number | null;
@@ -16397,6 +16436,10 @@ export type OperationalImageReviewItemResponse = {
    * Sourceorderindex
    */
   sourceOrderIndex: number;
+  /**
+   * Sourcestate
+   */
+  sourceState?: 'active' | 'retired' | 'replaced';
   /**
    * Sourcewidth
    *
@@ -17781,6 +17824,342 @@ export type QualityUnexpectedJudgment = {
 };
 
 /**
+ * ReadabilityCommandRequest
+ */
+export type ReadabilityCommandRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * ReadabilityItemResponse
+ */
+export type ReadabilityItemResponse = {
+  /**
+   * Candidate
+   */
+  candidate: boolean;
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string | null;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Historicalunreadable
+   */
+  historicalUnreadable: boolean;
+  /**
+   * Identity
+   */
+  identity: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Overlap
+   */
+  overlap: boolean | null;
+  /**
+   * Overlapscore
+   */
+  overlapScore: number | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Renderspecchecksumsha256
+   */
+  renderSpecChecksumSha256: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+  /**
+   * Samplekind
+   */
+  sampleKind: 'pilot' | 'audit' | 'scan';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sharp
+   */
+  sharp: boolean;
+  /**
+   * Similarreadable
+   */
+  similarReadable: boolean;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * State
+   */
+  state: 'pending' | 'readable' | 'unreadable' | 'skipped' | 'stale' | 'error';
+  /**
+   * Unreadablescore
+   */
+  unreadableScore: number | null;
+};
+
+/**
+ * ReadabilityLabelRequest
+ */
+export type ReadabilityLabelRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Overlap
+   */
+  overlap: boolean | null;
+  /**
+   * Sharp
+   */
+  sharp?: boolean;
+  /**
+   * Similarreadable
+   */
+  similarReadable?: boolean;
+  /**
+   * State
+   */
+  state: 'pending' | 'readable' | 'unreadable' | 'skipped';
+  /**
+   * Targets
+   */
+  targets: Array<ReadabilityLabelTarget>;
+};
+
+/**
+ * ReadabilityLabelTarget
+ */
+export type ReadabilityLabelTarget = {
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Expectedidentity
+   */
+  expectedIdentity: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
+ * ReadabilityModelResponse
+ */
+export type ReadabilityModelResponse = {
+  /**
+   * Accepted
+   */
+  accepted: boolean;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Fingerprint
+   */
+  fingerprint: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Pilotrunid
+   */
+  pilotRunId: string;
+  /**
+   * Report
+   */
+  report: {
+    [key: string]: unknown;
+  };
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ReadabilityPageResponse
+ */
+export type ReadabilityPageResponse = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Confirmedboards
+   */
+  confirmedBoards: number;
+  /**
+   * Confirmedfields
+   */
+  confirmedFields: number;
+  /**
+   * Confirmedsources
+   */
+  confirmedSources: number;
+  /**
+   * Fields
+   */
+  fields: number;
+  /**
+   * Items
+   */
+  items: Array<ReadabilityItemResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+  /**
+   * Sources
+   */
+  sources: number;
+};
+
+/**
+ * ReadabilityRunResponse
+ */
+export type ReadabilityRunResponse = {
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Inventoryfingerprint
+   */
+  inventoryFingerprint: string | null;
+  /**
+   * Itemcount
+   */
+  itemCount: number;
+  /**
+   * Jobid
+   */
+  jobId: string | null;
+  /**
+   * Kind
+   */
+  kind: 'pilot' | 'scan';
+  /**
+   * Modelid
+   */
+  modelId: string | null;
+  /**
+   * Processedcount
+   */
+  processedCount: number;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ReadabilityStartRequest
+ */
+export type ReadabilityStartRequest = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Kind
+   */
+  kind: 'pilot' | 'scan';
+  /**
+   * Modelid
+   */
+  modelId?: string | null;
+  /**
+   * Seed
+   */
+  seed?: string;
+};
+
+/**
+ * ReadabilityWorkspaceResponse
+ */
+export type ReadabilityWorkspaceResponse = {
+  /**
+   * Models
+   */
+  models: Array<ReadabilityModelResponse>;
+  /**
+   * Runs
+   */
+  runs: Array<ReadabilityRunResponse>;
+};
+
+/**
  * RecordingSelection
  */
 export type RecordingSelection = {
@@ -18786,6 +19165,50 @@ export type RemoteSelectionReopenedResponse = {
  * RemoteSourceKind
  */
 export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
+
+/**
+ * ReplacementAllowedRange
+ */
+export type ReplacementAllowedRange = {
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Sequenceend
+   */
+  sequenceEnd: number;
+  /**
+   * Sequencestart
+   */
+  sequenceStart: number;
+};
+
+/**
+ * ReplacementRequestEntry
+ */
+export type ReplacementRequestEntry = {
+  /**
+   * Digest
+   */
+  digest: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sourcesha256
+   */
+  sourceSha256: string;
+};
 
 /**
  * ResolveUnreadableCellRequest
@@ -21177,6 +21600,221 @@ export type SourceLatticePoint = {
 };
 
 /**
+ * SourcePurgeCommand
+ */
+export type SourcePurgeCommand = {
+  /**
+   * Action
+   */
+  action: 'purge';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_delete_source';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * SourcePurgeInfo
+ */
+export type SourcePurgeInfo = {
+  /**
+   * Bytestodelete
+   */
+  bytesToDelete: number;
+  command: SourcePurgeCommand;
+  /**
+   * Deletedbytes
+   */
+  deletedBytes?: number;
+  /**
+   * Deletedrecords
+   */
+  deletedRecords?: {
+    [key: string]: number;
+  };
+  /**
+   * Filecount
+   */
+  fileCount: number;
+  /**
+   * Filestatus
+   */
+  fileStatus:
+    'pending' | 'finalized' | 'recovery_pending' | 'recovery_required';
+  /**
+   * Missingfilecount
+   */
+  missingFileCount: number;
+  /**
+   * Operationtype
+   */
+  operationType: 'source_replacement_purge';
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata: {
+    [key: string]: number;
+  };
+  /**
+   * Sharedfilecount
+   */
+  sharedFileCount: number;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourcePurgePreviewRequest
+ */
+export type SourcePurgePreviewRequest = {
+  /**
+   * Action
+   */
+  action: 'purge';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Mode
+   */
+  mode: 'replace_delete_source';
+};
+
+/**
+ * SourcePurgePreviewResponse
+ */
+export type SourcePurgePreviewResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Bytestodelete
+   */
+  bytesToDelete: number;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Filecount
+   */
+  fileCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Missingfilecount
+   */
+  missingFileCount: number;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Recordcounts
+   */
+  recordCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata: {
+    [key: string]: number;
+  };
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sharedfilecount
+   */
+  sharedFileCount: number;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourcePurgeResult
+ */
+export type SourcePurgeResult = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Createdderivations
+   */
+  createdDerivations?: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Phase
+   */
+  phase: 'gap_open' | 'cancelled';
+  purge: SourcePurgeInfo;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Scopedigest
+   */
+  scopeDigest: string;
+};
+
+/**
  * SourceRecordingCommandRequest
  */
 export type SourceRecordingCommandRequest = {
@@ -21352,6 +21990,685 @@ export type SourceRecordingGroupResponse = {
    * Role
    */
   role: 'TRAIN' | 'VALIDATION' | 'REGRESSION' | null;
+};
+
+/**
+ * SourceReplacementBatchResponse
+ */
+export type SourceReplacementBatchResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * SourceReplacementCandidatePage
+ */
+export type SourceReplacementCandidatePage = {
+  /**
+   * Items
+   */
+  items: Array<SourceReplacementCandidateResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+};
+
+/**
+ * SourceReplacementCandidateResponse
+ */
+export type SourceReplacementCandidateResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Firstsequence
+   */
+  firstSequence: number | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Lastsequence
+   */
+  lastSequence: number | null;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+};
+
+/**
+ * SourceReplacementCreateRequest
+ */
+export type SourceReplacementCreateRequest = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history' | 'replace_delete_source';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourceReplacementEntryResponse
+ */
+export type SourceReplacementEntryResponse = {
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Boards
+   */
+  boards: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Canonical
+   */
+  canonical: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Compactschema
+   */
+  compactSchema?: string | null;
+  /**
+   * Dependencies
+   */
+  dependencies: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
+  /**
+   * Evidence
+   */
+  evidence: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Failurecode
+   */
+  failureCode?: string | null;
+  /**
+   * Frozenscopedigest
+   */
+  frozenScopeDigest?: string | null;
+  /**
+   * Geometryrevisions
+   */
+  geometryRevisions: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Id
+   */
+  id?: string | null;
+  /**
+   * Pending
+   */
+  pending: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Pendingslots
+   */
+  pendingSlots: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Phase
+   */
+  phase?: string;
+  purge?: SourcePurgeInfo | null;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart: number | null;
+  /**
+   * Reasons
+   */
+  reasons: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Reservations
+   */
+  reservations: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Retainedmetadata
+   */
+  retainedMetadata?: {
+    [key: string]: number;
+  };
+  /**
+   * Retired
+   */
+  retired: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Revision
+   */
+  revision?: number;
+  /**
+   * Scopedigest
+   */
+  scopeDigest?: string | null;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+  /**
+   * Sourcesha256
+   */
+  sourceSha256: string;
+  /**
+   * Sources
+   */
+  sources: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+/**
+ * SourceReplacementManifestResponse
+ */
+export type SourceReplacementManifestResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<SourceReplacementEntryResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id?: string | null;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history' | 'replace_delete_source';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retirementavailable
+   */
+  retirementAvailable?: boolean;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'source-replacement-manifest-v1';
+  /**
+   * Selectedsourceids
+   */
+  selectedSourceIds: Array<string>;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * SourceReplacementPreviewRequest
+ */
+export type SourceReplacementPreviewRequest = {
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history' | 'replace_delete_source';
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * SourceReplacementReadabilityCell
+ */
+export type SourceReplacementReadabilityCell = {
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Identity
+   */
+  identity: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * SourceReplacementReadabilityConfirmation
+ */
+export type SourceReplacementReadabilityConfirmation = {
+  /**
+   * Cellid
+   */
+  cellId: string;
+  /**
+   * Identity
+   */
+  identity: string;
+  /**
+   * Readable
+   */
+  readable: true;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * SourceReplacementRequestExport
+ */
+export type SourceReplacementRequestExport = {
+  /**
+   * Allowedranges
+   */
+  allowedRanges: Array<ReplacementAllowedRange>;
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Digest
+   */
+  digest: string;
+  /**
+   * Entries
+   */
+  entries: Array<ReplacementRequestEntry>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'source-replacement-request-v1';
+};
+
+/**
+ * SourceReplacementRestoreCommand
+ */
+export type SourceReplacementRestoreCommand = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Readability
+   */
+  readability: Array<SourceReplacementReadabilityConfirmation>;
+};
+
+/**
+ * SourceReplacementRestoreResponse
+ */
+export type SourceReplacementRestoreResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Phase
+   */
+  phase: 'restored';
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+};
+
+/**
+ * SourceReplacementStagingFile
+ */
+export type SourceReplacementStagingFile = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Filename
+   */
+  fileName: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+};
+
+/**
+ * SourceReplacementStagingSelection
+ */
+export type SourceReplacementStagingSelection = {
+  /**
+   * Files
+   */
+  files: Array<SourceReplacementStagingFile>;
+  request: SourceReplacementRequestExport;
+  /**
+   * Selectedentryids
+   */
+  selectedEntryIds: Array<string>;
+};
+
+/**
+ * SourceReplacementWorkingResponse
+ */
+export type SourceReplacementWorkingResponse = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string | null;
+  /**
+   * Phase
+   */
+  phase: string;
+  /**
+   * Readability
+   */
+  readability: Array<SourceReplacementReadabilityCell>;
+  /**
+   * Readytorestore
+   */
+  readyToRestore: boolean;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Slots
+   */
+  slots: Array<SourceReplacementWorkingSlot>;
+  /**
+   * Sourceid
+   */
+  sourceId: string | null;
+};
+
+/**
+ * SourceReplacementWorkingSlot
+ */
+export type SourceReplacementWorkingSlot = {
+  /**
+   * Canonical
+   */
+  canonical: boolean;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * SourceRetirementCommand
+ */
+export type SourceRetirementCommand = {
+  /**
+   * Action
+   */
+  action: 'retire' | 'cancel';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+  /**
+   * Previewtoken
+   */
+  previewToken?: string | null;
+};
+
+/**
+ * SourceRetirementPreviewRequest
+ */
+export type SourceRetirementPreviewRequest = {
+  /**
+   * Action
+   */
+  action: 'retire';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+};
+
+/**
+ * SourceRetirementPreviewResponse
+ */
+export type SourceRetirementPreviewResponse = {
+  /**
+   * Action
+   */
+  action: 'retire';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  entry: SourceReplacementEntryResponse;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * SourceRetirementResult
+ */
+export type SourceRetirementResult = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Createdderivations
+   */
+  createdDerivations?: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Phase
+   */
+  phase: 'gap_open' | 'cancelled';
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Scopedigest
+   */
+  scopeDigest: string;
 };
 
 /**
@@ -26042,7 +27359,14 @@ export type GetBoardSearchBoardViewResponses = {
 };
 
 export type PreviewBoardSourceCleanupData = {
-  body: BoardSourceCleanupPreviewRequest;
+  /**
+   * Payload
+   */
+  body:
+    | BoardSourceCleanupPreviewRequest
+    | SourceReplacementPreviewRequest
+    | SourceRetirementPreviewRequest
+    | SourcePurgePreviewRequest;
   path: {
     /**
      * Game Id
@@ -26077,16 +27401,29 @@ export type PreviewBoardSourceCleanupError =
 
 export type PreviewBoardSourceCleanupResponses = {
   /**
+   * Response Previewboardsourcecleanup
+   *
    * Successful Response
    */
-  200: CleanupPreviewResponse;
+  200:
+    | CleanupPreviewResponse
+    | SourceReplacementManifestResponse
+    | SourceRetirementPreviewResponse
+    | SourcePurgePreviewResponse;
 };
 
 export type PreviewBoardSourceCleanupResponse =
   PreviewBoardSourceCleanupResponses[keyof PreviewBoardSourceCleanupResponses];
 
 export type DeleteBoardSourceRangesData = {
-  body: BoardSourceCleanupCommandRequest;
+  /**
+   * Payload
+   */
+  body:
+    | BoardSourceCleanupCommandRequest
+    | SourceReplacementCreateRequest
+    | SourceRetirementCommand
+    | SourcePurgeCommand;
   path: {
     /**
      * Game Id
@@ -26121,13 +27458,385 @@ export type DeleteBoardSourceRangesError =
 
 export type DeleteBoardSourceRangesResponses = {
   /**
+   * Response Deleteboardsourceranges
+   *
    * Successful Response
    */
-  200: CleanupResultResponse;
+  200: CleanupResultResponse | SourceRetirementResult | SourcePurgeResult;
 };
 
 export type DeleteBoardSourceRangesResponse =
   DeleteBoardSourceRangesResponses[keyof DeleteBoardSourceRangesResponses];
+
+export type ListSourceReplacementBatchesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type ListSourceReplacementBatchesErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSourceReplacementBatchesError =
+  ListSourceReplacementBatchesErrors[keyof ListSourceReplacementBatchesErrors];
+
+export type ListSourceReplacementBatchesResponses = {
+  /**
+   * Response Listsourcereplacementbatches
+   *
+   * Successful Response
+   */
+  200: Array<SourceReplacementBatchResponse>;
+};
+
+export type ListSourceReplacementBatchesResponse =
+  ListSourceReplacementBatchesResponses[keyof ListSourceReplacementBatchesResponses];
+
+export type PlanSourceReplacementData = {
+  body: SourceReplacementCreateRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources';
+};
+
+export type PlanSourceReplacementErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PlanSourceReplacementError =
+  PlanSourceReplacementErrors[keyof PlanSourceReplacementErrors];
+
+export type PlanSourceReplacementResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementManifestResponse;
+};
+
+export type PlanSourceReplacementResponse =
+  PlanSourceReplacementResponses[keyof PlanSourceReplacementResponses];
+
+export type ListSourceReplacementCandidatesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Offset
+     */
+    offset?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/candidates';
+};
+
+export type ListSourceReplacementCandidatesErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSourceReplacementCandidatesError =
+  ListSourceReplacementCandidatesErrors[keyof ListSourceReplacementCandidatesErrors];
+
+export type ListSourceReplacementCandidatesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementCandidatePage;
+};
+
+export type ListSourceReplacementCandidatesResponse =
+  ListSourceReplacementCandidatesResponses[keyof ListSourceReplacementCandidatesResponses];
+
+export type GetSourceReplacementBatchData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}';
+};
+
+export type GetSourceReplacementBatchErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSourceReplacementBatchError =
+  GetSourceReplacementBatchErrors[keyof GetSourceReplacementBatchErrors];
+
+export type GetSourceReplacementBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementManifestResponse;
+};
+
+export type GetSourceReplacementBatchResponse =
+  GetSourceReplacementBatchResponses[keyof GetSourceReplacementBatchResponses];
+
+export type RestoreSourceReplacementEntryData = {
+  body: SourceReplacementRestoreCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * Entry Id
+     */
+    entry_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore';
+};
+
+export type RestoreSourceReplacementEntryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RestoreSourceReplacementEntryError =
+  RestoreSourceReplacementEntryErrors[keyof RestoreSourceReplacementEntryErrors];
+
+export type RestoreSourceReplacementEntryResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementRestoreResponse;
+};
+
+export type RestoreSourceReplacementEntryResponse =
+  RestoreSourceReplacementEntryResponses[keyof RestoreSourceReplacementEntryResponses];
+
+export type GetSourceReplacementWorkingData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+    /**
+     * Entry Id
+     */
+    entry_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working';
+};
+
+export type GetSourceReplacementWorkingErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSourceReplacementWorkingError =
+  GetSourceReplacementWorkingErrors[keyof GetSourceReplacementWorkingErrors];
+
+export type GetSourceReplacementWorkingResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementWorkingResponse;
+};
+
+export type GetSourceReplacementWorkingResponse =
+  GetSourceReplacementWorkingResponses[keyof GetSourceReplacementWorkingResponses];
+
+export type ExportSourceReplacementBatchData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query?: {
+    /**
+     * Format
+     */
+    format?: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/export';
+};
+
+export type ExportSourceReplacementBatchErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExportSourceReplacementBatchError =
+  ExportSourceReplacementBatchErrors[keyof ExportSourceReplacementBatchErrors];
+
+export type ExportSourceReplacementBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ExportSourceReplacementRequestData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query: {
+    /**
+     * Entryids
+     */
+    entryIds: Array<string>;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/replacement-request';
+};
+
+export type ExportSourceReplacementRequestErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExportSourceReplacementRequestError =
+  ExportSourceReplacementRequestErrors[keyof ExportSourceReplacementRequestErrors];
+
+export type ExportSourceReplacementRequestResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementRequestExport;
+};
+
+export type ExportSourceReplacementRequestResponse =
+  ExportSourceReplacementRequestResponses[keyof ExportSourceReplacementRequestResponses];
 
 export type ListDatasetVersionsData = {
   body?: never;
@@ -30668,6 +32377,315 @@ export type ListSymbolCellReviewsResponses = {
 
 export type ListSymbolCellReviewsResponse =
   ListSymbolCellReviewsResponses[keyof ListSymbolCellReviewsResponses];
+
+export type AcceptReadabilityModelData = {
+  body: ReadabilityCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Model Id
+     */
+    model_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/models/{model_id}/accept';
+};
+
+export type AcceptReadabilityModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AcceptReadabilityModelError =
+  AcceptReadabilityModelErrors[keyof AcceptReadabilityModelErrors];
+
+export type AcceptReadabilityModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityModelResponse;
+};
+
+export type AcceptReadabilityModelResponse =
+  AcceptReadabilityModelResponses[keyof AcceptReadabilityModelResponses];
+
+export type GetReadabilityWorkspaceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs';
+};
+
+export type GetReadabilityWorkspaceErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetReadabilityWorkspaceError =
+  GetReadabilityWorkspaceErrors[keyof GetReadabilityWorkspaceErrors];
+
+export type GetReadabilityWorkspaceResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityWorkspaceResponse;
+};
+
+export type GetReadabilityWorkspaceResponse =
+  GetReadabilityWorkspaceResponses[keyof GetReadabilityWorkspaceResponses];
+
+export type StartReadabilityRunData = {
+  body: ReadabilityStartRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs';
+};
+
+export type StartReadabilityRunErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type StartReadabilityRunError =
+  StartReadabilityRunErrors[keyof StartReadabilityRunErrors];
+
+export type StartReadabilityRunResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityRunResponse;
+};
+
+export type StartReadabilityRunResponse =
+  StartReadabilityRunResponses[keyof StartReadabilityRunResponses];
+
+export type ExportReadabilityCsvData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/export';
+};
+
+export type ExportReadabilityCsvErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportReadabilityCsvError =
+  ExportReadabilityCsvErrors[keyof ExportReadabilityCsvErrors];
+
+export type ExportReadabilityCsvResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type FitReadabilityPilotData = {
+  body: ReadabilityCommandRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/fit';
+};
+
+export type FitReadabilityPilotErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type FitReadabilityPilotError =
+  FitReadabilityPilotErrors[keyof FitReadabilityPilotErrors];
+
+export type FitReadabilityPilotResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityModelResponse;
+};
+
+export type FitReadabilityPilotResponse =
+  FitReadabilityPilotResponses[keyof FitReadabilityPilotResponses];
+
+export type ListReadabilityItemsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * State
+     */
+    state?:
+      | 'pending'
+      | 'readable'
+      | 'unreadable'
+      | 'skipped'
+      | 'stale'
+      | 'error'
+      | null;
+    /**
+     * Historical
+     */
+    historical?: boolean | null;
+    /**
+     * Problem
+     */
+    problem?: 'overlap' | 'unreadable' | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/items';
+};
+
+export type ListReadabilityItemsErrors = {
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListReadabilityItemsError =
+  ListReadabilityItemsErrors[keyof ListReadabilityItemsErrors];
+
+export type ListReadabilityItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityPageResponse;
+};
+
+export type ListReadabilityItemsResponse =
+  ListReadabilityItemsResponses[keyof ListReadabilityItemsResponses];
+
+export type LabelReadabilityItemsData = {
+  body: ReadabilityLabelRequest;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/labels';
+};
+
+export type LabelReadabilityItemsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Quality workflow conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type LabelReadabilityItemsError =
+  LabelReadabilityItemsErrors[keyof LabelReadabilityItemsErrors];
+
+export type LabelReadabilityItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReadabilityRunResponse;
+};
+
+export type LabelReadabilityItemsResponse =
+  LabelReadabilityItemsResponses[keyof LabelReadabilityItemsResponses];
 
 export type GetSymbolCellReviewAssetData = {
   body?: never;

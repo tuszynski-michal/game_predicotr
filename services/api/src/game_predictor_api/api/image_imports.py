@@ -56,6 +56,7 @@ from game_predictor_api.domain.image_sequence_canonical import (
     BrowserSequenceManifest,
     BrowserUploadPlanSource,
     ImageSequenceCanonicalService,
+    ImageSequenceImportPreflight,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobStatus, JobType
 from game_predictor_api.domain.neural_grid_proposal import (
@@ -118,6 +119,7 @@ from game_predictor_api.schemas.neural_grid_proposals import (
     NeuralSourceBindingPayload,
     NeuralSourceProposalPayload,
 )
+from game_predictor_api.schemas.source_replacement import SourceReplacementStagingSelection
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
@@ -629,6 +631,37 @@ def create_image_imports_router(
             uploaded_bytes=upload.uploaded_bytes,
         )
 
+    def replacement_admission(
+        *,
+        ready: BrowserReadySelection,
+        game_id: UUID,
+        job_service: JobService,
+        supplied: SourceReplacementStagingSelection | None = None,
+    ) -> dict[str, object] | None:
+        stored = ready.upload.replacement_selection
+        if supplied is not None and supplied.model_dump(mode="json", by_alias=True) != stored:
+            raise JobConflictError(
+                "SOURCE_REPLACEMENT_STAGING_CHANGED",
+                "Wybór zamiennika nie pasuje do zapisanej partii. Otwórz ponownie jej raport.",
+            )
+        validator = getattr(job_service, "validate_replacement_staging", None)
+        if not callable(validator):
+            if stored is not None:
+                raise JobConflictError(
+                    "SOURCE_REPLACEMENT_ADMISSION_UNAVAILABLE",
+                    "Walidacja zamiennika jest niedostępna.",
+                )
+            return None
+        return cast(
+            dict[str, object] | None,
+            validator(
+                game_id=game_id,
+                selection=stored,
+                manifest=ready.manifest,
+                upload_id=ready.upload.upload_id,
+            ),
+        )
+
     def browser_preflight(
         *,
         upload_id: UUID,
@@ -638,6 +671,7 @@ def create_image_imports_router(
         job_service: JobService,
         override_service: PageGeometryOverrideService | None,
         geometry_engine_variant: GeometryEngineVariant | None = None,
+        replacement_selection: SourceReplacementStagingSelection | None = None,
     ) -> BrowserImageImportPreflightResponse:
         geometry_engine_variant = effective_browser_variant(
             job_service=job_service, game_id=game_id, variant=geometry_engine_variant
@@ -658,6 +692,9 @@ def create_image_imports_router(
                 "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
                 "The staged folder belongs to a different game.",
             )
+        admission = replacement_admission(
+            ready=ready, game_id=game_id, job_service=job_service, supplied=replacement_selection
+        )
         exclusions = (
             {}
             if override_service is None
@@ -666,6 +703,11 @@ def create_image_imports_router(
                 browser_selection_id=upload_id,
             )
         )
+        if admission is not None and exclusions:
+            raise JobConflictError(
+                "SOURCE_REPLACEMENT_FILE_SCOPE_CONFLICT",
+                "Zamiennik obejmuje wszystkie wybrane zdjęcia; nie można wyłączyć jego części.",
+            )
         filtered_files = tuple(
             item for item in ready.manifest.files if item.checksum_sha256 not in exclusions
         )
@@ -723,15 +765,36 @@ def create_image_imports_router(
                     else:
                         confirmed_ranges[source_sha] = None
         canonical = cast(ImageSequenceCanonicalService, canonical_service)
-        result = (
-            canonical.preflight(game_id=game_id, manifest=filtered_manifest)
-            if confirmed_ranges is None
-            else canonical.preflight(
+        if admission is not None:
+            numbers = [
+                number
+                for source in ready.manifest.files
+                if source.sequence_range is not None
+                for number in range(source.sequence_range[0], source.sequence_range[1] + 1)
+            ]
+            result = ImageSequenceImportPreflight(
                 game_id=game_id,
-                manifest=filtered_manifest,
-                confirmed_ranges=confirmed_ranges,
+                source_file_count=len(ready.manifest.files),
+                attested_file_count=len(ready.manifest.files),
+                new_sequence_count=len(numbers),
+                reused_sequence_count=0,
+                skipped_source_count=0,
+                partial_source_count=0,
+                alternative_source_count=0,
+                first_unresolved_sequence=min(numbers),
+                last_unresolved_sequence=max(numbers),
+                warnings=ready.manifest.warnings,
             )
-        )
+        else:
+            result = (
+                canonical.preflight(game_id=game_id, manifest=filtered_manifest)
+                if confirmed_ranges is None
+                else canonical.preflight(
+                    game_id=game_id,
+                    manifest=filtered_manifest,
+                    confirmed_ranges=confirmed_ranges,
+                )
+            )
         _validate_skipped_canonical_ranges(
             canonical_service=cast(ImageSequenceCanonicalService, canonical_service),
             game_id=game_id,
@@ -739,6 +802,8 @@ def create_image_imports_router(
         )
         base = ImageSequenceImportPreflightResponse.from_domain(result)
         payload = base.model_dump(mode="json", by_alias=True)
+        if ready.upload.replacement_selection is not None:
+            payload["replacementSelection"] = ready.upload.replacement_selection
         payload["uploadPlanChecksumSha256"] = ready.upload.upload_plan_checksum_sha256
         payload["skippedCanonicalRanges"] = [
             {"sequenceRangeStart": start, "sequenceRangeEnd": end}
@@ -919,12 +984,16 @@ def create_image_imports_router(
         return upload_response(
             service.begin(
                 display_name=payload.display_name,
+                stable_upload_id=payload.idempotency_key,
                 expected_file_count=payload.expected_file_count,
                 expected_total_bytes=payload.expected_total_bytes,
                 purpose=payload.purpose,
                 game_id=payload.game_id,
                 upload_plan_checksum_sha256=payload.upload_plan_checksum_sha256,
                 skipped_canonical_ranges=skipped_ranges,
+                replacement_selection=None
+                if payload.replacement_selection is None
+                else payload.replacement_selection.model_dump(mode="json", by_alias=True),
             )
         )
 
@@ -1061,6 +1130,7 @@ def create_image_imports_router(
             job_service=job_service,
             override_service=override_service,
             geometry_engine_variant=payload.geometry_engine_variant,
+            replacement_selection=payload.replacement_selection,
         )
 
     @router.post(
@@ -1080,13 +1150,47 @@ def create_image_imports_router(
         guard_service: ImageImportGeometryGuardService | None = geometry_guard_parameter,
         override_service: PageGeometryOverrideService | None = page_geometry_override_parameter,
     ) -> BrowserImageImportStartResponse:
+        existing_staging_import = job_service.get_image_import_by_source_selection(
+            game_id=payload.game_id, source_selection_id=upload_id
+        )
+        command_digest = hashlib.sha256(
+            json.dumps(
+                payload.model_dump(mode="json", by_alias=True),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        existing_pin = (
+            None
+            if existing_staging_import is None
+            else existing_staging_import.input_payload.get("source_replacement")
+        )
+        if existing_staging_import is not None and isinstance(existing_pin, dict):
+            receipt = existing_pin.get("startReceipt")
+            if (
+                not isinstance(receipt, dict)
+                or receipt.get("commandDigest") != command_digest
+                or existing_pin.get("uploadId") != str(upload_id)
+                or existing_pin.get("manifestChecksumSha256") != payload.manifest_checksum_sha256
+            ):
+                raise JobConflictError(
+                    "SOURCE_REPLACEMENT_START_CONFLICT",
+                    "Ta partia ma już import z innym potwierdzeniem. Otwórz jego zapisany wynik.",
+                )
+            return BrowserImageImportStartResponse(
+                created=False,
+                job=JobResponse.from_domain(existing_staging_import),
+                preflight=BrowserImageImportPreflightResponse.model_validate(receipt["preflight"]),
+            )
+        if existing_staging_import is not None and payload.replacement_selection is not None:
+            raise JobConflictError(
+                "SOURCE_REPLACEMENT_START_CONFLICT",
+                "Istniejący import nie jest powiązany z tym zamiennikiem.",
+            )
         effective_variant = effective_browser_variant(
             job_service=job_service,
             game_id=payload.game_id,
             variant=payload.geometry_engine_variant,
-        )
-        existing_staging_import = job_service.get_image_import_by_source_selection(
-            game_id=payload.game_id, source_selection_id=upload_id
         )
         if (
             existing_staging_import is not None
@@ -1129,6 +1233,12 @@ def create_image_imports_router(
             service=service,
             job_service=job_service,
             current=True,
+        )
+        admission = replacement_admission(
+            ready=ready,
+            game_id=payload.game_id,
+            job_service=job_service,
+            supplied=payload.replacement_selection,
         )
         if ready.manifest.checksum_sha256 != payload.manifest_checksum_sha256:
             raise JobConflictError(
@@ -1459,6 +1569,11 @@ def create_image_imports_router(
             != resolution_manifest
         ):
             rerun = True
+        if admission is not None:
+            admission["startReceipt"] = {
+                "commandDigest": command_digest,
+                "preflight": preflight.model_dump(mode="json", by_alias=True),
+            }
         if rerun:
             managed_source = (
                 managed_neural_import(
@@ -1484,9 +1599,10 @@ def create_image_imports_router(
                     source_directory=ready.upload.path,
                     source_display_name=ready.upload.display_name,
                     pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
-                    canonical_sequence_numbers=canonical_numbers,
+                    canonical_sequence_numbers=[] if admission is not None else canonical_numbers,
                     source_manifest_sha256=ready.manifest.checksum_sha256,
                     source_exclusions=source_exclusions,
+                    replacement_admission=admission,
                     start_mode="rerun_current_models",
                     previous_job_id=None
                     if existing is None or effective_variant is not None
@@ -1498,11 +1614,7 @@ def create_image_imports_router(
                         preflight.unclassified_cold_start_allowed
                         and current_unclassified_cold_start_allowed
                     ),
-                    **(
-                        {"managed_source_job_id": managed_source.id}
-                        if managed_source is not None
-                        else {}
-                    ),
+                    managed_source_job_id=None if managed_source is None else managed_source.id,
                 )
                 created = True
             except JobConflictError as error:
@@ -1563,6 +1675,7 @@ def create_image_imports_router(
             require_geometry_engine_variant_available(effective_variant)
         except LateralPartialContractError as error:
             raise JobConflictError(error.code, str(error)) from error
+        admission = None
         if payload.managed_source_job_id is not None:
             managed_job = job_service.get_job(payload.managed_source_job_id)
             source_directory = Path(str(managed_job.input_payload.get("source_directory", "")))
@@ -1583,6 +1696,12 @@ def create_image_imports_router(
                     details={"existingJobId": str(existing_staging_import.id)},
                 )
             ready = service.require_current_ready(upload_id, payload.game_id)
+            admission = replacement_admission(
+                ready=ready,
+                game_id=payload.game_id,
+                job_service=job_service,
+                supplied=payload.replacement_selection,
+            )
             source_directory = ready.upload.path
             source_name = ready.upload.display_name
             source_checksum = ready.manifest.checksum_sha256
@@ -1597,7 +1716,7 @@ def create_image_imports_router(
                 source_manifest_sha256=source_checksum,
                 canonical_sequence_numbers=(
                     ()
-                    if canonical_service is None
+                    if canonical_service is None or admission is not None
                     else sorted(
                         cast(ImageSequenceCanonicalService, canonical_service).canonical_numbers(
                             payload.game_id

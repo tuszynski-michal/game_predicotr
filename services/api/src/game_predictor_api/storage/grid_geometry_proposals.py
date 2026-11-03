@@ -43,6 +43,7 @@ from game_predictor_api.storage.grid_reinference_models import (
 )
 from game_predictor_api.storage.image_review_repository import acquire_image_review_sequence_locks
 from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+from game_predictor_api.storage.source_replacement_guards import require_current_review
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
 )
@@ -275,6 +276,7 @@ class SqlAlchemyGridGeometryProposalRepository:
             )
         # All proposal mutators share ownership before source/item/proposal rows.
         acquire_sequence_ownership_lock(self.session, game_id=game_id)
+        require_current_review(self.session, game_id, review_item_id)
         self.geometry_repository._ensure_projection_state(game_id)
         acquire_image_review_sequence_locks(
             self.session,

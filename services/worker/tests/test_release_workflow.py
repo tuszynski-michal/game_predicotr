@@ -4,6 +4,7 @@ import hashlib
 import json
 import sys
 import zipfile
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -56,6 +57,11 @@ class FakeReleaseStore:
     def require_current_sources(self, release: MobileRelease) -> None:
         assert release == self.release
         self._raise_if_requested("sources")
+
+    @contextmanager
+    def publication_fence(self, release: MobileRelease):
+        self._raise_if_requested("publication")
+        yield
 
     def mark_building(
         self,
@@ -184,6 +190,36 @@ class FakePayoutHandler:
             review_count=0,
         )
         self.readiness.ready = True
+
+
+@pytest.mark.parametrize("late_stage", ["snapshot", "ready"])
+def test_replacement_opened_after_initial_check_blocks_publication(
+    tmp_path, monkeypatch, late_stage
+):
+    handler, store, context, payouts, publisher, builder, job = _handler_fixture(
+        tmp_path, payouts_ready=True
+    )
+    original_sources = store.require_current_sources
+    original_build = builder.build
+    if late_stage == "snapshot":
+
+        def after_check(release):
+            original_sources(release)
+            store.fail_at = "publication"
+
+        monkeypatch.setattr(store, "require_current_sources", after_check)
+    else:
+
+        def after_build(*args, **kwargs):
+            artifact = original_build(*args, **kwargs)
+            store.fail_at = "publication"
+            return artifact
+
+        monkeypatch.setattr(builder, "build", after_build)
+    with pytest.raises(JobHandlerError, match="Controlled publication failure"):
+        handler(context, job)
+    assert store.release.status is not MobileReleaseStatus.READY
+    assert publisher.calls == (0 if late_stage == "snapshot" else 1)
 
 
 class FakePublisher:

@@ -1,10 +1,10 @@
 'use client';
 
-import type { SymbolCellReviewListItemResponse } from '@game-predictor/admin-api-client';
 import { useEffect, useRef, useState } from 'react';
 import {
   loadSymbolReviewSourceContext,
   type SymbolReviewSourceClient,
+  type SymbolReviewSourceItem,
 } from './symbol-review-source-context';
 
 export function SymbolReviewSourceModal({
@@ -15,7 +15,7 @@ export function SymbolReviewSourceModal({
 }: {
   readonly api: SymbolReviewSourceClient;
   readonly gameId: string;
-  readonly item: SymbolCellReviewListItemResponse;
+  readonly item: SymbolReviewSourceItem;
   readonly onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);

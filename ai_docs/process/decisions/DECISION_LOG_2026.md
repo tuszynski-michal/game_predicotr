@@ -14,6 +14,17 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-583 — Fizyczne usunięcie zastępowanego zdjęcia i mały manifest luk
+
+- Status: accepted; jawne dodatkowe zlecenie operatora 2026-11-03, zakres i koszt zatwierdzone.
+- Kontekst: poprzedni D-579/D-580 zachowywał pełny operacyjny graf i zdjęcie. Operator wymaga odzyskania miejsca przed przygotowaniem nowego zamiennika, zachowując manifest luk i modele.
+- Decyzja: nowy jawny compact tryb `replace_delete_source` i potwierdzona akcja `purge` usuwają zarządzane piksele oraz source-scoped operational boards/reviews/cells/geometrię. Exact actual seq, nie zaokrąglenie9. Pozostaje mały source tombstone z purged_at, compact IDs/SHA/seq/digest/receipts i rezerwacje. Dotychczasowy preserve_history pozostaje kompatybilny; nowa decyzja zastępuje obowiązek retencji operacyjnego original wyłącznie dla jawnego purge.
+- Frozen history: nie usuwa się modeli, aktywacji, kohort ani ich niezależnych artefaktów. Grid live links są odpinane istniejącą procedurą. Symbolowe frozen sample metadata zachowują immutable UUID/checksum/labels bez FK do usuwanego operacyjnego grafu; nowy zapis wymaga current parents. Brak pikseli blokuje nowe użycie źródła, nie inference gotowego modelu. Zachowane metadane mają jawny powód i counts.
+- Pliki: wyłącznie verified managed paths; prawdziwe wspólne użycie zachowuje plik, samo historyczne trenowanie modelu nie zachowuje starego original. Quarantine/DB commit/finalize/recovery reuse. Exact receipt przed świeżą walidacją; pending physical finalize jawny, bez udawanego odzyskania bajtów lub shrink PostgreSQL. API nie obiecuje assetu purged.
+- Konsekwencje: migracja0177, source-only adapter bez generic model/cohort deletion; pełny backend/OpenAPI/client/UI/test pion. Żadnych operacji na danych operatora ani usług. Alternatywa DELETE parent source_images odrzucona jako zbędna przebudowa provenance; blanket retention odrzucona jako sprzeczna z celem.
+- Korekta projektu PLAN R1: jeden exact-path retention predicate dla preview/finalize; realny unfinished-import/active consumer blokuje przed side effects. Symbol reference images zachowane przez odpięcie provenance FK. Ambiguous commit wymaga sprawdzenia DB receiptu i realnej nieobecności plików; recovery z bounded file proof, bez fałszywego finalized. Szczegóły klasyfikacji FK i testów są w planie.
+- Źródło: `ai_docs/delivery/777A2_PHYSICAL_SOURCE_PURGE_PLAN_20261103.md`, TASK-1141. Rezerwacja D583/0177 sprawdzona względem bieżących worktree i zapisana w shared artifacts.
+
 ## D-581 — Wspólne pułapy budżetu uczenia siatek
 
 - **Date:** 2026-11-03.
@@ -23,6 +34,60 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 - **Compatibility:** historyczna koperta bez limit_policy znaczy `preset-v1`. Przy jawnym uruchomieniu/wznowieniu znanego presetu o zgodnym fingerprint i dokładnie historycznych pułapach admission jednorazowo przyjmuje nową politykę. Zużycie, rezerwacje, próby i checkpoint pozostają. Nadzorca przyjmuje politykę przed rozliczeniem osieroconej próby, aby nie obcinać jej końcowego zużycia do starego pułapu. Przed uruchomieniem procesu zapisuje receipt z budżetem sprzed odzysku i nowymi pułapami w istniejącej historii checkpointu. Następne wznowienia nie odnawiają pułapów. Obce fingerprinty, nieznane historyczne limity i smoke nie dostają niejawnego upgrade; nieznany znacznik polityki jest błędem koperty.
 - **Consequences:** doprecyzowanie D-557/D-558 wyłącznie w pułapach wykonania. Brak nowych tabel, migracji i zmian kształtu API. Stare raporty/snapshoty zachowują interpretację; nowy serwer zapisuje jawny znacznik polityki w istniejącym JSON. Przed wznowieniem wymagane wdrożenie i restart nadzorcy GPU, który ma załadowaną starą klasę budżetu. Po zapisie koperty ze znacznikiem limit_policy sam rollback kodu do v1.7.530 lub wcześniejszego jest nieobsługiwany: stary reader zgłosi uszkodzony budżet. Ewentualny rollback wymaga zachowania nowego readera albo osobno zaplanowanej konwersji, nigdy usuwania metadanych w ciemno. Sam odczyt UI niczego nie podnosi. Nowy pułap nadal ograniczony; błędy, niezgodność środowiska i wyczerpanie nadal blokują.
 - **Source:** TASK-1137 i polecenie operatora 2026-11-03. Nie upoważnia do automatycznej publikacji, aktywacji/defaultu, restartu usług ani do indywidualnej mutacji starego joba skryptem.
+## D-580 — Wycofanie całego źródła i autoryzacja otwartej luki
+
+- Status: accepted
+- Data: 2026-11-03
+- Kontekst: TASK-1129, zatwierdzony plan i techniczne doprecyzowania koordynatora. D-579 pozostaje nadrzędną granicą zachowania historii.
+- Decyzja: niezmienny manifest przed mutacją, świeży podgląd i exact CAS/receipt per photo. Drift odmawia; jedynie nowy wewnętrzny derive tego samego batcha ma udowodniony immutable receipt wyjątek. Lock game EXCLUSIVE, seq/source rosnąco, potem review/board. Własne pending wycofane z pełnym prior; deferred nie otrzymuje fałszywego successor ani rejection. Marker każdego aliasu i SHA pozostaje po restored.
+- Autoryzacja: request-v1 per-entry z exact ranges/revision/digest jest sprawdzany w obecnym uwierzytelnionym API. Origin z pliku nie jest adresem docelowym; brak automatycznego połączenia i credentials. Bez UUID instalacji i globalnej batch revision jako warunku kontynuacji pozostałych entries.
+- Konsekwencje: source/board/geometry/quality i pozostałe dependencies nadal wymagają pełnej zgodności; samo podobieństwo job type nie daje wyjątku. Mobile publication i markready trzymają game SHARED fences. Cancel tylko planned, bez restore/expiry. Retention i frozen historia nie są usuwane.
+- Alternatywy: cichy rebase odrzucony (zmieniałby potwierdzony zakres); nowy plan po własnym derive odrzucony (psułby batch workflow); fałszywy successor deferred odrzucony (zafałszowanie historii).
+
+## D-579 — Manifest wymiany źródła z zachowaniem historii
+
+- **Date:** 2026-11-03.
+- **Status:** accepted; plan i doprecyzowanie operatora przed B1.
+- **Decision:** kontrolowana wymiana całego zdjęcia jest odrębnym, jawnym wyjątkiem od D-543. Zwykły reject canonical nadal odmawia, import nadal nie przejmuje kanonu. B1 zapisuje tylko planned i dokładny manifest przed jakąkolwiek zmianą własności; B2a dostarcza strażników, B2b wymaga nowego preview i osobnego potwierdzenia retirement. Historia, modele, kohorty, źródła i potrzebne pliki pozostają.
+- **Identity:** wybór exact sourceIds rozwija aliasy tej samej gry, SHA i atestowanego zakresu. Inne zakresy/gry nie są scalane. Niejednoznaczność i obcy właściciel blokują całe zdjęcie. Preview przypina rzeczywiste plansze/seq, wszystkie rewizje, oceny oraz zależności; counts ani sam SHA pliku nie upoważniają do mutacji. Planned nie tworzy aktywnych rezerwacji i nie blokuje zwykłego importu.
+- **Human evidence:** append-only ledger per game/cell pod istniejącą EXCLUSIVE ownership lock zapisuje ordinal, command key, origin run/item revision i crop identity atomowo z A2 label/receiptem. Brak FK do efemerycznej projekcji cell. Ostatnia rozstrzygająca readable/unreadable dla bieżącej tożsamości pikseli ma pierwszeństwo, także gdy pochodzi ze starszego runu; pending/skipped jej nie kasują. Aktualne readable wyłącza powód tego pola mimo zachowanej historycznej quality_issue. Bez ledger zgodne aktualne legacy oceny mają pełny proof IDs/revisions; sprzeczne wymagają świeżej oceny, bez zgadywania po czasie runu/UUID. Brak jawnej oceny zachowuje wcześniejsze manual unreadable. Zmienione piksele nie dziedziczą ocen.
+- **Storage:** migracja 0173 łączy audytowane heads0171/0172 bez przepisywania historii; 0174/v21 dodaje manifest i ledger. Integracja main40581449 do gałęzi B1 obejmuje nowe granice photo-only training w przyszłych strażnikach B2a. Obie historyczne D-578 i kolizje numerów wersji pozostają identyfikowane kotwicami/hashami.
+- **Source:** `ai_docs/delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md`, TASK-1127.
+- **B2a clarification (2026-11-03):** zaakceptowane doprecyzowanie bootstrapu: serwerowy proof obejmuje game/batch/entry/job/source/newSHA/revision i pełny niezmienny zakres zdjęcia. Provisional review jest najpierw INSERT/flush, niewidoczne dla current; nieodroczony FK slotu otrzymuje ID dopiero w atomowym finalizatorze kompletnego zdjęcia. Niepełna geometria ma wewnętrzny adapter z tym samym proof, bez public force. Nowy source otrzymuje trwałą normalized retention reference przed zapisem roboczym; reference nie jest listą starych aliasów do retirement. Powtórzenie zakończonej komendy zwraca immutable receipt przed retired guardem; nowa próba sprawdza retired przed CAS/canonical. Migracja0175 dostarcza wspólne predykaty current i SQL register-use fence bez zmiany manifestu v21. Historyczny frozen read pozostaje, nowe użycie retired odmawia. TASK-1128; pełny operatorowy pion admission w C2.
+
+
+## D-578 — Niezależny detektor jakości 777 A2 na zamrożonym kandydacie nr 5
+
+Status: accepted
+Data: 2026-11-02
+
+Operator zatwierdził cały plan 777A2_READABILITY_REPLACEMENT_PLAN_20261102,
+koszt i audyt Opus 5.5 po każdym zadaniu. Wybrał jawnie kandydata nr 5
+777a2, 9afa868a-70f8-42df-9f15-f2833cd98c10, jako bazę ekstrakcji cech,
+bez aktywacji modelu symboli. Osobne heady nałożenia i nieczytelności nie
+zmieniają wag, BN, historycznych decyzji ani przypisania aktywnego modelu.
+Historyczne unreadable nie są automatyczną etykietą nałożenia.
+
+Ekstrakcja świadomie stosuje produkcyjny preprocess_rgb_batch bez model_version:
+INTER_AREA i [-1,1], input64. Trening bazowego modelu ma niezależną proweniencję
+(torchvision bilinear antialias); nie deklarujemy zgodności resize dla dowolnych
+rozmiarów. Sprawdzony read-only pierwszy asset frozen datasetu ma RGB64x64,
+gdzie resize jest no-op; test kontraktowy sprawdza zgodność skali z tolerancją.
+Statystyki jakości zawsze pochodzą z natywnych pikseli przed resize.
+
+A1 dostarcza narzędzia i testy, nie wykonuje treningu ani skanu operatora.
+Etykiety człowieka z A2, niezależne rodziny/splity, minima pilota i bramka TEST
+oraz dodatkowy naturalny audit200 i odbiór operatora są warunkiem pełnego skanu.
+Brak danych/proweniencji lub grup pewnych nałożeń oznacza STOP, nie PASS.
+Źródło: zaakceptowany plan i TASK-1124.
+
+Uściślenie po audycie A1: preflight sprawdza RGB64x64 wszystkich assetów bazy.
+Powiązanie checkpoint–dataset wynika z zatwierdzonego kandydata nr 5 i obu SHA
+w planie; inputFingerprint checkpointu nie zastępuje tego upoważnienia.
+Audit200 jest jednostajnym losowaniem dotąd nieoznaczonych pól z rodzin poza
+pilotem i bazowym TRAIN/VAL. Receipt jest zamrożony przed etykietami i fitem.
+Raport dotyczy tej puli, nie całej gry; maksymalnie 800 pól (600+200).
+Brak niezależnej puli oznacza STOP, bez poszerzania ani osłabiania izolacji.
 
 ## D-578 — Uczenie korekt i ocena w jawnym zakresie
 

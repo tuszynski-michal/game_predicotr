@@ -3223,3 +3223,80 @@ użycie przez SOURCE_REMOVED_NEW_USE_BLOCKED w currentness i prywatnym v3 guardz
 Nowe detach notices zapisują ten powód; starsze zdarzenia i receipts pozostają
 niezmienne. Samo odłączenie nie dowodzi cofnięcia ludzkiej etykiety i nie usuwa
 permanentnej ochrony nagrań ani zachowanych kopii.
+
+
+## Niezależna jakość symboli — TASK-1125 / migracja 0172
+
+Manifest `game-data-v2-manifest-v20` dodaje cztery partycjonowane po game_id
+relacje w `game_data_v2`, z wymuszonym RLS rodziców i partycji oraz FK RESTRICT:
+
+- `symbol_readability_runs`: pilot/scan, job, rewizja etykiet, seed, receipt,
+  trwały kursor źródła, fingerprint inwentarza i liczniki przetwarzania.
+- `symbol_readability_items`: klucz `(game_id,run_id,cell_id)`, snapshot current
+  owner/crop/source/geometry, identity i rewizja oceny; stany pending/readable/
+  unreadable/skipped/stale/error, niezależne nullable overlap, ostrość i trudne
+  podobieństwo, historyczny unreadable, pilot/audit/scan, score i marginesy.
+  Pilot przechowuje numeryczne cechy; żadna tabela nie przechowuje bitmap.
+- `symbol_readability_models`: przypięty pilot i jego rewizja, job jawnego fitu,
+  ścieżka i fingerprint artefaktu, raport TEST/audit200 i osobny odbiór.
+- `symbol_readability_commands`: `(game_id,idempotency_key)`, checksum całej
+  komendy oraz jej body i odpowiedź; powtórzenie nie ponawia mutacji, inny body
+  z tym samym kluczem daje konflikt. Zapisy służą też historii etykiet.
+
+Identity nie obejmuje rewizji przypisania nazwy symbolu. Obejmuje natomiast
+source SHA, oba identyfikatory geometrii oraz crop/render checksummy; dodatkowy
+guard sprawdza aktualną rewizję planszy i source_geometry_revision_id. Własny
+mark_unreadable może zwiększyć rewizję review bez unieważnienia oceny jakości.
+Readable nie zmienia zatwierdzeń ani quality_issue. Downgrade odmawia przy
+historii runów/jobów; nie usuwa etykiet operatora.
+
+## Manifest wymiany źródeł i ledger ocen — TASK-1127
+
+Migracja 0173 łączy głowy 0171/0172 bez przepisywania audytowanej historii. 0174 dodaje manifest magazynu v21 po v20 oraz siedem partycjonowanych tabel z FORCE RLS i polityką game scope:
+
+- `source_replacement_batches`: trwały dokument, token, status i rewizja.
+- `source_replacement_entries`: dokładny zakres jednego zdjęcia z reprezentantem, snapshotem i fazą; błąd ma osobne pole, nie zastępuje fazy.
+- `source_replacement_sources`: znormalizowane wszystkie aliasy entry, FK RESTRICT do źródła i entry.
+- `source_replacement_slots`: przyszła aktywna rezerwacja game/seq, spójny FK batch/entry oraz nullable FK nowego źródła i review.
+- `source_replacement_retired`: przyszły trwały marker każdego aliasu, FK RESTRICT, bez UPDATE/DELETE.
+- `source_replacement_commands`: append-only checksum komendy i trwała odpowiedź do replay.
+- `symbol_readability_decisions`: append-only ordinal per game/cell pod wspólną EXCLUSIVE ownership lock; unique game/command/cell. Zapis jest atomowy z oceną A2 i receiptem. Snapshot trzyma historyczną tożsamość; celowo nie ma FK do efemerycznej projekcji cell.
+
+B1 zapisuje wyłącznie planned i referencje aliasów; slots/retired pozostają puste. FK zabezpieczają referencje w bazie. Nie zastępują strażników B2a przed usuwaniem plików lub innymi skutkami ubocznymi. Downgrade odmawia przy danych dowodowych. Historyczne kohorty, modele i geometrie pozostają.
+
+B2a (TASK-1128, migracja0175) udostępnia wspólne SQL predykaty current: wykluczają retired ID/SHA w obrębie gry, robocze reserved source i każdą alternatywę bez exact bindingu seq/source/SHA/review. Dotychczasowy fallback accepted/corrected w wyszukiwaniu pozostaje po tym filtrze; incremental, rebuild i bezpośredni odczyt starej projekcji stosują tę samą regułę. Historyczne snapshoty nie korzystają z filtra current.
+
+Wewnętrzny `replacementAdmission` na entry ma schemaVersion `source-replacement-admission-v1`, gameId, batchId, entryId, sourceId, importJobId, sourceSha256, entryRevision i sequenceNumbers równe niezmiennemu `document.sequence_numbers`. Przed roboczym review/geometrią `authorize_working_source` sprawdza proof oraz wszystkie sloty i zachowuje nowy source przez `source_replacement_sources`. Rezerwacje pozostają reserved do atomowego `bind_complete_source`; finalizator wiąże wszystkie istniejące complete review w tej samej transakcji, przed synchronizacją projekcji. Niepełna geometria nie otrzymuje prawa canonical. C2 dostarcza operatorowy pion admission; B2a tylko guardy, adapter i test bootstrapu.
+
+Reference starego aliasu lub nowego zamiennika blokuje cleanup/reset/staging/cropy/GC niezależnie od planned/gap_open/restored. Sloty nie są jedynym dowodem retencji. Dokładny replay zakończonej komendy odtwarza receipt bez mutacji; nowe wykonanie ma guard retired przed CAS i wyborem canonical.
+
+Retencja korzysta z istniejącego cleanup scope: chroni kohortę współdzieloną z retained source oraz model, którego usunięcie skasowałoby prediction revisions retained zdjęcia z innego zakresu. Publiczny katalog modeli/ancestry nie należy do grafu usuwania cleanupu. Model artifacts i datasety są poza namespace zwykłego GC. Recovery zakończonej kwarantanny ponownie sprawdza wszystkie receipt paths pod wspólnymi SHARED fences utrzymanymi przez usunięcie; nowa referencja zachowuje kwarantannę. Przywracanie niedokończonej operacji nie nadpisuje plików.
+
+Poprawka P1 audytu TASK-1127: każdy wpis ledgeru przed nadpisaniem A2 zachowuje w immutable snapshot poprzednią rozstrzygającą ocenę legacy (run/cell/identity/revision/state). Ten dowód nie otrzymuje nowego ordinalu ludzkiej decyzji. Gdy brak nowej jawnej decisive oceny dla pikseli, kwalifikacja liczy zgodność wszystkich zachowanych i nadal bieżących dowodów legacy; pending/skipped nie usuwają konfliktu. Nowa jawna readable/unreadable rozstrzyga; zmieniona tożsamość wyklucza stare dowody.
+
+## Wycofanie i request-v1 — TASK-1129 / D-580
+
+Uściślenie B2b / D-580 (2026-11-03): planned snapshot pozostaje niezmienny. Fresh preview przypina action/game/batch/entry/revision i pełne fakty; drift wymaga nowego planu. Jedyny wyjątek to wewnętrzny super_game_series_derive UTWORZONY przez wcześniejszy retirement tego samego batcha, dowiedziony immutable receipt z job/game/type/input_key/payload digest; nie obejmuje obcych ani niewykazywalnych coalesced jobów. Własny deferred pending przechodzi do superseded z superseded_at i pełnym prior w immutable source_replacement_retired.document, bez fałszywego successor/rejection eventu. Każdy alias ma marker.
+
+Request-v1 ma jawny camelCase JSON: schemaVersion, gameId, batchId, entries(entryId/revision/digest/sourceSha256/sequenceNumbers), allowedRanges(entryId/sequenceStart/sequenceEnd), digest. Wyłącznie selected gap_open; scope digest i revision entry nie zależą od postępu innego entry ani rewizji batcha. Autorytetem jest aktualnie skonfigurowane uwierzytelnione API i ponowny GET/porównanie bieżącej fazy. Plik/digest nie autoryzuje; origin najwyżej informacyjny, nigdy automatyczne połączenie lub credentials do adresu z pliku. Bez UUID instalacji. C2 ponawia backend preflight. Mobile publication i markready trzymają SHARED game fences, retirement EXCLUSIVE.
+
+### TASK-1131: trwały admission i terminalny current fence
+
+Immutable scope pochodzi z `source_replacement_batches.document.entries`; operational `replacementStaging`, `replacementAdmission` i `restoration` w entry nie zmieniają scopeDigest. Browser pin wiąże upload, manifest, plik/SHA/range i selectionDigest. `add_source_bound_job` przypina job i nowe SHA atomowo; discovery/rehydrate po INSERT+flush rzeczywistego source, pod lease i ownership lockiem, materializuje sourceId, retention reference i exact admission. Provisional nie jest current; pełna geometria wiąże całe zdjęcie przed projekcją.
+
+Restored zapisuje immutable command receipt z potwierdzonymi snapshotami czytelności, canonicalReviewIds i wcześniejszym stanem orphan; nie fabrykuje wyniku quality run ani ordinalu ledgeru. Zamknięcie pending/rejected orphan i usunięcie slots są jedną transakcją. Migracja `0176_source_replacement_closed` utrzymuje po restored równoważny current/exclusion fence: dla tego source/job current są tylko review z immutable canonicalReviewIds; NULL review odmawia. Poprawna geometria zwycięskich review nadal może być edytowana zwykłym workflow. Nowe SHA nie staje się przez to retired.
+
+Nowa publikacja datasetu dla sekwencji z retired scope zapisuje istniejące `layouts.source_board_id` wyłącznie przy zgodności current canonical i staging cells. Mobile rewaliduje ten lineage pod SHARED fence przy build/publish/record/ready; stare NULL, wycofana plansza lub drift komórek wymagają nowego datasetu (`MOBILE_RELEASE_SOURCE_PROOF_STALE`). Brak slots nie zastępuje proof. Historyczne wydane snapshoty oraz exact receipts pozostają czytelne; brak backfillu historycznych layouts.
+
+
+## Fizyczny purge starego źródła — TASK-1141 / D-583
+
+Migracja0177 dodaje `source_images.purged_at`. Mały parent zachowuje ID/SHA, import/execution identity i metadane; operacyjne boards/reviews/cells/prediction revisions/geometria oraz dedykowane pliki są usuwane po relacjach konkretnego zdjęcia. Nie ma DELETE modeli/kohort ani globalnego usuwania projection/count state gry. Istniejące triggery kolejki i invalidation aktualizują stan.
+
+`source-replacement-compact-v1` zapisuje source IDs, SHA, dokładne sequence_numbers, powody przez sequence/cell_index i frozen_scope_digest. Nie kopiuje pełnego starego grafu. Retired marker zachowuje `prior.sequence_numbers` dla mobile provenance; tombstone SHA jest trwały. Wpis gap_open działa z dotychczasowym admission bez starych boards i approvals.
+
+Frozen `verified_training_cohort_items/cells` zachowują własny snapshot/render_spec/UUID provenance. FK do efemerycznych review/board/cell/source geometry są odpięte; source/job/cohort/model parents pozostają. `symbol_reference_images` zachowuje samodzielny obraz i dowodowe UUID. Trigger INSERT/zmiany parent ID sprawdza istnienie/current pod SHARED sequence ownership fence; purge trzyma EXCLUSIVE, więc nowy dangling proof nie może wejść równolegle. Grid używa istniejącego source-scoped detach. Preview podaje zachowane counts i busy blockers, w tym nieterminalne `trained`.
+
+Receipts purge przechowują exact managed path/size/SHA oraz quarantineKey jako dowód operacji, poza compact scope. Publiczny manifest ukrywa wewnętrzne fileProof. Preview i post-COMMIT finalizer używają tego samego exact-path predykatu, bez retencji przez substring UUID. Uwzględniają wszystkie routowane gry pod deterministycznie uporządkowanymi fences. Shared katalog symboli/model roots i obce zdjęcia pozostają. Dedykowane pary atlas JSON/WebP należące w całości do usuwanych cell IDs są kandydatami; mieszane atlasy pozostają współdzielone z liczbą w metadata. Nieprawidłowe cache descriptors nadal obsługuje dotychczasowy pruner.
+
+Ambiguous COMMIT nie udaje odzyskania miejsca: GET sprawdza kwarantannę i pierwotne ścieżki względem proof. Odtworzone zgodne pliki dają recovery_pending, zmienione recovery_required. Exact receipt replay może dokończyć file effects pod świeżym fence. Rollback przywraca pliki bez nadpisywania cudzych. Historyczne opublikowane artefakty i modele nie zmieniają się; odzyskanie miejsca w PostgreSQL oznacza logiczne DELETE, nie gwarancję shrink pliku bazy.

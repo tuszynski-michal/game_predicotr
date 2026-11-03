@@ -74,6 +74,44 @@ class SqlAlchemyStorageGcRepository:
             finally:
                 session.rollback()
 
+    @contextmanager
+    def source_replacement_gc_guard(self, relative: str) -> Iterator[bool]:
+        with self.source_replacement_paths_gc_guard((relative,)) as protected:
+            yield protected
+
+    @contextmanager
+    def source_replacement_paths_gc_guard(self, paths: Sequence[str]) -> Iterator[bool]:
+        """Hold shared ownership fences through deletion, preventing a new manifest race."""
+        from contextlib import ExitStack
+
+        from game_predictor_api.storage.game_storage_routing import (
+            GameStorageIntent,
+            GameStorageRouter,
+        )
+        from game_predictor_api.storage.grid_training_cohort_repository import CohortDeadline
+        from game_predictor_api.storage.sequence_ownership_lock import (
+            SequenceOwnershipLockMode,
+            acquire_sequence_ownership_lock,
+        )
+        from game_predictor_api.storage.source_replacement_guards import referenced_artifact
+
+        deadline = CohortDeadline()
+        with ExitStack() as stack:
+            protected = False
+            for game in self._games():
+                session = stack.enter_context(self._session_factory())
+                stack.enter_context(session.begin())
+                deadline.check(session)
+                GameStorageRouter().bind(session, game, intent=GameStorageIntent.READ)
+                session.execute(text("SET LOCAL lock_timeout='5s'"))
+                acquire_sequence_ownership_lock(
+                    session, game_id=game, mode=SequenceOwnershipLockMode.SHARED
+                )
+                for relative in sorted(set(paths)):
+                    deadline.check(session)
+                    protected = referenced_artifact(session, relative) or protected
+            yield protected
+
     def normalization_dependency_statuses(
         self, execution_keys: Sequence[str]
     ) -> Mapping[str, tuple[str, ...]]:

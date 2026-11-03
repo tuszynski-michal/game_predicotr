@@ -28,6 +28,7 @@ class StorageRootKind(StrEnum):
 
 
 class StorageProtectionReason(StrEnum):
+    SOURCE_REPLACEMENT_REFERENCED = "SOURCE_REPLACEMENT_REFERENCED"
     RETAINED_COHORT_REFERENCE = "retained_cohort_reference"
     COHORT_REFERENCE_UNRESOLVED = "cohort_reference_unresolved"
     ACTIVE_JOB_DEPENDENCY = "active_job_dependency"
@@ -86,6 +87,7 @@ class StorageArtifactObservation:
     is_symlink: bool = False
     root_kind: StorageRootKind = StorageRootKind.ARTIFACT
     observation_checksum_sha256: str | None = None
+    source_replacement_referenced: bool = False
     retained_cohort_reference: bool = False
     cohort_reference_unresolved: bool = False
 
@@ -151,6 +153,8 @@ def evaluate_storage_retention(
     if now.tzinfo is None:
         raise ValueError("Storage retention evaluation time must be timezone-aware.")
     reasons: list[StorageProtectionReason] = []
+    if observation.source_replacement_referenced:
+        reasons.append(StorageProtectionReason.SOURCE_REPLACEMENT_REFERENCED)
     if observation.retained_cohort_reference:
         reasons.append(StorageProtectionReason.RETAINED_COHORT_REFERENCE)
     if observation.cohort_reference_unresolved:

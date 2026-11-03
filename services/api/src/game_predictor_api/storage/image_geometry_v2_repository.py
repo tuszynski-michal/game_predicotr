@@ -103,6 +103,13 @@ class SqlAlchemyImageSourceGeometryRepository:
         self._session = session
 
     def append(self, value: SourceGeometryRevisionInput) -> StoredSourceGeometryRevision:
+        from game_predictor_api.storage.sequence_ownership_lock import (
+            acquire_sequence_ownership_lock,
+        )
+        from game_predictor_api.storage.source_replacement_guards import require_active_source
+
+        acquire_sequence_ownership_lock(self._session, game_id=value.game_id)
+        require_active_source(self._session, value.game_id, value.source_image_id)
         self._validate_input(value)
         source = self._session.execute(
             select(SourceImageModel)

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.cleanup import (
@@ -26,6 +29,8 @@ from game_predictor_api.domain.cleanup import (
 # (``data/symbol-references/...``) or to its ``data`` namespace
 # (``originals/...`` from ``source_images.relative_path``).
 _DATA_NAMESPACE = "data"
+LOGGER = logging.getLogger(__name__)
+CleanupRetentionGuard = Callable[[tuple[str, ...]], AbstractContextManager[bool]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,17 +100,31 @@ class CleanupArtifactStore(Protocol):
 
     def restore(self, operation_key: str) -> None: ...
 
-    def finalize(self, operation_key: str) -> None: ...
+    def finalize(self, operation_key: str) -> bool | None: ...
 
-    def recover(self, completed_operation_keys: set[str]) -> None: ...
+    def recover(self, completed_operation_keys: set[str]) -> tuple[str, ...] | None: ...
 
 
 class ManagedCleanupArtifactStore:
     """Manage explicit artifact cleanup with a durable rollback quarantine."""
 
-    def __init__(self, artifact_root: Path) -> None:
+    def __init__(
+        self,
+        artifact_root: Path,
+        *,
+        retention_guard: CleanupRetentionGuard | None = None,
+        operation_retention_guard: Any = None,
+    ) -> None:
         self._root = artifact_root.resolve()
         self._quarantine_root = self._root / "cleanup-quarantine"
+        self._retention_guard = retention_guard
+        self._operation_retention_guard = operation_retention_guard
+        self._retained_operation_keys: set[str] = set()
+
+    @property
+    def retained_operation_keys(self) -> frozenset[str]:
+        """Quarantines retained by a fresh reference check in this instance."""
+        return frozenset(self._retained_operation_keys)
 
     def resolve(self, relative_paths: tuple[str, ...]) -> ResolvedCleanupArtifacts:
         """Map persisted paths to files that exist below the artifact root.
@@ -194,24 +213,140 @@ class ManagedCleanupArtifactStore:
             operation_key,
             suppress_errors=False,
         )
+        self._retained_operation_keys.discard(operation_key)
 
-    def finalize(self, operation_key: str) -> None:
+    def finalize(self, operation_key: str) -> bool:
+        """Delete only under a fresh, whole-receipt retention fence.
+
+        False records a deferred physical deletion. The durable receipt stays
+        untouched so a new process can retry it; ordinary reads may continue.
+        The optional guard preserves standalone filesystem consumers, while
+        production construction always injects the database-backed guard.
+        """
         quarantine = self._quarantine_target(operation_key)
         if not quarantine.exists():
-            return
+            self._retained_operation_keys.discard(operation_key)
+            return True
         try:
-            shutil.rmtree(quarantine)
-        except OSError as error:
+            paths = self._quarantine_receipt_paths(quarantine, operation_key)
+        except (OSError, ValueError) as error:
             raise CleanupConflictError(
                 "CLEANUP_ARTIFACT_FINALIZE_FAILED",
-                "The committed cleanup quarantine could not be finalized.",
+                "The committed cleanup quarantine has no valid artifact receipt.",
             ) from error
+        guard = self._operation_guard(operation_key, paths)
+        with guard as protected:
+            if not isinstance(protected, bool):
+                raise CleanupConflictError(
+                    "CLEANUP_ARTIFACT_RETENTION_UNVERIFIED",
+                    "Cleanup quarantine retention could not be verified.",
+                )
+            if protected:
+                self._retained_operation_keys.add(operation_key)
+                LOGGER.warning(
+                    "SOURCE_REPLACEMENT_REFERENCED: cleanup quarantine %s retained; "
+                    "physical deletion deferred",
+                    operation_key,
+                )
+                return False
+            try:
+                shutil.rmtree(quarantine)
+            except OSError as error:
+                raise CleanupConflictError(
+                    "CLEANUP_ARTIFACT_FINALIZE_FAILED",
+                    "The committed cleanup quarantine could not be finalized.",
+                ) from error
+        self._retained_operation_keys.discard(operation_key)
+        return True
 
-    def recover(self, completed_operation_keys: set[str]) -> None:
+    def _operation_guard(self, key: str, paths: tuple[str, ...]) -> Any:
+        if self._operation_retention_guard is not None:
+            return self._operation_retention_guard(key, paths)
+        return nullcontext(False) if self._retention_guard is None else self._retention_guard(paths)
+
+    def file_proof(self, paths: tuple[str, ...]) -> list[dict[str, Any]]:
+        """Bounded byte reads; the same proof also detects an ambiguous-commit restore."""
+        import hashlib
+
+        result = []
+        for relative in paths:
+            target = self._safe_target(relative)
+            if not target.is_file():
+                raise CleanupConflictError(
+                    "SOURCE_REPLACEMENT_PURGE_PATH_NOT_FILE", "Purge requires exact files."
+                )
+            with target.open("rb") as stream:
+                checksum = hashlib.file_digest(stream, "sha256").hexdigest()
+            result.append({"path": relative, "size": target.stat().st_size, "sha256": checksum})
+        return result
+
+    def source_preview_paths(self, game: UUID, cells: list[UUID]) -> tuple[tuple[str, ...], int]:
+        """Only complete, source-owned atlas pairs; mixed atlases remain shared."""
+        root = self._safe_target("data/working/virtual-cell-preview-cache-v1")
+        if not root.exists():
+            return (), 0
+        selected = {str(cell) for cell in cells}
+        paths: list[str] = []
+        shared = 0
+        for descriptor in root.glob("*.json"):
+            relative = "data/working/virtual-cell-preview-cache-v1/" + descriptor.name
+            safe = self._safe_target(relative)
+            if not re.fullmatch(r"[0-9a-f]{64}\.json", descriptor.name):
+                continue
+            if safe.stat().st_size > 1024 * 1024:
+                continue
+            try:
+                value = json.loads(safe.read_text("utf-8"))
+                if value.get("gameId") != str(game):
+                    continue
+                owners = {tile["cellReviewId"] for tile in value["tiles"]}
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                continue  # Invalid cache entries are handled by the existing cache pruner.
+            if not owners.intersection(selected):
+                continue
+            if not owners.issubset(selected):
+                shared += 1
+                continue
+            paths.extend((relative, relative.removesuffix(".json") + ".webp"))
+        return tuple(sorted(paths)), shared
+
+    def purge_status(self, purge: dict[str, Any]) -> str:
+        present = tuple(
+            p["path"] for p in purge["fileProof"] if self._safe_target(p["path"]).exists()
+        )
+        expected = {p["path"]: p for p in purge["fileProof"]}
+        if any(p != expected[p["path"]] for p in self.file_proof(present)):
+            return "recovery_required"
+        if present:
+            return "recovery_pending"
+        return (
+            "pending" if self._quarantine_target(purge["quarantineKey"]).exists() else "finalized"
+        )
+
+    def recover_purge(self, purge: dict[str, Any]) -> str:
+        key = purge["quarantineKey"]
+        paths = tuple(p["path"] for p in purge["fileProof"])
+        with self._operation_guard(key, paths) as protected:
+            if protected is not False:
+                return "pending"
+            status = self.purge_status(purge)
+            if status == "recovery_required":
+                return status
+            if status == "recovery_pending":
+                # Existing quarantine cannot be combined with restored files blindly.
+                if self._quarantine_target(key).exists():
+                    return "recovery_required"
+                present = tuple(p for p in paths if self._safe_target(p).exists())
+                self.quarantine(key, present)
+            self.finalize(key)
+            return self.purge_status(purge)
+
+    def recover(self, completed_operation_keys: set[str]) -> tuple[str, ...]:
         if not self._quarantine_root.exists():
-            return
+            return ()
+        retained: list[str] = []
         for quarantine in sorted(self._quarantine_root.iterdir()):
-            if not quarantine.is_dir() or quarantine.is_symlink():
+            if not quarantine.is_dir() or quarantine.is_symlink() or quarantine.is_junction():
                 raise CleanupConflictError(
                     "CLEANUP_ARTIFACT_QUARANTINE_UNSAFE",
                     "Cleanup quarantine contains an unsafe entry.",
@@ -219,9 +354,56 @@ class ManagedCleanupArtifactStore:
             operation_key = quarantine.name
             self._validate_operation_key(operation_key)
             if operation_key in completed_operation_keys:
-                self.finalize(operation_key)
+                if not self.finalize(operation_key):
+                    retained.append(operation_key)
             else:
                 self.restore(operation_key)
+        return tuple(retained)
+
+    def _quarantine_receipt_paths(self, quarantine: Path, operation_key: str) -> tuple[str, ...]:
+        """Validate the complete quarantined inventory before checking references.
+
+        A modified receipt cannot omit an artifact from the retention check and
+        have it deleted incidentally by the final directory removal.
+        """
+        receipt_path = quarantine / "receipt.json"
+        if receipt_path.is_symlink() or receipt_path.is_junction():
+            raise ValueError("unsafe cleanup quarantine receipt")
+        receipt = json.loads(receipt_path.read_text("utf-8"))
+        if (
+            not isinstance(receipt, dict)
+            or receipt.get("operationKey") != operation_key
+            or not isinstance(receipt.get("movedPaths"), list)
+        ):
+            raise ValueError("invalid cleanup quarantine receipt")
+        paths = receipt["movedPaths"]
+        for relative in paths:
+            if not isinstance(relative, str):
+                raise ValueError("invalid cleanup quarantine path")
+            self._safe_target(relative)
+            if PurePosixPath(relative).as_posix() != relative or relative == "receipt.json":
+                raise ValueError("noncanonical cleanup quarantine path")
+        if len(set(paths)) != len(paths) or len(_non_overlapping_paths(tuple(paths))) != len(paths):
+            raise ValueError("overlapping cleanup quarantine paths")
+        selected = tuple(PurePosixPath(relative) for relative in paths)
+        directories = [quarantine]
+        while directories:
+            for child in directories.pop().iterdir():
+                if child.is_symlink() or child.is_junction():
+                    raise ValueError("unsafe cleanup quarantine artifact")
+                if child == receipt_path:
+                    continue
+                relative = PurePosixPath(child.relative_to(quarantine).as_posix())
+                is_directory = child.is_dir()
+                if not any(
+                    relative.is_relative_to(path)
+                    or (is_directory and path.is_relative_to(relative))
+                    for path in selected
+                ):
+                    raise ValueError("cleanup quarantine contains an unrecorded artifact")
+                if is_directory:
+                    directories.append(child)
+        return tuple(paths)
 
     def _restore_quarantine(
         self,
@@ -233,14 +415,8 @@ class ManagedCleanupArtifactStore:
         if not quarantine.exists():
             return
         try:
-            receipt = json.loads((quarantine / "receipt.json").read_text("utf-8"))
-            if receipt.get("operationKey") != operation_key or not isinstance(
-                receipt.get("movedPaths"), list
-            ):
-                raise ValueError("invalid cleanup quarantine receipt")
-            for relative_path in sorted(receipt["movedPaths"], key=_path_depth, reverse=True):
-                if not isinstance(relative_path, str):
-                    raise ValueError("invalid cleanup quarantine path")
+            paths = self._quarantine_receipt_paths(quarantine, operation_key)
+            for relative_path in sorted(paths, key=_path_depth, reverse=True):
                 destination = self._safe_target(relative_path)
                 source = quarantine.joinpath(*PurePosixPath(relative_path).parts)
                 if destination.exists() and not source.exists():
@@ -262,7 +438,15 @@ class ManagedCleanupArtifactStore:
 
     def _quarantine_target(self, operation_key: str) -> Path:
         self._validate_operation_key(operation_key)
-        target = (self._quarantine_root / operation_key).resolve()
+        unresolved = self._quarantine_root / operation_key
+        if any(
+            path.is_symlink() or path.is_junction() for path in (self._quarantine_root, unresolved)
+        ):
+            raise CleanupConflictError(
+                "CLEANUP_ARTIFACT_QUARANTINE_UNSAFE",
+                "Cleanup quarantine must not redirect to another directory.",
+            )
+        target = unresolved.resolve()
         root = self._quarantine_root.resolve()
         if not target.is_relative_to(root):
             raise CleanupConflictError(
@@ -308,7 +492,7 @@ class ManagedCleanupArtifactStore:
         cursor = self._root
         for part in relative.parts:
             cursor /= part
-            if cursor.is_symlink():
+            if cursor.is_symlink() or cursor.is_junction():
                 self._unsafe(relative_path)
         candidate = self._root.joinpath(*relative.parts).resolve()
         if candidate == self._root or not candidate.is_relative_to(self._root):
@@ -324,15 +508,46 @@ class ManagedCleanupArtifactStore:
         )
 
 
+class ReplacementPlans(Protocol):
+    def retirement_preview(self, game: UUID, request: Any) -> dict[str, Any]: ...
+    def retirement_command(self, game: UUID, request: Any) -> dict[str, Any]: ...
+    def replacement_request(
+        self, game: UUID, batch: UUID, entries: list[UUID]
+    ) -> dict[str, Any]: ...
+    def preview(
+        self, game: UUID, sources: list[UUID], *, mode: str = "replace_preserve_history"
+    ) -> dict[str, Any]: ...
+    def create(self, game: UUID, request: Any) -> dict[str, Any]: ...
+    def get(self, game: UUID, batch: UUID) -> dict[str, Any]: ...
+    def list(self, game: UUID) -> list[dict[str, Any]]: ...
+    def candidates(self, game: UUID, offset: int) -> dict[str, Any]: ...
+
+
 class CleanupService:
     def __init__(
         self,
         repository: CleanupRepository,
         artifact_store: CleanupArtifactStore,
+        replacement_plans: ReplacementPlans | None = None,
     ) -> None:
+        self._replacement_plans = replacement_plans
         self._repository = repository
         self._artifact_store = artifact_store
         self._pending_quarantines: set[str] = set()
+
+    @property
+    def physical_sources(self) -> Any:
+        from game_predictor_api.application.source_purge import SourcePurgeService
+
+        return SourcePurgeService(self)
+
+    @property
+    def replacement_plans(self) -> ReplacementPlans:
+        if self._replacement_plans is None:
+            raise CleanupConflictError(
+                "SOURCE_REPLACEMENT_UNAVAILABLE", "Replacement planning is unavailable."
+            )
+        return self._replacement_plans
 
     def preview_release(self, mobile_release_id: UUID) -> CleanupPreview:
         return cleanup_preview(self._repository.release_snapshot(mobile_release_id))
@@ -450,8 +665,8 @@ class CleanupService:
 
     def finalize_committed_artifacts(self) -> None:
         for quarantine_key in tuple(self._pending_quarantines):
-            self._artifact_store.finalize(quarantine_key)
-            self._pending_quarantines.remove(quarantine_key)
+            if self._artifact_store.finalize(quarantine_key) is not False:
+                self._pending_quarantines.remove(quarantine_key)
 
     def restore_uncommitted_artifacts(self) -> None:
         for quarantine_key in tuple(self._pending_quarantines):
@@ -474,7 +689,9 @@ class CleanupService:
             )
         if preview.snapshot.blockers:
             raise CleanupConflictError(
-                "CLEANUP_BLOCKED",
+                "SOURCE_REPLACEMENT_REFERENCED"
+                if "SOURCE_REPLACEMENT_REFERENCED" in preview.snapshot.blockers
+                else "CLEANUP_BLOCKED",
                 "Cleanup is blocked by an active or shared dependency.",
                 details={"blockers": list(preview.snapshot.blockers)},
             )

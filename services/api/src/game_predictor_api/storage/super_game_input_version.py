@@ -63,6 +63,12 @@ class SuperGameInputWritePoint:
 # decision after the TASK-0933 audit).
 SUPER_GAME_INPUT_WRITE_POINTS: Final[tuple[SuperGameInputWritePoint, ...]] = (
     SuperGameInputWritePoint(
+        source="source_replacement_retirement",
+        module="storage.source_replacement_retirement",
+        qualname="SourceRetirement._invalidate",
+        covers="retirement of current photo references; historical cells remain",
+    ),
+    SuperGameInputWritePoint(
         source="symbol_cells",
         module="storage.image_symbol_review_repository",
         qualname="SymbolCellReviewWriteThroughCoordinator._touch_catalog_revision",

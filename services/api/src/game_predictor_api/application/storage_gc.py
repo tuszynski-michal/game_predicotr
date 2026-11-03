@@ -7,6 +7,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -90,6 +91,8 @@ class StorageGcRun:
 
 
 class StorageGcRepository(Protocol):
+    def source_replacement_gc_guard(self, relative: str) -> AbstractContextManager[bool]: ...
+
     def active_automatic_run(self) -> StorageGcRun | None: ...
     def normalization_dependency_statuses(
         self, execution_keys: Sequence[str]
@@ -151,6 +154,21 @@ class StorageGcArtifactStore:
         observations.extend(self._temporary_observations(repository))
         observations.extend(self._browser_staging_observations(repository))
         observations.extend(self._cohort_asset_observations(repository))
+        guard = getattr(repository, "source_replacement_gc_guard", None)
+        if callable(guard):
+            from dataclasses import replace
+
+            checked = []
+            for item in observations:
+                with guard(item.relative_path) as protected:
+                    checked.append(replace(item, source_replacement_referenced=protected))
+            observations = checked
+        else:
+            from dataclasses import replace
+
+            observations = [
+                replace(item, source_replacement_referenced=True) for item in observations
+            ]
         decisions = tuple(
             evaluate_storage_retention(item, policy=policy, now=now) for item in observations
         )

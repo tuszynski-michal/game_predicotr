@@ -21,6 +21,7 @@ export const GAME_SECTIONS = [
   'rules',
   'reviews',
   'unreadable-symbols',
+  'suspicious-symbols',
   'model-quality',
   'super-games',
 ] as const;

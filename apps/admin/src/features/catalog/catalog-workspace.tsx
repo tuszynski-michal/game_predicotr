@@ -27,6 +27,7 @@ import {
   readBoardSearchReplayParameter,
 } from '@/features/board-search/board-search-replay-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
+import { SourceReplacementPanel } from '@/features/cleanup/source-replacement-panel';
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { ManagementWorkspace } from '@/features/management/management-workspace';
@@ -40,6 +41,7 @@ import { SemiAutomaticSelectionWorkspace } from '@/features/semi-automatic-image
 import { V7LabelGeometryCalibrationWorkspace } from '@/features/v7-label-geometry/v7-label-geometry-calibration-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
+import { ReadabilityWorkspace } from '@/features/readability/readability-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
@@ -144,6 +146,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'model-quality',
     title: 'Jakość rozpoznawania',
     description: 'Gotowość danych i zamrażanie kohort do kolejnych iteracji.',
+  },
+  {
+    id: 'suspicious-symbols',
+    title: 'Podejrzane symbole',
+    description: 'Pilot jakości, nałożenia i czytelność aktualnych wycinków.',
   },
   {
     id: 'super-games',
@@ -514,13 +521,20 @@ export function CatalogWorkspace({
                           />
                         ) : null}
                         {expanded && section.id === 'board-source-cleanup' ? (
-                          <BoardSourceCleanupControl
-                            apiBaseUrl={apiBaseUrl}
-                            gameId={activeGame.id}
-                            onCompleted={() => {
-                              setGamesRevision((revision) => revision + 1);
-                            }}
-                          />
+                          <>
+                            <SourceReplacementPanel
+                              key={activeGame.id}
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={activeGame.id}
+                            />
+                            <BoardSourceCleanupControl
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={activeGame.id}
+                              onCompleted={() => {
+                                setGamesRevision((revision) => revision + 1);
+                              }}
+                            />
+                          </>
                         ) : null}
                         {expanded && section.id === 'symbols' ? (
                           <SymbolCatalog
@@ -580,6 +594,13 @@ export function CatalogWorkspace({
                             shapeGeometryConfiguration={
                               activeGame.shapeGeometryConfiguration
                             }
+                            key={activeGame.id}
+                          />
+                        ) : null}
+                        {expanded && section.id === 'suspicious-symbols' ? (
+                          <ReadabilityWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
                             key={activeGame.id}
                           />
                         ) : null}

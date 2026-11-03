@@ -24,6 +24,29 @@ class MemoryPageGeometryOverrideRepository:
         self.values: list[ImagePageGeometryOverride] = []
         self.exclusions: list[ImagePageSourceExclusion] = []
 
+    def require_mutable_source(self, *, game_id: UUID, source_checksum_sha256: str) -> None:
+        pass
+
+    def get_by_decision_checksum(
+        self,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        decision_checksum_sha256: str,
+        revision: int | None = None,
+    ) -> ImagePageGeometryOverride | None:
+        return next(
+            (
+                value
+                for value in self.values
+                if value.game_id == game_id
+                and value.source_checksum_sha256 == source_checksum_sha256
+                and value.decision_checksum_sha256 == decision_checksum_sha256
+                and (revision is None or value.revision == revision)
+            ),
+            None,
+        )
+
     def get_current(
         self,
         *,
@@ -502,3 +525,48 @@ def test_page_source_exclusion_is_staging_scoped_and_idempotent() -> None:
         }
     }
     assert service.exclusion_snapshot(game_id=game_id, browser_selection_id=uuid4()) == {}
+
+
+def test_retired_page_exact_receipt_precedes_current_cas_and_new_command_refuses():
+    from game_predictor_api.domain.source_replacement import SourceReplacementError
+
+    class RetirableRepository(MemoryPageGeometryOverrideRepository):
+        retired = False
+
+        def require_mutable_source(self, **kwargs):
+            if self.retired:
+                raise SourceReplacementError("SOURCE_REPLACEMENT_RETIRED", "retired")
+
+        def get_current(self, **kwargs):
+            if self.retired:
+                raise AssertionError("retired command must not inspect mutable CAS state")
+            return super().get_current(**kwargs)
+
+    repository = RetirableRepository()
+    service = PageGeometryOverrideService(repository)
+    arguments = dict(
+        game_id=uuid4(),
+        source_checksum_sha256="a" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        actor="reviewer",
+        expected_override_revision=0,
+    )
+    receipt, created = service.save(**arguments)
+    assert created
+    changed_quads = list(_quads())
+    changed_quads[0] = (dict(x=2, y=1), *changed_quads[0][1:])
+    service.save(**dict(arguments, final_quads=changed_quads, expected_override_revision=1))
+    reapplied, created = service.save(**dict(arguments, expected_override_revision=2))
+    assert created and reapplied.revision == 3
+    repository.retired = True
+    replay, created = service.save(**arguments)
+    assert not created and replay == receipt
+    with pytest.raises(SourceReplacementError) as caught:
+        service.save(**dict(arguments, expected_override_revision=999))
+    assert caught.value.code == "SOURCE_REPLACEMENT_RETIRED"
+    latest_replay, created = service.save(**dict(arguments, expected_override_revision=2))
+    assert not created and latest_replay == reapplied
+    assert len(repository.values) == 3

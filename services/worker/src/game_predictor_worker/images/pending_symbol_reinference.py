@@ -48,6 +48,10 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.source_replacement_guards import (
+    current_review_clause,
+    require_current_review,
+)
 from numpy.typing import NDArray
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -191,6 +195,12 @@ class PendingSymbolReinferenceHandler:
                     game_id=job.game_id,
                 )
                 with self._session_factory() as session, session.begin():
+                    from game_predictor_api.storage.sequence_ownership_lock import (
+                        acquire_sequence_ownership_lock,
+                    )
+
+                    acquire_sequence_ownership_lock(session, game_id=job.game_id)
+                    require_current_review(session, job.game_id, item.id)
                     locked = session.scalar(
                         select(ImageReviewItemModel)
                         .where(ImageReviewItemModel.id == item.id)
@@ -297,6 +307,7 @@ class PendingSymbolReinferenceHandler:
                         ),
                     )
                     .where(
+                        current_review_clause(ImageReviewItemModel.id),
                         ImageSymbolReviewCellModel.game_id == game_id,
                         ImageSymbolReviewCellModel.source_available.is_(True),
                         ImageSymbolReviewCellModel.review_state == "pending",

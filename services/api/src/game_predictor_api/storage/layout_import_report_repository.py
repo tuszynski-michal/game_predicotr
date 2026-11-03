@@ -30,6 +30,7 @@ from game_predictor_api.domain.layout_import_reports import (
     LayoutImportValidationReference,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.storage.mobile_source_proof import capture_replacement_dataset_sources
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
     GameModel,
@@ -40,6 +41,10 @@ from game_predictor_api.storage.models import (
     RulesVersionModel,
     RulesVersionSymbolModel,
     SymbolModel,
+)
+from game_predictor_api.storage.sequence_ownership_lock import (
+    SequenceOwnershipLockMode,
+    acquire_sequence_ownership_lock,
 )
 
 
@@ -399,6 +404,13 @@ class SqlAlchemyLayoutImportReportRepository(LayoutImportReportRepository):
             or import_job.status is not JobStatus.COMPLETED
         ):
             return None
+        if import_job.game_id is not None:
+            # Before the game row: retirement takes EXCLUSIVE in the same order.
+            acquire_sequence_ownership_lock(
+                self._session,
+                game_id=import_job.game_id,
+                mode=SequenceOwnershipLockMode.SHARED,
+            )
         validation_jobs = tuple(
             self._session.scalars(
                 select(JobModel)
@@ -487,6 +499,9 @@ class SqlAlchemyLayoutImportReportRepository(LayoutImportReportRepository):
         self,
         source: LayoutImportPublicationSource,
     ) -> DatasetVersion:
+        acquire_sequence_ownership_lock(
+            self._session, game_id=source.game_id, mode=SequenceOwnershipLockMode.SHARED
+        )
         latest_version = self._session.scalar(
             select(func.max(DatasetVersionModel.version)).where(
                 DatasetVersionModel.game_id == source.game_id
@@ -547,6 +562,9 @@ class SqlAlchemyLayoutImportReportRepository(LayoutImportReportRepository):
                     "validationJobId": str(source.reference.validation_job_id),
                 },
             )
+        capture_replacement_dataset_sources(
+            self._session, game_id=source.game_id, dataset_version_id=record.id
+        )
         record.status = DatasetVersionStatus.PUBLISHED
         record.published_at = datetime.now(UTC)
         self._session.flush()

@@ -69,6 +69,7 @@ from game_predictor_api.storage.models import (
     ImageBoardSearchProjectionStateModel,
     SymbolModel,
 )
+from game_predictor_api.storage.source_replacement_guards import current_review_clause
 from game_predictor_api.storage.super_game_input_version import (
     enqueue_super_game_series_derive,
     lock_super_game_state,
@@ -94,6 +95,7 @@ JOIN image_review_items i
   ON i.game_id = c.game_id AND i.id = c.review_item_id
  AND i.status IN ('pending', 'accepted', 'corrected')
 WHERE c.game_id = :game_id
+  AND c.review_item_id NOT IN (SELECT public.source_replacement_excluded_reviews_v1(:game_id))
   AND c.assigned_symbol_id = ANY(:symbol_ids)
   AND c.sequence_number > :after_sequence_number
   AND c.sequence_number <= :until_sequence_number
@@ -106,6 +108,7 @@ FROM unnest(CAST(:symbol_ids AS uuid[])) AS s(id)
 CROSS JOIN LATERAL (
     SELECT c.sequence_number FROM image_symbol_review_cells c
     WHERE c.game_id = :game_id AND c.assigned_symbol_id = s.id
+      AND c.review_item_id NOT IN (SELECT public.source_replacement_excluded_reviews_v1(:game_id))
       AND c.sequence_number > :after_sequence_number
     ORDER BY c.sequence_number
     LIMIT 1
@@ -128,12 +131,14 @@ LEFT JOIN image_sequence_canonical k
   ON k.game_id = c.game_id AND k.sequence_number = c.sequence_number
  AND k.review_item_id = c.review_item_id
 WHERE c.game_id = :game_id AND c.sequence_number = ANY(:positions)
+  AND c.review_item_id NOT IN (SELECT public.source_replacement_excluded_reviews_v1(:game_id))
 GROUP BY c.sequence_number, c.review_item_id
 """)
 
 _MAX_CELL_SEQUENCE_SQL: Final = text("""
 SELECT max(c.sequence_number) FROM image_symbol_review_cells c
 WHERE c.game_id = :game_id AND c.sequence_number <= :ceiling
+  AND c.review_item_id NOT IN (SELECT public.source_replacement_excluded_reviews_v1(:game_id))
 """)
 
 _LAST_CUT_BOARD_IN_WINDOW_SQL: Final = text("""
@@ -144,6 +149,7 @@ JOIN image_review_items i
  AND i.status IN ('pending', 'accepted', 'corrected')
 JOIN recognized_boards b ON b.game_id = c.game_id AND b.id = c.recognized_board_id
 WHERE c.game_id = :game_id
+  AND c.review_item_id NOT IN (SELECT public.source_replacement_excluded_reviews_v1(:game_id))
   AND c.sequence_number > :after_sequence_number
   AND c.sequence_number <= :until_sequence_number
 GROUP BY c.sequence_number, c.review_item_id
@@ -474,6 +480,7 @@ class SqlAlchemySuperGameSeriesRepository:
                 document.board_checksum_sha256,
             ).where(
                 document.game_id == game_id,
+                current_review_clause(document.review_item_id),
                 document.sequence_number >= min(sequence_numbers),
                 document.sequence_number <= max(sequence_numbers),
             )

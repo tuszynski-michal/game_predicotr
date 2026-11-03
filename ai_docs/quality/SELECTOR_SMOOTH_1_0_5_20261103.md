@@ -66,3 +66,17 @@ P1: brak pustej klatki, stabilny bounding box podczas decode, skoki i cache z re
 ## Uruchomienie
 
 Zamknąć poprzednią wersję Selektora, rozpakować cały ZIP do osobnego folderu i uruchomić Selektor-zdjec.exe. Wskazać dotychczasowy folder/projekt; aplikacja wznawia postęp. Fizyczny restart Windows i praca na innym komputerze pozostają niezweryfikowane. Rosnący koszt manifestu O(D) oraz historia aktywnego projektu operatora nie są objęte gwarancją czasu <=50 ms dla każdej operacji.
+
+## Integracja — zgoda operatora 2026-11-03
+
+Operator zaakceptował wynik oraz scalenie całej gałęzi i push main do origin.
+Preflight: sześć commitów Selektora, main przesunięty o 27 commitów; bez nowych
+kolizji TASK/D/migracji. Kolizje v1.7.535–540 pozostają w historii zgodnie ze
+skillem merge-to-main, bez przepisywania commitów. Synchronizacja wymagała tylko
+połączenia okna CURRENT_STATE i archiwum z zachowaniem obu historii.
+Po synchronizacji: 40/40 testów cache/intents/workspace/UI, lint, typecheck,
+build, docs:check i code-map:check PASS. Main rozszerzył osobny eksport core
+replacement-repair; kod i używane eksporty Selektora nie zmieniły się.
+Przed sprzątaniem worktree zachowano jego artefakty i logi w
+D:/game_predicotr/artifacts/selector-integration-20261103-c00bfb22/.
+Finalny ZIP 1.0.5 w katalogu wydań oraz jego zaakceptowane SHA pozostają zachowane.

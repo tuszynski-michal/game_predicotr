@@ -11,11 +11,13 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryCorrectionContext,
@@ -53,6 +55,11 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.source_replacement_binding import authorize_working_source
+from game_predictor_api.storage.source_replacement_guards import (
+    current_clause,
+    require_sequence_binding,
+)
 
 
 def _rejection_lock_key(game_id: UUID, idempotency_key: UUID) -> int:
@@ -68,6 +75,27 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def _require_working_slot(
+        self, *, game: UUID, source: UUID, job: UUID, sequence: int, review: UUID | None
+    ) -> None:
+        acquire_sequence_ownership_lock(self._session, game_id=game)
+        proof = authorize_working_source(self._session, game=game, source=source, job=job)
+        if proof is None or sequence not in proof.sequences:
+            require_sequence_binding(
+                self._session, game=game, source=source, sequence=sequence, review=review
+            )
+
+    @staticmethod
+    def _current_clause() -> ColumnElement[bool]:
+        pending = ImageBoardGeometryPendingModel
+        return current_clause(
+            pending.game_id,
+            pending.source_image_id,
+            pending.source_checksum_sha256,
+            pending.sequence_number,
+            pending.review_item_id,
+        )
+
     def defer(
         self,
         *,
@@ -75,6 +103,13 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         reason_code: BoardCellGeometryPendingReason,
         manifest_relative_path: str,
     ) -> tuple[ImageBoardGeometryPending, bool]:
+        self._require_working_slot(
+            game=manifest.game_id,
+            source=manifest.source_image_id,
+            job=manifest.import_job_id,
+            sequence=manifest.sequence_number,
+            review=None,
+        )
         # The source row serializes competing defer attempts for all nine board
         # positions. The idempotency lookup deliberately happens after the lock.
         source = self._session.scalar(
@@ -197,6 +232,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         query = select(ImageBoardGeometryPendingModel).where(
             ImageBoardGeometryPendingModel.game_id == game_id,
             ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+            self._current_clause(),
         )
         if status is not None:
             query = query.where(ImageBoardGeometryPendingModel.status == status.value)
@@ -256,6 +292,7 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             ).where(
                 ImageBoardGeometryPendingModel.game_id == game_id,
                 ImageBoardGeometryPendingModel.import_job_id == import_job_id,
+                self._current_clause(),
             )
         ).one()
         return BoardCellGeometryJobCounts(*(int(value or 0) for value in values))
@@ -267,6 +304,16 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         expected_manifest_checksum_sha256: str,
         resolved_geometry_revision: int,
     ) -> ImageBoardGeometryPending | None:
+        known = self._session.get(ImageBoardGeometryPendingModel, pending_id)
+        if known is None:
+            return None
+        self._require_working_slot(
+            game=known.game_id,
+            source=known.source_image_id,
+            job=known.import_job_id,
+            sequence=known.sequence_number,
+            review=known.review_item_id,
+        )
         row = self._session.scalar(
             select(ImageBoardGeometryPendingModel)
             .where(ImageBoardGeometryPendingModel.id == pending_id)
@@ -400,8 +447,35 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                     "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
                     "The idempotency key already represents another command.",
                 )
-            return _to_domain(known), prior.id, False
+            # Reconstruct the completed rejection from its append-only event;
+            # a later revert or retirement must not alter the retry's receipt.
+            return (
+                replace(
+                    _to_domain(known),
+                    recognized_board_id=None,
+                    review_item_id=None,
+                    status=BoardCellGeometryPendingStatus.REJECTED,
+                    expected_geometry_revision=expected_geometry_revision,
+                    resolved_geometry_revision=None,
+                    resolved_at=None,
+                    superseded_at=None,
+                    rejection_reason=BoardRejectionReason(prior.reason),
+                    rejection_note=prior.note,
+                    rejected_at=prior.created_at,
+                    rejected_by=prior.actor,
+                    updated_at=prior.created_at,
+                ),
+                prior.id,
+                False,
+            )
         acquire_sequence_ownership_lock(self._session, game_id=game_id)
+        self._require_working_slot(
+            game=game_id,
+            source=known.source_image_id,
+            job=import_job_id,
+            sequence=known.sequence_number,
+            review=known.review_item_id,
+        )
         acquire_image_sequence_locks(
             self._session, game_id=game_id, sequence_numbers={known.sequence_number}
         )

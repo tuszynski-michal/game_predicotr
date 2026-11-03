@@ -41,6 +41,7 @@ import {
   resolveSymbolReviewKeyboardCommand,
   symbolReviewShortcutLabel,
 } from './symbol-review-keyboard.ts';
+import { inclusiveSelectionRange } from './selection-range';
 import { SymbolReviewRequestCoordinator } from './symbol-review-request-coordinator';
 import {
   createSymbolReviewBulkCommand,
@@ -60,6 +61,7 @@ import {
   createEmptySymbolReviewSelection,
   isSymbolReviewItemSelected,
   selectVisibleSymbolReviewItems,
+  selectSymbolReviewRange,
   selectedSymbolReviewCount,
   symbolReviewSelectionCurrentItemIds,
   toggleSymbolReviewItem,
@@ -254,6 +256,7 @@ export function SymbolReviewWorkspace({
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
   const virtualPreviewRequestId = useRef(0);
   const previewAnchorCellId = useRef<string | null>(null);
+  const selectionAnchorId = useRef<string | null>(null);
   const keyboardHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
 
   const filters = workspace.filters;
@@ -332,6 +335,7 @@ export function SymbolReviewWorkspace({
       requestCoordinator.cancelAll();
       filtersRef.current = nextFilters;
       pageRequestId.current += 1;
+      selectionAnchorId.current = null;
       countsRequestId.current += 1;
       pagingRef.current = false;
       setPaging(false);
@@ -343,6 +347,7 @@ export function SymbolReviewWorkspace({
       setSettledCellIds(new Set());
       setVisibleItems([]);
       previewAnchorCellId.current = null;
+      selectionAnchorId.current = null;
       setCountsState('idle');
       setCountsSnapshot(null);
       setCountsCatalogRevision(null);
@@ -382,6 +387,7 @@ export function SymbolReviewWorkspace({
     setProjectionStatus(null);
     setPageState('ready');
     pageRequestId.current += 1;
+    selectionAnchorId.current = null;
     countsRequestId.current += 1;
     pagingRef.current = false;
     setPaging(false);
@@ -400,6 +406,7 @@ export function SymbolReviewWorkspace({
   const refreshDecisionPage = useCallback(() => {
     requestCoordinator.cancelAll();
     pageRequestId.current += 1;
+    selectionAnchorId.current = null;
     countsRequestId.current += 1;
     setHiddenCellIds(new Set());
     setSettledCellIds(new Set());
@@ -418,6 +425,7 @@ export function SymbolReviewWorkspace({
   const retryPageLoadPreservingSelection = useCallback(() => {
     requestCoordinator.cancel('page');
     pageRequestId.current += 1;
+    selectionAnchorId.current = null;
     setError('');
     setPageState('loading');
     setDecisionPageRevision((value) => value + 1);
@@ -654,6 +662,7 @@ export function SymbolReviewWorkspace({
     if (pageFilters === null || projectionStatus?.status !== 'ready') {
       return;
     }
+    selectionAnchorId.current = null;
     const requestId = ++pageRequestId.current;
     const position = pagePositionRef.current;
     const controller = requestCoordinator.begin('page');
@@ -682,6 +691,7 @@ export function SymbolReviewWorkspace({
     });
     return () => {
       pageRequestId.current += 1;
+      selectionAnchorId.current = null;
       requestCoordinator.cancelIfCurrent('page', controller);
     };
   }, [
@@ -849,9 +859,11 @@ export function SymbolReviewWorkspace({
       if (cached !== null) {
         requestCoordinator.cancelAll();
         pageRequestId.current += 1;
+        selectionAnchorId.current = null;
         countsRequestId.current += 1;
         setVisibleItems([]);
         previewAnchorCellId.current = null;
+        selectionAnchorId.current = null;
         setVirtualPreviewTiles({});
         setPreviewAvailability(emptyPreviewAvailability());
         pagePositionRef.current = position;
@@ -872,6 +884,7 @@ export function SymbolReviewWorkspace({
       requestCoordinator.cancel('prefetch');
       requestCoordinator.cancel('counts');
       countsRequestId.current += 1;
+      selectionAnchorId.current = null;
       const requestId = ++pageRequestId.current;
       const controller = requestCoordinator.begin('page');
       const result = await loadSymbolReviewPage(api, {
@@ -901,6 +914,7 @@ export function SymbolReviewWorkspace({
       setRequestedPageNumber(String(position.number));
       setVisibleItems([]);
       previewAnchorCellId.current = null;
+      selectionAnchorId.current = null;
       setVirtualPreviewTiles({});
       setPreviewAvailability(emptyPreviewAvailability());
       dispatch({ page: result.page, position, type: 'page_loaded' });
@@ -948,6 +962,7 @@ export function SymbolReviewWorkspace({
       setRequestedPageNumber(String(cachedTarget.position.number));
       setVisibleItems([]);
       previewAnchorCellId.current = null;
+      selectionAnchorId.current = null;
       setVirtualPreviewTiles({});
       setPreviewAvailability(emptyPreviewAvailability());
       dispatch({
@@ -977,6 +992,7 @@ export function SymbolReviewWorkspace({
     requestCoordinator.cancel('prefetch');
     requestCoordinator.cancel('counts');
     countsRequestId.current += 1;
+    selectionAnchorId.current = null;
     const requestId = ++pageRequestId.current;
     const controller = requestCoordinator.begin('page');
     try {
@@ -1032,6 +1048,7 @@ export function SymbolReviewWorkspace({
       setRequestedPageNumber(String(position.number));
       setVisibleItems([]);
       previewAnchorCellId.current = null;
+      selectionAnchorId.current = null;
       setVirtualPreviewTiles({});
       setPreviewAvailability(emptyPreviewAvailability());
       dispatch({ page: result.page, position, type: 'page_loaded' });
@@ -1088,8 +1105,38 @@ export function SymbolReviewWorkspace({
     }
   }
 
-  function toggleItem(item: SymbolCellReviewListItemResponse) {
+  function toggleItem(
+    item: SymbolCellReviewListItemResponse,
+    shiftKey = false,
+  ) {
     if (pendingCellIds.has(item.id) || settledCellIds.has(item.id)) return;
+    const range = shiftKey
+      ? inclusiveSelectionRange(
+          currentPage?.items ?? [],
+          selectionAnchorId.current,
+          item.id,
+          (entry) => entry.id,
+          (entry) =>
+            hiddenCellIds.has(entry.id) ||
+            pendingCellIds.has(entry.id) ||
+            settledCellIds.has(entry.id),
+        )
+      : null;
+    if (range !== null) {
+      const change = selectSymbolReviewRange(selection, range);
+      if (change.rejectedCount > 0) {
+        setError('Można wybrać najwyżej 10 000 cropów. Cały zakres odrzucono.');
+        return;
+      }
+      setSelection(change.selection);
+      setDeselectedCellIds((current) => {
+        const next = new Set(current);
+        for (const entry of range) next.delete(entry.id);
+        return next;
+      });
+      return;
+    }
+    selectionAnchorId.current = item.id;
     const wasSelected = isSymbolReviewItemSelected(selection, item);
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
@@ -1849,7 +1896,7 @@ export function SymbolReviewWorkspace({
                       }
                       item={item}
                       key={item.id}
-                      onToggle={() => toggleItem(item)}
+                      onToggle={(event) => toggleItem(item, event.shiftKey)}
                       onSourceContext={() => setSourceContextItem(item)}
                       pending={pendingCellIds.has(item.id)}
                       previewTile={virtualPreviewTiles[item.id]}
@@ -1978,7 +2025,7 @@ export function SymbolReviewCard({
   readonly deselected: boolean;
   readonly disabled: boolean;
   readonly item: SymbolCellReviewListItemResponse;
-  readonly onToggle: () => void;
+  readonly onToggle: (event: React.MouseEvent<HTMLButtonElement>) => void;
   readonly onSourceContext: () => void;
   readonly pending: boolean;
   readonly previewTile: SymbolReviewVirtualPreviewTile | undefined;

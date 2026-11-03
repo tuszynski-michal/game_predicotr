@@ -878,7 +878,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             return None
         row = self._session.execute(
             text(
-                "SELECT s.relative_path, s.checksum_sha256 FROM source_images s "
+                "SELECT s.relative_path, s.checksum_sha256, s.purged_at FROM source_images s "
                 "WHERE s.game_id = :game_id AND s.id = :source_image_id"
             ),
             {"game_id": game_id, "source_image_id": source_image_id},
@@ -888,6 +888,8 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 "IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND",
                 "The selected source image does not belong to this game.",
             )
+        if row[2] is not None:
+            raise ImageReviewNotFoundError("SOURCE_PURGED", "Zdjęcie zostało fizycznie usunięte.")
         return GeometrySourceImageAsset(
             source_image_id=source_image_id,
             relative_path=str(row[0]),

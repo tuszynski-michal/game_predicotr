@@ -70,6 +70,7 @@ class MemoryVirtualGridGeometryRepository:
         import_job_id: UUID,
         review_item_id: UUID | None,
         pending_geometry_id: UUID | None,
+        replay_key: UUID | None = None,
     ) -> VirtualGridGeometryContext:
         context = self.contexts[pending_geometry_id or review_item_id]
         assert game_id == context.game_id

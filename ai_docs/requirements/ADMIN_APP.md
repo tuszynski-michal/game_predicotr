@@ -27,6 +27,14 @@ kohorty, parametry i ręczne sterowanie wersjami pozostają w zwiniętej sekcji
 Zaawansowane. Losowa kontrola jakości i ponowne rozpoznanie są osobnymi narzędziami.
 Wejście, zmiana gry, przeładowanie i odczyt postępu wykonują wyłącznie GET.
 
+Przycisk „Odśwież stan uczenia” natychmiast pokazuje „Odświeżanie stanu
+uczenia…”, aria-busy i blokadę kolejnego kliknięcia do zakończenia odczytu.
+Historia i wybrany przebieg pojawiają się niezależnie od wolniejszej gotowości
+korekt. Błąd jednego GET nie ukrywa poprawnie odczytanych danych; pokazuje
+komunikat i pozwala ponowić odczyt. Udany pełny odczyt potwierdza czas
+odświeżenia, także gdy stan przebiegu się nie zmienił. Stare odpowiedzi nie
+zastępują nowszego odczytu ani wyboru innej gry.
+
 Lista przebiegów uczenia używa oddzielonych odstępami przycisków primary,
 bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnika
 dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
@@ -2382,3 +2390,22 @@ wykrywa samym odczytem (co 15 s, tylko gdy run czeka lub trwa, oraz przyciskiem
 ponownego wyboru. Zmiana wyboru, także na pusty,
 unieważnia spóźnione odpowiedzi. Panel działa z wieloma rodzinami i bazami oraz z
 odrzuconym wspólnym kandydatem.
+
+## Plan wymiany zdjęć — TASK-1127
+
+TASK-1128: wybór źródła rozróżnia dostępną planszę, zarezerwowaną lukę, powiązany zamiennik i samą historię. Wycofany lub zastąpiony kandydat ma czytelne oznaczenie i podgląd zachowanego zdjęcia, ale brak akcji wyboru. Przy rezerwacji Admin wskazuje istniejący manifest batcha i entry. Niepełny roboczy zamiennik nie pojawia się w zwykłych kolejkach. Ten ekran nie uruchamia operatorowego admission/import C2.
+
+W istniejącym obszarze porządkowania źródeł operator zaznacza całe zdjęcia, ogląda dokładne numery, powody nieczytelności, aliasy, zależności i blokery, a następnie jawnie zapisuje plan. Lista kandydatów jest wstępna; aktualny podgląd rozstrzyga kwalifikację. Panel pokazuje, że zapisane zdjęcia pozostają aktywne. Umożliwia ponowne otwarcie planu oraz eksport JSON/CSV.
+
+Przed wysłaniem zapisu panel utrwala dokładną komendę wraz z kluczem i tokenem podglądu. Brak odpowiedzi/5xx zachowuje ją do jawnego ponowienia także po przeładowaniu. Odmowa 4xx wymaga nowego podglądu. Uszkodzony lub niedostępny lokalny zapis blokuje nową komendę. B1 nie udostępnia przycisku wycofania ani eksportu uprawnień do zapełniania luk.
+
+TASK-1129 dodaje świeży podgląd jednego zaplanowanego zdjęcia, osobne potwierdzenie wycofania i stan każdego wpisu. Polecenie jest zapisywane przed requestem; reload/lost response odtwarza ten sam klucz i body. UI wyjaśnia zachowanie historii i trwałość luki, odróżnia anulowane planned od gap_open oraz eksportuje wyłącznie zaznaczone otwarte luki przez obecny uwierzytelniony klient. Uszkodzony lokalny zapis blokuje nową operację.
+
+
+### Fizyczne usunięcie zdjęcia — TASK-1141 / D-583
+
+Nowy plan w panelu używa `replace_delete_source`: zapisuje mały manifest, a następnie wymaga świeżego podglądu i osobnego potwierdzenia usunięcia całego zdjęcia. Podgląd pokazuje dokładne numery plansz, pliki i bajty przeznaczone do usunięcia, współdzielone pliki oraz liczby zachowanych metadanych. Nie usuwa modeli ani aktywacji. Poprzednie zapisane plany `replace_preserve_history` zachowują swoje działanie.
+
+Po usunięciu operacyjnych plansz i zdjęcia pozostają rezerwacje luk. „Uzupełnij luki” używa dotychczasowego requestu i importu zamiennika; nowe zdjęcie otrzymuje własne oceny. Niedokończony stary import wymaga najpierw zakończenia jego pracy/weryfikacji. Aktywny trening, grid job lub przydzielona sesja review blokuje operację przed ruszeniem plików.
+
+Panel rozróżnia planowane bajty od faktycznie usuniętych. `pending`/`recovery_pending` nie oznacza ukończenia; ponowienie używa dokładnej zapisanej komendy z manifestu, również po utracie lokalnego zapisu. `recovery_required` oznacza zmieniony lub kolidujący plik i wymaga wyjaśnienia, bez nadpisania go. Dla znanego usuniętego źródła podgląd zwraca `SOURCE_PURGED`; usunięte plansze/pola mogą zwrócić404. Historyczny URL nie jest obietnicą zachowanych pikseli.

@@ -24,6 +24,106 @@ last_updated: 2026-10-16
 - Commit: **v1.7.535 / `9efbaa3af743112c33c81a03db132d23a3819728`**.
 - Atomowa podmiana obrazu, prefetch według skoku i ochrona widocznego JPEG-a. Testy 34/34, lint/typecheck i Electron fluency PASS. Bez audytu według planu; duża partia i ZIP w TASK-1144.
 
+### TASK-1146 — Kontrola schematu przy starcie (done)
+
+- Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540 / `5660c2b0afb6e046c20b53e369c6b9d064f945ed`** (hash dopisuje kolejny commit).
+- Dokładny pin0177 zgodny z jedyną głową Alembic; zachowana odmowa starych i obcych rewizji.
+- Odtworzony FAIL przed poprawką;23pytest PASS, produkcyjny mypy i Ruff/docs4/map PASS. Trzy zastane błędy typów historycznych testów merge potwierdzone i opisane w Outcome.
+- Audyt Opus5.5/high PASS, bez P0/P1/P2; actual modelUsage potwierdzone. Bez usług, migracji i danych operatora; wdrożenie prowadzi koordynator.
+
+### TASK-1141 — Fizyczne usuwanie zastępowanego zdjęcia (done)
+
+- Task: `tasks/completed/1141-source-replacement-physical-purge.md`; commit **v1.7.535 / `77651b67f206dc43d35baa26e1e71b8c7d797b69`** (hash dopisuje kolejny commit).
+- Source-only fizyczne pliki i operational graph, compact manifest luk/tombstones, preserved modele/aktywizacja/frozen/shared. Preview/confirm, restart/replay i recovery; pełny API/UI.
+- PG9boards/135cells, nowy admission po purge, FS/HTTP/UI, scopedtypes/lint i realny Admin build PASS. Projekt i finalny Opus5.5/high R2 PASS, bez P0/P1; P2 i brak pomiaru skali jawnie rozliczone. Bez operator data, usług, produkcyjnej migracji, treningu, aktywacji, merge/push.
+
+### TASK-1132 — Odbiór detektora i wymiany źródeł (done)
+
+- Plik: `tasks/completed/1132-readability-replacement-acceptance.md`.
+- Commit: **v1.7.533 / `675f0135f3bb74d8eeebf7b7912e2913a1fab43c`** (hash dopisuje kolejny commit).
+- Raport odbioru mapuje wszystkie punkty D1 i DoD na dowody A1–C2. Rzeczywiste buildy klienta/core/Admina/Selektora, board-search-ui typy i świeże OpenAPI/generated/map/docs PASS. Dokładna grupa APK bez deselection47PASS23,81s; historycznej przyczyny nie odtworzono. Tymczasowe własne junctions usunięte bez rekurencji, resolver wrócił do main.
+- Opus5.5/medium R1 PASS, rzeczywisty modelUsage claude-opus-5-5. Bez nowych harnessów/testów/eksperymentów. Bez usług, danych operatora, produkcyjnych migracji, aktywacji i merge/push.
+- Implementacja9/9; skuteczność niezmierzona do etykiet/pilota/TEST i odbioru operatora. Fizyczny Chrome/FSA/Android pending; A1 mypy partial pozostaje jawny. Testowana baza40581449; nowszy main wymaga preflight integracji.
+
+### TASK-1131 — Import zamienników i zamknięcie rezerwacji (done)
+
+- Plik: `tasks/completed/1131-source-replacement-import.md`. Commit: **v1.7.531 / `ad92ac35699b364e11a81b4cc0622f8ec281142a`**.
+- Jeden admission/source: trwały browser/job/source proof, selected JPEG bez recropu, working manual/undo i jawne restored po normalnych approvals oraz aktualnej czytelności. Migracja0176 domyka orphan po usunięciu slots; retention i historia pozostają.
+- Mobile publication wiąże source_board_id/current cells; stary dataset odmawia także po restored. API/OpenAPI/generated/wrapper/UI pełnym pionem.
+- Finalne PG5 PASS; domain/worker48, undo41, mobilePG1+legacy2/worker3, node81 i HTTP5+2 PASS. Scoped typy/lint, docs4 i code-map PASS. Opus5.5/high R1 PASS, bezP0/P1; P2 rozliczone w Outcome.
+- Bez usług, operatorowych danych/migracji, aktywacji i merge/push. Kolejny source po partial poza zakresem. D1: finalny odbiór/build i już wskazana regresja APK.
+
+### TASK-1130 — Przygotowanie nowych zdjęć dla otwartych luk (done)
+
+- Plik: `ai_docs/tasks/completed/1130-source-replacement-repair.md`.
+- Commit: **v1.7.529 / `bd5c827066cd2a3fe31c35b423a6399664e96338`**.
+- Wynik: Admin/FSA przyjmuje typed request-v1, exact ranges i source read-only, zapisuje osobny repair-v3 z trwałym journal/recovery i current API entry check. Filled-gaps-v1 zachowuje kontrakt; lokalny wynik nie zamyka backendowej luki.
+- Weryfikacja: core14 PASS; Admin/FS/UI/regresje60 PASS, scoped TS/lint/format i docs/map PASS. Realny filesystem, fresh process, lost-response, foreign files, inspector/write lock i readonly crop handoff bez zapisów.
+- Audyt: Opus5.5/medium R1 PASS; jedna runda poprawek, lead P1-COMPAT i celowany R2 PASS, brak P0/P1/P2. Raporty TASK-1130_AUDIT_claude-opus-5-5.md i _R1.md.
+- Granice: bez usług, danych operatora, migracji, importu, aktywacji, merge/push. Fizyczny Windows/Chrome .crswap i pełny build w D1; C2 dostaje wyłącznie wybrane committed/verified descriptors przy zachowaniu oryginalnego requestu.
+
+### TASK-1129 — Wycofanie źródła z zachowaniem historii (done)
+
+- Plik: `tasks/completed/1129-source-replacement-retirement.md`.
+- Commit: **v1.7.527 / `6ba198b968fe4cf0cc5289d3b841feebb4818c18`** (hash dopisuje kolejny commit).
+- B2b: niezmienny plan, świeży preview i atomowy retirement całego zdjęcia/aliasów, reservations, pełne prior pending i trwały receipt; cancel tylko planned.
+- Typed request-v1 tylko gap_open, API/generated/wrapper/fixture i UI confirm/reload/retry; current projections oraz mobile publication chronione. Bez zmian danych operatora, migracji, usług lub push.
+- Testy: PostgreSQL 2 PASS; jednostkowe 93 PASS, 1 deselected; UI/wrapper 6 PASS; lint/type/client/docs/map/OpenAPI PASS. Oddzielny APK collision PASS na HEAD i aktualnym kodzie; porażka wcześniejszej grupy pozostaje jawną niewyjaśnioną zależnością kolejności/środowiska do D1.
+- Audyt: `ai_docs/quality/TASK-1129_AUDIT_claude-opus-5-5.md`. C1/C2/D1 pozostają w planie.
+
+### TASK-1128 — Strażnicy własności i historii wymiany źródeł (done)
+
+- Plik: `tasks/completed/1128-source-replacement-ownership.md`.
+- Commit: **v1.7.525 / `a41f8d8d18e9dce4a8f31afe9e145886c1404e41`** (hash dopisuje kolejny commit).
+- Wspólne SQL current/retired/reservation, bootstrap provisional i atomowy binding całego zdjęcia, API/worker/search/count/training/geometry parity; historia i legacy fallback zachowane.
+- Retention normalized source/crop/model/prediction, kodowany cleanup blocker przed side effects, fresh recovery/finalize pod bulk fence; same-SHA scope conflict. P2-2 B1 zamknięte.
+- Pełny pion selection metadata/backend/OpenAPI/generated/wrapper/Admin/Reviewer; C2 ma obowiązkowy preflight nowego SHA, korektę provisional i closure przed zwolnieniem slots.
+- PG wspólny 8 PASS po finalnej migracji, unit guard/migration 25 PASS; wcześniejsze regresje 319/55/95 PASS, delegowane geometry/selection/recovery PASS. Scoped mypy39, ruff, TS, OpenAPI i docs PASS. Opus5.5/high R1 i celowany R2 PASS, modelUsage potwierdzone, brak otwartych uwag.
+- Bez usług, operatorowych migracji/importu/retirement/cleanup/GC/treningu, merge ani push. B2b/C2 pozostają kolejnymi taskami planu; wdrożenie wymaga migracji0175 w osobnym upoważnionym workflow.
+
+### TASK-1127 — Manifest wymiany całych źródeł (done)
+
+- Plik: `tasks/completed/1127-source-replacement-manifest.md`.
+- Commit: **v1.7.523 / `c4436c7901c25afd82af16ec1bbf5b8dc9e32a44`** (hash dopisuje kolejny commit).
+- Wynik: trwały planned manifest dokładnych źródeł i aliasów, preview/JSON/CSV oraz Admin; append-only chronologia ocen A2 i FK aliasów. Bez retirement, rezerwacji, zmian operatora lub usług.
+- Integracja: main40581449 do gałęzi roboczej, 0173 merge heads bez przepisywania 0172, 0174/manifestv21. D-579; kolizje wersji i obie D-578 zachowane jawnie.
+- Weryfikacja: unit/HTTP13, PostgreSQL4, readiness17, UI2 i request2 PASS; scoped lint/typecheck, client build, OpenAPI/generated i cztery docs checks PASS. Testy obejmują runtime RLS, crop drift, rollback, aliasy oraz retry po restarcie.
+- Audyt: raport `quality/TASK-1127_AUDIT_claude-opus-5-5.md`; R1 REVISE → R2 PASS, P1 zamknięte. P2-2 do B2a; P2-3/409 zaakceptowane.
+- Dalej: TASK-1128/B2a — wspólni strażnicy, w tym grid corrections i retention. Export planned nie udziela uprawnień do wypełnienia luki.
+
+### TASK-1126 — Shift i trwały zapis grup jakości (done)
+
+- Plik: `tasks/completed/1126-shift-range-selection.md`.
+- Commit: **v1.7.521 / `2720e7aab26c6c0f29add4fe7dd376fd996903ea`** (hash dopisuje kolejny commit).
+- Inclusive Shift obu workspace po pełnych danych strony, skip locked, reset anchor i atomowy cap10000/all_matching. Readability zachowuje snapshoty między stronami i trwałe porcje250 z kluczami przed pierwszym requestem, checkpoint/replay oraz jawnym potwierdzonym porzuceniem bez cofania zapisów.
+- Finalnie37/37 pure/keyboard/contracts i30/30UI PASS; scopedlint/typecheck, code-map i cztery kontrole docsPASS. Audyt claude-opus-5-5/medium R2PASS po jednej rundzie poprawek; N-1/N-2 (P2) odnotowane wOutcome. Bez usług, danych operatora, merge/push i smoke Androida.
+
+### TASK-1125 — Trwały pilot i przegląd jakości (done)
+
+- Plik: `tasks/completed/1125-readability-durable-review.md`.
+- Commit: **v1.7.519 / `8c09626389584154fadb89b6013c5e3f12142ba7`** (hash dopisuje kolejny commit).
+- Pilot bez detektora, TEST-first i niezależna audit200, jawny fit/PASS/odbiór/scan; trwałe joby i checkpoint per źródło, current-owner identity, istniejąca mutacja unreadable, pełen pion API/OpenAPI/klient/Admin Podejrzane symbole.
+- Kontrole: 19 testów domeny/HTTP/selekcji/kalibracji/artefaktów, 4 isolated PostgreSQL, 29 jobów, 135 klienta i 48 UI PASS; mypy 8 modułów, Ruff/format 21 plików, mapa kodu i docs PASS. Szczegóły i ograniczenia w Outcome.
+- Audyt rzeczywistego claude-opus-5-5/high PASS w ograniczonym zakresie po timeoutcie pierwszej próby; pięć P2 rozliczonych jedną rundą poprawek. Raport: `quality/TASK-1125_AUDIT_claude-opus-5-5.md`.
+- Bez jobów, danych, migracji operatora, aktywacji, usług, merge i push. Następny TASK-1126/A3. Przyszły merge wymaga preflight rozgałęzionego Alembic 0172→0169 względem 0170/0171 na main oraz manifestu v20→v19; junction node_modules odpiąć bez usuwania celu.
+
+### TASK-1124 — Rdzeń detektora jakości 777 A2 (done)
+
+- Plik: `tasks/completed/1124-readability-detector-core.md`.
+- Commit: **v1.7.517 / `9e466d70e9ec84911dd8612072ded6e9d273c2d4`**.
+- Wynik: frozen SpatialSymbolCnn features, natywne statystyki, dwa niezależne L2 heady, read-only preflight, rodziny i brak leakage, minima pilota, artefakt/ranking/Wilson95 oraz niezależny audit200 z limitem 800.
+- Weryfikacja: 37/37 testów PASS (17,24 s), ruff PASS; mapa i cztery kontrole docs PASS. Mypy po korektach partial: błąd narzędzia przy zapisie cache i timeout bez cache; wcześniejszy mypy PASS. Szczegóły w Outcome.
+- Audyt: `quality/TASK-1124_AUDIT_claude-opus-5-5.md`, Opus5.5/high, oryginalny REVISE; jedna runda poprawek i reconciliation leada zamykają P1-1 oraz P2-1/4/5. P2-2 to jawne ograniczenie przypiętej pary SHA, P2-3 operacyjna niezależna pula audit200; bez otwartych P0/P1 po rozliczeniu.
+- Bez empirycznego pilota, skanu, treningu lub aktywacji kandydata nr 5; bez usług, migracji, merge/push. Kolejny task: TASK-1125, etykiety przed gotowością detektora.
+### TASK-1138 — Widoczne odświeżanie uczenia (done)
+
+- Plik: `tasks/completed/1138-grid-learning-refresh.md`.
+- Commit: **v1.7.535 / `961b6b47bff01fee8dab84284225d886faefb148`** (hash dopisuje kolejny commit).
+- Przycisk ma własne loading/aria-busy i blokadę kliknięć, a pełny udany odczyt potwierdza czas. Historia/status nie czekają na wolniejszą gotowość; częściowy błąd nie usuwa danych. Zachowana ochrona spóźnionych odpowiedzi i tożsamości raportu.
+- Finalne 48 testów interakcji PASS, pełny typecheck i build Admina PASS, lint/format/docs/map PASS. Rzeczywisty panel potwierdził loading, status oraz zmianę czasu odczytu; GET-only, bez zmian modeli lub restartów.
+- Opus 5.5/high R1 PASS. P2-1..5 naprawione w jednej rundzie wraz z regresjami. Pierwszy build EPERM Windows niezaliczony; kontrolowane powtórzenie z właściwymi uprawnieniami PASS.
+- Merge/push poprawki oczekuje na akceptację; nie wymaga migracji ani restartu usług. Fizyczny Android nieodbierany.
+
 ### TASK-1137 — Wspólne limity uczenia siatek (done)
 
 - Plik: `tasks/completed/1137-grid-training-shared-budget.md`.

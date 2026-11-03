@@ -84,7 +84,7 @@ Pełne retirement pozostaje niedostępne do B2b. Migracja i restart operatora ma
 
 ## Outcome
 
-Commit: v1.7.523 (hash dopisuje kolejny commit).
+Commit: v1.7.523 / `c4436c7901c25afd82af16ec1bbf5b8dc9e32a44`.
 
 Manifest planned, aliasy/FK, ledger A2 i pion API/OpenAPI/klient/Admin gotowe. Retirement i aktywne reservations pozostają niedostępne. Zintegrowano pin main40581449; decyzją operatora commit zachowuje kolejny numer po branch HEAD522 mimo kolizji z main. Obie D-578 pozostają pod odrębnymi kotwicami.
 

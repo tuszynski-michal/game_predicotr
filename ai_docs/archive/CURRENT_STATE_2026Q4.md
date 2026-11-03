@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1127 — Manifest wymiany całych źródeł (done)
 
 - Plik: `tasks/completed/1127-source-replacement-manifest.md`.
-- Commit: **v1.7.523** (hash dopisuje kolejny commit).
+- Commit: **v1.7.523 / `c4436c7901c25afd82af16ec1bbf5b8dc9e32a44`** (hash dopisuje kolejny commit).
 - Wynik: trwały planned manifest dokładnych źródeł i aliasów, preview/JSON/CSV oraz Admin; append-only chronologia ocen A2 i FK aliasów. Bez retirement, rezerwacji, zmian operatora lub usług.
 - Integracja: main40581449 do gałęzi roboczej, 0173 merge heads bez przepisywania 0172, 0174/manifestv21. D-579; kolizje wersji i obie D-578 zachowane jawnie.
 - Weryfikacja: unit/HTTP13, PostgreSQL4, readiness17, UI2 i request2 PASS; scoped lint/typecheck, client build, OpenAPI/generated i cztery docs checks PASS. Testy obejmują runtime RLS, crop drift, rollback, aliasy oraz retry po restarcie.

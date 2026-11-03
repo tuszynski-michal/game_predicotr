@@ -67,7 +67,7 @@ Brak wynikowego checkpointu w pierwszej próbie. Stan budżetu: 131,407 s zużyt
 
 ## Outcome
 
-Commit: v1.7.529 (hash dopisuje kolejny commit).
+Commit: v1.7.529 / `910bb70ec599acf1180b5d4bb919cb50f2403d9d`.
 
 ### Changed
 

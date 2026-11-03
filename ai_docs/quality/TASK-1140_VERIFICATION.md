@@ -131,7 +131,7 @@ uwzględniono w kodzie, treści i testach. Focused review R2 zakończył się PA
 `TASK-1140_AUDIT_claude-opus-5-5.md`. Otwarte P2-3 dotyczy wyłącznie rozdzielenia
 hunków dokumentacji między osobne commity i należy do prowadzącego.
 
-## Pozostaje leadowi
+## Formalne zamknięcie i odbiór
 
 Po osobnym commicie danych e33b71ab odtworzono panel i porównano hashe z drzewem
 R2 audytu: pięć plików i cały blok architektury są identyczne. Ponownie wykonano
@@ -144,7 +144,7 @@ P2-3: dane zapisano osobnym commitem bez apps/admin i bloku architektury TASK-11
 Staged diff UI jest kontrolowany oddzielnie; dołącza wyłącznie wymagane metadane
 hasza poprzedniego taska. Nie zmieniono kodu po pozytywnym audycie R2.
 
-- Zamknięcie TASK-1140 przez task-close i osobny commit z zapisem hasha.
+- TASK-1140 zamknięty przez task-close, osobny commit `v1.7.538` / `febbf91e3b517d1ec3635eded65a6461a6cc75c9`; hash zapisuje kolejny commit metadanych.
 - Odbiór operatora po wdrożeniu, bez operacyjnych POST w tej weryfikacji.
 
 Lista ścieżek do audytu: `artifacts/task1140-audit-paths.txt`. Hunk UI w

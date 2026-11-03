@@ -82,7 +82,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 — tasks/completed/1140-grid-correction-growth-panel.md
+- **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 / `febbf91e` — tasks/completed/1140-grid-correction-growth-panel.md
 - **TASK-1139** — Przyrostowy podział korekt i liczniki — v1.7.537 / `e33b71ab` — tasks/completed/1139-grid-correction-growth-data.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md

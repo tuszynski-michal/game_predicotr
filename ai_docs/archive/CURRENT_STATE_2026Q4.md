@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1140 — Czytelne liczniki i aktualność oceny (done)
 
-- Plik: `tasks/completed/1140-grid-correction-growth-panel.md`; commit **v1.7.538**.
+- Plik: `tasks/completed/1140-grid-correction-growth-panel.md`; commit **v1.7.538 / `febbf91e3b517d1ec3635eded65a6461a6cc75c9`**.
 - Rozdzielone liczniki TRAIN, zapisanych i nowych etykiet, kontroli, rezerw pending, buforów i wyłączeń. Jawna weryfikacja aktualności z loading, błędami/retry i ochroną przed starymi odpowiedziami.
 - Nowe zastosowanie wymaga aktualnej oceny; resume częściowego zastosowania i identyczny durable replay pozostają walidowane przez backend. Sprawdzenie dowodów nie stosuje modelu.
 - Opus 5.5/high: R1 REVISE, jedna runda poprawek, R2 PASS. P2-3 rozliczone osobnymi commitami i kontrolą staged hunków.

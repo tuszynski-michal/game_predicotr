@@ -78,7 +78,7 @@ FSA nie zapewnia locka między procesami; sprawdzanie własności i journalu odm
 
 ## Outcome
 
-Commit: v1.7.529 (hash dopisuje kolejny commit).
+Commit: v1.7.529 / `bd5c827066cd2a3fe31c35b423a6399664e96338`.
 
 ### Changed
 

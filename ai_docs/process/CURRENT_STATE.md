@@ -78,7 +78,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1130** — Przygotowanie nowych zdjęć dla otwartych luk — v1.7.529 — tasks/completed/1130-source-replacement-repair.md
+- **TASK-1130** — Przygotowanie nowych zdjęć dla otwartych luk — v1.7.529 / `bd5c8270` — tasks/completed/1130-source-replacement-repair.md
 - **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 / `6ba198b9` — tasks/completed/1129-source-replacement-retirement.md
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
 - **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md

@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1146 — Kontrola schematu przy starcie (done)
 
-- Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540** (hash dopisuje kolejny commit).
+- Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540 / `5660c2b0afb6e046c20b53e369c6b9d064f945ed`** (hash dopisuje kolejny commit).
 - Dokładny pin0177 zgodny z jedyną głową Alembic; zachowana odmowa starych i obcych rewizji.
 - Odtworzony FAIL przed poprawką;23pytest PASS, produkcyjny mypy i Ruff/docs4/map PASS. Trzy zastane błędy typów historycznych testów merge potwierdzone i opisane w Outcome.
 - Audyt Opus5.5/high PASS, bez P0/P1/P2; actual modelUsage potwierdzone. Bez usług, migracji i danych operatora; wdrożenie prowadzi koordynator.

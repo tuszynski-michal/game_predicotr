@@ -62,7 +62,7 @@ Nie akceptować zestawu starszych rewizji jako obejścia. Stała ma przypinać d
 
 ## Outcome
 
-Commit: v1.7.540 (hash dopisuje kolejny commit).
+Commit: v1.7.540 / `5660c2b0afb6e046c20b53e369c6b9d064f945ed`.
 
 ### Changed
 

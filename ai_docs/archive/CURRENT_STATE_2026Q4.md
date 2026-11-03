@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1152 — Trwałe liczniki zastosowania (done)
 
-- Plik: `tasks/completed/1152-grid-apply-progress.md`; commit **v1.7.553** (hash dopisuje kolejny commit).
+- Plik: `tasks/completed/1152-grid-apply-progress.md`; commit **v1.7.553 / `5a9fcb148920fe1c702568cc94e58159d7babc4b`** (hash dopisuje kolejny commit).
 - Handler przepisuje zapisane success/failure/review counters na wejściu lease; success po advance nadal liczony z ukończonych steps. Domenowe guardy, CAS, receipts i API bez zmian.
 - Regresja3FAIL/3PASS na starym kodzie; po poprawce10workerPASS/4domenaPASS, Ruff/scopedmypy PASS. Testy ćwiczą checkpoint, defer, claim, fail/requeue, odtworzenieJSON i comparison waiting.
 - Opus5.5/high R1PASS bezP0/P1. TrzyP2 rozliczone jedną rundą zmian testów/dokumentacji; produkcja bez zmian po audycie.

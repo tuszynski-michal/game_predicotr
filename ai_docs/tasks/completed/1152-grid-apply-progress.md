@@ -44,7 +44,7 @@ Brak zgody na restart usług w tym nowym zadaniu; po gotowej, audytowanej popraw
 
 ## Outcome
 
-Commit: v1.7.553 (hash dopisuje kolejny commit).
+Commit: v1.7.553 / `5a9fcb148920fe1c702568cc94e58159d7babc4b`.
 
 ### Changed
 

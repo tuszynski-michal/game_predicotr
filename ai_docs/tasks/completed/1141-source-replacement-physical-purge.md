@@ -98,7 +98,7 @@ Nowe znaczenie usunięcia jawnie zastępuje wcześniejszą bezterminową retencj
 
 ## Outcome
 
-Commit: v1.7.535 (hash dopisuje kolejny commit).
+Commit: v1.7.535 / `77651b67f206dc43d35baa26e1e71b8c7d797b69`.
 
 Projekt D583 zapisany. Audyt projektu Opus5.5/high R1 REVISE (actual modelUsage claude-opus-5-5): cztery P1, bez P0. Jedyna korekta projektu: wspólny exact-path predykat, unfinished-import i aktywni konsumenci, jawna klasyfikacja FK oraz ambiguous-COMMIT recovery. Targeted PLAN R2 PASS, actual modelUsage claude-opus-5-5/high; brak P0/P1. Implementacja gotowa do audytu końcowego.
 

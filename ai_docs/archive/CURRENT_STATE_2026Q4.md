@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1141 — Fizyczne usuwanie zastępowanego zdjęcia (done)
 
-- Task: `tasks/completed/1141-source-replacement-physical-purge.md`; commit **v1.7.535** (hash dopisuje kolejny commit).
+- Task: `tasks/completed/1141-source-replacement-physical-purge.md`; commit **v1.7.535 / `77651b67f206dc43d35baa26e1e71b8c7d797b69`** (hash dopisuje kolejny commit).
 - Source-only fizyczne pliki i operational graph, compact manifest luk/tombstones, preserved modele/aktywizacja/frozen/shared. Preview/confirm, restart/replay i recovery; pełny API/UI.
 - PG9boards/135cells, nowy admission po purge, FS/HTTP/UI, scopedtypes/lint i realny Admin build PASS. Projekt i finalny Opus5.5/high R2 PASS, bez P0/P1; P2 i brak pomiaru skali jawnie rozliczone. Bez operator data, usług, produkcyjnej migracji, treningu, aktywacji, merge/push.
 

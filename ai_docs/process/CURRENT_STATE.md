@@ -79,7 +79,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 — tasks/completed/1141-source-replacement-physical-purge.md
+- **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1132** — Odbiór detektora i wymiany źródeł — v1.7.533 / `675f0135` — tasks/completed/1132-readability-replacement-acceptance.md
 - **TASK-1131** — Import zamienników i zamknięcie rezerwacji — v1.7.531 / `ad92ac35` — tasks/completed/1131-source-replacement-import.md
 - **TASK-1130** — Przygotowanie nowych zdjęć dla otwartych luk — v1.7.529 / `bd5c8270` — tasks/completed/1130-source-replacement-repair.md

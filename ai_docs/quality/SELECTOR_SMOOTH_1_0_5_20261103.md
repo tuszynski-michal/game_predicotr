@@ -80,3 +80,9 @@ replacement-repair; kod i używane eksporty Selektora nie zmieniły się.
 Przed sprzątaniem worktree zachowano jego artefakty i logi w
 D:/game_predicotr/artifacts/selector-integration-20261103-c00bfb22/.
 Finalny ZIP 1.0.5 w katalogu wydań oraz jego zaakceptowane SHA pozostają zachowane.
+
+Operator po ujawnieniu blokady wdrożenia 777 A2 jawnie potwierdził scalenie i
+push całego obecnego main jako publikację samego kodu, mimo niewykonanej
+migracji 0171 do 0177. Zgoda nie obejmuje wdrożenia, migracji, restartu usług,
+usuwania gry ani innych danych. Blokada wcześniejszego wdrożenia pozostaje;
+nie uruchamiamy nowego backendu na bazie 0171 w ramach tej integracji.

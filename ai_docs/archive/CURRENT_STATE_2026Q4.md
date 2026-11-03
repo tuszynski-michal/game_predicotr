@@ -6,9 +6,18 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1147 — Integracja i odbiór przyrostu korekt (done)
+
+- Plik: `tasks/completed/1147-grid-growth-integration.md`; commit **v1.7.551** (hash dopisuje kolejny commit).
+- Zintegrowano oba tory i zachowano ochrony migracji0175 po0178; skoordynowano0179. Root/origin d01a0f07, baza0179, dane166971/1500019/22248975 i aktywacje zachowane, purged0. API/Admin/general7/grid1 działają po zatwierdzonym restarcie.
+- Standardowy build/typecheck root bez aliasów PASS, wymagane PG/backend/UI/scopedlint/types/docs/map PASS, Opus1147 PASS bezP0/P1. Konieczne poprawki1149/1150 osobno zamknięte i audytowane Opus PASS; znane zastane P2 opisane.
+- Nowe69korekt powiększyłoTRAIN77→146; po freeze nowe0, kontrole17/21 osobno. Realne resume tego samego parenta/runu zachowało488 wcześniejszych kroków; łącznie2888/8000 i865,313/7200s, earlystop2400, wybrany checkpoint1200.
+- Kandydat3ed60010, ocenaeeb70311, raport0cd1539a: PASS; VALIDATION12→14/17 iREGRESSION15→17/21, błąd mniej o24,11% i18,15%. Ograniczony dowódphoto-only częściowych zdjęć wyłącznie MumieA2; defaultv1 bez zmian.
+- UI potwierdza liczby/PASS/aktualność i odblokowanie Apply po checkboxie; odznaczono bez zastosowania. Raport: quality/GRID_CORRECTION_GROWTH_DEPLOYMENT_20261103.md; dowody/screenshot zachowane w root artifacts.
+
 ### TASK-1151 — Wyszukiwanie bez historii wymiany (done)
 
-- Plik: `tasks/completed/1151-empty-replacement-search-fast-path.md`; commit **v1.7.550** (hash dopisuje kolejny commit).
+- Plik: `tasks/completed/1151-empty-replacement-search-fast-path.md`; commit **v1.7.550 / `eec2f3042632e907f5c9a4f504fedd0404846eaf`** (hash dopisuje kolejny commit).
 - Implementacja `2e9237eb969d1d1dee0d6593213b5dfdcc0dd333`, integracja i pierwszy push `d01a0f07`; migracja0179 i restart wykonane przez jednego koordynatora. Bez zmian zdjęć i modeli.
 - 29testów PG/schema PASS, Ruff/mypy/docs/map PASS, Opus5.5/high PASS bezP0/P1. P2-1/2 jawnie przyjęte; liveHTTP zamykaP2-3.
 - Dokładny wzór15symboli:40wyników/13,032s; detail425837/0,296s; obraz3950bajtów/0,093s; wszystkie HTTP200. Dane166971/1500019/22248975, aktywacje zachowane, purged0.

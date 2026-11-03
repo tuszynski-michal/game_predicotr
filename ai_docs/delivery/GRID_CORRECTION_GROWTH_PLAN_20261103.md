@@ -192,6 +192,12 @@ Rzeczywisty run po wznowieniu doszedł do488 kroków, ale os.replace progress.js
 
 Wymagane: deterministyczne granice, rzeczywisty Windows uchwyt bez FILE_SHARE_DELETE i pełny JSON, konsumenckie regresje diagnostyki/restartu/budżetu, lint/types, docs/map i Opus. Bez GPU w testach wykonawcy. Po wdrożeniu prowadzący wznawia ten sam parent/run i istniejący budżet. Zadanie1150 jest niezależną konieczną poprawką odbioru1147; może powstawać równolegle z1149 w rozłącznych plikach.
 
+## Wynik końcowy i dodatkowa zgoda operatora
+
+Operator następnie jawnie zlecił integrację z nowym main, push, migrację i restart oraz sprawdzenie uczenia. Zakres operacyjny wykonano w TASK-1147. Migracje0178 i0179 wdrożone, dane i default zachowane, API/Admin/general7/grid1 działają. Nowe69korekt zwiększyło TRAIN77→146. Kontrole pozostały osobno: VALIDATION17 iREGRESSION21. Realny run zakończony: PASS; końcowa kontrola poprawne15→17/21, błąd mniej o18,15%. Aktualność i odblokowanie Apply po potwierdzeniu sprawdzone w UI, bez zastosowania wersji. Odbiór i ograniczenia: `quality/GRID_CORRECTION_GROWTH_DEPLOYMENT_20261103.md`. Audyty i task-close każdego taska zachowane.
+
+Konieczna naprawa równoległej regresji wyszukiwania została zrealizowana w TASK-1151, z osobnym Opus PASS i odbiorem realnego wzorca. Nie poszerza zakresu dowodu jakości modelu. Metadane zamknięcia, push i sprzątanie kończą integrację; żadna historyczna kohorta ani ręczna korekta nie jest nadpisywana.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

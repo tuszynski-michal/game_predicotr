@@ -60,7 +60,7 @@ Fast path dotyczy dowiedzionej pustej historii tej gry. Nie prognozuje wydajnoś
 
 ## Outcome
 
-Commit: v1.7.550 (hash dopisuje kolejny commit).
+Commit: v1.7.550 / `eec2f3042632e907f5c9a4f504fedd0404846eaf`.
 
 ### Changed
 

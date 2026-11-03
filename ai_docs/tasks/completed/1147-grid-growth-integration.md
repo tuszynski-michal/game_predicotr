@@ -2,7 +2,7 @@
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -63,7 +63,7 @@ Wykonawca nie zmienia root/main, usług, bazy operatora ani modeli. Nie wykonuje
 - [x] Zachowane funkcje obu gałęzi, kontrakty, partial v1/v2 i UI.
 - [x] Dokumenty obu historii zachowane, okna i budżety przechodzą kontrolę.
 - [x] Wymagane testy, lint/types/build worktree i focused audyt rozliczone przed commitem; standardowy build root jest częścią odbioru operacyjnego.
-- [ ] Skoordynowane wdrożenie i odbiór operatora wykonane po usunięciu blokady przez uprawnionego koordynatora.
+- [x] Skoordynowane wdrożenie i odbiór operatora wykonane po usunięciu blokady przez uprawnionego koordynatora.
 
 ## Test cases
 
@@ -79,6 +79,8 @@ Wdrożenie napotkało `GAME_STORAGE_LIFECYCLE_IN_PROGRESS`: stary running delete
 
 ## Outcome
 
+Commit: v1.7.551 (hash dopisuje kolejny commit).
+
 ### Changed
 
 Merge `60f50c64` do gałęzi o HEAD `7881711b` przygotowany bez commita. Wszystkie dziewięć konfliktów rozwiązane i oznaczone w indeksie. 0178 ma parent 0177 i zachowuje dokładny strażnik 0175 przez wspólny helper zarówno w nowym SQL v6, jak i przy przywróceniu v4/v5. Logika splitu, release i obu polityk pozostaje niezmieniona. OpenAPI i klient wygenerowane ponownie; wrapper zachowuje metody obu funkcji.
@@ -87,7 +89,7 @@ Merge `60f50c64` do gałęzi o HEAD `7881711b` przygotowany bez commita. Wszystk
 
 PG guarded migration wraz z current/retired/reserved/retention na 0178 → 0177 → 0178 PASS; core registry z restartem PASS; rzeczywiste replacement guards PASS. API/worker 104 PASS, evaluator v1/v2 z restartem 5 PASS, UI 74 PASS, requesty klienta 9 PASS. Ruff 11 plików i mypy 8 modułów PASS; TypeScript Admin/klienta, ESLint i build Admina PASS z lokalnymi aliasami. Docs:check PASS, budżet 44765/45000 B. Pełne sekcje archiwum stanu i decyzji obu rodziców zachowane, potwierdzone porównaniem tekstu. Szczegóły i znane porażki retencji: `quality/TASK-1147_VERIFICATION.md`.
 
-### Not completed
+### Historical checkpoint before operational acceptance
 
 Focused Opus 5.5/high R1: PASS, bez P0/P1. Raport: `quality/TASK-1147_AUDIT_claude-opus-5-5.md`. Integrację zapisano w `08a9ffcf`, synchronizację w `5cfe292b`. Prowadzący wdrożył 0178 i uruchomił pojedynczy przebieg z UI; wynik treningu pozostaje niepotwierdzony. Ten wykonawca tylko odczytał dowody i przygotował dokumentację. Zadania nie zamknięto, pełnego odbioru ani zastosowania modelu nie zgłoszono.
 
@@ -97,7 +99,7 @@ Plan, aktualna architektura i kontrakt, CURRENT_STATE, DOC_INDEX oraz rozwiązan
 
 ### Recommended next task
 
-Odczytać wynik już uruchomionego przebiegu uczenia i dokończyć odbiór tego samego planu, bez ponownego startu ani zastosowania modelu.
+Operator może osobno zastosować kandydata po zapoznaniu się z raportem i zakresem dowodu. Ta integracja nie obejmuje automatycznej aktywacji ani ponownego rozpoznania historycznych importów.
 
 ### Audit dispositions
 
@@ -160,3 +162,27 @@ TASK-1149 zamknięto jako v1.7.546 / `4827f2a6`; TASK-1150 jako v1.7.547 / `5efb
 Kontrolowany odczyt blokad nowym helperem na tej samej kohorcie trwał 3,968s zamiast poprzednich 33,641s; transakcja została jawnie wycofana, stan frozen/revision164 pozostał niezmieniony. Testy Windows obejmują rzeczywisty uchwyt pliku bez FILE_SHARE_DELETE. Są to dowody napraw mechanizmu, nie ukończenia treningu.
 
 Koordynator drugiego okna potwierdził osobną regresję wyszukiwania plansz w filtrze źródeł 0175/0176. Zarezerwował TASK-1151 i migrację0179. Uzgodniono pauzę: bez kolejnych freeze, restartów i resume do gotowej, przetestowanej i audytowanej poprawki oraz ustalenia jednego właściciela wspólnego wdrożenia. Nie uruchomiono nowych zadań GPU. Zachowano parent `cc7e739e-027c-4f44-87d8-8088c0d86bb1`, dziecko `7a1b3835-639c-4439-8f49-3dfaea5e650a` i ich dotychczasowe zużycie budżetu.
+
+
+## Odbiór końcowy — 0179 i rzeczywiste uczenie PASS
+
+Po skoordynowanym wdrożeniu root/main i origin/main `d01a0f07cc72d44f54711cd1a1a60a27df4823df` baza ma jedyny head `0179_empty_replacement_search`. Kontrola ról compliant, API/Admin działają, worker general7 i grid-training1 uruchomione z nowego procesu. Dane przed/po179 identyczne:166971źródeł,1500019plansz,22248975pól, purged0, te same hashe aktywacji. TASK-1151 zamknięto osobno po rzeczywistym wyszukiwaniu; naprawa nie zmienia danych ani zakresu modeli.
+
+Oficjalne resume12:53:41UTC wznowiło ten sam parent `cc7e739e-027c-4f44-87d8-8088c0d86bb1` i dziecko `7a1b3835-639c-4439-8f49-3dfaea5e650a`. Nie powstał drugi run ani nowy budżet. Attempt2 poprawnie zapisał checkpointy i eksport; wykonał2400kroków, zakończył przez early_stopping i wybrał checkpoint1200 na VALIDATION. Progress3600/3600 oznacza zamknięcie planu, nie wykonanie3600kroków. Łączne zużycie2888/8000kroków zawiera wcześniejsze488; czas865,313/7200s, bez resetu/odnowienia. `result-1.json` zachowuje wcześniejszy błąd, `result-2.json` potwierdza exported/early_stopping.
+
+Automatyczna ocena `eeb70311-2ab7-4e2e-9961-4ff9aac6821a` zakończyła się13:07:04UTC wynikiem PASS, raport `0cd1539a-412f-561c-a022-838577c09f62`, kandydat `3ed60010-7c3e-5c3b-91aa-4e03eb9bfa5e`. Porównano te same oryginalne zdjęcia:
+
+| Rola | Zdjęcia / opisane plansze | Poprawne baza / kandydat | Średni znormalizowany błąd baza / kandydat | Spadek błędu |
+|---|---:|---:|---:|---:|
+| VALIDATION |13/17|12/14|0,01734436/0,01316342|24,11%|
+| REGRESSION |13/21|15/17|0,01442749/0,01180831|18,15%|
+
+Wykryte odpowiednio17/17 i21/21 dla obu modeli. Gate v2 PASS i ONNX parity PASS. Wszystkie zdjęcia kontrolne są częściowo opisane: ocena dotyczy opisanych plansz, bez miary fałszywych detekcji poza nimi. Dowód photo-only nie potwierdza niezależności sesji ani nieznanego wykorzystania danych przez przodków; zweryfikowany zakres obejmuje wyłącznie MumieA2. Nie deklarujemy jakości innych gier ani istotności statystycznej.
+
+Po freeze liczniki:196zatwierdzonych/133zdjęcia, TRAIN146/98; zapisane TRAIN146/98 i nowe0/0, VALIDATION17/13, REGRESSION21/13. Nowe69plansz z poprzedniego podglądu weszły do zamrożonego TRAIN; dlatego licznik nowych spadł do0. Bufor12opisanychplansz/53źródła, wyłączone12/9 bez zmian. Zachowano niezależną od TRAIN pulę testową i ochrony.
+
+Rzeczywisty Admin po restarcie pokazał PASS i powyższe liczniki. Przycisk sprawdzenia aktualności przeszedł w loading, zakończył się potwierdzeniem i nowym preview. Zaznaczenie potwierdzenia odblokowało Apply; checkbox następnie odznaczono, Apply nie kliknięto. Default oraz przypisanie MumieA2 pozostały Mumie v1, revision1. Kandydat oczekuje na osobne zastosowanie operatora. Starsze importy i ręczna geometria nie zostały przeliczone.
+
+Dowody w root `artifacts/grid-growth-deploy-20261103`: `before-resume-afterfix.json`, `learning-resume-afterfix-intent.json`, `learning-resume-afterfix-response.json`, `afterfix-history.jsonl`, `latest-afterfix.json`, `final-evaluation.json`, `latest-ready.json`, `database-before179.json`, `database-after179.json`, `final-panel-pass.png`. Rzeczywisty obraz panelu pokazuje tabelę15→17poprawnych w kontroli końcowej. Historyczne checkpointy raportu powyżej pozostają zapisem kolejnych etapów, nie aktualnym blockerem.
+
+DoD: kod i kontrakt, migracje/restart, liczniki, aktualność i rzeczywisty trening/ocena potwierdzone. Audyty1139/1140/1145/1147/1149/1150 i1151 rzeczywiste, bez otwartych P0/P1; P2 oraz zastane niepowiązane FAIL opisane w raportach. Nie zgłaszamy pełnego globalnego quality/mypy PASS. Końcowy commit dokumentuje odbiór, a późniejszy metadata commit zapisze jego hash oraz finalny push.

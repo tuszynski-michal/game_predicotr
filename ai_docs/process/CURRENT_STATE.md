@@ -82,6 +82,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
 - **TASK-1132** — Odbiór detektora i wymiany źródeł — v1.7.533 / `675f0135` — tasks/completed/1132-readability-replacement-acceptance.md
@@ -91,4 +92,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
 - **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md
-- **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md

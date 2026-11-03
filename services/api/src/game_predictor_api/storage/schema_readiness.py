@@ -1,7 +1,7 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
 The ownership manifest is ``game-data-v2-manifest-v21``.
-0173 merges corrections/readability heads; 0174 adds replacement planning and chronology.
+0177 adds physical source purge to the replacement ownership and closure guards.
 API, worker and maintenance
 scripts still require the exact supported Alembic head before starting.
 One ``SELECT``.
@@ -15,7 +15,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0174_source_replacement"
+EXPECTED_ALEMBIC_HEAD: Final = "0177_source_replacement_purge"
 
 
 class AlembicHeadMismatchError(RuntimeError):

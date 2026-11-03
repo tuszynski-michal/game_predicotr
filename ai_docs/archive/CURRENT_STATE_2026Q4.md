@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1146 — Kontrola schematu przy starcie (done)
+
+- Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540** (hash dopisuje kolejny commit).
+- Dokładny pin0177 zgodny z jedyną głową Alembic; zachowana odmowa starych i obcych rewizji.
+- Odtworzony FAIL przed poprawką;23pytest PASS, produkcyjny mypy i Ruff/docs4/map PASS. Trzy zastane błędy typów historycznych testów merge potwierdzone i opisane w Outcome.
+- Audyt Opus5.5/high PASS, bez P0/P1/P2; actual modelUsage potwierdzone. Bez usług, migracji i danych operatora; wdrożenie prowadzi koordynator.
+
 ### TASK-1141 — Fizyczne usuwanie zastępowanego zdjęcia (done)
 
 - Task: `tasks/completed/1141-source-replacement-physical-purge.md`; commit **v1.7.535 / `77651b67f206dc43d35baa26e1e71b8c7d797b69`** (hash dopisuje kolejny commit).

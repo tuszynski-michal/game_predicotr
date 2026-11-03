@@ -1,6 +1,6 @@
 # Selektor — płynna nawigacja 2026-11-03
 
-Status: accepted. Operator zlecił cały plan P1–P3 i zaakceptował koszt 2–4 godzin. Bez dodatkowego audytu zgodnie z tabelą planu. Praca od main, bez merge/push.
+Status: accepted. TASK-1142–1144 done. Wydanie 1.0.5: quality/SELECTOR_SMOOTH_1_0_5_20261103.md; 42420 JPEG, warm p95 25,4 ms i zero pustych klatek. Merge/push nie wykonano. Operator zlecił cały plan P1–P3 i zaakceptował koszt 2–4 godzin. Bez dodatkowego audytu zgodnie z tabelą planu. Praca od main, bez merge/push.
 
 ## Cel i zadania
 

@@ -15,7 +15,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 - **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
-- **Selektor 1.0.4 / TASK-1104–1107 (2026-10-29):** finalny ZIP i sześć smoke PASS, warm p95 25,5 ms na lokalnej partii. Bez audytów (decyzja operatora), usług, migracji, merge/push. Reboot i komputer odbiorcy pending. Źródło, SHA i zakres testów: `quality/SELECTOR_FLUENCY_1_0_4_20261029.md`.
+- **Selektor 1.0.5 / TASK-1142–1144 (2026-11-03):** ZIP i smoke PASS. 42420 JPEG: warm p95 25,4 ms, zero pustych klatek. Bez zmian danych operatora i merge/push. Reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 
@@ -74,16 +74,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1144 — Odbiór i wydanie Selektora (in_progress)
-
-- Plik: `tasks/1144-selector-smooth-navigation.md`. Plan `delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md`; cały zakres i koszt zaakceptowane. Następny krok: P3.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 — tasks/completed/1144-selector-smooth-navigation.md
 - **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md
 - **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 / `9efbaa3a` — tasks/completed/1142-selector-smooth-navigation.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
@@ -93,4 +90,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
 - **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
-- **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md

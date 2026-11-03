@@ -2,7 +2,7 @@
 
 ## Status
 
-in_progress
+`done`
 
 ## Goal
 
@@ -21,12 +21,34 @@ gpt-6.1-sol / medium. Bez dodatkowego audytu według zaakceptowanego planu.
 
 ## Acceptance criteria
 
-- Kryteria P3 planu, testy zmienionego pionu, lint i typecheck.
+- [x] Finalny ZIP ma sprawdzone SHA-256, ASAR i metadane czystego kodu aplikacji.
+- [x] Regresje projektu, recovery, IPC, skrótów, zoom/scroll/fullscreen, zgodność 1.0.4–1.0.5 oraz lint/typecheck PASS.
+- [x] Finalna paczka spełnia p95 warm <=50 ms i zero pustych klatek na 42420 zdjęciach.
+- [x] Raport, Outcome i zamknięcie przez task-close; merge/push poza zakresem.
 
 ## Outcome
 
-W toku. Źródło odbioru operatora: 42420 zdjęć / 4487051647 B. Źródło tylko do odczytu; nowy projekt i wynik w izolowanym katalogu. Znany pomiar dużej partii ma limit 240 s po uprzedzeniu operatora. Istniejący projekt z blokadą nie jest otwierany ani zmieniany.
+Commit: v1.7.539 (hash dopisuje kolejny commit).
 
+### Changed
+
+Wydanie Selektor 1.0.5 z ciągłym podglądem, prefetch według skoku i lekkimi aktualizacjami nawigacji. Poprawiono overlay i potwierdzono ścisłym testem pozycję JPEG. Dodano ograniczony harness dużej istniejącej kolekcji oraz test zgodności 1.0.4–1.0.5. Kod artefaktu: v1.7.538 / 1f1131c15c70c6c040db3e2a69d6d9927044a673, czysty build.
+
+### Verification results
+
+Finalny ZIP: fluency, workflow, measurement, shortcuts, full offline i rzeczywiste 1.0.4 do 1.0.5 PASS. Na 42420 zdjęciach: 150 warm, p95 25,4 ms, max 54,9 ms; zero pustych klatek w 165 próbkach. Baseline 1.0.4: p95 38,9 ms, 108 pustych klatek. 10/10 zapisów i SHA zachowane po nowym procesie. Zestawy testów 46/46, 51/51, 32/32 i 110/110 PASS; wcześniejszy pion project/intents/workspace 78/78 PASS (zestawy pokrywają się). Format/lint/typecheck oraz docs:check i code-map:check PASS.
+
+### Not completed
+
+Bez merge/push, wdrożenia do uruchomionej aplikacji operatora, fizycznego rebootu i odbioru na innym komputerze. Duży pomiar używa nowego izolowanego projektu; istniejący projekt operatora z blokadą nie był otwierany. Zapis manifestu nadal O(D). Audyt nie jest wymagany przez zaakceptowany plan.
+
+### Documentation updates
+
+Raport quality/SELECTOR_SMOOTH_1_0_5_20261103.md zawiera dokładne dane, SHA, nieudane próby i ograniczenia. Zaktualizowane wymagania, architektura, mapa kodu, plan i katalog dokumentów. Taski zamykane przez task-close.
+
+### Recommended next task
+
+Odbiór operatora z ZIP 1.0.5; scalenie dopiero po akceptacji wyniku i wyraźnej zgodzie.
 
 ### Przebieg weryfikacji
 

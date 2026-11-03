@@ -936,6 +936,17 @@ reported steps, adopts a newer intact checkpoint and recovers a finished export 
 budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
 (`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.
 
+The child keeps Python stderr, unexpected tracebacks and faults supported by Python's
+`faulthandler` in `diagnostic-<attempt>.log` beside the sealed specification. Probe mode
+remains JSON-only and creates no diagnostic file. Unexpected Python exceptions inside
+training become a failed `GRID_TRAINING_UNEXPECTED_ERROR` result with the last reached
+step, written before the lease is released; they never count as a successful export.
+Abrupt external termination can still leave no result or useful traceback. In that case
+the supervisor keeps the conservative reservation and reports `GRID_TRAINING_CHILD_EXITED`.
+Python stderr is line-buffered to retain complete lines before abrupt exit. Native
+libraries writing directly to OS descriptor 2 still reach the supervisor's `DEVNULL`;
+this log is not a complete capture of CUDA/C++ stderr. Partial Python lines may be lost.
+
 ## Per-game candidate evaluation and proof currentness (D-559, TASK-0997)
 
 A registered `not_evaluated` candidate is compared with its base by a

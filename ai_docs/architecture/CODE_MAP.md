@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (276 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (277 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

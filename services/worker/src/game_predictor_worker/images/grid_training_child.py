@@ -4,7 +4,8 @@ Started by the ``grid_training`` lane supervisor with the configured CUDA interp
 reads only the pinned run specification and files: the frozen cohort snapshot, the base
 version's ``training-base`` and the run directory. It never opens the database. It holds
 the application GPU lease (D-557) and stops itself when the supervisor disappears, a
-cancel intent appears or its time limit passes. Every outcome ends with ``result.json``.
+cancel intent appears or its time limit passes. Handled outcomes end with
+``result-<attempt>.json``; a forcibly terminated process may leave no result.
 
     python -m game_predictor_worker.images.grid_training_child --probe
     python -m game_predictor_worker.images.grid_training_child --spec <run>/spec.json
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import faulthandler
 import hashlib
 import json
 import os
@@ -22,6 +24,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -323,6 +326,11 @@ def run(spec_path: Path) -> int:
     except ValueError as error:
         code = str(error).split(":", 1)[0]
         outcome = {"status": "failed", "code": code if code.isupper() else "GRID_TRAINING_FAILED"}
+    except Exception:
+        # Preserve the failure and reached step before releasing the lease.
+        # main() routes this traceback to the attempt's diagnostic log.
+        traceback.print_exc()
+        outcome = {"status": "failed", "code": "GRID_TRAINING_UNEXPECTED_ERROR"}
     finally:
         watchdog.stop()
     # The result is durable before the GPU lease is released: a supervisor that sees the
@@ -640,7 +648,27 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.probe:
         return probe()
-    return run(args.spec.resolve())
+    spec_path = args.spec.resolve()
+    spec = read_spec(spec_path)
+    # Supervisors intentionally do not pipe the long-lived child's stderr.
+    # Keep Python exceptions and native faults before that process disappears.
+    with (spec_path.parent / f"diagnostic-{spec['attempt']}.log").open(
+        "a", encoding="utf-8", buffering=1
+    ) as diagnostic:
+        was_enabled = faulthandler.is_enabled()
+        faulthandler.enable(file=diagnostic)
+        try:
+            with contextlib.redirect_stderr(diagnostic):
+                return run(spec_path)
+        except Exception:
+            traceback.print_exc(file=diagnostic)
+            diagnostic.flush()
+            raise
+        finally:
+            if was_enabled:
+                faulthandler.enable()
+            else:
+                faulthandler.disable()
 
 
 if __name__ == "__main__":

@@ -51,6 +51,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **TASK-1136 / odbiór operatora:** ten sam trening zachował checkpoint 3400/3600; limit kroków 4000/4000, czas 1149/3600 s. Kandydat nie powstał. Podgląd +200 kroków przygotowany, zgoda oczekiwana; bez resetu i aktywacji. Diagnostyka ma audyt Opus PASS.
+
 - **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
 
 - **Uczenie siatek z korekt / TASK-1120–1123 (2026-11-02):** w main i origin, cztery audyty Opus 5.5/high PASS. Migracje operatora do 0171 wykonane za zgodą, API/Admin i general/grid-training uruchomione; panel Mumie a2 gotowy (117 korekt), default i geometria zachowane. Bez treningu/aktywacji. Pełny mypy nadal wymaga osobnego baseline z uzgodnionym limitem; scoped checks PASS. Źródło: [raport odbioru](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
@@ -76,6 +78,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 — tasks/completed/1136-grid-training-runtime-failure.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
 - **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
 - **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
@@ -85,4 +88,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1120** — Dane z korekt i trwały podział — v1.7.517 / `e1fcae27` — tasks/completed/1120-grid-correction-training-data.md
 - **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md
 - **TASK-1115** — Uproszczenie ekranu wyszukiwania i modal supergry w Adminie — v1.7.511 / `3ad50668` — tasks/completed/1115-board-search-screen-simplification.md
-- **TASK-1114** — Usunięcie wyszukiwania wielu układów — v1.7.508 / `969c341c` — tasks/completed/1114-remove-multi-board-search.md

@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1136 — Trwała diagnostyka błędów trenera (done)
+
+- Plik: `tasks/completed/1136-grid-training-runtime-failure.md`.
+- Commit: **v1.7.529** (hash dopisuje kolejny commit).
+- Niespodziewany wyjątek zostawia failed result z krokiem przed release i osobny log Python stderr/traceback/faulthandler. 46 testów całego pionu i 4 finalne testy diagnostyki PASS, scoped lint/typecheck/docs/map PASS. Nowy proces z os._exit potwierdza trwałość pełnej linii.
+- Opus 5.5/high R1 PASS. P2-1 poprawione (buffering=1); P2-2 jawnie zaakceptowane (natywny fd 2 nie jest przechwytywany).
+- Pierwsza przyczyna awarii nadal nieodtworzona. Kontrolowane wznowienie tego samego runu skończyło się limitem 4000 kroków, checkpoint 3400/3600 zapisany. Kandydat i porównanie nadal zablokowane; zgoda na +200 kroków oczekiwana. Default i ręczna geometria zachowane. TASK-1135 wcześniej wdrożony main/origin v1.7.528.
+
 ### TASK-1135 — Timeout zamrażania korekt (done)
 
 - Plik: tasks/completed/1135-grid-learning-freeze-query.md

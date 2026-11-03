@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1128 — Strażnicy własności i historii wymiany źródeł (done)
 
 - Plik: `tasks/completed/1128-source-replacement-ownership.md`.
-- Commit: **v1.7.525** (hash dopisuje kolejny commit).
+- Commit: **v1.7.525 / `a41f8d8d18e9dce4a8f31afe9e145886c1404e41`** (hash dopisuje kolejny commit).
 - Wspólne SQL current/retired/reservation, bootstrap provisional i atomowy binding całego zdjęcia, API/worker/search/count/training/geometry parity; historia i legacy fallback zachowane.
 - Retention normalized source/crop/model/prediction, kodowany cleanup blocker przed side effects, fresh recovery/finalize pod bulk fence; same-SHA scope conflict. P2-2 B1 zamknięte.
 - Pełny pion selection metadata/backend/OpenAPI/generated/wrapper/Admin/Reviewer; C2 ma obowiązkowy preflight nowego SHA, korektę provisional i closure przed zwolnieniem slots.

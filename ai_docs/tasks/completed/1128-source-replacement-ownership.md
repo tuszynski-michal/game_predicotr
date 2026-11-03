@@ -88,7 +88,7 @@ Brak blokującego pytania. Operacyjny retirement/import mają osobne bramki i da
 
 ## Outcome
 
-Commit: v1.7.525 (hash dopisuje kolejny commit).
+Commit: v1.7.525 / `a41f8d8d18e9dce4a8f31afe9e145886c1404e41`.
 
 Wdrożono wspólne predykaty ID/SHA/reservation/current i guardy API/worker. Migracja 0175 dodaje funkcje ochronne, bez zmian danych operatora ani frozen manifestu v21. Exclusion set powstaje od małych tabel retired/slots; zwykłe odczyty bez replacement nie skanują geometrii. Legacy accepted/corrected fallback pozostaje, direct read od razu ukrywa stale fastdoc. Bootstrap dwóch slotów działa przed FK, finalny binding całego zdjęcia jest atomowy i idempotentny; roboczy dostęp nie daje current visibility. Normalny reject/revert i późne przypisanie sekwencji zachowują kontrakt.
 

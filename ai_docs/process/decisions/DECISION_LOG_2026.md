@@ -14,6 +14,16 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-580 — Wycofanie całego źródła i autoryzacja otwartej luki
+
+- Status: accepted
+- Data: 2026-11-03
+- Kontekst: TASK-1129, zatwierdzony plan i techniczne doprecyzowania koordynatora. D-579 pozostaje nadrzędną granicą zachowania historii.
+- Decyzja: niezmienny manifest przed mutacją, świeży podgląd i exact CAS/receipt per photo. Drift odmawia; jedynie nowy wewnętrzny derive tego samego batcha ma udowodniony immutable receipt wyjątek. Lock game EXCLUSIVE, seq/source rosnąco, potem review/board. Własne pending wycofane z pełnym prior; deferred nie otrzymuje fałszywego successor ani rejection. Marker każdego aliasu i SHA pozostaje po restored.
+- Autoryzacja: request-v1 per-entry z exact ranges/revision/digest jest sprawdzany w obecnym uwierzytelnionym API. Origin z pliku nie jest adresem docelowym; brak automatycznego połączenia i credentials. Bez UUID instalacji i globalnej batch revision jako warunku kontynuacji pozostałych entries.
+- Konsekwencje: source/board/geometry/quality i pozostałe dependencies nadal wymagają pełnej zgodności; samo podobieństwo job type nie daje wyjątku. Mobile publication i markready trzymają game SHARED fences. Cancel tylko planned, bez restore/expiry. Retention i frozen historia nie są usuwane.
+- Alternatywy: cichy rebase odrzucony (zmieniałby potwierdzony zakres); nowy plan po własnym derive odrzucony (psułby batch workflow); fałszywy successor deferred odrzucony (zafałszowanie historii).
+
 ## D-579 — Manifest wymiany źródła z zachowaniem historii
 
 - **Date:** 2026-11-03.

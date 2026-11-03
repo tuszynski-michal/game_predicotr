@@ -27,6 +27,11 @@ from game_predictor_api.schemas.source_replacement import (
     SourceReplacementCreateRequest,
     SourceReplacementManifestResponse,
     SourceReplacementPreviewRequest,
+    SourceReplacementRequestExport,
+    SourceRetirementCommand,
+    SourceRetirementPreviewRequest,
+    SourceRetirementPreviewResponse,
+    SourceRetirementResult,
 )
 
 CleanupServiceDependency = Callable[..., object]
@@ -115,16 +120,26 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
 
     @router.post(
         "/games/{game_id}/board-source-cleanup-preview",
-        response_model=CleanupPreviewResponse | SourceReplacementManifestResponse,
+        response_model=CleanupPreviewResponse
+        | SourceReplacementManifestResponse
+        | SourceRetirementPreviewResponse,
         operation_id="previewBoardSourceCleanup",
         summary="Preview deletion of complete image-source ranges selected by board number",
         responses=ERROR_RESPONSES,
     )
     def preview_board_source_cleanup(
         game_id: UUID,
-        payload: BoardSourceCleanupPreviewRequest | SourceReplacementPreviewRequest,
+        payload: BoardSourceCleanupPreviewRequest
+        | SourceReplacementPreviewRequest
+        | SourceRetirementPreviewRequest,
         service: Annotated[CleanupService, service_parameter],
-    ) -> CleanupPreviewResponse | SourceReplacementManifestResponse:
+    ) -> (
+        CleanupPreviewResponse | SourceReplacementManifestResponse | SourceRetirementPreviewResponse
+    ):
+        if isinstance(payload, SourceRetirementPreviewRequest):
+            return SourceRetirementPreviewResponse.model_validate(
+                service.replacement_plans.retirement_preview(game_id, payload)
+            )
         if isinstance(payload, SourceReplacementPreviewRequest):
             return SourceReplacementManifestResponse.model_validate(
                 service.replacement_plans.preview(game_id, payload.source_ids)
@@ -138,16 +153,22 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
 
     @router.delete(
         "/games/{game_id}/board-sources",
-        response_model=CleanupResultResponse,
+        response_model=CleanupResultResponse | SourceRetirementResult,
         operation_id="deleteBoardSourceRanges",
         summary="Delete complete image-source ranges and their dependent board data",
         responses=ERROR_RESPONSES,
     )
     def delete_board_source_ranges(
         game_id: UUID,
-        payload: BoardSourceCleanupCommandRequest | SourceReplacementCreateRequest,
+        payload: BoardSourceCleanupCommandRequest
+        | SourceReplacementCreateRequest
+        | SourceRetirementCommand,
         service: Annotated[CleanupService, service_parameter],
-    ) -> CleanupResultResponse:
+    ) -> CleanupResultResponse | SourceRetirementResult:
+        if isinstance(payload, SourceRetirementCommand):
+            return SourceRetirementResult.model_validate(
+                service.replacement_plans.retirement_command(game_id, payload)
+            )
         if isinstance(payload, SourceReplacementCreateRequest):
             raise SourceReplacementError(
                 "SOURCE_REPLACEMENT_RETIREMENT_NOT_READY",
@@ -248,6 +269,22 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
             ),
             media_type="application/json",
             headers={"Content-Disposition": f'attachment; filename="replacement-{batch_id}.json"'},
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}/replacement-request",
+        response_model=SourceReplacementRequestExport,
+        operation_id="exportSourceReplacementRequest",
+        responses=ERROR_RESPONSES,
+    )
+    def replacement_request(
+        game_id: UUID,
+        batch_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+        entry_ids: Annotated[list[UUID], Query(alias="entryIds", min_length=1, max_length=50)],
+    ) -> SourceReplacementRequestExport:
+        return SourceReplacementRequestExport.model_validate(
+            service.replacement_plans.replacement_request(game_id, batch_id, entry_ids)
         )
 
     return router

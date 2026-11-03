@@ -34058,6 +34058,74 @@
         "title": "RemoteSourceKind",
         "type": "string"
       },
+      "ReplacementAllowedRange": {
+        "additionalProperties": false,
+        "properties": {
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "sequenceEnd": {
+            "minimum": 1.0,
+            "title": "Sequenceend",
+            "type": "integer"
+          },
+          "sequenceStart": {
+            "minimum": 1.0,
+            "title": "Sequencestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entryId",
+          "sequenceStart",
+          "sequenceEnd"
+        ],
+        "title": "ReplacementAllowedRange",
+        "type": "object"
+      },
+      "ReplacementRequestEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "sourceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcesha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entryId",
+          "revision",
+          "digest",
+          "sourceSha256",
+          "sequenceNumbers"
+        ],
+        "title": "ReplacementRequestEntry",
+        "type": "object"
+      },
       "ResolveUnreadableCellRequest": {
         "additionalProperties": false,
         "properties": {
@@ -38949,6 +39017,17 @@
             "title": "Evidence",
             "type": "array"
           },
+          "failureCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurecode"
+          },
           "geometryRevisions": {
             "items": {
               "additionalProperties": true,
@@ -39041,6 +39120,17 @@
             "title": "Revision",
             "type": "integer"
           },
+          "scopeDigest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scopedigest"
+          },
           "sequenceNumbers": {
             "items": {
               "type": "integer"
@@ -39128,7 +39218,6 @@
             "type": "string"
           },
           "retirementAvailable": {
-            "const": false,
             "default": false,
             "title": "Retirementavailable",
             "type": "boolean"
@@ -39192,6 +39281,261 @@
           "sourceIds"
         ],
         "title": "SourceReplacementPreviewRequest",
+        "type": "object"
+      },
+      "SourceReplacementRequestExport": {
+        "additionalProperties": false,
+        "properties": {
+          "allowedRanges": {
+            "items": {
+              "$ref": "#/components/schemas/ReplacementAllowedRange"
+            },
+            "title": "Allowedranges",
+            "type": "array"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ReplacementRequestEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "source-replacement-request-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "gameId",
+          "batchId",
+          "entries",
+          "allowedRanges",
+          "digest"
+        ],
+        "title": "SourceReplacementRequestExport",
+        "type": "object"
+      },
+      "SourceRetirementCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "retire",
+              "cancel"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "mode": {
+            "const": "replace_preserve_history",
+            "title": "Mode",
+            "type": "string"
+          },
+          "previewToken": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewtoken"
+          }
+        },
+        "required": [
+          "mode",
+          "action",
+          "batchId",
+          "entryId",
+          "expectedRevision",
+          "idempotencyKey",
+          "confirmed"
+        ],
+        "title": "SourceRetirementCommand",
+        "type": "object"
+      },
+      "SourceRetirementPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "retire",
+            "title": "Action",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "replace_preserve_history",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "action",
+          "batchId",
+          "entryId",
+          "expectedRevision"
+        ],
+        "title": "SourceRetirementPreviewRequest",
+        "type": "object"
+      },
+      "SourceRetirementPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "retire",
+            "title": "Action",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/SourceReplacementEntryResponse"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "action",
+          "previewToken",
+          "entry"
+        ],
+        "title": "SourceRetirementPreviewResponse",
+        "type": "object"
+      },
+      "SourceRetirementResult": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "createdDerivations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Createdderivations",
+            "type": "array"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "gap_open",
+              "cancelled"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scopeDigest": {
+            "title": "Scopedigest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "phase",
+          "scopeDigest"
+        ],
+        "title": "SourceRetirementResult",
         "type": "object"
       },
       "StorageGcJobPayload": {
@@ -47913,6 +48257,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/SourceReplacementPreviewRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SourceRetirementPreviewRequest"
                   }
                 ],
                 "title": "Payload"
@@ -47932,6 +48279,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/SourceReplacementManifestResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SourceRetirementPreviewResponse"
                     }
                   ],
                   "title": "Response Previewboardsourcecleanup"
@@ -48017,6 +48367,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/SourceReplacementCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SourceRetirementCommand"
                   }
                 ],
                 "title": "Payload"
@@ -48030,7 +48383,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CleanupResultResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CleanupResultResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SourceRetirementResult"
+                    }
+                  ],
+                  "title": "Response Deleteboardsourceranges"
                 }
               }
             },
@@ -48465,6 +48826,94 @@
           }
         },
         "summary": "Export",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-sources/{batch_id}/replacement-request": {
+      "get": {
+        "operationId": "exportSourceReplacementRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entryIds",
+            "required": true,
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "minItems": 1,
+              "title": "Entryids",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReplacementRequestExport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Replacement Request",
         "tags": [
           "cleanup"
         ]

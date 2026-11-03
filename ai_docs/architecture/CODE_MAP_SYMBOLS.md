@@ -252,6 +252,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/source_crop_eligibility.py: class CropExclusion, class CropSourceFacts, class CropBoardGeometry, class CropBlobEligibility, managed_original_relative_path, classify_blob
 - domain/source_recording_groups.py: class RecordingError, canonical_recording_json, recording_sha256, protected_recording_mapping, class AncestorResolution, resolve_ancestor_references
 - domain/source_replacement.py: class SourceReplacementError, qualification, manifest_csv, preview_document
+- domain/source_replacement_retirement.py: planned_scope, scope_digest, retirement_resolved_value
 - domain/storage_capacity.py: class StorageCapacityPolicy, class StorageVolumeCapacity, class StorageCapacityDecision, conservative_image_storage_estimate, evaluate_storage_capacity
 - domain/storage_retention.py: class StorageArtifactClass, class StorageRootKind, class StorageProtectionReason, class BrowserStagingRetentionState, class StorageRetentionPolicy, class StorageArtifactObservation, class StorageRetentionDecision, class StorageGcManifestEntry, is_safe_managed_relative_path, evaluate_storage_retention, class CohortAssetReferenceState, cohort_asset_path_identity, manifest_entry_from_decision, canonical_gc_manifest_bytes, gc_manifest_checksum_sha256, gc_preview_token
 - domain/super_game_markers.py: class SuperGameMarkerKind, class SuperGameMarker, marker_for_position, class SuperGameMarkers
@@ -320,7 +321,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/source_crop_runs.py: class SourceCropScopeModel, class SourceCropPreviewCreate, class SourceCropRunStart, class SourceCropFailureResponse, class SourceCropRunResponse, class SourceCropRunListResponse
 - schemas/source_lattice_geometry.py: class SourceLatticePoint, to_source_lattice_nodes, lattice_nodes_payload
 - schemas/source_recording_groups.py: class RecordingSelection, class SourceRecordingCommandRequest, class SourceRecordingGroupResponse, class SourceRecordingGroupListResponse, class SourceRecordingCommandResponse
-- schemas/source_replacement.py: class SourceReplacementPreviewRequest, class SourceReplacementCreateRequest, class SourceReplacementEntryResponse, class SourceReplacementManifestResponse, class SourceReplacementCandidateResponse, class SourceReplacementCandidatePage, class SourceReplacementBatchResponse
+- schemas/source_replacement.py: class SourceReplacementPreviewRequest, class SourceReplacementCreateRequest, class SourceReplacementEntryResponse, class SourceReplacementManifestResponse, class SourceReplacementCandidateResponse, class SourceReplacementCandidatePage, class SourceReplacementBatchResponse, class SourceRetirementPreviewRequest, class SourceRetirementCommand, class SourceRetirementPreviewResponse, class SourceRetirementResult, class ReplacementRequestEntry, class ReplacementAllowedRange, class SourceReplacementRequestExport
 - schemas/super_game_markers.py: class SuperGamePublicMarkerResponse, class SuperGameMarkerResponse, to_super_game_marker_response, marker_response_at
 - schemas/super_game_series.py: class SuperGameStateResponse, class SuperGameSeriesResponse, class SuperGameSeriesCountsResponse, class SuperGameSeriesListResponse, class SuperGameSeriesBoardResponse, class SuperGameSeriesBoardsResponse, class SuperSymbolUpdate, class SuperGameSeriesDeriveResponse
 - schemas/symbol_model_iterations.py: class SymbolTrainingConfigurationCommand, class CreateSymbolTrainingCommand, class SymbolModelIterationResponse, class CreateSymbolTrainingResponse, class SymbolModelActivationCommand, class LabSymbolCandidateSummaryResponse, class LabSymbolCandidateResponse, class ImportLabSymbolCandidateCommand, class SymbolModelDeactivationCommand, to_lab_candidate_response, class SymbolModelActivationPreviewResponse, class SymbolModelActivationResponse, class SymbolModelActivationCommandResponse, to_iteration_response, to_activation_preview_response, to_activation_response
@@ -484,6 +485,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_replacement_binding.py: class ReplacementAdmission, admitted_source, authorize_working_source, replacement_claim, bind_complete_source
 - storage/source_replacement_decisions.py: append_quality_decision
 - storage/source_replacement_guards.py: source_current_clause, current_clause, current_review_clause, require_active_source, require_active_sha, require_current_review, require_sequence_binding, require_cohort_sources, referenced_sources, require_unreferenced_sources, reservation, referenced_artifact
+- storage/source_replacement_retirement.py: class SourceRetirement
 - storage/source_replacement_selection.py: annotate_review_sources, sequence_source_selection
 - storage/storage_gc_repository.py: class SqlAlchemyStorageGcRepository
 - storage/super_game_input_version.py: class SuperGameInputWritePoint, lock_super_game_state, enqueue_super_game_series_derive, record_super_game_input_change
@@ -881,6 +883,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/cleanup/cleanup-control.tsx: CleanupControl
 - features/cleanup/cleanup-labels.ts: cleanupCountLabel
 - features/cleanup/source-replacement-panel.tsx: SourceReplacementClient, SourceReplacementPanel
+- features/cleanup/source-retirement-actions.tsx: SourceRetirementActions
 - features/datasets/dataset-actions.ts: DatasetsClient, GenerateMockDatasetResult, generateMockDataset, GetDatasetValidationReportResult, getDatasetValidationReport, ListDatasetLayoutsResult, listDatasetLayouts, DatasetTransitionResult, publishDataset, archiveDataset
 - features/datasets/dataset-catalog.tsx: DatasetCatalog
 - features/datasets/dataset-preview-modal.tsx: DatasetPreviewModal

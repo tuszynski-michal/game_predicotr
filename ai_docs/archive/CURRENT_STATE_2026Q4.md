@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1129 — Wycofanie źródła z zachowaniem historii (done)
+
+- Plik: `tasks/completed/1129-source-replacement-retirement.md`.
+- Commit: **v1.7.527** (hash dopisuje kolejny commit).
+- B2b: niezmienny plan, świeży preview i atomowy retirement całego zdjęcia/aliasów, reservations, pełne prior pending i trwały receipt; cancel tylko planned.
+- Typed request-v1 tylko gap_open, API/generated/wrapper/fixture i UI confirm/reload/retry; current projections oraz mobile publication chronione. Bez zmian danych operatora, migracji, usług lub push.
+- Testy: PostgreSQL 2 PASS; jednostkowe 93 PASS, 1 deselected; UI/wrapper 6 PASS; lint/type/client/docs/map/OpenAPI PASS. Oddzielny APK collision PASS na HEAD i aktualnym kodzie; porażka wcześniejszej grupy pozostaje jawną niewyjaśnioną zależnością kolejności/środowiska do D1.
+- Audyt: `ai_docs/quality/TASK-1129_AUDIT_claude-opus-5-5.md`. C1/C2/D1 pozostają w planie.
+
 ### TASK-1128 — Strażnicy własności i historii wymiany źródeł (done)
 
 - Plik: `tasks/completed/1128-source-replacement-ownership.md`.

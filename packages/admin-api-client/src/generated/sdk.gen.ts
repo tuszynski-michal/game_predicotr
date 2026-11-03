@@ -318,6 +318,9 @@ import type {
   ExportSourceReplacementBatchData,
   ExportSourceReplacementBatchErrors,
   ExportSourceReplacementBatchResponses,
+  ExportSourceReplacementRequestData,
+  ExportSourceReplacementRequestErrors,
+  ExportSourceReplacementRequestResponses,
   ExportV7LabelGeometryCalibrationSessionData,
   ExportV7LabelGeometryCalibrationSessionErrors,
   ExportV7LabelGeometryCalibrationSessionResponses,
@@ -2115,6 +2118,27 @@ export const exportSourceReplacementBatch = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/export',
+    ...options,
+  });
+
+/**
+ * Replacement Request
+ */
+export const exportSourceReplacementRequest = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ExportSourceReplacementRequestData, ThrowOnError>,
+): RequestResult<
+  ExportSourceReplacementRequestResponses,
+  ExportSourceReplacementRequestErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ExportSourceReplacementRequestResponses,
+    ExportSourceReplacementRequestErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/replacement-request',
     ...options,
   });
 

@@ -208,7 +208,10 @@ game_id=:game
     with factory() as session:
         repo = SourceReplacementRepository(session)
         assert repo.create(GAME_ID, request) == result
-        assert repo.get(GAME_ID, UUID(result["id"])) == result
+        loaded = repo.get(GAME_ID, UUID(result["id"]))
+        assert loaded["id"] == result["id"] and loaded["revision"] == result["revision"]
+        assert loaded["entries"][0]["boards"] == result["entries"][0]["boards"]
+        assert loaded["entries"][0]["scope_digest"]
         assert session.scalar(text("SELECT count(*) FROM source_replacement_slots")) == 0
         assert session.scalar(text("SELECT count(*) FROM source_replacement_retired")) == 0
         assert session.scalar(text("SELECT count(*) FROM source_images")) == 2

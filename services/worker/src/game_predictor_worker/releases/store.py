@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import JobStatus
@@ -20,7 +21,7 @@ from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
 from game_predictor_api.storage.models import JobModel, MobileReleaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -33,6 +34,58 @@ class SqlAlchemyReleaseWorkflowStore:
             return SqlAlchemyMobileReleaseRepository(session).get_mobile_release(mobile_release_id)
 
     def require_current_sources(self, release: MobileRelease) -> None:
+        with self.publication_fence(release):
+            self._validate_sources(release)
+
+    @contextmanager
+    def publication_fence(self, release: MobileRelease) -> Iterator[None]:
+        """Hold sorted per-game shared fences through physical publication and receipt.
+
+        Separate routed sessions preserve RLS and the single-game session invariant.
+        Retirement requires the incompatible EXCLUSIVE fence.
+        """
+        from game_predictor_api.storage.game_storage_routing import (
+            GameStorageIntent,
+            GameStorageRouter,
+            game_storage_scope,
+        )
+        from game_predictor_api.storage.sequence_ownership_lock import (
+            SequenceOwnershipLockMode,
+            acquire_sequence_ownership_lock,
+        )
+
+        games = sorted(release.games, key=lambda item: str(item.game_id))
+        # One lock-only connection for all games, one short routed reader at a time.
+        # The number of simultaneous connections does not grow with release size.
+        with self._session_factory() as fence, fence.begin():
+            fence.execute(text("SET LOCAL lock_timeout='5s'"))
+            for game in games:
+                acquire_sequence_ownership_lock(
+                    fence, game_id=game.game_id, mode=SequenceOwnershipLockMode.SHARED
+                )
+            for game in games:
+                with (
+                    game_storage_scope(game.game_id),
+                    self._session_factory() as session,
+                    session.begin(),
+                ):
+                    GameStorageRouter().bind(session, game.game_id, intent=GameStorageIntent.READ)
+                    session.execute(text("SET LOCAL statement_timeout='30s'"))
+                    if session.scalar(
+                        text(
+                            "SELECT EXISTS(SELECT 1 FROM source_replacement_slots "
+                            "WHERE game_id=:game)"
+                        ),
+                        {"game": game.game_id},
+                    ):
+                        raise MobileReleaseConflictError(
+                            "SOURCE_REPLACEMENT_RESERVED",
+                            "Gra ma otwartą rezerwację wymiany zdjęcia.",
+                            details={"gameId": str(game.game_id)},
+                        )
+            yield
+
+    def _validate_sources(self, release: MobileRelease) -> None:
         with self._session_factory() as session, session.begin():
             repository = SqlAlchemyMobileReleaseRepository(session)
             for game in release.games:

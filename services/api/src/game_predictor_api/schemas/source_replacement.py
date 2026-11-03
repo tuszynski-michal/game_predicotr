@@ -24,6 +24,8 @@ class SourceReplacementEntryResponse(ApiModel):
     id: UUID | None = None
     phase: str = "planned"
     revision: int = 0
+    scope_digest: str | None = None
+    failure_code: str | None = None
     source_ids: list[UUID]
     source_sha256: str
     range_start: int | None
@@ -52,7 +54,7 @@ class SourceReplacementManifestResponse(ApiModel):
     entries: list[SourceReplacementEntryResponse]
     revision: int
     status: str
-    retirement_available: Literal[False] = False
+    retirement_available: bool = False
     preview_token: str
 
 
@@ -75,3 +77,65 @@ class SourceReplacementBatchResponse(ApiModel):
     status: str
     preview_token: str
     created_at: datetime
+
+
+class SourceRetirementPreviewRequest(ApiModel):
+    mode: Literal["replace_preserve_history"]
+    action: Literal["retire"]
+    batch_id: UUID
+    entry_id: UUID
+    expected_revision: int = Field(ge=1)
+
+
+class SourceRetirementCommand(ApiModel):
+    mode: Literal["replace_preserve_history"]
+    action: Literal["retire", "cancel"]
+    batch_id: UUID
+    entry_id: UUID
+    expected_revision: int = Field(ge=1)
+    idempotency_key: UUID
+    confirmed: Literal[True]
+    preview_token: str | None = Field(default=None, pattern="^[0-9a-f]{64}$")
+
+
+class SourceRetirementPreviewResponse(ApiModel):
+    game_id: UUID
+    batch_id: UUID
+    entry_id: UUID
+    revision: int
+    action: Literal["retire"]
+    preview_token: str
+    entry: SourceReplacementEntryResponse
+
+
+class SourceRetirementResult(ApiModel):
+    game_id: UUID
+    batch_id: UUID
+    entry_id: UUID
+    revision: int
+    phase: Literal["gap_open", "cancelled"]
+    scope_digest: str
+    created_derivations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ReplacementRequestEntry(ApiModel):
+    entry_id: UUID
+    revision: int = Field(ge=1)
+    digest: str = Field(pattern="^[0-9a-f]{64}$")
+    source_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    sequence_numbers: list[int]
+
+
+class ReplacementAllowedRange(ApiModel):
+    entry_id: UUID
+    sequence_start: int = Field(ge=1)
+    sequence_end: int = Field(ge=1)
+
+
+class SourceReplacementRequestExport(ApiModel):
+    schema_version: Literal["source-replacement-request-v1"]
+    game_id: UUID
+    batch_id: UUID
+    entries: list[ReplacementRequestEntry]
+    allowed_ranges: list[ReplacementAllowedRange]
+    digest: str = Field(pattern="^[0-9a-f]{64}$")

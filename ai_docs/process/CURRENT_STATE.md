@@ -43,7 +43,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1129–1132; B2a done v1.7.525, guards/0175 bez operator mutations; C2 ma obowiązkowe admission/restore preflight | `codex/777a2-readability-replacement` |
+| `delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md` | accepted; cały plan i koszt, audyt Opus5.5 po każdym tasku | TASK-1130–1132; B2b done v1.7.527, retirement/request-v1 bez operator mutations; C2 ma obowiązkowe admission/restore preflight | `codex/777a2-readability-replacement` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -78,6 +78,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 — tasks/completed/1129-source-replacement-retirement.md
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
 - **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
@@ -87,4 +88,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1125** — Trwały pilot i przegląd jakości — v1.7.519 / `8c096263` — tasks/completed/1125-readability-durable-review.md
 - **TASK-1124** — Rdzeń detektora jakości 777 A2 — v1.7.517 / `9e466d70` — tasks/completed/1124-readability-detector-core.md
 - **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md
-- **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md

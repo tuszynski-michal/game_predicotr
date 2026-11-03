@@ -122,30 +122,31 @@ class ReleaseWorkflowHandler:
                     total=progress_total,
                 )
 
-            snapshot = self._snapshot_publisher.publish(
-                ProductionSnapshotSpec(
-                    release_version=release.version,
-                    created_at=release.created_at,
-                    games=tuple(
-                        SnapshotGameSelection(
-                            dataset_version_id=game.dataset_version_id,
-                            rules_version_id=game.rules_version_id,
-                            algorithm_version=release.algorithm_version,
-                        )
-                        for game in release.games
-                    ),
+            with self._release_store.publication_fence(release):
+                snapshot = self._snapshot_publisher.publish(
+                    ProductionSnapshotSpec(
+                        release_version=release.version,
+                        created_at=release.created_at,
+                        games=tuple(
+                            SnapshotGameSelection(
+                                dataset_version_id=game.dataset_version_id,
+                                rules_version_id=game.rules_version_id,
+                                algorithm_version=release.algorithm_version,
+                            )
+                            for game in release.games
+                        ),
+                    )
                 )
-            )
-            snapshot_relative_path = _relative_path(
-                snapshot.database_path,
-                self._artifact_root,
-            )
-            release = self._release_store.record_snapshot(
-                release.id,
-                build_job_id=job.id,
-                relative_path=snapshot_relative_path,
-                checksum=snapshot.manifest.snapshot_file_sha256,
-            )
+                snapshot_relative_path = _relative_path(
+                    snapshot.database_path,
+                    self._artifact_root,
+                )
+                release = self._release_store.record_snapshot(
+                    release.id,
+                    build_job_id=job.id,
+                    relative_path=snapshot_relative_path,
+                    checksum=snapshot.manifest.snapshot_file_sha256,
+                )
             _checkpoint(
                 context,
                 release=release,
@@ -186,12 +187,13 @@ class ReleaseWorkflowHandler:
                 apk_path=apk_relative_path,
                 apk_checksum=apk.apk_sha256,
             )
-            self._release_store.mark_ready(
-                release.id,
-                build_job_id=job.id,
-                apk_relative_path=apk_relative_path,
-                apk_checksum=apk.apk_sha256,
-            )
+            with self._release_store.publication_fence(release):
+                self._release_store.mark_ready(
+                    release.id,
+                    build_job_id=job.id,
+                    apk_relative_path=apk_relative_path,
+                    apk_checksum=apk.apk_sha256,
+                )
         except JobConflictError as error:
             if error.code != "JOB_LEASE_LOST":
                 self._mark_failed(release_id, job.id)

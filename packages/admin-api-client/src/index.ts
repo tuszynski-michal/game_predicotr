@@ -3,13 +3,25 @@ import {
   listSourceReplacementCandidates as generatedReplacementCandidates,
   listSourceReplacementBatches as generatedReplacementBatches,
   getSourceReplacementBatch as generatedReplacementBatch,
+  exportSourceReplacementRequest as generatedReplacementRequest,
 } from './generated/sdk.gen';
 import type {
   SourceReplacementPreviewRequest,
   SourceReplacementCreateRequest,
   SourceReplacementManifestResponse,
+  SourceRetirementPreviewRequest,
+  SourceRetirementPreviewResponse,
+  SourceRetirementCommand,
+  SourceRetirementResult,
 } from './generated/types.gen';
 export type {
+  SourceRetirementPreviewRequest,
+  SourceRetirementPreviewResponse,
+  SourceRetirementCommand,
+  SourceRetirementResult,
+  SourceReplacementRequestExport,
+  ReplacementRequestEntry,
+  ReplacementAllowedRange,
   SourceReplacementPreviewRequest,
   SourceReplacementCreateRequest,
   SourceReplacementManifestResponse,
@@ -4633,6 +4645,49 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         data: data as SourceReplacementManifestResponse | undefined,
       };
     },
+    previewSourceRetirement: async (
+      gameId: string,
+      body: SourceRetirementPreviewRequest,
+    ) => {
+      const result = await previewGeneratedBoardSourceCleanup({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+      if (result.data && !('action' in result.data))
+        throw new Error('Unexpected retirement preview response');
+      return {
+        ...result,
+        data: result.data as SourceRetirementPreviewResponse | undefined,
+      };
+    },
+    executeSourceRetirement: async (
+      gameId: string,
+      body: SourceRetirementCommand,
+    ) => {
+      const result = await deleteGeneratedBoardSourceRanges({
+        client,
+        path: { game_id: gameId },
+        body,
+        headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
+      });
+      if (result.data && !('phase' in result.data))
+        throw new Error('Unexpected retirement response');
+      return {
+        ...result,
+        data: result.data as SourceRetirementResult | undefined,
+      };
+    },
+    exportSourceReplacementRequest: (
+      gameId: string,
+      batchId: string,
+      entryIds: string[],
+    ) =>
+      generatedReplacementRequest({
+        client,
+        path: { game_id: gameId, batch_id: batchId },
+        query: { entryIds },
+      }),
     exportSourceReplacementUrl: (
       gameId: string,
       batchId: string,
@@ -4653,16 +4708,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         throw new Error('Unexpected cleanup response');
       return { ...result, data };
     },
-    deleteBoardSourceRanges: (
+    deleteBoardSourceRanges: async (
       gameId: string,
       body: BoardSourceCleanupCommandRequest,
-    ) =>
-      deleteGeneratedBoardSourceRanges({
+    ) => {
+      const result = await deleteGeneratedBoardSourceRanges({
         body,
         client,
         headers: confirmedTargetHeaders(`board-source-ranges:${gameId}`),
         path: { game_id: gameId },
-      }),
+      });
+      const data = result.data;
+      if (data && !('kind' in data))
+        throw new Error('Unexpected cleanup result');
+      return { ...result, data };
+    },
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>
       getGeneratedGame({ client, path: { game_id: gameId } }),

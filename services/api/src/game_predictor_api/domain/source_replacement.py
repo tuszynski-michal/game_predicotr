@@ -12,9 +12,12 @@ from game_predictor_api.domain.symbol_readability import crop_identity, digest
 
 
 class SourceReplacementError(ValueError):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self, code: str, message: str, *, details: dict[str, object] | None = None
+    ) -> None:
         self.code = code
         self.message = message
+        self.details = details or {}
         super().__init__(message)
 
 

@@ -62,9 +62,9 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 - `services/api/src/game_predictor_api/api/` (58 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (109 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (93 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/domain/` (94 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (62 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (184 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (185 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (446 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (125 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (448 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (126 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -142,10 +142,10 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (209 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (210 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
-  - `cleanup/` (5 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel (+2)
+  - `cleanup/` (6 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel (+3)
   - `datasets/` (6 plików): DatasetsClient, GenerateMockDatasetResult, generateMockDataset, GetDatasetValidationReportResult, getDatasetValidationReport, ListDatasetLayoutsResult, listDatasetLayouts, DatasetTransitionResult (+13)
   - `games/` (7 plików): GamesClient, GridEngineProfilesResult, loadGridEngineProfiles, SuperGameKindsResult, loadSuperGameKinds, SaveGameIntent, SaveGameResult, saveGameIdentity (+37)
   - `grid-shadow/` (2 plików): GridShadowPanelClient, GridShadowPanel, gridShadowErrorMessage, gridShadowSourceChoices, gridShadowUnknownVisibilityCount, gridShadowMeshLines, gridShadowReviewerUrl, gridShadowRequestId (+2)
@@ -182,7 +182,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Testy
 
 - `apps/admin/test/` (126 plików w katalogu testów, rekurencyjnie)
-- `apps/admin/test-interactions/` (41 plików w katalogu testów, rekurencyjnie)
+- `apps/admin/test-interactions/` (42 plików w katalogu testów, rekurencyjnie)
 - `apps/admin/test-browser/` (2 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy

@@ -2523,7 +2523,8 @@ def create_app(
         request: Request, error: SourceReplacementError
     ) -> JSONResponse:
         return JSONResponse(
-            status_code=409, content={"code": error.code, "message": error.message, "details": {}}
+            status_code=409,
+            content={"code": error.code, "message": error.message, "details": error.details},
         )
 
     @application.exception_handler(ReadabilityWorkflowError)

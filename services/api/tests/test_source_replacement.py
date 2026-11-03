@@ -152,7 +152,7 @@ def test_default_cleanup_dependency_preserves_empty_body_422_and_skips_recovery_
     artifacts = MagicMock()
     monkeypatch.setattr(main, "create_session_factory", lambda engine: lambda: session)
     monkeypatch.setattr(main, "SqlAlchemyCleanupRepository", lambda *args: repository)
-    monkeypatch.setattr(main, "ManagedCleanupArtifactStore", lambda root: artifacts)
+    monkeypatch.setattr(main, "ManagedCleanupArtifactStore", lambda root, **kwargs: artifacts)
     game, source = uuid4(), uuid4()
     plans = MagicMock()
     plans.preview.return_value = preview_document(str(game), [str(source)], [])

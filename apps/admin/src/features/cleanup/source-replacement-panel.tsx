@@ -9,6 +9,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { SourceRetirementActions } from './source-retirement-actions';
 
 export type SourceReplacementClient = Pick<
   AdminApiClient,
@@ -18,6 +19,9 @@ export type SourceReplacementClient = Pick<
   | 'previewSourceReplacement'
   | 'planSourceReplacement'
   | 'exportSourceReplacementUrl'
+  | 'previewSourceRetirement'
+  | 'executeSourceRetirement'
+  | 'exportSourceReplacementRequest'
 >;
 
 function isStoredCommand(
@@ -297,8 +301,8 @@ export function SourceReplacementPanel({
       {manifest && (
         <div>
           <p>
-            {manifest.status === 'planned'
-              ? 'Plan zapisany. Zdjęcia nadal są aktywne.'
+            {manifest.id
+              ? 'Zapisany plan. Stan każdego zdjęcia jest podany poniżej.'
               : 'Podgląd przed zapisem planu.'}
           </p>
           {manifest.entries.map((entry) => (
@@ -346,6 +350,16 @@ export function SourceReplacementPanel({
             >
               Zapisz plan wymiany
             </button>
+          )}
+          {manifest.id && (
+            <SourceRetirementActions
+              key={`${gameId}:${manifest.id}`}
+              gameId={gameId}
+              manifest={manifest}
+              api={api}
+              apiBaseUrl={apiBaseUrl}
+              refresh={open}
+            />
           )}
           {manifest.id && (
             <p>

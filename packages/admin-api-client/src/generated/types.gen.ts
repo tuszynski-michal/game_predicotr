@@ -19157,6 +19157,50 @@ export type RemoteSelectionReopenedResponse = {
 export type RemoteSourceKind = 'directory_handle' | 'webkitdirectory_reselect';
 
 /**
+ * ReplacementAllowedRange
+ */
+export type ReplacementAllowedRange = {
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Sequenceend
+   */
+  sequenceEnd: number;
+  /**
+   * Sequencestart
+   */
+  sequenceStart: number;
+};
+
+/**
+ * ReplacementRequestEntry
+ */
+export type ReplacementRequestEntry = {
+  /**
+   * Digest
+   */
+  digest: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sourcesha256
+   */
+  sourceSha256: string;
+};
+
+/**
  * ResolveUnreadableCellRequest
  */
 export type ResolveUnreadableCellRequest = {
@@ -21850,6 +21894,10 @@ export type SourceReplacementEntryResponse = {
     [key: string]: unknown;
   }>;
   /**
+   * Failurecode
+   */
+  failureCode?: string | null;
+  /**
    * Geometryrevisions
    */
   geometryRevisions: Array<{
@@ -21906,6 +21954,10 @@ export type SourceReplacementEntryResponse = {
    */
   revision?: number;
   /**
+   * Scopedigest
+   */
+  scopeDigest?: string | null;
+  /**
    * Sequencenumbers
    */
   sequenceNumbers: Array<number>;
@@ -21952,7 +22004,7 @@ export type SourceReplacementManifestResponse = {
   /**
    * Retirementavailable
    */
-  retirementAvailable?: false;
+  retirementAvailable?: boolean;
   /**
    * Revision
    */
@@ -21983,6 +22035,167 @@ export type SourceReplacementPreviewRequest = {
    * Sourceids
    */
   sourceIds: Array<string>;
+};
+
+/**
+ * SourceReplacementRequestExport
+ */
+export type SourceReplacementRequestExport = {
+  /**
+   * Allowedranges
+   */
+  allowedRanges: Array<ReplacementAllowedRange>;
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Digest
+   */
+  digest: string;
+  /**
+   * Entries
+   */
+  entries: Array<ReplacementRequestEntry>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'source-replacement-request-v1';
+};
+
+/**
+ * SourceRetirementCommand
+ */
+export type SourceRetirementCommand = {
+  /**
+   * Action
+   */
+  action: 'retire' | 'cancel';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+  /**
+   * Previewtoken
+   */
+  previewToken?: string | null;
+};
+
+/**
+ * SourceRetirementPreviewRequest
+ */
+export type SourceRetirementPreviewRequest = {
+  /**
+   * Action
+   */
+  action: 'retire';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Mode
+   */
+  mode: 'replace_preserve_history';
+};
+
+/**
+ * SourceRetirementPreviewResponse
+ */
+export type SourceRetirementPreviewResponse = {
+  /**
+   * Action
+   */
+  action: 'retire';
+  /**
+   * Batchid
+   */
+  batchId: string;
+  entry: SourceReplacementEntryResponse;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * SourceRetirementResult
+ */
+export type SourceRetirementResult = {
+  /**
+   * Batchid
+   */
+  batchId: string;
+  /**
+   * Createdderivations
+   */
+  createdDerivations?: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Entryid
+   */
+  entryId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Phase
+   */
+  phase: 'gap_open' | 'cancelled';
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Scopedigest
+   */
+  scopeDigest: string;
 };
 
 /**
@@ -26676,7 +26889,10 @@ export type PreviewBoardSourceCleanupData = {
   /**
    * Payload
    */
-  body: BoardSourceCleanupPreviewRequest | SourceReplacementPreviewRequest;
+  body:
+    | BoardSourceCleanupPreviewRequest
+    | SourceReplacementPreviewRequest
+    | SourceRetirementPreviewRequest;
   path: {
     /**
      * Game Id
@@ -26715,7 +26931,10 @@ export type PreviewBoardSourceCleanupResponses = {
    *
    * Successful Response
    */
-  200: CleanupPreviewResponse | SourceReplacementManifestResponse;
+  200:
+    | CleanupPreviewResponse
+    | SourceReplacementManifestResponse
+    | SourceRetirementPreviewResponse;
 };
 
 export type PreviewBoardSourceCleanupResponse =
@@ -26725,7 +26944,10 @@ export type DeleteBoardSourceRangesData = {
   /**
    * Payload
    */
-  body: BoardSourceCleanupCommandRequest | SourceReplacementCreateRequest;
+  body:
+    | BoardSourceCleanupCommandRequest
+    | SourceReplacementCreateRequest
+    | SourceRetirementCommand;
   path: {
     /**
      * Game Id
@@ -26760,9 +26982,11 @@ export type DeleteBoardSourceRangesError =
 
 export type DeleteBoardSourceRangesResponses = {
   /**
+   * Response Deleteboardsourceranges
+   *
    * Successful Response
    */
-  200: CleanupResultResponse;
+  200: CleanupResultResponse | SourceRetirementResult;
 };
 
 export type DeleteBoardSourceRangesResponse =
@@ -26988,6 +27212,55 @@ export type ExportSourceReplacementBatchResponses = {
    */
   200: unknown;
 };
+
+export type ExportSourceReplacementRequestData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Batch Id
+     */
+    batch_id: string;
+  };
+  query: {
+    /**
+     * Entryids
+     */
+    entryIds: Array<string>;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/replacement-request';
+};
+
+export type ExportSourceReplacementRequestErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ExportSourceReplacementRequestError =
+  ExportSourceReplacementRequestErrors[keyof ExportSourceReplacementRequestErrors];
+
+export type ExportSourceReplacementRequestResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceReplacementRequestExport;
+};
+
+export type ExportSourceReplacementRequestResponse =
+  ExportSourceReplacementRequestResponses[keyof ExportSourceReplacementRequestResponses];
 
 export type ListDatasetVersionsData = {
   body?: never;

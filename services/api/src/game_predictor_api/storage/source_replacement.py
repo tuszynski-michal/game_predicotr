@@ -488,7 +488,7 @@ command_sha256, batch_id, response)           VALUES(:game, :key, :sha,
         self.bind(game)
         rows = self.rows(
             """
-SELECT document FROM source_replacement_batches WHERE game_id=:game AND
+SELECT document, status, revision FROM source_replacement_batches WHERE game_id=:game AND
 id=:id
 """,
             game=game,
@@ -498,7 +498,53 @@ id=:id
             raise SourceReplacementError(
                 "SOURCE_REPLACEMENT_NOT_FOUND", "Nie znaleziono planu tej gry."
             )
-        return dict(rows[0]["document"])
+        from game_predictor_api.domain.source_replacement_retirement import scope_digest
+
+        document = dict(rows[0]["document"])
+        retirement_events = self.rows(
+            "SELECT r.entry_id,r.source_id,r.source_sha256,r.retired_at,"
+            "r.document->>'action' AS action,r.document->>'commandKey' AS command_key "
+            "FROM source_replacement_retired r JOIN source_replacement_entries e "
+            "ON e.game_id=r.game_id AND e.id=r.entry_id "
+            "WHERE r.game_id=:game AND e.batch_id=:batch ORDER BY r.source_id",
+            game=game,
+            batch=batch,
+        )
+        document.update(
+            status=rows[0]["status"], revision=rows[0]["revision"], retirement_available=True
+        )
+        document["entries"] = [
+            {
+                **row["document"],
+                "phase": row["phase"],
+                "revision": row["revision"],
+                "scope_digest": scope_digest(row["document"]),
+                "failure_code": row["failure_code"],
+                "retired": [event for event in retirement_events if event["entry_id"] == row["id"]],
+            }
+            for row in self.rows(
+                "SELECT * FROM source_replacement_entries WHERE game_id=:game AND "
+                "batch_id=:batch ORDER BY source_id",
+                game=game,
+                batch=batch,
+            )
+        ]
+        return document
+
+    def retirement_preview(self, game: UUID, request: Any) -> dict[str, Any]:
+        from game_predictor_api.storage.source_replacement_retirement import SourceRetirement
+
+        return SourceRetirement(self).preview(game, request)
+
+    def retirement_command(self, game: UUID, request: Any) -> dict[str, Any]:
+        from game_predictor_api.storage.source_replacement_retirement import SourceRetirement
+
+        return SourceRetirement(self).execute(game, request)
+
+    def replacement_request(self, game: UUID, batch: UUID, entries: list[UUID]) -> dict[str, Any]:
+        from game_predictor_api.storage.source_replacement_retirement import SourceRetirement
+
+        return SourceRetirement(self).export_request(game, batch, entries)
 
     def list(self, game: UUID) -> list[dict[str, Any]]:
         self.bind(game)

@@ -50,6 +50,9 @@ test('whole source preview saves only planned, lost response retries original ke
     revision: 0,
     entries: [
       {
+        id: '22222222-2222-4222-8222-222222222222',
+        phase: 'planned',
+        revision: 1,
         sourceIds: ['11111111-1111-4111-8111-111111111111', 'alias'],
         sequenceNumbers: [8, 9],
         reasons: [],
@@ -116,7 +119,7 @@ test('whole source preview saves only planned, lost response retries original ke
   assert.deepEqual(commands[1], commands[0]);
   assert.equal(commands[0].expectedRevision, 0);
   assert.equal(localStorage.getItem('source-replacement-plan:game'), null);
-  assert.match(document.body.textContent, /Zdjęcia nadal są aktywne/);
+  assert.match(document.body.textContent, /aktywne, zaplanowane do wymiany/);
   assert.equal(document.querySelectorAll('a').length, 2);
   await act(async () => root.unmount());
 });

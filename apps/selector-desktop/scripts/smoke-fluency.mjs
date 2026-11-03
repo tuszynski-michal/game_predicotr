@@ -406,8 +406,16 @@ try {
     for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowLeft');
     await cursor(page, 3);
     await ready(page);
+    const retainedSrc = await page
+      .locator('.preview-image-host img')
+      .getAttribute('src');
     await page.keyboard.press('ArrowRight');
     await cursor(page, 4);
+    assert.equal(
+      await page.locator('.preview-image-host img').getAttribute('src'),
+      retainedSrc,
+    );
+    await page.getByRole('status').filter({ hasText: 'Ładowanie:' }).waitFor();
     await page.keyboard.press('f');
     await page.getByText('Oczekuje na zapis', { exact: true }).waitFor();
     await page

@@ -103,6 +103,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Przekazanie planu V3 po zamianie ról](guides/V3_GRID_FINE_TUNING_ROLE_HANDOFF.md)
   — od TASK-1005 Claude Code wykonuje pozostałe zadania, Codex je audytuje.
 
+- [Ciągły podgląd i lekka nawigacja Selektora](delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md)
 - [Płynność i niezawodne F w Selektorze Windows](delivery/SELECTOR_FLUENCY_RELIABILITY_PLAN_20261029.md)
   — proposed, rewizja 2 z 2026-10-29; TASK-1103: plan gotowy, audyt pominięty
   decyzją operatora. [Historia diagnostyki i rezygnacja](quality/TASK-1103_CLAUDE_AUDIT_BLOCKER.md). TASK-1104–1107

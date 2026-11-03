@@ -158,3 +158,35 @@ test('new active bypasses a held prefetch while neighbours remain serial', async
   assert.equal(created[3].src, 'photo:4');
   cache.clear();
 });
+
+test('stride prefetch and pinned visible image survive a distant pending target', async () => {
+  const { source, images, created, cache } = fixture(40);
+  const first = cache.activate(source, images[10], 4, true);
+  created[0].resolve();
+  const visible = await first;
+  assert.equal(created.length, 1, 'no prefetch before presentation');
+  cache.present(images[10].id);
+  assert.equal(created[1].src, 'photo:14');
+  for (let n = 1; n < 6; n++) {
+    created[n].resolve();
+    await tick();
+  }
+  assert.deepEqual(
+    created.map((i) => i.src),
+    ['photo:10', 'photo:14', 'photo:6', 'photo:18', 'photo:2', 'photo:22'],
+  );
+  const target = cache.activate(source, images[39], 4, true);
+  assert.equal(
+    visible.src,
+    'photo:10',
+    'visible image remains while new target decodes',
+  );
+  const last = created.at(-1);
+  last.resolve();
+  await target;
+  assert.equal(visible.src, 'photo:10');
+  cache.present(images[39].id);
+  assert.equal(visible.src, '', 'previous image is released after swap');
+  assert.ok(cache.size <= 7);
+  cache.clear();
+});

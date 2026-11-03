@@ -74,12 +74,21 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1143 — Lekka nawigacja Selektora (todo)
+
+- Plik: `tasks/1143-selector-smooth-navigation.md`. Plan `delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md`; cały zakres i koszt zaakceptowane. Następny krok: P2.
+
+### TASK-1144 — Odbiór i wydanie Selektora (todo)
+
+- Plik: `tasks/1144-selector-smooth-navigation.md`. Plan `delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md`; cały zakres i koszt zaakceptowane. Następny krok: P3.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 — tasks/completed/1142-selector-smooth-navigation.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
 - **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
@@ -89,4 +98,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1122** — Uproszczony panel i zastosowanie modelu — v1.7.519 / `470faf46` — tasks/completed/1122-grid-correction-learning-panel.md
 - **TASK-1121** — Trening i ocena częściowych zdjęć — v1.7.518 / `7801ea47` — tasks/completed/1121-grid-correction-training-evaluation.md
 - **TASK-1120** — Dane z korekt i trwały podział — v1.7.517 / `e1fcae27` — tasks/completed/1120-grid-correction-training-data.md
-- **TASK-1116** — Przyciąganie kliknięcia wykresu — v1.7.513 / `781650dc` — tasks/completed/1116-board-search-chart-peak-snap.md

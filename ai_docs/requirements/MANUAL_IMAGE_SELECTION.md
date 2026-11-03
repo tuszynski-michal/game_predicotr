@@ -6,6 +6,18 @@ last_updated: 2026-10-29
 
 # Lokalna ręczna selekcja zdjęć
 
+## Ciągły podgląd Windows — TASK-1142
+
+Podczas ładowania poprzedni JPEG pozostaje widoczny z oznaczeniem celu.
+Gotowy obraz, rozmiar i scroll są podmieniane razem. F/Enter nadal przypina cel,
+nie poprzednią bitmapę. Błąd decode blokuje wybór celu. Spóźnione odpowiedzi
+nie podmieniają zdjęcia. Ta reguła zastępuje wcześniejsze usuwanie starego JPEG-a.
+Prefetch obejmuje trzy cele w każdą stronę według ustawionego skoku i ostatniego
+kierunku. Cache ma najwyżej 7 wpisów (w tym poprzedni widoczny obraz) i estymatę
+128 MiB. Podczas przejścia poprzedni obraz i cel są chronione przed usunięciem;
+może to chwilowo przekroczyć budżet. Nowy prefetch czeka na prezentację celu.
+Po podmianie poprzedni traci ochronę; zmiana źródła zwalnia wszystko.
+
 ## Podgląd Windows — TASK-1106
 
 Bieżące zdjęcie ma priorytet przed odczytem sąsiadów. Podgląd utrzymuje najwyżej

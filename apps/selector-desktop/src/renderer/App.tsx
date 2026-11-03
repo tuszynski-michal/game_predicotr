@@ -808,6 +808,7 @@ export function App() {
               key={source.id}
               source={source}
               image={image}
+              step={workspace.view.navigationStep}
               view={workspace.view}
               changeView={changeView}
               ready={(id) => {

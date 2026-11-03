@@ -17,7 +17,7 @@ def test_expected_head_is_the_single_alembic_head() -> None:
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
     assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0178_grid_correction_growth"
     assert script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD).down_revision == (
-        "0171_grid_correction_learning"
+        "0177_source_replacement_purge"
     )
 
 
@@ -71,6 +71,12 @@ def test_compact_merge_preserves_super_game_and_management_branches() -> None:
         "0169_board_search_sequence_logs",
         "0171_grid_correction_learning",
         "0172_grid_correction_growth",
+        "0172_symbol_readability",
+        "0173_merge_quality_corrections",
+        "0174_source_replacement",
+        "0175_source_replacement_guards",
+        "0176_source_replacement_closed",
+        "0177_source_replacement_purge",
         "9999_future",
     ),
 )

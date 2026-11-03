@@ -2147,3 +2147,19 @@ najpierw waliduje i renderuje wszystkie siatki 3×5, a następnie w jednej
 transakcji zapisuje wspólną rewizję źródła, aktualizuje istniejące plansze i
 materializuje brakujące plansze oraz ich wirtualne komórki. Awaria dowolnego
 renderu lub zapisu pozostawia deferred bez częściowych cropów.
+
+## Planowanie wymiany całych zdjęć — TASK-1127 / D-579
+
+TASK-1128 zabezpiecza bieżące użycie: wycofane źródło pozostaje dostępne w historii, lecz nie wraca do kolejek, wyszukiwania, wyboru źródła ani nowego treningu. Rezerwację wypełnia wyłącznie dokładnie zweryfikowany zamiennik całego zdjęcia; jego niepełna geometria pozostaje robocza i ukryta do kompletnego, atomowego powiązania. Dotychczasowe historie frozen pozostają czytelne. Zakończona komenda po utracie odpowiedzi zachowuje swój receipt także po retirement; nowa komenda zwraca `SOURCE_REPLACEMENT_RETIRED` przed zmianą historii. Cleanup, reset, usuwanie release i plików pokazują `SOURCE_REPLACEMENT_REFERENCED` i odmawiają przed skutkami ubocznymi, również po restored.
+
+Operator wybiera konkretne źródła. Podgląd obejmuje wszystkie historyczne plansze i rzeczywiste numery poświadczonego zakresu, również zakres graniczny krótszy niż dziewięć. Reimporty tej samej fotografii są grupowane wyłącznie przy zgodnej grze, SHA i poświadczonym zakresie. Sprzeczne zakresy, brak poświadczenia, obcy canonical albo obcy live pending (także odroczona geometria) blokują całe zdjęcie. Nie następuje automatyczne przejęcie canonical.
+
+Manifest `planned` powstaje przed przyszłym wycofaniem. Przypina źródła i aliasy, SHA, wszystkie plansze/numery, rewizje, aktualne piksele i dowody ocen, canonical, pending oraz zależności. Zapis wymaga aktualnego tokenu podglądu i jest idempotentny. JSON/CSV można pobrać ponownie po restarcie. Zapis planu nie wycofuje danych, nie usuwa plików, nie tworzy aktywnych rezerwacji i nie blokuje zwykłego importu. Eksport planned nie uprawnia do uzupełniania luk. Retirement wymaga gotowych strażników B2a, wykonania B2b i nowego podglądu.
+
+TASK-1129: po świeżym podglądzie i osobnym potwierdzeniu jedno całe zdjęcie atomowo przechodzi do gap_open. Wszystkie jego aliasy i oczekujące plansze/geometrie są wycofane, historia i pliki pozostają. Drift odmawia i wymaga nowego planu; obcy pending blokuje całe zdjęcie. Luka nie wygasa; cancel dotyczy tylko planned. Nowy mobile snapshot jest blokowany przez otwartą rezerwację także tuż przed publikacją. Eksport do uzupełniania obejmuje wyłącznie wybrane otwarte luki, a jego ponowienie nie zależy od postępu innych zdjęć.
+
+### TASK-1131: import i zamknięcie pojedynczego zamiennika
+
+Jeden wpis przyjmuje jedno nowe zdjęcie przez istniejący browser staging. Repair-v3 dostarcza oryginalny request i wybrane, ukończone JPEG z potwierdzonym SHA; nie wykonuje ponownego przycinania. Request obejmujący A+B z wybranym gotowym A importuje tylko A. Backend ponownie sprawdza zakres, rewizję, niezmienny scope digest i rzeczywiste bajty. Zwykły import nie przejmuje rezerwacji.
+
+Niepełna geometria, częściowe zatwierdzenie i odrzucenie zachowują wpis i rezerwacje. Operator poprawia to samo źródło przez istniejący edytor i undo; kolejne zdjęcie po częściowym accepted nie jest obsługiwane bez odrębnej decyzji. Każda plansza otrzymuje nowe zwykłe accepted/corrected, bez przenoszenia wcześniejszych approvals. Osobne restored wymaga wszystkich canonical jednego zdjęcia oraz jawnej oceny czytelności wskazanych nowych cropów z aktualną tożsamością pikseli. Dopiero atomowe zamknięcie orphan pozwala usunąć aktywne slots. Stare SHA pozostaje retired, a historia i referencje obu źródeł pozostają chronione.

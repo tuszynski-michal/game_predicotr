@@ -25,6 +25,11 @@ from game_predictor_api.storage.models import (
     ImagePageSourceExclusionModel,
 )
 from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
+from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+from game_predictor_api.storage.source_replacement_guards import (
+    require_active_sha,
+    source_current_clause,
+)
 
 
 class SqlAlchemyPageGeometryOverrideRepository:
@@ -41,6 +46,11 @@ class SqlAlchemyPageGeometryOverrideRepository:
 
         self._storage_router.bind(self._session, game_id, intent=intent)
 
+    def require_mutable_source(self, *, game_id: UUID, source_checksum_sha256: str) -> None:
+        self._bind(game_id, intent=GameStorageIntent.WRITE)
+        acquire_sequence_ownership_lock(self._session, game_id=game_id)
+        require_active_sha(self._session, game_id, source_checksum_sha256)
+
     def get_current(
         self,
         *,
@@ -53,6 +63,7 @@ class SqlAlchemyPageGeometryOverrideRepository:
             .where(
                 ImagePageGeometryOverrideModel.game_id == game_id,
                 ImagePageGeometryOverrideModel.source_checksum_sha256 == source_checksum_sha256,
+                source_current_clause(game_id, None, source_checksum_sha256),
             )
             .order_by(ImagePageGeometryOverrideModel.revision.desc())
             .limit(1)
@@ -63,7 +74,12 @@ class SqlAlchemyPageGeometryOverrideRepository:
         self._bind(game_id, intent=GameStorageIntent.READ)
         rows = self._session.scalars(
             select(ImagePageGeometryOverrideModel)
-            .where(ImagePageGeometryOverrideModel.game_id == game_id)
+            .where(
+                ImagePageGeometryOverrideModel.game_id == game_id,
+                source_current_clause(
+                    game_id, None, ImagePageGeometryOverrideModel.source_checksum_sha256
+                ),
+            )
             .order_by(
                 ImagePageGeometryOverrideModel.source_checksum_sha256.asc(),
                 ImagePageGeometryOverrideModel.revision.desc(),
@@ -76,6 +92,16 @@ class SqlAlchemyPageGeometryOverrideRepository:
 
     def append(self, value: ImagePageGeometryOverride) -> ImagePageGeometryOverride:
         self._bind(value.game_id, intent=GameStorageIntent.WRITE)
+        acquire_sequence_ownership_lock(self._session, game_id=value.game_id)
+        prior = self.get_by_decision_checksum(
+            game_id=value.game_id,
+            source_checksum_sha256=value.source_checksum_sha256,
+            decision_checksum_sha256=value.decision_checksum_sha256,
+            revision=value.revision,
+        )
+        if prior is not None and prior.revision == value.revision:
+            return prior
+        require_active_sha(self._session, value.game_id, value.source_checksum_sha256)
         row = ImagePageGeometryOverrideModel(
             id=value.id,
             game_id=value.game_id,
@@ -123,7 +149,12 @@ class SqlAlchemyPageGeometryOverrideRepository:
         return _to_domain(row)
 
     def get_by_decision_checksum(
-        self, *, game_id: UUID, source_checksum_sha256: str, decision_checksum_sha256: str
+        self,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        decision_checksum_sha256: str,
+        revision: int | None = None,
     ) -> ImagePageGeometryOverride | None:
         self._bind(game_id, intent=GameStorageIntent.READ)
         row = self._session.scalar(
@@ -132,6 +163,11 @@ class SqlAlchemyPageGeometryOverrideRepository:
                 ImagePageGeometryOverrideModel.game_id == game_id,
                 ImagePageGeometryOverrideModel.source_checksum_sha256 == source_checksum_sha256,
                 ImagePageGeometryOverrideModel.decision_checksum_sha256 == decision_checksum_sha256,
+                *(
+                    ()
+                    if revision is None
+                    else (ImagePageGeometryOverrideModel.revision == revision,)
+                ),
             )
             .order_by(ImagePageGeometryOverrideModel.revision.asc())
             .limit(1)
@@ -170,6 +206,8 @@ class SqlAlchemyPageGeometryOverrideRepository:
 
     def append_exclusion(self, value: ImagePageSourceExclusion) -> ImagePageSourceExclusion:
         self._bind(value.game_id, intent=GameStorageIntent.WRITE)
+        acquire_sequence_ownership_lock(self._session, game_id=value.game_id)
+        require_active_sha(self._session, value.game_id, value.source_checksum_sha256)
         row = ImagePageSourceExclusionModel(
             id=value.id,
             game_id=value.game_id,

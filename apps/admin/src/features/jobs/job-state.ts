@@ -20,6 +20,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   snapshot: 'Snapshot SQLite',
   android_build: 'Build APK',
   symbol_training: 'Trening modelu symboli',
+  symbol_readability: 'Ocena jakości symboli',
   image_selection: 'Selekcja zdjęć',
   semi_automatic_image_selection: 'Półautomatyczna selekcja zdjęć',
   image_symbol_reinference: 'Przeliczenie oczekujących symboli',

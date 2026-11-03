@@ -41,6 +41,17 @@ from game_predictor_api.domain.page_geometry_overrides import (
 
 
 class PageGeometryOverrideRepository(Protocol):
+    def require_mutable_source(self, *, game_id: UUID, source_checksum_sha256: str) -> None: ...
+
+    def get_by_decision_checksum(
+        self,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        decision_checksum_sha256: str,
+        revision: int | None = None,
+    ) -> ImagePageGeometryOverride | None: ...
+
     def get_current(
         self,
         *,
@@ -126,6 +137,9 @@ class PageGeometryOverrideService:
         )
         if receipt is not None:
             return receipt, False
+        self._repository.require_mutable_source(
+            game_id=game_id, source_checksum_sha256=source_checksum_sha256
+        )
         current = self._repository.get_current(
             game_id=game_id, source_checksum_sha256=source_checksum_sha256
         )
@@ -243,6 +257,19 @@ class PageGeometryOverrideService:
             None if qualifications is None else [item.to_dict() for item in qualifications],
             board_frame_quads,
             symbol_grid_quads,
+        )
+        receipt = self._repository.get_by_decision_checksum(
+            game_id=game_id,
+            source_checksum_sha256=source_checksum_sha256,
+            decision_checksum_sha256=checksum,
+            revision=None if expected_override_revision is None else expected_override_revision + 1,
+        )
+        if receipt is not None and (
+            expected_override_revision is None or expected_override_revision == receipt.revision - 1
+        ):
+            return receipt, False
+        self._repository.require_mutable_source(
+            game_id=game_id, source_checksum_sha256=source_checksum_sha256
         )
         current = self._repository.get_current(
             game_id=game_id,

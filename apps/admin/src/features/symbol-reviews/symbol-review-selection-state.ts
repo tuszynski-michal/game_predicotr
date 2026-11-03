@@ -133,6 +133,30 @@ export function symbolReviewSelectionCurrentItemIds(
     .map((item) => item.id);
 }
 
+/** Add an entire range or leave the original selection unchanged at the cap. */
+export function selectSymbolReviewRange(
+  selection: SymbolReviewSelection,
+  items: readonly SymbolCellReviewListItemResponse[],
+): SymbolReviewSelectionChange {
+  if (selection.kind === 'all_matching_filter') {
+    const excludedIds = new Set(selection.excludedIds);
+    for (const item of items) excludedIds.delete(item.id);
+    return { rejectedCount: 0, selection: { ...selection, excludedIds } };
+  }
+  const additions = items.filter(
+    (item) => selection.targetsById[item.id] === undefined,
+  );
+  if (
+    new Set([
+      ...Object.keys(selection.targetsById),
+      ...additions.map((item) => item.id),
+    ]).size > MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION
+  ) {
+    return { rejectedCount: additions.length, selection };
+  }
+  return selectVisibleSymbolReviewItems(selection, additions);
+}
+
 function toExplicitTarget(
   item: SymbolCellReviewListItemResponse,
 ): SymbolReviewExplicitTarget {

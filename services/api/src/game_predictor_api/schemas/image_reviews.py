@@ -28,6 +28,8 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewResolutionEvent,
     ImageReviewView,
     ImageSequenceSourceSelection,
+    SourceReplacementState,
+    SourceSelectionState,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
@@ -74,6 +76,8 @@ class OperationalImageReviewItemResponse(ApiModel):
     import_job_id: UUID
     recognized_board_id: UUID
     status: str
+    source_state: SourceReplacementState = "active"
+    selectable: bool = True
     source_order_index: int = Field(ge=0)
     position_index: int = Field(ge=0, le=8)
     sequence_number: int | None = Field(default=None, ge=1)
@@ -280,14 +284,20 @@ class ImageSequenceSourceCandidateResponse(ApiModel):
     quality_score: Probability
     selected: bool
     selected_manually: bool
+    source_state: SourceReplacementState = "active"
+    selectable: bool = True
 
 
 class ImageSequenceSourceSelectionResponse(ApiModel):
     game_id: UUID
     sequence_number: int = Field(ge=1)
-    candidates: tuple[ImageSequenceSourceCandidateResponse, ...] = Field(min_length=1)
+    candidates: tuple[ImageSequenceSourceCandidateResponse, ...]
     manual_override_review_item_id: UUID | None
     override_revision: int = Field(ge=0)
+    state: SourceSelectionState = "available"
+    replacement_batch_id: UUID | None = None
+    replacement_entry_id: UUID | None = None
+    replacement_manifest_url: str | None = None
 
 
 class ImageSequenceSourceOverrideCommand(ApiModel):
@@ -442,6 +452,8 @@ def to_operational_item_response(
         import_job_id=item.import_job_id,
         recognized_board_id=item.recognized_board_id,
         status=item.status,
+        source_state=item.source_state,
+        selectable=item.selectable,
         source_order_index=item.source_order_index,
         position_index=item.position_index,
         sequence_number=item.queue_sequence_number,
@@ -657,11 +669,17 @@ def to_image_sequence_source_selection_response(
                 quality_score=candidate.quality_score,
                 selected=candidate.selected,
                 selected_manually=candidate.selected_manually,
+                source_state=candidate.source_state,
+                selectable=candidate.selectable,
             )
             for candidate in selection.candidates
         ),
         manual_override_review_item_id=selection.manual_override_review_item_id,
         override_revision=selection.override_revision,
+        state=selection.state,
+        replacement_batch_id=selection.replacement_batch_id,
+        replacement_entry_id=selection.replacement_entry_id,
+        replacement_manifest_url=selection.replacement_manifest_url,
     )
 
 

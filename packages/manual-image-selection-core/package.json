@@ -6,6 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./replacement-repair": {
+      "types": "./src/replacement-repair.ts",
+      "default": "./src/replacement-repair.ts"
+    },
     "./manual-grid-qualification": {
       "types": "./src/manual-grid-qualification.ts",
       "default": "./src/manual-grid-qualification.ts"
@@ -55,6 +59,9 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@game-predictor/admin-api-client": "0.1.0"
   },
   "devDependencies": {
     "typescript": "~6.0.3"

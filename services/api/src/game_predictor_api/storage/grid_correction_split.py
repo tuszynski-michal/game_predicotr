@@ -98,7 +98,8 @@ def population(repo: Any, game: UUID, imports: list[str]) -> list[dict[str, Any]
       FROM source_images s LEFT JOIN image_import_job_files f
        ON f.game_id=s.game_id AND f.job_id=s.import_job_id
        AND f.file_execution_key=s.file_execution_key
-      WHERE s.game_id=:game AND s.import_job_id=ANY(CAST(:imports AS uuid[]))
+      WHERE s.game_id=:game AND public.source_replacement_source_current_v1(
+      s.game_id,s.id,s.checksum_sha256) AND s.import_job_id=ANY(CAST(:imports AS uuid[]))
       ORDER BY s.id LIMIT 5001"""),
             {"game": game, "imports": imports},
         ).mappings()

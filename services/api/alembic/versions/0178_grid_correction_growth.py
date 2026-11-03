@@ -7,8 +7,12 @@ from game_predictor_api.storage.source_recording_permissions_v6 import (
     SAFE,
     enforce_recording_permissions,
 )
-from game_predictor_api.storage.source_recording_sql_v4 import FUNCTION_SQL as V4_SQL
-from game_predictor_api.storage.source_recording_sql_v5 import WRAPPER_SQL as V5_WRAPPER
+from game_predictor_api.storage.source_recording_replacement_sql import (
+    REPLACEMENT_V4_SQL as V4_SQL,
+)
+from game_predictor_api.storage.source_recording_replacement_sql import (
+    REPLACEMENT_V5_WRAPPER as V5_WRAPPER,
+)
 from game_predictor_api.storage.source_recording_sql_v6 import (
     CONTEXT_SQL,
     PHOTO_SQL,
@@ -18,7 +22,7 @@ from game_predictor_api.storage.source_recording_sql_v6 import (
 from sqlalchemy import text
 
 revision = "0178_grid_correction_growth"
-down_revision = "0171_grid_correction_learning"
+down_revision = "0177_source_replacement_purge"
 branch_labels = depends_on = None
 
 
@@ -64,7 +68,7 @@ def downgrade() -> None:
     """)
     ):
         raise RuntimeError("Incremental reservation history prevents destructive downgrade.")
-    # Restore the actual 0171 implementations, not wrappers over dropped v2 code.
+    # Restore legacy implementations with the 0175 fences retained at revision 0177.
     context_start = V4_SQL.index("CREATE FUNCTION public.recording_photo_context_v1(")
     photo_start = V4_SQL.index("CREATE FUNCTION public.recording_photo_cohort_v1(")
     wrapper_start = V4_SQL.index("ALTER FUNCTION public.recording_cohort_command_v3(")

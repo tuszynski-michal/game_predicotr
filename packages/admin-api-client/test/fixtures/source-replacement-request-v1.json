@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "source-replacement-request-v1",
+  "gameId": "6e20a58f-88f3-4a9c-87b5-ae3297ed4fbf",
+  "batchId": "84468e5d-6248-4aa1-923a-746441c319d9",
+  "entries": [
+    {
+      "entryId": "811b4a7a-3035-49a2-a2ad-d0e7f7dd2028",
+      "revision": 2,
+      "digest": "3d2d43db74d86946b1473a0d695226a944168b70435ad98a28d7157fd3f072ee",
+      "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sequenceNumbers": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    }
+  ],
+  "allowedRanges": [
+    {
+      "entryId": "811b4a7a-3035-49a2-a2ad-d0e7f7dd2028",
+      "sequenceStart": 1,
+      "sequenceEnd": 9
+    }
+  ],
+  "digest": "98a6609cf344821bdd481c520ccb629ef9f6d0b640426df4371c7798b55a01fa"
+}

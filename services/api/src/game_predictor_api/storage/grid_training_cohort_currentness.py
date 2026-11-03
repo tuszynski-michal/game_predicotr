@@ -45,6 +45,15 @@ def inspect_member(repo: Any, member: Any) -> MemberCurrentness:
                 "New use is blocked after removal of the live source; history is retained.",
             ),
         )
+    from game_predictor_api.domain.source_replacement import SourceReplacementError
+    from game_predictor_api.storage.source_replacement_guards import require_active_source
+
+    try:
+        require_active_source(repo.session, member.game_id, member.source_id)
+    except SourceReplacementError as error:
+        return MemberCurrentness(
+            bool(member.frozen.get("used")), True, None, GridCohortError(error.code, str(error))
+        )
     source = read_source(repo.session, member.game_id, member.source_id)
     if source is None:
         return MemberCurrentness(

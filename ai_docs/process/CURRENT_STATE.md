@@ -12,6 +12,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+
+
 - **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
@@ -42,6 +44,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md` | kod: Opus PASS; koordynacja wdrożenia | TASK-1147 | `codex/grid-correction-growth` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -51,7 +54,9 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1139–1140/1145 (2026-11-03):** trzy audyty Opus PASS. Nasza rewizja 0178 uzgodniona z koordynatorem wdrażającym symbole 0172–0177; aktualizacja grafu po nowym main osobno. READ ONLY: TRAIN146 (+69), VAL17/REG21; bez treningu. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+- **TASK-1147:** Opus PASS; kod 0178 po 0177. Operator osobno zatwierdził delete pustej 777v2; koordynator realizuje go i migracje do 0177. Odbiór 0178 po przekazaniu okna. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+
+- **TASK-1147 / P2:** 2 zastane FAIL retencji także na `60f50c64`; produkt fail-closed, naprawa osobno. Źródło: `quality/TASK-1147_VERIFICATION.md`.
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 
@@ -76,13 +81,19 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1147 — Integracja przyrostu korekt (in_progress)
+
+- Plik: `tasks/1147-grid-growth-integration.md`. Kod 0178 po 0177, Opus PASS; odbiór wdrożenia czeka na koordynatora. Zgody wdrożenia udzielone.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 / `3df55bca` — tasks/completed/1145-grid-growth-migration-number.md
+- **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 / `febbf91e` — tasks/completed/1140-grid-correction-growth-panel.md
 - **TASK-1139** — Przyrostowy podział korekt i liczniki — v1.7.537 / `e33b71ab` — tasks/completed/1139-grid-correction-growth-data.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
@@ -90,5 +101,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md
 - **TASK-1135** — Timeout zamrażania korekt — v1.7.527 / `c0a16b6a` — tasks/completed/1135-grid-learning-freeze-query.md
 - **TASK-1134** — Gotowość GPU i lista przebiegów — v1.7.525 / `550378ab` — tasks/completed/1134-grid-learning-runtime-history.md
-- **TASK-1133** — Spójne przyciski jakości rozpoznawania — v1.7.523 / `009217d2` — tasks/completed/1133-model-quality-button-styles.md
-- **TASK-1123** — Odbiór i dokumentacja uczenia z korekt — v1.7.520 / `4672c089` — tasks/completed/1123-grid-correction-learning-acceptance.md

@@ -24,6 +24,7 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseStatus,
 )
 from game_predictor_api.storage.job_repository import job_record_from_domain
+from game_predictor_api.storage.mobile_source_proof import require_current_dataset_sources
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
     GameModel,
@@ -31,11 +32,16 @@ from game_predictor_api.storage.models import (
     MobileReleaseModel,
     RulesVersionModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import (
+    SequenceOwnershipLockMode,
+    acquire_sequence_ownership_lock,
+)
 
 
 class SqlAlchemyMobileReleaseRepository(MobileReleaseRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, *, source_ownership_fenced: bool = False) -> None:
         self._session = session
+        self._source_ownership_fenced = source_ownership_fenced
 
     def list_mobile_releases(self) -> list[MobileRelease]:
         records = list(
@@ -85,6 +91,10 @@ class SqlAlchemyMobileReleaseRepository(MobileReleaseRepository):
         self,
         selection: MobileReleaseGameInput,
     ) -> MobileReleaseGameSource | None:
+        if not self._source_ownership_fenced:
+            acquire_sequence_ownership_lock(
+                self._session, game_id=selection.game_id, mode=SequenceOwnershipLockMode.SHARED
+            )
         game = self._session.scalar(
             select(GameModel).where(GameModel.id == selection.game_id).with_for_update()
         )
@@ -100,6 +110,12 @@ class SqlAlchemyMobileReleaseRepository(MobileReleaseRepository):
         )
         if game is None or dataset is None or rules is None:
             return None
+        # This is an early preflight; the worker repeats it under its publication fence.
+        require_current_dataset_sources(
+            self._session,
+            game_id=selection.game_id,
+            dataset_version_id=selection.dataset_version_id,
+        )
         return MobileReleaseGameSource(
             game_id=game.id,
             game_code=game.code,

@@ -1,16 +1,18 @@
 """HTTP boundary for preview-bound destructive cleanup operations."""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from game_predictor_api.application.cleanup import CleanupService
 from game_predictor_api.domain.cleanup import (
     BoardSourceCleanupSelection,
     CleanupCommand,
 )
+from game_predictor_api.domain.source_replacement import SourceReplacementError, manifest_csv
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.cleanup import (
     BoardSourceCleanupCommandRequest,
@@ -19,8 +21,29 @@ from game_predictor_api.schemas.cleanup import (
     CleanupPreviewResponse,
     CleanupResultResponse,
 )
+from game_predictor_api.schemas.source_replacement import (
+    SourcePurgeCommand,
+    SourcePurgePreviewRequest,
+    SourcePurgePreviewResponse,
+    SourcePurgeResult,
+    SourceReplacementBatchResponse,
+    SourceReplacementCandidatePage,
+    SourceReplacementCreateRequest,
+    SourceReplacementManifestResponse,
+    SourceReplacementPreviewRequest,
+    SourceReplacementRequestExport,
+    SourceReplacementRestoreCommand,
+    SourceReplacementRestoreResponse,
+    SourceReplacementWorkingResponse,
+    SourceRetirementCommand,
+    SourceRetirementPreviewRequest,
+    SourceRetirementPreviewResponse,
+    SourceRetirementResult,
+)
 
 CleanupServiceDependency = Callable[..., object]
+if TYPE_CHECKING:
+    from game_predictor_api.storage.source_replacement import SourceReplacementRepository
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Cleanup target not found"},
     409: {"model": ErrorResponse, "description": "Cleanup state conflict"},
@@ -106,16 +129,41 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
 
     @router.post(
         "/games/{game_id}/board-source-cleanup-preview",
-        response_model=CleanupPreviewResponse,
+        response_model=CleanupPreviewResponse
+        | SourceReplacementManifestResponse
+        | SourceRetirementPreviewResponse
+        | SourcePurgePreviewResponse,
         operation_id="previewBoardSourceCleanup",
         summary="Preview deletion of complete image-source ranges selected by board number",
         responses=ERROR_RESPONSES,
     )
     def preview_board_source_cleanup(
         game_id: UUID,
-        payload: BoardSourceCleanupPreviewRequest,
+        payload: BoardSourceCleanupPreviewRequest
+        | SourceReplacementPreviewRequest
+        | SourceRetirementPreviewRequest
+        | SourcePurgePreviewRequest,
         service: Annotated[CleanupService, service_parameter],
-    ) -> CleanupPreviewResponse:
+    ) -> (
+        CleanupPreviewResponse
+        | SourceReplacementManifestResponse
+        | SourceRetirementPreviewResponse
+        | SourcePurgePreviewResponse
+    ):
+        if isinstance(payload, SourcePurgePreviewRequest):
+            return SourcePurgePreviewResponse.model_validate(
+                service.physical_sources.preview(game_id, payload)
+            )
+        if isinstance(payload, SourceRetirementPreviewRequest):
+            return SourceRetirementPreviewResponse.model_validate(
+                service.replacement_plans.retirement_preview(game_id, payload)
+            )
+        if isinstance(payload, SourceReplacementPreviewRequest):
+            return SourceReplacementManifestResponse.model_validate(
+                service.replacement_plans.preview(game_id, payload.source_ids, mode=payload.mode)
+                if payload.mode == "replace_delete_source"
+                else service.replacement_plans.preview(game_id, payload.source_ids)
+            )
         return CleanupPreviewResponse.from_domain(
             service.preview_board_sources(
                 game_id,
@@ -125,16 +173,32 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
 
     @router.delete(
         "/games/{game_id}/board-sources",
-        response_model=CleanupResultResponse,
+        response_model=CleanupResultResponse | SourceRetirementResult | SourcePurgeResult,
         operation_id="deleteBoardSourceRanges",
         summary="Delete complete image-source ranges and their dependent board data",
         responses=ERROR_RESPONSES,
     )
     def delete_board_source_ranges(
         game_id: UUID,
-        payload: BoardSourceCleanupCommandRequest,
+        payload: BoardSourceCleanupCommandRequest
+        | SourceReplacementCreateRequest
+        | SourceRetirementCommand
+        | SourcePurgeCommand,
         service: Annotated[CleanupService, service_parameter],
-    ) -> CleanupResultResponse:
+    ) -> CleanupResultResponse | SourceRetirementResult | SourcePurgeResult:
+        if isinstance(payload, SourcePurgeCommand):
+            return SourcePurgeResult.model_validate(
+                service.physical_sources.execute(game_id, payload)
+            )
+        if isinstance(payload, SourceRetirementCommand):
+            return SourceRetirementResult.model_validate(
+                service.replacement_plans.retirement_command(game_id, payload)
+            )
+        if isinstance(payload, SourceReplacementCreateRequest):
+            raise SourceReplacementError(
+                "SOURCE_REPLACEMENT_RETIREMENT_NOT_READY",
+                "Wycofanie źródeł nie jest jeszcze dostępne.",
+            )
         return CleanupResultResponse.from_domain(
             service.delete_board_sources(
                 game_id,
@@ -145,6 +209,152 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
                     confirmed=payload.confirmed,
                 ),
             )
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/candidates",
+        response_model=SourceReplacementCandidatePage,
+        operation_id="listSourceReplacementCandidates",
+        responses=ERROR_RESPONSES,
+    )
+    def candidates(
+        game_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+        offset: int = Query(default=0, ge=0, le=1000000),
+    ) -> SourceReplacementCandidatePage:
+        return SourceReplacementCandidatePage.model_validate(
+            service.replacement_plans.candidates(game_id, offset)
+        )
+
+    @router.post(
+        "/games/{game_id}/board-sources",
+        response_model=SourceReplacementManifestResponse,
+        operation_id="planSourceReplacement",
+        responses=ERROR_RESPONSES,
+    )
+    def plan(
+        game_id: UUID,
+        payload: SourceReplacementCreateRequest,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> SourceReplacementManifestResponse:
+        return SourceReplacementManifestResponse.model_validate(
+            service.replacement_plans.create(game_id, payload)
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources",
+        response_model=list[SourceReplacementBatchResponse],
+        operation_id="listSourceReplacementBatches",
+        responses=ERROR_RESPONSES,
+    )
+    def batches(
+        game_id: UUID, service: Annotated[CleanupService, service_parameter]
+    ) -> list[SourceReplacementBatchResponse]:
+        return [
+            SourceReplacementBatchResponse.model_validate(row)
+            for row in service.replacement_plans.list(game_id)
+        ]
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}",
+        response_model=SourceReplacementManifestResponse,
+        operation_id="getSourceReplacementBatch",
+        responses=ERROR_RESPONSES,
+    )
+    def batch(
+        game_id: UUID, batch_id: UUID, service: Annotated[CleanupService, service_parameter]
+    ) -> SourceReplacementManifestResponse:
+        return SourceReplacementManifestResponse.model_validate(
+            service.physical_sources.manifest(game_id, batch_id)
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}/export",
+        operation_id="exportSourceReplacementBatch",
+        responses={200: {"content": {"text/csv": {}, "application/json": {}}}, **ERROR_RESPONSES},
+    )
+    def export(
+        game_id: UUID,
+        batch_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+        format: str = Query(default="json", pattern="^(json|csv)$"),
+    ) -> Response:
+        document = service.physical_sources.manifest(game_id, batch_id)
+        if format == "csv":
+            return Response(
+                manifest_csv(document),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="replacement-{batch_id}.csv"'
+                },
+            )
+        return Response(
+            SourceReplacementManifestResponse.model_validate(document).model_dump_json(
+                by_alias=True
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="replacement-{batch_id}.json"'},
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}/replacement-request",
+        response_model=SourceReplacementRequestExport,
+        operation_id="exportSourceReplacementRequest",
+        responses=ERROR_RESPONSES,
+    )
+    def replacement_request(
+        game_id: UUID,
+        batch_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+        entry_ids: Annotated[list[UUID], Query(alias="entryIds", min_length=1, max_length=50)],
+    ) -> SourceReplacementRequestExport:
+        return SourceReplacementRequestExport.model_validate(
+            service.replacement_plans.replacement_request(game_id, batch_id, entry_ids)
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working",
+        response_model=SourceReplacementWorkingResponse,
+        operation_id="getSourceReplacementWorking",
+        responses=ERROR_RESPONSES,
+    )
+    def working(
+        game_id: UUID,
+        batch_id: UUID,
+        entry_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> SourceReplacementWorkingResponse:
+        from game_predictor_api.storage.source_replacement_restore import SourceReplacementRestore
+
+        return SourceReplacementWorkingResponse.model_validate(
+            SourceReplacementRestore(
+                cast("SourceReplacementRepository", service.replacement_plans)
+            ).working(game_id, batch_id, entry_id)
+        )
+
+    @router.post(
+        "/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore",
+        response_model=SourceReplacementRestoreResponse,
+        operation_id="restoreSourceReplacementEntry",
+        responses=ERROR_RESPONSES,
+    )
+    def restore(
+        game_id: UUID,
+        batch_id: UUID,
+        entry_id: UUID,
+        payload: SourceReplacementRestoreCommand,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> SourceReplacementRestoreResponse:
+        from game_predictor_api.storage.source_replacement_restore import SourceReplacementRestore
+
+        if payload.batch_id != batch_id or payload.entry_id != entry_id:
+            raise SourceReplacementError(
+                "SOURCE_REPLACEMENT_SCOPE_CHANGED", "Polecenie dotyczy innego wpisu wymiany."
+            )
+        return SourceReplacementRestoreResponse.model_validate(
+            SourceReplacementRestore(
+                cast("SourceReplacementRepository", service.replacement_plans)
+            ).restore(game_id, payload)
         )
 
     return router

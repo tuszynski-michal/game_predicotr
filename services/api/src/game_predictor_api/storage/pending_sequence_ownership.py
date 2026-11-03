@@ -47,6 +47,7 @@ _SLOT_SUPERSEDED_ACTION: Final = "superseded"
 # image whose source revision range covers the sequence (a gap there becomes
 # a ``superseded`` position). Recomputing an unchanged image is a no-op.
 _TAKEOVER_GATE_CANDIDATES_SQL: Final = """
+SELECT candidate.source_image_id FROM (
 SELECT b.source_image_id
 FROM image_review_items ri
 JOIN recognized_boards b ON b.game_id = :game_id AND b.id = ri.recognized_board_id
@@ -67,6 +68,9 @@ WHERE s.game_id = :game_id AND s.id <> :source_image_id
     WHERE r.game_id = :game_id AND r.source_image_id = s.id AND r.status <> 'reverted'
       AND r.sequence_range_start <= :sequence_number
       AND r.sequence_range_end >= :sequence_number)
+) candidate JOIN source_images current_source ON current_source.id=candidate.source_image_id
+WHERE public.source_replacement_source_current_v1(
+ :game_id,current_source.id,current_source.checksum_sha256)
 """
 
 
@@ -95,6 +99,15 @@ def create_owned_pending_review_item(
     active pending.
     """
 
+    from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+    from game_predictor_api.storage.source_replacement_binding import replacement_claim
+    from game_predictor_api.storage.source_replacement_guards import (
+        current_review_clause,
+        require_active_source,
+    )
+
+    acquire_sequence_ownership_lock(session, game_id=game_id)
+    require_active_source(session, game_id, board.source_image_id)
     sequence_number = board.sequence_number
     if sequence_number is None:
         item = ImageReviewItemModel(
@@ -117,6 +130,14 @@ def create_owned_pending_review_item(
         sequence_numbers={sequence_number},
     )
     item_id = uuid4()
+    reserved, binding = replacement_claim(
+        session,
+        game=game_id,
+        source=board.source_image_id,
+        job=import_job.id,
+        sequence=sequence_number,
+        review=item_id,
+    )
     canonical = session.scalar(
         select(ImageSequenceCanonicalModel).where(
             ImageSequenceCanonicalModel.game_id == game_id,
@@ -152,6 +173,7 @@ def create_owned_pending_review_item(
                 ImageBoardGeometryPendingModel.sequence_number == sequence_number,
                 ImageBoardGeometryPendingModel.status == "rejected",
                 ImageBoardGeometryPendingModel.source_image_id != board.source_image_id,
+                ImageBoardGeometryPendingModel.source_image_id.in_(gate_candidates),
             )
             .order_by(ImageBoardGeometryPendingModel.id)
             .with_for_update()
@@ -174,6 +196,7 @@ def create_owned_pending_review_item(
             ImageReviewItemModel.game_id == game_id,
             ImageReviewItemModel.sequence_number == sequence_number,
             ImageReviewItemModel.status == "pending",
+            current_review_clause(ImageReviewItemModel.id),
         )
         # Job identity and created_at are immutable after creation. Locking the
         # incumbent JobModel here creates a Job -> sequence -> source versus
@@ -188,6 +211,8 @@ def create_owned_pending_review_item(
     )
     claim = decide_sequence_claim(
         canonical_exists=canonical is not None,
+        reservation=reserved,
+        replacement_binding=binding,
         incumbent=(
             None
             if incumbent is None
@@ -261,7 +286,7 @@ def create_owned_pending_review_item(
             reason=claim.alternative_reason,
         )
     changed_ids.append(item.id)
-    if claim.incoming_owns:
+    if claim.incoming_owns and reserved is None:
         _clean_up_after_takeover(
             session,
             claim=claim,

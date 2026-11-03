@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from _application_role_database import application_role_database
+from _grid_growth_replacement_fence import assert_replacement_fence
 from alembic import command
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -21,7 +22,9 @@ pytestmark = pytest.mark.skipif(
 def test_empty_downgrade_reupgrade_and_each_incremental_history_guard():
     with application_role_database("t1139down", ("correction",)) as db:
         config = _config(db)
-        command.downgrade(config, "0171_grid_correction_learning")
+        assert_replacement_fence(db)
+        command.downgrade(config, "0177_source_replacement_purge")
+        assert_replacement_fence(db)
         with db.owner_engine.connect() as c:
             assert (
                 c.scalar(
@@ -42,6 +45,7 @@ def test_empty_downgrade_reupgrade_and_each_incremental_history_guard():
             assert "recording_photo_context_data_v2" not in definition
             assert "recording_photo_uses" in definition
         command.upgrade(config, "head")
+        assert_replacement_fence(db)
         migration = (
             ScriptDirectory.from_config(config).get_revision("0178_grid_correction_growth").module
         )

@@ -575,6 +575,9 @@ def _record_browser_staging_board_status(
 def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> None:
     """Keep cancellation/failure visible without creating a second worker lane."""
 
+    from game_predictor_api.storage.symbol_readability_jobs import synchronize_readability_job
+
+    synchronize_readability_job(session, job)
     synchronize_lab_import_iteration(session, job)
     if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
         return
@@ -592,6 +595,9 @@ def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> No
 
 
 def _synchronize_bulk_operation_recovery(session: Session, job: Job) -> None:
+    from game_predictor_api.storage.symbol_readability_jobs import synchronize_readability_job
+
+    synchronize_readability_job(session, job, recovery=True)
     synchronize_lab_import_iteration(session, job)
     if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
         return

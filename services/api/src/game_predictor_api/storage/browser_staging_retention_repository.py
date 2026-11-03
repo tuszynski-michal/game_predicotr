@@ -307,6 +307,16 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         .with_for_update()
                     )
                 )
+                from game_predictor_api.storage.sequence_ownership_lock import (
+                    acquire_sequence_ownership_lock,
+                )
+                from game_predictor_api.storage.source_replacement_guards import (
+                    require_unreferenced_sources,
+                )
+
+                assert game_id is not None
+                acquire_sequence_ownership_lock(session, game_id=game_id)
+                require_unreferenced_sources(session, game_id, source_image_ids)
                 require_no_grid_shadow_history(session, source_image_ids)
                 pending_geometry = tuple(
                     session.scalars(

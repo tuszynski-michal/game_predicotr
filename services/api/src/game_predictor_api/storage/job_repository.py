@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -17,6 +18,7 @@ from game_predictor_api.application.jobs import (
     PayoutDatasetReference,
     PayoutRulesReference,
 )
+from game_predictor_api.domain.image_sequence_canonical import BrowserSequenceManifest
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -173,6 +175,26 @@ class SqlAlchemyJobRepository(JobRepository):
         self._flush_or_raise_conflict()
         return job_from_record(record)
 
+    def validate_replacement_staging(
+        self,
+        *,
+        game_id: UUID,
+        selection: dict[str, Any] | None,
+        manifest: BrowserSequenceManifest,
+        upload_id: UUID,
+    ) -> dict[str, Any] | None:
+        from game_predictor_api.storage.source_replacement_admission import (
+            validate_ordinary_staging,
+            validate_staging,
+        )
+
+        if selection is None:
+            validate_ordinary_staging(self._session, game=game_id, manifest=manifest)
+            return None
+        return validate_staging(
+            self._session, game=game_id, selection=selection, manifest=manifest, upload=upload_id
+        )
+
     def add_source_bound_job(
         self,
         job: Job,
@@ -219,6 +241,9 @@ class SqlAlchemyJobRepository(JobRepository):
             retention.blocked_reason = None
             retention.updated_at = job.created_at
             self._flush_or_raise_conflict()
+        from game_predictor_api.storage.source_replacement_admission import bind_job_admission
+
+        bind_job_admission(self._session, job)
         return job_from_record(record)
 
     def _initialize_empty_neural_projection(self, job: Job) -> None:

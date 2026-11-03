@@ -189,6 +189,21 @@ class GridTrainingRunService:
         job = self._job(game, run, lock=True)
         if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED}:
             raise _error("GRID_RUN_NOT_RESUMABLE", "Only failed or cancelled runs can resume.")
+        cohort = UUID(str(job.input_payload["cohort_id"]))
+        preview = self.cohorts.run_preview(game, cohort)
+        blockers = [code for code in preview["apiBlockers"] if code not in _QUEUE_BLOCKERS_IGNORED]
+        if blockers:
+            raise _error(blockers[0], "The cohort cannot resume a training run.")
+        others = [
+            (UUID(str(pin["game_id"])), UUID(str(pin["cohort_id"])))
+            for pin in job.input_payload.get("shared_cohorts") or []
+        ]
+        if others:
+            if self.shared is None:
+                raise _error(
+                    "GRID_RUN_SHARED_UNAVAILABLE", "Shared cohort currentness is unavailable."
+                )
+            self.shared.prepare(game, cohort, others)
         return self.view(self.jobs.save_job(requeue_job(job)))
 
     @staticmethod

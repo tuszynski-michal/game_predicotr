@@ -1,5 +1,9 @@
 """Incremental photo reservations in the existing private recording capability."""
 
+from .source_recording_replacement_sql import (
+    replacement_guarded_photo_sql,
+    replacement_guarded_sql,
+)
 from .source_recording_sql_v4 import FUNCTION_SQL as V4_SQL
 from .source_recording_sql_v5 import WRAPPER_SQL as V5_WRAPPER
 
@@ -222,3 +226,5 @@ WRAPPER_SQL = V5_WRAPPER.replace(
     "c.document->>'policyVersion' IN "
     "('application-grid-corrections-v1','application-grid-corrections-v2')",
 )
+PHOTO_SQL = replacement_guarded_photo_sql(PHOTO_SQL)
+WRAPPER_SQL = replacement_guarded_sql(WRAPPER_SQL)

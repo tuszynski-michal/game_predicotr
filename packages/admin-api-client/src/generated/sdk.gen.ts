@@ -12,6 +12,9 @@ import type {
   AcceptOperationalGridGeometryProposalData,
   AcceptOperationalGridGeometryProposalErrors,
   AcceptOperationalGridGeometryProposalResponses,
+  AcceptReadabilityModelData,
+  AcceptReadabilityModelErrors,
+  AcceptReadabilityModelResponses,
   AcknowledgeGridReinferencePilotData,
   AcknowledgeGridReinferencePilotErrors,
   AcknowledgeGridReinferencePilotResponses,
@@ -309,6 +312,15 @@ import type {
   ExcludeBrowserPageGeometrySourceData,
   ExcludeBrowserPageGeometrySourceErrors,
   ExcludeBrowserPageGeometrySourceResponses,
+  ExportReadabilityCsvData,
+  ExportReadabilityCsvErrors,
+  ExportReadabilityCsvResponses,
+  ExportSourceReplacementBatchData,
+  ExportSourceReplacementBatchErrors,
+  ExportSourceReplacementBatchResponses,
+  ExportSourceReplacementRequestData,
+  ExportSourceReplacementRequestErrors,
+  ExportSourceReplacementRequestResponses,
   ExportV7LabelGeometryCalibrationSessionData,
   ExportV7LabelGeometryCalibrationSessionErrors,
   ExportV7LabelGeometryCalibrationSessionResponses,
@@ -318,6 +330,9 @@ import type {
   FinalizeRemoteManualSelectionBatchData,
   FinalizeRemoteManualSelectionBatchErrors,
   FinalizeRemoteManualSelectionBatchResponses,
+  FitReadabilityPilotData,
+  FitReadabilityPilotErrors,
+  FitReadabilityPilotResponses,
   FreezeGridReinferenceData,
   FreezeGridReinferenceErrors,
   FreezeGridReinferenceResponses,
@@ -593,6 +608,9 @@ import type {
   GetPublicManagementSymbolImageData,
   GetPublicManagementSymbolImageErrors,
   GetPublicManagementSymbolImageResponses,
+  GetReadabilityWorkspaceData,
+  GetReadabilityWorkspaceErrors,
+  GetReadabilityWorkspaceResponses,
   GetRemoteManualSelectionContextData,
   GetRemoteManualSelectionContextErrors,
   GetRemoteManualSelectionContextResponses,
@@ -648,6 +666,12 @@ import type {
   GetSourceCropRunData,
   GetSourceCropRunErrors,
   GetSourceCropRunResponses,
+  GetSourceReplacementBatchData,
+  GetSourceReplacementBatchErrors,
+  GetSourceReplacementBatchResponses,
+  GetSourceReplacementWorkingData,
+  GetSourceReplacementWorkingErrors,
+  GetSourceReplacementWorkingResponses,
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
@@ -708,6 +732,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  LabelReadabilityItemsData,
+  LabelReadabilityItemsErrors,
+  LabelReadabilityItemsResponses,
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
@@ -859,6 +886,9 @@ import type {
   ListPublicManagementSymbolsData,
   ListPublicManagementSymbolsErrors,
   ListPublicManagementSymbolsResponses,
+  ListReadabilityItemsData,
+  ListReadabilityItemsErrors,
+  ListReadabilityItemsResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
@@ -911,6 +941,12 @@ import type {
   ListSourceRecordingGroupsData,
   ListSourceRecordingGroupsErrors,
   ListSourceRecordingGroupsResponses,
+  ListSourceReplacementBatchesData,
+  ListSourceReplacementBatchesErrors,
+  ListSourceReplacementBatchesResponses,
+  ListSourceReplacementCandidatesData,
+  ListSourceReplacementCandidatesErrors,
+  ListSourceReplacementCandidatesResponses,
   ListSuperGameKindsData,
   ListSuperGameKindsResponses,
   ListSuperGameSeriesBoardsData,
@@ -969,6 +1005,9 @@ import type {
   PlanBrowserImageSelectionUploadData,
   PlanBrowserImageSelectionUploadErrors,
   PlanBrowserImageSelectionUploadResponses,
+  PlanSourceReplacementData,
+  PlanSourceReplacementErrors,
+  PlanSourceReplacementResponses,
   PrepareGridReinferenceData,
   PrepareGridReinferenceErrors,
   PrepareGridReinferenceResponses,
@@ -1155,6 +1194,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  RestoreSourceReplacementEntryData,
+  RestoreSourceReplacementEntryErrors,
+  RestoreSourceReplacementEntryResponses,
   ResumeGridCorrectionApplyData,
   ResumeGridCorrectionApplyErrors,
   ResumeGridCorrectionApplyResponses,
@@ -1296,6 +1338,9 @@ import type {
   StartPendingSymbolReinferenceData,
   StartPendingSymbolReinferenceErrors,
   StartPendingSymbolReinferenceResponses,
+  StartReadabilityRunData,
+  StartReadabilityRunErrors,
+  StartReadabilityRunResponses,
   StartReadyBrowserImageImportData,
   StartReadyBrowserImageImportErrors,
   StartReadyBrowserImageImportResponses,
@@ -1977,6 +2022,177 @@ export const deleteBoardSourceRanges = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Batches
+ */
+export const listSourceReplacementBatches = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSourceReplacementBatchesData, ThrowOnError>,
+): RequestResult<
+  ListSourceReplacementBatchesResponses,
+  ListSourceReplacementBatchesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSourceReplacementBatchesResponses,
+    ListSourceReplacementBatchesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/board-sources', ...options });
+
+/**
+ * Plan
+ */
+export const planSourceReplacement = <ThrowOnError extends boolean = false>(
+  options: Options<PlanSourceReplacementData, ThrowOnError>,
+): RequestResult<
+  PlanSourceReplacementResponses,
+  PlanSourceReplacementErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PlanSourceReplacementResponses,
+    PlanSourceReplacementErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-sources',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Candidates
+ */
+export const listSourceReplacementCandidates = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSourceReplacementCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListSourceReplacementCandidatesResponses,
+  ListSourceReplacementCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSourceReplacementCandidatesResponses,
+    ListSourceReplacementCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/candidates',
+    ...options,
+  });
+
+/**
+ * Batch
+ */
+export const getSourceReplacementBatch = <ThrowOnError extends boolean = false>(
+  options: Options<GetSourceReplacementBatchData, ThrowOnError>,
+): RequestResult<
+  GetSourceReplacementBatchResponses,
+  GetSourceReplacementBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSourceReplacementBatchResponses,
+    GetSourceReplacementBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}',
+    ...options,
+  });
+
+/**
+ * Restore
+ */
+export const restoreSourceReplacementEntry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RestoreSourceReplacementEntryData, ThrowOnError>,
+): RequestResult<
+  RestoreSourceReplacementEntryResponses,
+  RestoreSourceReplacementEntryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RestoreSourceReplacementEntryResponses,
+    RestoreSourceReplacementEntryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Working
+ */
+export const getSourceReplacementWorking = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSourceReplacementWorkingData, ThrowOnError>,
+): RequestResult<
+  GetSourceReplacementWorkingResponses,
+  GetSourceReplacementWorkingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSourceReplacementWorkingResponses,
+    GetSourceReplacementWorkingErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working',
+    ...options,
+  });
+
+/**
+ * Export
+ */
+export const exportSourceReplacementBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ExportSourceReplacementBatchData, ThrowOnError>,
+): RequestResult<
+  ExportSourceReplacementBatchResponses,
+  ExportSourceReplacementBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ExportSourceReplacementBatchResponses,
+    ExportSourceReplacementBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/export',
+    ...options,
+  });
+
+/**
+ * Replacement Request
+ */
+export const exportSourceReplacementRequest = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ExportSourceReplacementRequestData, ThrowOnError>,
+): RequestResult<
+  ExportSourceReplacementRequestResponses,
+  ExportSourceReplacementRequestErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ExportSourceReplacementRequestResponses,
+    ExportSourceReplacementRequestErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/replacement-request',
+    ...options,
   });
 
 /**
@@ -4017,6 +4233,159 @@ export const listSymbolCellReviews = <ThrowOnError extends boolean = false>(
     ListSymbolCellReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews', ...options });
+
+/**
+ * Accept
+ */
+export const acceptReadabilityModel = <ThrowOnError extends boolean = false>(
+  options: Options<AcceptReadabilityModelData, ThrowOnError>,
+): RequestResult<
+  AcceptReadabilityModelResponses,
+  AcceptReadabilityModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AcceptReadabilityModelResponses,
+    AcceptReadabilityModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/models/{model_id}/accept',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Workspace
+ */
+export const getReadabilityWorkspace = <ThrowOnError extends boolean = false>(
+  options: Options<GetReadabilityWorkspaceData, ThrowOnError>,
+): RequestResult<
+  GetReadabilityWorkspaceResponses,
+  GetReadabilityWorkspaceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReadabilityWorkspaceResponses,
+    GetReadabilityWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs',
+    ...options,
+  });
+
+/**
+ * Start
+ */
+export const startReadabilityRun = <ThrowOnError extends boolean = false>(
+  options: Options<StartReadabilityRunData, ThrowOnError>,
+): RequestResult<
+  StartReadabilityRunResponses,
+  StartReadabilityRunErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartReadabilityRunResponses,
+    StartReadabilityRunErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Export
+ */
+export const exportReadabilityCsv = <ThrowOnError extends boolean = false>(
+  options: Options<ExportReadabilityCsvData, ThrowOnError>,
+): RequestResult<
+  ExportReadabilityCsvResponses,
+  ExportReadabilityCsvErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ExportReadabilityCsvResponses,
+    ExportReadabilityCsvErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/export',
+    ...options,
+  });
+
+/**
+ * Fit
+ */
+export const fitReadabilityPilot = <ThrowOnError extends boolean = false>(
+  options: Options<FitReadabilityPilotData, ThrowOnError>,
+): RequestResult<
+  FitReadabilityPilotResponses,
+  FitReadabilityPilotErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FitReadabilityPilotResponses,
+    FitReadabilityPilotErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/fit',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Items
+ */
+export const listReadabilityItems = <ThrowOnError extends boolean = false>(
+  options: Options<ListReadabilityItemsData, ThrowOnError>,
+): RequestResult<
+  ListReadabilityItemsResponses,
+  ListReadabilityItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReadabilityItemsResponses,
+    ListReadabilityItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/items',
+    ...options,
+  });
+
+/**
+ * Labels
+ */
+export const labelReadabilityItems = <ThrowOnError extends boolean = false>(
+  options: Options<LabelReadabilityItemsData, ThrowOnError>,
+): RequestResult<
+  LabelReadabilityItemsResponses,
+  LabelReadabilityItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    LabelReadabilityItemsResponses,
+    LabelReadabilityItemsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/readability/runs/{run_id}/labels',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Read one current checksum-bound symbol-cell crop

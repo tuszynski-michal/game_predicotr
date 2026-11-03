@@ -34,6 +34,10 @@ def owned_long_path_cleanup(tmp_path):
 
 
 class Repository:
+    @contextmanager
+    def source_replacement_gc_guard(self, relative):
+        yield False
+
     def __init__(self, state):
         self.state, self.active, self.entries = state, False, 0
 

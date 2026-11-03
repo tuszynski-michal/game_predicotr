@@ -146,6 +146,10 @@ from game_predictor_api.storage.models import (
     SymbolModelIterationModel,
     VerifiedTrainingCohortCellModel,
 )
+from game_predictor_api.storage.source_replacement_guards import (
+    current_review_clause,
+    require_current_review,
+)
 from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 from game_predictor_api.storage.symbol_cell_source_visibility import (
     current_source_visibilities,
@@ -210,6 +214,7 @@ def _logical_cell_visible_clause() -> ColumnElement[bool]:
     return and_(
         or_(cell.source_available.is_(True), cell.source_visibility == "outside"),
         cell.review_item_id.not_in(select(owner.id).where(owner.status == "rejected")),
+        current_review_clause(cell.review_item_id),
     )
 
 
@@ -727,6 +732,14 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     def counts(self, *, review_filter: SymbolCellReviewListFilter) -> SymbolCellReviewCounts:
         self._raise_if_read_cancelled()
         scope = self._basic_count_scope(review_filter)
+        if self._session.scalar(
+            text(
+                "SELECT EXISTS(SELECT 1 FROM source_replacement_retired WHERE game_id=:game) "
+                "OR EXISTS(SELECT 1 FROM source_replacement_slots WHERE game_id=:game)"
+            ),
+            {"game": review_filter.game_id},
+        ):
+            scope = None
         if scope is not None:
             state = self._session.get(ImageSymbolReviewStateModel, review_filter.game_id)
             if (
@@ -1231,6 +1244,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         )
         # Lock rows again after advisory locks; their current owner may have
         # changed while the deterministic sequence lock was being acquired.
+        require_current_review(self._session, game_id, review_item_id)
         rows = self._locked_current_rows(commands)
         # The worker and geometry editor lock sequences/source rows before the
         # shared catalog state. Taking state first deadlocks against a worker
@@ -1483,7 +1497,6 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             self._session.scalars(
                 select(ImageSymbolReviewCellModel).where(
                     ImageSymbolReviewCellModel.id.in_(cell_ids),
-                    _logical_cell_visible_clause(),
                     ImageSymbolReviewCellModel.game_id == commands[0].game_id,
                 )
             )
@@ -1840,6 +1853,10 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
     ) -> SymbolCellReviewMutationResult:
         statement = select(ImageSymbolReviewCellModel.id)
         _bind_game_store(self._session, command.game_id)
+        enter_cell_decision(
+            self._session, game_id=command.game_id, review_item_id=command.review_item_id
+        )
+        require_current_review(self._session, command.game_id, command.review_item_id)
         cell_id = self._session.scalar(
             statement.where(
                 ImageSymbolReviewCellModel.game_id == command.game_id,
@@ -1890,6 +1907,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         enter_cell_decision(
             self._session, game_id=command.game_id, review_item_id=command.review_item_id
         )
+        require_current_review(self._session, command.game_id, command.review_item_id)
         detail = self.get_board(
             game_id=command.game_id,
             review_item_id=command.review_item_id,
@@ -2502,6 +2520,13 @@ class SymbolCellReviewWriteThroughCoordinator:
         actor: str,
         repair_incomplete_backfill: bool = False,
     ) -> bool:
+        if not self._session.scalar(
+            select(ImageReviewItemModel.id).where(
+                ImageReviewItemModel.id == review_item_id,
+                current_review_clause(ImageReviewItemModel.id),
+            )
+        ):
+            return False
         state = self._state_if_initialized(game_id)
         if state is None:
             # Persist new imports immediately even before the first historical
@@ -4552,6 +4577,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageSymbolReviewCellModel.game_id == game_id,
+                current_review_clause(ImageSymbolReviewCellModel.review_item_id),
                 # TASK-0970: cells of rejected boards are not counted.
                 ~exists().where(
                     ImageReviewItemModel.id == ImageSymbolReviewCellModel.review_item_id,
@@ -4888,6 +4914,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
             .where(
+                current_review_clause(ImageReviewItemModel.id),
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
                 ImageReviewItemModel.status.in_(_ACTIVE_REVIEW_STATUSES),
                 *(
@@ -5103,6 +5130,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             .where(
                 JobModel.game_id == game_id,
                 ImageReviewItemModel.status.in_(_ACTIVE_REVIEW_STATUSES),
+                current_review_clause(ImageReviewItemModel.id),
             )
             .order_by(ImageReviewItemModel.id)
         ).all()
@@ -5140,7 +5168,11 @@ class SqlAlchemyImageSymbolReviewRepository:
                     ImageSymbolReviewCellModel.source_available.is_(True),
                 ),
             )
-            .where(ImageBoardSearchFastDocumentModel.game_id == game_id)
+            .where(
+                ImageBoardSearchFastDocumentModel.game_id == game_id,
+                current_review_clause(ImageBoardSearchFastDocumentModel.review_item_id),
+                current_review_clause(ImageBoardSearchFastDocumentModel.review_item_id),
+            )
             .group_by(ImageBoardSearchFastDocumentModel.review_item_id, expected_count)
             .having(func.count(ImageSymbolReviewCellModel.id) != expected_count)
             .order_by(ImageBoardSearchFastDocumentModel.review_item_id)
@@ -5178,6 +5210,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
+                current_review_clause(ImageBoardSearchFastDocumentModel.review_item_id),
                 ImageSymbolReviewCellModel.game_id == game_id,
                 ImageSymbolReviewCellModel.geometry_revision
                 != RecognizedBoardModel.geometry_revision,
@@ -5238,6 +5271,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
+                current_review_clause(ImageBoardSearchFastDocumentModel.review_item_id),
                 # Explicit partition key: it prunes the per-game cell
                 # partition at plan time and keeps the query correct when it
                 # runs as the schema owner (RLS bypass), not only as the

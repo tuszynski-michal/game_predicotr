@@ -10,6 +10,7 @@ import type {
   ImageGeometryGuardResolutionManifestResponse,
   ImageFolderSelectionResponse,
   JobResponse,
+  SourceReplacementStagingSelection,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -48,6 +49,7 @@ export type ImageFolderImportClient = Pick<
   | 'setSourceImageGeometryException'
   | 'withdrawSourceImageGeometryException'
   | 'getImageSequenceSourceSelection'
+  | 'operationalImageReviewSourceAssetUrl'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'
   | 'createNextCuratedImageImportBatch'
@@ -379,6 +381,10 @@ export async function uploadImageFolder(
   files: readonly File[],
   gameIdOrProgress?: string | ((uploaded: number, total: number) => void),
   progressCallback?: (uploaded: number, total: number) => void,
+  replacement?: {
+    readonly selection: SourceReplacementStagingSelection;
+    readonly idempotencyKey: string;
+  },
 ): Promise<
   | {
       readonly displayName: string;
@@ -406,7 +412,7 @@ export async function uploadImageFolder(
         : progressCallback;
     let filesToUpload = files;
     let uploadPlan: BrowserImageUploadPlanResponse | null = null;
-    if (typeof gameId === 'string') {
+    if (typeof gameId === 'string' && replacement === undefined) {
       const planned = await api.planBrowserImageSelectionUpload({
         gameId,
         files: files.map((file, sourceIndex) => ({
@@ -453,6 +459,12 @@ export async function uploadImageFolder(
     const firstRelativePath = files[0]?.webkitRelativePath || files[0]?.name;
     const displayName = firstRelativePath?.split('/')[0] || 'Wybrane pliki';
     const created = await api.createBrowserImageSelection({
+      ...(replacement === undefined
+        ? {}
+        : {
+            replacementSelection: replacement.selection,
+            idempotencyKey: replacement.idempotencyKey,
+          }),
       displayName,
       expectedFileCount: filesToUpload.length,
       expectedTotalBytes: totalBytes,
@@ -487,7 +499,7 @@ export async function uploadImageFolder(
         file,
       );
       if (uploaded.error !== undefined || uploaded.data === undefined) {
-        await cancelBrowserUpload(api, uploadId);
+        if (replacement === undefined) await cancelBrowserUpload(api, uploadId);
         return {
           error: apiErrorMessage(
             uploaded.error,
@@ -507,7 +519,7 @@ export async function uploadImageFolder(
     }
     const finalized = await api.finalizeBrowserImageSelection(uploadId);
     if (finalized.error !== undefined || finalized.data === undefined) {
-      await cancelBrowserUpload(api, uploadId);
+      if (replacement === undefined) await cancelBrowserUpload(api, uploadId);
       return {
         error: apiErrorMessage(
           finalized.error,
@@ -527,7 +539,7 @@ export async function uploadImageFolder(
       uploadPlan,
     };
   } catch {
-    if (uploadId !== null) {
+    if (uploadId !== null && replacement === undefined) {
       await cancelBrowserUpload(api, uploadId);
     }
     return {
@@ -615,12 +627,14 @@ export async function startReadyBrowserImageImport(
   geometryEngineVariant?: GeometryEngineVariant,
   symbolModelSnapshotFingerprint?: string,
   confirmedNeuralUnboundSourceCount?: number,
+  replacementSelection?: SourceReplacementStagingSelection | null,
 ): Promise<
   | { readonly data: BrowserImageImportStartResponse; readonly ok: true }
   | (Failure & { readonly code?: string })
 > {
   try {
-    const result = await api.startReadyBrowserImageImport(uploadId, {
+    let body: BrowserImageImportStart = {
+      ...(replacementSelection == null ? {} : { replacementSelection }),
       gameId,
       manifestChecksumSha256,
       preflightChecksumSha256,
@@ -654,8 +668,32 @@ export async function startReadyBrowserImageImport(
       ...(imageEnginePolicyRevision === undefined
         ? {}
         : { imageEnginePolicyRevision }),
-    });
+    };
+    const commandKey = `replacement-start:${gameId}:${uploadId}`;
+    if (replacementSelection != null) {
+      const saved = localStorage.getItem(commandKey);
+      if (saved) {
+        const prior = JSON.parse(saved) as BrowserImageImportStart;
+        if (
+          prior.gameId !== gameId ||
+          prior.replacementSelection?.request.digest !==
+            replacementSelection.request.digest
+        )
+          throw new Error(
+            'Zapisane potwierdzenie dotyczy innego wyboru zamienników.',
+          );
+        body = prior;
+      } else localStorage.setItem(commandKey, JSON.stringify(body));
+    }
+    const result = await api.startReadyBrowserImageImport(uploadId, body);
     if (result.error !== undefined || result.data === undefined) {
+      if (
+        replacementSelection != null &&
+        result.response &&
+        result.response.status >= 400 &&
+        result.response.status < 500
+      )
+        localStorage.removeItem(commandKey);
       const code =
         typeof result.error === 'object' &&
         result.error !== null &&
@@ -672,6 +710,7 @@ export async function startReadyBrowserImageImport(
         ...(code === undefined ? {} : { code }),
       };
     }
+    if (replacementSelection != null) localStorage.removeItem(commandKey);
     return { data: result.data, ok: true };
   } catch {
     return {

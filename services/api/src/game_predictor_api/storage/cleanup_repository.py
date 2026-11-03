@@ -35,6 +35,12 @@ from game_predictor_api.storage.models import (
     MobileReleaseModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+from game_predictor_api.storage.source_replacement_guards import (
+    REFERENCED,
+    referenced_sources,
+    require_unreferenced_sources,
+)
 from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -59,6 +65,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         *,
         for_update: bool = False,
     ) -> CleanupSnapshot:
+        replacement_referenced = self._replacement_release_referenced(
+            mobile_release_id, lock=for_update
+        )
         statement = select(MobileReleaseModel).where(MobileReleaseModel.id == mobile_release_id)
         if for_update:
             statement = statement.with_for_update()
@@ -90,7 +99,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             if release.build_job_id is not None
             else 0
         )
-        blockers = ("ACTIVE_RELEASE_BUILD",) if active_build else ()
+        blockers: tuple[str, ...] = ("ACTIVE_RELEASE_BUILD",) if active_build else ()
+        if replacement_referenced:
+            blockers += (REFERENCED,)
         return CleanupSnapshot(
             kind="mobile_release",
             target_id=release.id,
@@ -113,6 +124,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         *,
         for_update: bool = False,
     ) -> CleanupSnapshot:
+        if for_update:
+            acquire_sequence_ownership_lock(self._session, game_id=game_id)
         statement = select(GameModel).where(GameModel.id == game_id)
         if for_update:
             statement = statement.with_for_update()
@@ -126,6 +139,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         counts = self._game_counts(game_id)
         artifacts, retained_shared = self._game_artifacts(game_id)
         blockers: list[str] = []
+        if referenced_sources(self._session, game_id):
+            blockers.append(REFERENCED)
         if self._game_has_grid_shadow_history(game_id):
             blockers.append("GRID_SHADOW_HISTORY_PRESENT")
         if self._count(
@@ -187,6 +202,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         *,
         for_update: bool = False,
     ) -> CleanupSnapshot:
+        if for_update:
+            acquire_sequence_ownership_lock(self._session, game_id=game_id)
         game_statement = select(GameModel).where(GameModel.id == game_id)
         if for_update:
             game_statement = game_statement.with_for_update()
@@ -231,19 +248,29 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return None if record is None else _result_from_payload(record.result_payload)
 
     def completed_board_source_quarantine_keys(self) -> set[str]:
-        return set(
+        keys = set(
             self._session.scalars(
                 select(CleanupOperationModel.preview_token).where(
                     CleanupOperationModel.operation_type == "board_source_ranges"
                 )
             )
         )
+        with self._cross_game_reader() as session:
+            keys.update(
+                session.scalars(
+                    text("""SELECT response->'purge'->>'quarantineKey'
+              FROM game_data_v2.source_replacement_commands WHERE response ? 'purge'""")
+                )
+            )
+        return keys
 
     def delete_release(
         self,
         snapshot: CleanupSnapshot,
         result: CleanupResult,
     ) -> None:
+        if self._replacement_release_referenced(snapshot.target_id, lock=True):
+            raise CleanupConflictError(REFERENCED, "Manifest wymiany zachowuje wydanie.")
         self._session.execute(
             text("DELETE FROM mobile_release_games WHERE mobile_release_id = :target_id"),
             {"target_id": snapshot.target_id},
@@ -265,6 +292,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         snapshot: CleanupSnapshot,
         result: CleanupResult,
     ) -> None:
+        acquire_sequence_ownership_lock(self._session, game_id=snapshot.target_id)
+        require_unreferenced_sources(self._session, snapshot.target_id)
         if self._game_has_grid_shadow_history(snapshot.target_id):
             raise CleanupConflictError(
                 "CLEANUP_BLOCKED",
@@ -283,11 +312,35 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
-        self._delete_crop_registry(snapshot.artifact_paths)
+        self._delete_crop_registry(
+            snapshot.artifact_paths, deleted_game=snapshot.target_id, deleted_source_ids=source_ids
+        )
         record_super_game_input_change(
             self._session, snapshot.target_id, source="game_layout_reset"
         )
         self._record(result)
+
+    def _replacement_release_referenced(self, release_id: UUID, *, lock: bool) -> bool:
+        game_ids = tuple(
+            self._session.scalars(
+                text(
+                    "SELECT game_id FROM mobile_release_games "
+                    "WHERE mobile_release_id=:id ORDER BY game_id"
+                ),
+                {"id": release_id},
+            )
+        )
+        if lock:
+            for game_id in game_ids:
+                acquire_sequence_ownership_lock(self._session, game_id=game_id)
+        return bool(
+            self._cross_game_count(
+                """SELECT count(*) FROM game_data_v2.source_replacement_entries e
+          WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(e.document->'dependencies'->'releases') r
+          WHERE r->>'mobile_release_id'=CAST(:id AS text))""",
+                id=release_id,
+            )
+        )
 
     def _game_has_grid_shadow_history(self, game_id: UUID) -> bool:
         return bool(
@@ -307,15 +360,18 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             snapshot.confirmation_target,
         )
         scope = self._board_source_scope_for_ranges(snapshot.target_id, ranges)
-        if self._board_source_blockers(scope):
+        blockers = self._board_source_blockers(scope)
+        if blockers:
             raise CleanupConflictError(
-                "CLEANUP_BLOCKED",
+                REFERENCED if REFERENCED in blockers else "CLEANUP_BLOCKED",
                 "The selected source ranges gained a protected dependency.",
-                details={"blockers": self._board_source_blockers(scope)},
+                details={"blockers": blockers},
             )
 
         self._delete_board_source_graph(scope)
-        self._delete_crop_registry(scope.artifact_paths)
+        self._delete_crop_registry(
+            scope.artifact_paths, deleted_game=scope.game_id, deleted_source_ids=scope.source_ids
+        )
         self._record(result)
 
     def _record(self, result: CleanupResult) -> None:
@@ -618,6 +674,12 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             paths=source_paths,
             source_ids=source_ids,
         )
+        referenced |= self._cross_game_paths(
+            "SELECT s.relative_path FROM game_data_v2.source_images s "
+            "JOIN game_data_v2.source_replacement_sources r "
+            "ON r.game_id=s.game_id AND r.source_id=s.id WHERE s.relative_path IN :paths",
+            paths=source_paths,
+        )
         referenced |= (
             self._cross_game_paths(
                 "SELECT board_relative_path FROM image_board_geometry_revisions "
@@ -653,6 +715,16 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
+        if (
+            referenced_sources(self._session, scope.game_id, scope.source_ids)
+            or self._replacement_cohorts_referenced(scope.game_id, scope.cohort_ids)
+            or self._replacement_models_referenced(scope.game_id, scope.model_ids)
+            or any(
+                self._replacement_release_referenced(identifier, lock=False)
+                for identifier in scope.release_ids
+            )
+        ):
+            blockers.append(REFERENCED)
         if getattr(scope, "deactivation_history_affected", False):
             blockers.append("SYMBOL_MODEL_DEACTIVATION_HISTORY_PRESENT")
         if scope.source_ids and self._count(
@@ -698,6 +770,36 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         ):
             blockers.append("ACTIVE_RELEASE_BUILD")
         return blockers
+
+    def _replacement_cohorts_referenced(self, game: UUID, cohorts: Sequence[UUID]) -> bool:
+        """A cleanup of another photo cannot remove a shared retained cohort/model."""
+        return bool(
+            self._count(
+                """SELECT count(*) FROM (
+          SELECT i.cohort_id FROM verified_training_cohort_items i
+          JOIN source_replacement_sources r ON r.source_id=i.source_image_id
+          WHERE r.game_id=:game AND i.cohort_id IN :cohorts
+          UNION SELECT i.cohort_id FROM verified_training_cohort_cells i
+          JOIN source_replacement_sources r ON r.source_id=i.source_image_id
+          WHERE r.game_id=:game AND i.cohort_id IN :cohorts) retained""",
+                game=game,
+                cohorts=tuple(cohorts),
+            )
+        )
+
+    def _replacement_models_referenced(self, game: UUID, models: Sequence[UUID]) -> bool:
+        """The existing deletion graph also removes predictions on OTHER photos."""
+        return bool(
+            self._count(
+                """SELECT count(*) FROM image_symbol_prediction_revisions p
+          JOIN image_review_items ri ON ri.id=p.review_item_id
+          JOIN recognized_boards b ON b.id=ri.recognized_board_id
+          JOIN source_replacement_sources r ON r.source_id=b.source_image_id
+          WHERE r.game_id=:game AND p.model_iteration_id IN :models""",
+                game=game,
+                models=tuple(models),
+            )
+        )
 
     def _board_source_warnings(self, scope: _BoardSourceScope) -> list[str]:
         from game_predictor_api.storage.grid_reinference_retention import (
@@ -1108,18 +1210,35 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             if value is not None
         )
 
-    def _delete_crop_registry(self, artifact_paths: Sequence[str]) -> None:
+    def _delete_crop_registry(
+        self,
+        artifact_paths: Sequence[str],
+        *,
+        deleted_game: UUID,
+        deleted_source_ids: Sequence[UUID],
+    ) -> None:
         """R10 (D-562): the last reference to an original takes its crop row too."""
 
+        checksums = tuple(
+            sorted(
+                checksum
+                for checksum in map(_managed_original_checksum, artifact_paths)
+                if checksum is not None
+            )
+        )
+        if not checksums:
+            return
+        live = self._cross_game_paths(
+            "SELECT checksum_sha256 FROM game_data_v2.source_images "
+            "WHERE checksum_sha256 IN :checksums "
+            "AND NOT(game_id=:deleted_game AND id IN :deleted)",
+            checksums=checksums,
+            deleted_game=deleted_game,
+            deleted=tuple(deleted_source_ids),
+        )
         self._delete(
             "DELETE FROM public.source_image_crops WHERE original_checksum_sha256 IN :checksums",
-            checksums=tuple(
-                sorted(
-                    checksum
-                    for checksum in map(_managed_original_checksum, artifact_paths)
-                    if checksum is not None
-                )
-            ),
+            checksums=tuple(sha for sha in checksums if sha not in live),
         )
 
     def _delete(self, statement: str, **parameters: object) -> None:

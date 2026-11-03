@@ -84,7 +84,7 @@ export function ManualImageSelectionWorkspace({
     <div className="manualImageSelectionWorkspaceStack">
       <RemoteManualSelectionHostPanel apiBaseUrl={apiBaseUrl} />
       <LocalManualImageSelectionWorkspace />
-      <ManualSelectionRepairWorkspace />
+      <ManualSelectionRepairWorkspace apiBaseUrl={apiBaseUrl} />
       <ManualSelectionRangeVerificationWorkspace apiBaseUrl={apiBaseUrl} />
     </div>
   );

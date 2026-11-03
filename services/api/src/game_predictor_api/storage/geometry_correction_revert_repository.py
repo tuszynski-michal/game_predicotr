@@ -804,6 +804,13 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
                 "Ten klucz idempotencji należy już do innego polecenia.",
             )
         correction = self._require_correction(game_id, import_job_id, board_geometry_revision_id)
+        from game_predictor_api.storage.source_replacement_guards import (
+            require_active_source,
+            require_current_review,
+        )
+
+        require_active_source(self._session, game_id, correction.source_image_id)
+        require_current_review(self._session, game_id, correction.review_item_id)
         if correction.kind is GeometryCorrectionKind.BOARD_REVISION:
             return self._revert_board_revision(
                 game_id=game_id,

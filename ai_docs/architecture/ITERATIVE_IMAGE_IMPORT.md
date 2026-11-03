@@ -733,3 +733,8 @@ wersją progów. Porównuje się źródła odpowiadające tym samym zakresom ora
 przyczyn odrzucenia. Ponowne przetworzenie starego importu nadal korzysta z
 jego managed originals; pliki `cut` wymagają nowego importu i własnego
 fingerprintu.
+
+
+## Usunięte źródło i ponowne wypełnienie luk — TASK-1141
+
+Opt-in physical purge zapisuje compact plan przed usunięciem starego zdjęcia. Nie wymaga ukończenia przyszłego zamiennika; wymaga zakończonego starego importu, aby nie zniszczyć wejścia jego wznawiania. Rezerwacje dotyczą exact actual sequence range; pozostają po usunięciu operacyjnych boards/reviews. Dotychczasowy staged request/job/discovery admission rozpoznaje niezmienny compact scopeDigest i tworzy nowe source/reviews bez przenoszenia ocen. Powody ponownej oceny czytelności używają sequence_number/cell_index, więc nie potrzebują usuniętych cell IDs. Stare SHA pozostaje wycofane także po restored.

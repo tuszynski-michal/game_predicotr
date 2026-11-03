@@ -98,8 +98,9 @@ conflicts for actual used examples and buffers instead of released unused metada
 New v2 controls and buffers remain hard protections.
 
 TASK-1145 renumbered the undeployed growth migration from 0172 to 0178 after
-deployment coordination. Historical audit reports retain 0172. This branch still
-uses parent 0171; integration with the separate symbol chain is a later operation.
+deployment coordination. Historical audit reports retain 0172. TASK-1147 attaches
+0178 after 0177. The shared replacement SQL helper preserves the exact 0175 guard
+and current-source population filter for both v6 installation and legacy downgrade.
 
 Reserve candidates require current source-available `grid_issue` evidence bound
 to the live board geometry revision. Pending correction is fenced only before

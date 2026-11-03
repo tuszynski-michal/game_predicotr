@@ -966,6 +966,7 @@ function OperationalReviewBoard({
       (cell, index) => cell.currentSymbolCode === draftSymbols[index],
     );
   const canResolve =
+    item.selectable !== false &&
     sequenceIsValid &&
     allSymbolsAreActive &&
     (item.status === 'pending' || changedFromCurrent);
@@ -1132,7 +1133,7 @@ function OperationalReviewBoard({
   return (
     <>
       <article className="operationalReviewStage">
-        {gridIssueView === 'needs_grid_fix' ? (
+        {item.selectable !== false && gridIssueView === 'needs_grid_fix' ? (
           <GridGeometryProposals
             api={api}
             apiBaseUrl={apiBaseUrl}
@@ -1155,16 +1156,28 @@ function OperationalReviewBoard({
               {operationalReviewStatusLabel(item.status)} · rewizja{' '}
               {item.resolutionRevision}
             </span>
+            {item.sourceState === 'retired' ||
+            item.sourceState === 'replaced' ? (
+              <p role="status">
+                {item.sourceState === 'replaced'
+                  ? 'Zastąpione zdjęcie'
+                  : 'Wycofane zdjęcie'}{' '}
+                · tylko historia. Zmiany są zablokowane.
+              </p>
+            ) : null}
           </div>
           <div className="operationalReviewNavigation">
-            <OperationalReviewGeometryEditor
-              api={api}
-              apiBaseUrl={apiBaseUrl}
-              importJobId={importJobId}
-              item={item}
-              onSaved={onGeometrySaved}
-            />
-            {item.status === 'rejected' ||
+            {item.selectable !== false ? (
+              <OperationalReviewGeometryEditor
+                api={api}
+                apiBaseUrl={apiBaseUrl}
+                importJobId={importJobId}
+                item={item}
+                onSaved={onGeometrySaved}
+              />
+            ) : null}
+            {item.selectable === false ||
+            item.status === 'rejected' ||
             item.status === 'superseded' ? null : (
               <RejectBoardControl<OperationalImageReviewResolutionResponse>
                 consequences={[

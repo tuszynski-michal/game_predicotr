@@ -344,3 +344,46 @@ Po dwóch lub więcej iteracjach system potrafi wykazać, że każdy model powst
 konkretnej, niezmiennej kohorty, nowy import użył przypiętej aktywnej wersji, a
 żadna automatyczna operacja nie zmieniła choćby jednej decyzji zapisanej przez
 użytkownika.
+
+## Niezależna jakość 777 A2 — TASK-1124 / D-578
+
+Detektor jakości ma dwa niezależne liniowe heady na frozen cechach kandydata nr 5. Nie jest nową aktywacją klasyfikatora symboli. Historyczne unreadable służą doborowi próby; osobne etykiety overlap i unreadable zapisuje człowiek. Niepewne etykiety wykluczają tylko odpowiedni head. Pełny skan wymaga niezależnej bramki pilota i odbioru operatora. A1 dostarcza wyłącznie narzędzia, bez wyników empirycznych. Kontrakt i minima: [zaakceptowany plan](../delivery/777A2_READABILITY_REPLACEMENT_PLAN_20261102.md).
+
+
+## Trwały przegląd niezależnej jakości — TASK-1125
+
+Admin gry 777a2 ma sekcję „Podejrzane symbole”. Przygotowanie pilota działa przed
+powstaniem detektora: zamraża 300 historycznych unreadable i 300 pozostałych pól
+oraz osobny losowy audit200. Brak niezależnej puli zatrzymuje przygotowanie.
+Operator osobno określa czytelność i obecność nałożenia, dopuszczając niepewność
+każdej oceny. Ostre nałożenia i trudne podobne pola mają osobne oznaczenia.
+Historyczne unreadable nie są automatyczną etykietą pilota.
+
+Fit, odbiór modelu i pełny skan są osobnymi, jawnymi poleceniami. Fit wiąże
+rewizję etykiet, frozen bazę i receipt audytu. Wyłącznie PASS oraz odbiór tej
+wersji modelu dopuszczają skan wszystkich aktualnych pól, także approved i
+pewnych predykcji. Nie aktywuje to modelu symboli. Edycja etykiet po dopasowaniu
+unieważnia możliwość nowego skanu z dawnym odbiorem.
+
+Ocena readable nie zatwierdza nazwy symbolu i nie usuwa historycznego problemu
+jakości. Unreadable wywołuje istniejącą mutację rewizyjną. Nałożenie przy ocenie
+readable nie kwalifikuje zdjęcia do wymiany. Raport rozróżnia historyczne i nowe
+potwierdzenia, liczy pola/plansze/źródła oraz udostępnia CSV numerów. Crop,
+przybliżenie i całe źródło korzystają z istniejącego checksum-bound podglądu.
+Zmiana źródła, pikseli lub geometrii daje stale; ponowienie komendy zachowuje
+pierwotny klucz, targety i rewizje także po odświeżeniu przeglądarki.
+
+
+## Zaznaczanie zakresu w przeglądach — TASK-1126
+
+Zwykły klik przełącza pole i ustanawia kotwicę. Shift dodaje zakres obejmujący oba końce w obu kierunkach po pełnej kolejności bieżącej strony, także poza wirtualnym DOM. Pola zablokowane są pomijane, zaznaczone pozostają zaznaczone. Zmiana gry, filtra, sortowania, strony albo ponowne pobranie strony zeruje kotwicę; Shift bez kotwicy działa jak zwykły klik. Przekroczenie 10 000 zaznaczeń odrzuca cały nowy zakres. W trybie all_matching przywracane są tylko wyłączenia pól zakresu.
+
+W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomiędzy stronami; filtry, run i refetch czyszczą zaznaczenie. Strona nadal zawiera do 250 pól. Zapis do 250 pól zachowuje poprzednią pojedynczą komendę. Większa grupa używa trwałej kolejki porcji do 250, zapisanej w całości przed pierwszym żądaniem. Postęp pokazuje wykonane i pozostałe pola. Błąd albo konflikt zatrzymuje ogon; ręczne ponowienie, także po restarcie, zachowuje dokładne pola, tożsamości, rewizje i klucze. Nie zastępuje ich bieżącymi danymi.
+
+Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
+
+## Chronologia ocen dla wymiany — TASK-1127 / D-579
+
+Kwalifikacja pola używa ostatniej rozstrzygającej oceny człowieka `readable`/`unreadable` dla bieżącej tożsamości pikseli. Wiek skanu nie wyznacza kolejności ocen. `pending`, `skipped` i nieoceniony nowy skan nie usuwają wcześniejszego rozstrzygnięcia. Readable wyklucza tylko powód danego pola mimo zachowanej historycznej flagi jakości; inne nieczytelne pola nadal mogą kwalifikować całe zdjęcie.
+
+Starsze jawne oceny bez ledgeru są dopuszczalne, gdy wszystkie aktualne rozstrzygające oceny są zgodne; zachowuje się pełne identyfikatory i rewizje dowodów. Sprzeczność bez udokumentowanej chronologii wymaga świeżej oceny człowieka. Brak jawnej oceny pozwala użyć wcześniejszej manualnej flagi unreadable. Ocena nie przechodzi na inne piksele.

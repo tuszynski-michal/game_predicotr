@@ -18,6 +18,7 @@ import {
   type ManualImageListingProgress,
 } from './manual-image-selection-fsa-adapter.ts';
 import { ManualImageViewer, useManualImageViewer } from './manual-image-viewer';
+import { ReplacementRepairWorkspace } from './replacement-repair-workspace';
 import {
   deleteRepairFile,
   inspectRepairDirectory,
@@ -61,7 +62,9 @@ type QueuedSingleRepair =
       readonly sourcePath: string | null;
     };
 
-export function ManualSelectionRepairWorkspace() {
+export function ManualSelectionRepairWorkspace({
+  apiBaseUrl = '',
+}: { readonly apiBaseUrl?: string } = {}) {
   const store = useMemo(() => new ManualSelectionRepairStore(), []);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const localStateSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -1238,6 +1241,7 @@ export function ManualSelectionRepairWorkspace() {
         </div>
       </header>
       <div className="manualImageSelectionSetup">
+        <ReplacementRepairWorkspace apiBaseUrl={apiBaseUrl} />
         <button
           className="secondaryButton"
           disabled={busy || directoryPickerActive || interactiveWorkInProgress}

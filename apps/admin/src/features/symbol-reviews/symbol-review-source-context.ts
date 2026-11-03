@@ -13,6 +13,18 @@ export type SymbolReviewSourceClient = Pick<
   'getOperationalImageReviewItem' | 'getOperationalImageReviewSourceAsset'
 >;
 
+export type SymbolReviewSourceItem = Pick<
+  SymbolCellReviewListItemResponse,
+  | 'importJobId'
+  | 'reviewItemId'
+  | 'recognizedBoardId'
+  | 'geometryRevision'
+  | 'sequenceNumber'
+  | 'cellIndex'
+  | 'rowIndex'
+  | 'columnIndex'
+>;
+
 /** Read the saved lattice; never substitute a draft or an invented grid. */
 export function symbolReviewSourceCells(
   geometry: OperationalImageReviewItemResponse['geometry'],
@@ -80,7 +92,7 @@ function parseQuad(raw: unknown): readonly ManualGridPoint[] | null {
 export async function loadSymbolReviewSourceContext(
   api: SymbolReviewSourceClient,
   gameId: string,
-  item: SymbolCellReviewListItemResponse,
+  item: SymbolReviewSourceItem,
 ): Promise<
   | {
       readonly ok: true;

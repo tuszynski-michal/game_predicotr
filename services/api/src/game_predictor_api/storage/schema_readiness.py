@@ -1,7 +1,7 @@
 """Fail-closed startup check: the database schema must match this code's head.
 
-The ownership manifest remains ``game-data-v2-manifest-v19`` since 0168;
-0171 adds the corrections parent and report binding after 0170 photo reservations.
+The ownership manifest is ``game-data-v2-manifest-v21``.
+0177 adds physical source purge to the replacement ownership and closure guards.
 API, worker and maintenance
 scripts still require the exact supported Alembic head before starting.
 One ``SELECT``.

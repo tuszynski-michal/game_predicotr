@@ -21,6 +21,102 @@ import {
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
 
+test('replacement uploads exact bytes without canonical skip and preserves retry staging after lost response', async () => {
+  const file = new File(['prepared JPEG'], 'seq_1-9.jpg', {
+    type: 'image/jpeg',
+  });
+  const selection = {
+    request: { digest: 'whole-request' },
+    selectedEntryIds: ['A'],
+    files: [{ entryId: 'A', fileName: file.name, operationId: 'committed' }],
+  };
+  const sent = [];
+  let attempts = 0;
+  let cancelled = 0;
+  const api = {
+    planBrowserImageSelectionUpload: async () => {
+      throw new Error('replacement must not use canonical skip');
+    },
+    createBrowserImageSelection: async (body) => {
+      sent.push(body);
+      return { data: { uploadId: 'durable' } };
+    },
+    uploadBrowserImageSelectionFile: async (id, index, name, bytes) => {
+      assert.equal(bytes, file);
+      assert.equal(name, file.name);
+      return { data: { uploadedFileCount: 1, expectedFileCount: 1 } };
+    },
+    finalizeBrowserImageSelection: async () => {
+      if (!attempts++) throw new Error('lost');
+      return { data: { supportedFileCount: 1 } };
+    },
+    cancelBrowserImageSelection: async () => {
+      cancelled++;
+    },
+  };
+  const options = { selection, idempotencyKey: 'stable-key' };
+  assert.equal(
+    (await uploadImageFolder(api, [file], 'game', undefined, options)).ok,
+    false,
+  );
+  assert.equal(
+    (await uploadImageFolder(api, [file], 'game', undefined, options)).ok,
+    true,
+  );
+  assert.deepEqual(sent[0], sent[1]);
+  assert.deepEqual(sent[0].replacementSelection, selection);
+  assert.equal(sent[0].idempotencyKey, 'stable-key');
+  assert.equal(cancelled, 0);
+});
+
+test('replacement start replays persisted exact body after response loss and a refreshed report', async () => {
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  };
+  const sent = [];
+  const selection = {
+    request: { digest: 'request' },
+    selectedEntryIds: ['A'],
+    files: [],
+  };
+  const api = {
+    startReadyBrowserImageImport: async (id, body) => {
+      sent.push(body);
+      if (sent.length === 1) throw new Error('lost');
+      return { data: { created: false } };
+    },
+  };
+  const start = (checksum) =>
+    startReadyBrowserImageImport(
+      api,
+      'upload',
+      'game',
+      'manifest',
+      checksum,
+      'geometry',
+      'geometry-sha',
+      'classic',
+      1,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      selection,
+    );
+  assert.equal((await start('original')).ok, false);
+  assert.equal((await start('refreshed')).ok, true);
+  assert.deepEqual(sent[1], sent[0]);
+  assert.equal(sent[1].preflightChecksumSha256, 'original');
+  assert.equal(storage.size, 0);
+  delete globalThis.localStorage;
+});
+
 test('pins the selected page registration variant in the preflight request', async () => {
   const calls = [];
   const result = await startBrowserPageGeometryPreflight(

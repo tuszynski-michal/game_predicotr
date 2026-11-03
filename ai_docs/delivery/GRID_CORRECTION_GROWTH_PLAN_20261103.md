@@ -149,6 +149,35 @@ testy readiness i guarded migration w disposable DB, scoped lint/typecheck,
 docs/map oraz wąski audyt Opus 5.5/high przed osobnym commitem. Bez migracji
 operatora, merge/push i kontroli usług w tym czacie. Task-close i hash jak poprzednio.
 
+## TASK-1147 — Integracja i odbiór wdrożenia
+
+Operator zatwierdził scalenie z nowym main, push, migrację, restart potrzebnych
+usług oraz sprawdzenie liczników i uczenia. Kontrolę usług i bazy należy uzgodnić
+z czatem wdrażającym 0172–0177; nigdy nie wykonywać obu operacji równolegle.
+
+Po ustabilizowaniu nowego main scalić go do gałęzi roboczej, zachowując oba
+zestawy funkcji i historie. Niewdrożoną 0178 dołączyć liniowo po 0177; treść
+upgrade/downgrade zachowuje strukturę. Integracyjny helper musi zachować guardy
+0175 w instalowanym SQL v6 i przywracanym SQL v4/v5; samo odtworzenie starego SQL
+usunęłoby ochronę retired/reserved. Readiness wymaga jednego head 0178.
+Konflikty typów rozwiązać regeneracją istniejącego OpenAPI/klienta; zachować
+readability, przyrostowe uczenie i wcześniejsze naprawy odświeżania. Wymagane:
+testy readiness/migracji, dotknięte testy backendu i interakcji, lint/types,
+Admin build, docs/map oraz focused Opus przed commitem integracji.
+
+Przed migracją zapisać tożsamość bazy operatora i aktualną rewizję 0171 lub 0177.
+Niespodziewane 0178 nie jest dowodem instalacji nowego grafu: wstrzymać automatyczną
+kontynuację i sprawdzić rzeczywisty schemat 0172–0177 oraz strażniki 0175. Nigdy
+nie omijać blokady lifecycle. Po fast-forward root wykonać standardowe typecheck
+i build Admina bez tymczasowych aliasów worktree; jest to bramka odbioru.
+
+Po przejęciu okna usług: kontrolowany stop, fast-forward main, migracja do 0178,
+start i ograniczone sprawdzenie zdrowia, liczników, odświeżania oraz przebiegu
+ulepszania. Uruchomienie testowe nie publikuje ani nie stosuje modelu. Zapisać
+wersje, stan bazy, identyfikatory procesów i wynik kontroli. Push wyłącznie main,
+bez force; sprzątanie wyłącznie własnej scalonej gałęzi/worktree po zabezpieczeniu
+dowodów. Brak ponownych zgód na już jawnie zlecone operacje.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
@@ -156,3 +185,4 @@ operatora, merge/push i kontroli usług w tym czacie. Task-close i hash jak popr
 | TASK-1139 — Podział i liczniki | gpt-6-astra | high | Zmiana trwałych dowodów, polityki danych i zgodności historycznych ocen | Obowiązkowy Claude Code claude-opus-5-5/high |
 | TASK-1140 — Panel i aktualność | gpt-6.1-sol | high | Istniejący kontrakt, prowadzony interfejs i ochrona odpowiedzi asynchronicznych | Obowiązkowy Claude Code claude-opus-5-5/high |
 | TASK-1145 — Uzgodnienie numeracji migracji | gpt-6-astra | high | Migracja i zgodność readiness wymagają zachowania historii i grafu rewizji | Obowiązkowy Claude Code claude-opus-5-5/high |
+| TASK-1147 — Integracja i odbiór | gpt-6-astra | high | Połączenie grafu migracji i zmian równoległych bez utraty zachowania | Obowiązkowy Claude Code claude-opus-5-5/high |

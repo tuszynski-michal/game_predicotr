@@ -2,7 +2,7 @@
 
 import json
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -966,7 +966,7 @@ def create_app(
         or default_board_search_board_view_service_dependency
     )
 
-    def default_cleanup_service_dependency(request: Request) -> Iterator[CleanupService]:
+    async def default_cleanup_service_dependency(request: Request) -> AsyncIterator[CleanupService]:
         # A mobile release references several games; its cleanup runs on the
         # cross-game owner session, game cleanups stay game-bound (TASK-0797).
         factory = (
@@ -976,11 +976,48 @@ def create_app(
         )
         with factory() as session:
             repository = SqlAlchemyCleanupRepository(session, cross_game_owner_session_factory)
-            artifact_store = ManagedCleanupArtifactStore(resolved_settings.artifact_root)
-            service = CleanupService(repository, artifact_store)
+            from game_predictor_api.storage.source_purge_retention import SourcePurgeRetention
+
+            purge_retention = SourcePurgeRetention(
+                cross_game_owner_session_factory,
+                SqlAlchemyStorageGcRepository(session_factory).source_replacement_paths_gc_guard,
+            )
+            artifact_store = ManagedCleanupArtifactStore(
+                resolved_settings.artifact_root,
+                operation_retention_guard=purge_retention.dispatch,
+                retention_guard=SqlAlchemyStorageGcRepository(
+                    session_factory
+                ).source_replacement_paths_gc_guard,
+            )
+            from game_predictor_api.storage.source_replacement import SourceReplacementRepository
+
+            service = CleanupService(
+                repository, artifact_store, SourceReplacementRepository(session)
+            )
+            replacement_request = (
+                "/board-sources" in request.url.path and request.method != "DELETE"
+            )
+            if "/board-sources" in request.url.path and request.method == "DELETE":
+                try:
+                    body = await request.json()
+                except ValueError:
+                    body = None
+                replacement_request = (
+                    isinstance(body, dict) and body.get("mode") == "replace_preserve_history"
+                )
+            if request.url.path.endswith("/board-source-cleanup-preview"):
+                try:
+                    body = await request.json()
+                except ValueError:
+                    body = None
+                replacement_request = (
+                    isinstance(body, dict) and body.get("mode") == "replace_preserve_history"
+                )
+
             committed = False
             try:
-                artifact_store.recover(repository.completed_board_source_quarantine_keys())
+                if not replacement_request:
+                    artifact_store.recover(repository.completed_board_source_quarantine_keys())
                 yield service
                 session.commit()
                 committed = True
@@ -2468,6 +2505,42 @@ def create_app(
     application.include_router(
         create_grid_model_evaluations_router(default_grid_model_evaluation_dependency)
     )
+
+    from game_predictor_api.api.symbol_readability import create_symbol_readability_router
+    from game_predictor_api.domain.symbol_readability import ReadabilityWorkflowError
+    from game_predictor_api.storage.symbol_readability import SqlAlchemyReadabilityRepository
+
+    def default_readability_dependency() -> Iterator[SqlAlchemyReadabilityRepository]:
+        with session_factory() as session:
+            try:
+                yield SqlAlchemyReadabilityRepository(session)
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    application.include_router(
+        create_symbol_readability_router(default_readability_dependency), prefix="/api/v1"
+    )
+
+    from game_predictor_api.domain.source_replacement import SourceReplacementError
+
+    @application.exception_handler(SourceReplacementError)
+    async def source_replacement_error(
+        request: Request, error: SourceReplacementError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(ReadabilityWorkflowError)
+    async def readability_error_handler(
+        request: Request, error: ReadabilityWorkflowError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409, content={"code": error.code, "message": error.message, "details": {}}
+        )
 
     from game_predictor_api.api.grid_correction_learning import (
         create_grid_correction_learning_router,

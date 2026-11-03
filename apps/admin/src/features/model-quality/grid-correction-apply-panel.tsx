@@ -47,6 +47,8 @@ interface Props {
   readonly learning: GridCorrectionLearningView;
   readonly games: readonly GameResponse[];
   readonly versions: readonly GridModelVersionResponse[];
+  readonly previewRefreshKey?: number;
+  readonly evidenceBlocked?: boolean;
   readonly onChanged: () => void;
 }
 
@@ -92,12 +94,15 @@ function Apply({
   learning,
   games,
   versions,
+  previewRefreshKey = 0,
+  evidenceBlocked = false,
   onChanged,
 }: Props) {
   const storageKey = `game-predictor:grid-correction-apply:${apiBaseUrl}:${gameId}:${learning.learningId}`;
-  const [preview, setPreview] = useState<GridCorrectionApplyPreview | null>(
+  const [previewData, setPreview] = useState<GridCorrectionApplyPreview | null>(
     null,
   );
+  const [previewKey, setPreviewKey] = useState('');
   const [operations, setOperations] = useState<
     readonly GridCorrectionApplyView[]
   >([]);
@@ -113,6 +118,8 @@ function Apply({
   const operationsRequest = useRef(0);
   const activeOperations = useRef(new Set<string>());
   const scope = useMemo(() => [...additional].sort(), [additional]);
+  const readKey = JSON.stringify([scope, previewRefreshKey]);
+  const preview = previewKey === readKey ? previewData : null;
 
   async function readPreview(selected: readonly string[]) {
     const token = ++request.current;
@@ -138,6 +145,7 @@ function Apply({
         ),
       );
     setPreview(result.data);
+    setPreviewKey(readKey);
     setError('');
   }
   async function readOperations() {
@@ -185,15 +193,21 @@ function Apply({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, gameId, learning.learningId, storageKey]);
   useEffect(() => {
+    let alive = true;
+    request.current += 1;
     queueMicrotask(() => {
-      if (!mounted.current) return;
+      if (!alive || !mounted.current) return;
       void readPreview(scope).catch((failure) => {
-        if (mounted.current) setError(String(failure));
+        if (alive && mounted.current) setError(String(failure));
       });
     });
+    return () => {
+      alive = false;
+      request.current += 1;
+    };
     // All preview requests are GET. A scope change invalidates the previous read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope]);
+  }, [scope, previewRefreshKey]);
   const active = operations.some((item) => learningActive(item.status));
   useEffect(() => {
     if (!active) return;
@@ -208,6 +222,25 @@ function Apply({
 
   async function send(command: Command) {
     if (locked.current) return;
+    if (command.kind === 'apply' && evidenceBlocked) {
+      try {
+        const saved = readCommand(storageKey);
+        if (
+          pending?.kind !== 'apply' ||
+          pending.key !== command.key ||
+          JSON.stringify(pending) !== JSON.stringify(command) ||
+          JSON.stringify(saved) !== JSON.stringify(command)
+        ) {
+          setError(
+            'Nowe zastosowanie wymaga aktualnej oceny. Sprawdź aktualność przed potwierdzeniem.',
+          );
+          return;
+        }
+      } catch (failure) {
+        setError(String(failure));
+        return;
+      }
+    }
     locked.current = true;
     setBusy(true);
     setError('');
@@ -260,6 +293,7 @@ function Apply({
     }
   }
   const disabled = busy || pending !== null || corrupt;
+  const newApplyDisabled = disabled || evidenceBlocked;
   const alreadyDefault =
     preview?.blockers.includes('GRID_APPLY_ALREADY_DEFAULT') ?? false;
   const STEP_LABELS: Readonly<Record<string, string>> = {
@@ -275,6 +309,12 @@ function Apply({
         Domyślnie: wspólny model dla nowych gier i bieżąca gra. Starsze importy
         zachowają swoje wersje i ręczne korekty.
       </p>
+      {evidenceBlocked ? (
+        <p>
+          Nowe zastosowanie wymaga aktualnej oceny. Zapisane polecenie i
+          rozpoczęty przebieg można ponowić; backend sprawdzi ich bieżący stan.
+        </p>
+      ) : null}
       {error ? <p role="alert">{error}</p> : null}
       {corrupt ? (
         <p role="alert">
@@ -363,7 +403,7 @@ function Apply({
                   <label key={id}>
                     <input
                       type="checkbox"
-                      disabled={disabled || active}
+                      disabled={newApplyDisabled || active}
                       checked={additional.includes(id)}
                       onChange={(event) =>
                         setAdditional((current) =>
@@ -408,7 +448,7 @@ function Apply({
               <label>
                 <input
                   type="checkbox"
-                  disabled={disabled || active}
+                  disabled={newApplyDisabled || active}
                   checked={confirmed}
                   onChange={(event) => setConfirmed(event.target.checked)}
                 />
@@ -418,7 +458,9 @@ function Apply({
               <button
                 className="primaryButton"
                 type="button"
-                disabled={disabled || active || !confirmed || !preview.canApply}
+                disabled={
+                  newApplyDisabled || active || !confirmed || !preview.canApply
+                }
                 onClick={() => {
                   const key = crypto.randomUUID();
                   void send({

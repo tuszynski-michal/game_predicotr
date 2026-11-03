@@ -9,6 +9,12 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  GRID_CORRECTION_CONTROL_NOT_PENDING:
+    'Chronione zdjęcie kontrolne bez etykiet nie oczekuje na korektę',
+  GRID_CORRECTION_BUFFER:
+    'Zdjęcia buforowe oddzielają uczenie od danych kontrolnych',
+  GRID_CORRECTION_PROTECTED_NEIGHBORHOOD:
+    'Zdjęcia są zbyt blisko chronionych kontroli albo nie mają bezpiecznego przydziału',
   GRID_APPLY_ALREADY_DEFAULT:
     'Kandydat jest już wersją domyślną. Sprawdź historię i wznów zapisany przebieg, jeśli wymaga dokończenia.',
   GRID_APPLY_PUBLICATION_EVIDENCE_CONFLICT:

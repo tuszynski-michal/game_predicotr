@@ -44,6 +44,7 @@ export type GridCorrectionLearningClient = Pick<
   | 'cancelGridCorrectionLearning'
   | 'resumeGridCorrectionLearning'
   | 'getGridCorrectionLearningEvaluation'
+  | 'verifyGridModelEvaluationCurrentness'
   | 'getGridModelDefault'
   | 'listGridModelVersions'
   | 'listGames'
@@ -100,6 +101,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [checkingCurrentness, setCheckingCurrentness] = useState(false);
+  const [evaluationReading, setEvaluationReading] = useState(false);
+  const [evaluationReadError, setEvaluationReadError] = useState('');
+  const [currentnessUnconfirmed, setCurrentnessUnconfirmed] = useState(false);
+  const [currentnessError, setCurrentnessError] = useState('');
+  const [currentnessNotice, setCurrentnessNotice] = useState('');
+  const [applyRefreshKey, setApplyRefreshKey] = useState(0);
   const [rollbackTarget, setRollbackTarget] = useState('');
   const [rollbackConfirmed, setRollbackConfirmed] = useState(false);
   const [exclusions, setExclusions] = useState<
@@ -110,8 +118,20 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const chosen = useRef('');
   const locked = useRef(false);
   const refreshInFlight = useRef(false);
+  const currentnessSequence = useRef(0);
+  const currentnessInFlight = useRef(false);
+
+  function invalidateCurrentnessCheck() {
+    currentnessSequence.current += 1;
+    currentnessInFlight.current = false;
+    setCheckingCurrentness(false);
+    setCurrentnessError('');
+    setCurrentnessNotice('');
+  }
 
   async function refresh() {
+    invalidateCurrentnessCheck();
+    setEvaluationReading(true);
     const token = ++readSequence.current;
     generation.current += 1;
     refreshInFlight.current = true;
@@ -165,6 +185,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             generation.current += 1;
             setSelected(null);
             setEvaluation(null);
+            setEvaluationReading(false);
+            setEvaluationReadError('');
           }
         }, retainChosenOnListFailure),
         api.listGames().then((result) => {
@@ -199,43 +221,141 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   async function open(id: string) {
-    if (chosen.current !== id) setEvaluation(null);
+    invalidateCurrentnessCheck();
+    setEvaluationReading(true);
+    setEvaluationReadError('');
+    if (chosen.current !== id) {
+      setSelected(null);
+      setEvaluation(null);
+    }
     chosen.current = id;
     const token = ++generation.current;
-    const result = await api
-      .getGridCorrectionLearning(gameId, id)
-      .catch((failure) => {
-        if (token !== generation.current) return null;
-        throw failure;
-      });
-    if (token !== generation.current) return;
-    if (!result) return;
-    if (
-      !result.data ||
-      result.data.gameId !== gameId ||
-      result.data.learningId !== id
-    )
-      throw new Error('Nie udało się odczytać przebiegu uczenia.');
-    setSelected(result.data);
-    setEvaluation((existing) =>
-      existing?.evaluationId === result.data.evaluationId ? existing : null,
-    );
-    setRuns((current) =>
-      current.map((run) => (run.learningId === id ? result.data : run)),
-    );
-    if (result.data.evaluationId) {
-      const report = await api
-        .getGridCorrectionLearningEvaluation(gameId, id)
-        .catch((failure) => {
-          if (token !== generation.current) return null;
-          throw failure;
-        });
+    try {
+      const result = await api.getGridCorrectionLearning(gameId, id);
       if (token !== generation.current) return;
-      if (!report) return;
-      if (!report.data)
-        throw new Error('Nie udało się odczytać raportu oceny.');
+      if (
+        !result.data ||
+        result.data.gameId !== gameId ||
+        result.data.learningId !== id
+      )
+        throw new Error('Nie udało się odczytać przebiegu uczenia.');
+      setSelected(result.data);
+      setEvaluation((existing) =>
+        existing?.evaluationId === result.data.evaluationId ? existing : null,
+      );
+      setRuns((current) =>
+        current.map((run) => (run.learningId === id ? result.data : run)),
+      );
+      if (result.data.evaluationId) {
+        const report = await api.getGridCorrectionLearningEvaluation(
+          gameId,
+          id,
+        );
+        if (token !== generation.current) return;
+        if (
+          !report.data ||
+          report.data.evaluationId !== result.data.evaluationId
+        )
+          throw new Error('Nie udało się odczytać raportu oceny.');
+        setEvaluation(report.data);
+        setApplyRefreshKey((current) => current + 1);
+      } else setEvaluation(null);
+      setCurrentnessUnconfirmed(false);
+    } catch (failure) {
+      if (token !== generation.current) return;
+      const message = `${failure instanceof Error ? failure.message : String(failure)} Kliknij „Odśwież stan uczenia”, aby ponowić odczyt.`;
+      setEvaluationReadError(message);
+      throw new Error(message);
+    } finally {
+      if (token === generation.current) setEvaluationReading(false);
+    }
+  }
+
+  async function verifyCurrentness() {
+    if (
+      currentnessInFlight.current ||
+      !selected?.evaluationId ||
+      !evaluation?.reportId ||
+      evaluation.status !== 'completed' ||
+      !evaluation.report ||
+      evaluationReading ||
+      Boolean(evaluationReadError) ||
+      selected.evaluationId !== evaluation.evaluationId
+    )
+      return;
+    currentnessInFlight.current = true;
+    const token = ++currentnessSequence.current;
+    const selection = generation.current;
+    const learningId = selected.learningId;
+    const evaluationId = evaluation.evaluationId;
+    const reportId = evaluation.reportId;
+    const current = () =>
+      token === currentnessSequence.current &&
+      selection === generation.current &&
+      chosen.current === learningId;
+    setCheckingCurrentness(true);
+    setCurrentnessUnconfirmed(true);
+    setCurrentnessError('');
+    setCurrentnessNotice('');
+    try {
+      const result = await api.verifyGridModelEvaluationCurrentness(reportId);
+      if (!current()) return;
+      if (!result.data || result.data.reportId !== reportId)
+        throw new Error(
+          apiErrorMessage(
+            result.error,
+            'Nie potwierdzono aktualności oceny. Sprawdź ponownie.',
+          ),
+        );
+      const report = await api.getGridCorrectionLearningEvaluation(
+        gameId,
+        learningId,
+      );
+      if (!current()) return;
+      if (
+        !report.data ||
+        report.data.evaluationId !== evaluationId ||
+        report.data.reportId !== reportId
+      )
+        throw new Error(
+          'Nie udało się odczytać aktualnej oceny. Sprawdź ponownie.',
+        );
       setEvaluation(report.data);
-    } else setEvaluation(null);
+      setApplyRefreshKey((value) => value + 1);
+      const failures = result.data.failures;
+      if (failures.length)
+        throw new Error(
+          `Dowód nadal zablokowany: ${failures
+            .map(
+              (item) =>
+                `${gameName(games, item.gameId)}: ${reasonLabel(item.code)}`,
+            )
+            .join('; ')}.`,
+        );
+      if (
+        report.data.status !== 'completed' ||
+        !report.data.report ||
+        !report.data.currentness.length ||
+        report.data.currentness.some((item) => item.state !== 'current')
+      )
+        throw new Error(
+          'Ocena nadal wymaga aktualnego dowodu. Zastosowanie jest zablokowane.',
+        );
+      setCurrentnessUnconfirmed(false);
+      setCurrentnessNotice(
+        'Aktualność oceny potwierdzona. Podgląd zastosowania jest odświeżany.',
+      );
+    } catch (failure) {
+      if (current())
+        setCurrentnessError(
+          failure instanceof Error ? failure.message : String(failure),
+        );
+    } finally {
+      if (current()) {
+        currentnessInFlight.current = false;
+        setCheckingCurrentness(false);
+      }
+    }
   }
 
   useEffect(() => {
@@ -257,6 +377,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     });
     return () => {
       alive = false;
+      currentnessSequence.current += 1;
       generation.current += 1;
       readSequence.current += 1;
     };
@@ -378,6 +499,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   const disabled = busy || pending !== null || corrupt;
+  const evaluationComplete =
+    evaluation?.status === 'completed' && Boolean(evaluation.report);
   const rollbackVersions = [...new Set(history.map((item) => item.versionId))];
   const exclusionsMatch =
     JSON.stringify(
@@ -475,6 +598,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       {ready ? (
         <>
           <section aria-label="Dostępność zapisanych korekt">
+            <h4>Dane do następnego uczenia</h4>
+            <LearningProgress preview={ready} />
             {ready.dataAvailability ? (
               <>
                 <p>
@@ -508,7 +633,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               </p>
             )}
           </section>
-          {ready.roleCounts.length ? (
+          {!ready.progressCounts && ready.roleCounts.length ? (
             <>
               <table>
                 <caption>Dostępne korekty po podziale i buforach</caption>
@@ -534,12 +659,12 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 plansz / 10 zdjęć; dobór i kontrola po 15 plansz / 5 zdjęć.
               </p>
             </>
-          ) : (
+          ) : !ready.progressCounts ? (
             <p>
               Podział na uczenie, dobór modelu i kontrolę końcową nie jest
               gotowy.
             </p>
-          )}
+          ) : null}
           <p>
             Zakres oceny:{' '}
             {ready.requiredGameIds.map((id) => gameName(games, id)).join(', ')}.
@@ -741,6 +866,58 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           {evaluation ? (
             <LearningReport view={evaluation} games={games} />
           ) : null}
+          {selected.evaluationId ? (
+            <section aria-label="Aktualność oceny">
+              {evaluationReading ? (
+                <p role="status" aria-busy="true">
+                  Odczytywanie oceny…
+                </p>
+              ) : evaluationReadError ? (
+                <p role="alert">{evaluationReadError}</p>
+              ) : !evaluationComplete ? (
+                <p>
+                  {evaluation &&
+                  ['created', 'processing', 'waiting_for_review'].includes(
+                    evaluation.status,
+                  )
+                    ? 'Ocena jeszcze trwa. Sprawdzenie aktualności będzie dostępne po zakończeniu raportu.'
+                    : 'Brak zakończonego raportu oceny. Odśwież stan uczenia, aby ponowić odczyt.'}
+                </p>
+              ) : (
+                <p>
+                  Wynik dotyczy zakończonego przebiegu. Nowe korekty nie
+                  zmieniają jego wyniku. Sprawdzenie aktualności odczytuje
+                  zapisane dowody; nie rozpoczyna uczenia ani zastosowania
+                  modelu.
+                </p>
+              )}
+              <button
+                className="secondaryButton"
+                type="button"
+                disabled={
+                  busy ||
+                  evaluationReading ||
+                  Boolean(evaluationReadError) ||
+                  checkingCurrentness ||
+                  !evaluation?.reportId ||
+                  !evaluationComplete
+                }
+                aria-busy={checkingCurrentness}
+                onClick={() => void verifyCurrentness()}
+              >
+                {checkingCurrentness
+                  ? 'Sprawdzanie aktualności oceny…'
+                  : 'Sprawdź aktualność oceny'}
+              </button>
+              {checkingCurrentness ? (
+                <p role="status">Trwa sprawdzanie dowodów oceny…</p>
+              ) : null}
+              {currentnessError ? <p role="alert">{currentnessError}</p> : null}
+              {currentnessNotice ? (
+                <p role="status">{currentnessNotice}</p>
+              ) : null}
+            </section>
+          ) : null}
           {selected.verdict === 'PASS' ? (
             <GridCorrectionApplyPanel
               api={api}
@@ -749,6 +926,23 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               learning={selected}
               games={games}
               versions={versions}
+              previewRefreshKey={applyRefreshKey}
+              evidenceBlocked={
+                checkingCurrentness ||
+                evaluationReading ||
+                Boolean(evaluationReadError) ||
+                currentnessUnconfirmed ||
+                Boolean(
+                  selected.evaluationId &&
+                  (!evaluation ||
+                    !evaluationComplete ||
+                    evaluation.evaluationId !== selected.evaluationId ||
+                    !evaluation.currentness?.length ||
+                    evaluation.currentness.some(
+                      (item) => item.state !== 'current',
+                    )),
+                )
+              }
               onChanged={() => {
                 onChanged?.();
                 void refresh().catch((failure) => setError(String(failure)));
@@ -808,6 +1002,77 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   );
 }
 
+function LearningProgress({
+  preview,
+}: {
+  readonly preview: GridCorrectionLearningPreview;
+}) {
+  const counts = preview.progressCounts;
+  if (!counts) return <p>Szczegółowy przyrost korekt nie został ustalony.</p>;
+  const rows = [
+    ['Zatwierdzone korekty ogółem', counts.approved],
+    ['Dostępne do uczenia (TRAIN)', counts.availableTrain],
+    ['W zapisanych zestawach TRAIN', counts.usedTrain],
+    ['Nowe do uczenia', counts.newTrain],
+    ['Dobór modelu — zatwierdzone', counts.validation],
+    ['Kontrola końcowa — zatwierdzone', counts.regression],
+    ['Rezerwa do doboru — bez etykiet', counts.validationReserve],
+    ['Rezerwa do kontroli — bez etykiet', counts.regressionReserve],
+    ['Bufory między rolami', counts.buffers],
+    ['Wyłączone z podziału', counts.excluded],
+  ] as const;
+  return (
+    <>
+      <table>
+        <caption>Korekty i ochrona danych do następnego uczenia</caption>
+        <thead>
+          <tr>
+            <th>Przeznaczenie</th>
+            <th>Zdjęcia</th>
+            <th>Plansze</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, count]) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              <td>{count.photos}</td>
+              <td>{count.boards}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>
+        Nowe do uczenia to zatwierdzone plansze, których aktualnej etykiety nie
+        ma w zamrożonych zestawach TRAIN. Zapis w zestawie nie potwierdza
+        zakończenia treningu modelu. Jedno zdjęcie może zawierać plansze z
+        zapisanych zestawów i nowe plansze. Nie sumuj zdjęć z tych kategorii.
+        Kategorie mogą się nakładać. Bufory obejmują też zdjęcia bez etykiet.
+      </p>
+      <p>
+        Kontrole, kopie i bufory chronią ocenę. Nie każda korekta trafia do
+        uczenia. Rezerwa bez etykiet nie jest wynikiem testu jakości i nie
+        uzupełnia minimów kontroli. Uzupełnij korekty zarezerwowanych zdjęć albo
+        dodaj nowy import, jeżeli brakuje bezpiecznych danych.
+      </p>
+      <p>
+        Minima: uczenie 30 plansz / 10 zdjęć; dobór i kontrola po 15 plansz / 5
+        zdjęć.
+      </p>
+      {counts.exclusionReasons.length ? (
+        <ul aria-label="Powody wyłączenia korekt">
+          {counts.exclusionReasons.map((item) => (
+            <li key={item.reason}>
+              {reasonLabel(item.reason)}: {item.photos} zdjęć / {item.boards}{' '}
+              plansz.
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
 function LearningReport({
   view,
   games,
@@ -816,6 +1081,16 @@ function LearningReport({
   readonly games: readonly GameResponse[];
 }) {
   const report = view.report;
+  if (view.status !== 'completed')
+    return (
+      <p>
+        Raport oceny:{' '}
+        {['created', 'processing', 'waiting_for_review'].includes(view.status)
+          ? 'W przygotowaniu'
+          : 'Nieukończony'}
+        .
+      </p>
+    );
   if (!report || report.schemaVersion !== 'grid-model-evaluation-read-v3')
     return <p>Raport oceny: {view.verdict ?? 'W przygotowaniu'}.</p>;
   return (
@@ -825,11 +1100,14 @@ function LearningReport({
         Częściowe zdjęcia oceniają wyłącznie oznaczone plansze. Brak miary
         fałszywych detekcji na nieoznaczonym obszarze.
       </p>
-      {view.currentness.some((item) => item.state !== 'current') ? (
+      {!view.currentness.length ||
+      view.currentness.some((item) => item.state !== 'current') ? (
         <p role="alert">
           Dowody wymagają ponownego sprawdzenia aktualności przed zastosowaniem.
         </p>
-      ) : null}
+      ) : (
+        <p>Dowód oceny jest aktualny.</p>
+      )}
       {report.games.map((game) => (
         <table key={game.gameId}>
           <caption>{gameName(games, game.gameId)}</caption>

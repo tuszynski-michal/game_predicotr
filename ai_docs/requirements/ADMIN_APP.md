@@ -40,6 +40,32 @@ bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnik
 dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
 odczytuje jego stan i nie ponawia treningu.
 
+TASK-1140: sekcja „Dane do następnego uczenia” pokazuje bezpośrednio backendowe
+liczniki zatwierdzonych korekt, dostępnego TRAIN, etykiet w zapisanych zestawach
+TRAIN oraz nowych etykiet, zatwierdzonych kontroli, rezerw bez etykiet, buforów
+i wyłączeń z przyczynami. Zapis w zamrożonym zestawie TRAIN nie potwierdza
+zakończenia treningu modelu. Nowa etykieta nie występuje jeszcze w takich
+zestawach. Kategorie zdjęć mogą się nakładać; bufory obejmują też zdjęcia bez
+etykiet. Panel nie sumuje tych kategorii ani nie obiecuje, że każda
+korekta trafi do TRAIN. Nieopisane rezerwy nie stanowią wyniku testu jakości
+i nie uzupełniają minimów kontroli; panel wskazuje korektę zarezerwowanych
+zdjęć albo nowy import przy braku bezpiecznych danych.
+
+Wynik zakończonego przebiegu pozostaje oddzielony od gotowości następnego
+uczenia. Przycisk „Sprawdź aktualność oceny” jest dostępny wyłącznie dla
+zakończonej oceny z rzeczywistym raportem. Jawnie sprawdza zapisany dowód,
+pokazuje loading i błędy z możliwością ponowienia, po czym odczytuje ocenę
+i nowy podgląd zastosowania. Otwieranie panelu nadal wykonuje tylko GET.
+Podczas sprawdzania, po niepotwierdzonej odpowiedzi oraz przy nieaktualnym
+dowodzie nowe zastosowanie jest zablokowane. Wznowienie częściowego zastosowania
+i dokładne ponowienie zapisanego polecenia pozostają dostępne do autorytatywnej
+walidacji backendu. Błąd odczytu kończy loading, zachowuje blokadę nowego
+zastosowania i wskazuje ponowienie przez „Odśwież stan uczenia”.
+Nowy podgląd wymaga ponownego
+potwierdzenia zakresu. Zmiana gry/przebiegu lub nowszy odczyt unieważniają
+spóźnione odpowiedzi. Sprawdzenie nie uruchamia uczenia, publikacji ani
+zastosowania; zmieniona lub wycofana etykieta nadal blokuje stary dowód.
+
 D-581: wspólny budżet wykonania uczenia siatek wszystkich gier ma 8000 kroków
 i 7200 sekund, bez zwiększania liczby zaplanowanych kroków samego treningu.
 Jawne wznowienie rozpoznanego historycznego budżetu przyjmuje nowe pułapy raz,

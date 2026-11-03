@@ -17,6 +17,26 @@ const GAME = '11111111-1111-4111-8111-111111111111',
   OTHER = '22222222-2222-4222-8222-222222222222',
   RUN = '33333333-3333-4333-8333-333333333333';
 const apiBaseUrl = 'http://127.0.0.1:8000';
+const READ_ONLY_METHODS = new Set([
+  'getGridCorrectionLearningReady',
+  'getGridModelDefault',
+  'listGridCorrectionLearning',
+  'listGames',
+  'listGridModelVersions',
+  'getGameGridModelHistory',
+  'getGridCorrectionLearning',
+  'getGridCorrectionLearningEvaluation',
+  'previewGridCorrectionApply',
+  'listGridCorrectionApply',
+  'getGridCorrectionApply',
+  'getGameGridModelAssignment',
+]);
+function assertOnlyReads(calls) {
+  assert.deepEqual(
+    calls.filter(([name]) => !READ_ONLY_METHODS.has(name)),
+    [],
+  );
+}
 const readiness = {
   gameId: GAME,
   baseVersionId: 'base',
@@ -79,6 +99,38 @@ const applyPreview = {
   canApply: true,
   previewSha256: 'b'.repeat(64),
 };
+const progressCounts = {
+  approved: { photos: 67, boards: 196 },
+  availableTrain: { photos: 44, boards: 130 },
+  usedTrain: { photos: 26, boards: 77 },
+  newTrain: { photos: 19, boards: 53 },
+  validation: { photos: 6, boards: 17 },
+  regression: { photos: 7, boards: 20 },
+  validationReserve: { photos: 5, boards: 0 },
+  regressionReserve: { photos: 4, boards: 0 },
+  buffers: { photos: 20, boards: 26 },
+  excluded: { photos: 10, boards: 29 },
+  exclusionReasons: [
+    { reason: 'GRID_CORRECTION_PROTECTED_NEIGHBORHOOD', photos: 2, boards: 3 },
+    { reason: 'GRID_CORRECTION_BUFFER', photos: 8, boards: 26 },
+  ],
+};
+const evaluatedRun = { ...run, evaluationId: 'evaluation' };
+function evaluation(state = 'stale', id = 'evaluation') {
+  return {
+    evaluationId: id,
+    reportId: `report-${id}`,
+    versionId: 'candidate',
+    status: 'completed',
+    verdict: 'PASS',
+    report: {
+      schemaVersion: 'grid-model-evaluation-read-v3',
+      verdict: 'PASS',
+      games: [],
+    },
+    currentness: [{ gameId: GAME, cohortId: 'cohort', state }],
+  };
+}
 function fixture(overrides = {}) {
   const calls = [];
   const implementations = {
@@ -174,6 +226,745 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+function findButton(text) {
+  const button = [...document.querySelectorAll('button')].find(
+    (item) => item.textContent === text,
+  );
+  assert.ok(button, text);
+  return button;
+}
+
+test('growth counts show new TRAIN separately from protected controls and unlabelled reserves', async () => {
+  let counts = progressCounts;
+  const setup = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, progressCounts: counts },
+    }),
+  });
+  const view = await mount(setup.api);
+  const values = (label) => {
+    const row = [...document.querySelectorAll('tr')].find(
+      (item) => item.querySelector('th')?.textContent === label,
+    );
+    assert.ok(row, label);
+    return [...row.querySelectorAll('td')].map((item) =>
+      Number(item.textContent),
+    );
+  };
+  try {
+    await settle();
+    assert.deepEqual(values('Zatwierdzone korekty ogółem'), [67, 196]);
+    assert.deepEqual(values('Dostępne do uczenia (TRAIN)'), [44, 130]);
+    assert.deepEqual(values('W zapisanych zestawach TRAIN'), [26, 77]);
+    assert.deepEqual(values('Nowe do uczenia'), [19, 53]);
+    assert.deepEqual(values('Rezerwa do doboru — bez etykiet'), [5, 0]);
+    assert.match(
+      document.body.textContent,
+      /Rezerwa bez etykiet nie jest wynikiem testu jakości/,
+    );
+    assert.match(document.body.textContent, /Nie sumuj zdjęć/);
+    assert.match(
+      document.querySelector('[aria-label="Powody wyłączenia korekt"]')
+        .textContent,
+      /Zdjęcia są zbyt blisko chronionych kontroli albo nie mają bezpiecznego przydziału: 2 zdjęć \/ 3 plansz/,
+    );
+    counts = {
+      ...counts,
+      approved: { photos: 68, boards: 199 },
+      availableTrain: { photos: 45, boards: 133 },
+      newTrain: { photos: 20, boards: 56 },
+    };
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.deepEqual(values('Dostępne do uczenia (TRAIN)'), [45, 133]);
+    assert.deepEqual(values('Nowe do uczenia'), [20, 56]);
+    counts = {
+      ...counts,
+      approved: { photos: 69, boards: 202 },
+      regression: { photos: 8, boards: 23 },
+    };
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.deepEqual(values('Dostępne do uczenia (TRAIN)'), [45, 133]);
+    assert.deepEqual(values('Kontrola końcowa — zatwierdzone'), [8, 23]);
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
+test('explicit currentness check deduplicates clicks and refreshes evaluation and apply preview', async () => {
+  const proof = deferred(),
+    preview = deferred();
+  let verified = false;
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({
+      data: evaluation(verified ? 'current' : 'stale'),
+    }),
+    previewGridCorrectionApply: () =>
+      verified
+        ? preview.promise
+        : {
+            data: {
+              ...applyPreview,
+              canApply: false,
+              blockers: ['GRID_MODEL_EVALUATION_STALE'],
+            },
+          },
+    verifyGridModelEvaluationCurrentness: () => proof.promise,
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assertOnlyReads(setup.calls);
+    assert.match(
+      document.body.textContent,
+      /Dowody wymagają ponownego sprawdzenia/,
+    );
+    const button = findButton('Sprawdź aktualność oceny');
+    await act(async () => {
+      button.click();
+      button.click();
+    });
+    assert.equal(button.disabled, true);
+    assert.equal(button.getAttribute('aria-busy'), 'true');
+    assert.equal(
+      setup.calls.filter(
+        ([name]) => name === 'verifyGridModelEvaluationCurrentness',
+      ).length,
+      1,
+    );
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    verified = true;
+    await act(async () =>
+      proof.resolve({
+        data: {
+          reportId: 'report-evaluation',
+          currentness: evaluation('current').currentness,
+          failures: [],
+        },
+      }),
+    );
+    await settle();
+    assert.match(document.body.textContent, /Aktualność oceny potwierdzona/);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Dowody wymagają ponownego sprawdzenia/,
+    );
+    assert.ok(
+      setup.calls.filter(
+        ([name]) => name === 'getGridCorrectionLearningEvaluation',
+      ).length >= 2,
+    );
+    assert.equal(
+      document.querySelector(
+        '[aria-label="Zastosowanie wersji"] input[type="checkbox"]',
+      ),
+      null,
+    );
+    await act(async () => preview.resolve({ data: applyPreview }));
+    await settle();
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    await check('Potwierdzam ograniczony dowód');
+    assert.equal(findButton('Zastosuj wersję').disabled, false);
+    assert.deepEqual(
+      setup.calls
+        .filter(([name]) => !READ_ONLY_METHODS.has(name))
+        .map(([name]) => name),
+      ['verifyGridModelEvaluationCurrentness'],
+    );
+    assert.deepEqual(
+      setup.calls
+        .find(([name]) => name === 'verifyGridModelEvaluationCurrentness')
+        .slice(1),
+      ['report-evaluation'],
+    );
+  } finally {
+    await view.close();
+  }
+});
+
+test('protected unlabelled control outside the correction queue is excluded rather than counted as reserve', async () => {
+  const setup = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        progressCounts: {
+          ...progressCounts,
+          validationReserve: { photos: 0, boards: 0 },
+          regressionReserve: { photos: 0, boards: 0 },
+          buffers: { photos: 53, boards: 0 },
+          excluded: { photos: 1, boards: 0 },
+          exclusionReasons: [
+            {
+              reason: 'GRID_CORRECTION_CONTROL_NOT_PENDING',
+              photos: 1,
+              boards: 0,
+            },
+          ],
+        },
+      },
+    }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    for (const label of [
+      'Rezerwa do doboru — bez etykiet',
+      'Rezerwa do kontroli — bez etykiet',
+    ]) {
+      const row = [...document.querySelectorAll('tr')].find(
+        (item) => item.querySelector('th')?.textContent === label,
+      );
+      assert.deepEqual(
+        [...row.querySelectorAll('td')].map((cell) => Number(cell.textContent)),
+        [0, 0],
+      );
+    }
+    const excluded = [...document.querySelectorAll('tr')].find(
+      (item) =>
+        item.querySelector('th')?.textContent === 'Wyłączone z podziału',
+    );
+    assert.deepEqual(
+      [...excluded.querySelectorAll('td')].map((cell) =>
+        Number(cell.textContent),
+      ),
+      [1, 0],
+    );
+    assert.match(
+      document.body.textContent,
+      /Chronione zdjęcie kontrolne bez etykiet nie oczekuje na korektę: 1 zdjęć \/ 0 plansz/,
+    );
+    assert.match(
+      document.body.textContent,
+      /Bufory obejmują też zdjęcia bez etykiet/,
+    );
+    assert.match(
+      document.body.textContent,
+      /Zapis w zestawie nie potwierdza zakończenia treningu modelu/,
+    );
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
+for (const [status, hasReport] of [
+  ['processing', false],
+  ['processing', true],
+  ['completed', false],
+]) {
+  test(`verification waits for completed evaluation with a real report: ${status}, report=${hasReport}`, async () => {
+    const setup = fixture({
+      listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+      getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+      getGridCorrectionLearningEvaluation: () => ({
+        data: {
+          ...evaluation('current'),
+          status,
+          report: hasReport ? evaluation('current').report : null,
+        },
+      }),
+    });
+    const view = await mount(setup.api);
+    try {
+      await settle();
+      const button = findButton('Sprawdź aktualność oceny');
+      assert.equal(button.disabled, true);
+      assert.equal(button.getAttribute('aria-busy'), 'false');
+      await act(async () => button.click());
+      assert.equal(findButton('Zastosuj wersję').disabled, true);
+      assert.doesNotMatch(
+        document.body.textContent,
+        /Wynik dotyczy zakończonego przebiegu|Dowód oceny jest aktualny/,
+      );
+      assert.match(
+        document.body.textContent,
+        status === 'processing'
+          ? /Ocena jeszcze trwa/
+          : /Brak zakończonego raportu oceny/,
+      );
+      assertOnlyReads(setup.calls);
+    } finally {
+      await view.close();
+    }
+  });
+}
+
+for (const failureAt of ['workflow', 'evaluation']) {
+  test(`failed ${failureAt} GET ends loading, keeps new apply blocked and explains refresh retry`, async () => {
+    const pendingRead = deferred();
+    let workflowReads = 0,
+      evaluationReads = 0;
+    const setup = fixture({
+      listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+      getGridCorrectionLearning: () => {
+        workflowReads += 1;
+        return failureAt === 'workflow' && workflowReads === 2
+          ? pendingRead.promise
+          : { data: evaluatedRun };
+      },
+      getGridCorrectionLearningEvaluation: () => {
+        evaluationReads += 1;
+        return failureAt === 'evaluation' && evaluationReads === 2
+          ? pendingRead.promise
+          : { data: evaluation('current') };
+      },
+    });
+    const view = await mount(setup.api);
+    try {
+      await settle();
+      await click('Odśwież stan uczenia');
+      await settle();
+      assert.match(
+        document.querySelector(
+          '[aria-label="Aktualność oceny"] [role="status"]',
+        ).textContent,
+        /Odczytywanie oceny/,
+      );
+      await act(async () => pendingRead.reject(new Error('Scoped GET lost')));
+      await settle();
+      const section = document.querySelector('[aria-label="Aktualność oceny"]');
+      assert.equal(section.querySelector('[aria-busy="true"]'), null);
+      assert.match(
+        section.textContent,
+        /Kliknij „Odśwież stan uczenia”, aby ponowić odczyt/,
+      );
+      assert.equal(findButton('Sprawdź aktualność oceny').disabled, true);
+      assert.equal(findButton('Zastosuj wersję').disabled, true);
+      await click('Odśwież stan uczenia');
+      await settle();
+      assert.equal(findButton('Sprawdź aktualność oceny').disabled, false);
+      assert.doesNotMatch(
+        section.textContent,
+        /Scoped GET lost|Odczytywanie oceny/,
+      );
+      assertOnlyReads(setup.calls);
+    } finally {
+      await view.close();
+    }
+  });
+}
+
+test('changed labels remain blocked after explicit verification and cannot be bypassed by confirmation', async () => {
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({ data: evaluation() }),
+    verifyGridModelEvaluationCurrentness: () => ({
+      data: {
+        reportId: 'report-evaluation',
+        currentness: evaluation().currentness,
+        failures: [{ gameId: GAME, code: 'GRID_COHORT_LABEL_STALE' }],
+      },
+    }),
+    // Even an inconsistent cached optimistic preview cannot bypass the failed proof.
+    previewGridCorrectionApply: () => ({ data: applyPreview }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Sprawdź aktualność oceny');
+    await settle();
+    assert.match(
+      document.body.textContent,
+      /Etykieta człowieka zmieniła się lub wycofano ją/,
+    );
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Aktualność oceny potwierdzona/,
+    );
+    await check('Potwierdzam ograniczony dowód');
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    assert.equal(
+      setup.calls.some(([name]) => name === 'startGridCorrectionApply'),
+      false,
+    );
+  } finally {
+    await view.close();
+  }
+});
+
+for (const failureAt of [
+  'verification-response',
+  'evaluation-read',
+  'preview-read',
+]) {
+  test(`currentness ${failureAt} failure stays blocked until explicit retry`, async () => {
+    let attempts = 0,
+      reads = 0;
+    const setup = fixture({
+      listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+      getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+      getGridCorrectionLearningEvaluation: () => {
+        reads += 1;
+        if (failureAt === 'evaluation-read' && attempts === 1)
+          throw new Error('Evaluation read lost');
+        return { data: evaluation('current') };
+      },
+      verifyGridModelEvaluationCurrentness: () => {
+        attempts += 1;
+        if (failureAt === 'verification-response' && attempts === 1)
+          throw new Error('Verification response lost');
+        return {
+          data: {
+            reportId: 'report-evaluation',
+            currentness: evaluation('current').currentness,
+            failures: [],
+          },
+        };
+      },
+      previewGridCorrectionApply: () => {
+        if (failureAt === 'preview-read' && attempts === 1)
+          throw new Error('Preview read lost');
+        return { data: applyPreview };
+      },
+    });
+    const view = await mount(setup.api);
+    try {
+      await settle();
+      await check('Potwierdzam ograniczony dowód');
+      assert.equal(findButton('Zastosuj wersję').disabled, false);
+      await click('Sprawdź aktualność oceny');
+      await settle();
+      assert.match(document.body.textContent, /lost/);
+      const apply = [...document.querySelectorAll('button')].find(
+        (item) => item.textContent === 'Zastosuj wersję',
+      );
+      assert.ok(!apply || apply.disabled);
+      if (failureAt !== 'preview-read')
+        assert.doesNotMatch(
+          document.body.textContent,
+          /Aktualność oceny potwierdzona/,
+        );
+      await click('Sprawdź aktualność oceny');
+      await settle();
+      await check('Potwierdzam ograniczony dowód');
+      assert.equal(findButton('Zastosuj wersję').disabled, false);
+      assert.equal(attempts, 2);
+      assert.ok(reads >= 2);
+      assert.equal(
+        setup.calls.some(([name]) => /^(start|resume|rollback)/.test(name)),
+        false,
+      );
+    } finally {
+      await view.close();
+    }
+  });
+}
+
+test('a late verification response cannot replace a different selected workflow', async () => {
+  const proof = deferred();
+  const next = {
+    ...evaluatedRun,
+    learningId: 'next-run',
+    evaluationId: 'next-evaluation',
+    createdAt: '2026-11-03T12:00:00Z',
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({
+      data: { items: [evaluatedRun, next] },
+    }),
+    getGridCorrectionLearning: (_game, id) => ({
+      data: id === RUN ? evaluatedRun : next,
+    }),
+    getGridCorrectionLearningEvaluation: (_game, id) => ({
+      data: evaluation('stale', id === RUN ? 'evaluation' : 'next-evaluation'),
+    }),
+    previewGridCorrectionApply: (_game, id) => ({
+      data: { ...applyPreview, learningId: id, canApply: false },
+    }),
+    verifyGridModelEvaluationCurrentness: () => proof.promise,
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Sprawdź aktualność oceny');
+    const selectionReads = setup.calls.length;
+    const nextButton = document.querySelectorAll(
+      '[aria-label="Przebiegi uczenia"] button',
+    )[1];
+    await act(async () => nextButton.click());
+    await settle();
+    const oldReads = setup.calls.filter(
+      ([name, , id]) =>
+        name === 'getGridCorrectionLearningEvaluation' && id === RUN,
+    ).length;
+    await act(async () =>
+      proof.resolve({
+        data: {
+          reportId: 'report-evaluation',
+          currentness: evaluation('current').currentness,
+          failures: [],
+        },
+      }),
+    );
+    await settle();
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Aktualność oceny potwierdzona/,
+    );
+    assert.equal(findButton('Sprawdź aktualność oceny').disabled, false);
+    assert.equal(
+      setup.calls.filter(
+        ([name, , id]) =>
+          name === 'getGridCorrectionLearningEvaluation' && id === RUN,
+      ).length,
+      oldReads,
+    );
+    assertOnlyReads(setup.calls.slice(selectionReads));
+  } finally {
+    await view.close();
+  }
+});
+
+test('a verification response after unmount cannot read the old game evaluation', async () => {
+  const proof = deferred();
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({ data: evaluation() }),
+    verifyGridModelEvaluationCurrentness: () => proof.promise,
+  });
+  const view = await mount(setup.api);
+  await settle();
+  await click('Sprawdź aktualność oceny');
+  await view.close();
+  const reads = setup.calls.length;
+  const next = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, gameId: OTHER },
+    }),
+  });
+  const second = await mount(next.api, {}, OTHER);
+  try {
+    await act(async () =>
+      proof.resolve({
+        data: {
+          reportId: 'report-evaluation',
+          currentness: evaluation('current').currentness,
+          failures: [],
+        },
+      }),
+    );
+    await settle();
+    assert.equal(setup.calls.length, reads);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Aktualność oceny potwierdzona/,
+    );
+    assertOnlyReads(next.calls);
+  } finally {
+    await second.close();
+  }
+});
+
+test('an old evaluation read after verification cannot replace a new selected evaluation', async () => {
+  const report = deferred();
+  let verified = false;
+  const next = {
+    ...evaluatedRun,
+    learningId: 'next-run',
+    evaluationId: 'next-evaluation',
+    createdAt: '2026-11-03T12:00:00Z',
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({
+      data: { items: [evaluatedRun, next] },
+    }),
+    getGridCorrectionLearning: (_game, id) => ({
+      data: id === RUN ? evaluatedRun : next,
+    }),
+    getGridCorrectionLearningEvaluation: (_game, id) =>
+      id === RUN && verified
+        ? report.promise
+        : {
+            data: evaluation(
+              'stale',
+              id === RUN ? 'evaluation' : 'next-evaluation',
+            ),
+          },
+    previewGridCorrectionApply: (_game, id) => ({
+      data: { ...applyPreview, learningId: id, canApply: false },
+    }),
+    verifyGridModelEvaluationCurrentness: () => {
+      verified = true;
+      return {
+        data: {
+          reportId: 'report-evaluation',
+          currentness: evaluation('current').currentness,
+          failures: [],
+        },
+      };
+    },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Sprawdź aktualność oceny');
+    await settle();
+    const selectionReads = setup.calls.length;
+    await act(async () =>
+      document
+        .querySelectorAll('[aria-label="Przebiegi uczenia"] button')[1]
+        .click(),
+    );
+    await settle();
+    await act(async () => report.resolve({ data: evaluation('current') }));
+    await settle();
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Aktualność oceny potwierdzona|Dowód oceny jest aktualny/,
+    );
+    assert.match(
+      document.body.textContent,
+      /Dowody wymagają ponownego sprawdzenia/,
+    );
+    assert.equal(findButton('Sprawdź aktualność oceny').disabled, false);
+    assertOnlyReads(setup.calls.slice(selectionReads));
+  } finally {
+    await view.close();
+  }
+});
+
+test('a stale optimistic apply response cannot overwrite the fresh blocked preview', async () => {
+  const oldPreview = deferred();
+  let verified = false;
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({
+      data: evaluation('current'),
+    }),
+    previewGridCorrectionApply: () =>
+      verified
+        ? {
+            data: {
+              ...applyPreview,
+              canApply: false,
+              blockers: ['GRID_APPLY_ASSIGNMENT_CHANGED'],
+            },
+          }
+        : oldPreview.promise,
+    verifyGridModelEvaluationCurrentness: () => {
+      verified = true;
+      return {
+        data: {
+          reportId: 'report-evaluation',
+          currentness: evaluation('current').currentness,
+          failures: [],
+        },
+      };
+    },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Sprawdź aktualność oceny');
+    await settle();
+    assert.match(
+      document.body.textContent,
+      /Przypisana wersja gry zmieniła się/,
+    );
+    await act(async () => oldPreview.resolve({ data: applyPreview }));
+    await settle();
+    await check('Potwierdzam ograniczony dowód');
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    assert.match(
+      document.body.textContent,
+      /Przypisana wersja gry zmieniła się/,
+    );
+  } finally {
+    await view.close();
+  }
+});
+
+test('a manual refresh after a lost verification response waits for an authoritative evaluation read', async () => {
+  const list = deferred();
+  let lost = false;
+  const setup = fixture({
+    listGridCorrectionLearning: () =>
+      lost ? list.promise : { data: { items: [evaluatedRun] } },
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({
+      data: evaluation('current'),
+    }),
+    verifyGridModelEvaluationCurrentness: () => {
+      lost = true;
+      throw new Error('Verification response lost');
+    },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await check('Potwierdzam ograniczony dowód');
+    await click('Sprawdź aktualność oceny');
+    await settle();
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    await act(async () => list.resolve({ data: { items: [evaluatedRun] } }));
+    await settle();
+    await check('Potwierdzam ograniczony dowód');
+    assert.equal(findButton('Zastosuj wersję').disabled, false);
+    assert.equal(
+      setup.calls.filter(
+        ([name]) => name === 'verifyGridModelEvaluationCurrentness',
+      ).length,
+      1,
+    );
+  } finally {
+    await view.close();
+  }
+});
+
+test('reload reconciles a lost successful verification response by GET without replaying POST', async () => {
+  let verified = false;
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({
+      data: evaluation(verified ? 'current' : 'stale'),
+    }),
+    previewGridCorrectionApply: () => ({
+      data: { ...applyPreview, canApply: verified },
+    }),
+    verifyGridModelEvaluationCurrentness: () => {
+      verified = true;
+      throw new Error('Verification response lost');
+    },
+  });
+  const first = await mount(setup.api);
+  await settle();
+  await click('Sprawdź aktualność oceny');
+  await settle();
+  assert.match(document.body.textContent, /Verification response lost/);
+  const saved = first.saved();
+  await first.close();
+  const second = await mount(setup.api, saved);
+  try {
+    await settle();
+    assert.match(document.body.textContent, /Dowód oceny jest aktualny/);
+    await check('Potwierdzam ograniczony dowód');
+    assert.equal(findButton('Zastosuj wersję').disabled, false);
+    assert.equal(
+      setup.calls.filter(
+        ([name]) => name === 'verifyGridModelEvaluationCurrentness',
+      ).length,
+      1,
+    );
+    assert.equal(
+      setup.calls.some(([name]) => /^(start|resume|rollback)/.test(name)),
+      false,
+    );
+  } finally {
+    await second.close();
+  }
+});
+
 test('pending default model is shown as loading even when readiness is already known', async () => {
   const defaults = deferred();
   const setup = fixture({ getGridModelDefault: () => defaults.promise });
@@ -259,7 +1050,7 @@ for (const changed of [false, true]) {
       getGridCorrectionLearningEvaluation: () => {
         if (refreshing) throw new Error('Report read failed');
         return {
-          data: { evaluationId: 'old-report', report: null, verdict: 'PASS' },
+          data: { ...evaluation('current', 'old-report'), report: null },
         };
       },
     });
@@ -308,7 +1099,7 @@ test('slow readiness does not hide existing workflow status on entry', async () 
     assert.equal(button.getAttribute('aria-busy'), 'true');
     await act(async () => ready.resolve({ data: readiness }));
     await settle();
-    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+    assertOnlyReads(setup.calls);
   } finally {
     await view.close();
   }
@@ -368,7 +1159,7 @@ test('manual refresh immediately loads, deduplicates clicks and shows fresh stat
       (p) => p.textContent.startsWith('Stan odświeżony:'),
     ).textContent;
     assert.notEqual(confirmation, previous);
-    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+    assertOnlyReads(setup.calls);
   } finally {
     await view.close();
   }
@@ -406,7 +1197,7 @@ test('readiness failure preserves workflow data and releases refresh for explici
     await settle();
     assert.equal(reads, 3);
     assert.doesNotMatch(document.body.textContent, /Readiness timed out/);
-    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+    assertOnlyReads(setup.calls);
   } finally {
     await view.close();
   }
@@ -539,7 +1330,7 @@ test('entry reads readiness and history without creating a workflow, even when r
       true,
     );
     assert.ok(calls.length >= 6);
-    assert.ok(calls.every(([name]) => /^(get|list)/.test(name)));
+    assertOnlyReads(calls);
   } finally {
     await view.close();
   }
@@ -606,7 +1397,7 @@ test('apply requires limited-evidence confirmation and other games remain opt-in
       (item) => item.textContent === 'Zastosuj wersję',
     );
     assert.ok(button.disabled);
-    assert.ok(setup.calls.every(([name]) => /^(get|list|preview)/.test(name)));
+    assertOnlyReads(setup.calls);
     await check('Potwierdzam ograniczony dowód');
     assert.equal(button.disabled, false);
     await click('Zastosuj wersję');
@@ -620,7 +1411,7 @@ test('apply requires limited-evidence confirmation and other games remain opt-in
     await view.close();
   }
 });
-test('partial success is read after reload; resume is explicit and keeps the same apply identity', async () => {
+test('partial success with stale evaluated evidence can resume the same apply while new apply stays blocked', async () => {
   const partial = {
     applyId: 'durable-apply',
     gameId: GAME,
@@ -640,7 +1431,9 @@ test('partial success is read after reload; resume is explicit and keeps the sam
     ],
   };
   const setup = fixture({
-    listGridCorrectionLearning: () => ({ data: { items: [run] } }),
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({ data: evaluation('stale') }),
     listGridCorrectionApply: () => ({ data: { items: [partial] } }),
     resumeGridCorrectionApply: () => ({
       data: { ...partial, status: 'created' },
@@ -650,6 +1443,9 @@ test('partial success is read after reload; resume is explicit and keeps the sam
   try {
     await settle();
     assert.match(document.body.textContent, /Wykonane kroki są zachowane/);
+    assertOnlyReads(setup.calls);
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    assert.equal(findButton('Wznów zastosowanie').disabled, false);
     assert.equal(
       setup.calls.some(([name]) => name === 'resumeGridCorrectionApply'),
       false,
@@ -661,15 +1457,26 @@ test('partial success is read after reload; resume is explicit and keeps the sam
         .slice(1),
       [GAME, RUN, 'durable-apply'],
     );
+    await settle();
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    assert.equal(
+      setup.calls.some(([name]) => name === 'startGridCorrectionApply'),
+      false,
+    );
   } finally {
     await view.close();
   }
 });
 
-test('apply response loss survives remount without a second submission until explicit retry', async () => {
-  let attempts = 0;
+test('lost apply response replays the exact durable command after remount despite stale evaluated evidence', async () => {
+  let attempts = 0,
+    stale = false;
   const setup = fixture({
-    listGridCorrectionLearning: () => ({ data: { items: [run] } }),
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({
+      data: evaluation(stale ? 'stale' : 'current'),
+    }),
     startGridCorrectionApply: () => {
       attempts++;
       throw new Error('lost apply response');
@@ -684,10 +1491,18 @@ test('apply response loss survives remount without a second submission until exp
     ),
     saved = view.saved();
   await view.close();
+  stale = true;
+  const beforeRemount = setup.calls.length;
   view = await mount(setup.api, saved);
   try {
     await settle();
     assert.equal(attempts, 1);
+    assertOnlyReads(setup.calls.slice(beforeRemount));
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    assert.equal(
+      findButton('Ponów zapisane polecenie zastosowania').disabled,
+      false,
+    );
     await click('Ponów zapisane polecenie zastosowania');
     assert.equal(attempts, 2);
     assert.deepEqual(
@@ -696,6 +1511,7 @@ test('apply response loss survives remount without a second submission until exp
         .at(-1),
       first,
     );
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
   } finally {
     await view.close();
   }
@@ -841,6 +1657,7 @@ test('a late workflow answer cannot replace a later explicit selection', async (
     );
     assert.match(document.body.textContent, /NEW_SELECTION/);
     assert.doesNotMatch(document.body.textContent, /OLD_SELECTION/);
+    assertOnlyReads(setup.calls);
   } finally {
     await view.close();
   }

@@ -76,7 +76,7 @@ Wynik preflight jest potencjałem, nie obietnicą +79 TRAIN. Pełna walidacja et
 
 ## Outcome
 
-Commit: v1.7.537 (hash dopisuje kolejny commit).
+Commit: v1.7.537 / `e33b71abc8c5e7174a3b619071d19bb51aaec982`.
 
 ### Changed
 

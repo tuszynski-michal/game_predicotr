@@ -6,9 +6,18 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1140 — Czytelne liczniki i aktualność oceny (done)
+
+- Plik: `tasks/completed/1140-grid-correction-growth-panel.md`; commit **v1.7.538**.
+- Rozdzielone liczniki TRAIN, zapisanych i nowych etykiet, kontroli, rezerw pending, buforów i wyłączeń. Jawna weryfikacja aktualności z loading, błędami/retry i ochroną przed starymi odpowiedziami.
+- Nowe zastosowanie wymaga aktualnej oceny; resume częściowego zastosowania i identyczny durable replay pozostają walidowane przez backend. Sprawdzenie dowodów nie stosuje modelu.
+- Opus 5.5/high: R1 REVISE, jedna runda poprawek, R2 PASS. P2-3 rozliczone osobnymi commitami i kontrolą staged hunków.
+- PASS: 40 testów panelu/74 szerszych interakcji, ESLint, TypeScript i Admin build. Po odtworzeniu nad commitem danych: hashe zgodne z audytem, 74 interakcje i TypeScript ponownie PASS, docs/map PASS.
+- Bez usług, migracji operatora, treningu, publikacji, zastosowania, merge i push. Wdrożenie z migracją 0172 oczekuje zgody.
+
 ### TASK-1139 — Przyrostowy podział korekt i liczniki (done)
 
-- Plik: `tasks/completed/1139-grid-correction-growth-data.md`; commit **v1.7.537**.
+- Plik: `tasks/completed/1139-grid-correction-growth-data.md`; commit **v1.7.537 / `e33b71abc8c5e7174a3b619071d19bb51aaec982`**.
 - Polityka v2, migracja 0172 i append-only zwolnienia nieużytych rezerwacji. Użyte kontrole, kopie/sesje i bufory chronione. Ready/preview, OpenAPI, klient i request test wspólne.
 - Końcowa symulacja READ ONLY: TRAIN 146 plansz (77 zapisanych +69 nowych), VALIDATION17, REGRESSION21, 12 plansz w buforach, brak bezpiecznej przyszłej rezerwy. Bez freeze lub treningu operatora.
 - Opus 5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS. P2-6: cleanup_reset odpowiada wcześniej opisanej usterce; świeży baseline i pełny stats niewykonane. P2-7: bezrolowa ochrona fail-closed udokumentowana.

@@ -59,6 +59,27 @@ retained reports must match the selected evaluation identity. Successful full re
 show a timestamp; no read
 starts training, publishes or activates a version.
 
+TASK-1140: readiness renders the additive backend `progressCounts` without
+reconstructing the split in React. TRAIN board counts distinguish exact labels
+in frozen TRAIN sets from new labels, without claiming completed model training;
+their photo counts may overlap. Unlabelled
+control reserves remain separate from measured controls and their minima.
+Buffer photos may include unlabelled sources, while exclusions use the backend's
+own scope and reason counts; the UI does not sum these categories.
+
+The guided panel explicitly calls `verifyGridModelEvaluationCurrentness` only
+on a click for a completed evaluation with a report, then re-reads the pinned
+learning evaluation and the apply preview. Failed reads stop their loading state,
+retain the new-apply block and show the explicit refresh retry path.
+A separate synchronous command guard and generation reject duplicate clicks,
+superseded selections and answers after unmount. Pending verification and
+unconfirmed/failed evidence block new apply commands. Durable matching command
+replay and operation resume still reach the backend's authoritative validation.
+A later authoritative evaluation GET
+can reconcile response loss; panel entry never retries a POST. Apply previews
+carry a read identity including scope and evidence refresh generation, so an
+old optimistic response cannot restore a stale preview or its confirmation.
+
 ## Incremental correction split (D-582, TASK-1139)
 
 `domain/grid_correction_incremental_split.py` implements deterministic protected
